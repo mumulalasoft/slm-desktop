@@ -1,0 +1,17 @@
+src/apps/filemanager/
+src/core/actions/
+src/core/permissions/
+src/core/execution/appexecutiongate.cpp
+src/core/execution/appexecutiongate.h
+src/core/execution/appruntimeregistry.cpp
+src/core/execution/appruntimeregistry.h
+metadataindexserver.cpp
+metadataindexserver.h
+dbuslogutils.h
+urlutils.h
+Qml/apps/filemanager/
+tests/filemanager/
+docs/architecture/FILEMANAGER_MODULARIZATION.md
+docs/TODO.md
+scripts/build-filemanager-profile.sh
+scripts/check-filemanager-extraction-gate.sh

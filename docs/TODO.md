@@ -267,6 +267,11 @@
       - extraction paths are not present in committed `HEAD` yet (working-tree only), so history-preserving split cannot run until these paths are committed.
     - readiness helper available:
       - `scripts/check-filemanager-split-readiness.sh`
+    - manifest expanded for self-contained split boundary:
+      - added `src/core/actions/*`, `src/core/permissions/*`,
+        `src/core/execution/{appexecutiongate,appruntimeregistry}*`,
+        `metadataindexserver.*`, `dbuslogutils.h`, `urlutils.h`.
+      - requires one additional baseline commit before history-preserving split rerun.
 - [ ] Phase-3: integration bridge back to desktop shell.
   - [x] consume standalone filemanager as:
     - git submodule or subtree (decide one),

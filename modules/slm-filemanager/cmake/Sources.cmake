@@ -1,0 +1,74 @@
+set(SLM_FILEMANAGER_CORE_SOURCES
+    ${SLM_FM_MONOREPO_ROOT}/src/apps/filemanager/filemanagerapi.cpp
+    ${SLM_FM_MONOREPO_ROOT}/src/apps/filemanager/filemanagerapi_open.cpp
+    ${SLM_FM_MONOREPO_ROOT}/src/apps/filemanager/filemanagerapi_archive.cpp
+    ${SLM_FM_MONOREPO_ROOT}/src/apps/filemanager/filemanagerapi_favorites.cpp
+    ${SLM_FM_MONOREPO_ROOT}/src/apps/filemanager/filemanagerapi_watch.cpp
+    ${SLM_FM_MONOREPO_ROOT}/src/apps/filemanager/filemanagerapi_thumbnail.cpp
+    ${SLM_FM_MONOREPO_ROOT}/src/apps/filemanager/filemanagerapi_batch.cpp
+    ${SLM_FM_MONOREPO_ROOT}/src/apps/filemanager/filemanagerapi_recent.cpp
+    ${SLM_FM_MONOREPO_ROOT}/src/apps/filemanager/filemanagerapi_openwith.cpp
+    ${SLM_FM_MONOREPO_ROOT}/src/apps/filemanager/filemanagerapi_slmactions.cpp
+    ${SLM_FM_MONOREPO_ROOT}/src/apps/filemanager/filemanagerapi_storage.cpp
+    ${SLM_FM_MONOREPO_ROOT}/src/apps/filemanager/filemanagerapi_fs.cpp
+    ${SLM_FM_MONOREPO_ROOT}/src/apps/filemanager/filemanagerapi_listing.cpp
+    ${SLM_FM_MONOREPO_ROOT}/src/apps/filemanager/filemanagerapi_io.cpp
+    ${SLM_FM_MONOREPO_ROOT}/src/apps/filemanager/filemanagerapi_metadata.cpp
+    ${SLM_FM_MONOREPO_ROOT}/src/apps/filemanager/filemanagerapi_portal.cpp
+    ${SLM_FM_MONOREPO_ROOT}/src/apps/filemanager/filemanagerapi_daemon_transfer.cpp
+    ${SLM_FM_MONOREPO_ROOT}/src/apps/filemanager/filemanagerapi_daemon_state.cpp
+    ${SLM_FM_MONOREPO_ROOT}/src/apps/filemanager/filemanagerapi_daemon_remove.cpp
+    ${SLM_FM_MONOREPO_ROOT}/src/apps/filemanager/filemanagerapi_daemon_emptytrash.cpp
+    ${SLM_FM_MONOREPO_ROOT}/src/apps/filemanager/filemanagerapi_daemon_control.cpp
+    ${SLM_FM_MONOREPO_ROOT}/src/apps/filemanager/filemanagerapi_daemon_recovery_state.cpp
+    ${SLM_FM_MONOREPO_ROOT}/src/apps/filemanager/filemanagerapi_daemon_recovery_signals.cpp
+    ${SLM_FM_MONOREPO_ROOT}/src/apps/filemanager/filemanagerapi_batch_control.cpp
+    ${SLM_FM_MONOREPO_ROOT}/src/apps/filemanager/filemanagermodel.cpp
+    ${SLM_FM_MONOREPO_ROOT}/src/apps/filemanager/filemanagermodelfactory.cpp
+
+    ${SLM_FM_MONOREPO_ROOT}/src/apps/filemanager/ops/fileoperationsmanager.cpp
+    ${SLM_FM_MONOREPO_ROOT}/src/apps/filemanager/ops/fileoperationsservice.cpp
+    ${SLM_FM_MONOREPO_ROOT}/src/apps/filemanager/ops/globalprogresscenter.cpp
+
+    ${SLM_FM_MONOREPO_ROOT}/metadataindexserver.cpp
+
+    ${SLM_FM_MONOREPO_ROOT}/src/core/actions/slmactioncondition.cpp
+    ${SLM_FM_MONOREPO_ROOT}/src/core/actions/slmactiondiscovery.cpp
+    ${SLM_FM_MONOREPO_ROOT}/src/core/actions/slmactionregistry.cpp
+    ${SLM_FM_MONOREPO_ROOT}/src/core/actions/slmactiontypes.cpp
+    ${SLM_FM_MONOREPO_ROOT}/src/core/actions/slmdesktopactionparser.cpp
+    ${SLM_FM_MONOREPO_ROOT}/src/core/actions/framework/acl/slmacllexer.cpp
+    ${SLM_FM_MONOREPO_ROOT}/src/core/actions/framework/acl/slmaclparser.cpp
+    ${SLM_FM_MONOREPO_ROOT}/src/core/actions/framework/slmactioncachelayer.cpp
+    ${SLM_FM_MONOREPO_ROOT}/src/core/actions/framework/slmactionframework.cpp
+    ${SLM_FM_MONOREPO_ROOT}/src/core/actions/framework/slmactioninvoker.cpp
+    ${SLM_FM_MONOREPO_ROOT}/src/core/actions/framework/slmactionregistryindex.cpp
+    ${SLM_FM_MONOREPO_ROOT}/src/core/actions/framework/slmcachemanager.cpp
+    ${SLM_FM_MONOREPO_ROOT}/src/core/actions/framework/slmcapabilitybuilders.cpp
+    ${SLM_FM_MONOREPO_ROOT}/src/core/actions/framework/slmcapabilityresolverlayer.cpp
+    ${SLM_FM_MONOREPO_ROOT}/src/core/actions/framework/slmdesktopentryparsermodule.cpp
+    ${SLM_FM_MONOREPO_ROOT}/src/core/actions/framework/slmdesktopentryscanner.cpp
+    ${SLM_FM_MONOREPO_ROOT}/src/core/actions/framework/slmgrouptreebuilder.cpp
+    ${SLM_FM_MONOREPO_ROOT}/src/core/actions/framework/slmmetadataparser.cpp
+
+    ${SLM_FM_MONOREPO_ROOT}/src/core/permissions/AccessContext.cpp
+    ${SLM_FM_MONOREPO_ROOT}/src/core/permissions/AuditLogger.cpp
+    ${SLM_FM_MONOREPO_ROOT}/src/core/permissions/CallerIdentity.cpp
+    ${SLM_FM_MONOREPO_ROOT}/src/core/permissions/Capability.cpp
+    ${SLM_FM_MONOREPO_ROOT}/src/core/permissions/DBusSecurityGuard.cpp
+    ${SLM_FM_MONOREPO_ROOT}/src/core/permissions/PermissionBroker.cpp
+    ${SLM_FM_MONOREPO_ROOT}/src/core/permissions/PermissionStore.cpp
+    ${SLM_FM_MONOREPO_ROOT}/src/core/permissions/PolicyDecision.cpp
+    ${SLM_FM_MONOREPO_ROOT}/src/core/permissions/PolicyEngine.cpp
+    ${SLM_FM_MONOREPO_ROOT}/src/core/permissions/SensitiveContentPolicy.cpp
+    ${SLM_FM_MONOREPO_ROOT}/src/core/permissions/TrustResolver.cpp
+
+    ${SLM_FM_MONOREPO_ROOT}/src/core/execution/appexecutiongate.cpp
+    ${SLM_FM_MONOREPO_ROOT}/src/core/execution/appruntimeregistry.cpp
+)
+
+set(SLM_FILEMANAGER_CORE_HEADERS
+    ${SLM_FM_MONOREPO_ROOT}/src/apps/filemanager/include/filemanagerapi.h
+    ${SLM_FM_MONOREPO_ROOT}/src/apps/filemanager/include/filemanagermodel.h
+    ${SLM_FM_MONOREPO_ROOT}/src/apps/filemanager/include/filemanagermodelfactory.h
+)
