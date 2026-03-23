@@ -74,7 +74,10 @@ jobs:
             qt6-shadertools-dev \
             libglib2.0-dev \
             libwayland-dev \
-            wayland-protocols
+            wayland-protocols \
+            qml6-module-qtquick-controls \
+            qml6-module-qtquick-window \
+            qml6-module-qtqml-workerscript
 
       - name: Configure
         run: cmake -S . -B build -G Ninja
