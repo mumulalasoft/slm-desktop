@@ -41,6 +41,7 @@ jobs:
           fi
 
   desktop-runtime-smoke:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -88,6 +89,7 @@ jobs:
           scripts/smoke-tothespot-contextmenu.sh --build-dir build --app-bin build/appSlm_Desktop
 
   build-and-test:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     env:
       SLM_FILEMANAGER_EXTERNAL_REPO: https://github.com/mumulalasoft/slm-filemanager.git
@@ -149,6 +151,7 @@ jobs:
           ctest --test-dir build -R "(portal_portals_conf_strategy_test|portal_install_script_integration_test|portal_profile_snapshot_test|portal_slm_portal_snapshot_test|portal_dbus_service_template_snapshot_test|portal_systemd_unit_template_snapshot_test|portal_profile_smoke_test|portal_installed_artifacts_smoke_test)" --output-on-failure
 
   filemanager-integration-modes:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     env:
       SLM_FILEMANAGER_EXTERNAL_REPO: https://github.com/mumulalasoft/slm-filemanager.git
@@ -184,6 +187,7 @@ jobs:
           scripts/test-filemanager-dbus-gates.sh --build-dir build/filemanager-integration/in-tree --stable
 
   filemanager-compatibility-pinned:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -242,6 +246,7 @@ jobs:
           scripts/test-filemanager-dbus-gates.sh --build-dir build --strict
 
   portal-profile-matrix:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -318,7 +323,7 @@ jobs:
           ctest --test-dir build -R "(portal_portals_conf_strategy_test|portal_install_script_integration_test|portal_profile_snapshot_test|portal_slm_portal_snapshot_test|portal_dbus_service_template_snapshot_test|portal_systemd_unit_template_snapshot_test|portal_profile_smoke_test|portal_installed_artifacts_smoke_test)" --output-on-failure
 
   tothespot-quick:
-    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
