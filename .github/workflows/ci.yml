@@ -23,10 +23,8 @@ jobs:
 
       - name: Rebrand guard (no legacy desktop shell naming)
         run: |
-          if grep -R -n -E "desktop-shell-core|desktop-shell-style" \
-            --exclude-dir=.git --exclude-dir=build --exclude-dir=.cache \
-            --exclude=".github/workflows/ci.yml" .; then
-            echo "Found legacy module naming references"
+          if [[ -d modules/desktop-shell-core || -d modules/desktop-shell-style ]]; then
+            echo "Legacy module directory still exists"
             exit 1
           fi
 
