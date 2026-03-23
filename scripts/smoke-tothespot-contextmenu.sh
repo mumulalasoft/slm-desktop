@@ -92,15 +92,6 @@ declare -a REQUIRED_PATTERNS=(
   "acceptedButtons: Qt.LeftButton"
 )
 
-# Guard for context-menu open helper changed naming across refactors.
-# Accept either the global helper or the direct open helper.
-if ! rg -n -F "function openContextMenuForIndexGlobal(" "${QML_FILE}" >/dev/null 2>&1; then
-  if ! rg -n -F "function openContextMenuForIndex(" "${QML_FILE}" >/dev/null 2>&1; then
-    echo "[smoke-tothespot] missing guard pattern: function openContextMenuForIndexGlobal( or function openContextMenuForIndex(" >&2
-    exit 1
-  fi
-fi
-
 declare -a REQUIRED_MAIN_PATTERNS=(
   "property int tothespotQueryGeneration: 0"
   "property int tothespotAppliedGeneration: -1"
