@@ -69,6 +69,7 @@ jobs:
             qt6-base-dev \
             qt6-base-private-dev \
             qt6-declarative-dev \
+            qt6-declarative-private-dev \
             libxkbcommon-dev \
             qt6-shadertools-dev \
             libglib2.0-dev \
@@ -125,6 +126,7 @@ jobs:
             qt6-base-dev \
             qt6-base-private-dev \
             qt6-declarative-dev \
+            qt6-declarative-private-dev \
             libxkbcommon-dev \
             qt6-shadertools-dev \
             libglib2.0-dev
@@ -187,6 +189,7 @@ jobs:
             qt6-base-dev \
             qt6-base-private-dev \
             qt6-declarative-dev \
+            qt6-declarative-private-dev \
             libxkbcommon-dev \
             qt6-shadertools-dev \
             libglib2.0-dev
@@ -221,6 +224,7 @@ jobs:
             qt6-base-dev \
             qt6-base-private-dev \
             qt6-declarative-dev \
+            qt6-declarative-private-dev \
             libxkbcommon-dev \
             qt6-shadertools-dev \
             libglib2.0-dev
@@ -250,6 +254,7 @@ jobs:
             qt6-base-dev \
             qt6-base-private-dev \
             qt6-declarative-dev \
+            qt6-declarative-private-dev \
             libxkbcommon-dev \
             qt6-shadertools-dev \
             libglib2.0-dev
@@ -307,6 +312,7 @@ jobs:
             qt6-base-dev \
             qt6-base-private-dev \
             qt6-declarative-dev \
+            qt6-declarative-private-dev \
             libxkbcommon-dev \
             qt6-shadertools-dev \
             libglib2.0-dev
@@ -363,6 +369,7 @@ jobs:
             qt6-base-dev \
             qt6-base-private-dev \
             qt6-declarative-dev \
+            qt6-declarative-private-dev \
             libxkbcommon-dev \
             qt6-shadertools-dev \
             libglib2.0-dev
@@ -399,6 +406,7 @@ jobs:
             qt6-base-dev \
             qt6-base-private-dev \
             qt6-declarative-dev \
+            qt6-declarative-private-dev \
             libxkbcommon-dev \
             qt6-shadertools-dev \
             libglib2.0-dev
