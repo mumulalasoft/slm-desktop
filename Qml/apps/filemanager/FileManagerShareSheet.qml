@@ -1,7 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
-import Desktop_Shell
+import Slm_Desktop
 import Style as DSStyle
 
 DSStyle.AppDialog {

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(Desktop_Shell VERSION 0.1 LANGUAGES CXX C)
+project(Slm_Desktop VERSION 0.1 LANGUAGES CXX C)
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -98,10 +98,10 @@ else()
     )
 endif()
 
-# appDesktop_Shell consumes FileManager via library target to ease standalone split.
+# appSlm_Desktop consumes FileManager via library target to ease standalone split.
 if(SLM_USE_EXTERNAL_FILEMANAGER_PACKAGE)
     # In external package mode, FileManager units are provided by SlmFileManager::Core.
-    # Keep execution gate/runtime registry in appDesktop_Shell (shell-owned dependencies).
+    # Keep execution gate/runtime registry in appSlm_Desktop (shell-owned dependencies).
     list(REMOVE_ITEM DESKTOP_SHELL_SERVICES
         ${FILEMANAGER_APP_SOURCES}
         ${FILEMANAGER_PROGRESS_SOURCES}
@@ -174,12 +174,12 @@ else()
     )
 endif()
 
-qt_add_executable(appDesktop_Shell
+qt_add_executable(appSlm_Desktop
     ${DESKTOP_SHELL_APP_ENTRY}
     ${DESKTOP_SHELL_MODELS_AND_RUNTIME}
     ${DESKTOP_SHELL_SERVICES}
 )
-target_include_directories(appDesktop_Shell PRIVATE
+target_include_directories(appSlm_Desktop PRIVATE
     ${CMAKE_SOURCE_DIR}
     ${CMAKE_SOURCE_DIR}/src/apps/filemanager/include
     ${CMAKE_BINARY_DIR}
@@ -187,11 +187,11 @@ target_include_directories(appDesktop_Shell PRIVATE
 
 # Ensure the runtime linker can resolve the same Qt used at configure time.
 # Some local build trees may end up with an empty RUNPATH placeholder list.
-if(DEFINED Qt6_DIR AND TARGET appDesktop_Shell)
+if(DEFINED Qt6_DIR AND TARGET appSlm_Desktop)
     get_filename_component(_qt6_cmake_dir "${Qt6_DIR}" ABSOLUTE)
     get_filename_component(_qt6_lib_dir "${_qt6_cmake_dir}/../.." ABSOLUTE)
     if(EXISTS "${_qt6_lib_dir}/libQt6Core.so" OR EXISTS "${_qt6_lib_dir}/libQt6Core.so.6")
-        set_target_properties(appDesktop_Shell PROPERTIES
+        set_target_properties(appSlm_Desktop PROPERTIES
             BUILD_RPATH "${_qt6_lib_dir}"
             INSTALL_RPATH "${_qt6_lib_dir}"
         )
@@ -459,7 +459,7 @@ add_custom_target(sync_style ALL
         ${CMAKE_SOURCE_DIR}/Style/PopupSurface.qml
         ${CMAKE_SOURCE_DIR}/Style/WindowDialogSurface.qml
 )
-add_dependencies(appDesktop_Shell sync_style)
+add_dependencies(appSlm_Desktop sync_style)
 
 add_custom_target(lint_ui_style
     COMMAND ${CMAKE_SOURCE_DIR}/scripts/lint-ui-style.sh
@@ -633,8 +633,8 @@ set(DESKTOP_SHELL_QML_FILES
     Qml/apps/filemanager/FileManagerFavoriteItem.qml
 )
 
-qt_add_qml_module(appDesktop_Shell
-    URI Desktop_Shell
+qt_add_qml_module(appSlm_Desktop
+    URI Slm_Desktop
     VERSION 1.0
     QML_FILES
         ${DESKTOP_SHELL_QML_FILES}
@@ -664,14 +664,14 @@ file(GLOB FILEMANAGER_COMPAT_QML_FILES CONFIGURE_DEPENDS RELATIVE "${CMAKE_SOURC
     "Qml/components/filemanager/qmldir"
 )
 if(FILEMANAGER_COMPAT_QML_FILES)
-    qt6_add_resources(appDesktop_Shell filemanager_compat_qml_raw
-        PREFIX "/qt/qml/Desktop_Shell"
+    qt6_add_resources(appSlm_Desktop filemanager_compat_qml_raw
+        PREFIX "/qt/qml/Slm_Desktop"
         FILES
             ${FILEMANAGER_COMPAT_QML_FILES}
     )
 endif()
 
-qt_add_shaders(appDesktop_Shell "desktop_shell_shaders"
+qt_add_shaders(appSlm_Desktop "desktop_shell_shaders"
     PREFIX
         "/shaders"
     FILES
@@ -737,7 +737,7 @@ set(DESKTOP_SHELL_RESOURCE_FILES
 
 )
 
-qt6_add_resources(appDesktop_Shell resources
+qt6_add_resources(appSlm_Desktop resources
     PREFIX "/"
     FILES
         ${DESKTOP_SHELL_RESOURCE_FILES}
@@ -746,15 +746,15 @@ qt6_add_resources(appDesktop_Shell resources
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.
 # If you are developing for iOS or macOS you should consider setting an
 # explicit, fixed bundle identifier manually though.
-set_target_properties(appDesktop_Shell PROPERTIES
-#    MACOSX_BUNDLE_GUI_IDENTIFIER com.example.appDesktop_Shell
+set_target_properties(appSlm_Desktop PROPERTIES
+#    MACOSX_BUNDLE_GUI_IDENTIFIER com.example.appSlm_Desktop
     MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
     MACOSX_BUNDLE_SHORT_VERSION_STRING ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}
     MACOSX_BUNDLE TRUE
     WIN32_EXECUTABLE TRUE
 )
 
-target_link_libraries(appDesktop_Shell
+target_link_libraries(appSlm_Desktop
     PRIVATE
         Qt6::Quick
         Qt6::Network
@@ -795,7 +795,7 @@ target_include_directories(slm-settings PRIVATE
 )
 
 include(GNUInstallDirs)
-install(TARGETS appDesktop_Shell
+install(TARGETS appSlm_Desktop
     BUNDLE DESTINATION .
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
@@ -2222,12 +2222,12 @@ qt_add_executable(topbar_popups_smoke_test
 
 if (DESKTOP_SHELL_QML_JS_FILES)
     qt6_add_resources(topbar_popups_smoke_test topbar_smoke_qml_js_raw
-        PREFIX "/qt/qml/Desktop_Shell"
+        PREFIX "/qt/qml/Slm_Desktop"
         FILES ${DESKTOP_SHELL_QML_JS_FILES}
     )
 endif()
 qt6_add_resources(topbar_popups_smoke_test topbar_smoke_qml_raw
-    PREFIX "/qt/qml/Desktop_Shell"
+    PREFIX "/qt/qml/Slm_Desktop"
     FILES ${DESKTOP_SHELL_QML_FILES}
 )
 
@@ -2256,12 +2256,12 @@ qt_add_executable(filemanager_dialogs_smoke_test
 
 if (DESKTOP_SHELL_QML_JS_FILES)
     qt6_add_resources(filemanager_dialogs_smoke_test filemanager_smoke_qml_js_raw
-        PREFIX "/qt/qml/Desktop_Shell"
+        PREFIX "/qt/qml/Slm_Desktop"
         FILES ${DESKTOP_SHELL_QML_JS_FILES}
     )
 endif()
 qt6_add_resources(filemanager_dialogs_smoke_test filemanager_smoke_qml_raw
-    PREFIX "/qt/qml/Desktop_Shell"
+    PREFIX "/qt/qml/Slm_Desktop"
     FILES ${DESKTOP_SHELL_QML_FILES}
 )
 
@@ -3140,7 +3140,7 @@ add_custom_target(test_headless
 
 add_custom_target(smoke_backends
     COMMAND ${CMAKE_SOURCE_DIR}/scripts/smoke-backends.sh
-    DEPENDS appDesktop_Shell
+    DEPENDS appSlm_Desktop
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
     USES_TERMINAL
 )

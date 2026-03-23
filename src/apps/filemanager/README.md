@@ -77,7 +77,7 @@ Migration checklist (to separate repository):
   - Build `libslmfilemanager` (or equivalent target) with the same public headers.
   - Export a minimal API surface and install rules.
 - Stage 5: Integrate back as dependency
-  - Main `Desktop_Shell` consumes the standalone package instead of local sources.
+  - Main `Slm_Desktop` consumes the standalone package instead of local sources.
   - Keep root-level shim headers temporarily for source compatibility.
 - Stage 6: Remove legacy shims
   - Drop temporary compatibility shims after all callers migrate.

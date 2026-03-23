@@ -256,22 +256,24 @@
     - staging path in monorepo: `modules/slm-filemanager/`
     - staging standalone build: `scripts/build-filemanager-standalone-staging.sh`
     - namespaced core target alias available: `SlmFileManager::Core`
-  - [ ] import history with path filter (preserve blame) for:
+  - [x] import history with path filter (preserve blame) for:
     - `src/apps/filemanager/*`,
     - `Qml/apps/filemanager/*`,
     - related tests/docs.
     - helper script prepared: `scripts/prepare-filemanager-history-split.sh`
     - extraction manifest: `modules/slm-filemanager/docs/EXTRACTION_PATHS.txt`
-    - snapshot fallback (no history) can be generated immediately if `git-filter-repo` is unavailable.
-    - current blocker:
-      - extraction paths are not present in committed `HEAD` yet (working-tree only), so history-preserving split cannot run until these paths are committed.
+    - history-preserving fallback active when `git-filter-repo` is unavailable:
+      - uses `git fast-export/import`.
     - readiness helper available:
       - `scripts/check-filemanager-split-readiness.sh`
     - manifest expanded for self-contained split boundary:
       - added `src/core/actions/*`, `src/core/permissions/*`,
         `src/core/execution/{appexecutiongate,appruntimeregistry}*`,
         `metadataindexserver.*`, `dbuslogutils.h`, `urlutils.h`.
-      - requires one additional baseline commit before history-preserving split rerun.
+    - split output now auto-materializes standalone root scaffolding:
+      - `CMakeLists.txt`, `cmake/*`, `.github/workflows/ci.yml`, `scripts/ci-smoke.sh`.
+    - split output now auto-commits scaffolding:
+      - commit message: `Add standalone split scaffolding (build + CI)`.
 - [ ] Phase-3: integration bridge back to desktop shell.
   - [x] consume standalone filemanager as:
     - git submodule or subtree (decide one),
@@ -279,7 +281,7 @@
     - cutover notes documented: `docs/architecture/FILEMANAGER_SPLIT_CUTOVER.md`
     - CMake bridge implemented:
       - `SLM_USE_EXTERNAL_FILEMANAGER_PACKAGE` (OFF by default)
-      - `appDesktop_Shell` now links `SlmFileManager::Core` (no direct embed FileManager sources).
+      - `appSlm_Desktop` now links `SlmFileManager::Core` (no direct embed FileManager sources).
     - staging package config exported:
       - `SlmFileManagerConfig.cmake`
       - `SlmFileManagerTargets.cmake`
@@ -287,6 +289,12 @@
       - `scripts/test-filemanager-integration-modes.sh`
       - validates in-tree profile + external `find_package(SlmFileManager)` build path.
     - external-package MOC linkage fixed by including QObject headers in standalone target sources.
+    - external-package duplicate-symbol linkage fixed:
+      - app target removes overlapping FileManager-owned sources when
+        `SLM_USE_EXTERNAL_FILEMANAGER_PACKAGE=ON`.
+    - bootstrap helper for external package consumption:
+      - `scripts/bootstrap-external-filemanager-package.sh`
+      - supports package-only mode via `SLM_EXTERNAL_FM_SKIP_SHELL=1`.
   - [ ] keep backward-compat shim in shell for one release cycle:
     - [x] header include shims,
     - [x] QML import alias shims (`Qml/components/filemanager/*` -> canonical `Qml/apps/filemanager/*` forwarding surface).
@@ -299,11 +307,12 @@
       - wire migrated headless tests,
       - add QML load smoke,
       - add DBus daemon recovery tests in standalone repo CI.
+    - external repo CI observed passing on `main` after push.
   - [x] add compatibility CI in desktop shell against pinned filemanager tag.
     - workflow job: `filemanager-compatibility-pinned`
     - script: `scripts/test-filemanager-compatibility-pinned.sh`
   - [x] define versioning and compatibility matrix:
-    - `desktop-shell` tag ↔ `slm-filemanager` tag.
+    - `slm-desktop` tag ↔ `slm-filemanager` tag.
     - documented at `docs/architecture/FILEMANAGER_COMPATIBILITY_MATRIX.md`
 - [ ] Exit gates before full cutover.
   - [x] zero direct include from shell to filemanager private headers.
@@ -958,7 +967,7 @@
   - [x] Tambah changelog dan deprecation note untuk method overview lama.
   - [x] Rename `OverviewPreviewManager` -> `WorkspacePreviewManager` dengan alias context/property legacy non-breaking.
   - [x] Canonicalize key shortcut ke `windowing.bindWorkspace` dengan alias `windowing.bindOverview` + auto migration.
-  - [x] Rename cache path preview ke `desktop-shell-workspace-previews` dengan fallback read dari path legacy.
+  - [x] Rename cache path preview ke `slm-desktop-workspace-previews` dengan fallback read dari path legacy.
 
 - [x] Phase-2 Backend Workspace Foundations:
   - [ ] Finalisasi model `Workspace` dinamis dengan invariant:

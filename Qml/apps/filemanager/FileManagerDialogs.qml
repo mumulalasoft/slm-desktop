@@ -1,5 +1,5 @@
 import QtQuick 2.15
-import Desktop_Shell
+import Slm_Desktop
 
 Item {
     id: root

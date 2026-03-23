@@ -36,7 +36,7 @@ Continue **in-repo modularization first**, but with an explicit path toward a st
    - split prep helper:
      - `scripts/prepare-filemanager-history-split.sh`
 7. Shell bridge switched to link-based integration (done):
-   - `appDesktop_Shell` links `SlmFileManager::Core`
+   - `appSlm_Desktop` links `SlmFileManager::Core`
    - direct FileManager source embedding removed from app target
    - optional external package switch:
      - `SLM_USE_EXTERNAL_FILEMANAGER_PACKAGE`
