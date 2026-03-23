@@ -1,0 +1,118 @@
+<!--?xml version="1.0" encoding="UTF-8"?-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024" aria-labelledby="title">
+  <title id="title">Launchpad-style 3x3 icon (SVG)</title>
+  <defs>
+    <!-- soft background blur/glow -->
+    <filter id="bgShadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="18" result="b"></feGaussianBlur>
+      <feComposite in="b" in2="SourceGraphic" operator="over"></feComposite>
+    </filter>
+
+    <!-- tile drop shadow -->
+    <filter id="tileShadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="10" result="blur"></feGaussianBlur>
+      <feOffset dx="0" dy="10" result="off"></feOffset>
+      <feComposite in="off" in2="SourceAlpha" operator="out" result="shadowDiff"></feComposite>
+      <feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.35 0" in="shadowDiff" result="shadow"></feColorMatrix>
+      <feBlend in="shadow" in2="SourceGraphic" mode="normal"></feBlend>
+    </filter>
+
+    <!-- subtle inner highlight on tiles -->
+    <linearGradient id="tileHighlight" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.55"></stop>
+      <stop offset="0.25" stop-color="#ffffff" stop-opacity="0.15"></stop>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"></stop>
+    </linearGradient>
+
+    <!-- gradients for each tile color -->
+    <linearGradient id="gGreen" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#4fe04f"></stop><stop offset="1" stop-color="#1aa82a"></stop></linearGradient>
+    <linearGradient id="gYellow" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#ffd24a"></stop><stop offset="1" stop-color="#f0a400"></stop></linearGradient>
+    <linearGradient id="gOrange" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#ff9a3c"></stop><stop offset="1" stop-color="#e85f11"></stop></linearGradient>
+    <linearGradient id="gRed" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#ff4040"></stop><stop offset="1" stop-color="#c51616"></stop></linearGradient>
+    <linearGradient id="gGray" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#e6ebef"></stop><stop offset="1" stop-color="#9aa0a6"></stop></linearGradient>
+    <linearGradient id="gPink" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#ff5b88"></stop><stop offset="1" stop-color="#e3366e"></stop></linearGradient>
+    <linearGradient id="gPurple" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#9b59ff"></stop><stop offset="1" stop-color="#6b20d6"></stop></linearGradient>
+    <linearGradient id="gBlue" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#4fc3ff"></stop><stop offset="1" stop-color="#1a7fe0"></stop></linearGradient>
+    <linearGradient id="gTeal" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#57e3c0"></stop><stop offset="1" stop-color="#11b48a"></stop></linearGradient>
+
+    <!-- subtle vignette -->
+    <radialGradient id="vignette" cx="50%" cy="50%" r="75%">
+      <stop offset="0" stop-color="#000" stop-opacity="0"></stop>
+      <stop offset="1" stop-color="#000" stop-opacity="0.18"></stop>
+    </radialGradient>
+  </defs>
+
+  <!-- outer rounded square background -->
+  <g filter="url(#bgShadow)">
+    <rect x="64" y="64" width="896" height="896" rx="160" ry="160" fill="#f8f9fb" stroke="#e6e9ec" stroke-width="4"></rect>
+  </g>
+
+  <!-- soft outer vignette overlay (subtle) -->
+  <rect x="64" y="64" width="896" height="896" rx="160" fill="url(#vignette)" opacity="0.28"></rect>
+
+  <!-- grid parameters -->
+  <!-- positions computed to center a grid: first tile at (176,176), tile size 160, gap 96 -->
+  <!-- helper group for tiles -->
+  <g transform="translate(0,0)">
+    <!-- row 0 -->
+    <g filter="url(#tileShadow)">
+      <!-- Green -->
+      <rect x="176" y="176" width="160" height="160" rx="28" ry="28" fill="url(#gGreen)"></rect>
+      <rect x="176" y="176" width="160" height="160" rx="28" ry="28" fill="url(#tileHighlight)" style="mix-blend-mode:screen"></rect>
+    </g>
+
+    <g filter="url(#tileShadow)">
+      <!-- Yellow -->
+      <rect x="432" y="176" width="160" height="160" rx="28" ry="28" fill="url(#gYellow)"></rect>
+      <rect x="432" y="176" width="160" height="160" rx="28" ry="28" fill="url(#tileHighlight)" style="mix-blend-mode:screen"></rect>
+    </g>
+
+    <g filter="url(#tileShadow)">
+      <!-- Orange -->
+      <rect x="688" y="176" width="160" height="160" rx="28" ry="28" fill="url(#gOrange)"></rect>
+      <rect x="688" y="176" width="160" height="160" rx="28" ry="28" fill="url(#tileHighlight)" style="mix-blend-mode:screen"></rect>
+    </g>
+
+    <!-- row 1 -->
+    <g filter="url(#tileShadow)">
+      <!-- Red -->
+      <rect x="176" y="432" width="160" height="160" rx="28" ry="28" fill="url(#gRed)"></rect>
+      <rect x="176" y="432" width="160" height="160" rx="28" ry="28" fill="url(#tileHighlight)" style="mix-blend-mode:screen"></rect>
+    </g>
+
+    <g filter="url(#tileShadow)">
+      <!-- Gray (center) -->
+      <rect x="432" y="432" width="160" height="160" rx="28" ry="28" fill="url(#gGray)"></rect>
+      <rect x="432" y="432" width="160" height="160" rx="28" ry="28" fill="url(#tileHighlight)" style="mix-blend-mode:screen" opacity="0.9"></rect>
+    </g>
+
+    <g filter="url(#tileShadow)">
+      <!-- Pink -->
+      <rect x="688" y="432" width="160" height="160" rx="28" ry="28" fill="url(#gPink)"></rect>
+      <rect x="688" y="432" width="160" height="160" rx="28" ry="28" fill="url(#tileHighlight)" style="mix-blend-mode:screen"></rect>
+    </g>
+
+    <!-- row 2 -->
+    <g filter="url(#tileShadow)">
+      <!-- Purple -->
+      <rect x="176" y="688" width="160" height="160" rx="28" ry="28" fill="url(#gPurple)"></rect>
+      <rect x="176" y="688" width="160" height="160" rx="28" ry="28" fill="url(#tileHighlight)" style="mix-blend-mode:screen"></rect>
+    </g>
+
+    <g filter="url(#tileShadow)">
+      <!-- Blue -->
+      <rect x="432" y="688" width="160" height="160" rx="28" ry="28" fill="url(#gBlue)"></rect>
+      <rect x="432" y="688" width="160" height="160" rx="28" ry="28" fill="url(#tileHighlight)" style="mix-blend-mode:screen"></rect>
+    </g>
+
+    <g filter="url(#tileShadow)">
+      <!-- Teal -->
+      <rect x="688" y="688" width="160" height="160" rx="28" ry="28" fill="url(#gTeal)"></rect>
+      <rect x="688" y="688" width="160" height="160" rx="28" ry="28" fill="url(#tileHighlight)" style="mix-blend-mode:screen"></rect>
+    </g>
+  </g>
+
+  <!-- slight inner rim to emulate soft 3D container edge -->
+  <rect x="92" y="92" width="840" height="840" rx="140" fill="none" stroke="#ffffff" stroke-opacity="0.5" stroke-width="6"></rect>
+
+</svg>
