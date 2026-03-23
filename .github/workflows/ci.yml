@@ -8,6 +8,18 @@ on:
   workflow_dispatch:
 
 jobs:
+  repo-sanity:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Core governance files exist
+        run: |
+          test -f .github/CODEOWNERS
+          test -f .github/pull_request_template.md
+          test -f CONTRIBUTING.md
+
   quick-lint:
     runs-on: ubuntu-latest
     steps:
