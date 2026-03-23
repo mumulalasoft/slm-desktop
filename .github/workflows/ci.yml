@@ -24,7 +24,8 @@ jobs:
       - name: Rebrand guard (no legacy desktop shell naming)
         run: |
           if grep -R -n -E "desktop-shell-core|desktop-shell-style" \
-            --exclude-dir=.git --exclude-dir=build --exclude-dir=.cache .; then
+            --exclude-dir=.git --exclude-dir=build --exclude-dir=.cache \
+            --exclude=".github/workflows/ci.yml" .; then
             echo "Found legacy module naming references"
             exit 1
           fi
@@ -46,7 +47,8 @@ jobs:
             qt6-base-dev \
             qt6-declarative-dev \
             qt6-shadertools-dev \
-            libglib2.0-dev
+            libglib2.0-dev \
+            libwayland-dev
 
       - name: Configure
         run: cmake -S . -B build -G Ninja
