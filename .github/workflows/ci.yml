@@ -8,6 +8,27 @@ on:
   workflow_dispatch:
 
 jobs:
+  quick-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Shell syntax lint for scripts
+        run: |
+          shopt -s nullglob
+          for f in scripts/*.sh scripts/xdg-desktop-portal/*.sh; do
+            bash -n "$f"
+          done
+
+      - name: Rebrand guard (no legacy desktop shell naming)
+        run: |
+          if grep -R -n -E "desktop-shell-core|desktop-shell-style" \
+            --exclude-dir=.git --exclude-dir=build --exclude-dir=.cache .; then
+            echo "Found legacy module naming references"
+            exit 1
+          fi
+
   desktop-runtime-smoke:
     runs-on: ubuntu-latest
     steps:
