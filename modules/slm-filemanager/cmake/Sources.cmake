@@ -63,8 +63,6 @@ set(SLM_FILEMANAGER_CORE_SOURCES
     ${SLM_FM_MONOREPO_ROOT}/src/core/permissions/SensitiveContentPolicy.cpp
     ${SLM_FM_MONOREPO_ROOT}/src/core/permissions/TrustResolver.cpp
 
-    ${SLM_FM_MONOREPO_ROOT}/src/core/execution/appexecutiongate.cpp
-    ${SLM_FM_MONOREPO_ROOT}/src/core/execution/appruntimeregistry.cpp
 )
 
 set(SLM_FILEMANAGER_CORE_HEADERS

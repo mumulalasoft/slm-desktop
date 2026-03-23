@@ -1,0 +1,307 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "0 19 * * *"
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    env:
+      SLM_FILEMANAGER_EXTERNAL_REPO: https://github.com/mumulalasoft/slm-filemanager.git
+      SLM_FILEMANAGER_EXTERNAL_BRANCH: main
+      SLM_FILEMANAGER_EXTERNAL_ROOT: build/external-filemanager-ci
+      SLM_FILEMANAGER_EXTERNAL_PREFIX: build/external-filemanager-ci/install/slm-filemanager
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            ninja-build \
+            pkg-config \
+            meson \
+            qt6-base-dev \
+            qt6-declarative-dev \
+            qt6-shadertools-dev \
+            libglib2.0-dev
+
+      - name: Prepare external FileManager package (staging default)
+        run: |
+          SLM_EXTERNAL_FM_SKIP_SHELL=1 \
+          scripts/bootstrap-external-filemanager-package.sh \
+            "${SLM_FILEMANAGER_EXTERNAL_REPO}" \
+            "${SLM_FILEMANAGER_EXTERNAL_BRANCH}" \
+            "${SLM_FILEMANAGER_EXTERNAL_ROOT}"
+
+      - name: Configure (external FileManager package mode)
+        run: |
+          cmake -S . -B build -G Ninja \
+            -DSLM_USE_EXTERNAL_FILEMANAGER_PACKAGE=ON \
+            -DCMAKE_PREFIX_PATH="${SLM_FILEMANAGER_EXTERNAL_PREFIX}"
+
+      - name: UI style lint
+        run: cmake --build build --target lint_ui_style
+
+      - name: Build
+        run: cmake --build build -j
+
+      - name: Run headless tests
+        run: scripts/test.sh build
+
+      - name: Run backend smoke checks
+        env:
+          QT_QPA_PLATFORM: offscreen
+          DS_WINDOWING_AUTOROLLBACK: "1"
+        run: scripts/smoke-backends.sh
+
+      - name: Run portal profile/artifact smoke checks
+        env:
+          QT_QPA_PLATFORM: offscreen
+          SLM_PORTAL_SKIP_SYSTEMCTL: "1"
+        run: |
+          ctest --test-dir build -R "(portal_portals_conf_strategy_test|portal_install_script_integration_test|portal_profile_snapshot_test|portal_slm_portal_snapshot_test|portal_dbus_service_template_snapshot_test|portal_systemd_unit_template_snapshot_test|portal_profile_smoke_test|portal_installed_artifacts_smoke_test)" --output-on-failure
+
+  filemanager-integration-modes:
+    runs-on: ubuntu-latest
+    env:
+      SLM_FILEMANAGER_EXTERNAL_REPO: https://github.com/mumulalasoft/slm-filemanager.git
+      SLM_FILEMANAGER_EXTERNAL_BRANCH: main
+      SLM_FILEMANAGER_EXTERNAL_ROOT: build/filemanager-integration/remote-external
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            ninja-build \
+            pkg-config \
+            meson \
+            qt6-base-dev \
+            qt6-declarative-dev \
+            qt6-shadertools-dev \
+            libglib2.0-dev
+
+      - name: Build/test FileManager integration modes
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          scripts/test-filemanager-integration-modes.sh build/filemanager-integration
+
+      - name: Run FileManager DBus stable gate
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          scripts/test-filemanager-dbus-gates.sh --build-dir build/filemanager-integration/in-tree --stable
+
+  filemanager-compatibility-pinned:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            ninja-build \
+            pkg-config \
+            meson \
+            qt6-base-dev \
+            qt6-declarative-dev \
+            qt6-shadertools-dev \
+            libglib2.0-dev
+
+      - name: Validate pinned FileManager package compatibility
+        env:
+          QT_QPA_PLATFORM: offscreen
+          SLM_FILEMANAGER_PINNED_VERSION: "0.1.0"
+        run: |
+          scripts/test-filemanager-compatibility-pinned.sh build/filemanager-compatibility
+
+  filemanager-recovery-strict-nightly:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            ninja-build \
+            pkg-config \
+            meson \
+            qt6-base-dev \
+            qt6-declarative-dev \
+            qt6-shadertools-dev \
+            libglib2.0-dev
+
+      - name: Configure
+        run: cmake -S . -B build -G Ninja
+
+      - name: Build strict recovery test target
+        run: cmake --build build --target filemanagerapi_daemon_recovery_test -j
+
+      - name: Run strict FileManager DBus recovery gate
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          scripts/test-filemanager-dbus-gates.sh --build-dir build --strict
+
+  portal-profile-matrix:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [mvp, beta, production]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate portal profile
+        env:
+          SLM_PORTAL_SKIP_SYSTEMCTL: "1"
+        run: |
+          scripts/xdg-desktop-portal/portal-profile-smoke-test.sh "${{ matrix.profile }}"
+
+      - name: Validate installed artifacts for profile
+        env:
+          SLM_PORTAL_SKIP_SYSTEMCTL: "1"
+        run: |
+          scripts/xdg-desktop-portal/portal-installed-artifacts-smoke-test.sh "${{ matrix.profile }}"
+
+  portal-interop-nightly:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            ninja-build \
+            pkg-config \
+            meson \
+            qt6-base-dev \
+            qt6-declarative-dev \
+            qt6-shadertools-dev \
+            libglib2.0-dev
+
+      - name: Configure
+        run: cmake -S . -B build -G Ninja
+
+      - name: Build portal test targets
+        run: |
+          cmake --build build --target \
+            inputcaptureservice_dbus_test \
+            portalservice_dbus_test \
+            implportalservice_dbus_test \
+            implportal_payload_snapshot_test \
+            portal_adapter_lifecycle_persistence_test \
+            portalresponseserializer_contract_test \
+            portal_app_context_resolver_test \
+            portal_portals_conf_strategy_test \
+            portal_install_script_integration_test \
+            portal_profile_snapshot_test \
+            portal_slm_portal_snapshot_test \
+            portal_dbus_service_template_snapshot_test \
+            portal_systemd_unit_template_snapshot_test \
+            -j
+
+      - name: Run portal DBus/adapter subset
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          ctest --test-dir build -R "(inputcaptureservice_dbus_test|portalservice_dbus_test|implportalservice_dbus_test|implportal_payload_snapshot_test|portal_adapter_lifecycle_persistence_test|portalresponseserializer_contract_test|portal_app_context_resolver_test)" --output-on-failure
+
+      - name: Run portal config/smoke subset
+        env:
+          QT_QPA_PLATFORM: offscreen
+          SLM_PORTAL_SKIP_SYSTEMCTL: "1"
+        run: |
+          ctest --test-dir build -R "(portal_portals_conf_strategy_test|portal_install_script_integration_test|portal_profile_snapshot_test|portal_slm_portal_snapshot_test|portal_dbus_service_template_snapshot_test|portal_systemd_unit_template_snapshot_test|portal_profile_smoke_test|portal_installed_artifacts_smoke_test)" --output-on-failure
+
+  tothespot-quick:
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            ninja-build \
+            pkg-config \
+            meson \
+            qt6-base-dev \
+            qt6-declarative-dev \
+            qt6-shadertools-dev \
+            libglib2.0-dev
+
+      - name: Configure
+        run: cmake -S . -B build -G Ninja
+
+      - name: UI style lint
+        run: cmake --build build --target lint_ui_style
+
+      - name: Build
+        run: cmake --build build -j
+
+      - name: Tothespot CI gate (quick)
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: scripts/test-tothespot.sh
+
+  tothespot-full:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            ninja-build \
+            pkg-config \
+            meson \
+            qt6-base-dev \
+            qt6-declarative-dev \
+            qt6-shadertools-dev \
+            libglib2.0-dev
+
+      - name: Configure
+        run: cmake -S . -B build -G Ninja
+
+      - name: UI style lint
+        run: cmake --build build --target lint_ui_style
+
+      - name: Build
+        run: cmake --build build -j
+
+      - name: Tothespot CI gate (full)
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: scripts/test-tothespot.sh --full
