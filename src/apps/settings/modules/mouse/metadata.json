@@ -1,0 +1,27 @@
+{
+    "id": "mouse",
+    "name": "Mouse",
+    "icon": "input-mouse",
+    "group": "Hardware",
+    "description": "Pointer speed, scrolling, and click settings.",
+    "keywords": ["mouse", "pointer", "scroll", "trackpad"],
+    "main": "MousePage.qml",
+    "settings": [
+        {
+            "id": "speed",
+            "label": "Tracking Speed",
+            "description": "Adjust pointer speed",
+            "keywords": ["speed", "pointer", "cursor"],
+            "type": "slider",
+            "backend_binding": "gsettings:org.gnome.desktop.peripherals.mouse/speed"
+        },
+        {
+            "id": "natural-scroll",
+            "label": "Natural Scrolling",
+            "description": "Use natural scroll direction",
+            "keywords": ["scroll", "natural"],
+            "type": "toggle",
+            "backend_binding": "gsettings:org.gnome.desktop.peripherals.touchpad/natural-scroll"
+        }
+    ]
+}

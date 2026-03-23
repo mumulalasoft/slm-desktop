@@ -1,0 +1,27 @@
+{
+    "id": "bluetooth",
+    "name": "Bluetooth",
+    "icon": "bluetooth",
+    "group": "Connectivity",
+    "description": "Bluetooth pairing and connected devices.",
+    "keywords": ["bluetooth", "pair", "headphones", "mouse", "keyboard"],
+    "main": "BluetoothPage.qml",
+    "settings": [
+        {
+            "id": "enabled",
+            "label": "Bluetooth",
+            "description": "Enable or disable Bluetooth radio",
+            "keywords": ["bluetooth", "on", "off"],
+            "type": "toggle",
+            "backend_binding": "dbus:org.bluez.Adapter1/Powered"
+        },
+        {
+            "id": "pairing",
+            "label": "Pair New Device",
+            "description": "Open pairing flow",
+            "keywords": ["pair", "device", "discover"],
+            "type": "action",
+            "backend_binding": "dbus:org.bluez:/org/bluez/hci0:org.bluez.Adapter1:StartDiscovery:method"
+        }
+    ]
+}

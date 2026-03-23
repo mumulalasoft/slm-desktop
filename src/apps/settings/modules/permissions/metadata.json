@@ -1,0 +1,19 @@
+{
+    "id": "permissions",
+    "name": "Permissions",
+    "icon": "dialog-password",
+    "group": "System",
+    "description": "Review and reset privileged settings decisions.",
+    "keywords": ["permissions", "authorization", "security", "policy", "allow", "deny"],
+    "main": "PermissionsPage.qml",
+    "settings": [
+        {
+            "id": "grants",
+            "label": "Stored Decisions",
+            "description": "Allow always / deny always setting decisions",
+            "keywords": ["grant", "allow always", "deny always", "reset"],
+            "type": "action",
+            "backend_binding": "settings:permissions/grants"
+        }
+    ]
+}

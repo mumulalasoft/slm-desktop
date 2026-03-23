@@ -1,0 +1,29 @@
+{
+    "id": "applications",
+    "name": "Applications",
+    "icon": "preferences-desktop-apps",
+    "group": "System",
+    "description": "Default apps and startup preferences.",
+    "keywords": ["default app", "browser", "email", "startup"],
+    "main": "ApplicationsPage.qml",
+    "settings": [
+        {
+            "id": "default-browser",
+            "label": "Default Browser",
+            "description": "Open web links with selected app",
+            "keywords": ["browser", "default", "web"],
+            "type": "dropdown",
+            "backend_binding": "xdg:mime/x-scheme-handler/http",
+            "privileged_action": "org.slm.settings.applications.modify"
+        },
+        {
+            "id": "default-mail",
+            "label": "Default Mail App",
+            "description": "Open mailto links with selected app",
+            "keywords": ["mail", "email", "default"],
+            "type": "dropdown",
+            "backend_binding": "xdg:mime/x-scheme-handler/mailto",
+            "privileged_action": "org.slm.settings.applications.modify"
+        }
+    ]
+}
