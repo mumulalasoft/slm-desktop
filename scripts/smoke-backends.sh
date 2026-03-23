@@ -2,12 +2,46 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-APP_BIN="${1:-${DS_SHELL_APP_BIN:-}}"
+BUILD_DIR="${DS_SMOKE_BUILD_DIR:-${ROOT_DIR}/build}"
+APP_BIN="${DS_SHELL_APP_BIN:-}"
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --build-dir)
+      if [[ $# -lt 2 ]]; then
+        echo "[smoke] --build-dir requires a value" >&2
+        exit 2
+      fi
+      BUILD_DIR="$2"
+      shift 2
+      ;;
+    --app-bin)
+      if [[ $# -lt 2 ]]; then
+        echo "[smoke] --app-bin requires a value" >&2
+        exit 2
+      fi
+      APP_BIN="$2"
+      shift 2
+      ;;
+    *)
+      # Backward compatible: first positional arg is app binary path.
+      if [[ -z "${APP_BIN}" ]]; then
+        APP_BIN="$1"
+      else
+        echo "[smoke] unknown arg: $1" >&2
+        echo "usage: $0 [--build-dir <dir>] [--app-bin <path>] [legacy_app_bin]" >&2
+        exit 2
+      fi
+      shift
+      ;;
+  esac
+done
+
 if [[ -z "${APP_BIN}" ]]; then
-  if [[ -x "${ROOT_DIR}/build/appSlm_Desktop" ]]; then
-    APP_BIN="${ROOT_DIR}/build/appSlm_Desktop"
-  elif [[ -x "${ROOT_DIR}/build/toppanel-Debug/appSlm_Desktop" ]]; then
-    APP_BIN="${ROOT_DIR}/build/toppanel-Debug/appSlm_Desktop"
+  if [[ -x "${BUILD_DIR}/appSlm_Desktop" ]]; then
+    APP_BIN="${BUILD_DIR}/appSlm_Desktop"
+  elif [[ -x "${BUILD_DIR}/toppanel-Debug/appSlm_Desktop" ]]; then
+    APP_BIN="${BUILD_DIR}/toppanel-Debug/appSlm_Desktop"
   fi
 fi
 

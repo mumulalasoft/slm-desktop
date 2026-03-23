@@ -8,6 +8,51 @@ on:
   workflow_dispatch:
 
 jobs:
+  desktop-runtime-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            ninja-build \
+            pkg-config \
+            meson \
+            qt6-base-dev \
+            qt6-declarative-dev \
+            qt6-shadertools-dev \
+            libglib2.0-dev
+
+      - name: Configure
+        run: cmake -S . -B build -G Ninja
+
+      - name: Build desktop runtime target
+        run: cmake --build build --target appSlm_Desktop -j
+
+      - name: Smoke runtime
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          scripts/smoke-runtime.sh --build-dir build --app-bin build/appSlm_Desktop
+
+      - name: Smoke backends
+        env:
+          QT_QPA_PLATFORM: offscreen
+          DS_WINDOWING_AUTOROLLBACK: "1"
+        run: |
+          scripts/smoke-backends.sh --build-dir build --app-bin build/appSlm_Desktop
+
+      - name: Smoke tothespot
+        env:
+          QT_QPA_PLATFORM: offscreen
+          SLM_SMOKE_BUILD: "0"
+        run: |
+          scripts/smoke-tothespot-contextmenu.sh --build-dir build --app-bin build/appSlm_Desktop
+
   build-and-test:
     runs-on: ubuntu-latest
     env:

@@ -2,10 +2,44 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+BUILD_DIR="${SLM_SMOKE_BUILD_DIR:-${ROOT_DIR}/build}"
+APP_BIN_ARG=""
 QML_FILE="${ROOT_DIR}/Qml/components/tothespot/TothespotOverlay.qml"
 MAIN_QML_FILE="${ROOT_DIR}/Main.qml"
 CONTROLLER_JS_FILE="${ROOT_DIR}/Qml/components/shell/TothespotController.js"
 SMOKE_RUNTIME="${ROOT_DIR}/scripts/smoke-runtime.sh"
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --build-dir)
+      if [[ $# -lt 2 ]]; then
+        echo "[smoke-tothespot] --build-dir requires a value" >&2
+        exit 2
+      fi
+      BUILD_DIR="$2"
+      shift 2
+      ;;
+    --app-bin)
+      if [[ $# -lt 2 ]]; then
+        echo "[smoke-tothespot] --app-bin requires a value" >&2
+        exit 2
+      fi
+      APP_BIN_ARG="$2"
+      shift 2
+      ;;
+    *)
+      # Backward compatible: first positional arg as app binary.
+      if [[ -z "${APP_BIN_ARG}" ]]; then
+        APP_BIN_ARG="$1"
+      else
+        echo "[smoke-tothespot] unknown arg: $1" >&2
+        echo "usage: $0 [--build-dir <dir>] [--app-bin <path>] [legacy_app_bin]" >&2
+        exit 2
+      fi
+      shift
+      ;;
+  esac
+done
 
 if [[ ! -f "${QML_FILE}" ]]; then
   echo "[smoke-tothespot] missing file: ${QML_FILE}" >&2
@@ -27,11 +61,15 @@ fi
 
 if [[ "${SLM_SMOKE_BUILD:-1}" == "1" ]]; then
   echo "[smoke-tothespot] building appSlm_Desktop"
-  cmake --build "${ROOT_DIR}/build" -j4 --target appSlm_Desktop
+  cmake --build "${BUILD_DIR}" -j4 --target appSlm_Desktop
 fi
 
 echo "[smoke-tothespot] running runtime smoke"
-"${SMOKE_RUNTIME}" "${1:-}"
+if [[ -n "${APP_BIN_ARG}" ]]; then
+  "${SMOKE_RUNTIME}" --build-dir "${BUILD_DIR}" --app-bin "${APP_BIN_ARG}"
+else
+  "${SMOKE_RUNTIME}" --build-dir "${BUILD_DIR}"
+fi
 
 declare -a REQUIRED_PATTERNS=(
   "function openContextMenuForIndexGlobal("
