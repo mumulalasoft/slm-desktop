@@ -8,6 +8,17 @@ on:
   workflow_dispatch:
 
 jobs:
+  runtime-manifest-report:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Runtime manifest report
+        run: |
+          chmod +x scripts/check-runtime-manifest.sh
+          scripts/check-runtime-manifest.sh
+
   repo-sanity:
     runs-on: ubuntu-latest
     steps:
