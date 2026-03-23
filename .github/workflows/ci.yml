@@ -76,6 +76,7 @@ jobs:
             libwayland-dev \
             wayland-protocols \
             qml6-module-qtquick-controls \
+            qml6-module-qtquick-templates \
             qml6-module-qtquick-window \
             qml6-module-qtqml-workerscript
 
