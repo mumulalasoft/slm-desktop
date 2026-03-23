@@ -1,4 +1,43 @@
-# SLM Desktop ownership baseline
-# Keep this strict first; can be split per-domain later.
+# SLM Desktop ownership (granular baseline)
+# Keep fallback at bottom so unmatched paths are still protected.
 
+# Core build and bootstrap
+/CMakeLists.txt @mumulalasoft
+/cmake/** @mumulalasoft
+/main.cpp @mumulalasoft
+/Main.qml @mumulalasoft
+
+# UI and shell composition
+/Qml/** @mumulalasoft
+/Style/** @mumulalasoft
+/icons/** @mumulalasoft
+/images/** @mumulalasoft
+
+# Native code
+/src/** @mumulalasoft
+/*.cpp @mumulalasoft
+/*.h @mumulalasoft
+
+# Services / portal / security / printing / settings
+/src/services/** @mumulalasoft
+/src/daemon/** @mumulalasoft
+/src/apps/settings/** @mumulalasoft
+/src/printing/** @mumulalasoft
+/src/core/permissions/** @mumulalasoft
+/scripts/xdg-desktop-portal/** @mumulalasoft
+
+# Modularized repos and compatibility boundary
+/modules/slm-filemanager/** @mumulalasoft
+/modules/slm-desktop-core/** @mumulalasoft
+/modules/slm-desktop-style/** @mumulalasoft
+
+# CI / release / automation
+/.github/** @mumulalasoft
+/scripts/** @mumulalasoft
+
+# Quality and architecture docs
+/tests/** @mumulalasoft
+/docs/** @mumulalasoft
+
+# Fallback
 * @mumulalasoft
