@@ -5,7 +5,6 @@ import Slm_Desktop
 
 T.Menu {
     id: control
-    popupType: Popup.Item
     cascade: true
 
     implicitWidth: Math.max(implicitBackgroundWidth + leftInset + rightInset,
