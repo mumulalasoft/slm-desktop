@@ -62,7 +62,6 @@ Item {
 
     Popup {
         id: dateTimePopup
-        popupType: Popup.Window
         modal: false
         focus: false
         dim: false

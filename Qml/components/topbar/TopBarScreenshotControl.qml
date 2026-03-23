@@ -116,7 +116,6 @@ Item {
 
         Popup {
             id: screenshotPopup
-            popupType: Popup.Window
             modal: false
             focus: false
             dim: false

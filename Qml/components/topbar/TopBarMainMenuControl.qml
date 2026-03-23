@@ -94,7 +94,6 @@ Item {
 
     Menu {
         id: mainMenu
-        popupType: Popup.Window
         modal: false
         focus: false
         dim: false

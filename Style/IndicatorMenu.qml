@@ -8,7 +8,6 @@ Menu {
     property int popupGap: Theme.metric("spacingSm")
     property int popupWidth: Theme.metric("popupWidthS")
     property var anchorItem: null
-    popupType: Popup.Window
     modal: false
     focus: false
     dim: false

@@ -503,7 +503,6 @@ Item {
 
     Popup {
         id: opMenu
-        popupType: Popup.Item
         parent: Overlay.overlay
         modal: false
         focus: false

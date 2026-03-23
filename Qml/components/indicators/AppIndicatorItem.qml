@@ -213,7 +213,6 @@ Item {
     Menu {
         id: trayMenuPopup
         property var quickRows: []
-        popupType: Popup.Window
         modal: false
         focus: false
         dim: false
@@ -325,7 +324,6 @@ Item {
             property int parentMenuId: -1
             property var rows: []
 
-            popupType: Popup.Window
             modal: false
             focus: false
             dim: false

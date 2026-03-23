@@ -85,7 +85,6 @@ Row {
 
                 Menu {
                     id: sectionMenu
-                    popupType: Popup.Window
                     modal: false
                     focus: false
                     dim: false
