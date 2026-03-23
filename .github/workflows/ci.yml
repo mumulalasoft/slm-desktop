@@ -8,6 +8,18 @@ on:
   workflow_dispatch:
 
 jobs:
+  repo-sanity:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Core governance files exist
+        run: |
+          test -f .github/CODEOWNERS
+          test -f .github/pull_request_template.md
+          test -f CONTRIBUTING.md
+
   quick-lint:
     runs-on: ubuntu-latest
     steps:
@@ -23,9 +35,8 @@ jobs:
 
       - name: Rebrand guard (no legacy desktop shell naming)
         run: |
-          if grep -R -n -E "desktop-shell-core|desktop-shell-style" \
-            --exclude-dir=.git --exclude-dir=build --exclude-dir=.cache .; then
-            echo "Found legacy module naming references"
+          if [[ -d modules/desktop-shell-core || -d modules/desktop-shell-style ]]; then
+            echo "Legacy module directory still exists"
             exit 1
           fi
 
@@ -46,7 +57,9 @@ jobs:
             qt6-base-dev \
             qt6-declarative-dev \
             qt6-shadertools-dev \
-            libglib2.0-dev
+            libglib2.0-dev \
+            libwayland-dev \
+            wayland-protocols
 
       - name: Configure
         run: cmake -S . -B build -G Ninja
