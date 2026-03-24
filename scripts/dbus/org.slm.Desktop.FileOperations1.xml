@@ -1,0 +1,125 @@
+<!DOCTYPE node PUBLIC "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN"
+  "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
+<!--
+  org.slm.Desktop.FileOperations (v1)
+  =====================================
+  DBus interface untuk operasi file berumur panjang (copy, move, trash, dll).
+  Diimplementasikan oleh slm-fileopsd daemon.
+
+  Service  : org.slm.Desktop.FileOperations
+  Object   : /org/slm/Desktop/FileOperations
+  Interface: org.slm.Desktop.FileOperations
+
+  Versi interface ini adalah "v1" (tidak ada suffix angka pada nama karena sudah
+  established sebelum versioning policy ini diberlakukan).
+  Breaking change di masa depan → org.slm.Desktop.FileOperations2.
+
+  Job state dict (a{sv}):
+    id        (s)   : job ID unik
+    type      (s)   : "copy" | "move" | "delete" | "trash" | "empty-trash"
+    state     (s)   : "queued" | "running" | "paused" | "done" | "failed" | "cancelled"
+    percent   (i)   : 0–100
+    current   (t)   : bytes/item yang sudah diproses
+    total     (t)   : total bytes/item
+    error     (s)   : pesan error (kosong jika tidak ada)
+    sources   (as)  : URI sumber
+    dest      (s)   : URI tujuan (kosong untuk delete/trash)
+-->
+<node>
+  <interface name="org.slm.Desktop.FileOperations">
+
+    <!-- ── Query ─────────────────────────────────────────────── -->
+
+    <method name="Ping">
+      <arg name="result"       type="a{sv}" direction="out"/>
+    </method>
+
+    <method name="GetCapabilities">
+      <arg name="caps"         type="a{sv}" direction="out"/>
+    </method>
+
+    <method name="GetJob">
+      <arg name="id"           type="s"     direction="in"/>
+      <arg name="state"        type="a{sv}" direction="out"/>
+    </method>
+
+    <method name="ListJobs">
+      <arg name="jobs"         type="aa{sv}" direction="out"/>
+    </method>
+
+    <!-- ── Operasi ────────────────────────────────────────────── -->
+
+    <!-- Return: job ID string -->
+    <method name="Copy">
+      <arg name="uris"         type="as"    direction="in"/>
+      <arg name="destination"  type="s"     direction="in"/>
+      <arg name="job_id"       type="s"     direction="out"/>
+    </method>
+
+    <method name="Move">
+      <arg name="uris"         type="as"    direction="in"/>
+      <arg name="destination"  type="s"     direction="in"/>
+      <arg name="job_id"       type="s"     direction="out"/>
+    </method>
+
+    <method name="Delete">
+      <arg name="uris"         type="as"    direction="in"/>
+      <arg name="job_id"       type="s"     direction="out"/>
+    </method>
+
+    <method name="Trash">
+      <arg name="uris"         type="as"    direction="in"/>
+      <arg name="job_id"       type="s"     direction="out"/>
+    </method>
+
+    <method name="EmptyTrash">
+      <arg name="job_id"       type="s"     direction="out"/>
+    </method>
+
+    <!-- ── Kontrol job ────────────────────────────────────────── -->
+
+    <method name="Pause">
+      <arg name="id"           type="s"     direction="in"/>
+      <arg name="ok"           type="b"     direction="out"/>
+    </method>
+
+    <method name="Resume">
+      <arg name="id"           type="s"     direction="in"/>
+      <arg name="ok"           type="b"     direction="out"/>
+    </method>
+
+    <method name="Cancel">
+      <arg name="id"           type="s"     direction="in"/>
+      <arg name="ok"           type="b"     direction="out"/>
+    </method>
+
+    <!-- ── Signals ────────────────────────────────────────────── -->
+
+    <signal name="JobsChanged"/>
+
+    <signal name="Progress">
+      <arg name="id"           type="s"/>
+      <arg name="percent"      type="i"/>
+    </signal>
+
+    <signal name="ProgressDetail">
+      <arg name="id"           type="s"/>
+      <arg name="current"      type="t"/>
+      <arg name="total"        type="t"/>
+    </signal>
+
+    <signal name="Finished">
+      <arg name="id"           type="s"/>
+    </signal>
+
+    <signal name="Error">
+      <arg name="id"           type="s"/>
+    </signal>
+
+    <!-- ── Properties ─────────────────────────────────────────── -->
+
+    <property name="serviceRegistered"   type="b" access="read"/>
+    <property name="apiVersion"          type="s" access="read"/>
+
+  </interface>
+</node>

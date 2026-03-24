@@ -196,6 +196,8 @@ set(DESKTOP_SHELL_SERVICES
     tothespottexthighlighter.h
     ${FILEMANAGER_APP_SOURCES}
     ${FILEMANAGER_PROGRESS_SOURCES}
+    src/filemanager/FileManagerShellBridge.cpp
+    src/filemanager/FileManagerShellBridge.h
     src/core/actions/slmactiontypes.cpp
     src/core/actions/slmactiontypes.h
     src/core/actions/slmactioncondition.cpp

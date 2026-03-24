@@ -61,14 +61,26 @@ endif()
 include(cmake/Sources.cmake)
 
 # FileManager integration mode:
-# - default: build in-tree core target and link it.
-# - optional: consume external package target SlmFileManager::Core.
+# - default (OFF/OFF): build in-tree core target dan link langsung.
+# - external package (ON/OFF): find_package() dari system/installed prefix.
+# - local dev (ON/ON): find_package() dari local workspace checkout.
+#
+# Cara pakai dev mode:
+#   cmake -DSLM_USE_EXTERNAL_FILEMANAGER_PACKAGE=ON \
+#         -DSLM_USE_LOCAL_FILEMANAGER=ON \
+#         -DSLM_FILEMANAGER_SOURCE_DIR=/workspace/filemanager
+#
+# Atau pakai CMake preset: cmake --preset dev-local-fm
 option(SLM_USE_EXTERNAL_FILEMANAGER_PACKAGE "Use external SlmFileManager package instead of in-tree core sources" OFF)
 option(SLM_BUILD_FILEMANAGER_STANDALONE_TARGET "Build standalone FileManager core library target" ON)
 
+# DEV MODE: SLM_USE_LOCAL_FILEMANAGER hanya berlaku bila SLM_USE_EXTERNAL_FILEMANAGER_PACKAGE=ON.
+# Lihat cmake/FindSlmFileManager.cmake untuk detail.
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+
 set(SLM_FILEMANAGER_CORE_TARGET "")
 if(SLM_USE_EXTERNAL_FILEMANAGER_PACKAGE)
-    find_package(SlmFileManager CONFIG REQUIRED)
+    include(FindSlmFileManager)
     set(SLM_FILEMANAGER_CORE_TARGET SlmFileManager::Core)
 else()
     if(NOT SLM_BUILD_FILEMANAGER_STANDALONE_TARGET)
@@ -1740,6 +1752,35 @@ set_tests_properties(filemanagerapi_fileops_contract_test PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
+# Contract test: FileManagerShellBridge ↔ fileopsd integration
+qt_add_executable(filemanager_shell_contract_test
+    ${FILEMANAGER_APP_SOURCES}
+    ${FILEMANAGER_OPS_SERVICE_SOURCES}
+    ${FILEMANAGER_PROGRESS_SOURCES}
+    ${SLM_PERMISSION_TEST_SOURCES}
+    src/filemanager/FileManagerShellBridge.cpp
+    src/filemanager/FileManagerShellBridge.h
+    tests/filemanager/filemanager_shell_contract_test.cpp
+)
+target_include_directories(filemanager_shell_contract_test PRIVATE
+    ${CMAKE_SOURCE_DIR}
+    ${CMAKE_SOURCE_DIR}/src/apps/filemanager/include
+)
+target_link_libraries(filemanager_shell_contract_test
+    PRIVATE
+        Qt6::Core
+        Qt6::Gui
+        Qt6::DBus
+        Qt6::Sql
+        Qt6::Concurrent
+        Qt6::Test
+        PkgConfig::GIO
+)
+add_test(NAME filemanager_shell_contract_test COMMAND filemanager_shell_contract_test)
+set_tests_properties(filemanager_shell_contract_test PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;SLM_DEV_MODE=1"
+)
+
 qt_add_executable(sessionstateservice_dbus_test
     src/daemon/desktopd/sessionstatemanager.cpp
     src/daemon/desktopd/sessionstatemanager.h
@@ -3168,6 +3209,7 @@ add_custom_target(test_headless
         globalmenumanager_cache_test
         statusnotifierhost_test
         filemanagerapi_daemon_recovery_test
+        filemanager_shell_contract_test
         sessionstateservice_dbus_test
         devicesservice_dbus_test
         portalservice_dbus_test
