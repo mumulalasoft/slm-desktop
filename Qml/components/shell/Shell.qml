@@ -5,7 +5,14 @@ import Slm_Desktop
 Item {
     id: root
 
-    property string wallpaperSource: "qrc:/images/wallpaper.jpeg"
+    property string wallpaperSource: {
+        if (typeof UIPreferences !== "undefined") {
+            const uri = String(UIPreferences.wallpaperUri || "")
+            if (uri.length > 0)
+                return uri
+        }
+        return "qrc:/images/wallpaper.jpeg"
+    }
     property var shortcutsModel: (typeof ShortcutModel !== "undefined") ? ShortcutModel : null
     property bool inputEnabled: true
     property bool contextMenuOnly: false
@@ -484,6 +491,18 @@ Item {
         refreshShortcuts()
         loadPersistedSlotMap()
         rebuildSlots()
+        if (typeof UIPreferences !== "undefined") {
+            Theme.applyModeString(UIPreferences.themeMode)
+            Theme.userAccentColor = UIPreferences.accentColor
+            Theme.userFontScale   = UIPreferences.fontScale
+        }
+    }
+
+    Connections {
+        target: typeof UIPreferences !== "undefined" ? UIPreferences : null
+        function onThemeModeChanged()  { Theme.applyModeString(UIPreferences.themeMode) }
+        function onAccentColorChanged() { Theme.userAccentColor = UIPreferences.accentColor }
+        function onFontScaleChanged()  { Theme.userFontScale   = UIPreferences.fontScale  }
     }
 
     Connections {

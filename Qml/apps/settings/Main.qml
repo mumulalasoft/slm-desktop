@@ -2,22 +2,37 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import QtQuick.Window 2.15
-import "."
+import Slm_Desktop
 
 ApplicationWindow {
     id: window
     visible: true
+    flags: Qt.Window | Qt.FramelessWindowHint
     width: 1120
     height: 760
     minimumWidth: 900
     minimumHeight: 620
     title: qsTr("System Settings")
-    color: "#f4f5f7"
+    color: Theme.color("windowBg")
 
     property string searchText: SearchEngine.searchQuery
 
+    // Wire UIPreferences → Theme on startup and on changes.
+    Component.onCompleted: {
+        Theme.applyModeString(UIPreferences.themeMode)
+        Theme.userAccentColor = UIPreferences.accentColor
+        Theme.userFontScale   = UIPreferences.fontScale
+    }
+
+    Connections {
+        target: UIPreferences
+        function onThemeModeChanged()  { Theme.applyModeString(UIPreferences.themeMode) }
+        function onAccentColorChanged() { Theme.userAccentColor = UIPreferences.accentColor }
+        function onFontScaleChanged()  { Theme.userFontScale   = UIPreferences.fontScale  }
+    }
+
     Shortcut {
-        sequence: StandardKey.Find
+        sequences: [StandardKey.Find]
         onActivated: sidebar.forceSearchFocus()
     }
 
@@ -70,13 +85,13 @@ ApplicationWindow {
         text: "search " + SearchEngine.lastSearchLatencyMs + "ms • results " + SearchEngine.lastSearchResultCount
               + " • module " + SettingsApp.lastModuleOpenLatencyMs + "ms"
               + " • deeplink " + SettingsApp.lastDeepLinkLatencyMs + "ms"
-        color: "#6b7280"
-        font.pixelSize: 11
+        color: Theme.color("textDisabled")
+        font.pixelSize: Theme.fontSize("xs")
     }
 
     Rectangle {
         anchors.fill: parent
-        color: "#55000000"
+        color: Theme.color("overlay")
         visible: SettingsApp.commandPaletteVisible
         z: 100
 
@@ -134,13 +149,13 @@ ApplicationWindow {
                                 spacing: 0
                                 Text {
                                     text: modelData.title
-                                    font.pixelSize: 14
-                                    color: "#1f2937"
+                                    font.pixelSize: Theme.fontSize("body")
+                                    color: Theme.color("textPrimary")
                                 }
                                 Text {
                                     text: modelData.subtitle
-                                    font.pixelSize: 11
-                                    color: "#6b7280"
+                                    font.pixelSize: Theme.fontSize("xs")
+                                    color: Theme.color("textSecondary")
                                 }
                             }
                         }

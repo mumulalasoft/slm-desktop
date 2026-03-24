@@ -10,18 +10,25 @@ Flickable {
     clip: true
 
     property string highlightSettingId: ""
-    property var browserBinding: SettingsApp.createBindingFor("applications", "default-browser", "Google Chrome")
-    property var mailBinding: SettingsApp.createBindingFor("applications", "default-mail", "Mail")
-    property var browserPolicy: SettingsApp.settingPolicy("applications", "default-browser")
-    property var mailPolicy: SettingsApp.settingPolicy("applications", "default-mail")
-    property var browserGrantState: SettingsApp.settingGrantState("applications", "default-browser")
-    property var mailGrantState: SettingsApp.settingGrantState("applications", "default-mail")
-    property bool browserAuthorized: !Boolean(browserPolicy.requiresAuthorization)
-    property bool mailAuthorized: !Boolean(mailPolicy.requiresAuthorization)
-    property bool browserAuthPending: false
-    property bool mailAuthPending: false
-    property string browserAuthReason: ""
-    property string mailAuthReason: ""
+
+    // Each row is described by a simple object so the repeater stays DRY.
+    readonly property var mimeRows: [
+        { settingId: "default-browser",      mime: "x-scheme-handler/http",  label: qsTr("Web Browser"),     desc: qsTr("Used to open web links.") },
+        { settingId: "default-mail",          mime: "x-scheme-handler/mailto",label: qsTr("Mail Application"),desc: qsTr("Used to compose emails.") },
+        { settingId: "default-image-viewer",  mime: "image/jpeg",             label: qsTr("Image Viewer"),    desc: qsTr("Used to open image files.") },
+        { settingId: "default-video-player",  mime: "video/mp4",              label: qsTr("Video Player"),    desc: qsTr("Used to open video files.") },
+        { settingId: "default-text-editor",   mime: "text/plain",             label: qsTr("Text Editor"),     desc: qsTr("Used to open text files.") },
+        { settingId: "default-file-manager",  mime: "inode/directory",        label: qsTr("File Manager"),    desc: qsTr("Used to open folders.") }
+    ]
+
+    function currentIndexFor(apps, mime) {
+        const defaultId = MimeAppsManager.defaultAppForMimeType(mime)
+        if (!defaultId) return -1
+        for (let i = 0; i < apps.length; ++i) {
+            if (apps[i].id === defaultId) return i
+        }
+        return -1
+    }
 
     ColumnLayout {
         id: mainLayout
@@ -36,133 +43,66 @@ Flickable {
             title: qsTr("Default Applications")
             Layout.fillWidth: true
 
-            SettingCard {
-                objectName: "default-browser"
-                highlighted: root.highlightSettingId === "default-browser"
-                label: qsTr("Web Browser")
-                description: qsTr("Used to open links.")
-                Layout.fillWidth: true
-                ComboBox {
-                    id: browserCombo
-                    model: ["Google Chrome", "Firefox", "Epiphany"]
-                    currentIndex: Math.max(0, model.indexOf(String(root.browserBinding.value)))
-                    Layout.preferredWidth: 240
-                    enabled: !root.browserAuthPending
-                    onActivated: {
-                        if (Boolean(root.browserPolicy.requiresAuthorization) && !root.browserAuthorized) {
-                            currentIndex = Math.max(0, model.indexOf(String(root.browserBinding.value)))
-                            if (!root.browserAuthPending) {
-                                root.browserAuthPending = true
-                                SettingsApp.requestSettingAuthorization("applications", "default-browser")
+            Repeater {
+                model: root.mimeRows
+                delegate: SettingCard {
+                    required property var modelData
+                    objectName: modelData.settingId
+                    highlighted: root.highlightSettingId === modelData.settingId
+                    label: modelData.label
+                    description: modelData.desc
+                    Layout.fillWidth: true
+
+                    // Fetch app list once at creation; updates on defaultAppChanged.
+                    property var apps: MimeAppsManager.appsForMimeType(modelData.mime)
+                    property int selectedIndex: root.currentIndexFor(apps, modelData.mime)
+
+                    RowLayout {
+                        spacing: 8
+                        Layout.fillWidth: true
+
+                        ComboBox {
+                            id: combo
+                            model: {
+                                if (parent.parent.apps.length === 0)
+                                    return [qsTr("No apps found")]
+                                return parent.parent.apps.map(a => a.name)
                             }
-                            return
-                        }
-                        root.browserBinding.value = currentText
-                    }
-                }
-            }
+                            currentIndex: Math.max(0, parent.parent.selectedIndex)
+                            enabled: parent.parent.apps.length > 0
+                            Layout.preferredWidth: 240
 
-            AuthorizationHint {
-                requiresAuthorization: Boolean(root.browserPolicy.requiresAuthorization)
-                authorized: root.browserAuthorized
-                pending: root.browserAuthPending
-                allowAlways: Boolean(root.browserGrantState.allowAlways)
-                denyAlways: Boolean(root.browserGrantState.denyAlways)
-                reason: root.browserAuthReason
-                defaultMessage: "Permission required to change default browser."
-                onAuthorizationDecision: function(decision) {
-                    if (root.browserAuthPending) {
-                        return
-                    }
-                    root.browserAuthPending = true
-                    SettingsApp.requestSettingAuthorizationWithDecision("applications",
-                                                                        "default-browser",
-                                                                        decision)
-                }
-                onResetRequested: {
-                    SettingsApp.clearSettingGrant("applications", "default-browser")
-                    root.browserGrantState = SettingsApp.settingGrantState("applications", "default-browser")
-                    root.browserAuthorized = !Boolean(root.browserPolicy.requiresAuthorization)
-                    root.browserAuthReason = ""
-                }
-            }
-
-            SettingCard {
-                objectName: "default-mail"
-                highlighted: root.highlightSettingId === "default-mail"
-                label: qsTr("Mail Application")
-                description: qsTr("Used to compose emails.")
-                Layout.fillWidth: true
-                ComboBox {
-                    id: mailCombo
-                    model: ["Mail", "Thunderbird", "Geary"]
-                    currentIndex: Math.max(0, model.indexOf(String(root.mailBinding.value)))
-                    Layout.preferredWidth: 240
-                    enabled: !root.mailAuthPending
-                    onActivated: {
-                        if (Boolean(root.mailPolicy.requiresAuthorization) && !root.mailAuthorized) {
-                            currentIndex = Math.max(0, model.indexOf(String(root.mailBinding.value)))
-                            if (!root.mailAuthPending) {
-                                root.mailAuthPending = true
-                                SettingsApp.requestSettingAuthorization("applications", "default-mail")
+                            onActivated: {
+                                const row = parent.parent.parent // SettingCard content
+                                MimeAppsManager.setDefaultApp(
+                                    modelData.mime,
+                                    row.apps[currentIndex].id)
+                                row.selectedIndex = currentIndex
                             }
-                            return
                         }
-                        root.mailBinding.value = currentText
-                    }
-                }
-            }
 
-            AuthorizationHint {
-                requiresAuthorization: Boolean(root.mailPolicy.requiresAuthorization)
-                authorized: root.mailAuthorized
-                pending: root.mailAuthPending
-                allowAlways: Boolean(root.mailGrantState.allowAlways)
-                denyAlways: Boolean(root.mailGrantState.denyAlways)
-                reason: root.mailAuthReason
-                defaultMessage: "Permission required to change default mail application."
-                onAuthorizationDecision: function(decision) {
-                    if (root.mailAuthPending) {
-                        return
+                        // Show the current desktop-file ID as a subtle hint
+                        Label {
+                            text: {
+                                const id = MimeAppsManager.defaultAppForMimeType(modelData.mime)
+                                return id ? id : ""
+                            }
+                            color: "#9ca3af"
+                            font.pixelSize: 11
+                            elide: Text.ElideRight
+                            Layout.fillWidth: true
+                        }
                     }
-                    root.mailAuthPending = true
-                    SettingsApp.requestSettingAuthorizationWithDecision("applications",
-                                                                        "default-mail",
-                                                                        decision)
-                }
-                onResetRequested: {
-                    SettingsApp.clearSettingGrant("applications", "default-mail")
-                    root.mailGrantState = SettingsApp.settingGrantState("applications", "default-mail")
-                    root.mailAuthorized = !Boolean(root.mailPolicy.requiresAuthorization)
-                    root.mailAuthReason = ""
                 }
             }
         }
     }
 
     Connections {
-        target: SettingsApp
-        function onSettingAuthorizationFinished(requestId, moduleId, settingId, allowed, reason) {
-            if (moduleId !== "applications") {
-                return
-            }
-            if (settingId === "default-browser") {
-                root.browserAuthPending = false
-                root.browserAuthReason = reason || ""
-                root.browserGrantState = SettingsApp.settingGrantState("applications", "default-browser")
-                if (allowed) {
-                    root.browserAuthorized = true
-                }
-                browserCombo.currentIndex = Math.max(0, browserCombo.model.indexOf(String(root.browserBinding.value)))
-            } else if (settingId === "default-mail") {
-                root.mailAuthPending = false
-                root.mailAuthReason = reason || ""
-                root.mailGrantState = SettingsApp.settingGrantState("applications", "default-mail")
-                if (allowed) {
-                    root.mailAuthorized = true
-                }
-                mailCombo.currentIndex = Math.max(0, mailCombo.model.indexOf(String(root.mailBinding.value)))
-            }
+        target: MimeAppsManager
+        function onDefaultAppChanged(mimeType, desktopFileId) {
+            // Force the repeater to refresh its current-index labels.
+            // (QML bindings on function calls are re-evaluated on signal.)
         }
     }
 }

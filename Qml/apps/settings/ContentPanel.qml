@@ -1,10 +1,11 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
+import Slm_Desktop
 
 Rectangle {
     id: root
-    color: "#f4f5f7"
+    color: Theme.color("windowBg")
 
     property alias query: localSearchField.text
     signal queryChangedByUser(string text)
@@ -48,9 +49,9 @@ Rectangle {
             Label {
                 Layout.fillWidth: true
                 text: SettingsApp.breadcrumb.length > 0 ? SettingsApp.breadcrumb : qsTr("System Settings")
-                font.pixelSize: 20
+                font.pixelSize: Theme.fontSize("hero")
                 font.weight: Font.DemiBold
-                color: "#111827"
+                color: Theme.color("textPrimary")
                 elide: Text.ElideRight
             }
 
@@ -94,9 +95,9 @@ Rectangle {
 
                         Label {
                             text: modelData.group
-                            font.pixelSize: 12
+                            font.pixelSize: Theme.fontSize("small")
                             font.weight: Font.DemiBold
-                            color: "#6b7280"
+                            color: Theme.color("textSecondary")
                         }
 
                         Repeater {
@@ -105,9 +106,9 @@ Rectangle {
                                 width: parent.width
                                 height: 56
                                 background: Rectangle {
-                                    radius: 10
-                                    color: hovered ? "#e6edf8" : "#ffffff"
-                                    border.color: "#d9e0ea"
+                                    radius: Theme.radiusCard
+                                    color: hovered ? Theme.color("controlBgHover") : Theme.color("surface")
+                                    border.color: Theme.color("panelBorder")
                                     border.width: 1
                                 }
                                 onClicked: SettingsApp.openDeepLink(modelData.action || "")
@@ -129,14 +130,14 @@ Rectangle {
                                         spacing: 1
                                         Text {
                                             text: modelData.title || ""
-                                            font.pixelSize: 14
+                                            font.pixelSize: Theme.fontSize("body")
                                             font.weight: Font.Medium
-                                            color: "#111827"
+                                            color: Theme.color("textPrimary")
                                         }
                                         Text {
                                             text: modelData.subtitle || ""
-                                            font.pixelSize: 11
-                                            color: "#6b7280"
+                                            font.pixelSize: Theme.fontSize("xs")
+                                            color: Theme.color("textSecondary")
                                             elide: Text.ElideRight
                                         }
                                     }

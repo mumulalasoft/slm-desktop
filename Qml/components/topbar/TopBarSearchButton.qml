@@ -1,5 +1,6 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
+import QtQuick.Controls.impl 2.15
 import Slm_Desktop
 
 Rectangle {
@@ -15,8 +16,9 @@ Rectangle {
     height: iconButtonH
     radius: Theme.radiusControl
     color: searchMouse.containsMouse ? Theme.color("accentSoft") : "transparent"
+    Behavior on color { ColorAnimation { duration: Theme.durationSm; easing.type: Easing.OutCubic } }
 
-    Image {
+    IconImage {
         id: searchIcon
         anchors.centerIn: parent
         width: root.iconGlyph
@@ -27,6 +29,7 @@ Rectangle {
         source: "image://themeicon/system-search-symbolic?v=" +
                 ((typeof ThemeIconController !== "undefined" && ThemeIconController)
                  ? ThemeIconController.revision : 0)
+        color: Theme.color("textOnGlass")
     }
 
     Label {

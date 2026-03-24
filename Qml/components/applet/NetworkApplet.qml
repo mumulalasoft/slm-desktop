@@ -1,5 +1,6 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
+import QtQuick.Controls.impl 2.15
 import QtQuick.Layouts 1.15
 import Slm_Desktop
 import Style
@@ -147,7 +148,7 @@ Item {
             spacing: Theme.metric("spacingXs")
             anchors.verticalCenter: parent.verticalCenter
 
-            Image {
+            IconImage {
                 id: panelIcon
                 width: root.iconSize
                 height: root.iconSize
@@ -156,6 +157,7 @@ Item {
                 source: root.iconSourceByName(root.iconCandidate(candidates, candidateIndex))
                 fillMode: Image.PreserveAspectFit
                 opacity: (root.networkManager && root.networkManager.online) ? 1.0 : 0.55
+                color: Theme.color("textOnGlass")
                 onStatusChanged: {
                     if (status === Image.Error && candidateIndex + 1 < candidates.length) {
                         candidateIndex += 1
@@ -172,6 +174,8 @@ Item {
             color: indicatorButton.hovered ? Theme.color("accentSoft") : "transparent"
             border.width: Theme.borderWidthThin
             border.color: indicatorButton.hovered ? Theme.color("panelBorder") : "transparent"
+            Behavior on color { ColorAnimation { duration: Theme.durationSm; easing.type: Easing.OutCubic } }
+            Behavior on border.color { ColorAnimation { duration: Theme.durationSm; easing.type: Easing.OutCubic } }
         }
 
         onClicked: {

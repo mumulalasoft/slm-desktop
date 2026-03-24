@@ -1,5 +1,6 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
+import QtQuick.Controls.impl 2.15
 import QtQuick.Layouts 1.15
 import Slm_Desktop
 import Style
@@ -81,7 +82,7 @@ Item {
             implicitWidth: root.iconSize
             implicitHeight: root.iconSize
 
-            Image {
+            IconImage {
                 anchors.centerIn: parent
                 width: root.iconSize
                 height: root.iconSize
@@ -89,6 +90,7 @@ Item {
                 source: "image://themeicon/preferences-system-notifications-symbolic?v=" +
                         ((typeof ThemeIconController !== "undefined" && ThemeIconController)
                          ? ThemeIconController.revision : 0)
+                color: Theme.color("textOnGlass")
             }
 
             Rectangle {
@@ -118,6 +120,8 @@ Item {
             color: button.hovered ? Theme.color("accentSoft") : "transparent"
             border.width: Theme.borderWidthThin
             border.color: button.hovered ? Theme.color("panelBorder") : "transparent"
+            Behavior on color { ColorAnimation { duration: Theme.durationSm; easing.type: Easing.OutCubic } }
+            Behavior on border.color { ColorAnimation { duration: Theme.durationSm; easing.type: Easing.OutCubic } }
         }
     }
 

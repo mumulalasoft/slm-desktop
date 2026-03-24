@@ -1,11 +1,13 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
+import QtQuick.Window 2.15
+import Slm_Desktop
 
 Rectangle {
     id: root
-    color: "#eceff3"
-    border.color: "#d8dde4"
+    color: Theme.color("surface")
+    border.color: Theme.color("panelBorder")
     border.width: 1
 
     property alias query: searchField.text
@@ -19,11 +21,106 @@ Rectangle {
         searchField.selectAll()
     }
 
+    // macOS-style traffic-light button
+    component TitleButton: Item {
+        required property string normalSrc
+        required property string hoverSrc
+        required property string activeSrc
+        signal clicked()
+
+        implicitWidth: 14
+        implicitHeight: 14
+
+        property bool _hovered: false
+        property bool _pressed: false
+
+        Image {
+            anchors.fill: parent
+            source: parent._pressed ? parent.activeSrc
+                                    : (parent._hovered ? parent.hoverSrc : parent.normalSrc)
+            fillMode: Image.PreserveAspectFit
+            smooth: true
+            antialiasing: true
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.ArrowCursor
+            onEntered:   { parent._hovered = true }
+            onExited:    { parent._hovered = false; parent._pressed = false }
+            onPressed:   { parent._pressed = true }
+            onReleased:  { parent._pressed = false }
+            onClicked:   parent.clicked()
+        }
+    }
+
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 12
-        spacing: 10
+        anchors.margins: 8
+        spacing: 6
 
+        // ── Window controls + drag handle ────────────────────────────────
+        Item {
+            Layout.fillWidth: true
+            height: 28
+
+            // Drag the window by this strip (DragHandler ignores quick taps on buttons)
+            DragHandler {
+                target: null
+                onActiveChanged: {
+                    if (active) {
+                        const w = root.ApplicationWindow.window
+                        if (w) w.startSystemMove()
+                    }
+                }
+            }
+
+            Row {
+                anchors.left: parent.left
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: 6
+
+                TitleButton {
+                    normalSrc: "qrc:/icons/titlebuttons/titlebutton-close.svg"
+                    hoverSrc:  "qrc:/icons/titlebuttons/titlebutton-close-hover.svg"
+                    activeSrc: "qrc:/icons/titlebuttons/titlebutton-close-active.svg"
+                    onClicked: {
+                        const w = root.ApplicationWindow.window
+                        if (w) w.close()
+                    }
+                }
+
+                TitleButton {
+                    normalSrc: "qrc:/icons/titlebuttons/titlebutton-minimize.svg"
+                    hoverSrc:  "qrc:/icons/titlebuttons/titlebutton-minimize-hover.svg"
+                    activeSrc: "qrc:/icons/titlebuttons/titlebutton-minimize-active.svg"
+                    onClicked: {
+                        const w = root.ApplicationWindow.window
+                        if (w) w.showMinimized()
+                    }
+                }
+
+                TitleButton {
+                    property bool isMax: {
+                        const w = root.ApplicationWindow.window
+                        return w !== null && w.visibility === Window.Maximized
+                    }
+                    normalSrc: "qrc:/icons/titlebuttons/titlebutton-maximize.svg"
+                    hoverSrc:  isMax ? "qrc:/icons/titlebuttons/titlebutton-unmaximize-hover.svg"
+                                     : "qrc:/icons/titlebuttons/titlebutton-maximize-hover.svg"
+                    activeSrc: isMax ? "qrc:/icons/titlebuttons/titlebutton-unmaximize-active.svg"
+                                     : "qrc:/icons/titlebuttons/titlebutton-maximize-active.svg"
+                    onClicked: {
+                        const w = root.ApplicationWindow.window
+                        if (!w) return
+                        if (isMax) w.showNormal(); else w.showMaximized()
+                    }
+                }
+            }
+        }
+
+        // ── Search ───────────────────────────────────────────────────────
         TextField {
             id: searchField
             Layout.fillWidth: true
@@ -31,68 +128,71 @@ Rectangle {
             selectByMouse: true
             onTextChanged: root.queryChangedByUser(text)
             background: Rectangle {
-                radius: 10
-                color: "#ffffff"
-                border.color: searchField.activeFocus ? "#4f8ff7" : "#cad2dc"
+                radius: 8
+                color: Theme.color("windowBg")
+                border.color: searchField.activeFocus ? Theme.color("accent") : Theme.color("panelBorder")
                 border.width: searchField.activeFocus ? 2 : 1
             }
         }
 
+        // ── Module list ──────────────────────────────────────────────────
         ListView {
             id: listView
             Layout.fillWidth: true
             Layout.fillHeight: true
             clip: true
-            spacing: 2
+            spacing: 1
             model: root.moduleModel
             section.property: "group"
             section.criteria: ViewSection.FullString
             section.delegate: Rectangle {
                 width: listView.width
-                height: 28
+                height: 22
                 color: "transparent"
                 Text {
                     anchors.left: parent.left
                     anchors.leftMargin: 8
                     anchors.verticalCenter: parent.verticalCenter
                     text: section
-                    font.pixelSize: 11
+                    font.pixelSize: Theme.fontSize("xs")
                     font.weight: Font.DemiBold
-                    color: "#6b7280"
+                    color: Theme.color("textSecondary")
                     textFormat: Text.PlainText
                 }
             }
 
             delegate: ItemDelegate {
                 width: listView.width
-                height: 42
+                height: 34
                 highlighted: root.currentModuleId === (modelData.id || "")
                 background: Rectangle {
-                    radius: 8
-                    color: highlighted ? "#3076f3" : (hovered ? "#dce3ec" : "transparent")
+                    radius: 6
+                    color: highlighted
+                        ? Theme.color("accent")
+                        : (hovered ? Theme.color("controlBgHover") : "transparent")
                     Behavior on color {
                         ColorAnimation { duration: 140; easing.type: Easing.OutCubic }
                     }
                 }
 
                 contentItem: RowLayout {
-                    spacing: 10
+                    spacing: 8
                     anchors.left: parent.left
                     anchors.right: parent.right
-                    anchors.leftMargin: 10
-                    anchors.rightMargin: 10
+                    anchors.leftMargin: 8
+                    anchors.rightMargin: 8
 
                     Image {
                         source: "image://icon/" + (modelData.icon || "preferences-system")
-                        Layout.preferredWidth: 18
-                        Layout.preferredHeight: 18
+                        Layout.preferredWidth: 16
+                        Layout.preferredHeight: 16
                     }
                     Text {
                         Layout.fillWidth: true
                         text: modelData.name || ""
-                        font.pixelSize: 13
+                        font.pixelSize: Theme.fontSize("small")
                         font.weight: highlighted ? Font.DemiBold : Font.Normal
-                        color: highlighted ? "white" : "#111827"
+                        color: highlighted ? Theme.color("accentText") : Theme.color("textPrimary")
                         elide: Text.ElideRight
                         Behavior on color {
                             ColorAnimation { duration: 120; easing.type: Easing.OutQuad }

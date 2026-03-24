@@ -1,5 +1,6 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
+import QtQuick.Controls.impl 2.15
 import QtQuick.Layouts 1.15
 import Slm_Desktop
 import Style
@@ -68,12 +69,13 @@ Item {
             implicitWidth: root.iconSize
             implicitHeight: root.iconSize
 
-            Image {
+            IconImage {
                 anchors.centerIn: parent
                 width: root.iconSize
                 height: root.iconSize
                 fillMode: Image.PreserveAspectFit
                 source: root.iconSourceByName(root.bluetoothManager ? root.bluetoothManager.iconName : "bluetooth-disabled-symbolic")
+                color: Theme.color("textOnGlass")
                 opacity: (root.bluetoothManager && root.bluetoothManager.powered) ? 1.0 : 0.65
             }
         }
@@ -83,6 +85,8 @@ Item {
             color: indicatorButton.hovered ? Theme.color("accentSoft") : "transparent"
             border.width: Theme.borderWidthThin
             border.color: indicatorButton.hovered ? Theme.color("panelBorder") : "transparent"
+            Behavior on color { ColorAnimation { duration: Theme.durationSm; easing.type: Easing.OutCubic } }
+            Behavior on border.color { ColorAnimation { duration: Theme.durationSm; easing.type: Easing.OutCubic } }
         }
     }
 

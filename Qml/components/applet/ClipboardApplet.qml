@@ -1,5 +1,6 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
+import QtQuick.Controls.impl 2.15
 import QtQuick.Layouts 1.15
 import Slm_Desktop
 import Style
@@ -36,7 +37,7 @@ Item {
         contentItem: Item {
             implicitWidth: root.iconSize
             implicitHeight: root.iconSize
-            Image {
+            IconImage {
                 anchors.centerIn: parent
                 width: root.iconSize
                 height: root.iconSize
@@ -44,6 +45,7 @@ Item {
                 source: "image://themeicon/edit-paste-symbolic?v=" +
                         ((typeof ThemeIconController !== "undefined" && ThemeIconController)
                          ? ThemeIconController.revision : 0)
+                color: Theme.color("textOnGlass")
             }
         }
         background: Rectangle {

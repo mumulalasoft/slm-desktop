@@ -12,6 +12,14 @@ QtObject {
     property bool followSystem: true
     property bool forcedDarkMode: false
     readonly property string mode: followSystem ? modeSystem : (forcedDarkMode ? modeDark : modeLight)
+
+    // User-configurable accent color — set from UIPreferences.accentColor.
+    // Validated on assignment: invalid color strings fall back to the default.
+    property string userAccentColor: "#0a84ff"
+    readonly property color accent: {
+        var c = Qt.color(userAccentColor)
+        return c.valid ? c : Qt.color("#0a84ff")
+    }
     readonly property int transitionDuration: 260
 
     // Motion tokens — use these instead of hardcoded duration/easing values.
@@ -41,8 +49,8 @@ QtObject {
 
     // Qt Quick font.pixelSize uses device-independent pixels (DIP).
     // Keep typography deterministic and only allow explicit user scaling.
-    property real userFontScale: 1.25
-    readonly property real fontScale: Math.max(1.0, Math.min(1.35, userFontScale))
+    property real userFontScale: 1.0
+    readonly property real fontScale: Math.max(0.8, Math.min(1.5, userFontScale))
 
     // Shared typography scale (macOS-like)
     readonly property int fontPxMicro: 8
@@ -491,8 +499,69 @@ QtObject {
     })
 
     function color(tokenName) {
+        // All accent-derived tokens are computed dynamically from userAccentColor
+        // so that a single settings change propagates across the entire UI.
+        var c = accent   // already a QML color (readonly property color)
+        switch (tokenName) {
+        // ── Core accent ───────────────────────────────────────────────────────
+        case "accent":
+        case "selectedItem":
+        case "focusRingStrong":
+        case "menuHover":
+            return c
+        case "accentText":
+        case "selectedItemText":
+            return "#ffffff"
+        case "accentSoft":
+            return Qt.rgba(c.r, c.g, c.b, darkMode ? 0.21 : 0.12)
+        // ── Focus / keyboard navigation ───────────────────────────────────────
+        case "focusRing":
+            return Qt.lighter(c, darkMode ? 1.55 : 1.35)
+        // ── Selection rectangles (rubber-band, drag ghost) ────────────────────
+        case "selectionRectFill":
+            return Qt.rgba(c.r, c.g, c.b, 0.20)
+        case "selectionRectBorder":
+            return Qt.rgba(c.r, c.g, c.b, 0.60)
+        case "dragGhostFill":
+            return Qt.rgba(c.r, c.g, c.b, darkMode ? 0.22 : 0.18)
+        case "dragGhostBorder":
+            return Qt.lighter(c, 1.5)
+        // ── File manager ──────────────────────────────────────────────────────
+        case "fileManagerRubberBand":
+            return Qt.rgba(c.r, c.g, c.b, 0.13)
+        case "fileManagerControlActive":
+            return Qt.rgba(c.r, c.g, c.b, darkMode ? 0.29 : 0.74)
+        // ── Dock ──────────────────────────────────────────────────────────────
+        case "dockRunningDotActive":
+            return darkMode ? Qt.lighter(c, 1.25) : Qt.darker(c, 2.5)
+        case "dockRunningDotInactive":
+            return darkMode ? c : Qt.darker(c, 3.5)
+        case "dockGapPreviewBg":
+            return Qt.rgba(c.r, c.g, c.b, darkMode ? 0.17 : 0.45)
+        // ── Launchpad ─────────────────────────────────────────────────────────
+        case "launchpadSegmentActive":
+            return darkMode ? Qt.rgba(c.r, c.g, c.b, 0.42) : Qt.rgba(c.r, c.g, c.b, 0.72)
+        // ── Tothespot (search) ────────────────────────────────────────────────
+        case "tothespotRowActive":
+            return darkMode ? Qt.rgba(c.r, c.g, c.b, 0.22) : Qt.rgba(c.r, c.g, c.b, 0.53)
+        case "tothespotRowHover":
+            return darkMode ? Qt.rgba(c.r, c.g, c.b, 0.14) : Qt.rgba(c.r, c.g, c.b, 0.28)
+        case "tothespotBadgeActive":
+            return darkMode ? Qt.rgba(c.r, c.g, c.b, 0.18) : Qt.rgba(c.r, c.g, c.b, 0.22)
+        // ── Workspace / overview chips ────────────────────────────────────────
+        case "workspaceChipBg":
+        case "overviewSpaceChipBg":
+            return Qt.rgba(c.r, c.g, c.b, darkMode ? 0.23 : 0.72)
+        case "workspaceAddChipBg":
+        case "overviewAddChipBg":
+            return Qt.rgba(c.r, c.g, c.b, darkMode ? 0.25 : 0.72)
+        case "spaceHudBg":
+            return Qt.rgba(c.r, c.g, c.b, darkMode ? 0.83 : 0.87)
+        }
         var palette = darkMode ? dark : light
-        return palette[tokenName] !== undefined ? palette[tokenName] : "#ff00ff"
+        if (palette[tokenName] !== undefined) return palette[tokenName]
+        console.warn("Theme.color: unknown token \"" + tokenName + "\"")
+        return "#ff00ff"
     }
 
     function fontSize(tokenName) {
@@ -564,6 +633,13 @@ QtObject {
         default:
             return spacingSm
         }
+    }
+
+    // Apply a mode string: "auto" | "light" | "dark"
+    function applyModeString(modeStr) {
+        if (modeStr === "dark") useDarkMode()
+        else if (modeStr === "light") useLightMode()
+        else useSystemMode()
     }
 
     function toggleMode() {
