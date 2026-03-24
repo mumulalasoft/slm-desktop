@@ -166,6 +166,12 @@ Rectangle {
             properties: { popupHost: root.popupHost }
         })
         IndicatorRegistry.registerIndicator({
+            name: "print",
+            source: "../applet/PrintJobApplet.qml",
+            order: 450,
+            properties: { popupHost: root.popupHost }
+        })
+        IndicatorRegistry.registerIndicator({
             name: "notification",
             source: "../applet/NotificationApplet.qml",
             order: 500,

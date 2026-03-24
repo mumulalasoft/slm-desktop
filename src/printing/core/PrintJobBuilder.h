@@ -18,7 +18,7 @@ public:
     //   documentTitle: string,
     //   printerId: string,
     //   ticket: QVariantMap,
-    //   ippAttributes: QVariantMap
+    //   jobAttributes: QVariantMap
     // }
     static QVariantMap build(const PrintSession *session);
 };

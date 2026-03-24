@@ -111,6 +111,30 @@ PrinterCapability PrinterCapabilityProvider::parseLpoptions(const QString &print
             continue;
         }
 
+        if (optionName.compare(QStringLiteral("InputSlot"), Qt::CaseInsensitive) == 0
+            || optionName.compare(QStringLiteral("media-source"), Qt::CaseInsensitive) == 0) {
+            const QStringList tokens = valuesPart.split(QLatin1Char(' '), Qt::SkipEmptyParts);
+            for (const QString &rawToken : tokens) {
+                const QString token = rawToken.startsWith(QLatin1Char('*'))
+                                      ? rawToken.mid(1) : rawToken;
+                if (token.isEmpty()) continue;
+                MediaSource src;
+                src.id = token.toLower();
+                // Build a human-readable label from the raw token.
+                QString label = token;
+                label.replace(QLatin1Char('-'), QLatin1Char(' '));
+                // Capitalize first letter of each word.
+                for (int ci = 0; ci < label.size(); ++ci) {
+                    if (ci == 0 || label[ci - 1] == QLatin1Char(' ')) {
+                        label[ci] = label[ci].toUpper();
+                    }
+                }
+                src.label = label;
+                capability.mediaSources.append(src);
+            }
+            continue;
+        }
+
         capability.vendorExtensions.insert(optionName, valuesPart);
     }
 
@@ -142,6 +166,15 @@ QVariantMap PrinterCapabilityProvider::capabilityToVariantMap(const PrinterCapab
         resolutions.append(dpi);
     }
     map.insert(QStringLiteral("resolutionsDpi"), resolutions);
+
+    QVariantList mediaSources;
+    for (const MediaSource &src : capability.mediaSources) {
+        QVariantMap entry;
+        entry.insert(QStringLiteral("id"),    src.id);
+        entry.insert(QStringLiteral("label"), src.label);
+        mediaSources.append(entry);
+    }
+    map.insert(QStringLiteral("mediaSources"), mediaSources);
     map.insert(QStringLiteral("vendorExtensions"), capability.vendorExtensions);
     return map;
 }

@@ -4,8 +4,9 @@ project(Slm_Desktop VERSION 0.1 LANGUAGES CXX C)
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Quick QuickControls2 QuickLayouts Network DBus Test Sql Concurrent ShaderTools)
+find_package(Qt6 6.10 REQUIRED COMPONENTS Quick QuickControls2 QuickLayouts Network DBus Test Sql Concurrent ShaderTools)
 find_package(PkgConfig REQUIRED)
+find_package(Poppler OPTIONAL_COMPONENTS Qt6)
 pkg_check_modules(GIO REQUIRED IMPORTED_TARGET gio-unix-2.0)
 pkg_check_modules(WAYLAND_CLIENT REQUIRED IMPORTED_TARGET wayland-client)
 pkg_check_modules(WAYLAND_PROTOCOLS REQUIRED wayland-protocols)
@@ -182,6 +183,7 @@ qt_add_executable(appSlm_Desktop
 target_include_directories(appSlm_Desktop PRIVATE
     ${CMAKE_SOURCE_DIR}
     ${CMAKE_SOURCE_DIR}/src/apps/filemanager/include
+    ${CMAKE_SOURCE_DIR}/src/printing
     ${CMAKE_BINARY_DIR}
 )
 
@@ -232,6 +234,8 @@ qt_add_executable(globalmenuctl
 qt_add_executable(slm-settings
     src/apps/settings/main.cpp
     src/apps/settings/settingsapp.cpp
+    src/core/icons/themeiconprovider.cpp
+    src/core/icons/themeiconprovider.h
     src/apps/settings/moduleloader.cpp
     src/apps/settings/searchengine.cpp
     src/apps/settings/globalsearchprovider.cpp
@@ -244,6 +248,14 @@ qt_add_executable(slm-settings
     src/apps/settings/include/settingbindingresolver.cpp
     src/apps/settings/include/settingbindingfactory.cpp
     src/apps/settings/include/settingspolkitbridge.cpp
+    src/apps/settings/wallpapermanager.cpp
+    src/apps/settings/wallpapermanager.h
+    src/apps/settings/mimeappsmanager.cpp
+    src/apps/settings/mimeappsmanager.h
+    src/apps/settings/thememanager.cpp
+    src/apps/settings/thememanager.h
+    src/apps/settings/fontmanager.cpp
+    src/apps/settings/fontmanager.h
     src/core/prefs/uipreferences.cpp
     src/core/prefs/uipreferences.h
     src/printing/core/PrinterCapabilityProvider.cpp
@@ -476,6 +488,7 @@ add_custom_target(lint_capability_matrix
 set_source_files_properties(Qml/Theme.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
 set_source_files_properties(Qml/IndicatorRegistry.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
 
+
 set(DESKTOP_SHELL_QML_FILES
     Main.qml
     Qml/Theme.qml
@@ -521,6 +534,7 @@ set(DESKTOP_SHELL_QML_FILES
     Qml/components/applet/BluetoothApplet.qml
     Qml/components/applet/NotificationApplet.qml
     Qml/components/applet/SoundApplet.qml
+    Qml/components/applet/PrintJobApplet.qml
     Qml/components/overlay/ClipboardOverlay.qml
     Qml/components/notification/NotificationBubble.qml
     # Qml/components/BatteryIndicator.qml
@@ -533,6 +547,9 @@ set(DESKTOP_SHELL_QML_FILES
     Qml/components/screenshot/ScreenshotSaveDialog.qml
     Qml/components/screenshot/ScreenshotOverwriteDialog.qml
     Qml/components/print/PrintDialog.qml
+    Qml/components/print/PrintPreviewPane.qml
+    Qml/components/print/PrintAdvancedPanel.qml
+    Qml/components/print/PrinterFeatureSection.qml
     Qml/components/portalchooser/PortalChooserActionBar.qml
     Qml/components/portalchooser/PortalChooserFooterPane.qml
     Qml/components/portalchooser/PortalChooserPreviewPanel.qml
@@ -765,6 +782,10 @@ target_link_libraries(appSlm_Desktop
         PkgConfig::WAYLAND_CLIENT
         ${SLM_FILEMANAGER_CORE_TARGET}
 )
+if(TARGET Poppler::Qt6)
+    target_link_libraries(appSlm_Desktop PRIVATE Poppler::Qt6)
+    target_compile_definitions(appSlm_Desktop PRIVATE SLM_HAVE_POPPLER_QT6)
+endif()
 
 target_link_libraries(uipreference
     PRIVATE
@@ -788,10 +809,37 @@ target_link_libraries(slm-settings
         Qt6::DBus
         PkgConfig::GIO
 )
+qt_add_resources(slm-settings "slm_desktop_theme_shim_qmldir"
+    PREFIX "/qt/qml/Slm_Desktop"
+    BASE "${CMAKE_SOURCE_DIR}/src/apps/settings/resources"
+    FILES "${CMAKE_SOURCE_DIR}/src/apps/settings/resources/qmldir"
+)
+qt_add_resources(slm-settings "slm_desktop_theme_shim_theme"
+    PREFIX "/qt/qml/Slm_Desktop"
+    BASE "${CMAKE_SOURCE_DIR}/Qml"
+    FILES "${CMAKE_SOURCE_DIR}/Qml/Theme.qml"
+)
+qt_add_resources(slm-settings "slm_settings_titlebuttons"
+    PREFIX "/"
+    FILES
+        icons/titlebuttons/titlebutton-close.svg
+        icons/titlebuttons/titlebutton-close-hover.svg
+        icons/titlebuttons/titlebutton-close-active.svg
+        icons/titlebuttons/titlebutton-minimize.svg
+        icons/titlebuttons/titlebutton-minimize-hover.svg
+        icons/titlebuttons/titlebutton-minimize-active.svg
+        icons/titlebuttons/titlebutton-maximize.svg
+        icons/titlebuttons/titlebutton-maximize-hover.svg
+        icons/titlebuttons/titlebutton-maximize-active.svg
+        icons/titlebuttons/titlebutton-unmaximize-hover.svg
+        icons/titlebuttons/titlebutton-unmaximize-active.svg
+)
+add_dependencies(slm-settings sync_style)
 
 target_include_directories(slm-settings PRIVATE
     ${CMAKE_SOURCE_DIR}/src/apps/settings
     ${CMAKE_SOURCE_DIR}/src/apps/settings/include
+    ${CMAKE_SOURCE_DIR}/src/core/icons
 )
 
 include(GNUInstallDirs)
@@ -2055,14 +2103,30 @@ add_test(NAME printermanager_test COMMAND $<TARGET_FILE:printermanager_test>)
 qt_add_executable(printpreviewmodel_test
     src/printing/core/PrintPreviewModel.cpp
     src/printing/core/PrintPreviewModel.h
+    src/printing/preview/IPdfRenderer.h
+    src/printing/preview/FallbackPdfRenderer.h
+    src/printing/preview/FallbackPdfRenderer.cpp
+    src/printing/preview/PopplerPdfRenderer.h
+    src/printing/preview/PopplerPdfRenderer.cpp
+    src/printing/preview/PrintPreviewCache.h
+    src/printing/preview/PrintPreviewCache.cpp
     tests/printpreviewmodel_test.cpp
+)
+
+target_include_directories(printpreviewmodel_test PRIVATE
+    ${CMAKE_SOURCE_DIR}/src/printing
 )
 
 target_link_libraries(printpreviewmodel_test
     PRIVATE
         Qt6::Core
+        Qt6::Gui
         Qt6::Test
 )
+if(TARGET Poppler::Qt6)
+    target_link_libraries(printpreviewmodel_test PRIVATE Poppler::Qt6)
+    target_compile_definitions(printpreviewmodel_test PRIVATE SLM_HAVE_POPPLER_QT6)
+endif()
 
 add_test(NAME printpreviewmodel_test COMMAND $<TARGET_FILE:printpreviewmodel_test>)
 

@@ -8,6 +8,7 @@ bool ticketsEqual(const PrintTicket &lhs, const PrintTicket &rhs)
     return lhs.printerId == rhs.printerId && lhs.copies == rhs.copies && lhs.pageRange == rhs.pageRange
            && lhs.paperSize == rhs.paperSize && lhs.orientation == rhs.orientation && lhs.duplex == rhs.duplex
            && lhs.colorMode == rhs.colorMode && lhs.quality == rhs.quality && qFuzzyCompare(lhs.scale, rhs.scale)
+           && lhs.mediaSource == rhs.mediaSource && lhs.resolutionDpi == rhs.resolutionDpi
            && lhs.pluginFeatures == rhs.pluginFeatures;
 }
 } // namespace
@@ -104,6 +105,26 @@ void PrintSettingsModel::setScale(double value)
     emit settingsChanged();
 }
 
+void PrintSettingsModel::setMediaSource(const QString &value)
+{
+    const QString sanitized = value.trimmed().isEmpty() ? QStringLiteral("auto") : value.trimmed();
+    if (m_ticket.mediaSource == sanitized) {
+        return;
+    }
+    m_ticket.mediaSource = sanitized;
+    emit settingsChanged();
+}
+
+void PrintSettingsModel::setResolutionDpi(int value)
+{
+    const int sanitized = qMax(0, value);
+    if (m_ticket.resolutionDpi == sanitized) {
+        return;
+    }
+    m_ticket.resolutionDpi = sanitized;
+    emit settingsChanged();
+}
+
 void PrintSettingsModel::setPluginFeatures(const QVariantMap &value)
 {
     if (m_ticket.pluginFeatures == value) {
@@ -132,6 +153,8 @@ QVariantMap PrintSettingsModel::serialize() const
     payload.insert(QStringLiteral("colorMode"), toString(m_ticket.colorMode));
     payload.insert(QStringLiteral("quality"), m_ticket.quality);
     payload.insert(QStringLiteral("scale"), m_ticket.scale);
+    payload.insert(QStringLiteral("mediaSource"), m_ticket.mediaSource);
+    payload.insert(QStringLiteral("resolutionDpi"), m_ticket.resolutionDpi);
     payload.insert(QStringLiteral("pluginFeatures"), m_ticket.pluginFeatures);
     return payload;
 }
@@ -148,6 +171,9 @@ void PrintSettingsModel::deserialize(const QVariantMap &payload)
     m_ticket.colorMode = colorModeFromString(payload.value(QStringLiteral("colorMode"), toString(m_ticket.colorMode)).toString());
     m_ticket.quality = payload.value(QStringLiteral("quality"), m_ticket.quality).toString();
     m_ticket.scale = clampScale(payload.value(QStringLiteral("scale"), m_ticket.scale).toDouble());
+    m_ticket.mediaSource = payload.value(QStringLiteral("mediaSource"), m_ticket.mediaSource).toString();
+    if (m_ticket.mediaSource.trimmed().isEmpty()) m_ticket.mediaSource = QStringLiteral("auto");
+    m_ticket.resolutionDpi = qMax(0, payload.value(QStringLiteral("resolutionDpi"), m_ticket.resolutionDpi).toInt());
     m_ticket.pluginFeatures = payload.value(QStringLiteral("pluginFeatures"), m_ticket.pluginFeatures).toMap();
     emitIfChanged(before);
 }
@@ -156,10 +182,10 @@ void PrintSettingsModel::applyCapability(const PrinterCapability &capability)
 {
     const PrintTicket before = m_ticket;
     if (!capability.supportsColor) {
-        m_ticket.colorMode = ColorMode::Monochrome;
+        m_ticket.colorMode = ColorMode::Grayscale;
     }
     if (!capability.supportsDuplex) {
-        m_ticket.duplex = DuplexMode::OneSided;
+        m_ticket.duplex = DuplexMode::Off;
     }
     if (!capability.paperSizes.isEmpty() && !capability.paperSizes.contains(m_ticket.paperSize)) {
         m_ticket.paperSize = capability.paperSizes.first();

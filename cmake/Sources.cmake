@@ -269,6 +269,33 @@ set(DESKTOP_SHELL_SERVICES
     src/printing/core/PrinterCapabilityProvider.h
     src/printing/core/PrinterManager.cpp
     src/printing/core/PrinterManager.h
+    src/printing/preview/IPdfRenderer.h
+    src/printing/preview/FallbackPdfRenderer.h
+    src/printing/preview/FallbackPdfRenderer.cpp
+    src/printing/preview/PopplerPdfRenderer.h
+    src/printing/preview/PopplerPdfRenderer.cpp
+    src/printing/preview/PrintPreviewCache.h
+    src/printing/preview/PrintPreviewCache.cpp
+    src/printing/qml/PrintDialogController.h
+    src/printing/qml/PrintDialogController.cpp
+    src/printing/plugin/PluginFieldDescriptor.h
+    src/printing/plugin/PluginDescriptorValidator.h
+    src/printing/plugin/PluginDescriptorValidator.cpp
+    src/printing/plugin/PluginFeatureResolver.h
+    src/printing/plugin/PluginFeatureResolver.cpp
+    src/printing/persistence/PrinterSettingsStore.h
+    src/printing/persistence/PrinterSettingsStore.cpp
+    src/printing/core/IBackendAdapter.h
+    src/printing/core/PrintQueueModel.h
+    src/printing/core/PrintQueueModel.cpp
+    src/printing/core/CupsStatusWatcher.h
+    src/printing/core/CupsStatusWatcher.cpp
+    src/printing/core/PrinterAdminService.h
+    src/printing/core/PrinterAdminService.cpp
+    src/printing/adapter/CupsErrorTranslator.h
+    src/printing/adapter/CupsErrorTranslator.cpp
+    src/printing/adapter/CupsAdapter.h
+    src/printing/adapter/CupsAdapter.cpp
     src/services/clipboard/WaylandClipboardWatcher.cpp
     src/services/clipboard/WaylandClipboardWatcher.h
     ${CMAKE_BINARY_DIR}/wayland-protocol.c

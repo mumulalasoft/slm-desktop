@@ -1,5 +1,7 @@
 #pragma once
 
+#include <QDBusUnixFileDescriptor>
+
 #include "../../core/permissions/DBusSecurityGuard.h"
 #include "../../core/permissions/PermissionBroker.h"
 #include "../../core/permissions/TrustResolver.h"
@@ -200,6 +202,23 @@ public slots:
                                  const QString &parentWindow,
                                  const QVariantMap &options);
 
+    // Print portal bridge methods.
+    // PreparePrint records the settings from the calling app and returns a token.
+    // Print receives the document FD and submits the job to the print scheduler.
+    QVariantMap BridgePrintPreparePrint(const QString &handle,
+                                        const QString &appId,
+                                        const QString &parentWindow,
+                                        const QString &title,
+                                        const QVariantMap &settings,
+                                        const QVariantMap &pageSetup,
+                                        const QVariantMap &options);
+    QVariantMap BridgePrintPrint(const QString &handle,
+                                 const QString &appId,
+                                 const QString &parentWindow,
+                                 const QString &title,
+                                 const QDBusUnixFileDescriptor &fd,
+                                 const QVariantMap &options);
+
 signals:
     void serviceRegisteredChanged();
     void ScreencastSessionStateChanged(const QString &sessionHandle,
@@ -235,4 +254,8 @@ private:
     Slm::Permissions::TrustResolver m_resolver;
     Slm::Permissions::PermissionBroker m_broker;
     Slm::Permissions::DBusSecurityGuard m_guard;
+
+    // Print settings keyed by request handle, stored during PreparePrint and
+    // consumed by Print. Entries are removed after Print or on timeout.
+    QHash<QString, QVariantMap> m_printSettings;
 };

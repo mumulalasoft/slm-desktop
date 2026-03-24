@@ -20,8 +20,11 @@
 #include <QHash>
 #include <QMetaObject>
 #include <QSettings>
+#include <QProcess>
+#include <QTemporaryFile>
 #include <QTimer>
 #include <QtGlobal>
+#include <QUuid>
 #include <QUrl>
 #include <algorithm>
 
@@ -916,6 +919,7 @@ ImplPortalService::ImplPortalService(PortalManager *manager,
     new ImplPortalOpenWithAdaptor(this);
     new ImplPortalDocumentsAdaptor(this);
     new ImplPortalTrashAdaptor(this);
+    new ImplPortalPrintAdaptor(this);
     registerDbusService();
 }
 
@@ -3421,4 +3425,181 @@ void ImplPortalService::registerDbusService()
 
     m_serviceRegistered = true;
     emit serviceRegisteredChanged();
+}
+
+// ── Print portal bridge ───────────────────────────────────────────────────────
+
+QVariantMap ImplPortalService::BridgePrintPreparePrint(const QString &handle,
+                                                        const QString &appId,
+                                                        const QString &parentWindow,
+                                                        const QString &title,
+                                                        const QVariantMap &settings,
+                                                        const QVariantMap &pageSetup,
+                                                        const QVariantMap &options)
+{
+    Q_UNUSED(appId)
+    Q_UNUSED(parentWindow)
+    Q_UNUSED(title)
+    Q_UNUSED(options)
+
+    // Store the settings keyed by handle for retrieval by Print.
+    // Merge page-setup into the settings map for convenience.
+    QVariantMap stored = settings;
+    if (!pageSetup.isEmpty()) {
+        stored.insert(QStringLiteral("_page_setup"), pageSetup);
+    }
+    m_printSettings.insert(handle, stored);
+
+    // Return response=0 (success) with the settings and a token equal to
+    // the request handle so the caller can correlate with the Print call.
+    QVariantMap results;
+    results.insert(QStringLiteral("settings"),   settings);
+    results.insert(QStringLiteral("page-setup"), pageSetup);
+    results.insert(QStringLiteral("token"),      handle);
+
+    QVariantMap response;
+    response.insert(QStringLiteral("response"), 0u);
+    response.insert(QStringLiteral("results"),  results);
+    return response;
+}
+
+// Maps a GTK print settings value from the portal to an lp(1) argument list.
+static QStringList lpArgsFromPortalSettings(const QVariantMap &settings)
+{
+    QStringList args;
+
+    const QString printer = settings.value(QStringLiteral("printer")).toString().trimmed();
+    if (!printer.isEmpty()) {
+        args << QStringLiteral("-d") << printer;
+    }
+
+    const int copies = settings.value(QStringLiteral("n-copies"), 1).toInt();
+    if (copies > 1) {
+        args << QStringLiteral("-n") << QString::number(qMax(1, copies));
+    }
+
+    const auto pushOption = [&](const QString &key, const QString &value) {
+        if (value.trimmed().isEmpty()) return;
+        args << QStringLiteral("-o") << QStringLiteral("%1=%2").arg(key, value.trimmed());
+    };
+
+    // Paper size (GTK uses e.g. "iso-a4", "na-letter").
+    const QString paperFormat = settings.value(QStringLiteral("paper-format")).toString();
+    if (!paperFormat.isEmpty()) {
+        pushOption(QStringLiteral("media"), paperFormat);
+    }
+
+    // Color mode.
+    const bool useColor = settings.value(QStringLiteral("use-color"), true).toBool();
+    pushOption(QStringLiteral("print-color-mode"),
+               useColor ? QStringLiteral("color") : QStringLiteral("monochrome"));
+
+    // Duplex: GTK uses "simplex"/"horizontal"/"vertical"
+    const QString duplex = settings.value(QStringLiteral("duplex")).toString();
+    if (duplex == QLatin1String("horizontal")) {
+        pushOption(QStringLiteral("sides"), QStringLiteral("two-sided-long-edge"));
+    } else if (duplex == QLatin1String("vertical")) {
+        pushOption(QStringLiteral("sides"), QStringLiteral("two-sided-short-edge"));
+    } else {
+        pushOption(QStringLiteral("sides"), QStringLiteral("one-sided"));
+    }
+
+    // Resolution.
+    const int resolution = settings.value(QStringLiteral("resolution")).toInt();
+    if (resolution > 0) {
+        pushOption(QStringLiteral("printer-resolution"),
+                   QStringLiteral("%1dpi").arg(resolution));
+    }
+
+    // Page ranges (portal format: array of structs {start, end} — stored as
+    // a variant list; fall back to "print-pages" string if present).
+    const QString printPages = settings.value(QStringLiteral("print-pages")).toString();
+    if (printPages == QLatin1String("ranges")) {
+        // page-ranges is a QVariantList of QVariantMaps with "start"/"end" keys.
+        const QVariantList ranges = settings.value(QStringLiteral("page-ranges")).toList();
+        if (!ranges.isEmpty()) {
+            QStringList parts;
+            for (const QVariant &r : ranges) {
+                const QVariantMap m = r.toMap();
+                const int s = m.value(QStringLiteral("start"), 1).toInt();
+                const int e = m.value(QStringLiteral("end"), s).toInt();
+                parts << (s == e ? QString::number(s)
+                                 : QStringLiteral("%1-%2").arg(s).arg(e));
+            }
+            if (!parts.isEmpty()) {
+                pushOption(QStringLiteral("page-ranges"), parts.join(QLatin1Char(',')));
+            }
+        }
+    }
+
+    return args;
+}
+
+QVariantMap ImplPortalService::BridgePrintPrint(const QString &handle,
+                                                 const QString &appId,
+                                                 const QString &parentWindow,
+                                                 const QString &title,
+                                                 const QDBusUnixFileDescriptor &fd,
+                                                 const QVariantMap &options)
+{
+    Q_UNUSED(appId)
+    Q_UNUSED(parentWindow)
+    Q_UNUSED(title)
+
+    // Retrieve stored settings. Prefer the handle from options["token"] to
+    // support cases where the Print call uses a different handle than PreparePrint.
+    const QString token = options.value(QStringLiteral("token"), handle).toString();
+    const QVariantMap settings = m_printSettings.value(token.isEmpty() ? handle : token);
+    m_printSettings.remove(token);
+    m_printSettings.remove(handle);
+
+    // Copy the document from the Unix FD to a temp file so lp can read it.
+    if (!fd.isValid()) {
+        return {{QStringLiteral("response"), 2u},
+                {QStringLiteral("error"),    QStringLiteral("invalid-fd")}};
+    }
+
+    const QString tmpPath = QStringLiteral("/tmp/slm-print-%1.pdf")
+                            .arg(QUuid::createUuid().toString(QUuid::WithoutBraces));
+    {
+        QFile src;
+        src.open(fd.fileDescriptor(), QIODevice::ReadOnly, QFile::DontCloseHandle);
+        QFile dst(tmpPath);
+        if (!dst.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+            return {{QStringLiteral("response"), 2u},
+                    {QStringLiteral("error"),    QStringLiteral("cannot-write-temp-file")}};
+        }
+        while (!src.atEnd()) {
+            const QByteArray chunk = src.read(65536);
+            if (chunk.isEmpty()) break;
+            dst.write(chunk);
+        }
+    }
+
+    // Build lp argument list from portal print settings.
+    QStringList lpArgs = lpArgsFromPortalSettings(settings);
+    lpArgs << tmpPath;
+
+    QProcess lp;
+    lp.setProgram(QStringLiteral("lp"));
+    lp.setArguments(lpArgs);
+    lp.setProcessChannelMode(QProcess::MergedChannels);
+    lp.start();
+
+    const bool finished = lp.waitForFinished(15000);
+    const QString output = QString::fromUtf8(lp.readAllStandardOutput()).trimmed();
+
+    // Clean up the temp file regardless of outcome.
+    QFile::remove(tmpPath);
+
+    if (!finished || lp.exitCode() != 0) {
+        const QString err = output.isEmpty()
+                            ? QStringLiteral("lp failed (exit %1)").arg(lp.exitCode())
+                            : output;
+        return {{QStringLiteral("response"), 2u},
+                {QStringLiteral("error"),    err}};
+    }
+
+    return {{QStringLiteral("response"), 0u},
+            {QStringLiteral("results"),  QVariantMap{}}};
 }

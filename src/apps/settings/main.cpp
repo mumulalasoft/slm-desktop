@@ -5,19 +5,42 @@
 #include <QCommandLineParser>
 #include <QString>
 #include <QLibraryInfo>
+#include <QDir>
+#include <QFileInfo>
 
 using namespace Qt::StringLiterals;
 
 #include "settingsapp.h"
 #include "globalsearchprovider.h"
+#include "wallpapermanager.h"
+#include "mimeappsmanager.h"
+#include "thememanager.h"
+#include "fontmanager.h"
 #include "../../core/prefs/uipreferences.h"
+#include "../../core/icons/themeiconprovider.h"
 #include "../../printing/core/PrinterManager.h"
+#include "../../printing/core/PrinterAdminService.h"
 
 int main(int argc, char *argv[])
 {
+    qputenv("QT_QUICK_CONTROLS_FALLBACK_STYLE", "Basic");
+    const QString appDir = QFileInfo(QString::fromLocal8Bit(argv[0])).absolutePath();
+    const QString currentStylePath = QDir::current().filePath("Style");
+    const QString appStylePath     = QDir(appDir).filePath("Style");
+    const QString selectedStylePath =
+        QFileInfo::exists(currentStylePath) ? currentStylePath : appStylePath;
+
+    QString styleImportRoot;
+    if (QFileInfo::exists(selectedStylePath)) {
+        qputenv("QT_QUICK_CONTROLS_STYLE", "Style");
+        styleImportRoot = QFileInfo(selectedStylePath).absolutePath();
+    } else {
+        qputenv("QT_QUICK_CONTROLS_STYLE", "Basic");
+    }
+
     QGuiApplication app(argc, argv);
-    app.setOrganizationName("Antigravity");
-    app.setApplicationName("SlmSettings");
+    app.setOrganizationName("SLM");
+    app.setApplicationName("SLM Desktop");
     app.setWindowIcon(QIcon::fromTheme("preferences-system"));
 
     QCommandLineParser parser;
@@ -38,14 +61,30 @@ int main(int argc, char *argv[])
 
     QQmlApplicationEngine engine;
     const QString qtQmlImportPath = QLibraryInfo::path(QLibraryInfo::QmlImportsPath);
-    if (!qtQmlImportPath.trimmed().isEmpty()) {
+    if (!qtQmlImportPath.trimmed().isEmpty())
         engine.addImportPath(qtQmlImportPath);
-    }
+    if (!styleImportRoot.isEmpty())
+        engine.addImportPath(styleImportRoot);
+    // Ensure embedded resources (qrc:/qt/qml) take precedence over the
+    // filesystem build/ directory so the Theme-only Slm_Desktop shim is
+    // found before the full Slm_Desktop module written by appSlm_Desktop.
+    engine.addImportPath(u"qrc:/qt/qml"_s);
+    engine.addImageProvider(QStringLiteral("icon"), new ThemeIconProvider);
     const QUrl url(u"qrc:/qt/qml/SlmSettings/Qml/apps/settings/Main.qml"_s);
     UIPreferences uiPreferences;
     Slm::Print::PrinterManager printManager;
+    Slm::Print::PrinterAdminService printerAdmin;
+    WallpaperManager wallpaperManager(&uiPreferences);
+    MimeAppsManager mimeAppsManager;
+    ThemeManager themeManager(&uiPreferences);
+    FontManager fontManager(&uiPreferences);
     engine.rootContext()->setContextProperty(QStringLiteral("UIPreferences"), &uiPreferences);
     engine.rootContext()->setContextProperty(QStringLiteral("PrintManager"), &printManager);
+    engine.rootContext()->setContextProperty(QStringLiteral("PrinterAdmin"), &printerAdmin);
+    engine.rootContext()->setContextProperty(QStringLiteral("WallpaperManager"), &wallpaperManager);
+    engine.rootContext()->setContextProperty(QStringLiteral("MimeAppsManager"), &mimeAppsManager);
+    engine.rootContext()->setContextProperty(QStringLiteral("ThemeManager"), &themeManager);
+    engine.rootContext()->setContextProperty(QStringLiteral("FontManager"), &fontManager);
     printManager.reload();
 
     // Create the main application controller
@@ -78,11 +117,16 @@ int main(int argc, char *argv[])
     }
 
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreated,
-                     &app, [url](QObject *obj, const QUrl &objUrl) {
-        if (!obj && url == objUrl)
+                     &app, [url, &settingsApp](QObject *obj, const QUrl &objUrl) {
+        if (!obj && url == objUrl) {
             QCoreApplication::exit(-1);
+            return;
+        }
+        if (obj && url == objUrl) {
+            settingsApp.raiseWindow();
+        }
     }, Qt::QueuedConnection);
-    
+
     engine.load(url);
 
     return app.exec();

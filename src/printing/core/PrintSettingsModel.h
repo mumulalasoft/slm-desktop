@@ -19,6 +19,8 @@ class PrintSettingsModel : public QObject
     Q_PROPERTY(QString colorMode READ colorMode WRITE setColorMode NOTIFY settingsChanged)
     Q_PROPERTY(QString quality READ quality WRITE setQuality NOTIFY settingsChanged)
     Q_PROPERTY(double scale READ scale WRITE setScale NOTIFY settingsChanged)
+    Q_PROPERTY(QString mediaSource READ mediaSource WRITE setMediaSource NOTIFY settingsChanged)
+    Q_PROPERTY(int resolutionDpi READ resolutionDpi WRITE setResolutionDpi NOTIFY settingsChanged)
     Q_PROPERTY(QVariantMap pluginFeatures READ pluginFeatures WRITE setPluginFeatures NOTIFY settingsChanged)
 
 public:
@@ -33,6 +35,8 @@ public:
     QString colorMode() const { return toString(m_ticket.colorMode); }
     QString quality() const { return m_ticket.quality; }
     double scale() const { return m_ticket.scale; }
+    QString mediaSource() const { return m_ticket.mediaSource; }
+    int resolutionDpi() const { return m_ticket.resolutionDpi; }
     QVariantMap pluginFeatures() const { return m_ticket.pluginFeatures; }
 
     void setPrinterId(const QString &value);
@@ -44,6 +48,8 @@ public:
     void setColorMode(const QString &value);
     void setQuality(const QString &value);
     void setScale(double value);
+    void setMediaSource(const QString &value);
+    void setResolutionDpi(int value);
     void setPluginFeatures(const QVariantMap &value);
 
     Q_INVOKABLE void resetDefaults();

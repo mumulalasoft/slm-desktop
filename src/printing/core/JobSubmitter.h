@@ -27,14 +27,32 @@ public:
     // }
     Q_INVOKABLE QVariantMap submit(const QVariantMap &jobPayload);
 
+    // Requests cancellation of the job identified by the opaque handle returned
+    // by submit(). No-op if the handle is not a valid job id string.
+    Q_INVOKABLE void cancel(const QString &jobHandle);
+
+    // True if the last submission required a pdf→ps conversion pipe.
+    Q_PROPERTY(bool lastUsedConversionPipe READ lastUsedConversionPipe NOTIFY submissionFinished)
+    bool lastUsedConversionPipe() const { return m_lastUsedConversionPipe; }
+
     static QString parseJobId(const QString &lpOutput);
+
+    // Returns the path of pdf2ps or gs that can produce PostScript, or empty string.
+    static QString detectPsConverter();
 
 signals:
     void submissionFinished(const QVariantMap &result);
 
 private:
+    QVariantMap submitDirect(const QString &printerId, const QString &localPath,
+                             const QVariantMap &jobAttributes);
+    QVariantMap submitViaPipe(const QString &printerId, const QString &localPath,
+                              const QVariantMap &jobAttributes);
+    QStringList buildLpArgs(const QString &printerId, const QVariantMap &jobAttributes) const;
+
     QString m_lastJobId;
     QString m_lastError;
+    bool m_lastUsedConversionPipe = false;
 };
 
 } // namespace Slm::Print
