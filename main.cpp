@@ -65,6 +65,7 @@
 #include "filemanagermodel.h"
 #include "filemanagermodelfactory.h"
 #include "src/filemanager/ops/globalprogresscenter.h"
+#include "src/filemanager/FileManagerShellBridge.h"
 #include "src/core/motion/slmmotioncontroller.h"
 #include "src/printing/core/PrinterManager.h"
 #include "src/printing/core/PrintSession.h"
@@ -217,6 +218,7 @@ int main(int argc, char *argv[])
     ScreenshotSaveHelper screenshotSaveHelper;
     PortalUiBridge portalUiBridge;
     FileManagerApi fileManagerApi;
+    FileManagerShellBridge fileManagerShellBridge(&fileManagerApi);
     MetadataIndexServer metadataIndexServer(&fileManagerApi);
     FileManagerModel fileManagerModel(&fileManagerApi, &metadataIndexServer);
     FileManagerModelFactory fileManagerModelFactory(&fileManagerApi, &metadataIndexServer);
@@ -337,6 +339,8 @@ int main(int argc, char *argv[])
                                               startupArgs.startWindowed,
                                               startupArgs.windowWidth,
                                               startupArgs.windowHeight);
+    engine.rootContext()->setContextProperty(QStringLiteral("FileManagerShellBridge"),
+                                             &fileManagerShellBridge);
     engine.rootContext()->setContextProperty(QStringLiteral("slmActionTreeDebug"),
                                              slmActionTreeDebug);
     engine.rootContext()->setContextProperty(QStringLiteral("SessionStateClient"), &sessionStateClient);
