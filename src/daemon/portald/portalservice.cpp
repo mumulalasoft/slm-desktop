@@ -3,9 +3,9 @@
 #include "../../../dbuslogutils.h"
 #include "portalmanager.h"
 #include "portal-adapter/PortalBackendService.h"
-#include "../../../portalmethodnames.h"
-#include "../../../portalresponsebuilder.h"
-#include "../../../portalvalidation.h"
+#include "portalmethodnames.h"
+#include "portalresponsebuilder.h"
+#include "portalvalidation.h"
 
 #include <QDBusArgument>
 #include <QDBusConnection>

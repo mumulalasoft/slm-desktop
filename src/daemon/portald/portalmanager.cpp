@@ -1,7 +1,7 @@
 #include "portalmanager.h"
-#include "../../../portalmethodnames.h"
-#include "../../../portalresponsebuilder.h"
-#include "../../../portalvalidation.h"
+#include "portalmethodnames.h"
+#include "portalresponsebuilder.h"
+#include "portalvalidation.h"
 
 #include <QDBusConnection>
 #include <QDBusInterface>

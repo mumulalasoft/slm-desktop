@@ -2,7 +2,7 @@
 
 #include "implportaladaptors.h"
 #include "portalmanager.h"
-#include "../../../portalresponsebuilder.h"
+#include "portalresponsebuilder.h"
 #include "portal-adapter/PortalAppContextResolver.h"
 #include "portal-adapter/PortalBackendService.h"
 #include "../../core/permissions/Capability.h"
