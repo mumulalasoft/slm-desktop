@@ -66,6 +66,7 @@
 #include "filemanagermodelfactory.h"
 #include "src/filemanager/ops/globalprogresscenter.h"
 #include "src/filemanager/FileManagerShellBridge.h"
+#include "src/filemanager/ThumbnailImageProvider.h"
 #include "src/core/motion/slmmotioncontroller.h"
 #include "src/printing/core/PrinterManager.h"
 #include "src/printing/core/PrintSession.h"
@@ -219,6 +220,9 @@ int main(int argc, char *argv[])
     PortalUiBridge portalUiBridge;
     FileManagerApi fileManagerApi;
     FileManagerShellBridge fileManagerShellBridge(&fileManagerApi);
+    // ThumbnailImageProvider: QML Image { source: "image://thumbnail/256/" + filePath }
+    engine.addImageProvider(QStringLiteral("thumbnail"),
+                            new ThumbnailImageProvider(&fileManagerApi));
     MetadataIndexServer metadataIndexServer(&fileManagerApi);
     FileManagerModel fileManagerModel(&fileManagerApi, &metadataIndexServer);
     FileManagerModelFactory fileManagerModelFactory(&fileManagerApi, &metadataIndexServer);
@@ -341,6 +345,8 @@ int main(int argc, char *argv[])
                                               startupArgs.windowHeight);
     engine.rootContext()->setContextProperty(QStringLiteral("FileManagerShellBridge"),
                                              &fileManagerShellBridge);
+    // Recent files tersedia via FileManagerApi.recentFiles(limit) dari QML.
+    // Tidak perlu model terpisah — QML memanggil langsung saat sidebar dibuka.
     engine.rootContext()->setContextProperty(QStringLiteral("slmActionTreeDebug"),
                                              slmActionTreeDebug);
     engine.rootContext()->setContextProperty(QStringLiteral("SessionStateClient"), &sessionStateClient);

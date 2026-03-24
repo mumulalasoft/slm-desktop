@@ -198,6 +198,8 @@ set(DESKTOP_SHELL_SERVICES
     ${FILEMANAGER_PROGRESS_SOURCES}
     src/filemanager/FileManagerShellBridge.cpp
     src/filemanager/FileManagerShellBridge.h
+    src/filemanager/ThumbnailImageProvider.cpp
+    src/filemanager/ThumbnailImageProvider.h
     src/core/actions/slmactiontypes.cpp
     src/core/actions/slmactiontypes.h
     src/core/actions/slmactioncondition.cpp
