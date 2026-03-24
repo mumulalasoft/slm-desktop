@@ -1,5 +1,0 @@
-cmake_minimum_required(VERSION 3.21)
-project(slm_filemanager_package_smoke LANGUAGES CXX)
-find_package(SlmFileManager CONFIG REQUIRED)
-add_library(pkg_smoke INTERFACE)
-target_link_libraries(pkg_smoke INTERFACE SlmFileManager::Core)

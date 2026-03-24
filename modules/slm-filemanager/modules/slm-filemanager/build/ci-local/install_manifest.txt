@@ -1,8 +1,0 @@
-/home/garis/Development/Qt/Desktop_Shell/modules/slm-filemanager/modules/slm-filemanager/build/ci-local/install/lib/libslm-filemanager-core.a
-/home/garis/Development/Qt/Desktop_Shell/modules/slm-filemanager/modules/slm-filemanager/build/ci-local/install/include/slm-filemanager/filemanagerapi.h
-/home/garis/Development/Qt/Desktop_Shell/modules/slm-filemanager/modules/slm-filemanager/build/ci-local/install/include/slm-filemanager/filemanagermodel.h
-/home/garis/Development/Qt/Desktop_Shell/modules/slm-filemanager/modules/slm-filemanager/build/ci-local/install/include/slm-filemanager/filemanagermodelfactory.h
-/home/garis/Development/Qt/Desktop_Shell/modules/slm-filemanager/modules/slm-filemanager/build/ci-local/install/lib/cmake/SlmFileManager/SlmFileManagerTargets.cmake
-/home/garis/Development/Qt/Desktop_Shell/modules/slm-filemanager/modules/slm-filemanager/build/ci-local/install/lib/cmake/SlmFileManager/SlmFileManagerTargets-noconfig.cmake
-/home/garis/Development/Qt/Desktop_Shell/modules/slm-filemanager/modules/slm-filemanager/build/ci-local/install/lib/cmake/SlmFileManager/SlmFileManagerConfig.cmake
-/home/garis/Development/Qt/Desktop_Shell/modules/slm-filemanager/modules/slm-filemanager/build/ci-local/install/lib/cmake/SlmFileManager/SlmFileManagerConfigVersion.cmake
