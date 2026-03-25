@@ -153,6 +153,22 @@ bool EnvServiceClient::unsetSessionVar(const QString &key)
     return r.isValid() && callOk(r.value());
 }
 
+// ── Per-app discovery ─────────────────────────────────────────────────────────
+
+QVariantList EnvServiceClient::getAppVars(const QString &appId)
+{
+    if (!ensureIface()) return {};
+    QDBusReply<QVariantList> r = m_iface->call(QStringLiteral("GetAppVars"), appId);
+    return r.isValid() ? r.value() : QVariantList{};
+}
+
+QStringList EnvServiceClient::listAppsWithOverrides()
+{
+    if (!ensureIface()) return {};
+    QDBusReply<QStringList> r = m_iface->call(QStringLiteral("ListAppsWithOverrides"));
+    return r.isValid() ? r.value() : QStringList{};
+}
+
 // ── Resolver ─────────────────────────────────────────────────────────────────
 
 QVariantMap EnvServiceClient::resolveEnv(const QString &appId)

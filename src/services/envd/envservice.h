@@ -50,6 +50,10 @@ public:
                    const QString &value, const QString &mergeMode);
     bool removeAppVar(const QString &appId, const QString &key);
 
+    // ── Per-app discovery ────────────────────────────────────────────────────
+    QVariantList appVars(const QString &appId) const;
+    QStringList  appsWithOverrides() const;
+
     // ── Resolver ─────────────────────────────────────────────────────────────
 
     // Returns the fully-merged environment for a given app ID.

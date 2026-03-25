@@ -31,6 +31,10 @@ set(DESKTOP_SHELL_MODELS_AND_RUNTIME
     src/core/execution/appexecutiongate.h
     src/core/execution/appruntimeregistry.cpp
     src/core/execution/appruntimeregistry.h
+    src/core/launcher/applauncher.cpp
+    src/core/launcher/applauncher.h
+    src/core/launcher/launchenvresolver.cpp
+    src/core/launcher/launchenvresolver.h
     src/core/workspace/spacesmanager.cpp
     src/core/workspace/spacesmanager.h
     src/core/workspace/workspacemanager.cpp

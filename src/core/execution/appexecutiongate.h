@@ -4,6 +4,7 @@
 #include <QVariantMap>
 
 class DockModel;
+class LaunchEnvResolver;
 class ShortcutModel;
 class UIPreferences;
 
@@ -34,13 +35,18 @@ public:
     Q_INVOKABLE bool launchFromTerminal(const QString &command,
                                         const QString &workingDirectory = QString());
 
+    // Attach an env resolver so all subsequent launches inject the effective
+    // environment from slm-envd.  Pass nullptr to disable.
+    void setLaunchEnvResolver(LaunchEnvResolver *resolver);
+
 signals:
     void appExecutionRecorded(QString source, QString name, QString desktopFile, QString executable, bool success);
 
 private:
     bool verboseLoggingEnabled() const;
 
-    DockModel *m_dockModel = nullptr;
-    ShortcutModel *m_shortcutModel = nullptr;
-    UIPreferences *m_uiPreferences = nullptr;
+    DockModel          *m_dockModel       = nullptr;
+    ShortcutModel      *m_shortcutModel   = nullptr;
+    UIPreferences      *m_uiPreferences   = nullptr;
+    LaunchEnvResolver  *m_envResolver     = nullptr;
 };

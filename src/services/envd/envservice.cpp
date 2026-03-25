@@ -3,6 +3,8 @@
 #include "../../apps/settings/modules/developer/envvalidator.h"
 
 #include <QDateTime>
+#include <QDir>
+#include <QStandardPaths>
 
 EnvService::EnvService(QObject *parent)
     : QObject(parent)
@@ -169,6 +171,45 @@ bool EnvService::removeAppVar(const QString &appId, const QString &key)
         return false;
     }
     return true;
+}
+
+// ── Per-app discovery ─────────────────────────────────────────────────────────
+
+QVariantList EnvService::appVars(const QString &appId) const
+{
+    QVariantList result;
+    for (const EnvEntry &e : m_perAppStore.entries(appId)) {
+        QVariantMap m;
+        m[QStringLiteral("key")]        = e.key;
+        m[QStringLiteral("value")]      = e.value;
+        m[QStringLiteral("enabled")]    = e.enabled;
+        m[QStringLiteral("mergeMode")]  = e.mergeMode;
+        m[QStringLiteral("modifiedAt")] = e.modifiedAt.toString(Qt::ISODate);
+        result.append(m);
+    }
+    return result;
+}
+
+QStringList EnvService::appsWithOverrides() const
+{
+    // PerAppEnvStore tracks which app IDs have been loaded/modified.
+    // Scan the on-disk directory for app JSON files.
+    const QString dir = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation)
+                        + QStringLiteral("/slm/environment.d/apps");
+    QStringList apps;
+    const QDir d(dir);
+    if (d.exists()) {
+        const QStringList files = d.entryList(QStringList{QStringLiteral("*.json")},
+                                              QDir::Files | QDir::Readable);
+        for (const QString &f : files) {
+            QString id = f;
+            if (id.endsWith(QStringLiteral(".json"), Qt::CaseInsensitive))
+                id.chop(5);
+            if (!id.isEmpty())
+                apps.append(id);
+        }
+    }
+    return apps;
 }
 
 // ── Resolver ─────────────────────────────────────────────────────────────────

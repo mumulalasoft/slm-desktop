@@ -37,6 +37,10 @@ public:
                        const QString &mergeMode = QStringLiteral("replace"));
     bool unsetSessionVar(const QString &key);
 
+    // ── Per-app discovery ────────────────────────────────────────────────────
+    QVariantList getAppVars(const QString &appId);
+    QStringList  listAppsWithOverrides();
+
     // ── Resolver ─────────────────────────────────────────────────────────────
     QVariantMap  resolveEnv(const QString &appId = {});
     QStringList  resolveEnvList(const QString &appId = {});

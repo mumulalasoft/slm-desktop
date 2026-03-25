@@ -191,6 +191,9 @@ qt_add_executable(appSlm_Desktop
     ${DESKTOP_SHELL_APP_ENTRY}
     ${DESKTOP_SHELL_MODELS_AND_RUNTIME}
     ${DESKTOP_SHELL_SERVICES}
+    src/apps/settings/modules/developer/enventry.h
+    src/apps/settings/modules/developer/envserviceclient.cpp
+    src/apps/settings/modules/developer/envserviceclient.h
 )
 target_include_directories(appSlm_Desktop PRIVATE
     ${CMAKE_SOURCE_DIR}
@@ -306,6 +309,10 @@ qt_add_executable(slm-settings
     src/services/envd/perappenvstore.h
     src/services/envd/envservice.cpp
     src/services/envd/envservice.h
+    src/apps/settings/modules/developer/perappoverridescontroller.cpp
+    src/apps/settings/modules/developer/perappoverridescontroller.h
+    src/core/launcher/launchenvresolver.cpp
+    src/core/launcher/launchenvresolver.h
 )
 
 qt_add_executable(slmcapdemo
@@ -2236,6 +2243,17 @@ qt_add_executable(mergeresolver_test
 target_link_libraries(mergeresolver_test PRIVATE Qt6::Core Qt6::Test)
 add_test(NAME mergeresolver_test COMMAND $<TARGET_FILE:mergeresolver_test>)
 
+qt_add_executable(launchenvresolver_test
+    src/core/launcher/launchenvresolver.cpp
+    src/core/launcher/launchenvresolver.h
+    src/apps/settings/modules/developer/envserviceclient.cpp
+    src/apps/settings/modules/developer/envserviceclient.h
+    src/apps/settings/modules/developer/enventry.h
+    tests/launchenvresolver_test.cpp
+)
+target_link_libraries(launchenvresolver_test PRIVATE Qt6::Core Qt6::DBus Qt6::Test)
+add_test(NAME launchenvresolver_test COMMAND $<TARGET_FILE:launchenvresolver_test>)
+
 qt_add_executable(printermanager_test
     src/printing/core/PrintTypes.h
     src/printing/core/PrinterCapabilityProvider.cpp
@@ -3332,6 +3350,7 @@ add_custom_target(test_headless
         localenvstore_test
         envvariablecontroller_test
         mergeresolver_test
+        launchenvresolver_test
         printsettingsmodel_test
         printermanager_test
         printpreviewmodel_test

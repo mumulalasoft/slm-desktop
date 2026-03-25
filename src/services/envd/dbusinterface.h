@@ -55,6 +55,10 @@ public slots:
     QVariantMap  ResolveEnv(const QString &appId);
     QStringList  ResolveEnvList(const QString &appId);
 
+    // ── Per-app discovery ────────────────────────────────────────────────────
+    QVariantList GetAppVars(const QString &appId);
+    QStringList  ListAppsWithOverrides();
+
     // ── Introspection ────────────────────────────────────────────────────────
     QString ServiceVersion();
 

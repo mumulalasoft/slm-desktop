@@ -23,6 +23,7 @@ using namespace Qt::StringLiterals;
 #include "modules/developer/envvariablecontroller.h"
 #include "modules/developer/envserviceclient.h"
 #include "modules/developer/effectiveenvpreviewcontroller.h"
+#include "modules/developer/perappoverridescontroller.h"
 
 int main(int argc, char *argv[])
 {
@@ -80,6 +81,7 @@ int main(int argc, char *argv[])
     EnvVariableController envVarController;
     EnvServiceClient envServiceClient;
     EffectiveEnvPreviewController effectiveEnvPreview(&envServiceClient);
+    PerAppOverridesController perAppOverrides(&envServiceClient);
     WallpaperManager wallpaperManager(&uiPreferences);
     MimeAppsManager mimeAppsManager;
     ThemeManager themeManager(&uiPreferences);
@@ -94,6 +96,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("EnvVarController"), &envVarController);
     engine.rootContext()->setContextProperty(QStringLiteral("EnvServiceClient"), &envServiceClient);
     engine.rootContext()->setContextProperty(QStringLiteral("EffectiveEnvPreview"), &effectiveEnvPreview);
+    engine.rootContext()->setContextProperty(QStringLiteral("PerAppOverrides"), &perAppOverrides);
     printManager.reload();
 
     // Create the main application controller

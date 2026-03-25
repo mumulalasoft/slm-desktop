@@ -123,6 +123,18 @@ QStringList DbusInterface::ResolveEnvList(const QString &appId)
     return m_service->resolveEnvList(appId);
 }
 
+// ── Per-app discovery ─────────────────────────────────────────────────────────
+
+QVariantList DbusInterface::GetAppVars(const QString &appId)
+{
+    return m_service->appVars(appId);
+}
+
+QStringList DbusInterface::ListAppsWithOverrides()
+{
+    return m_service->appsWithOverrides();
+}
+
 // ── Introspection ─────────────────────────────────────────────────────────────
 
 QString DbusInterface::ServiceVersion()
