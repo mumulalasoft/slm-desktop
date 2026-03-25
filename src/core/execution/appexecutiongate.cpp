@@ -253,11 +253,11 @@ bool AppExecutionGate::launchCommand(const QString &command, const QString &work
     }
 
     bool ok = false;
+    qint64 pid = -1;
     if (m_envResolver) {
         const QProcessEnvironment env = m_envResolver->resolve(QString{});
         ok = AppLauncher::launchCommand(cmd, workingDirectory, env);
     } else {
-        qint64 pid = -1;
         const QString shell = QStringLiteral("/bin/bash");
         const QStringList args{QStringLiteral("-lc"), cmd};
         ok = QProcess::startDetached(shell, args,
