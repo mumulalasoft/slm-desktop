@@ -20,6 +20,7 @@ using namespace Qt::StringLiterals;
 #include "../../core/icons/themeiconprovider.h"
 #include "../../printing/core/PrinterManager.h"
 #include "../../printing/core/PrinterAdminService.h"
+#include "modules/developer/envvariablecontroller.h"
 
 int main(int argc, char *argv[])
 {
@@ -74,6 +75,7 @@ int main(int argc, char *argv[])
     UIPreferences uiPreferences;
     Slm::Print::PrinterManager printManager;
     Slm::Print::PrinterAdminService printerAdmin;
+    EnvVariableController envVarController;
     WallpaperManager wallpaperManager(&uiPreferences);
     MimeAppsManager mimeAppsManager;
     ThemeManager themeManager(&uiPreferences);
@@ -85,6 +87,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("MimeAppsManager"), &mimeAppsManager);
     engine.rootContext()->setContextProperty(QStringLiteral("ThemeManager"), &themeManager);
     engine.rootContext()->setContextProperty(QStringLiteral("FontManager"), &fontManager);
+    engine.rootContext()->setContextProperty(QStringLiteral("EnvVarController"), &envVarController);
     printManager.reload();
 
     // Create the main application controller

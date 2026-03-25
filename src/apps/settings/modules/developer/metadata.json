@@ -1,0 +1,19 @@
+{
+    "id": "developer",
+    "name": "Developer",
+    "icon": "utilities-terminal",
+    "group": "System",
+    "description": "Developer tools and advanced system configuration.",
+    "keywords": ["developer", "debug", "environment", "variables", "env", "terminal", "advanced"],
+    "main": "EnvVariablesPage.qml",
+    "settings": [
+        {
+            "id": "env-variables",
+            "label": "Environment Variables",
+            "description": "Manage session, user, and system environment variables",
+            "keywords": ["env", "environment", "variables", "PATH", "shell", "terminal"],
+            "type": "action",
+            "backend_binding": ""
+        }
+    ]
+}

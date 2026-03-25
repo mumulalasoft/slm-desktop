@@ -283,6 +283,14 @@ qt_add_executable(slm-settings
     src/printing/preview/FallbackPdfRenderer.h
     src/printing/preview/PrintPreviewCache.cpp
     src/printing/preview/PrintPreviewCache.h
+    src/apps/settings/modules/developer/envvalidator.cpp
+    src/apps/settings/modules/developer/envvalidator.h
+    src/apps/settings/modules/developer/localenvstore.cpp
+    src/apps/settings/modules/developer/localenvstore.h
+    src/apps/settings/modules/developer/envvariablemodel.cpp
+    src/apps/settings/modules/developer/envvariablemodel.h
+    src/apps/settings/modules/developer/envvariablecontroller.cpp
+    src/apps/settings/modules/developer/envvariablecontroller.h
 )
 
 qt_add_executable(slmcapdemo

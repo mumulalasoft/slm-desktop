@@ -244,6 +244,7 @@ void ModuleLoader::addBuiltinModuleOrder()
         QStringLiteral("mouse"),
         QStringLiteral("applications"),
         QStringLiteral("permissions"),
+        QStringLiteral("developer"),
         QStringLiteral("about")
     };
 
