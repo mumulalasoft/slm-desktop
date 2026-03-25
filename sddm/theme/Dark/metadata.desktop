@@ -1,0 +1,17 @@
+[SddmGreeterTheme]
+Name=SLM-Dark
+Description=SLM login theme (Dark)
+Author=SLM Desktop Team
+Copyright=(c) 2026, SLM Desktop Team
+License=CC-BY-SA
+Type=sddm-theme
+Version=1.0
+Website=https://slm.local
+Screenshot=Preview.jpeg
+MainScript=Main.qml
+ConfigFile=theme.conf
+TranslationsDirectory=translations
+Email=maintainers@slm.local
+Theme-Id=SLM-Dark
+Theme-API=2.0
+QtVersion=6
