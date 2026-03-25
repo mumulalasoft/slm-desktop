@@ -4,6 +4,7 @@
 #include <QImage>
 #include <QReadWriteLock>
 #include <QStringList>
+#include <QList>
 
 namespace Slm::Print {
 
@@ -30,8 +31,8 @@ private:
     void evictLru();
 
     mutable QReadWriteLock m_lock;
-    QHash<QString, QImage> m_store;
-    QStringList m_lruOrder; // front = LRU, back = MRU
+    mutable QHash<QString, QImage> m_store;
+    mutable QStringList m_lruOrder; // front = LRU, back = MRU
     int m_maxEntries;
 };
 

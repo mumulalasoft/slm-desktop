@@ -96,7 +96,7 @@ struct PrinterCapability {
     QStringList qualityModes;
 
     QList<int>          resolutionsDpi;
-    QList<MediaSource>  paperSources;
+    QList<MediaSource>  mediaSources;
 
     // Vendor/plugin features (declarative descriptor JSON stored here)
     QVariantMap vendorExtensions;
@@ -115,7 +115,7 @@ struct PrintTicket {
     ColorMode   colorMode   = ColorMode::Color;
     QString quality     = QStringLiteral("standard"); // "draft"/"standard"/"high"
     double  scale       = 100.0;
-    QString paperSource = QStringLiteral("auto");
+    QString mediaSource = QStringLiteral("auto");
     int     resolutionDpi = 0;                       // 0 = printer default
     QVariantMap pluginFeatures;
 };

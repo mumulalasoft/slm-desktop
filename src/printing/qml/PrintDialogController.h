@@ -109,6 +109,7 @@ private:
     QString m_lastError;
     QString m_lastJobId;
     QString m_activePrinterId;
+    QString m_activeDocumentTitle;
 };
 
 } // namespace Slm::Print

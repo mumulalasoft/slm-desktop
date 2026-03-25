@@ -610,7 +610,6 @@ Window {
                 Accessible.role: Accessible.Button
                 Accessible.name: dialog.isSubmitting ? qsTr("Sending print job") : qsTr("Print")
                 Accessible.description: qsTr("Send document to printer")
-                KeyNavigation.tab: printerCombo
                 onClicked: dialog.submitPrint()
             }
         }

@@ -1,6 +1,6 @@
 #include <QtTest/QtTest>
 
-#include "../portalmethodnames.h"
+#include "../src/daemon/portald/portalmethodnames.h"
 #include "../src/daemon/portald/portalmanager.h"
 
 class PortalManagerVisualContractTest : public QObject

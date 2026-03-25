@@ -4,7 +4,7 @@
 #include <QDBusInterface>
 #include <QDBusReply>
 
-#include "../portalmethodnames.h"
+#include "../src/daemon/portald/portalmethodnames.h"
 #include "../src/daemon/portald/portalmanager.h"
 #include "../src/daemon/portald/portalservice.h"
 

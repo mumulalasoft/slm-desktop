@@ -85,7 +85,7 @@ void PrintSettingsModelTest::ippSerialization()
     ticket.paperSize = QStringLiteral("A5");
     ticket.orientation = Orientation::Landscape;
     ticket.duplex = DuplexMode::ShortEdge;
-    ticket.colorMode = ColorMode::Monochrome;
+    ticket.colorMode = ColorMode::Grayscale;
     ticket.quality = QStringLiteral("high");
     ticket.pageRange = QStringLiteral("2-4");
     ticket.scale = 90.0;

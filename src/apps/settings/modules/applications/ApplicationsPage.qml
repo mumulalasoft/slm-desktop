@@ -64,20 +64,19 @@ Flickable {
                         ComboBox {
                             id: combo
                             model: {
-                                if (parent.parent.apps.length === 0)
+                                if (apps.length === 0)
                                     return [qsTr("No apps found")]
-                                return parent.parent.apps.map(a => a.name)
+                                return apps.map(a => a.name)
                             }
-                            currentIndex: Math.max(0, parent.parent.selectedIndex)
-                            enabled: parent.parent.apps.length > 0
+                            currentIndex: Math.max(0, selectedIndex)
+                            enabled: apps.length > 0
                             Layout.preferredWidth: 240
 
                             onActivated: {
-                                const row = parent.parent.parent // SettingCard content
                                 MimeAppsManager.setDefaultApp(
                                     modelData.mime,
-                                    row.apps[currentIndex].id)
-                                row.selectedIndex = currentIndex
+                                    apps[currentIndex].id)
+                                selectedIndex = currentIndex
                             }
                         }
 

@@ -31,7 +31,7 @@ Flickable {
             }
 
             Text {
-                text: "Antigravity Desktop"
+                text: "SLM Desktop"
                 font.pixelSize: 22
                 font.weight: Font.Bold
                 Layout.alignment: Qt.AlignHCenter

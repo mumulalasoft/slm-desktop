@@ -2,7 +2,7 @@
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
 
-#include "../portalmethodnames.h"
+#include "../src/daemon/portald/portalmethodnames.h"
 #include "../src/daemon/portald/portalmanager.h"
 
 namespace {

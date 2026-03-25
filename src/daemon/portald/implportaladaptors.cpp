@@ -505,5 +505,4 @@ QVariantMap ImplPortalPrintAdaptor::Print(const QString &handle,
         ? m_service->BridgePrintPrint(handle, appId, parentWindow, title, fd, options)
         : QVariantMap{{QStringLiteral("response"), 2u},
                       {QStringLiteral("error"), QStringLiteral("BackendUnavailable")}};
-};
 }

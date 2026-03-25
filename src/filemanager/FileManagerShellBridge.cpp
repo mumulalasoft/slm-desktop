@@ -1,6 +1,7 @@
 #include "FileManagerShellBridge.h"
 
 #include <QDBusConnection>
+#include <QDBusConnectionInterface>
 #include <QDBusServiceWatcher>
 #include <QDBusReply>
 #include <QTimer>
@@ -423,13 +424,11 @@ void FileManagerShellBridge::searchFiles(const QString &rootPath,
         return;
     }
     qCDebug(logFmBridge) << "searchFiles [" << sessionId << "]" << query << "in" << rootPath;
-    m_activeSearchSessions[sessionId] = true;
-
     // Alokasikan search session token dari FileManagerApi
     const qulonglong token = m_api->beginSearchSession();
 
-    // Jalankan di thread pool agar tidak block UI
-    QtConcurrent::run([this, rootPath, query, sessionId, token]() {
+    // Jalankan di thread pool agar tidak block UI; simpan future agar return value tidak di-ignore
+    m_activeSearchSessions[sessionId] = QtConcurrent::run([this, rootPath, query, sessionId, token]() {
         const auto result = m_api->searchDirectory(
             rootPath, query, /*includeHidden=*/false,
             /*dirFirst=*/true, /*maxResults=*/200, token);

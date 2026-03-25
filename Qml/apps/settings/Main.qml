@@ -13,9 +13,9 @@ ApplicationWindow {
     minimumWidth: 900
     minimumHeight: 620
     title: qsTr("System Settings")
-    color: Theme.color("windowBg")
+    color: "transparent"
 
-    property string searchText: SearchEngine.searchQuery
+    property string searchText: SearchEngine ? SearchEngine.searchQuery : ""
 
     // Wire UIPreferences → Theme on startup and on changes.
     Component.onCompleted: {
@@ -38,124 +38,156 @@ ApplicationWindow {
 
     Shortcut {
         sequence: "Ctrl+K"
-        onActivated: SettingsApp.commandPaletteVisible = !SettingsApp.commandPaletteVisible
+        onActivated: if (SettingsApp) SettingsApp.commandPaletteVisible = !SettingsApp.commandPaletteVisible
     }
 
     Shortcut {
         sequence: "Escape"
-        onActivated: SettingsApp.commandPaletteVisible = false
+        onActivated: if (SettingsApp) SettingsApp.commandPaletteVisible = false
     }
 
-    SplitView {
-        anchors.fill: parent
-        orientation: Qt.Horizontal
-
-        Sidebar {
-            id: sidebar
-            SplitView.preferredWidth: 280
-            SplitView.minimumWidth: 240
-            SplitView.maximumWidth: 360
-            query: window.searchText
-            moduleModel: query.trim().length > 0 ? SearchEngine.sidebarModules : ModuleLoader.modules
-            currentModuleId: SettingsApp.currentModuleId
-            onQueryChangedByUser: function(text) {
-                SearchEngine.searchQuery = text
-            }
-            onModuleSelected: function(id) {
-                SettingsApp.openModule(id)
-            }
-        }
-
-        ContentPanel {
-            id: contentPanel
-            SplitView.fillWidth: true
-            query: window.searchText
-            onQueryChangedByUser: function(text) {
-                SearchEngine.searchQuery = text
-            }
-        }
-    }
-
-    Label {
-        anchors.right: parent.right
-        anchors.bottom: parent.bottom
-        anchors.rightMargin: 12
-        anchors.bottomMargin: 10
-        z: 90
-        text: "search " + SearchEngine.lastSearchLatencyMs + "ms • results " + SearchEngine.lastSearchResultCount
-              + " • module " + SettingsApp.lastModuleOpenLatencyMs + "ms"
-              + " • deeplink " + SettingsApp.lastDeepLinkLatencyMs + "ms"
-        color: Theme.color("textDisabled")
-        font.pixelSize: Theme.fontSize("xs")
-    }
-
+    // Outer shadow layers (same pattern as DetachedFileManagerWindow).
     Rectangle {
         anchors.fill: parent
-        color: Theme.color("overlay")
-        visible: SettingsApp.commandPaletteVisible
-        z: 100
+        anchors.margins: 1
+        radius: Theme.radiusWindow + 4
+        color: Qt.rgba(0, 0, 0, Theme.windowShadowOuterOpacity)
+    }
+    Rectangle {
+        anchors.fill: parent
+        anchors.margins: 3
+        radius: Theme.radiusWindow + 2
+        color: Qt.rgba(0, 0, 0, Theme.windowShadowInnerOpacity)
+    }
 
-        MouseArea {
+    // Rounded window surface — clips content to rounded corners same as filemanager.
+    Rectangle {
+        id: windowSurface
+        anchors.fill: parent
+        anchors.margins: Theme.windowShadowMargin
+        color: Theme.color("windowBg")
+        radius: Theme.radiusWindow
+        clip: true
+        antialiasing: true
+        border.width: Theme.borderWidthThin
+        border.color: Theme.color("panelBorder")
+
+        SplitView {
             anchors.fill: parent
-            onClicked: SettingsApp.commandPaletteVisible = false
+            orientation: Qt.Horizontal
+
+            Sidebar {
+                id: sidebar
+                SplitView.preferredWidth: 280
+                SplitView.minimumWidth: 240
+                SplitView.maximumWidth: 360
+                query: window.searchText
+                moduleModel: (SearchEngine && query.trim().length > 0) ? SearchEngine.sidebarModules
+                                                                       : (ModuleLoader ? ModuleLoader.modules : [])
+                currentModuleId: SettingsApp ? SettingsApp.currentModuleId : ""
+                onQueryChangedByUser: function(text) {
+                    if (SearchEngine) SearchEngine.searchQuery = text
+                }
+                onModuleSelected: function(id) {
+                    if (SettingsApp) SettingsApp.openModule(id)
+                }
+            }
+
+            ContentPanel {
+                id: contentPanel
+                SplitView.fillWidth: true
+                query: window.searchText
+                onQueryChangedByUser: function(text) {
+                    if (SearchEngine) SearchEngine.searchQuery = text
+                }
+            }
         }
 
-        Pane {
-            id: commandPalette
-            width: Math.min(window.width * 0.72, 760)
-            height: Math.min(window.height * 0.62, 520)
-            anchors.horizontalCenter: parent.horizontalCenter
-            anchors.top: parent.top
-            anchors.topMargin: 80
-            z: 101
-            padding: 14
+        Label {
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            anchors.rightMargin: 12
+            anchors.bottomMargin: 10
+            z: 90
+            text: SearchEngine
+                  ? ("search " + SearchEngine.lastSearchLatencyMs + "ms • results " + SearchEngine.lastSearchResultCount
+                     + " • module " + (SettingsApp ? SettingsApp.lastModuleOpenLatencyMs : 0) + "ms"
+                     + " • deeplink " + (SettingsApp ? SettingsApp.lastDeepLinkLatencyMs : 0) + "ms")
+                  : ""
+            color: Theme.color("textDisabled")
+            font.pixelSize: Theme.fontSize("xs")
+        }
 
-            ColumnLayout {
+        Rectangle {
+            anchors.fill: parent
+            color: Theme.color("overlay")
+            visible: SettingsApp ? SettingsApp.commandPaletteVisible : false
+            z: 100
+
+            MouseArea {
                 anchors.fill: parent
-                spacing: 10
+                onClicked: if (SettingsApp) SettingsApp.commandPaletteVisible = false
+            }
 
-                TextField {
-                    id: commandSearch
-                    Layout.fillWidth: true
-                    placeholderText: qsTr("Command palette")
-                    text: window.searchText
-                    selectByMouse: true
-                    onTextChanged: SearchEngine.searchQuery = text
-                    Component.onCompleted: forceActiveFocus()
-                }
+            Pane {
+                id: commandPalette
+                width: Math.min(window.width * 0.72, 760)
+                height: Math.min(window.height * 0.62, 520)
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.top: parent.top
+                anchors.topMargin: 80
+                z: 101
+                padding: 14
 
-                ListView {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    clip: true
-                    model: SearchEngine.results
-                    currentIndex: 0
-                    delegate: ItemDelegate {
-                        width: ListView.view.width
-                        text: modelData.title
-                        highlighted: ListView.isCurrentItem
-                        onClicked: {
-                            SettingsApp.commandPaletteVisible = false
-                            SettingsApp.openDeepLink(modelData.action)
-                        }
-                        contentItem: RowLayout {
-                            spacing: 10
-                            Image {
-                                source: "image://icon/" + (modelData.icon || "preferences-system")
-                                Layout.preferredWidth: 18
-                                Layout.preferredHeight: 18
-                            }
-                            ColumnLayout {
-                                spacing: 0
-                                Text {
-                                    text: modelData.title
-                                    font.pixelSize: Theme.fontSize("body")
-                                    color: Theme.color("textPrimary")
+                ColumnLayout {
+                    anchors.fill: parent
+                    spacing: 10
+
+                    TextField {
+                        id: commandSearch
+                        Layout.fillWidth: true
+                        placeholderText: qsTr("Command palette")
+                        text: window.searchText
+                        selectByMouse: true
+                        onTextChanged: if (SearchEngine) SearchEngine.searchQuery = text
+                        Component.onCompleted: forceActiveFocus()
+                    }
+
+                    ListView {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        clip: true
+                        model: SearchEngine ? SearchEngine.results : null
+                        currentIndex: 0
+                        delegate: ItemDelegate {
+                            width: ListView.view.width
+                            text: modelData.title
+                            highlighted: ListView.isCurrentItem
+                            onClicked: {
+                                if (SettingsApp) {
+                                    SettingsApp.commandPaletteVisible = false
+                                    SettingsApp.openDeepLink(modelData.action)
                                 }
-                                Text {
-                                    text: modelData.subtitle
-                                    font.pixelSize: Theme.fontSize("xs")
-                                    color: Theme.color("textSecondary")
+                            }
+                            contentItem: RowLayout {
+                                spacing: 10
+                                Image {
+                                    source: "image://icon/" + (modelData.icon || "preferences-system")
+                                    Layout.preferredWidth: 18
+                                    Layout.preferredHeight: 18
+                                }
+                                ColumnLayout {
+                                    spacing: 0
+                                    Text {
+                                        text: modelData.title
+                                        font.pixelSize: Theme.fontSize("body")
+                                        color: Theme.color("textPrimary")
+                                    }
+                                    Text {
+                                        text: modelData.subtitle
+                                        font.pixelSize: Theme.fontSize("xs")
+                                        color: Theme.color("textSecondary")
+                                    }
                                 }
                             }
                         }

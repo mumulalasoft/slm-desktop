@@ -5,6 +5,8 @@
 #include <QSize>
 #include <QVariantMap>
 #include <memory>
+#include "../preview/PrintPreviewCache.h"
+#include "../preview/FallbackPdfRenderer.h"
 
 namespace Slm::Print {
 

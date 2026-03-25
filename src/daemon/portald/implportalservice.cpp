@@ -3563,7 +3563,10 @@ QVariantMap ImplPortalService::BridgePrintPrint(const QString &handle,
                             .arg(QUuid::createUuid().toString(QUuid::WithoutBraces));
     {
         QFile src;
-        src.open(fd.fileDescriptor(), QIODevice::ReadOnly, QFile::DontCloseHandle);
+        if (!src.open(fd.fileDescriptor(), QIODevice::ReadOnly, QFile::DontCloseHandle)) {
+            return {{QStringLiteral("response"), 2u},
+                    {QStringLiteral("error"),    QStringLiteral("cannot-open-fd")}};
+        }
         QFile dst(tmpPath);
         if (!dst.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
             return {{QStringLiteral("response"), 2u},

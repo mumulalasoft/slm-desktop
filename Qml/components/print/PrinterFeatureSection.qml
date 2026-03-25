@@ -158,10 +158,6 @@ Item {
                                 value: (typeof curValue === "number") ? curValue : rangeMin
                                 Accessible.role: Accessible.Slider
                                 Accessible.name: fieldLabel
-                                Accessible.minimumValue: rangeMin
-                                Accessible.maximumValue: rangeMax
-                                Accessible.currentValue: Math.round(
-                                    (typeof curValue === "number") ? curValue : rangeMin)
                                 onMoved: root.commitValue(fieldId, Math.round(value))
                             }
                             DSStyle.Label {

@@ -6,6 +6,7 @@
 #include <QString>
 #include <QStringList>
 #include <QDBusInterface>
+#include <QFuture>
 #include <QLoggingCategory>
 
 Q_DECLARE_LOGGING_CATEGORY(logFmBridge)
@@ -199,6 +200,6 @@ private:
     bool m_fileOpsAvailable = false;
     int m_trashItemCount = 0;
 
-    // sessionId → QFuture atau thread handle untuk search yang sedang berjalan
-    QHash<QString, bool> m_activeSearchSessions;
+    // sessionId → future untuk search yang sedang berjalan
+    QHash<QString, QFuture<void>> m_activeSearchSessions;
 };

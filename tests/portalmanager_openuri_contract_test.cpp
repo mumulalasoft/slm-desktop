@@ -4,7 +4,7 @@
 #include <QFile>
 #include <QTemporaryDir>
 
-#include "../portalmethodnames.h"
+#include "../src/daemon/portald/portalmethodnames.h"
 #include "../src/daemon/portald/portalmanager.h"
 
 class PortalManagerOpenUriContractTest : public QObject

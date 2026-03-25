@@ -274,7 +274,15 @@ qt_add_executable(slm-settings
     src/printing/core/PrinterCapabilityProvider.h
     src/printing/core/PrinterManager.cpp
     src/printing/core/PrinterManager.h
+    src/printing/core/PrinterAdminService.cpp
+    src/printing/core/PrinterAdminService.h
+    src/printing/core/PrintPreviewModel.cpp
+    src/printing/core/PrintPreviewModel.h
     src/printing/core/PrintTypes.h
+    src/printing/preview/FallbackPdfRenderer.cpp
+    src/printing/preview/FallbackPdfRenderer.h
+    src/printing/preview/PrintPreviewCache.cpp
+    src/printing/preview/PrintPreviewCache.h
 )
 
 qt_add_executable(slmcapdemo
@@ -660,6 +668,12 @@ set(DESKTOP_SHELL_QML_FILES
     Qml/apps/filemanager/FileManagerContentView.qml
     Qml/apps/filemanager/FileManagerRecentItem.qml
     Qml/apps/filemanager/FileManagerFavoriteItem.qml
+    Qml/apps/filemanager/FileManagerOpenWithSheet.qml
+    Qml/apps/filemanager/FileManagerRecentFilesModel.qml
+    Qml/apps/filemanager/FileManagerSearchBridge.qml
+    Qml/apps/filemanager/FileManagerSidebarIntegration.qml
+    Qml/apps/filemanager/FileOperationsProgressOverlay.qml
+    Qml/apps/filemanager/TrashBadgeController.qml
 )
 
 qt_add_qml_module(appSlm_Desktop
@@ -682,23 +696,6 @@ qt_add_qml_module(slm-settings
         Qml/apps/settings/components/SettingGroup.qml
         Qml/apps/settings/components/AuthorizationHint.qml
 )
-
-# Legacy FileManager compatibility surface (one release cycle):
-# Keep old qrc path under Qml/components/filemanager/* as raw resources
-# so historical imports still resolve, while canonical types stay in
-# Qml/apps/filemanager/*.
-file(GLOB FILEMANAGER_COMPAT_QML_FILES CONFIGURE_DEPENDS RELATIVE "${CMAKE_SOURCE_DIR}"
-    "Qml/components/filemanager/*.qml"
-    "Qml/components/filemanager/*.js"
-    "Qml/components/filemanager/qmldir"
-)
-if(FILEMANAGER_COMPAT_QML_FILES)
-    qt6_add_resources(appSlm_Desktop filemanager_compat_qml_raw
-        PREFIX "/qt/qml/Slm_Desktop"
-        FILES
-            ${FILEMANAGER_COMPAT_QML_FILES}
-    )
-endif()
 
 qt_add_shaders(appSlm_Desktop "desktop_shell_shaders"
     PREFIX
@@ -1757,7 +1754,22 @@ qt_add_executable(filemanager_shell_contract_test
     ${FILEMANAGER_APP_SOURCES}
     ${FILEMANAGER_OPS_SERVICE_SOURCES}
     ${FILEMANAGER_PROGRESS_SOURCES}
+    ${SLM_ACTION_FRAMEWORK_SOURCES}
     ${SLM_PERMISSION_TEST_SOURCES}
+    appmodel.cpp
+    appmodel.h
+    dockidentity.cpp
+    dockidentity.h
+    dockmodel.cpp
+    dockmodel.h
+    shortcutmodel.cpp
+    shortcutmodel.h
+    src/core/execution/appexecutiongate.cpp
+    src/core/execution/appexecutiongate.h
+    src/core/execution/appruntimeregistry.cpp
+    src/core/execution/appruntimeregistry.h
+    src/core/prefs/uipreferences.cpp
+    src/core/prefs/uipreferences.h
     src/filemanager/FileManagerShellBridge.cpp
     src/filemanager/FileManagerShellBridge.h
     tests/filemanager/filemanager_shell_contract_test.cpp

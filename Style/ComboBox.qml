@@ -16,6 +16,20 @@ T.ComboBox {
         width: control.width
         text: control.textAt(index)
         highlighted: control.highlightedIndex === index
+
+        background: Rectangle {
+            radius: Theme.radiusControl
+            color: highlighted ? Theme.color("accent") : "transparent"
+        }
+
+        contentItem: Text {
+            text: parent.text
+            font: control.font
+            color: parent.highlighted ? Theme.color("accentText") : Theme.color("textPrimary")
+            elide: Text.ElideRight
+            verticalAlignment: Text.AlignVCenter
+            leftPadding: 4
+        }
     }
 
     indicator: Text {

@@ -1,0 +1,5 @@
+AuthorizationHint 1.0 AuthorizationHint.qml
+FontPickerDialog 1.0 FontPickerDialog.qml
+SettingCard 1.0 SettingCard.qml
+SettingGroup 1.0 SettingGroup.qml
+SettingToggle 1.0 SettingToggle.qml

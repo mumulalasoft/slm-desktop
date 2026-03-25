@@ -110,6 +110,46 @@ set(FILEMANAGER_PROGRESS_SOURCES
     src/apps/filemanager/ops/globalprogresscenter.h
 )
 
+set(SLM_ACTION_FRAMEWORK_SOURCES
+    src/core/actions/slmactiontypes.cpp
+    src/core/actions/slmactiontypes.h
+    src/core/actions/slmactioncondition.cpp
+    src/core/actions/slmactioncondition.h
+    src/core/actions/slmdesktopactionparser.cpp
+    src/core/actions/slmdesktopactionparser.h
+    src/core/actions/slmactiondiscovery.cpp
+    src/core/actions/slmactiondiscovery.h
+    src/core/actions/slmactionregistry.cpp
+    src/core/actions/slmactionregistry.h
+    src/core/actions/framework/slmdesktopentryscanner.cpp
+    src/core/actions/framework/slmdesktopentryscanner.h
+    src/core/actions/framework/slmframeworktypes.h
+    src/core/actions/framework/acl/slmacllexer.cpp
+    src/core/actions/framework/acl/slmacllexer.h
+    src/core/actions/framework/acl/slmaclparser.cpp
+    src/core/actions/framework/acl/slmaclparser.h
+    src/core/actions/framework/slmdesktopentryparsermodule.cpp
+    src/core/actions/framework/slmdesktopentryparsermodule.h
+    src/core/actions/framework/slmmetadataparser.cpp
+    src/core/actions/framework/slmmetadataparser.h
+    src/core/actions/framework/slmactionregistryindex.cpp
+    src/core/actions/framework/slmactionregistryindex.h
+    src/core/actions/framework/slmactioncachelayer.cpp
+    src/core/actions/framework/slmactioncachelayer.h
+    src/core/actions/framework/slmcachemanager.cpp
+    src/core/actions/framework/slmcachemanager.h
+    src/core/actions/framework/slmcapabilityresolverlayer.cpp
+    src/core/actions/framework/slmcapabilityresolverlayer.h
+    src/core/actions/framework/slmcapabilitybuilders.cpp
+    src/core/actions/framework/slmcapabilitybuilders.h
+    src/core/actions/framework/slmgrouptreebuilder.cpp
+    src/core/actions/framework/slmgrouptreebuilder.h
+    src/core/actions/framework/slmactioninvoker.cpp
+    src/core/actions/framework/slmactioninvoker.h
+    src/core/actions/framework/slmactionframework.cpp
+    src/core/actions/framework/slmactionframework.h
+)
+
 set(DESKTOP_SHELL_SERVICES
     src/services/network/networkmanager.cpp
     src/services/network/networkmanager.h
@@ -200,43 +240,7 @@ set(DESKTOP_SHELL_SERVICES
     src/filemanager/FileManagerShellBridge.h
     src/filemanager/ThumbnailImageProvider.cpp
     src/filemanager/ThumbnailImageProvider.h
-    src/core/actions/slmactiontypes.cpp
-    src/core/actions/slmactiontypes.h
-    src/core/actions/slmactioncondition.cpp
-    src/core/actions/slmactioncondition.h
-    src/core/actions/slmdesktopactionparser.cpp
-    src/core/actions/slmdesktopactionparser.h
-    src/core/actions/slmactiondiscovery.cpp
-    src/core/actions/slmactiondiscovery.h
-    src/core/actions/slmactionregistry.cpp
-    src/core/actions/slmactionregistry.h
-    src/core/actions/framework/slmdesktopentryscanner.cpp
-    src/core/actions/framework/slmdesktopentryscanner.h
-    src/core/actions/framework/slmframeworktypes.h
-    src/core/actions/framework/acl/slmacllexer.cpp
-    src/core/actions/framework/acl/slmacllexer.h
-    src/core/actions/framework/acl/slmaclparser.cpp
-    src/core/actions/framework/acl/slmaclparser.h
-    src/core/actions/framework/slmdesktopentryparsermodule.cpp
-    src/core/actions/framework/slmdesktopentryparsermodule.h
-    src/core/actions/framework/slmmetadataparser.cpp
-    src/core/actions/framework/slmmetadataparser.h
-    src/core/actions/framework/slmactionregistryindex.cpp
-    src/core/actions/framework/slmactionregistryindex.h
-    src/core/actions/framework/slmactioncachelayer.cpp
-    src/core/actions/framework/slmactioncachelayer.h
-    src/core/actions/framework/slmcachemanager.cpp
-    src/core/actions/framework/slmcachemanager.h
-    src/core/actions/framework/slmcapabilityresolverlayer.cpp
-    src/core/actions/framework/slmcapabilityresolverlayer.h
-    src/core/actions/framework/slmcapabilitybuilders.cpp
-    src/core/actions/framework/slmcapabilitybuilders.h
-    src/core/actions/framework/slmgrouptreebuilder.cpp
-    src/core/actions/framework/slmgrouptreebuilder.h
-    src/core/actions/framework/slmactioninvoker.cpp
-    src/core/actions/framework/slmactioninvoker.h
-    src/core/actions/framework/slmactionframework.cpp
-    src/core/actions/framework/slmactionframework.h
+    ${SLM_ACTION_FRAMEWORK_SOURCES}
     src/services/clipboard/clipboardtypes.h
     src/services/clipboard/contentclassifier.cpp
     src/services/clipboard/contentclassifier.h
@@ -336,43 +340,7 @@ set(DESKTOPD_SOURCES
     src/core/execution/appexecutiongate.h
     src/core/execution/appruntimeregistry.cpp
     src/core/execution/appruntimeregistry.h
-    src/core/actions/slmactiontypes.cpp
-    src/core/actions/slmactiontypes.h
-    src/core/actions/slmactioncondition.cpp
-    src/core/actions/slmactioncondition.h
-    src/core/actions/slmdesktopactionparser.cpp
-    src/core/actions/slmdesktopactionparser.h
-    src/core/actions/slmactiondiscovery.cpp
-    src/core/actions/slmactiondiscovery.h
-    src/core/actions/slmactionregistry.cpp
-    src/core/actions/slmactionregistry.h
-    src/core/actions/framework/slmdesktopentryscanner.cpp
-    src/core/actions/framework/slmdesktopentryscanner.h
-    src/core/actions/framework/slmframeworktypes.h
-    src/core/actions/framework/acl/slmacllexer.cpp
-    src/core/actions/framework/acl/slmacllexer.h
-    src/core/actions/framework/acl/slmaclparser.cpp
-    src/core/actions/framework/acl/slmaclparser.h
-    src/core/actions/framework/slmdesktopentryparsermodule.cpp
-    src/core/actions/framework/slmdesktopentryparsermodule.h
-    src/core/actions/framework/slmmetadataparser.cpp
-    src/core/actions/framework/slmmetadataparser.h
-    src/core/actions/framework/slmactionregistryindex.cpp
-    src/core/actions/framework/slmactionregistryindex.h
-    src/core/actions/framework/slmactioncachelayer.cpp
-    src/core/actions/framework/slmactioncachelayer.h
-    src/core/actions/framework/slmcachemanager.cpp
-    src/core/actions/framework/slmcachemanager.h
-    src/core/actions/framework/slmcapabilityresolverlayer.cpp
-    src/core/actions/framework/slmcapabilityresolverlayer.h
-    src/core/actions/framework/slmcapabilitybuilders.cpp
-    src/core/actions/framework/slmcapabilitybuilders.h
-    src/core/actions/framework/slmgrouptreebuilder.cpp
-    src/core/actions/framework/slmgrouptreebuilder.h
-    src/core/actions/framework/slmactioninvoker.cpp
-    src/core/actions/framework/slmactioninvoker.h
-    src/core/actions/framework/slmactionframework.cpp
-    src/core/actions/framework/slmactionframework.h
+    ${SLM_ACTION_FRAMEWORK_SOURCES}
     src/core/permissions/Capability.cpp
     src/core/permissions/Capability.h
     src/core/permissions/CallerIdentity.cpp
@@ -458,6 +426,11 @@ set(DESKTOPD_SOURCES
     src/printing/core/PrintSession.h
     src/printing/core/PrintPreviewModel.cpp
     src/printing/core/PrintPreviewModel.h
+    src/printing/preview/IPdfRenderer.h
+    src/printing/preview/FallbackPdfRenderer.h
+    src/printing/preview/FallbackPdfRenderer.cpp
+    src/printing/preview/PrintPreviewCache.h
+    src/printing/preview/PrintPreviewCache.cpp
     src/printing/core/PrintJobBuilder.cpp
     src/printing/core/PrintJobBuilder.h
     src/printing/core/JobSubmitter.cpp

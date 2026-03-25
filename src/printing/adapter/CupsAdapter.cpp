@@ -12,6 +12,7 @@
 #include "../core/PrintTicketSerializer.h"
 
 #include <QProcess>
+#include <QRegularExpression>
 #include <QLoggingCategory>
 
 Q_LOGGING_CATEGORY(lcCupsAdapter, "slm.print.adapter.cups")
@@ -124,7 +125,7 @@ Slm::Print::PrinterCapability CupsAdapter::queryCapability(const QString &printe
         MediaSource src;
         src.id    = sm.value(QStringLiteral("id")).toString();
         src.label = sm.value(QStringLiteral("label")).toString();
-        cap.paperSources.append(src);
+        cap.mediaSources.append(src);
     }
 
     cap.vendorExtensions = capMap.value(QStringLiteral("vendorExtensions")).toMap();
@@ -194,11 +195,11 @@ QString CupsAdapter::submitJob(const PrintSettings &settings,
         args << QStringLiteral("-o") << QStringLiteral("media=%1").arg(settings.paperSize);
 
     // Media source (only when not "auto")
-    if (!settings.paperSource.isEmpty()
-        && settings.paperSource != QLatin1String("auto"))
+    if (!settings.mediaSource.isEmpty()
+        && settings.mediaSource != QLatin1String("auto"))
     {
         args << QStringLiteral("-o")
-             << QStringLiteral("media-source=%1").arg(settings.paperSource);
+             << QStringLiteral("media-source=%1").arg(settings.mediaSource);
     }
 
     args << documentUri;
