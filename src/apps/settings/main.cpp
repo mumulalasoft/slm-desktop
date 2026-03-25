@@ -21,6 +21,8 @@ using namespace Qt::StringLiterals;
 #include "../../printing/core/PrinterManager.h"
 #include "../../printing/core/PrinterAdminService.h"
 #include "modules/developer/envvariablecontroller.h"
+#include "modules/developer/envserviceclient.h"
+#include "modules/developer/effectiveenvpreviewcontroller.h"
 
 int main(int argc, char *argv[])
 {
@@ -76,6 +78,8 @@ int main(int argc, char *argv[])
     Slm::Print::PrinterManager printManager;
     Slm::Print::PrinterAdminService printerAdmin;
     EnvVariableController envVarController;
+    EnvServiceClient envServiceClient;
+    EffectiveEnvPreviewController effectiveEnvPreview(&envServiceClient);
     WallpaperManager wallpaperManager(&uiPreferences);
     MimeAppsManager mimeAppsManager;
     ThemeManager themeManager(&uiPreferences);
@@ -88,6 +92,8 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("ThemeManager"), &themeManager);
     engine.rootContext()->setContextProperty(QStringLiteral("FontManager"), &fontManager);
     engine.rootContext()->setContextProperty(QStringLiteral("EnvVarController"), &envVarController);
+    engine.rootContext()->setContextProperty(QStringLiteral("EnvServiceClient"), &envServiceClient);
+    engine.rootContext()->setContextProperty(QStringLiteral("EffectiveEnvPreview"), &effectiveEnvPreview);
     printManager.reload();
 
     // Create the main application controller

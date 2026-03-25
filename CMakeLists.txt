@@ -291,6 +291,21 @@ qt_add_executable(slm-settings
     src/apps/settings/modules/developer/envvariablemodel.h
     src/apps/settings/modules/developer/envvariablecontroller.cpp
     src/apps/settings/modules/developer/envvariablecontroller.h
+    src/apps/settings/modules/developer/envserviceclient.cpp
+    src/apps/settings/modules/developer/envserviceclient.h
+    src/apps/settings/modules/developer/effectiveenvpreviewcontroller.cpp
+    src/apps/settings/modules/developer/effectiveenvpreviewcontroller.h
+    src/services/envd/envtypes.h
+    src/services/envd/mergeresolver.cpp
+    src/services/envd/mergeresolver.h
+    src/services/envd/sessionenvstore.cpp
+    src/services/envd/sessionenvstore.h
+    src/services/envd/envstore.cpp
+    src/services/envd/envstore.h
+    src/services/envd/perappenvstore.cpp
+    src/services/envd/perappenvstore.h
+    src/services/envd/envservice.cpp
+    src/services/envd/envservice.h
 )
 
 qt_add_executable(slmcapdemo
@@ -356,6 +371,28 @@ qt_add_executable(slm-portald
 
 qt_add_executable(slm-clipboardd
     ${SLM_CLIPBOARDD_SOURCES}
+)
+
+qt_add_executable(slm-envd
+    src/daemon/envd/envd_main.cpp
+    src/services/envd/envtypes.h
+    src/services/envd/mergeresolver.cpp
+    src/services/envd/mergeresolver.h
+    src/services/envd/sessionenvstore.cpp
+    src/services/envd/sessionenvstore.h
+    src/services/envd/envstore.cpp
+    src/services/envd/envstore.h
+    src/services/envd/perappenvstore.cpp
+    src/services/envd/perappenvstore.h
+    src/services/envd/envservice.cpp
+    src/services/envd/envservice.h
+    src/services/envd/dbusinterface.cpp
+    src/services/envd/dbusinterface.h
+    src/apps/settings/modules/developer/enventry.h
+    src/apps/settings/modules/developer/envvalidator.cpp
+    src/apps/settings/modules/developer/envvalidator.h
+    src/apps/settings/modules/developer/localenvstore.cpp
+    src/apps/settings/modules/developer/localenvstore.h
 )
 
 target_link_libraries(windowingctl
@@ -463,6 +500,13 @@ target_link_libraries(slm-clipboardd
         PkgConfig::WAYLAND_CLIENT
 )
 target_include_directories(slm-clipboardd PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_BINARY_DIR})
+
+target_link_libraries(slm-envd
+    PRIVATE
+        Qt6::Core
+        Qt6::DBus
+)
+target_include_directories(slm-envd PRIVATE ${CMAKE_SOURCE_DIR})
 
 add_custom_target(sync_style ALL
     COMMAND ${CMAKE_COMMAND} -E copy_directory
@@ -915,6 +959,10 @@ install(TARGETS slm-devicesd
 )
 
 install(TARGETS slm-portald
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
+install(TARGETS slm-envd
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
@@ -2176,6 +2224,18 @@ qt_add_executable(envvariablecontroller_test
 target_link_libraries(envvariablecontroller_test PRIVATE Qt6::Core Qt6::Test)
 add_test(NAME envvariablecontroller_test COMMAND $<TARGET_FILE:envvariablecontroller_test>)
 
+qt_add_executable(mergeresolver_test
+    src/apps/settings/modules/developer/enventry.h
+    src/apps/settings/modules/developer/localenvstore.cpp
+    src/apps/settings/modules/developer/localenvstore.h
+    src/services/envd/envtypes.h
+    src/services/envd/mergeresolver.cpp
+    src/services/envd/mergeresolver.h
+    tests/mergeresolver_test.cpp
+)
+target_link_libraries(mergeresolver_test PRIVATE Qt6::Core Qt6::Test)
+add_test(NAME mergeresolver_test COMMAND $<TARGET_FILE:mergeresolver_test>)
+
 qt_add_executable(printermanager_test
     src/printing/core/PrintTypes.h
     src/printing/core/PrinterCapabilityProvider.cpp
@@ -3271,6 +3331,7 @@ add_custom_target(test_headless
         envvalidator_test
         localenvstore_test
         envvariablecontroller_test
+        mergeresolver_test
         printsettingsmodel_test
         printermanager_test
         printpreviewmodel_test
