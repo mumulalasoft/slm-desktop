@@ -2144,6 +2144,38 @@ target_link_libraries(printsettingsmodel_test
 
 add_test(NAME printsettingsmodel_test COMMAND $<TARGET_FILE:printsettingsmodel_test>)
 
+qt_add_executable(envvalidator_test
+    src/apps/settings/modules/developer/envvalidator.cpp
+    src/apps/settings/modules/developer/envvalidator.h
+    tests/envvalidator_test.cpp
+)
+target_link_libraries(envvalidator_test PRIVATE Qt6::Core Qt6::Test)
+add_test(NAME envvalidator_test COMMAND $<TARGET_FILE:envvalidator_test>)
+
+qt_add_executable(localenvstore_test
+    src/apps/settings/modules/developer/enventry.h
+    src/apps/settings/modules/developer/localenvstore.cpp
+    src/apps/settings/modules/developer/localenvstore.h
+    tests/localenvstore_test.cpp
+)
+target_link_libraries(localenvstore_test PRIVATE Qt6::Core Qt6::Test)
+add_test(NAME localenvstore_test COMMAND $<TARGET_FILE:localenvstore_test>)
+
+qt_add_executable(envvariablecontroller_test
+    src/apps/settings/modules/developer/enventry.h
+    src/apps/settings/modules/developer/envvalidator.cpp
+    src/apps/settings/modules/developer/envvalidator.h
+    src/apps/settings/modules/developer/localenvstore.cpp
+    src/apps/settings/modules/developer/localenvstore.h
+    src/apps/settings/modules/developer/envvariablemodel.cpp
+    src/apps/settings/modules/developer/envvariablemodel.h
+    src/apps/settings/modules/developer/envvariablecontroller.cpp
+    src/apps/settings/modules/developer/envvariablecontroller.h
+    tests/envvariablecontroller_test.cpp
+)
+target_link_libraries(envvariablecontroller_test PRIVATE Qt6::Core Qt6::Test)
+add_test(NAME envvariablecontroller_test COMMAND $<TARGET_FILE:envvariablecontroller_test>)
+
 qt_add_executable(printermanager_test
     src/printing/core/PrintTypes.h
     src/printing/core/PrinterCapabilityProvider.cpp
@@ -3236,6 +3268,9 @@ add_custom_target(test_headless
         implportalservice_dbus_test
         implportal_payload_snapshot_test
         screenshotsavehelper_test
+        envvalidator_test
+        localenvstore_test
+        envvariablecontroller_test
         printsettingsmodel_test
         printermanager_test
         printpreviewmodel_test
