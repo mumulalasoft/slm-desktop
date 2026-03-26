@@ -63,7 +63,15 @@ private slots:
             QStringLiteral("applications/ApplicationsPage.qml"),
             QStringLiteral("print/PrintPage.qml"),
             QStringLiteral("permissions/PermissionsPage.qml"),
-            QStringLiteral("about/AboutPage.qml")
+            QStringLiteral("about/AboutPage.qml"),
+            QStringLiteral("developer/DeveloperPage.qml"),
+            QStringLiteral("developer/DeveloperOverviewPage.qml"),
+            QStringLiteral("developer/BuildInfoPage.qml"),
+            QStringLiteral("developer/LogsPage.qml"),
+            QStringLiteral("developer/ProcessServicesPage.qml"),
+            QStringLiteral("developer/ResetRecoveryPage.qml"),
+            QStringLiteral("developer/FeatureFlagsPage.qml"),
+            QStringLiteral("developer/StubPage.qml"),
         };
 
         for (const QString &page : pages) {

@@ -24,6 +24,13 @@ using namespace Qt::StringLiterals;
 #include "modules/developer/envserviceclient.h"
 #include "modules/developer/effectiveenvpreviewcontroller.h"
 #include "modules/developer/perappoverridescontroller.h"
+#include "modules/developer/developermode.h"
+#include "modules/developer/buildinfocontroller.h"
+#include "modules/developer/logserviceclient.h"
+#include "modules/developer/logscontroller.h"
+#include "modules/developer/svcmanagerclient.h"
+#include "modules/developer/processservicescontroller.h"
+#include "modules/developer/featureflagscontroller.h"
 
 int main(int argc, char *argv[])
 {
@@ -82,6 +89,13 @@ int main(int argc, char *argv[])
     EnvServiceClient envServiceClient;
     EffectiveEnvPreviewController effectiveEnvPreview(&envServiceClient);
     PerAppOverridesController perAppOverrides(&envServiceClient);
+    DeveloperModeController developerMode;
+    BuildInfoController buildInfo;
+    LogServiceClient logServiceClient;
+    LogsController logsController(&logServiceClient);
+    SvcManagerClient svcManagerClient;
+    ProcessServicesController processServicesController(&svcManagerClient);
+    FeatureFlagsController featureFlags;
     WallpaperManager wallpaperManager(&uiPreferences);
     MimeAppsManager mimeAppsManager;
     ThemeManager themeManager(&uiPreferences);
@@ -97,6 +111,13 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("EnvServiceClient"), &envServiceClient);
     engine.rootContext()->setContextProperty(QStringLiteral("EffectiveEnvPreview"), &effectiveEnvPreview);
     engine.rootContext()->setContextProperty(QStringLiteral("PerAppOverrides"), &perAppOverrides);
+    engine.rootContext()->setContextProperty(QStringLiteral("DeveloperMode"), &developerMode);
+    engine.rootContext()->setContextProperty(QStringLiteral("BuildInfo"), &buildInfo);
+    engine.rootContext()->setContextProperty(QStringLiteral("LogServiceClient"), &logServiceClient);
+    engine.rootContext()->setContextProperty(QStringLiteral("LogsController"), &logsController);
+    engine.rootContext()->setContextProperty(QStringLiteral("SvcManagerClient"), &svcManagerClient);
+    engine.rootContext()->setContextProperty(QStringLiteral("ProcessServicesController"), &processServicesController);
+    engine.rootContext()->setContextProperty(QStringLiteral("FeatureFlags"), &featureFlags);
     printManager.reload();
 
     // Create the main application controller

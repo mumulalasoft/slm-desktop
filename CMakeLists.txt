@@ -311,8 +311,40 @@ qt_add_executable(slm-settings
     src/services/envd/envservice.h
     src/apps/settings/modules/developer/perappoverridescontroller.cpp
     src/apps/settings/modules/developer/perappoverridescontroller.h
+    src/apps/settings/modules/developer/developermode.cpp
+    src/apps/settings/modules/developer/developermode.h
+    src/apps/settings/modules/developer/buildinfocontroller.cpp
+    src/apps/settings/modules/developer/buildinfocontroller.h
+    src/apps/settings/modules/developer/logserviceclient.cpp
+    src/apps/settings/modules/developer/logserviceclient.h
+    src/apps/settings/modules/developer/logscontroller.cpp
+    src/apps/settings/modules/developer/logscontroller.h
+    src/apps/settings/modules/developer/svcmanagerclient.cpp
+    src/apps/settings/modules/developer/svcmanagerclient.h
+    src/apps/settings/modules/developer/processservicescontroller.cpp
+    src/apps/settings/modules/developer/processservicescontroller.h
+    src/apps/settings/modules/developer/featureflagscontroller.cpp
+    src/apps/settings/modules/developer/featureflagscontroller.h
     src/core/launcher/launchenvresolver.cpp
     src/core/launcher/launchenvresolver.h
+)
+
+qt_add_executable(slm-loggerd
+    src/daemon/loggerd/loggerd_main.cpp
+    src/services/logger/logtypes.h
+    src/services/logger/logservice.cpp
+    src/services/logger/logservice.h
+    src/services/logger/logdbusinterface.cpp
+    src/services/logger/logdbusinterface.h
+)
+
+qt_add_executable(slm-svcmgrd
+    src/daemon/svcmgrd/svcmgrd_main.cpp
+    src/services/svcmgr/componentinfo.h
+    src/services/svcmgr/svcmanagerservice.cpp
+    src/services/svcmgr/svcmanagerservice.h
+    src/services/svcmgr/svcmanagerdbusinterface.cpp
+    src/services/svcmgr/svcmanagerdbusinterface.h
 )
 
 qt_add_executable(slmcapdemo
@@ -514,6 +546,20 @@ target_link_libraries(slm-envd
         Qt6::DBus
 )
 target_include_directories(slm-envd PRIVATE ${CMAKE_SOURCE_DIR})
+
+target_link_libraries(slm-loggerd
+    PRIVATE
+        Qt6::Core
+        Qt6::DBus
+)
+target_include_directories(slm-loggerd PRIVATE ${CMAKE_SOURCE_DIR})
+
+target_link_libraries(slm-svcmgrd
+    PRIVATE
+        Qt6::Core
+        Qt6::DBus
+)
+target_include_directories(slm-svcmgrd PRIVATE ${CMAKE_SOURCE_DIR})
 
 add_custom_target(sync_style ALL
     COMMAND ${CMAKE_COMMAND} -E copy_directory
@@ -876,6 +922,9 @@ target_link_libraries(slm-settings
         Qt6::QuickLayouts
         Qt6::DBus
         PkgConfig::GIO
+)
+target_compile_definitions(slm-settings PRIVATE
+    SLM_SHELL_VERSION="0.1.0-dev"
 )
 qt_add_resources(slm-settings "slm_desktop_theme_shim_qmldir"
     PREFIX "/qt/qml/Slm_Desktop"

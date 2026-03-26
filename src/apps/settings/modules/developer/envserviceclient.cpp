@@ -153,7 +153,24 @@ bool EnvServiceClient::unsetSessionVar(const QString &key)
     return r.isValid() && callOk(r.value());
 }
 
-// ── Per-app discovery ─────────────────────────────────────────────────────────
+// ── Per-app overrides ─────────────────────────────────────────────────────────
+
+bool EnvServiceClient::addAppVar(const QString &appId, const QString &key,
+                                  const QString &value, const QString &mergeMode)
+{
+    if (!ensureIface()) return false;
+    QDBusReply<QVariantMap> r = m_iface->call(
+        QStringLiteral("AddAppVar"), appId, key, value, mergeMode);
+    return r.isValid() && callOk(r.value());
+}
+
+bool EnvServiceClient::removeAppVar(const QString &appId, const QString &key)
+{
+    if (!ensureIface()) return false;
+    QDBusReply<QVariantMap> r = m_iface->call(
+        QStringLiteral("RemoveAppVar"), appId, key);
+    return r.isValid() && callOk(r.value());
+}
 
 QVariantList EnvServiceClient::getAppVars(const QString &appId)
 {
