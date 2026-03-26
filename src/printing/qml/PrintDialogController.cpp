@@ -70,15 +70,13 @@ void PrintDialogController::openForDocument(const QString &documentUri,
     d->printerManager->reload();
     d->printSession->begin(documentUri, documentTitle);
 
-    // Select default printer if none is set yet.
-    const QString currentPrinter = d->printSession->settingsModel()->printerId();
-    if (currentPrinter.isEmpty()) {
-        const QString defaultId = d->printerManager->defaultPrinterId();
-        if (!defaultId.isEmpty()) {
-            selectPrinter(defaultId);
-        }
-    } else {
-        selectPrinter(currentPrinter);
+    // Prefer the last printer the user chose; fall back to the system default.
+    const QString lastPrinter = d->settingsStore.lastPrinterId();
+    const QString preferredId = !lastPrinter.isEmpty()
+                                    ? lastPrinter
+                                    : d->printerManager->defaultPrinterId();
+    if (!preferredId.isEmpty()) {
+        selectPrinter(preferredId);
     }
 
     // Set up the preview model.
@@ -108,10 +106,11 @@ void PrintDialogController::submit()
 
 void PrintDialogController::closeDialog()
 {
-    // Save current settings before resetting so they persist for next open.
+    // Save current settings and last-used printer before resetting.
     const QString pid = d->printSession->settingsModel()->printerId();
     if (!pid.isEmpty()) {
         d->settingsStore.save(pid, d->printSession->settingsModel()->serialize());
+        d->settingsStore.saveLastPrinterId(pid);
     }
 
     d->printSession->reset();

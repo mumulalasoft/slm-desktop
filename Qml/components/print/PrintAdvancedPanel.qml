@@ -38,6 +38,9 @@ Item {
                                          && capability.mediaSources.length > 0)
                                         ? capability.mediaSources : []
 
+    readonly property bool capSupportsStaple: capability && capability.supportsStaple === true
+    readonly property bool capSupportsPunch:  capability && capability.supportsPunch  === true
+
     readonly property var resolutionsDpi: (capability && capability.resolutionsDpi
                                            && capability.resolutionsDpi.length > 0)
                                           ? capability.resolutionsDpi : []
@@ -177,6 +180,60 @@ Item {
                 onValueModified: {
                     if (root.settingsModel)
                         root.settingsModel.scale = value
+                }
+            }
+
+            // Collate (always shown for multi-copy jobs)
+            DSStyle.Label {
+                text: qsTr("Collate")
+                color: Theme.color("textSecondary")
+                font.pixelSize: Theme.fontSize("small")
+                visible: root.settingsModel && root.settingsModel.copies > 1
+            }
+            DSStyle.CheckBox {
+                Layout.fillWidth: true
+                visible: root.settingsModel && root.settingsModel.copies > 1
+                text: qsTr("Collate copies")
+                checked: root.settingsModel ? root.settingsModel.collate : true
+                onToggled: {
+                    if (root.settingsModel)
+                        root.settingsModel.collate = checked
+                }
+            }
+
+            // Staple
+            DSStyle.Label {
+                text: qsTr("Staple")
+                color: Theme.color("textSecondary")
+                font.pixelSize: Theme.fontSize("small")
+                visible: root.capSupportsStaple
+            }
+            DSStyle.CheckBox {
+                Layout.fillWidth: true
+                visible: root.capSupportsStaple
+                text: qsTr("Staple output")
+                checked: root.settingsModel ? root.settingsModel.staple : false
+                onToggled: {
+                    if (root.settingsModel)
+                        root.settingsModel.staple = checked
+                }
+            }
+
+            // Punch
+            DSStyle.Label {
+                text: qsTr("Hole Punch")
+                color: Theme.color("textSecondary")
+                font.pixelSize: Theme.fontSize("small")
+                visible: root.capSupportsPunch
+            }
+            DSStyle.CheckBox {
+                Layout.fillWidth: true
+                visible: root.capSupportsPunch
+                text: qsTr("Hole-punch output")
+                checked: root.settingsModel ? root.settingsModel.punch : false
+                onToggled: {
+                    if (root.settingsModel)
+                        root.settingsModel.punch = checked
                 }
             }
 

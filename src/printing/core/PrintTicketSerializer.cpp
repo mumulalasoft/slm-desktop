@@ -16,6 +16,9 @@ QVariantMap PrintTicketSerializer::toVariantMap(const PrintTicket &ticket)
     payload.insert(QStringLiteral("scale"), ticket.scale);
     payload.insert(QStringLiteral("mediaSource"), ticket.mediaSource);
     payload.insert(QStringLiteral("resolutionDpi"), ticket.resolutionDpi);
+    payload.insert(QStringLiteral("collate"), ticket.collate);
+    payload.insert(QStringLiteral("staple"),  ticket.staple);
+    payload.insert(QStringLiteral("punch"),   ticket.punch);
     payload.insert(QStringLiteral("pluginFeatures"), ticket.pluginFeatures);
     return payload;
 }
@@ -35,6 +38,9 @@ PrintTicket PrintTicketSerializer::fromVariantMap(const QVariantMap &payload)
     ticket.scale = payload.value(QStringLiteral("scale"), 100.0).toDouble();
     ticket.mediaSource = payload.value(QStringLiteral("mediaSource"), QStringLiteral("auto")).toString();
     ticket.resolutionDpi = qMax(0, payload.value(QStringLiteral("resolutionDpi"), 0).toInt());
+    ticket.collate = payload.value(QStringLiteral("collate"), true).toBool();
+    ticket.staple  = payload.value(QStringLiteral("staple"),  false).toBool();
+    ticket.punch   = payload.value(QStringLiteral("punch"),   false).toBool();
     ticket.pluginFeatures = payload.value(QStringLiteral("pluginFeatures")).toMap();
     return ticket;
 }
@@ -68,6 +74,22 @@ QVariantMap PrintTicketSerializer::toIppAttributes(const PrintTicket &ticket)
     attrs.insert(QStringLiteral("sides"), ippSides);
     attrs.insert(QStringLiteral("print-color-mode"), ippColorMode);
     attrs.insert(QStringLiteral("print-quality"), ippQuality);
+    // Collate only meaningful for multi-copy jobs.
+    if (ticket.copies > 1) {
+        attrs.insert(QStringLiteral("multiple-document-handling"),
+                     ticket.collate
+                         ? QStringLiteral("separate-documents-collated-copies")
+                         : QStringLiteral("separate-documents-uncollated-copies"));
+    }
+    if (ticket.staple) {
+        attrs.insert(QStringLiteral("finishings"), QStringLiteral("staple"));
+    }
+    if (ticket.punch) {
+        // Combine staple+punch if both requested.
+        const QString existing = attrs.value(QStringLiteral("finishings")).toString();
+        attrs.insert(QStringLiteral("finishings"),
+                     existing.isEmpty() ? QStringLiteral("punch") : existing + QStringLiteral(",punch"));
+    }
     attrs.insert(QStringLiteral("page-ranges"), ticket.pageRange);
     attrs.insert(QStringLiteral("print-scaling"), ticket.scale);
     // Only emit media-source when it differs from the default.

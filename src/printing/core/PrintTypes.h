@@ -117,6 +117,9 @@ struct PrintTicket {
     double  scale       = 100.0;
     QString mediaSource = QStringLiteral("auto");
     int     resolutionDpi = 0;                       // 0 = printer default
+    bool    collate     = true;                      // collate copies (multi-copy jobs)
+    bool    staple      = false;                     // staple output (if printer supports it)
+    bool    punch       = false;                     // hole-punch output (if printer supports it)
     QVariantMap pluginFeatures;
 };
 

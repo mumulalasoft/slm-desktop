@@ -6,9 +6,12 @@ namespace Slm::Print {
 
 static const char *kSettingsKeys[] = {
     "copies", "pageRange", "paperSize", "orientation",
-    "duplex", "colorMode", "quality", "scale", "pluginFeatures",
+    "duplex", "colorMode", "quality", "scale",
+    "collate", "staple", "punch", "pluginFeatures",
     nullptr
 };
+
+static constexpr char kLastPrinterKey[] = "print/lastPrinterId";
 
 PrinterSettingsStore::PrinterSettingsStore(QObject *parent)
     : QObject(parent)
@@ -73,6 +76,21 @@ bool PrinterSettingsStore::has(const QString &printerId) const
     const bool result = !s.childKeys().isEmpty();
     s.endGroup();
     return result;
+}
+
+QString PrinterSettingsStore::lastPrinterId() const
+{
+    QSettings s;
+    return s.value(QLatin1String(kLastPrinterKey)).toString();
+}
+
+void PrinterSettingsStore::saveLastPrinterId(const QString &printerId)
+{
+    if (printerId.trimmed().isEmpty())
+        return;
+    QSettings s;
+    s.setValue(QLatin1String(kLastPrinterKey), printerId.trimmed());
+    s.sync();
 }
 
 QString PrinterSettingsStore::groupKey(const QString &printerId)

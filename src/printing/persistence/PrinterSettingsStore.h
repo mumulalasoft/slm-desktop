@@ -29,6 +29,11 @@ public:
     // Returns true if settings exist for printerId.
     bool has(const QString &printerId) const;
 
+    // Tracks the last printer the user chose so the next session can restore it.
+    // Returns an empty string if no last printer has been saved.
+    QString lastPrinterId() const;
+    void    saveLastPrinterId(const QString &printerId);
+
 private:
     // QSettings group key for a printer ID. Replaces characters not safe
     // for use as QSettings group names.

@@ -2271,6 +2271,8 @@ qt_add_executable(printsettingsmodel_test
     src/printing/core/PrintTicketSerializer.cpp
     src/printing/core/PrintTicketSerializer.h
     src/printing/core/PrintTypes.h
+    src/printing/persistence/PrinterSettingsStore.cpp
+    src/printing/persistence/PrinterSettingsStore.h
     tests/printsettingsmodel_test.cpp
 )
 

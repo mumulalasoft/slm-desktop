@@ -9,6 +9,7 @@ bool ticketsEqual(const PrintTicket &lhs, const PrintTicket &rhs)
            && lhs.paperSize == rhs.paperSize && lhs.orientation == rhs.orientation && lhs.duplex == rhs.duplex
            && lhs.colorMode == rhs.colorMode && lhs.quality == rhs.quality && qFuzzyCompare(lhs.scale, rhs.scale)
            && lhs.mediaSource == rhs.mediaSource && lhs.resolutionDpi == rhs.resolutionDpi
+           && lhs.collate == rhs.collate && lhs.staple == rhs.staple && lhs.punch == rhs.punch
            && lhs.pluginFeatures == rhs.pluginFeatures;
 }
 } // namespace
@@ -125,6 +126,30 @@ void PrintSettingsModel::setResolutionDpi(int value)
     emit settingsChanged();
 }
 
+void PrintSettingsModel::setCollate(bool value)
+{
+    if (m_ticket.collate == value)
+        return;
+    m_ticket.collate = value;
+    emit settingsChanged();
+}
+
+void PrintSettingsModel::setStaple(bool value)
+{
+    if (m_ticket.staple == value)
+        return;
+    m_ticket.staple = value;
+    emit settingsChanged();
+}
+
+void PrintSettingsModel::setPunch(bool value)
+{
+    if (m_ticket.punch == value)
+        return;
+    m_ticket.punch = value;
+    emit settingsChanged();
+}
+
 void PrintSettingsModel::setPluginFeatures(const QVariantMap &value)
 {
     if (m_ticket.pluginFeatures == value) {
@@ -155,6 +180,9 @@ QVariantMap PrintSettingsModel::serialize() const
     payload.insert(QStringLiteral("scale"), m_ticket.scale);
     payload.insert(QStringLiteral("mediaSource"), m_ticket.mediaSource);
     payload.insert(QStringLiteral("resolutionDpi"), m_ticket.resolutionDpi);
+    payload.insert(QStringLiteral("collate"), m_ticket.collate);
+    payload.insert(QStringLiteral("staple"),  m_ticket.staple);
+    payload.insert(QStringLiteral("punch"),   m_ticket.punch);
     payload.insert(QStringLiteral("pluginFeatures"), m_ticket.pluginFeatures);
     return payload;
 }
@@ -174,6 +202,9 @@ void PrintSettingsModel::deserialize(const QVariantMap &payload)
     m_ticket.mediaSource = payload.value(QStringLiteral("mediaSource"), m_ticket.mediaSource).toString();
     if (m_ticket.mediaSource.trimmed().isEmpty()) m_ticket.mediaSource = QStringLiteral("auto");
     m_ticket.resolutionDpi = qMax(0, payload.value(QStringLiteral("resolutionDpi"), m_ticket.resolutionDpi).toInt());
+    m_ticket.collate = payload.value(QStringLiteral("collate"), m_ticket.collate).toBool();
+    m_ticket.staple  = payload.value(QStringLiteral("staple"),  m_ticket.staple).toBool();
+    m_ticket.punch   = payload.value(QStringLiteral("punch"),   m_ticket.punch).toBool();
     m_ticket.pluginFeatures = payload.value(QStringLiteral("pluginFeatures"), m_ticket.pluginFeatures).toMap();
     emitIfChanged(before);
 }
@@ -186,6 +217,12 @@ void PrintSettingsModel::applyCapability(const PrinterCapability &capability)
     }
     if (!capability.supportsDuplex) {
         m_ticket.duplex = DuplexMode::Off;
+    }
+    if (!capability.supportsStaple) {
+        m_ticket.staple = false;
+    }
+    if (!capability.supportsPunch) {
+        m_ticket.punch = false;
     }
     if (!capability.paperSizes.isEmpty() && !capability.paperSizes.contains(m_ticket.paperSize)) {
         m_ticket.paperSize = capability.paperSizes.first();
