@@ -44,6 +44,13 @@ public:
     QVariantList getAppVars(const QString &appId);
     QStringList  listAppsWithOverrides();
 
+    // ── System scope (via slm-envd → slm-envd-helper) ────────────────────────
+    bool         writeSystemVar(const QString &key, const QString &value,
+                                const QString &comment, const QString &mergeMode,
+                                bool enabled);
+    bool         deleteSystemVar(const QString &key);
+    QVariantList getSystemVars();
+
     // ── Resolver ─────────────────────────────────────────────────────────────
     QVariantMap  resolveEnv(const QString &appId = {});
     QStringList  resolveEnvList(const QString &appId = {});
@@ -55,6 +62,7 @@ signals:
     void userVarsChanged();
     void sessionVarsChanged();
     void appVarsChanged(const QString &appId);
+    void systemVarsChanged();
 
 private slots:
     void onNameOwnerChanged(const QString &name, const QString &oldOwner,

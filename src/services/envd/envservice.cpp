@@ -2,15 +2,24 @@
 
 #include "../../apps/settings/modules/developer/envvalidator.h"
 
+#include <QDBusConnection>
+#include <QDBusInterface>
+#include <QDBusReply>
 #include <QDateTime>
 #include <QDir>
 #include <QStandardPaths>
+
+static constexpr char kHelperService[]   = "org.slm.EnvironmentHelper1";
+static constexpr char kHelperPath[]      = "/org/slm/EnvironmentHelper";
+static constexpr char kHelperInterface[] = "org.slm.EnvironmentHelper1";
+static constexpr int  kHelperTimeoutMs   = 35000; // must cover pkcheck dialog wait
 
 EnvService::EnvService(QObject *parent)
     : QObject(parent)
     , m_userStore(this)
     , m_sessionStore(this)
     , m_perAppStore(this)
+    , m_systemStore(this)
 {
     connect(&m_userStore, &EnvStore::entriesChanged, this, [this] {
         emit userVarsChanged();
@@ -20,10 +29,14 @@ EnvService::EnvService(QObject *parent)
     });
     connect(&m_perAppStore, &PerAppEnvStore::appEntriesChanged,
             this, &EnvService::appVarsChanged);
+    connect(&m_systemStore, &SystemEnvStore::entriesChanged, this, [this] {
+        emit systemVarsChanged();
+    });
 }
 
 bool EnvService::start()
 {
+    m_systemStore.load(); // best-effort: missing file is not fatal
     return m_userStore.load();
 }
 
@@ -212,11 +225,103 @@ QStringList EnvService::appsWithOverrides() const
     return apps;
 }
 
+// ── System scope ─────────────────────────────────────────────────────────────
+
+bool EnvService::writeSystemVar(const QString &key, const QString &value,
+                                 const QString &comment, const QString &mergeMode,
+                                 bool enabled)
+{
+    m_lastError.clear();
+
+    const auto kr = EnvValidator::validateKey(key);
+    if (!kr.valid) {
+        m_lastError = kr.message;
+        return false;
+    }
+
+    QDBusInterface helper(QLatin1String(kHelperService),
+                          QLatin1String(kHelperPath),
+                          QLatin1String(kHelperInterface),
+                          QDBusConnection::systemBus());
+    if (!helper.isValid()) {
+        m_lastError = QStringLiteral("slm-envd-helper not available on system bus");
+        return false;
+    }
+
+    QDBusReply<QVariantMap> reply = helper.callWithArgumentList(
+        QDBus::Block,
+        QStringLiteral("WriteSystemEntry"),
+        { key, value, comment,
+          mergeMode.isEmpty() ? QStringLiteral("replace") : mergeMode,
+          enabled });
+
+    if (!reply.isValid()) {
+        m_lastError = reply.error().message();
+        return false;
+    }
+    const QVariantMap r = reply.value();
+    if (!r.value(QStringLiteral("ok")).toBool()) {
+        m_lastError = r.value(QStringLiteral("error")).toString();
+        return false;
+    }
+
+    m_systemStore.load();
+    return true;
+}
+
+bool EnvService::deleteSystemVar(const QString &key)
+{
+    m_lastError.clear();
+
+    QDBusInterface helper(QLatin1String(kHelperService),
+                          QLatin1String(kHelperPath),
+                          QLatin1String(kHelperInterface),
+                          QDBusConnection::systemBus());
+    if (!helper.isValid()) {
+        m_lastError = QStringLiteral("slm-envd-helper not available on system bus");
+        return false;
+    }
+
+    QDBusReply<QVariantMap> reply = helper.call(
+        QStringLiteral("DeleteSystemEntry"), key);
+
+    if (!reply.isValid()) {
+        m_lastError = reply.error().message();
+        return false;
+    }
+    const QVariantMap r = reply.value();
+    if (!r.value(QStringLiteral("ok")).toBool()) {
+        m_lastError = r.value(QStringLiteral("error")).toString();
+        return false;
+    }
+
+    m_systemStore.load();
+    return true;
+}
+
+QVariantList EnvService::systemVars() const
+{
+    QVariantList result;
+    for (const EnvEntry &e : m_systemStore.entries()) {
+        QVariantMap m;
+        m[QStringLiteral("key")]        = e.key;
+        m[QStringLiteral("value")]      = e.value;
+        m[QStringLiteral("enabled")]    = e.enabled;
+        m[QStringLiteral("comment")]    = e.comment;
+        m[QStringLiteral("mergeMode")]  = e.mergeMode;
+        m[QStringLiteral("modifiedAt")] = e.modifiedAt.toString(Qt::ISODate);
+        m[QStringLiteral("severity")]   = EnvValidator::validateKey(e.key).severity;
+        result.append(m);
+    }
+    return result;
+}
+
 // ── Resolver ─────────────────────────────────────────────────────────────────
 
 QVariantMap EnvService::resolveEnv(const QString &appId) const
 {
     QList<MergeResolver::Layer> layers;
+    layers.append({EnvLayer::System,         m_systemStore.entries()});
     layers.append({EnvLayer::UserPersistent, m_userStore.entries()});
     layers.append({EnvLayer::Session,        m_sessionStore.entries()});
     if (!appId.isEmpty())
@@ -237,6 +342,7 @@ QVariantMap EnvService::resolveEnv(const QString &appId) const
 QStringList EnvService::resolveEnvList(const QString &appId) const
 {
     QList<MergeResolver::Layer> layers;
+    layers.append({EnvLayer::System,         m_systemStore.entries()});
     layers.append({EnvLayer::UserPersistent, m_userStore.entries()});
     layers.append({EnvLayer::Session,        m_sessionStore.entries()});
     if (!appId.isEmpty())

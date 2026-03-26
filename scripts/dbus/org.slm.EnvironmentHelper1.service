@@ -1,0 +1,4 @@
+[D-BUS Service]
+Name=org.slm.EnvironmentHelper1
+Exec=/usr/libexec/slm-envd-helper
+User=root

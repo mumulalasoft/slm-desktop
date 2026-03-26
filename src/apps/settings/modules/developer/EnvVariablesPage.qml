@@ -313,5 +313,242 @@ Flickable {
             wrapMode: Text.WordWrap
             Layout.fillWidth: true
         }
+
+        // ── System Variables (gated by env-system-scope feature flag) ──────
+        ColumnLayout {
+            Layout.fillWidth: true
+            spacing: 12
+            visible: FeatureFlags && FeatureFlags.isEnabled("env-system-scope")
+
+            // Section divider
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+                Rectangle { height: 1; Layout.fillWidth: true; color: Theme.color("panelBorder") }
+                Text {
+                    text: qsTr("SYSTEM SCOPE")
+                    font.pixelSize: Theme.fontSize("xs")
+                    font.weight: Font.DemiBold
+                    font.letterSpacing: 0.5
+                    color: Theme.color("textDisabled")
+                }
+                Rectangle { height: 1; Layout.fillWidth: true; color: Theme.color("panelBorder") }
+            }
+
+            Text {
+                text: qsTr("System variables apply to all users. Requires administrator authentication.")
+                font.pixelSize: Theme.fontSize("sm")
+                color: Theme.color("textSecondary")
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+
+            // Authorization gate — shows lock or spinner until authorized
+            Rectangle {
+                Layout.fillWidth: true
+                height: authRow.implicitHeight + 20
+                radius: Theme.radiusCard || 6
+                color: Theme.color("surfaceAlt") || Theme.color("surface")
+                border.color: Theme.color("panelBorder")
+                border.width: 1
+                visible: SystemEnvController
+                      && (!SystemEnvController.authorized || SystemEnvController.authPending)
+
+                RowLayout {
+                    id: authRow
+                    anchors { left: parent.left; right: parent.right; verticalCenter: parent.verticalCenter }
+                    anchors.margins: 14
+                    spacing: 10
+
+                    BusyIndicator {
+                        Layout.preferredWidth: 20
+                        Layout.preferredHeight: 20
+                        running: SystemEnvController && SystemEnvController.authPending
+                        visible: running
+                    }
+
+                    Text {
+                        Layout.fillWidth: true
+                        text: (SystemEnvController && SystemEnvController.authPending)
+                            ? qsTr("Waiting for authentication…")
+                            : qsTr("Requires administrator authentication to modify system variables.")
+                        font.pixelSize: Theme.fontSize("sm")
+                        color: Theme.color("textSecondary")
+                        wrapMode: Text.WordWrap
+                    }
+
+                    Button {
+                        text: qsTr("Unlock")
+                        visible: SystemEnvController && !SystemEnvController.authorized
+                              && !SystemEnvController.authPending
+                        onClicked: if (SystemEnvController) SystemEnvController.requestAuth()
+                    }
+                }
+            }
+
+            // Error from SystemEnvController
+            Text {
+                visible: SystemEnvController && SystemEnvController.lastError !== ""
+                text: "⚠  " + (SystemEnvController ? SystemEnvController.lastError : "")
+                font.pixelSize: Theme.fontSize("sm")
+                color: Theme.color("destructive")
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+
+            // System variable list (shown when authorized)
+            SettingGroup {
+                title: qsTr("System Variables")
+                Layout.fillWidth: true
+                visible: SystemEnvController && SystemEnvController.authorized
+
+                // Table header (matches user vars header)
+                Item {
+                    implicitHeight: 32
+                    Layout.fillWidth: true
+
+                    RowLayout {
+                        anchors { fill: parent; leftMargin: 54; rightMargin: 12 }
+                        spacing: 8
+                        Text {
+                            text: qsTr("KEY")
+                            font.pixelSize: Theme.fontSize("xs"); font.weight: Font.DemiBold
+                            font.letterSpacing: 0.5; color: Theme.color("textDisabled")
+                            Layout.preferredWidth: 200
+                        }
+                        Text {
+                            text: qsTr("VALUE")
+                            font.pixelSize: Theme.fontSize("xs"); font.weight: Font.DemiBold
+                            font.letterSpacing: 0.5; color: Theme.color("textDisabled")
+                            Layout.fillWidth: true
+                        }
+                        Text {
+                            text: qsTr("MODIFIED")
+                            font.pixelSize: Theme.fontSize("xs"); font.weight: Font.DemiBold
+                            font.letterSpacing: 0.5; color: Theme.color("textDisabled")
+                            Layout.preferredWidth: 70; horizontalAlignment: Text.AlignRight
+                        }
+                        Item { Layout.preferredWidth: 60 }
+                    }
+                    Rectangle {
+                        anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom
+                        height: 1; color: Theme.color("panelBorder")
+                    }
+                }
+
+                Repeater {
+                    model: SystemEnvController ? SystemEnvController.vars : []
+
+                    delegate: Item {
+                        readonly property var entry: modelData
+                        Layout.fillWidth: true
+                        implicitHeight: sysRow.implicitHeight + 2
+
+                        RowLayout {
+                            id: sysRow
+                            anchors { left: parent.left; right: parent.right; leftMargin: 8; rightMargin: 8 }
+                            spacing: 8
+
+                            // Enabled toggle
+                            Switch {
+                                implicitHeight: 20
+                                checked: entry.enabled !== false
+                                onToggled: SystemEnvController.writeVar(
+                                    entry.key, entry.value, entry.comment || "",
+                                    entry.mergeMode || "replace", checked)
+                            }
+
+                            Text {
+                                text: entry.key
+                                font.pixelSize: Theme.fontSize("sm")
+                                font.weight: Font.Medium
+                                color: Theme.color("textPrimary")
+                                Layout.preferredWidth: 192
+                                elide: Text.ElideRight
+                            }
+                            Text {
+                                text: entry.value
+                                font.pixelSize: Theme.fontSize("sm")
+                                color: Theme.color("textSecondary")
+                                Layout.fillWidth: true
+                                elide: Text.ElideRight
+                            }
+                            Text {
+                                text: entry.modifiedAt ? entry.modifiedAt.substring(0, 10) : ""
+                                font.pixelSize: Theme.fontSize("xs")
+                                color: Theme.color("textDisabled")
+                                Layout.preferredWidth: 70
+                                horizontalAlignment: Text.AlignRight
+                            }
+
+                            Button {
+                                text: qsTr("Delete")
+                                implicitHeight: 26
+                                onClicked: SystemEnvController.deleteVar(entry.key)
+                                background: Rectangle {
+                                    radius: Theme.radiusControl || 4
+                                    color: parent.hovered ? Theme.color("destructiveSubtle") : "transparent"
+                                    border.color: Theme.color("destructive"); border.width: 1
+                                }
+                                contentItem: Text {
+                                    text: parent.text; font.pixelSize: Theme.fontSize("xs")
+                                    color: Theme.color("destructive")
+                                    horizontalAlignment: Text.AlignHCenter
+                                    verticalAlignment: Text.AlignVCenter
+                                }
+                            }
+                        }
+
+                        Rectangle {
+                            anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom
+                            height: 1; color: Theme.color("panelBorder"); opacity: 0.5
+                        }
+                    }
+                }
+
+                // Empty state
+                Item {
+                    visible: !SystemEnvController || SystemEnvController.vars.length === 0
+                    implicitHeight: 56
+                    Layout.fillWidth: true
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: qsTr("No system variables defined.")
+                        font.pixelSize: Theme.fontSize("sm")
+                        color: Theme.color("textSecondary")
+                    }
+                }
+            }
+
+            // Add System Variable button (only when authorized)
+            Button {
+                text: qsTr("+ Add System Variable")
+                Layout.alignment: Qt.AlignRight
+                implicitHeight: 36
+                visible: SystemEnvController && SystemEnvController.authorized
+                onClicked: sysAddDialog.open()
+                background: Rectangle {
+                    radius: Theme.radiusControl
+                    color: parent.hovered ? Qt.darker(Theme.color("accent"), 1.1) : Theme.color("accent")
+                    Behavior on color { ColorAnimation { duration: 120 } }
+                }
+                contentItem: Text {
+                    text: parent.text; font.pixelSize: Theme.fontSize("sm"); font.weight: Font.Medium
+                    color: Theme.color("accentText")
+                    horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
+                }
+            }
+        }
+    }
+
+    // ── Add System Variable dialog ─────────────────────────────────────────
+    AddEditEnvVarDialog {
+        id: sysAddDialog
+        onAccepted: {
+            if (SystemEnvController)
+                SystemEnvController.writeVar(resultKey, resultValue, resultComment,
+                                             resultMergeMode, true)
+        }
     }
 }

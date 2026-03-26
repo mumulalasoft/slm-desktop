@@ -5,6 +5,7 @@
 #include "mergeresolver.h"
 #include "perappenvstore.h"
 #include "sessionenvstore.h"
+#include "systemenvstore.h"
 
 #include <QObject>
 #include <QString>
@@ -54,6 +55,14 @@ public:
     QVariantList appVars(const QString &appId) const;
     QStringList  appsWithOverrides() const;
 
+    // ── System-scope (proxied to slm-envd-helper on the system bus) ──────────
+
+    bool writeSystemVar(const QString &key, const QString &value,
+                        const QString &comment, const QString &mergeMode,
+                        bool enabled);
+    bool deleteSystemVar(const QString &key);
+    QVariantList systemVars() const;
+
     // ── Resolver ─────────────────────────────────────────────────────────────
 
     // Returns the fully-merged environment for a given app ID.
@@ -70,6 +79,7 @@ signals:
     void userVarsChanged();
     void sessionVarsChanged();
     void appVarsChanged(const QString &appId);
+    void systemVarsChanged();
 
 private:
     void rebuildUserVarCache();
@@ -77,6 +87,7 @@ private:
     EnvStore        m_userStore;
     SessionEnvStore m_sessionStore;
     PerAppEnvStore  m_perAppStore;
+    SystemEnvStore  m_systemStore;
 
     QString m_lastError;
 };

@@ -59,6 +59,13 @@ public slots:
     QVariantList GetAppVars(const QString &appId);
     QStringList  ListAppsWithOverrides();
 
+    // ── System scope ─────────────────────────────────────────────────────────
+    QVariantMap  WriteSystemVar(const QString &key, const QString &value,
+                                const QString &comment, const QString &mergeMode,
+                                bool enabled);
+    QVariantMap  DeleteSystemVar(const QString &key);
+    QVariantList GetSystemVars();
+
     // ── Introspection ────────────────────────────────────────────────────────
     QString ServiceVersion();
 
@@ -66,10 +73,17 @@ signals:
     void UserVarsChanged();
     void SessionVarsChanged();
     void AppVarsChanged(const QString &appId);
+    void SystemVarsChanged();
 
 private:
     static QVariantMap ok();
     static QVariantMap err(const QString &message);
+
+    // Returns true if the current D-Bus caller is running inside a sandbox
+    // (Flatpak or Snap).  If the caller is Flatpak, *outAppId is set to the
+    // value of FLATPAK_ID from the caller's environment (may be empty if
+    // /proc is unreadable).
+    bool callerIsSandboxed(QString *outAppId = nullptr) const;
 
     EnvService *m_service;
 };

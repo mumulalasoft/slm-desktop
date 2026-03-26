@@ -55,6 +55,10 @@ bool EnvServiceClient::ensureIface()
             QLatin1String(kService), QLatin1String(kPath),
             QLatin1String(kInterface), QStringLiteral("AppVarsChanged"),
             this, SIGNAL(appVarsChanged(QString)));
+        QDBusConnection::sessionBus().connect(
+            QLatin1String(kService), QLatin1String(kPath),
+            QLatin1String(kInterface), QStringLiteral("SystemVarsChanged"),
+            this, SIGNAL(systemVarsChanged()));
     }
 
     return avail;
@@ -184,6 +188,32 @@ QStringList EnvServiceClient::listAppsWithOverrides()
     if (!ensureIface()) return {};
     QDBusReply<QStringList> r = m_iface->call(QStringLiteral("ListAppsWithOverrides"));
     return r.isValid() ? r.value() : QStringList{};
+}
+
+// ── System scope ─────────────────────────────────────────────────────────────
+
+bool EnvServiceClient::writeSystemVar(const QString &key, const QString &value,
+                                       const QString &comment, const QString &mergeMode,
+                                       bool enabled)
+{
+    if (!ensureIface()) return false;
+    QDBusReply<QVariantMap> r = m_iface->call(
+        QStringLiteral("WriteSystemVar"), key, value, comment, mergeMode, enabled);
+    return r.isValid() && callOk(r.value());
+}
+
+bool EnvServiceClient::deleteSystemVar(const QString &key)
+{
+    if (!ensureIface()) return false;
+    QDBusReply<QVariantMap> r = m_iface->call(QStringLiteral("DeleteSystemVar"), key);
+    return r.isValid() && callOk(r.value());
+}
+
+QVariantList EnvServiceClient::getSystemVars()
+{
+    if (!ensureIface()) return {};
+    QDBusReply<QVariantList> r = m_iface->call(QStringLiteral("GetSystemVars"));
+    return r.isValid() ? r.value() : QVariantList{};
 }
 
 // ── Resolver ─────────────────────────────────────────────────────────────────
