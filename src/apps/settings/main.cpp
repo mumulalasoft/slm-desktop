@@ -32,6 +32,9 @@ using namespace Qt::StringLiterals;
 #include "modules/developer/processservicescontroller.h"
 #include "modules/developer/featureflagscontroller.h"
 #include "modules/developer/dbusinspectorcontroller.h"
+#include "modules/developer/appsandboxcontroller.h"
+#include "modules/developer/systemenvcontroller.h"
+#include "modules/developer/xdgportalscontroller.h"
 
 int main(int argc, char *argv[])
 {
@@ -98,6 +101,9 @@ int main(int argc, char *argv[])
     ProcessServicesController processServicesController(&svcManagerClient);
     FeatureFlagsController featureFlags;
     DbusInspectorController dbusInspector;
+    AppSandboxController    appSandbox;
+    SystemEnvController     systemEnv(&envServiceClient);
+    XdgPortalsController    xdgPortals;
     WallpaperManager wallpaperManager(&uiPreferences);
     MimeAppsManager mimeAppsManager;
     ThemeManager themeManager(&uiPreferences);
@@ -121,6 +127,9 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("ProcessServicesController"), &processServicesController);
     engine.rootContext()->setContextProperty(QStringLiteral("FeatureFlags"), &featureFlags);
     engine.rootContext()->setContextProperty(QStringLiteral("DbusInspector"), &dbusInspector);
+    engine.rootContext()->setContextProperty(QStringLiteral("AppSandbox"),           &appSandbox);
+    engine.rootContext()->setContextProperty(QStringLiteral("SystemEnvController"), &systemEnv);
+    engine.rootContext()->setContextProperty(QStringLiteral("XdgPortals"),          &xdgPortals);
     printManager.reload();
 
     // Create the main application controller

@@ -327,6 +327,16 @@ qt_add_executable(slm-settings
     src/apps/settings/modules/developer/featureflagscontroller.h
     src/apps/settings/modules/developer/dbusinspectorcontroller.cpp
     src/apps/settings/modules/developer/dbusinspectorcontroller.h
+    src/apps/settings/modules/developer/appsandboxcontroller.cpp
+    src/apps/settings/modules/developer/appsandboxcontroller.h
+    src/apps/settings/modules/developer/systemenvcontroller.cpp
+    src/apps/settings/modules/developer/systemenvcontroller.h
+    src/apps/settings/modules/developer/portalbridgeservice.cpp
+    src/apps/settings/modules/developer/portalbridgeservice.h
+    src/apps/settings/modules/developer/xdgportalscontroller.cpp
+    src/apps/settings/modules/developer/xdgportalscontroller.h
+    src/services/envd/systemenvstore.cpp
+    src/services/envd/systemenvstore.h
     src/core/launcher/launchenvresolver.cpp
     src/core/launcher/launchenvresolver.h
 )
@@ -425,6 +435,8 @@ qt_add_executable(slm-envd
     src/services/envd/envstore.h
     src/services/envd/perappenvstore.cpp
     src/services/envd/perappenvstore.h
+    src/services/envd/systemenvstore.cpp
+    src/services/envd/systemenvstore.h
     src/services/envd/envservice.cpp
     src/services/envd/envservice.h
     src/services/envd/dbusinterface.cpp
@@ -432,6 +444,19 @@ qt_add_executable(slm-envd
     src/apps/settings/modules/developer/enventry.h
     src/apps/settings/modules/developer/envvalidator.cpp
     src/apps/settings/modules/developer/envvalidator.h
+    src/apps/settings/modules/developer/localenvstore.cpp
+    src/apps/settings/modules/developer/localenvstore.h
+)
+
+qt_add_executable(slm-envd-helper
+    src/daemon/envd-helper/envd_helper_main.cpp
+    src/services/envd-helper/helperservice.cpp
+    src/services/envd-helper/helperservice.h
+    src/services/envd-helper/helperdbusinterface.cpp
+    src/services/envd-helper/helperdbusinterface.h
+    src/services/envd-helper/auditlog.cpp
+    src/services/envd-helper/auditlog.h
+    src/apps/settings/modules/developer/enventry.h
     src/apps/settings/modules/developer/localenvstore.cpp
     src/apps/settings/modules/developer/localenvstore.h
 )
@@ -548,6 +573,13 @@ target_link_libraries(slm-envd
         Qt6::DBus
 )
 target_include_directories(slm-envd PRIVATE ${CMAKE_SOURCE_DIR})
+
+target_link_libraries(slm-envd-helper
+    PRIVATE
+        Qt6::Core
+        Qt6::DBus
+)
+target_include_directories(slm-envd-helper PRIVATE ${CMAKE_SOURCE_DIR})
 
 target_link_libraries(slm-loggerd
     PRIVATE

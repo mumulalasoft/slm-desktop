@@ -225,8 +225,8 @@ Item {
         case "build-info":        return "BuildInfoPage.qml"
         case "reset":             return "ResetRecoveryPage.qml"
         // Stubs for future pages
-        case "xdg-portals":       return "StubPage.qml"
-        case "app-sandbox":       return "StubPage.qml"
+        case "xdg-portals":       return "XdgPortalsPage.qml"
+        case "app-sandbox":       return "AppSandboxPage.qml"
         case "dbus-inspector":    return "DbusInspectorPage.qml"
         case "ui-inspector":      return "StubPage.qml"
         case "feature-flags":     return "FeatureFlagsPage.qml"
