@@ -227,7 +227,7 @@ Item {
         // Stubs for future pages
         case "xdg-portals":       return "StubPage.qml"
         case "app-sandbox":       return "StubPage.qml"
-        case "dbus-inspector":    return "StubPage.qml"
+        case "dbus-inspector":    return "DbusInspectorPage.qml"
         case "ui-inspector":      return "StubPage.qml"
         case "feature-flags":     return "FeatureFlagsPage.qml"
         default:                  return "DeveloperOverviewPage.qml"

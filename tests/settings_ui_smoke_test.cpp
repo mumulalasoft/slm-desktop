@@ -71,6 +71,7 @@ private slots:
             QStringLiteral("developer/ProcessServicesPage.qml"),
             QStringLiteral("developer/ResetRecoveryPage.qml"),
             QStringLiteral("developer/FeatureFlagsPage.qml"),
+            QStringLiteral("developer/DbusInspectorPage.qml"),
             QStringLiteral("developer/StubPage.qml"),
         };
 

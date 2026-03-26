@@ -325,6 +325,8 @@ qt_add_executable(slm-settings
     src/apps/settings/modules/developer/processservicescontroller.h
     src/apps/settings/modules/developer/featureflagscontroller.cpp
     src/apps/settings/modules/developer/featureflagscontroller.h
+    src/apps/settings/modules/developer/dbusinspectorcontroller.cpp
+    src/apps/settings/modules/developer/dbusinspectorcontroller.h
     src/core/launcher/launchenvresolver.cpp
     src/core/launcher/launchenvresolver.h
 )

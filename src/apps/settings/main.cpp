@@ -31,6 +31,7 @@ using namespace Qt::StringLiterals;
 #include "modules/developer/svcmanagerclient.h"
 #include "modules/developer/processservicescontroller.h"
 #include "modules/developer/featureflagscontroller.h"
+#include "modules/developer/dbusinspectorcontroller.h"
 
 int main(int argc, char *argv[])
 {
@@ -96,6 +97,7 @@ int main(int argc, char *argv[])
     SvcManagerClient svcManagerClient;
     ProcessServicesController processServicesController(&svcManagerClient);
     FeatureFlagsController featureFlags;
+    DbusInspectorController dbusInspector;
     WallpaperManager wallpaperManager(&uiPreferences);
     MimeAppsManager mimeAppsManager;
     ThemeManager themeManager(&uiPreferences);
@@ -118,6 +120,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("SvcManagerClient"), &svcManagerClient);
     engine.rootContext()->setContextProperty(QStringLiteral("ProcessServicesController"), &processServicesController);
     engine.rootContext()->setContextProperty(QStringLiteral("FeatureFlags"), &featureFlags);
+    engine.rootContext()->setContextProperty(QStringLiteral("DbusInspector"), &dbusInspector);
     printManager.reload();
 
     // Create the main application controller
