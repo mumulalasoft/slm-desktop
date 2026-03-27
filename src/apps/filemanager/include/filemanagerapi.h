@@ -147,6 +147,14 @@ public:
                                                        const QString &requestId = QString());
     Q_INVOKABLE QVariantMap startOpenPathInFileManager(const QString &path,
                                                        const QString &requestId = QString());
+    Q_INVOKABLE QVariantMap folderShareInfo(const QString &path) const;
+    Q_INVOKABLE QVariantList folderShares() const;
+    Q_INVOKABLE QVariantMap configureFolderShare(const QString &path,
+                                                 const QVariantMap &options);
+    Q_INVOKABLE QVariantMap disableFolderShare(const QString &path);
+    Q_INVOKABLE QVariantMap copyFolderShareAddress(const QString &path) const;
+    Q_INVOKABLE QVariantMap folderSharingEnvironment() const;
+    Q_INVOKABLE QVariantMap repairFolderSharingEnvironment();
     QVariantList openWithApplications(const QString &path, int limit = 24) const;
     Q_INVOKABLE QVariantMap startOpenWithApplications(const QString &path,
                                                       int limit = 24,
@@ -266,6 +274,7 @@ signals:
                         const QString &thumbnailPath,
                         bool ok,
                         const QString &error);
+    void folderShareStateChanged(const QString &path, const QVariantMap &shareInfo);
 
 private:
     struct ThumbnailDbusRequest {
@@ -340,6 +349,13 @@ private:
                                 bool overwrite);
     QVariantList queryStorageLocationsSync(int lsblkTimeoutMs) const;
     bool queueFreedesktopThumbnailer(const QString &path, int size);
+    QString folderSharesStatePath() const;
+    QVariantMap loadFolderSharesState() const;
+    bool saveFolderSharesState(const QVariantMap &state,
+                               QString *error = nullptr) const;
+    QString canonicalSharePath(const QString &path) const;
+    QVariantMap shareRecordForPath(const QString &path) const;
+    QVariantMap buildShareAddressPayload(const QString &shareName) const;
 
 private slots:
     void onBatchTaskProgress(qlonglong baseBytes, qlonglong currentBytes, qlonglong totalBytes);

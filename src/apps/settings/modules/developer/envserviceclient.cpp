@@ -1,6 +1,7 @@
 #include "envserviceclient.h"
 
 #include <QDBusConnection>
+#include <QDBusInterface>
 #include <QDBusReply>
 
 static constexpr char kService[]    = "org.slm.Environment1";

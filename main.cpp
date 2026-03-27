@@ -13,6 +13,7 @@
 #include <QtMath>
 #include <QFile>
 #include <QLibraryInfo>
+#include <QPalette>
 #include <QRegion>
 #include <QProcess>
 #include <QDBusConnection>
@@ -255,6 +256,11 @@ int main(int argc, char *argv[])
         } else {
             themeIconController.useAutoDetectedMapping();
         }
+        const QString mode = uiPreferences.themeMode().trimmed().toLower();
+        const bool darkMode = (mode == QStringLiteral("dark"))
+                || (mode != QStringLiteral("light")
+                    && app.palette().color(QPalette::Window).lightness() < 128);
+        themeIconController.applyForDarkMode(darkMode);
     };
     applyIconThemePref();
     QObject::connect(&uiPreferences, &UIPreferences::iconThemeLightChanged, &app, [&]() {

@@ -43,7 +43,7 @@ void PortalBridgeService::loadDescriptors()
     m_descriptors.clear();
     QSet<QString> ifaceSet;
 
-    const QDir dir(QLatin1String(kPortalDir));
+    const QDir dir{QLatin1String(kPortalDir)};
     const QStringList entries = dir.entryList({ QStringLiteral("*.portal") },
                                                QDir::Files, QDir::Name);
     for (const QString &fname : entries) {

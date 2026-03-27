@@ -1,12 +1,36 @@
-<svg width="16" height="16" version="1.1" xmlns="http://www.w3.org/2000/svg">
- <g id="titlebutton-minimize-backdrop" transform="translate(-253 268.64)">
-  <rect x="253" y="-268.64" width="16" height="16" ry="1.6931e-5" opacity="0" stroke-width=".47432" style="paint-order:markers stroke fill"/>
-  <g transform="translate(254,-267.64)" enable-background="new">
-   <g transform="translate(-5,-1033.4)" fill="#bababa" fill-rule="evenodd">
-    <path d="m12 1047.4c3.8659 0 6.9999-3.134 6.9999-7s-3.134-7-6.9999-7c-3.866 0-7.0001 3.134-7.0001 7s3.134 7 7.0001 7"/>
-    <path d="m12 1046.9c3.5898 0 6.4999-2.9103 6.4999-6.5001 0-3.5899-2.9102-6.5-6.4999-6.5-3.5899 0-6.5001 2.9101-6.5001 6.5 0 3.5898 2.9102 6.5001 6.5001 6.5001"/>
-   </g>
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="19.999998mm"
+   height="13.333331mm"
+   viewBox="0 0 19.999998 13.333331"
+   version="1.1"
+   id="svg1"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs1" />
+  <g
+     id="layer1"
+     transform="translate(-106.71622,-59.735371)">
+    <g
+       id="g127"
+       transform="translate(-22.231453,-0.64260286)">
+      <path
+         style="fill:#cecece;fill-opacity:1;stroke-width:0.264583"
+         id="path96"
+         width="60"
+         height="40"
+         x="129.95419"
+         y="72.300003"
+         d="M 129.95419,72.300003 H 170.0454 A 19.908798,19.908798 45 0 1 189.95419,92.208801 20.091202,20.091202 135 0 1 169.86299,112.3 h -39.9088 z"
+         transform="matrix(0.33333333,0,0,0.33333333,85.629615,36.277968)" />
+      <path
+         d="m 136.76452,63.758073 5.09554,5.095634 v -3.984316 c 0,-0.461694 -0.64944,-1.111108 -1.11113,-1.111108 z m -1.57113,1.571204 v 3.98432 c 0,0.461694 0.6494,1.111144 1.11108,1.111144 h 3.98429 z"
+         opacity="0.5"
+         id="path57"
+         style="stroke-width:4.19943" />
+    </g>
   </g>
- </g>
- <path d="m6.4129 4.9952 4.586 4.5862v-3.586c0-0.41553-0.5845-1-1-1zm-1.414 1.4141v3.586c0 0.41553 0.58446 1 0.99998 1h3.5859z" opacity=".5" stroke-width="3.7796"/>
 </svg>

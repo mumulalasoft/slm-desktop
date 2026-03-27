@@ -1,207 +1,183 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
-import QtQuick.Window 2.15
 import Slm_Desktop
+
+// Sidebar — Settings home page.
+// Shows all modules as an icon grid grouped by category.
 
 Rectangle {
     id: root
-    color: Theme.color("surface")
-    border.color: Theme.color("panelBorder")
-    border.width: 1
+    color: Theme.color("windowBg")
 
-    property alias query: searchField.text
-    property var moduleModel: []
-    property string currentModuleId: ""
+    property var    moduleModel: []
+    property string searchQuery: ""
+
     signal moduleSelected(string id)
-    signal queryChangedByUser(string text)
 
-    function forceSearchFocus() {
-        searchField.forceActiveFocus()
-        searchField.selectAll()
+    // ── Compute groups from flat module list ───────────────────────────────
+
+    readonly property var groupedModules: {
+        if (!moduleModel || moduleModel.length === 0) return []
+        const groups = {}
+        const order  = []
+        for (let i = 0; i < moduleModel.length; i++) {
+            const mod = moduleModel[i]
+            // Filter by search
+            if (root.searchQuery.trim().length > 0) {
+                const q = root.searchQuery.trim().toLowerCase()
+                const name = (mod.name || "").toLowerCase()
+                const kws  = (mod.keywords || []).join(" ").toLowerCase()
+                if (!name.includes(q) && !kws.includes(q)) continue
+            }
+            const g = mod.group || "General"
+            if (!groups[g]) { groups[g] = []; order.push(g) }
+            groups[g].push(mod)
+        }
+        return order.map(g => ({ name: g, items: groups[g] }))
     }
 
-    // macOS-style traffic-light button
-    component TitleButton: Item {
-        required property string normalSrc
-        required property string hoverSrc
-        required property string activeSrc
-        signal clicked()
+    // ── Layout ────────────────────────────────────────────────────────────
 
-        implicitWidth: 14
-        implicitHeight: 14
-
-        property bool _hovered: false
-        property bool _pressed: false
-
-        Image {
-            anchors.fill: parent
-            source: parent._pressed ? parent.activeSrc
-                                    : (parent._hovered ? parent.hoverSrc : parent.normalSrc)
-            fillMode: Image.PreserveAspectFit
-            smooth: true
-            antialiasing: true
-        }
-
-        MouseArea {
-            anchors.fill: parent
-            hoverEnabled: true
-            cursorShape: Qt.ArrowCursor
-            onEntered:   { parent._hovered = true }
-            onExited:    { parent._hovered = false; parent._pressed = false }
-            onPressed:   { parent._pressed = true }
-            onReleased:  { parent._pressed = false }
-            onClicked:   parent.clicked()
-        }
-    }
-
-    ColumnLayout {
+    ScrollView {
         anchors.fill: parent
-        anchors.margins: 8
-        spacing: 6
+        contentWidth: availableWidth
+        clip: true
 
-        // ── Window controls + drag handle ────────────────────────────────
-        Item {
-            Layout.fillWidth: true
-            height: 28
+        ColumnLayout {
+            width: parent.width
+            spacing: 0
 
-            // Drag the window by this strip (DragHandler ignores quick taps on buttons)
-            DragHandler {
-                target: null
-                onActiveChanged: {
-                    if (active) {
-                        const w = root.ApplicationWindow.window
-                        if (w) w.startSystemMove()
-                    }
-                }
-            }
+            // Empty search state
+            Item {
+                Layout.fillWidth: true
+                implicitHeight: 80
+                visible: root.searchQuery.trim().length > 0 && root.groupedModules.length === 0
 
-            Row {
-                anchors.left: parent.left
-                anchors.verticalCenter: parent.verticalCenter
-                spacing: 6
-
-                TitleButton {
-                    normalSrc: "qrc:/icons/titlebuttons/titlebutton-close.svg"
-                    hoverSrc:  "qrc:/icons/titlebuttons/titlebutton-close-hover.svg"
-                    activeSrc: "qrc:/icons/titlebuttons/titlebutton-close-active.svg"
-                    onClicked: {
-                        const w = root.ApplicationWindow.window
-                        if (w) w.close()
-                    }
-                }
-
-                TitleButton {
-                    normalSrc: "qrc:/icons/titlebuttons/titlebutton-minimize.svg"
-                    hoverSrc:  "qrc:/icons/titlebuttons/titlebutton-minimize-hover.svg"
-                    activeSrc: "qrc:/icons/titlebuttons/titlebutton-minimize-active.svg"
-                    onClicked: {
-                        const w = root.ApplicationWindow.window
-                        if (w) w.showMinimized()
-                    }
-                }
-
-                TitleButton {
-                    property bool isMax: {
-                        const w = root.ApplicationWindow.window
-                        return w !== null && w.visibility === Window.Maximized
-                    }
-                    normalSrc: "qrc:/icons/titlebuttons/titlebutton-maximize.svg"
-                    hoverSrc:  isMax ? "qrc:/icons/titlebuttons/titlebutton-unmaximize-hover.svg"
-                                     : "qrc:/icons/titlebuttons/titlebutton-maximize-hover.svg"
-                    activeSrc: isMax ? "qrc:/icons/titlebuttons/titlebutton-unmaximize-active.svg"
-                                     : "qrc:/icons/titlebuttons/titlebutton-maximize-active.svg"
-                    onClicked: {
-                        const w = root.ApplicationWindow.window
-                        if (!w) return
-                        if (isMax) w.showNormal(); else w.showMaximized()
-                    }
-                }
-            }
-        }
-
-        // ── Search ───────────────────────────────────────────────────────
-        TextField {
-            id: searchField
-            Layout.fillWidth: true
-            placeholderText: qsTr("Search settings")
-            selectByMouse: true
-            onTextChanged: root.queryChangedByUser(text)
-            background: Rectangle {
-                radius: 8
-                color: Theme.color("windowBg")
-                border.color: searchField.activeFocus ? Theme.color("accent") : Theme.color("panelBorder")
-                border.width: searchField.activeFocus ? 2 : 1
-            }
-        }
-
-        // ── Module list ──────────────────────────────────────────────────
-        ListView {
-            id: listView
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            clip: true
-            spacing: 1
-            model: root.moduleModel
-            section.property: "group"
-            section.criteria: ViewSection.FullString
-            section.delegate: Rectangle {
-                width: listView.width
-                height: 22
-                color: "transparent"
                 Text {
-                    anchors.left: parent.left
-                    anchors.leftMargin: 8
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: section
-                    font.pixelSize: Theme.fontSize("xs")
-                    font.weight: Font.DemiBold
+                    anchors.centerIn: parent
+                    text: qsTr("No results for \"%1\"").arg(root.searchQuery)
+                    font.pixelSize: Theme.fontSize("sm")
                     color: Theme.color("textSecondary")
-                    textFormat: Text.PlainText
                 }
             }
 
-            delegate: ItemDelegate {
-                width: listView.width
-                height: 34
-                highlighted: root.currentModuleId === (modelData.id || "")
-                background: Rectangle {
-                    radius: 6
-                    color: highlighted
-                        ? Theme.color("accent")
-                        : (hovered ? Theme.color("controlBgHover") : "transparent")
-                    Behavior on color {
-                        ColorAnimation { duration: 140; easing.type: Easing.OutCubic }
-                    }
-                }
+            // Groups
+            Repeater {
+                id: groupRepeater
+                model: root.groupedModules
 
-                contentItem: RowLayout {
-                    spacing: 8
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.leftMargin: 8
-                    anchors.rightMargin: 8
+                delegate: ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 0
 
-                    Image {
-                        source: "image://icon/" + (modelData.icon || "preferences-system")
-                        Layout.preferredWidth: 16
-                        Layout.preferredHeight: 16
-                    }
-                    Text {
+                    // ── Group header ────────────────────────────────────────
+                    Item {
                         Layout.fillWidth: true
-                        text: modelData.name || ""
-                        font.pixelSize: Theme.fontSize("small")
-                        font.weight: highlighted ? Font.DemiBold : Font.Normal
-                        color: highlighted ? Theme.color("accentText") : Theme.color("textPrimary")
-                        elide: Text.ElideRight
-                        Behavior on color {
-                            ColorAnimation { duration: 120; easing.type: Easing.OutQuad }
+                        height: 38
+
+                        Text {
+                            anchors.left: parent.left
+                            anchors.leftMargin: 28
+                            anchors.bottom: parent.bottom
+                            anchors.bottomMargin: 6
+                            text: modelData.name
+                            font.pixelSize: Theme.fontSize("xs")
+                            font.weight: Font.DemiBold
+                            color: Theme.color("textSecondary")
+                            textFormat: Text.PlainText
                         }
                     }
-                }
 
-                onClicked: root.moduleSelected(modelData.id || "")
+                    // ── Module tiles ────────────────────────────────────────
+                    Item {
+                        Layout.fillWidth: true
+                        implicitHeight: tilesFlow.implicitHeight + 16
+
+                        Flow {
+                            id: tilesFlow
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.top: parent.top
+                            anchors.leftMargin: 20
+                            anchors.rightMargin: 20
+                            spacing: 10
+
+                            Repeater {
+                                model: modelData.items
+
+                                delegate: ItemDelegate {
+                                    width: Math.floor((tilesFlow.width - 20) / 3)
+                                    height: 64
+                                    padding: 0
+
+                                    background: Rectangle {
+                                        radius: Theme.radiusCard || 8
+                                        color: parent.hovered
+                                            ? Theme.color("controlBgHover")
+                                            : Theme.color("surface")
+                                        border.color: Theme.color("panelBorder")
+                                        border.width: 1
+                                        Behavior on color {
+                                            ColorAnimation { duration: 120; easing.type: Easing.OutCubic }
+                                        }
+                                    }
+
+                                    contentItem: RowLayout {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 14
+                                        anchors.rightMargin: 10
+                                        spacing: 12
+
+                                        // Module icon
+                                        Image {
+                                            source: "image://icon/" + (modelData.icon || "preferences-system")
+                                            Layout.preferredWidth: 36
+                                            Layout.preferredHeight: 36
+                                            smooth: true
+                                            Layout.alignment: Qt.AlignVCenter
+                                        }
+
+                                        // Module name
+                                        Text {
+                                            Layout.fillWidth: true
+                                            text: modelData.name || ""
+                                            font.pixelSize: Theme.fontSize("sm")
+                                            font.weight: Font.Medium
+                                            color: Theme.color("textPrimary")
+                                            wrapMode: Text.WordWrap
+                                            elide: Text.ElideRight
+                                            maximumLineCount: 2
+                                            Layout.alignment: Qt.AlignVCenter
+                                        }
+                                    }
+
+                                    onClicked: root.moduleSelected(modelData.id || "")
+
+                                    // Subtle press scale
+                                    scale: pressed ? 0.97 : 1.0
+                                    Behavior on scale {
+                                        NumberAnimation { duration: 80; easing.type: Easing.OutCubic }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Section divider (not after last group)
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.leftMargin: 20
+                        Layout.rightMargin: 20
+                        height: 1
+                        color: Theme.color("panelBorder")
+                        visible: index < root.groupedModules.length - 1
+                    }
+                }
             }
+
+            // Bottom padding
+            Item { Layout.fillWidth: true; height: 28 }
         }
     }
 }

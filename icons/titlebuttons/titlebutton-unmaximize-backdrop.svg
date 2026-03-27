@@ -1,12 +1,45 @@
-<svg width="16" height="16" version="1.1" xmlns="http://www.w3.org/2000/svg">
- <g id="titlebutton-minimize-backdrop" transform="translate(-253 268.64)">
-  <rect x="253" y="-268.64" width="16" height="16" ry="1.6931e-5" opacity="0" stroke-width=".47432" style="paint-order:markers stroke fill"/>
-  <g transform="translate(254,-267.64)" enable-background="new">
-   <g transform="translate(-5,-1033.4)" fill-rule="evenodd">
-    <path d="m12 1047.4c3.8659 0 6.9999-3.134 6.9999-7s-3.134-7-6.9999-7c-3.866 0-7.0001 3.134-7.0001 7s3.134 7 7.0001 7" fill="#bababa"/>
-    <path d="m12 1046.9c3.5898 0 6.4999-2.9103 6.4999-6.5001 0-3.5899-2.9102-6.5-6.4999-6.5-3.5899 0-6.5001 2.9101-6.5001 6.5 0 3.5898 2.9102 6.5001 6.5001 6.5001" fill="#cecece"/>
-   </g>
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="20.000006mm"
+   height="13.320382mm"
+   viewBox="0 0 20.000006 13.320382"
+   version="1.1"
+   id="svg1"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs1" />
+  <g
+     id="layer1"
+     transform="translate(-167.05079,-24.266071)">
+    <g
+       id="g128"
+       transform="translate(0,0.44858318)">
+      <path
+         style="fill:#bababa;fill-opacity:1;stroke-width:0.264583"
+         id="path97"
+         width="60"
+         height="40"
+         x="129.95419"
+         y="72.300003"
+         d="m 129.95419,72.300003 h 39.87615 a 20.123855,20.123855 45 0 1 20.12385,20.123855 v 0.07224 A 19.803904,19.803904 135 0 1 170.15029,112.3 h -40.1961 z"
+         transform="matrix(0.33300958,0,0,0.33300958,123.79422,-0.25910487)" />
+      <path
+         style="fill:#cecece;fill-opacity:1;stroke-width:0.264583"
+         id="path98"
+         width="60"
+         height="40"
+         x="129.95419"
+         y="72.300003"
+         transform="matrix(0.32190926,0,0,0.29970862,125.21733,2.8145736)"
+         d="m 129.95419,72.300003 h 39.8043 A 20.195707,20.195707 45 0 1 189.95419,92.49571 19.804293,19.804293 135 0 1 170.1499,112.3 h -40.19571 z" />
+      <path
+         d="m 177.07914,25.334195 v 4.02189 c 0,0.46605 0.65191,1.12161 1.11539,1.12161 h 3.99975 z m -5.17183,5.1435 5.11517,5.14347 v -4.02189 c 0,-0.46605 -0.65195,-1.12158 -1.11542,-1.12158 z"
+         opacity="0.5"
+         stroke-width="4.22735"
+         id="path95" />
+    </g>
   </g>
- </g>
- <path d="m8.0254 3.4141v3.5859c0 0.41552 0.58448 1 1 1h3.5859zm-4.6367 4.5859 4.5859 4.5859v-3.5859c0-0.41552-0.58448-1-1-1z" opacity=".5" stroke-width="3.7795"/>
 </svg>

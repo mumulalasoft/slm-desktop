@@ -382,6 +382,8 @@ void UIPreferences::setThemeMode(const QString &mode)
     m_themeMode = normalized;
     m_settings.setValue(kThemeModeKey, m_themeMode);
     emit themeModeChanged();
+    emit appearanceChanged();
+    emit preferenceChanged(QString::fromLatin1(kThemeModeKey), m_themeMode);
 }
 
 QString UIPreferences::accentColor() const { return m_accentColor; }
@@ -393,6 +395,8 @@ void UIPreferences::setAccentColor(const QString &color)
     m_accentColor = v;
     m_settings.setValue(kAccentColorKey, m_accentColor);
     emit accentColorChanged();
+    emit appearanceChanged();
+    emit preferenceChanged(QString::fromLatin1(kAccentColorKey), m_accentColor);
 }
 
 qreal UIPreferences::fontScale() const { return m_fontScale; }
@@ -404,6 +408,8 @@ void UIPreferences::setFontScale(qreal scale)
     m_fontScale = clamped;
     m_settings.setValue(kFontScaleKey, m_fontScale);
     emit fontScaleChanged();
+    emit appearanceChanged();
+    emit preferenceChanged(QString::fromLatin1(kFontScaleKey), m_fontScale);
 }
 
 QString UIPreferences::gtkThemeLight() const { return m_gtkThemeLight; }
@@ -418,6 +424,8 @@ void UIPreferences::setGtkThemeLight(const QString &theme)
     else
         m_settings.setValue(kGtkThemeLightKey, m_gtkThemeLight);
     emit gtkThemeLightChanged();
+    emit appearanceChanged();
+    emit preferenceChanged(QString::fromLatin1(kGtkThemeLightKey), m_gtkThemeLight);
 }
 
 QString UIPreferences::gtkThemeDark() const { return m_gtkThemeDark; }
@@ -432,6 +440,8 @@ void UIPreferences::setGtkThemeDark(const QString &theme)
     else
         m_settings.setValue(kGtkThemeDarkKey, m_gtkThemeDark);
     emit gtkThemeDarkChanged();
+    emit appearanceChanged();
+    emit preferenceChanged(QString::fromLatin1(kGtkThemeDarkKey), m_gtkThemeDark);
 }
 
 QString UIPreferences::kdeColorSchemeLight() const { return m_kdeColorSchemeLight; }
@@ -446,6 +456,8 @@ void UIPreferences::setKdeColorSchemeLight(const QString &scheme)
     else
         m_settings.setValue(kKdeColorSchemeLightKey, m_kdeColorSchemeLight);
     emit kdeColorSchemeLightChanged();
+    emit appearanceChanged();
+    emit preferenceChanged(QString::fromLatin1(kKdeColorSchemeLightKey), m_kdeColorSchemeLight);
 }
 
 QString UIPreferences::kdeColorSchemeDark() const { return m_kdeColorSchemeDark; }
@@ -460,6 +472,8 @@ void UIPreferences::setKdeColorSchemeDark(const QString &scheme)
     else
         m_settings.setValue(kKdeColorSchemeDarkKey, m_kdeColorSchemeDark);
     emit kdeColorSchemeDarkChanged();
+    emit appearanceChanged();
+    emit preferenceChanged(QString::fromLatin1(kKdeColorSchemeDarkKey), m_kdeColorSchemeDark);
 }
 
 QString UIPreferences::gtkIconThemeLight() const { return m_gtkIconThemeLight; }
@@ -474,6 +488,8 @@ void UIPreferences::setGtkIconThemeLight(const QString &theme)
     else
         m_settings.setValue(kGtkIconThemeLightKey, m_gtkIconThemeLight);
     emit gtkIconThemeLightChanged();
+    emit appearanceChanged();
+    emit preferenceChanged(QString::fromLatin1(kGtkIconThemeLightKey), m_gtkIconThemeLight);
 }
 
 QString UIPreferences::gtkIconThemeDark() const { return m_gtkIconThemeDark; }
@@ -488,6 +504,8 @@ void UIPreferences::setGtkIconThemeDark(const QString &theme)
     else
         m_settings.setValue(kGtkIconThemeDarkKey, m_gtkIconThemeDark);
     emit gtkIconThemeDarkChanged();
+    emit appearanceChanged();
+    emit preferenceChanged(QString::fromLatin1(kGtkIconThemeDarkKey), m_gtkIconThemeDark);
 }
 
 QString UIPreferences::kdeIconThemeLight() const { return m_kdeIconThemeLight; }
@@ -502,6 +520,8 @@ void UIPreferences::setKdeIconThemeLight(const QString &theme)
     else
         m_settings.setValue(kKdeIconThemeLightKey, m_kdeIconThemeLight);
     emit kdeIconThemeLightChanged();
+    emit appearanceChanged();
+    emit preferenceChanged(QString::fromLatin1(kKdeIconThemeLightKey), m_kdeIconThemeLight);
 }
 
 QString UIPreferences::kdeIconThemeDark() const { return m_kdeIconThemeDark; }
@@ -516,6 +536,8 @@ void UIPreferences::setKdeIconThemeDark(const QString &theme)
     else
         m_settings.setValue(kKdeIconThemeDarkKey, m_kdeIconThemeDark);
     emit kdeIconThemeDarkChanged();
+    emit appearanceChanged();
+    emit preferenceChanged(QString::fromLatin1(kKdeIconThemeDarkKey), m_kdeIconThemeDark);
 }
 
 QString UIPreferences::defaultFont() const { return m_defaultFont; }
@@ -799,6 +821,8 @@ void UIPreferences::setIconThemeLight(const QString &themeName)
     }
     m_settings.sync();
     emit iconThemeLightChanged();
+    emit appearanceChanged();
+    emit preferenceChanged(QString::fromLatin1(kIconThemeLightKey), m_iconThemeLight);
 }
 
 void UIPreferences::setIconThemeDark(const QString &themeName)
@@ -815,6 +839,8 @@ void UIPreferences::setIconThemeDark(const QString &themeName)
     }
     m_settings.sync();
     emit iconThemeDarkChanged();
+    emit appearanceChanged();
+    emit preferenceChanged(QString::fromLatin1(kIconThemeDarkKey), m_iconThemeDark);
 }
 
 void UIPreferences::setIconThemeMapping(const QString &lightThemeName, const QString &darkThemeName)

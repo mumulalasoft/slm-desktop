@@ -201,7 +201,7 @@ Flickable {
             Item {
                 implicitHeight: 32; Layout.fillWidth: true
                 RowLayout {
-                    anchors { fill: parent; leftMargin: 12; rightMargin: 12 }; spacing: 8
+                    anchors { fill: parent; leftMargin: 12; rightMargin: 12; spacing: 8}
                     Text {
                         text: qsTr("KEY"); font.pixelSize: Theme.fontSize("xs"); font.weight: Font.DemiBold
                         font.letterSpacing: 0.5; color: Theme.color("textDisabled")

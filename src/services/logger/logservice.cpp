@@ -53,7 +53,7 @@ static QString isoTimestampFromJournal(const QJsonObject &obj)
     if (us.isEmpty())
         return QDateTime::currentDateTimeUtc().toString(Qt::ISODate);
     const qint64 msec = us.toLongLong() / 1000;
-    return QDateTime::fromMSecsSinceEpoch(msec, Qt::UTC).toString(Qt::ISODate);
+    return QDateTime::fromMSecsSinceEpoch(msec).toUTC().toString(Qt::ISODate);
 }
 
 LogService::LogService(QObject *parent)

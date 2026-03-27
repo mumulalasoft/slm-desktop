@@ -18,6 +18,30 @@ static void parseSpec(const QString &spec, QString &family, QString &style, int 
     if (size <= 0) size = 11;
 }
 
+static int specSizeOrDefault(const QString &spec, int fallback = 11)
+{
+    QString family, style;
+    int size = fallback;
+    parseSpec(spec, family, style, size);
+    return size > 0 ? size : fallback;
+}
+
+static QString specWithSize(const QString &spec, int requestedSize, const QString &fallbackFamily)
+{
+    const int clampedSize = qBound(6, requestedSize, 72);
+    QString family, style;
+    int currentSize = 11;
+    parseSpec(spec, family, style, currentSize);
+    if (family.trimmed().isEmpty()) {
+        family = fallbackFamily.trimmed().isEmpty() ? QStringLiteral("Noto Sans")
+                                                    : fallbackFamily.trimmed();
+    }
+    if (style.trimmed().isEmpty()) {
+        style = QStringLiteral("Regular");
+    }
+    return QStringLiteral("%1,%2,%3").arg(family, style).arg(clampedSize);
+}
+
 // Map a style name to a QFont weight value.
 static int styleToWeight(const QString &style)
 {
@@ -109,6 +133,7 @@ void FontManager::writeGtkFontSettings(const QString &defaultSpec)
 }
 
 void FontManager::writeKdeFontSettings(const QString &defaultSpec,
+                                        const QString &documentSpec,
                                         const QString &monospaceSpec,
                                         const QString &titlebarSpec)
 {
@@ -117,11 +142,18 @@ void FontManager::writeKdeFontSettings(const QString &defaultSpec,
     QSettings kdeglobals(configBase + QStringLiteral("/kdeglobals"), QSettings::IniFormat);
 
     const QString defQt  = specToQtFontString(defaultSpec);
+    const QString docQt  = specToQtFontString(documentSpec);
     const QString monoQt = specToQtFontString(monospaceSpec);
     const QString titleQt = specToQtFontString(titlebarSpec);
 
     kdeglobals.beginGroup(QStringLiteral("General"));
-    if (!defQt.isEmpty())  kdeglobals.setValue(QStringLiteral("font"), defQt);
+    if (!defQt.isEmpty()) {
+        kdeglobals.setValue(QStringLiteral("font"), defQt);
+        kdeglobals.setValue(QStringLiteral("menuFont"), defQt);
+        kdeglobals.setValue(QStringLiteral("toolBarFont"), defQt);
+        kdeglobals.setValue(QStringLiteral("taskbarFont"), defQt);
+    }
+    if (!docQt.isEmpty())  kdeglobals.setValue(QStringLiteral("smallestReadableFont"), docQt);
     if (!monoQt.isEmpty()) kdeglobals.setValue(QStringLiteral("fixed"), monoQt);
     kdeglobals.endGroup();
 
@@ -138,6 +170,7 @@ void FontManager::applyFonts()
 {
     writeGtkFontSettings(m_prefs->defaultFont());
     writeKdeFontSettings(m_prefs->defaultFont(),
+                         m_prefs->documentFont(),
                          m_prefs->monospaceFont(),
                          m_prefs->titlebarFont());
 }
@@ -149,6 +182,7 @@ FontManager::FontManager(UIPreferences *prefs, QObject *parent)
     , m_prefs(prefs)
 {
     connectPrefs();
+    applyFonts();
 }
 
 void FontManager::connectPrefs()
@@ -164,6 +198,7 @@ void FontManager::connectPrefs()
 
     auto apply = [this]() { applyFonts(); };
     connect(m_prefs, &UIPreferences::defaultFontChanged,   this, apply);
+    connect(m_prefs, &UIPreferences::documentFontChanged,  this, apply);
     connect(m_prefs, &UIPreferences::monospaceFontChanged, this, apply);
     connect(m_prefs, &UIPreferences::titlebarFontChanged,  this, apply);
 }
@@ -174,6 +209,10 @@ QString FontManager::defaultFont()   const { return m_prefs->defaultFont(); }
 QString FontManager::documentFont()  const { return m_prefs->documentFont(); }
 QString FontManager::monospaceFont() const { return m_prefs->monospaceFont(); }
 QString FontManager::titlebarFont()  const { return m_prefs->titlebarFont(); }
+int FontManager::defaultFontSize() const { return specSizeOrDefault(m_prefs->defaultFont(), 11); }
+int FontManager::documentFontSize() const { return specSizeOrDefault(m_prefs->documentFont(), 11); }
+int FontManager::monospaceFontSize() const { return specSizeOrDefault(m_prefs->monospaceFont(), 11); }
+int FontManager::titlebarFontSize() const { return specSizeOrDefault(m_prefs->titlebarFont(), 11); }
 
 QVariantList FontManager::allFontEntries() const
 {
@@ -236,6 +275,26 @@ void FontManager::setMonospaceFont(const QString &spec)
 void FontManager::setTitlebarFont(const QString &spec)
 {
     m_prefs->setTitlebarFont(spec);
+}
+
+void FontManager::setDefaultFontSize(int size)
+{
+    m_prefs->setDefaultFont(specWithSize(m_prefs->defaultFont(), size, QStringLiteral("Noto Sans")));
+}
+
+void FontManager::setDocumentFontSize(int size)
+{
+    m_prefs->setDocumentFont(specWithSize(m_prefs->documentFont(), size, QStringLiteral("Noto Sans")));
+}
+
+void FontManager::setMonospaceFontSize(int size)
+{
+    m_prefs->setMonospaceFont(specWithSize(m_prefs->monospaceFont(), size, QStringLiteral("Noto Sans Mono")));
+}
+
+void FontManager::setTitlebarFontSize(int size)
+{
+    m_prefs->setTitlebarFont(specWithSize(m_prefs->titlebarFont(), size, QStringLiteral("Noto Sans")));
 }
 
 void FontManager::resetToDefaults()

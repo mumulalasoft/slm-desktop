@@ -6,6 +6,7 @@
 #include <QSet>
 #include <QSettings>
 #include <QStandardPaths>
+#include <QStringView>
 
 // ── XDG helper ───────────────────────────────────────────────────────────────
 
@@ -202,6 +203,43 @@ void ThemeManager::applyKdeColorScheme(const QString &schemeName)
     kdeglobals.sync();
 }
 
+void ThemeManager::applyWindowControlsLayout(const QString &side)
+{
+    const QString normalized = side.trimmed().toLower() == QLatin1String("left")
+            ? QStringLiteral("left") : QStringLiteral("right");
+
+    // GTK client-side decorations (GTK3/GTK4).
+    const QString gtkLayout = (normalized == QLatin1String("left"))
+            ? QStringLiteral("close,minimize,maximize:")
+            : QStringLiteral(":minimize,maximize,close");
+    const QString configBase = QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation);
+    const QStringList gtkDirs = {
+        configBase + QStringLiteral("/gtk-3.0"),
+        configBase + QStringLiteral("/gtk-4.0"),
+    };
+    for (const QString &gtkDir : gtkDirs) {
+        QDir().mkpath(gtkDir);
+        QSettings ini(gtkDir + QStringLiteral("/settings.ini"), QSettings::IniFormat);
+        ini.beginGroup(QStringLiteral("Settings"));
+        ini.setValue(QStringLiteral("gtk-decoration-layout"), gtkLayout);
+        ini.endGroup();
+        ini.sync();
+    }
+
+    // KDE / KWin decoration layout.
+    QSettings kwinrc(configBase + QStringLiteral("/kwinrc"), QSettings::IniFormat);
+    kwinrc.beginGroup(QStringLiteral("org.kde.kdecoration2"));
+    if (normalized == QLatin1String("left")) {
+        kwinrc.setValue(QStringLiteral("ButtonsOnLeft"), QStringLiteral("XIA"));
+        kwinrc.setValue(QStringLiteral("ButtonsOnRight"), QStringLiteral(""));
+    } else {
+        kwinrc.setValue(QStringLiteral("ButtonsOnLeft"), QStringLiteral(""));
+        kwinrc.setValue(QStringLiteral("ButtonsOnRight"), QStringLiteral("XIA"));
+    }
+    kwinrc.endGroup();
+    kwinrc.sync();
+}
+
 // ── Constructor ───────────────────────────────────────────────────────────────
 
 ThemeManager::ThemeManager(UIPreferences *prefs, QObject *parent)
@@ -233,6 +271,17 @@ void ThemeManager::connectPrefs()
             this, &ThemeManager::kdeIconThemeLightChanged);
     connect(m_prefs, &UIPreferences::kdeIconThemeDarkChanged,
             this, &ThemeManager::kdeIconThemeDarkChanged);
+    connect(m_prefs, &UIPreferences::appearanceChanged,
+            this, &ThemeManager::appearanceChanged);
+    connect(m_prefs, &UIPreferences::preferenceChanged, this,
+            [this](const QString &key, const QVariant &) {
+                const QString normalized = key.trimmed().toLower();
+                if (normalized == QStringLiteral("windowing.controlsside")) {
+                    applyWindowControlsLayout(windowControlsSide());
+                    emit windowControlsSideChanged();
+                    emit appearanceChanged();
+                }
+            });
 
     // Apply the active theme/icon-theme whenever the selection or the mode changes.
     auto applyActive = [this]() {
@@ -252,6 +301,8 @@ void ThemeManager::connectPrefs()
     connect(m_prefs, &UIPreferences::gtkIconThemeDarkChanged, this, applyActive);
     connect(m_prefs, &UIPreferences::kdeIconThemeLightChanged, this, applyActive);
     connect(m_prefs, &UIPreferences::kdeIconThemeDarkChanged, this, applyActive);
+
+    applyWindowControlsLayout(windowControlsSide());
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -268,6 +319,12 @@ QString ThemeManager::gtkIconThemeLight() const    { return m_prefs->gtkIconThem
 QString ThemeManager::gtkIconThemeDark() const     { return m_prefs->gtkIconThemeDark(); }
 QString ThemeManager::kdeIconThemeLight() const    { return m_prefs->kdeIconThemeLight(); }
 QString ThemeManager::kdeIconThemeDark() const     { return m_prefs->kdeIconThemeDark(); }
+QString ThemeManager::windowControlsSide() const
+{
+    const QString side = m_prefs->getPreference(QStringLiteral("windowing.controlsSide"),
+                                                QStringLiteral("right")).toString().trimmed().toLower();
+    return side == QLatin1String("left") ? QStringLiteral("left") : QStringLiteral("right");
+}
 
 void ThemeManager::setGtkThemeLight(const QString &theme)
 {
@@ -327,6 +384,19 @@ void ThemeManager::setKdeIconThemeDark(const QString &theme)
     m_prefs->setKdeIconThemeDark(theme);
     if (m_prefs->themeMode() == QLatin1String("dark"))
         applyKdeIconTheme(theme);
+}
+
+void ThemeManager::setWindowControlsSide(const QString &side)
+{
+    const QString normalized = side.trimmed().toLower() == QLatin1String("left")
+            ? QStringLiteral("left") : QStringLiteral("right");
+    if (normalized == windowControlsSide()) {
+        return;
+    }
+    m_prefs->setPreference(QStringLiteral("windowing.controlsSide"), normalized);
+    applyWindowControlsLayout(normalized);
+    emit windowControlsSideChanged();
+    emit appearanceChanged();
 }
 
 void ThemeManager::refresh()

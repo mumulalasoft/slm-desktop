@@ -251,6 +251,8 @@ qt_add_executable(slm-settings
     src/apps/settings/settingsapp.cpp
     src/core/icons/themeiconprovider.cpp
     src/core/icons/themeiconprovider.h
+    src/core/icons/themeiconcontroller.cpp
+    src/core/icons/themeiconcontroller.h
     src/apps/settings/moduleloader.cpp
     src/apps/settings/searchengine.cpp
     src/apps/settings/globalsearchprovider.cpp
@@ -267,6 +269,8 @@ qt_add_executable(slm-settings
     src/apps/settings/wallpapermanager.h
     src/apps/settings/mimeappsmanager.cpp
     src/apps/settings/mimeappsmanager.h
+    src/apps/settings/modules/applications/startupappscontroller.cpp
+    src/apps/settings/modules/applications/startupappscontroller.h
     src/apps/settings/thememanager.cpp
     src/apps/settings/thememanager.h
     src/apps/settings/fontmanager.cpp
@@ -375,6 +379,12 @@ qt_add_executable(slmcapdemo
     src/core/execution/appexecutiongate.h
     src/core/execution/appruntimeregistry.cpp
     src/core/execution/appruntimeregistry.h
+    src/core/launcher/applauncher.cpp
+    src/core/launcher/applauncher.h
+    src/core/launcher/launchenvresolver.cpp
+    src/core/launcher/launchenvresolver.h
+    src/apps/settings/modules/developer/envserviceclient.cpp
+    src/apps/settings/modules/developer/envserviceclient.h
     dockidentity.cpp
     dockidentity.h
     dockmodel.cpp
@@ -769,6 +779,7 @@ set(DESKTOP_SHELL_QML_FILES
     Qml/apps/filemanager/FileManagerPropertiesDialogContent.qml
     Qml/apps/filemanager/FileManagerCompressDialog.qml
     Qml/apps/filemanager/FileManagerOpenWithDialog.qml
+    Qml/apps/filemanager/FileManagerFolderShareDialog.qml
     Qml/apps/filemanager/FileManagerRenameSheet.qml
     Qml/apps/filemanager/FileManagerDragGhost.qml
     Qml/apps/filemanager/FileManagerKeys.js
@@ -834,13 +845,6 @@ qt_add_qml_module(slm-settings
         Qml/apps/settings/components/SettingToggle.qml
         Qml/apps/settings/components/SettingGroup.qml
         Qml/apps/settings/components/AuthorizationHint.qml
-)
-
-qt_add_shaders(appSlm_Desktop "desktop_shell_shaders"
-    PREFIX
-        "/shaders"
-    FILES
-        Qml/shaders/rounded_clip.frag
 )
 
 set(DESKTOP_SHELL_RESOURCE_FILES
@@ -959,6 +963,7 @@ target_link_libraries(slm-settings
 )
 target_compile_definitions(slm-settings PRIVATE
     SLM_SHELL_VERSION="0.1.0-dev"
+    SLM_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
 )
 qt_add_resources(slm-settings "slm_desktop_theme_shim_qmldir"
     PREFIX "/qt/qml/Slm_Desktop"
@@ -1208,6 +1213,12 @@ set(SLM_ACTION_TEST_SOURCES
     src/core/execution/appexecutiongate.h
     src/core/execution/appruntimeregistry.cpp
     src/core/execution/appruntimeregistry.h
+    src/core/launcher/applauncher.cpp
+    src/core/launcher/applauncher.h
+    src/core/launcher/launchenvresolver.cpp
+    src/core/launcher/launchenvresolver.h
+    src/apps/settings/modules/developer/envserviceclient.cpp
+    src/apps/settings/modules/developer/envserviceclient.h
     dockidentity.cpp
     dockidentity.h
     dockmodel.cpp
@@ -1269,6 +1280,8 @@ set(SLM_PERMISSION_TEST_SOURCES
     src/core/permissions/PermissionBroker.h
     src/core/permissions/DBusSecurityGuard.cpp
     src/core/permissions/DBusSecurityGuard.h
+    src/core/permissions/ConsentMediator.cpp
+    src/core/permissions/ConsentMediator.h
 )
 
 qt_add_executable(appmodel_xbel_fallback_test
@@ -1283,6 +1296,7 @@ qt_add_executable(appmodel_xbel_fallback_test
 target_link_libraries(appmodel_xbel_fallback_test
     PRIVATE
         Qt6::Core
+        Qt6::DBus
         Qt6::Gui
         Qt6::Test
         PkgConfig::GIO
@@ -1302,6 +1316,7 @@ qt_add_executable(appmodel_scoring_weights_test
 target_link_libraries(appmodel_scoring_weights_test
     PRIVATE
         Qt6::Core
+        Qt6::DBus
         Qt6::Gui
         Qt6::Test
         PkgConfig::GIO
@@ -1702,6 +1717,7 @@ qt_add_executable(filemanagerapi_daemon_recovery_test
     src/apps/filemanager/filemanagerapi_listing.cpp
     src/apps/filemanager/filemanagerapi_io.cpp
     src/apps/filemanager/filemanagerapi_metadata.cpp
+    src/apps/filemanager/filemanagerapi_sharing.cpp
     src/apps/filemanager/filemanagerapi_portal.cpp
     src/apps/filemanager/filemanagerapi_daemon_transfer.cpp
     src/apps/filemanager/filemanagerapi_daemon_state.cpp
@@ -1752,6 +1768,12 @@ qt_add_executable(filemanagerapi_daemon_recovery_test
     src/core/execution/appexecutiongate.h
     src/core/execution/appruntimeregistry.cpp
     src/core/execution/appruntimeregistry.h
+    src/core/launcher/applauncher.cpp
+    src/core/launcher/applauncher.h
+    src/core/launcher/launchenvresolver.cpp
+    src/core/launcher/launchenvresolver.h
+    src/apps/settings/modules/developer/envserviceclient.cpp
+    src/apps/settings/modules/developer/envserviceclient.h
     dockidentity.cpp
     dockidentity.h
     dockmodel.cpp
@@ -1812,6 +1834,7 @@ qt_add_executable(filemanagerapi_fileops_contract_test
     src/apps/filemanager/filemanagerapi_listing.cpp
     src/apps/filemanager/filemanagerapi_io.cpp
     src/apps/filemanager/filemanagerapi_metadata.cpp
+    src/apps/filemanager/filemanagerapi_sharing.cpp
     src/apps/filemanager/filemanagerapi_portal.cpp
     src/apps/filemanager/filemanagerapi_daemon_transfer.cpp
     src/apps/filemanager/filemanagerapi_daemon_state.cpp
@@ -1862,6 +1885,12 @@ qt_add_executable(filemanagerapi_fileops_contract_test
     src/core/execution/appexecutiongate.h
     src/core/execution/appruntimeregistry.cpp
     src/core/execution/appruntimeregistry.h
+    src/core/launcher/applauncher.cpp
+    src/core/launcher/applauncher.h
+    src/core/launcher/launchenvresolver.cpp
+    src/core/launcher/launchenvresolver.h
+    src/apps/settings/modules/developer/envserviceclient.cpp
+    src/apps/settings/modules/developer/envserviceclient.h
     dockidentity.cpp
     dockidentity.h
     dockmodel.cpp
@@ -1914,6 +1943,12 @@ qt_add_executable(filemanager_shell_contract_test
     src/core/execution/appexecutiongate.h
     src/core/execution/appruntimeregistry.cpp
     src/core/execution/appruntimeregistry.h
+    src/core/launcher/applauncher.cpp
+    src/core/launcher/applauncher.h
+    src/core/launcher/launchenvresolver.cpp
+    src/core/launcher/launchenvresolver.h
+    src/apps/settings/modules/developer/envserviceclient.cpp
+    src/apps/settings/modules/developer/envserviceclient.h
     src/core/prefs/uipreferences.cpp
     src/core/prefs/uipreferences.h
     src/filemanager/FileManagerShellBridge.cpp
@@ -2011,6 +2046,25 @@ target_link_libraries(devicesservice_dbus_test
 )
 
 add_test(NAME devicesservice_dbus_test COMMAND devicesservice_dbus_test)
+
+qt_add_executable(foldersharingservice_dbus_test
+    src/daemon/desktopd/foldersharingservice.cpp
+    src/daemon/desktopd/foldersharingservice.h
+    ${SLM_PERMISSION_TEST_SOURCES}
+    tests/foldersharingservice_dbus_test.cpp
+)
+
+target_include_directories(foldersharingservice_dbus_test PRIVATE ${CMAKE_SOURCE_DIR})
+
+target_link_libraries(foldersharingservice_dbus_test
+    PRIVATE
+        Qt6::Core
+        Qt6::DBus
+        Qt6::Sql
+        Qt6::Test
+)
+
+add_test(NAME foldersharingservice_dbus_test COMMAND foldersharingservice_dbus_test)
 
 qt_add_executable(captureservice_dbus_test
     src/daemon/desktopd/captureservice.cpp
@@ -2815,6 +2869,32 @@ target_link_libraries(permissionstore_payload_contract_test
 
 add_test(NAME permissionstore_payload_contract_test COMMAND permissionstore_payload_contract_test)
 
+qt_add_executable(trustresolver_test
+    ${SLM_PERMISSION_TEST_SOURCES}
+    tests/trustresolver_test.cpp
+)
+target_link_libraries(trustresolver_test
+    PRIVATE
+        Qt6::Core
+        Qt6::DBus
+        Qt6::Sql
+        Qt6::Test
+)
+add_test(NAME trustresolver_test COMMAND trustresolver_test)
+
+qt_add_executable(policy_integration_test
+    ${SLM_PERMISSION_TEST_SOURCES}
+    tests/policy_integration_test.cpp
+)
+target_link_libraries(policy_integration_test
+    PRIVATE
+        Qt6::Core
+        Qt6::DBus
+        Qt6::Sql
+        Qt6::Test
+)
+add_test(NAME policy_integration_test COMMAND policy_integration_test)
+
 qt_add_executable(portal_adapter_lifecycle_persistence_test
     ${SLM_PERMISSION_TEST_SOURCES}
     src/daemon/portald/portal-adapter/PortalCapabilityMapper.cpp
@@ -2850,6 +2930,42 @@ target_link_libraries(portal_adapter_lifecycle_persistence_test
 
 add_test(NAME portal_adapter_lifecycle_persistence_test
     COMMAND portal_adapter_lifecycle_persistence_test)
+
+qt_add_executable(portal_adapter_race_cancellation_test
+    ${SLM_PERMISSION_TEST_SOURCES}
+    src/daemon/portald/portal-adapter/PortalCapabilityMapper.cpp
+    src/daemon/portald/portal-adapter/PortalCapabilityMapper.h
+    src/daemon/portald/portal-adapter/PortalDialogBridge.cpp
+    src/daemon/portald/portal-adapter/PortalDialogBridge.h
+    src/daemon/portald/portal-adapter/PortalAccessMediator.cpp
+    src/daemon/portald/portal-adapter/PortalAccessMediator.h
+    src/daemon/portald/portal-adapter/PortalResponseSerializer.cpp
+    src/daemon/portald/portal-adapter/PortalResponseSerializer.h
+    src/daemon/portald/portal-adapter/PortalRequestObject.cpp
+    src/daemon/portald/portal-adapter/PortalRequestObject.h
+    src/daemon/portald/portal-adapter/PortalRequestManager.cpp
+    src/daemon/portald/portal-adapter/PortalRequestManager.h
+    src/daemon/portald/portal-adapter/PortalSessionObject.cpp
+    src/daemon/portald/portal-adapter/PortalSessionObject.h
+    src/daemon/portald/portal-adapter/PortalSessionManager.cpp
+    src/daemon/portald/portal-adapter/PortalSessionManager.h
+    src/daemon/portald/portal-adapter/PortalPermissionStoreAdapter.cpp
+    src/daemon/portald/portal-adapter/PortalPermissionStoreAdapter.h
+    tests/portal_adapter_race_cancellation_test.cpp
+)
+
+target_include_directories(portal_adapter_race_cancellation_test PRIVATE ${CMAKE_SOURCE_DIR})
+
+target_link_libraries(portal_adapter_race_cancellation_test
+    PRIVATE
+        Qt6::Core
+        Qt6::DBus
+        Qt6::Sql
+        Qt6::Test
+)
+
+add_test(NAME portal_adapter_race_cancellation_test
+    COMMAND portal_adapter_race_cancellation_test)
 
 qt_add_executable(portalresponseserializer_contract_test
     src/daemon/portald/portal-adapter/PortalResponseSerializer.cpp
@@ -3337,6 +3453,12 @@ qt_add_executable(slmactionregistry_test
     src/core/execution/appexecutiongate.h
     src/core/execution/appruntimeregistry.cpp
     src/core/execution/appruntimeregistry.h
+    src/core/launcher/applauncher.cpp
+    src/core/launcher/applauncher.h
+    src/core/launcher/launchenvresolver.cpp
+    src/core/launcher/launchenvresolver.h
+    src/apps/settings/modules/developer/envserviceclient.cpp
+    src/apps/settings/modules/developer/envserviceclient.h
     dockidentity.cpp
     dockidentity.h
     dockmodel.cpp
@@ -3351,6 +3473,7 @@ qt_add_executable(slmactionregistry_test
 target_link_libraries(slmactionregistry_test
     PRIVATE
         Qt6::Core
+        Qt6::DBus
         Qt6::Gui
         Qt6::Test
         PkgConfig::GIO
@@ -3373,6 +3496,12 @@ qt_add_executable(slmcapability_framework_test
     src/core/execution/appexecutiongate.h
     src/core/execution/appruntimeregistry.cpp
     src/core/execution/appruntimeregistry.h
+    src/core/launcher/applauncher.cpp
+    src/core/launcher/applauncher.h
+    src/core/launcher/launchenvresolver.cpp
+    src/core/launcher/launchenvresolver.h
+    src/apps/settings/modules/developer/envserviceclient.cpp
+    src/apps/settings/modules/developer/envserviceclient.h
     dockidentity.cpp
     dockidentity.h
     dockmodel.cpp
@@ -3394,6 +3523,7 @@ qt_add_executable(slmcapability_framework_test
 target_link_libraries(slmcapability_framework_test
     PRIVATE
         Qt6::Core
+        Qt6::DBus
         Qt6::Gui
         Qt6::Test
         PkgConfig::GIO
@@ -3454,7 +3584,10 @@ add_custom_target(test_headless
         dbussecurityguard_test
         policyengine_test
         permissionstore_payload_contract_test
+        trustresolver_test
+        policy_integration_test
         portal_adapter_lifecycle_persistence_test
+        portal_adapter_race_cancellation_test
         portalresponseserializer_contract_test
         portal_app_context_resolver_test
         slmcapabilityservice_dbus_test
@@ -3470,3 +3603,89 @@ add_custom_target(smoke_backends
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
     USES_TERMINAL
 )
+
+# ── Login / Session Stack ─────────────────────────────────────────────────────
+
+add_library(slm-login-lib STATIC ${SLM_LOGIN_LIB_SOURCES})
+add_library(SlmLogin::Lib ALIAS slm-login-lib)
+target_include_directories(slm-login-lib PUBLIC ${CMAKE_SOURCE_DIR})
+target_link_libraries(slm-login-lib PUBLIC Qt6::Core)
+
+# slm-session-broker
+qt_add_executable(slm-session-broker ${SLM_SESSION_BROKER_SOURCES})
+target_link_libraries(slm-session-broker
+    PRIVATE
+        Qt6::Core
+        SlmLogin::Lib
+)
+target_include_directories(slm-session-broker PRIVATE ${CMAKE_SOURCE_DIR})
+
+# slm-watchdog
+qt_add_executable(slm-watchdog ${SLM_WATCHDOG_SOURCES})
+target_link_libraries(slm-watchdog
+    PRIVATE
+        Qt6::Core
+        SlmLogin::Lib
+)
+target_include_directories(slm-watchdog PRIVATE ${CMAKE_SOURCE_DIR})
+
+# slm-greeter
+qt_add_executable(slm-greeter ${SLM_GREETER_SOURCES})
+qt_add_qml_module(slm-greeter
+    URI SlmGreeter
+    VERSION 1.0
+    RESOURCE_PREFIX "/qt/qml"
+    QML_FILES
+        Qml/greeter/Main.qml
+        Qml/greeter/LoginPage.qml
+        Qml/greeter/ModeSelector.qml
+        Qml/greeter/PowerRow.qml
+    RESOURCES
+        sddm/theme/SLM/Background.jpeg
+        sddm/theme/SLM/default-logo.svg
+)
+target_link_libraries(slm-greeter
+    PRIVATE
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Qml
+        Qt6::Quick
+        Qt6::QuickControls2
+        Qt6::Network
+        SlmLogin::Lib
+)
+target_include_directories(slm-greeter PRIVATE ${CMAKE_SOURCE_DIR})
+
+install(TARGETS slm-session-broker
+    RUNTIME DESTINATION ${CMAKE_INSTALL_LIBEXECDIR})
+install(TARGETS slm-watchdog
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(TARGETS slm-greeter
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(FILES sessions/slm.desktop
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/wayland-sessions)
+
+# slm-recovery-app
+qt_add_executable(slm-recovery-app ${SLM_RECOVERY_APP_SOURCES})
+qt_add_qml_module(slm-recovery-app
+    URI SlmRecovery
+    VERSION 1.0
+    RESOURCE_PREFIX "/qt/qml"
+    QML_FILES
+        Qml/recovery/Main.qml
+        Qml/recovery/ResetPage.qml
+        Qml/recovery/SnapshotPage.qml
+        Qml/recovery/LogPage.qml
+)
+target_link_libraries(slm-recovery-app
+    PRIVATE
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Qml
+        Qt6::Quick
+        Qt6::QuickControls2
+        SlmLogin::Lib
+)
+target_include_directories(slm-recovery-app PRIVATE ${CMAKE_SOURCE_DIR})
+install(TARGETS slm-recovery-app
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})

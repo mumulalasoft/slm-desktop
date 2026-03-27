@@ -1050,6 +1050,7 @@ Rectangle {
                 required property bool isDir
                 required property int size
                 required property string lastModified
+                readonly property bool networkShared: !!model.networkShared
                 readonly property bool previewCandidate: (!isDir && FileManagerUtils.isPreviewCandidateName(name))
                 readonly property real rowCenterY: y + (height * 0.5)
                 readonly property real viewportCenterY: gridView.contentY + (gridView.height * 0.5)
@@ -1107,6 +1108,18 @@ Rectangle {
                             asynchronous: true
                             cache: true
                             source: root.iconUrl(root.preferredFileIcon(iconName, mimeType, isDir))
+                        }
+
+                        Image {
+                            visible: networkShared
+                            width: Math.max(14, rowItem.thumbSide * 0.22)
+                            height: width
+                            anchors.right: parent.right
+                            anchors.bottom: parent.bottom
+                            source: root.iconUrl("folder-remote")
+                            fillMode: Image.PreserveAspectFit
+                            asynchronous: true
+                            cache: true
                         }
                     }
 
@@ -1349,6 +1362,7 @@ Rectangle {
                     required property string mimeType
                     required property string iconName
                     required property bool isDir
+                    readonly property bool networkShared: !!model.networkShared
                     required property int size
                     required property string suffix
                     required property string dateAdded
@@ -1423,6 +1437,18 @@ Rectangle {
                                     anchors.fill: parent
                                     visible: !(listThumbImage.status === Image.Ready)
                                     source: root.iconUrl(root.preferredFileIcon(iconName, mimeType, isDir))
+                                    fillMode: Image.PreserveAspectFit
+                                    asynchronous: true
+                                    cache: true
+                                }
+
+                                Image {
+                                    visible: networkShared
+                                    width: Math.max(12, rowSimpleItem.iconSide * 0.60)
+                                    height: width
+                                    anchors.right: parent.right
+                                    anchors.bottom: parent.bottom
+                                    source: root.iconUrl("folder-remote")
                                     fillMode: Image.PreserveAspectFit
                                     asynchronous: true
                                     cache: true

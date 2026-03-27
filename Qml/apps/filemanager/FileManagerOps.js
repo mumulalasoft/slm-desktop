@@ -1007,6 +1007,7 @@ function showPropertiesForSelection(root, fileManagerApi, propertiesDialog) {
     root.propertiesOpenWithCurrentIndex = -1
     root.propertiesOpenWithRequestId = ""
     root.propertiesOpenWithPath = ""
+    root.propertiesSharePath = String(entry.path || "")
     var appRow = root.contextDefaultOpenWithEntry()
     var appName = String((appRow && appRow.name) ? appRow.name : "")
     if (appName.length > 0) {
@@ -1020,6 +1021,8 @@ function showPropertiesForSelection(root, fileManagerApi, propertiesDialog) {
     }
     if (!entry.isDir) {
         root.refreshPropertiesOpenWithApps(String(entry.path || ""))
+    } else if (root.folderShareInfoForPath) {
+        root.folderShareInfoForPath(String(entry.path || ""))
     }
     if (propertiesDialog && propertiesDialog.open) {
         propertiesDialog.open()

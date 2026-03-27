@@ -85,6 +85,7 @@ set(FILEMANAGER_APP_SOURCES
     src/apps/filemanager/filemanagerapi_listing.cpp
     src/apps/filemanager/filemanagerapi_io.cpp
     src/apps/filemanager/filemanagerapi_metadata.cpp
+    src/apps/filemanager/filemanagerapi_sharing.cpp
     src/apps/filemanager/filemanagerapi_portal.cpp
     src/apps/filemanager/filemanagerapi_daemon_transfer.cpp
     src/apps/filemanager/filemanagerapi_daemon_state.cpp
@@ -344,6 +345,12 @@ set(DESKTOPD_SOURCES
     src/core/execution/appexecutiongate.h
     src/core/execution/appruntimeregistry.cpp
     src/core/execution/appruntimeregistry.h
+    src/core/launcher/applauncher.cpp
+    src/core/launcher/applauncher.h
+    src/core/launcher/launchenvresolver.cpp
+    src/core/launcher/launchenvresolver.h
+    src/apps/settings/modules/developer/envserviceclient.cpp
+    src/apps/settings/modules/developer/envserviceclient.h
     ${SLM_ACTION_FRAMEWORK_SOURCES}
     src/core/permissions/Capability.cpp
     src/core/permissions/Capability.h
@@ -400,6 +407,8 @@ set(DESKTOPD_SOURCES
     src/daemon/desktopd/screencaststreambackend.h
     src/daemon/desktopd/capturestreamingestor.cpp
     src/daemon/desktopd/capturestreamingestor.h
+    src/daemon/desktopd/foldersharingservice.cpp
+    src/daemon/desktopd/foldersharingservice.h
     src/core/workspace/workspacecompatservice.cpp
     src/core/workspace/workspacecompatservice.h
     src/core/workspace/workspacemanager.cpp
@@ -603,4 +612,42 @@ set(SLM_CLIPBOARDD_SOURCES
     src/core/permissions/PermissionBroker.h
     src/core/permissions/DBusSecurityGuard.cpp
     src/core/permissions/DBusSecurityGuard.h
+)
+
+# ── Login / Session Stack ─────────────────────────────────────────────────────
+
+set(SLM_LOGIN_LIB_SOURCES
+    src/login/libslmlogin/slmlogindefs.h
+    src/login/libslmlogin/slmsessionstate.h
+    src/login/libslmlogin/slmsessionstate.cpp
+    src/login/libslmlogin/slmconfigmanager.h
+    src/login/libslmlogin/slmconfigmanager.cpp
+    src/login/libslmlogin/slmplatformcheck.h
+    src/login/libslmlogin/slmplatformcheck.cpp
+)
+
+set(SLM_SESSION_BROKER_SOURCES
+    src/login/session-broker/main.cpp
+    src/login/session-broker/sessionbroker.h
+    src/login/session-broker/sessionbroker.cpp
+)
+
+set(SLM_WATCHDOG_SOURCES
+    src/login/watchdog/main.cpp
+    src/login/watchdog/sessionwatchdog.h
+    src/login/watchdog/sessionwatchdog.cpp
+)
+
+set(SLM_GREETER_SOURCES
+    src/login/greeter/main.cpp
+    src/login/greeter/greetdclient.h
+    src/login/greeter/greetdclient.cpp
+    src/login/greeter/greeterapp.h
+    src/login/greeter/greeterapp.cpp
+)
+
+set(SLM_RECOVERY_APP_SOURCES
+    src/login/recovery-app/main.cpp
+    src/login/recovery-app/recoveryapp.h
+    src/login/recovery-app/recoveryapp.cpp
 )

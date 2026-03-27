@@ -276,6 +276,11 @@ QVector<FileEntry> entriesFromApiResult(const QVariantList &rows)
         } else {
             e.hidden = row.value(QStringLiteral("isHidden")).toBool();
         }
+        if (row.contains(QStringLiteral("networkShared"))) {
+            e.networkShared = row.value(QStringLiteral("networkShared")).toBool();
+        } else {
+            e.networkShared = row.value(QStringLiteral("shared")).toBool();
+        }
         if (e.iconName.isEmpty()) {
             QFileInfo fi(e.path);
             e.iconName = mimeIconForInfo(fi);
@@ -364,6 +369,7 @@ QVariant FileManagerModel::data(const QModelIndex &index, int role) const
     case SizeRole: return e.size;
     case IsDirRole: return e.dir;
     case HiddenRole: return e.hidden;
+    case NetworkSharedRole: return e.networkShared;
     default: return {};
     }
 }
@@ -382,6 +388,7 @@ QHash<int, QByteArray> FileManagerModel::roleNames() const
     roles[SizeRole] = "size";
     roles[IsDirRole] = "isDir";
     roles[HiddenRole] = "hidden";
+    roles[NetworkSharedRole] = "networkShared";
     return roles;
 }
 
@@ -640,6 +647,7 @@ QVariantMap FileManagerModel::refresh()
                 e.size = static_cast<qlonglong>(fi.size());
                 e.dir = fi.isDir();
                 e.hidden = fi.isHidden();
+                e.networkShared = row.value(QStringLiteral("networkShared")).toBool();
                 if (searchActive && !e.name.contains(search, Qt::CaseInsensitive)) {
                     continue;
                 }
@@ -873,6 +881,7 @@ QVariantMap FileManagerModel::entryAt(int index) const
         {QStringLiteral("mimeType"), e.mimeType},
         {QStringLiteral("iconName"), e.iconName},
         {QStringLiteral("isDir"), e.dir},
+        {QStringLiteral("networkShared"), e.networkShared},
         {QStringLiteral("size"), e.size},
         {QStringLiteral("dateAdded"), e.dateAdded},
         {QStringLiteral("lastModified"), e.lastModified}

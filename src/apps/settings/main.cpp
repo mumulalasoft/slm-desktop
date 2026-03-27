@@ -7,6 +7,7 @@
 #include <QLibraryInfo>
 #include <QDir>
 #include <QFileInfo>
+#include <QPalette>
 
 using namespace Qt::StringLiterals;
 
@@ -18,6 +19,7 @@ using namespace Qt::StringLiterals;
 #include "fontmanager.h"
 #include "../../core/prefs/uipreferences.h"
 #include "../../core/icons/themeiconprovider.h"
+#include "../../core/icons/themeiconcontroller.h"
 #include "../../printing/core/PrinterManager.h"
 #include "../../printing/core/PrinterAdminService.h"
 #include "modules/developer/envvariablecontroller.h"
@@ -35,6 +37,7 @@ using namespace Qt::StringLiterals;
 #include "modules/developer/appsandboxcontroller.h"
 #include "modules/developer/systemenvcontroller.h"
 #include "modules/developer/xdgportalscontroller.h"
+#include "modules/applications/startupappscontroller.h"
 
 int main(int argc, char *argv[])
 {
@@ -87,6 +90,7 @@ int main(int argc, char *argv[])
     engine.addImageProvider(QStringLiteral("icon"), new ThemeIconProvider);
     const QUrl url(u"qrc:/qt/qml/SlmSettings/Qml/apps/settings/Main.qml"_s);
     UIPreferences uiPreferences;
+    ThemeIconController themeIconController;
     Slm::Print::PrinterManager printManager;
     Slm::Print::PrinterAdminService printerAdmin;
     EnvVariableController envVarController;
@@ -104,11 +108,36 @@ int main(int argc, char *argv[])
     AppSandboxController    appSandbox;
     SystemEnvController     systemEnv(&envServiceClient);
     XdgPortalsController    xdgPortals;
+    StartupAppsController   startupApps;
     WallpaperManager wallpaperManager(&uiPreferences);
     MimeAppsManager mimeAppsManager;
     ThemeManager themeManager(&uiPreferences);
     FontManager fontManager(&uiPreferences);
+    const auto applyIconThemePref = [&]() {
+        const QString light = uiPreferences.iconThemeLight().trimmed();
+        const QString dark = uiPreferences.iconThemeDark().trimmed();
+        if (!light.isEmpty() && !dark.isEmpty()) {
+            themeIconController.setThemeMapping(light, dark);
+        } else {
+            themeIconController.useAutoDetectedMapping();
+        }
+    };
+    const auto applyIconThemeMode = [&]() {
+        const QString mode = uiPreferences.themeMode().trimmed().toLower();
+        bool darkMode = false;
+        if (mode == QStringLiteral("dark")) {
+            darkMode = true;
+        } else if (mode == QStringLiteral("light")) {
+            darkMode = false;
+        } else {
+            darkMode = app.palette().color(QPalette::Window).lightnessF() < 0.5;
+        }
+        themeIconController.applyForDarkMode(darkMode);
+    };
+    applyIconThemePref();
+    applyIconThemeMode();
     engine.rootContext()->setContextProperty(QStringLiteral("UIPreferences"), &uiPreferences);
+    engine.rootContext()->setContextProperty(QStringLiteral("ThemeIconController"), &themeIconController);
     engine.rootContext()->setContextProperty(QStringLiteral("PrintManager"), &printManager);
     engine.rootContext()->setContextProperty(QStringLiteral("PrinterAdmin"), &printerAdmin);
     engine.rootContext()->setContextProperty(QStringLiteral("WallpaperManager"), &wallpaperManager);
@@ -130,6 +159,18 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("AppSandbox"),           &appSandbox);
     engine.rootContext()->setContextProperty(QStringLiteral("SystemEnvController"), &systemEnv);
     engine.rootContext()->setContextProperty(QStringLiteral("XdgPortals"),          &xdgPortals);
+    engine.rootContext()->setContextProperty(QStringLiteral("StartupAppsController"), &startupApps);
+    QObject::connect(&uiPreferences, &UIPreferences::iconThemeLightChanged, &app, [&]() {
+        applyIconThemePref();
+        applyIconThemeMode();
+    });
+    QObject::connect(&uiPreferences, &UIPreferences::iconThemeDarkChanged, &app, [&]() {
+        applyIconThemePref();
+        applyIconThemeMode();
+    });
+    QObject::connect(&uiPreferences, &UIPreferences::themeModeChanged, &app, [&]() {
+        applyIconThemeMode();
+    });
     printManager.reload();
 
     // Create the main application controller

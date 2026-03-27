@@ -7,6 +7,8 @@ Item {
     id: root
 
     required property var hostRoot
+    readonly property int iconRevision: ((typeof ThemeIconController !== "undefined" && ThemeIconController)
+                                         ? ThemeIconController.revision : 0)
     property var fileMenuSlmRows: []
     property var folderMenuSlmRows: []
     property var multiMenuSlmRows: []
@@ -557,7 +559,7 @@ Item {
                             return shareActionItem.iconSourceValue
                         }
                         if (shareActionItem.iconNameValue.length > 0) {
-                            return "image://themeicon/" + shareActionItem.iconNameValue
+                            return "image://themeicon/" + shareActionItem.iconNameValue + "?v=" + root.iconRevision
                         }
                         return ""
                     }
@@ -792,6 +794,12 @@ Item {
                     root.hostRoot.shareSheetRef.open()
                 }
             }
+        }
+
+        MenuItem {
+            text: "Bagikan Folder..."
+            enabled: root.hostRoot.contextEntryIndex >= 0 && !!root.hostRoot.contextEntryIsDir
+            onTriggered: root.hostRoot.openFolderShareDialog(root.hostRoot.contextEntryPath)
         }
 
         MenuItem {
@@ -1048,6 +1056,13 @@ Item {
                     root.hostRoot.shareSheetRef.open()
                 }
             }
+        }
+
+        MenuItem {
+            text: "Bagikan Folder..."
+            enabled: String(root.hostRoot.contextEntryPath || "").length > 0
+                     && !!root.hostRoot.contextEntryIsDir
+            onTriggered: root.hostRoot.openFolderShareDialog(root.hostRoot.contextEntryPath)
         }
 
         MenuSeparator {}

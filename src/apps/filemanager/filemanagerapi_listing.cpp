@@ -87,7 +87,14 @@ QVariantMap FileManagerApi::listDirectory(const QString &path,
     QVariantList entries;
     entries.reserve(list.size());
     for (const QFileInfo &fi : list) {
-        entries.push_back(fileInfoMap(fi));
+        QVariantMap row = fileInfoMap(fi);
+        bool shared = false;
+        if (fi.isDir()) {
+            const QVariantMap shareInfo = shareRecordForPath(fi.absoluteFilePath());
+            shared = shareInfo.value(QStringLiteral("enabled")).toBool();
+        }
+        row.insert(QStringLiteral("networkShared"), shared);
+        entries.push_back(row);
     }
 
     return makeResult(true, QString(), {{QStringLiteral("path"), p}, {QStringLiteral("entries"), entries}});
@@ -235,6 +242,13 @@ QVariantMap FileManagerApi::searchDirectory(const QString &rootPath,
                 row.insert(QStringLiteral("thumbnailPath"), QString());
                 row.insert(QStringLiteral("mimeType"), mimeName);
                 row.insert(QStringLiteral("iconName"), iconName);
+                if (isDir) {
+                    const QVariantMap shareInfo = shareRecordForPath(childPath);
+                    row.insert(QStringLiteral("networkShared"),
+                               shareInfo.value(QStringLiteral("enabled")).toBool());
+                } else {
+                    row.insert(QStringLiteral("networkShared"), false);
+                }
                 const quint64 modifiedUnix = g_file_info_get_attribute_uint64(info, G_FILE_ATTRIBUTE_TIME_MODIFIED);
                 if (modifiedUnix > 0) {
                     row.insert(QStringLiteral("lastModified"),

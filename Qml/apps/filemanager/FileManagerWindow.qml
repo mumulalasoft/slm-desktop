@@ -138,6 +138,8 @@ Rectangle {
     property int propertiesOpenWithCurrentIndex: -1
     property string propertiesOpenWithRequestId: ""
     property string propertiesOpenWithPath: ""
+    property var folderShareInfoCache: ({})
+    property string propertiesSharePath: ""
     property string quickTypeBuffer: ""
     property string pendingPortalChooserRequestId: ""
     property string pendingPortalChooserAction: ""
@@ -169,6 +171,7 @@ Rectangle {
     readonly property var propertiesDialogRef: dialogsRef ? dialogsRef.propertiesDialogRef : null
     readonly property var compressDialogRef: dialogsRef ? dialogsRef.compressDialogRef : null
     readonly property var openWithDialogRef: dialogsRef ? dialogsRef.openWithDialogRef : null
+    readonly property var folderShareDialogRef: dialogsRef ? dialogsRef.folderShareDialogRef : null
     readonly property var shareSheetRef: dialogsRef ? dialogsRef.shareSheetRef : null
 
     function isRecentPath(pathValue) {
@@ -551,6 +554,136 @@ Rectangle {
     }
     function refreshPropertiesOpenWithApps(pathValue) { FileManagerOpenWith.refreshPropertiesOpenWithApps(root, fileManagerApiRef, pathValue) }
     function applyPropertiesOpenWithSelection(indexValue) { FileManagerOpenWith.applyPropertiesOpenWithSelection(root, fileManagerApiRef, indexValue) }
+    function folderShareInfoForPath(pathValue) {
+        var p = String(pathValue || "")
+        if (p.length <= 0 || !fileManagerApiRef || !fileManagerApiRef.folderShareInfo) {
+            return ({
+                        "ok": false,
+                        "enabled": false
+                    })
+        }
+        var res = fileManagerApiRef.folderShareInfo(p)
+        if (!!res && !!res.ok) {
+            var next = {}
+            var keys = Object.keys(folderShareInfoCache || ({}))
+            for (var i = 0; i < keys.length; ++i) {
+                next[keys[i]] = folderShareInfoCache[keys[i]]
+            }
+            next[String(res.path || p)] = res
+            folderShareInfoCache = next
+        }
+        return res || ({
+                           "ok": false,
+                           "enabled": false
+                       })
+    }
+    function prepareFolderShareDialog(pathValue) {
+        var info = folderShareInfoForPath(pathValue)
+        if (folderShareDialogRef && folderShareDialogRef.applyFromInfo) {
+            folderShareDialogRef.applyFromInfo(info)
+        }
+    }
+    function openFolderShareDialog(pathValue) {
+        var p = String(pathValue || "")
+        if (p.length <= 0) {
+            p = String(contextEntryPath || "")
+        }
+        if (p.length <= 0 || !folderShareDialogRef || !folderShareDialogRef.openForPath) {
+            return
+        }
+        folderShareDialogRef.openForPath(p)
+    }
+    function applyFolderShareConfig(pathValue, options) {
+        if (!fileManagerApiRef || !fileManagerApiRef.configureFolderShare) {
+            return ({
+                        "ok": false,
+                        "error": "api-unavailable"
+                    })
+        }
+        var res = fileManagerApiRef.configureFolderShare(String(pathValue || ""),
+                                                         options || ({}))
+        if (!!res && !!res.ok) {
+            var cp = String(res.path || pathValue || "")
+            if (cp.length > 0) {
+                var next = {}
+                var keys = Object.keys(folderShareInfoCache || ({}))
+                for (var i = 0; i < keys.length; ++i) {
+                    next[keys[i]] = folderShareInfoCache[keys[i]]
+                }
+                next[cp] = res
+                folderShareInfoCache = next
+                propertiesSharePath = cp
+            }
+            refreshCurrent()
+            notifyResult("Bagikan Folder", {
+                             "ok": true,
+                             "message": "Folder sekarang dibagikan di jaringan"
+                         })
+        }
+        return res
+    }
+    function disableFolderShare(pathValue) {
+        if (!fileManagerApiRef || !fileManagerApiRef.disableFolderShare) {
+            return ({
+                        "ok": false,
+                        "error": "api-unavailable"
+                    })
+        }
+        var res = fileManagerApiRef.disableFolderShare(String(pathValue || ""))
+        if (!!res && !!res.ok) {
+            var cp = String(res.path || pathValue || "")
+            if (cp.length > 0) {
+                var next = {}
+                var keys = Object.keys(folderShareInfoCache || ({}))
+                for (var i = 0; i < keys.length; ++i) {
+                    next[keys[i]] = folderShareInfoCache[keys[i]]
+                }
+                next[cp] = res
+                folderShareInfoCache = next
+                propertiesSharePath = cp
+            }
+            refreshCurrent()
+            notifyResult("Bagikan Folder", {
+                             "ok": true,
+                             "message": "Berbagi folder dihentikan"
+                         })
+        }
+        return res
+    }
+    function copyFolderShareAddress(pathValue) {
+        if (!fileManagerApiRef || !fileManagerApiRef.copyFolderShareAddress) {
+            return ({
+                        "ok": false,
+                        "error": "api-unavailable"
+                    })
+        }
+        var res = fileManagerApiRef.copyFolderShareAddress(String(pathValue || ""))
+        notifyResult("Bagikan Folder", res)
+        return res
+    }
+    function folderSharingEnvironment() {
+        if (!fileManagerApiRef || !fileManagerApiRef.folderSharingEnvironment) {
+            return ({
+                        "ok": false,
+                        "ready": false,
+                        "error": "api-unavailable",
+                        "issues": []
+                    })
+        }
+        return fileManagerApiRef.folderSharingEnvironment()
+    }
+    function repairFolderSharingEnvironment() {
+        if (!fileManagerApiRef || !fileManagerApiRef.repairFolderSharingEnvironment) {
+            return ({
+                        "ok": false,
+                        "ready": false,
+                        "error": "api-unavailable",
+                        "issues": [],
+                        "actions": []
+                    })
+        }
+        return fileManagerApiRef.repairFolderSharingEnvironment()
+    }
     function openContextEntryInApp(appIdValue) { FileManagerOpenWith.openContextEntryInApp(root, fileManagerApiRef, appIdValue) }
     function setDefaultContextEntryApp(appIdValue) { FileManagerOpenWith.setDefaultContextEntryApp(root, fileManagerApiRef, appIdValue) }
     function openWithOtherApplication() { FileManagerOpenWith.openWithOtherApplication(root, openWithDialogRef) }

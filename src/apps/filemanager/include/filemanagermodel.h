@@ -23,6 +23,7 @@ struct FileEntry
     qlonglong size = 0;
     bool dir = false;
     bool hidden = false;
+    bool networkShared = false;
 };
 
 class FileManagerModel : public QAbstractListModel
@@ -50,7 +51,8 @@ public:
         LastModifiedRole,
         SizeRole,
         IsDirRole,
-        HiddenRole
+        HiddenRole,
+        NetworkSharedRole
     };
 
     explicit FileManagerModel(FileManagerApi *api,

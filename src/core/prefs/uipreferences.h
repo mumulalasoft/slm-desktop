@@ -101,6 +101,7 @@ signals:
     void verboseLoggingChanged();
     void iconThemeLightChanged();
     void iconThemeDarkChanged();
+    void appearanceChanged();
     void wallpaperUriChanged();
     void themeModeChanged();
     void accentColorChanged();

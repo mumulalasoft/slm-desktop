@@ -1,6 +1,36 @@
-<svg width="16" height="16" version="1.1" xmlns="http://www.w3.org/2000/svg">
- <g transform="matrix(3.7795 0 0 3.7795 -341 -468.52)" fill-rule="evenodd">
-  <path d="m92.34 127.93c1.0229 0 1.8521-0.82923 1.8521-1.8521 0-1.0229-0.82921-1.8521-1.8521-1.8521-1.0229 0-1.8521 0.82923-1.8521 1.8521 0 1.0229 0.82921 1.8521 1.8521 1.8521" fill="#20a932" stroke-width=".77781"/>
- </g>
- <path d="m8.0254 3.4141v3.5859c0 0.41552 0.58448 1 1 1h3.5859l-4.5859-4.5859zm-4.6367 4.5859 4.5859 4.5859v-3.5859c0-0.41552-0.58448-1-1-1h-3.5859z" opacity=".5" stroke-width="3.7795"/>
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="20.000006mm"
+   height="13.333327mm"
+   viewBox="0 0 20.000006 13.333327"
+   version="1.1"
+   id="svg1"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs1" />
+  <g
+     id="layer1"
+     transform="translate(-168.03089,-98.141884)">
+    <g
+       id="g124"
+       transform="translate(0,-0.0111318)">
+      <path
+         style="fill:#28d33f;fill-opacity:1;stroke-width:0.264583"
+         id="path85"
+         width="60"
+         height="40"
+         x="129.95419"
+         y="72.300003"
+         transform="matrix(0.33333333,0,0,0.33333333,124.71283,74.053006)"
+         d="m 129.95419,72.300003 h 49.21178 a 10.788225,10.788225 45 0 1 10.78822,10.788225 V 101.6331 A 10.666905,10.666905 135 0 1 179.28729,112.3 h -49.3331 z" />
+      <path
+         d="m 178.05924,99.676184 v 4.021886 c 0,0.46605 0.65191,1.12161 1.11539,1.12161 h 3.99975 z m -5.17183,5.143496 5.11517,5.14347 v -4.02189 c 0,-0.46605 -0.65195,-1.12158 -1.11542,-1.12158 z"
+         opacity="0.5"
+         stroke-width="4.22735"
+         id="path87" />
+    </g>
+  </g>
 </svg>

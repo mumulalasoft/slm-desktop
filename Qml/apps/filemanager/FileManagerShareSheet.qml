@@ -8,6 +8,8 @@ DSStyle.AppDialog {
     id: shareSheet
 
     required property var hostRoot
+    readonly property int iconRevision: ((typeof ThemeIconController !== "undefined" && ThemeIconController)
+                                         ? ThemeIconController.revision : 0)
 
     title: "Share"
     dialogWidth: 440
@@ -56,7 +58,7 @@ DSStyle.AppDialog {
                                 var iconSource = String(modelData.iconSource || "")
                                 if (iconSource.length > 0) return iconSource
                                 var iconName = String(modelData.iconName || (modelData.icon || ""))
-                                if (iconName.length > 0) return "image://themeicon/" + iconName
+                                if (iconName.length > 0) return "image://themeicon/" + iconName + "?v=" + shareSheet.iconRevision
                                 return ""
                             }
                             visible: source.toString().length > 0

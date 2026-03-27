@@ -1,10 +1,11 @@
 #pragma once
 
-#include <QDBusInterface>
 #include <QObject>
 #include <QString>
 #include <QVariantList>
 #include <QVariantMap>
+
+class QDBusInterface;
 
 // EnvServiceClient — thin D-Bus proxy for org.slm.Environment1.
 //

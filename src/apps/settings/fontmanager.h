@@ -21,6 +21,10 @@ class FontManager : public QObject
     Q_PROPERTY(QString documentFont  READ documentFont  NOTIFY documentFontChanged)
     Q_PROPERTY(QString monospaceFont READ monospaceFont NOTIFY monospaceFontChanged)
     Q_PROPERTY(QString titlebarFont  READ titlebarFont  NOTIFY titlebarFontChanged)
+    Q_PROPERTY(int defaultFontSize   READ defaultFontSize   NOTIFY defaultFontChanged)
+    Q_PROPERTY(int documentFontSize  READ documentFontSize  NOTIFY documentFontChanged)
+    Q_PROPERTY(int monospaceFontSize READ monospaceFontSize NOTIFY monospaceFontChanged)
+    Q_PROPERTY(int titlebarFontSize  READ titlebarFontSize  NOTIFY titlebarFontChanged)
 
 public:
     explicit FontManager(UIPreferences *prefs, QObject *parent = nullptr);
@@ -29,6 +33,10 @@ public:
     QString documentFont()  const;
     QString monospaceFont() const;
     QString titlebarFont()  const;
+    int defaultFontSize() const;
+    int documentFontSize() const;
+    int monospaceFontSize() const;
+    int titlebarFontSize() const;
 
     // Returns a flat, alphabetically sorted list of {family, style, weight, italic,
     // displayName} QVariantMaps, one entry per family+style combination.
@@ -46,6 +54,10 @@ public:
     Q_INVOKABLE void setDocumentFont(const QString &spec);
     Q_INVOKABLE void setMonospaceFont(const QString &spec);
     Q_INVOKABLE void setTitlebarFont(const QString &spec);
+    Q_INVOKABLE void setDefaultFontSize(int size);
+    Q_INVOKABLE void setDocumentFontSize(int size);
+    Q_INVOKABLE void setMonospaceFontSize(int size);
+    Q_INVOKABLE void setTitlebarFontSize(int size);
 
     // Resets all four font roles to empty (system default) and re-applies.
     Q_INVOKABLE void resetToDefaults();
@@ -68,6 +80,7 @@ private:
 
     static void writeGtkFontSettings(const QString &defaultSpec);
     static void writeKdeFontSettings(const QString &defaultSpec,
+                                     const QString &documentSpec,
                                      const QString &monospaceSpec,
                                      const QString &titlebarSpec);
 

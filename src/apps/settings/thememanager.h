@@ -28,6 +28,7 @@ class ThemeManager : public QObject
     Q_PROPERTY(QString gtkIconThemeDark READ gtkIconThemeDark NOTIFY gtkIconThemeDarkChanged)
     Q_PROPERTY(QString kdeIconThemeLight READ kdeIconThemeLight NOTIFY kdeIconThemeLightChanged)
     Q_PROPERTY(QString kdeIconThemeDark READ kdeIconThemeDark NOTIFY kdeIconThemeDarkChanged)
+    Q_PROPERTY(QString windowControlsSide READ windowControlsSide NOTIFY windowControlsSideChanged)
 
 public:
     explicit ThemeManager(UIPreferences *prefs, QObject *parent = nullptr);
@@ -44,6 +45,7 @@ public:
     QString gtkIconThemeDark() const;
     QString kdeIconThemeLight() const;
     QString kdeIconThemeDark() const;
+    QString windowControlsSide() const;
 
     Q_INVOKABLE void setGtkThemeLight(const QString &theme);
     Q_INVOKABLE void setGtkThemeDark(const QString &theme);
@@ -53,6 +55,7 @@ public:
     Q_INVOKABLE void setGtkIconThemeDark(const QString &theme);
     Q_INVOKABLE void setKdeIconThemeLight(const QString &theme);
     Q_INVOKABLE void setKdeIconThemeDark(const QString &theme);
+    Q_INVOKABLE void setWindowControlsSide(const QString &side);
 
     // Re-scan XDG directories for newly installed themes.
     Q_INVOKABLE void refresh();
@@ -69,6 +72,8 @@ signals:
     void gtkIconThemeDarkChanged();
     void kdeIconThemeLightChanged();
     void kdeIconThemeDarkChanged();
+    void windowControlsSideChanged();
+    void appearanceChanged();
 
 private:
     // Returns the list of XDG data directories to search (XDG_DATA_HOME first,
@@ -86,6 +91,7 @@ private:
     static void applyKdeColorScheme(const QString &schemeName);
     // Write icon theme to ~/.config/kdeglobals [Icons].
     static void applyKdeIconTheme(const QString &themeName);
+    static void applyWindowControlsLayout(const QString &side);
 
     void connectPrefs();
 

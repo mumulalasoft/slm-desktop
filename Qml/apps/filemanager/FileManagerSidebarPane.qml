@@ -11,6 +11,8 @@ Rectangle {
     required property var hostRoot
     required property var sidebarModel
     property var sidebarContextMenuRef: null
+    readonly property int iconRevision: ((typeof ThemeIconController !== "undefined" && ThemeIconController)
+                                         ? ThemeIconController.revision : 0)
 
     function dropTargetAt(sceneX, sceneY) {
         if (!sidebarList || !sidebarList.contentItem) {
@@ -197,6 +199,7 @@ Rectangle {
                         asynchronous: true
                         cache: true
                         source: "image://themeicon/" + (iconName && iconName.length > 0 ? iconName : "folder-symbolic")
+                                + "?v=" + root.iconRevision
                     }
 
                     Text {
@@ -266,6 +269,7 @@ Rectangle {
                         asynchronous: true
                         cache: true
                         source: "image://themeicon/" + (mounted ? "media-eject-symbolic" : "go-up-symbolic")
+                                + "?v=" + root.iconRevision
                     }
 
                     MouseArea {
@@ -353,7 +357,7 @@ Rectangle {
                 fillMode: Image.PreserveAspectFit
                 asynchronous: true
                 cache: true
-                source: "image://themeicon/network-workgroup-symbolic"
+                source: "image://themeicon/network-workgroup-symbolic?v=" + root.iconRevision
             }
 
             Text {

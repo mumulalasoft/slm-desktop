@@ -187,6 +187,17 @@ void SvcManagerService::pollAll()
         updateComponent(info);
 }
 
+void SvcManagerService::onSystemdUnitPropertiesChanged(const QString &interface,
+                                                       const QVariantMap &changed,
+                                                       const QStringList &invalidated)
+{
+    Q_UNUSED(interface);
+    Q_UNUSED(changed);
+    Q_UNUSED(invalidated);
+    // Keep state consistent with systemd changes and avoid stale UI data.
+    pollAll();
+}
+
 QVariantList SvcManagerService::listComponents() const
 {
     QVariantList result;

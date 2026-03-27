@@ -10,6 +10,8 @@ Rectangle {
     required property var hostRoot
     property var contentViewRef: null
     readonly property var searchFieldRef: toolbarSearchField
+    readonly property int iconRevision: ((typeof ThemeIconController !== "undefined" && ThemeIconController)
+                                         ? ThemeIconController.revision : 0)
 
     function focusSearchField(selectAllText) {
         hostRoot.toolbarSearchExpanded = true
@@ -65,7 +67,7 @@ Rectangle {
                         fillMode: Image.PreserveAspectFit
                         asynchronous: true
                         cache: true
-                        source: "image://themeicon/go-previous-symbolic"
+                        source: "image://themeicon/go-previous-symbolic?v=" + root.iconRevision
                     }
                     MouseArea {
                         id: prevMouse
@@ -88,7 +90,7 @@ Rectangle {
                         fillMode: Image.PreserveAspectFit
                         asynchronous: true
                         cache: true
-                        source: "image://themeicon/go-next-symbolic"
+                        source: "image://themeicon/go-next-symbolic?v=" + root.iconRevision
                         opacity: nextMouse.enabled ? 1.0 : 0.5
                     }
                     MouseArea {
@@ -182,6 +184,7 @@ Rectangle {
                                 source: "image://themeicon/" + String(
                                             modelData.iconName
                                             || "view-grid-symbolic")
+                                        + "?v=" + root.iconRevision
                             }
 
                             MouseArea {
@@ -239,7 +242,7 @@ Rectangle {
                             fillMode: Image.PreserveAspectFit
                             asynchronous: true
                             cache: true
-                            source: "image://themeicon/system-search-symbolic"
+                            source: "image://themeicon/system-search-symbolic?v=" + root.iconRevision
                         }
 
                         TextField {

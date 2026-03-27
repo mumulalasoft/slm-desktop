@@ -7,12 +7,19 @@ Item {
     id: root
     required property var hostRoot
     required property var dialogRef
+    readonly property int iconRevision: ((typeof ThemeIconController !== "undefined" && ThemeIconController)
+                                         ? ThemeIconController.revision : 0)
     readonly property var propertiesEntry: hostRoot.propertiesEntry
     readonly property var propertiesStat: hostRoot.propertiesStat
     readonly property bool propertiesShowDeviceUsage: !!hostRoot.propertiesShowDeviceUsage
     readonly property var propertiesOpenWithApps: hostRoot.propertiesOpenWithApps
     readonly property int propertiesOpenWithCurrentIndex: Number(hostRoot.propertiesOpenWithCurrentIndex)
     readonly property string propertiesOpenWithName: String(hostRoot.propertiesOpenWithName || "")
+    readonly property string propertiesSharePath: String(hostRoot.propertiesSharePath || "")
+    readonly property var propertiesShareInfo: (hostRoot.folderShareInfoForPath
+                                                && propertiesSharePath.length > 0
+                                                && !!(propertiesStat && propertiesStat.isDir))
+                                               ? hostRoot.folderShareInfoForPath(propertiesSharePath) : ({ "ok": false, "enabled": false })
 
     function formatStorageBytes(v) { return hostRoot.formatStorageBytes(v) }
     function fileTypeDisplay(stat, entry) { return hostRoot.fileTypeDisplay(stat, entry) }
@@ -48,6 +55,7 @@ ColumnLayout {
                 source: "image://themeicon/" + String(
                             (propertiesEntry
                              && propertiesEntry.iconName) ? propertiesEntry.iconName : "text-x-generic")
+                        + "?v=" + root.iconRevision
             }
         }
 
@@ -127,6 +135,31 @@ ColumnLayout {
                 MouseArea {
                     anchors.fill: parent
                     onClicked: hostRoot.propertiesTabIndex = 1
+                }
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                radius: Theme.radiusMd
+                color: hostRoot.propertiesTabIndex === 2 ? Theme.color(
+                                                           "selectedItem") : "transparent"
+                enabled: !!(propertiesStat && propertiesStat.isDir)
+                opacity: enabled ? 1.0 : 0.5
+
+                Label {
+                    anchors.centerIn: parent
+                    text: "Sharing"
+                    color: hostRoot.propertiesTabIndex
+                           === 2 ? Theme.color(
+                                       "selectedItemText") : Theme.color(
+                                       "textPrimary")
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    enabled: parent.enabled
+                    onClicked: hostRoot.propertiesTabIndex = 2
                 }
             }
         }
@@ -293,6 +326,7 @@ ColumnLayout {
                                     source: "image://themeicon/" + String(
                                                 (modelData
                                                  && modelData.iconName) ? modelData.iconName : "application-x-executable-symbolic")
+                                            + "?v=" + root.iconRevision
                                 }
                                 Label {
                                     Layout.fillWidth: true
@@ -327,6 +361,7 @@ ColumnLayout {
                                              && hostRoot.propertiesOpenWithCurrentIndex
                                              < hostRoot.propertiesOpenWithApps.length
                                              && hostRoot.propertiesOpenWithApps[hostRoot.propertiesOpenWithCurrentIndex] && hostRoot.propertiesOpenWithApps[hostRoot.propertiesOpenWithCurrentIndex].iconName) ? hostRoot.propertiesOpenWithApps[hostRoot.propertiesOpenWithCurrentIndex].iconName : "application-x-executable-symbolic")
+                                        + "?v=" + root.iconRevision
                             }
                             Label {
                                 Layout.fillWidth: true
@@ -713,6 +748,137 @@ ColumnLayout {
                     }
                     Item {
                         Layout.fillWidth: true
+                    }
+                }
+            }
+        }
+
+        Item {
+            ColumnLayout {
+                spacing: 8
+
+                Label {
+                    text: "Sharing"
+                    color: Theme.color("textSecondary")
+                    font.pixelSize: Theme.fontSize("body")
+                    font.weight: Theme.fontWeight("medium")
+                }
+
+                Label {
+                    Layout.fillWidth: true
+                    visible: !!(propertiesShareInfo && propertiesShareInfo.enabled)
+                    text: "Dibagikan di jaringan"
+                    color: Theme.color("accent")
+                }
+
+                Label {
+                    Layout.fillWidth: true
+                    visible: !propertiesShareInfo.enabled
+                    text: "Belum dibagikan"
+                    color: Theme.color("textSecondary")
+                }
+
+                RowLayout {
+                    visible: !!(propertiesShareInfo && propertiesShareInfo.enabled)
+                    Label {
+                        text: "Nama:"
+                        color: Theme.color("textSecondary")
+                    }
+                    Label {
+                        text: String(propertiesShareInfo.shareName || "-")
+                        color: Theme.color("textPrimary")
+                    }
+                }
+
+                RowLayout {
+                    visible: !!(propertiesShareInfo && propertiesShareInfo.enabled)
+                    Label {
+                        text: "Akses:"
+                        color: Theme.color("textSecondary")
+                    }
+                    Label {
+                        text: {
+                            var mode = String(propertiesShareInfo.access || "owner")
+                            if (mode === "anyone" || mode === "all")
+                                return "Siapa pun di jaringan ini"
+                            if (mode === "users" || mode === "specific")
+                                return "Pengguna tertentu"
+                            return "Hanya saya"
+                        }
+                        color: Theme.color("textPrimary")
+                    }
+                }
+
+                RowLayout {
+                    visible: !!(propertiesShareInfo && propertiesShareInfo.enabled)
+                    Label {
+                        text: "Izin:"
+                        color: Theme.color("textSecondary")
+                    }
+                    Label {
+                        text: String(propertiesShareInfo.permission || "read") === "write"
+                              ? "Bisa mengubah file" : "Hanya lihat"
+                        color: Theme.color("textPrimary")
+                    }
+                }
+
+                RowLayout {
+                    visible: !!(propertiesShareInfo && propertiesShareInfo.enabled)
+                    Label {
+                        text: "Status backend:"
+                        color: Theme.color("textSecondary")
+                    }
+                    Label {
+                        text: propertiesShareInfo.backendApplied ? "Siap"
+                              : (propertiesShareInfo.backendPending ? "Perlu tindakan" : "Belum siap")
+                        color: propertiesShareInfo.backendApplied
+                               ? Theme.color("success")
+                               : Theme.color("warning")
+                    }
+                }
+
+                Label {
+                    Layout.fillWidth: true
+                    visible: !!(propertiesShareInfo && propertiesShareInfo.enabled
+                                && propertiesShareInfo.backendError)
+                    text: String(propertiesShareInfo.backendMessage
+                                 || propertiesShareInfo.backendError || "")
+                    color: Theme.color("warning")
+                    wrapMode: Text.WordWrap
+                }
+
+                RowLayout {
+                    spacing: 8
+                    Button {
+                        text: propertiesShareInfo.enabled ? "Ubah" : "Bagikan Folder..."
+                        enabled: !!(propertiesStat && propertiesStat.isDir)
+                        onClicked: hostRoot.openFolderShareDialog(propertiesSharePath)
+                    }
+                    Button {
+                        text: "Salin alamat"
+                        visible: !!(propertiesShareInfo && propertiesShareInfo.enabled)
+                        onClicked: hostRoot.copyFolderShareAddress(propertiesSharePath)
+                    }
+                    Button {
+                        text: "Hentikan berbagi"
+                        visible: !!(propertiesShareInfo && propertiesShareInfo.enabled)
+                        onClicked: hostRoot.disableFolderShare(propertiesSharePath)
+                    }
+                    Button {
+                        text: "Periksa backend"
+                        visible: !!(propertiesStat && propertiesStat.isDir)
+                        onClicked: {
+                            var status = hostRoot.folderSharingEnvironment()
+                            hostRoot.notifyResult("Bagikan Folder", status)
+                        }
+                    }
+                    Button {
+                        text: "Perbaiki backend"
+                        visible: !!(propertiesStat && propertiesStat.isDir)
+                        onClicked: {
+                            var fixed = hostRoot.repairFolderSharingEnvironment()
+                            hostRoot.notifyResult("Bagikan Folder", fixed)
+                        }
                     }
                 }
             }

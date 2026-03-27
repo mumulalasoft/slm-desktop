@@ -1,11 +1,48 @@
-<svg width="16" height="16" version="1.1" xmlns="http://www.w3.org/2000/svg">
- <g transform="matrix(3.7795 0 0 3.7795 -266 -584.52)">
-  <g transform="matrix(.26465 0 0 .26465 70.643 154.92)" enable-background="new">
-   <g transform="translate(-5,-1033.4)" fill-rule="evenodd">
-    <path d="m12.003 1047.4c3.865 0 6.9982-3.1332 6.9982-6.9983s-3.1333-6.9984-6.9982-6.9984c-3.8651 0-6.9984 3.1332-6.9984 6.9984 0 3.865 3.1333 6.9983 6.9984 6.9983" fill="#caa124" stroke-width=".77778"/>
-    <path d="m12.003 1046.9c3.5889 0 6.4983-2.9096 6.4983-6.4986s-2.9095-6.4984-6.4983-6.4984c-3.5891 0-6.4985 2.9094-6.4985 6.4984s2.9095 6.4986 6.4985 6.4986" fill="#fdc92d" stroke-width=".76471"/>
-   </g>
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="20.000006mm"
+   height="13.333344mm"
+   viewBox="0 0 20.000006 13.333344"
+   version="1.1"
+   id="svg1"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs1" />
+  <g
+     id="layer1"
+     transform="translate(-87.994922,-187.80445)">
+    <g
+       id="g45"
+       transform="matrix(0.33333333,0,0,0.33333333,63.33037,132.28518)">
+      <g
+         id="g29">
+        <rect
+           style="fill:#caa124;fill-opacity:1;stroke-width:0.264583"
+           id="rect28"
+           width="60"
+           height="40"
+           x="73.99366"
+           y="166.55782" />
+        <rect
+           style="fill:#fdc92d;fill-opacity:1;stroke-width:0.251005"
+           id="rect29"
+           width="60"
+           height="36"
+           x="73.99366"
+           y="168.55782" />
+      </g>
+      <rect
+         x="93.99366"
+         y="184.05782"
+         width="20"
+         height="5"
+         ry="2.499953"
+         opacity="0.5"
+         id="rect2"
+         style="stroke-width:9.44872" />
+    </g>
   </g>
-  <rect x="71.438" y="156.51" width="2.1167" height=".52917" ry=".26458" opacity=".5"/>
- </g>
 </svg>

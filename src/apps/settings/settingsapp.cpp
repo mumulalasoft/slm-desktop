@@ -62,14 +62,12 @@ SettingsApp::SettingsApp(QQmlApplicationEngine *engine, QObject *parent)
     const QString bundledModules = appDir + "/../src/apps/settings/modules";
     const QString cwdModules = QDir::currentPath() + "/src/apps/settings/modules";
     paths << userModules << systemModules << appData + "/modules" << bundledModules << cwdModules;
+#ifdef SLM_SOURCE_DIR
+    const QString sourceModules = QStringLiteral(SLM_SOURCE_DIR) + "/src/apps/settings/modules";
+    if (!paths.contains(sourceModules))
+        paths << sourceModules;
+#endif
     m_moduleLoader->scanModules(paths);
-
-    if (!m_moduleLoader->modules().isEmpty()) {
-        const QString first = m_moduleLoader->modules().first().toMap().value("id").toString();
-        if (!first.isEmpty()) {
-            openModule(first);
-        }
-    }
 
     connect(m_polkitBridge, &SettingsPolkitBridge::authorizationFinished,
             this, [this](const QString &requestId,
@@ -548,7 +546,7 @@ void SettingsApp::touchGrantTimestamp(const QString &grantKey)
         return;
     }
     m_grantUpdatedAt.insert(grantKey.trimmed().toLower(),
-                            QDateTime::currentDateTimeUtc().toMSecsSinceEpoch());
+                            QDateTime::currentMSecsSinceEpoch());
 }
 
 void SettingsApp::appendRecent(const QString &moduleId, const QString &settingId)

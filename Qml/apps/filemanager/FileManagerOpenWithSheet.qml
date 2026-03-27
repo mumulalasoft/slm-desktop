@@ -29,6 +29,8 @@ Drawer {
     property var applications: []
     property bool loading: false
     property string _requestId: ""
+    readonly property int iconRevision: ((typeof ThemeIconController !== "undefined" && ThemeIconController)
+                                         ? ThemeIconController.revision : 0)
 
     // ── API ───────────────────────────────────────────────────────────────
 
@@ -116,7 +118,7 @@ Drawer {
                         Image {
                             width: 32; height: 32
                             source: modelData.icon
-                                ? "image://themeicon/" + modelData.icon
+                                ? ("image://themeicon/" + modelData.icon + "?v=" + root.iconRevision)
                                 : ""
                             fillMode: Image.PreserveAspectFit
                             smooth: true

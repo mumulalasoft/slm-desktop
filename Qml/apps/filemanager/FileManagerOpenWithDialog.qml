@@ -7,6 +7,8 @@ AppDialog {
     id: root
 
     required property var hostRoot
+    readonly property int iconRevision: ((typeof ThemeIconController !== "undefined" && ThemeIconController)
+                                         ? ThemeIconController.revision : 0)
 
     title: hostRoot.openWithDialogMode === "setdefault"
            ? "Set Default Application"
@@ -84,6 +86,7 @@ AppDialog {
                                 Layout.preferredWidth: 16
                                 Layout.preferredHeight: 16
                                 source: "image://themeicon/" + (iconName.length > 0 ? iconName : "application-x-executable-symbolic")
+                                        + "?v=" + root.iconRevision
                                 fillMode: Image.PreserveAspectFit
                                 asynchronous: true
                                 cache: true

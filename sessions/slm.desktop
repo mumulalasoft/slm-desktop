@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=SLM Desktop
+Comment=SLM Desktop Session
+Exec=/usr/libexec/slm-session-broker
+Type=Application
+DesktopNames=SLM
