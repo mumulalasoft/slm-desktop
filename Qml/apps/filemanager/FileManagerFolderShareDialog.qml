@@ -175,14 +175,23 @@ AppDialog {
         for (var i = 0; i < (envIssues || []).length; ++i) {
             var issue = envIssues[i] || ({})
             var code = String(issue.code || "")
-            var installable = (code === "samba-net-not-found")
+            var componentId = String(issue.componentId || "")
+            var installable = !!issue.autoInstallable || (code === "samba-net-not-found")
+            var title = String(issue.title || "")
+            if (title.length === 0) {
+                title = (componentId.length > 0) ? componentId : code
+            }
+            var guidance = String(issue.guidance || "")
+            if (guidance.length === 0) {
+                guidance = String(root.issueGuidanceSteps(code).join(" "))
+            }
             mapped.push({
-                componentId: installable ? "samba" : code,
+                componentId: componentId.length > 0 ? componentId : (installable ? "samba" : code),
                 autoInstallable: installable,
-                title: installable ? "Samba" : code,
+                title: title,
                 description: String(issue.message || ""),
-                guidance: String(root.issueGuidanceSteps(code).join(" ")),
-                packageName: installable ? "samba" : ""
+                guidance: guidance,
+                packageName: String(issue.packageName || (installable ? "samba" : ""))
             })
         }
         return mapped

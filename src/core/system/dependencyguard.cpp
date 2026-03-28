@@ -1,6 +1,8 @@
 #include "dependencyguard.h"
 
+#include <QFileInfo>
 #include <QProcess>
+#include <QRegularExpression>
 #include <QStandardPaths>
 
 namespace Slm::System {
@@ -64,20 +66,122 @@ QVariantMap toResult(bool ok, const QString &error, const QVariantMap &extra = {
     return out;
 }
 
+QStringList normalizeDistroKeys(const QString &raw)
+{
+    QStringList out;
+    const QStringList parts = raw.toLower().split(QRegularExpression(QStringLiteral("[\\s,]+")),
+                                                  Qt::SkipEmptyParts);
+    for (const QString &part : parts) {
+        const QString key = part.trimmed();
+        if (!key.isEmpty() && !out.contains(key)) {
+            out.push_back(key);
+        }
+    }
+    return out;
+}
+
+QVariantMap readOsRelease()
+{
+    QVariantMap out;
+    QFile file(QStringLiteral("/etc/os-release"));
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        return out;
+    }
+    const QString content = QString::fromUtf8(file.readAll());
+    const QStringList lines = content.split(QLatin1Char('\n'));
+    for (const QString &line : lines) {
+        const QString trimmed = line.trimmed();
+        if (trimmed.isEmpty() || trimmed.startsWith(QLatin1Char('#'))) {
+            continue;
+        }
+        const int sep = trimmed.indexOf(QLatin1Char('='));
+        if (sep <= 0) {
+            continue;
+        }
+        QString key = trimmed.left(sep).trimmed().toUpper();
+        QString value = trimmed.mid(sep + 1).trimmed();
+        if ((value.startsWith(QLatin1Char('"')) && value.endsWith(QLatin1Char('"')))
+                || (value.startsWith(QLatin1Char('\'')) && value.endsWith(QLatin1Char('\'')))) {
+            value = value.mid(1, value.size() - 2);
+        }
+        out.insert(key, value);
+    }
+    return out;
+}
+
+QString resolvePackageName(const ComponentRequirement &req, const QString &managerId = QString())
+{
+    const QString fallback = req.packageName.trimmed();
+    if (req.packageNamesByDistro.isEmpty()) {
+        return fallback;
+    }
+
+    const QVariantMap osRelease = readOsRelease();
+    QStringList probeKeys;
+    probeKeys << normalizeDistroKeys(osRelease.value(QStringLiteral("ID")).toString());
+    probeKeys << normalizeDistroKeys(osRelease.value(QStringLiteral("ID_LIKE")).toString());
+    if (!managerId.trimmed().isEmpty()) {
+        probeKeys << managerId.trimmed().toLower();
+    }
+    probeKeys << QStringLiteral("*");
+
+    for (const QString &key : probeKeys) {
+        const auto it = req.packageNamesByDistro.constFind(key);
+        if (it != req.packageNamesByDistro.constEnd()) {
+            const QString mapped = it.value().trimmed();
+            if (!mapped.isEmpty()) {
+                return mapped;
+            }
+        }
+    }
+    return fallback;
+}
+
+bool matchesAnyPathCandidate(const QString &spec)
+{
+    const QStringList candidates = spec.split(QLatin1Char('|'), Qt::SkipEmptyParts);
+    for (const QString &candidateRaw : candidates) {
+        const QString candidate = candidateRaw.trimmed();
+        if (!candidate.isEmpty() && QFileInfo::exists(candidate)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+QVariantList missingPathSpecs(const QStringList &pathSpecs)
+{
+    QVariantList missing;
+    for (const QString &specRaw : pathSpecs) {
+        const QString spec = specRaw.trimmed();
+        if (spec.isEmpty()) {
+            continue;
+        }
+        if (!matchesAnyPathCandidate(spec)) {
+            missing.push_back(spec);
+        }
+    }
+    return missing;
+}
+
 } // namespace
 
 QVariantMap checkComponent(const ComponentRequirement &req)
 {
-    QVariantList missing;
+    const QString resolvedPackageName = resolvePackageName(req);
+    QVariantList missingExecutables;
     for (const QString &name : req.requiredExecutables) {
         const QString trimmed = name.trimmed();
         if (trimmed.isEmpty()) {
             continue;
         }
         if (QStandardPaths::findExecutable(trimmed).isEmpty()) {
-            missing.push_back(trimmed);
+            missingExecutables.push_back(trimmed);
         }
     }
+    const QVariantList missingPaths = missingPathSpecs(req.requiredPaths);
+    QVariantList missing = missingExecutables;
+    missing += missingPaths;
 
     const bool ready = missing.isEmpty();
     return toResult(ready, ready ? QString() : QStringLiteral("missing-component"),
@@ -85,11 +189,14 @@ QVariantMap checkComponent(const ComponentRequirement &req)
                         {QStringLiteral("componentId"), req.id},
                         {QStringLiteral("title"), req.title},
                         {QStringLiteral("description"), req.description},
-                        {QStringLiteral("packageName"), req.packageName},
+                        {QStringLiteral("packageName"), resolvedPackageName},
+                        {QStringLiteral("packageNameDefault"), req.packageName},
                         {QStringLiteral("guidance"), req.guidance},
                         {QStringLiteral("ready"), ready},
-                        {QStringLiteral("missingExecutables"), missing},
-                        {QStringLiteral("autoInstallable"), req.autoInstallable && !req.packageName.trimmed().isEmpty()},
+                        {QStringLiteral("missingExecutables"), missingExecutables},
+                        {QStringLiteral("missingArtifacts"), missing},
+                        {QStringLiteral("missingPaths"), missingPaths},
+                        {QStringLiteral("autoInstallable"), req.autoInstallable && !resolvedPackageName.isEmpty()},
                     });
 }
 
@@ -117,7 +224,7 @@ QVariantMap installComponentWithPolkit(const ComponentRequirement &req, int time
         return toResult(false, QStringLiteral("package-manager-not-found"), status);
     }
 
-    const QString packageName = req.packageName.trimmed();
+    const QString packageName = resolvePackageName(req, managerId);
     const QStringList pkgArgs = installArgsForManager(managerId, packageName);
     if (pkgArgs.isEmpty()) {
         return toResult(false, QStringLiteral("package-manager-unsupported"), status);

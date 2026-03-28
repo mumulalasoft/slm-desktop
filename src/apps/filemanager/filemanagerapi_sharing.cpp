@@ -485,12 +485,30 @@ QVariantMap FileManagerApi::folderSharingEnvironment() const
             {QStringLiteral("fixable"), fixable},
         });
     };
-    const QString netExec = QStandardPaths::findExecutable(QStringLiteral("net"));
-    if (netExec.isEmpty()) {
-        pushIssue(QStringLiteral("samba-net-not-found"),
-                  QStringLiteral("Komponen berbagi jaringan belum terpasang."),
-                  false);
-    } else {
+
+    const QVariantList missingComponents = Slm::System::ComponentRegistry::missingForDomain(QStringLiteral("filemanager"));
+    bool sambaMissing = false;
+    for (const QVariant &rowVar : missingComponents) {
+        const QVariantMap row = rowVar.toMap();
+        const QString componentId = row.value(QStringLiteral("componentId")).toString();
+        if (componentId == QStringLiteral("samba")) {
+            sambaMissing = true;
+        }
+        QVariantMap issue{
+            {QStringLiteral("code"), QStringLiteral("component-missing:%1").arg(componentId)},
+            {QStringLiteral("message"), row.value(QStringLiteral("description")).toString()},
+            {QStringLiteral("fixable"), row.value(QStringLiteral("autoInstallable")).toBool()},
+            {QStringLiteral("componentId"), componentId},
+            {QStringLiteral("title"), row.value(QStringLiteral("title")).toString()},
+            {QStringLiteral("guidance"), row.value(QStringLiteral("guidance")).toString()},
+            {QStringLiteral("packageName"), row.value(QStringLiteral("packageName")).toString()},
+            {QStringLiteral("autoInstallable"), row.value(QStringLiteral("autoInstallable")).toBool()},
+        };
+        issues.push_back(issue);
+    }
+
+    if (!sambaMissing) {
+        const QString netExec = QStandardPaths::findExecutable(QStringLiteral("net"));
         QProcess proc;
         proc.start(netExec, {QStringLiteral("usershare"), QStringLiteral("info")});
         if (!proc.waitForFinished(5000)) {
@@ -565,8 +583,22 @@ QVariantMap FileManagerApi::installMissingComponent(const QString &componentId)
 {
     const QString id = componentId.trimmed().toLower();
     Slm::System::ComponentRequirement req;
-    if (!Slm::System::ComponentRegistry::findById(id, &req)
-            || req.id != QStringLiteral("samba")) {
+    if (!Slm::System::ComponentRegistry::findById(id, &req)) {
+        return makeResult(false,
+                          QStringLiteral("unsupported-component"),
+                          {{QStringLiteral("componentId"), id}});
+    }
+
+    bool domainAllowed = false;
+    const QList<Slm::System::ComponentRequirement> allowed =
+            Slm::System::ComponentRegistry::forDomain(QStringLiteral("filemanager"));
+    for (const Slm::System::ComponentRequirement &candidate : allowed) {
+        if (candidate.id == id) {
+            domainAllowed = true;
+            break;
+        }
+    }
+    if (!domainAllowed) {
         return makeResult(false,
                           QStringLiteral("unsupported-component"),
                           {{QStringLiteral("componentId"), id}});

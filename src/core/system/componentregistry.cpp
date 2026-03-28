@@ -1,8 +1,24 @@
 #include "componentregistry.h"
 
+#include <utility>
+
 namespace Slm::System {
 
 namespace {
+
+QMap<QString, QString> distroPackages(const QString &fallback,
+                                      std::initializer_list<std::pair<const char *, const char *>> entries)
+{
+    QMap<QString, QString> out;
+    if (!fallback.trimmed().isEmpty()) {
+        out.insert(QStringLiteral("*"), fallback.trimmed());
+    }
+    for (const auto &entry : entries) {
+        out.insert(QString::fromLatin1(entry.first).toLower(),
+                   QString::fromLatin1(entry.second).trimmed());
+    }
+    return out;
+}
 
 QList<ComponentRequirement> componentList()
 {
@@ -13,8 +29,51 @@ QList<ComponentRequirement> componentList()
             QStringLiteral("Komponen berbagi folder jaringan (SMB usershare)."),
             QStringLiteral("samba"),
             QStringList{QStringLiteral("net")},
+            {},
             true,
-            QStringLiteral("Pasang paket samba agar fitur folder sharing aktif.")
+            QStringLiteral("Pasang paket samba agar fitur folder sharing aktif."),
+            distroPackages(QStringLiteral("samba"),
+                           {{"debian", "samba"},
+                            {"ubuntu", "samba"},
+                            {"fedora", "samba"},
+                            {"arch", "samba"},
+                            {"opensuse", "samba"}})
+        },
+        ComponentRequirement{
+            QStringLiteral("gvfs"),
+            QStringLiteral("GVFS Daemons"),
+            QStringLiteral("Diperlukan untuk integrasi mount backend pada file manager."),
+            QStringLiteral("gvfs-daemons"),
+            {},
+            QStringList{
+                QStringLiteral("/usr/libexec/gvfsd|/usr/lib/gvfs/gvfsd|/usr/lib/x86_64-linux-gnu/gvfs/gvfsd|/usr/lib64/gvfs/gvfsd")
+            },
+            true,
+            QStringLiteral("Pasang gvfs daemons agar file manager dapat berinteraksi dengan storage virtual."),
+            distroPackages(QStringLiteral("gvfs-daemons"),
+                           {{"debian", "gvfs-daemons"},
+                            {"ubuntu", "gvfs-daemons"},
+                            {"fedora", "gvfs-daemon"},
+                            {"arch", "gvfs"},
+                            {"opensuse", "gvfs"}})
+        },
+        ComponentRequirement{
+            QStringLiteral("gvfs-smb"),
+            QStringLiteral("GVFS SMB Backend"),
+            QStringLiteral("Backend SMB untuk membuka share jaringan dari file manager."),
+            QStringLiteral("gvfs-backends"),
+            {},
+            QStringList{
+                QStringLiteral("/usr/libexec/gvfsd-smb|/usr/lib/gvfs/gvfsd-smb|/usr/lib/x86_64-linux-gnu/gvfs/gvfsd-smb|/usr/lib64/gvfs/gvfsd-smb")
+            },
+            true,
+            QStringLiteral("Pasang backend GVFS SMB agar browsing SMB share berfungsi."),
+            distroPackages(QStringLiteral("gvfs-backends"),
+                           {{"debian", "gvfs-backends"},
+                            {"ubuntu", "gvfs-backends"},
+                            {"fedora", "gvfs-smb"},
+                            {"arch", "gvfs-smb"},
+                            {"opensuse", "gvfs-backends"}})
         },
         ComponentRequirement{
             QStringLiteral("pkexec"),
@@ -22,8 +81,13 @@ QList<ComponentRequirement> componentList()
             QStringLiteral("Diperlukan untuk aksi instalasi/perbaikan berizin administrator."),
             QStringLiteral("policykit-1"),
             QStringList{QStringLiteral("pkexec")},
+            {},
             true,
-            QStringLiteral("Pasang policykit-1 agar aksi perbaikan otomatis bisa berjalan.")
+            QStringLiteral("Pasang policykit-1 agar aksi perbaikan otomatis bisa berjalan."),
+            distroPackages(QStringLiteral("policykit-1"),
+                           {{"fedora", "polkit"},
+                            {"arch", "polkit"},
+                            {"opensuse", "polkit"}})
         },
         ComponentRequirement{
             QStringLiteral("journalctl"),
@@ -31,8 +95,10 @@ QList<ComponentRequirement> componentList()
             QStringLiteral("Diperlukan untuk melihat ringkasan log recovery."),
             QStringLiteral("systemd"),
             QStringList{QStringLiteral("journalctl")},
+            {},
             true,
-            QStringLiteral("Pasang systemd utils agar log diagnosis tersedia.")
+            QStringLiteral("Pasang systemd utils agar log diagnosis tersedia."),
+            {}
         },
         ComponentRequirement{
             QStringLiteral("slm-watchdog"),
@@ -40,8 +106,10 @@ QList<ComponentRequirement> componentList()
             QStringLiteral("Komponen pemantau stabilitas sesi desktop."),
             QStringLiteral("slm-desktop"),
             QStringList{QStringLiteral("slm-watchdog")},
+            {},
             false,
-            QStringLiteral("Pasang ulang paket slm-desktop untuk memulihkan slm-watchdog.")
+            QStringLiteral("Pasang ulang paket slm-desktop untuk memulihkan slm-watchdog."),
+            {}
         },
         ComponentRequirement{
             QStringLiteral("slm-recovery-app"),
@@ -49,8 +117,10 @@ QList<ComponentRequirement> componentList()
             QStringLiteral("Aplikasi pemulihan saat sesi mengalami crash berulang."),
             QStringLiteral("slm-desktop"),
             QStringList{QStringLiteral("slm-recovery-app")},
+            {},
             false,
-            QStringLiteral("Pasang ulang paket slm-desktop untuk memulihkan aplikasi recovery.")
+            QStringLiteral("Pasang ulang paket slm-desktop untuk memulihkan aplikasi recovery."),
+            {}
         },
         ComponentRequirement{
             QStringLiteral("gio"),
@@ -58,8 +128,13 @@ QList<ComponentRequirement> componentList()
             QStringLiteral("Diperlukan oleh portal manager untuk integrasi file URI."),
             QStringLiteral("libglib2.0-bin"),
             QStringList{QStringLiteral("gio")},
+            {},
             true,
-            QStringLiteral("Pasang utilitas GIO agar portal integration berjalan.")
+            QStringLiteral("Pasang utilitas GIO agar portal integration berjalan."),
+            distroPackages(QStringLiteral("libglib2.0-bin"),
+                           {{"fedora", "glib2"},
+                            {"arch", "glib2"},
+                            {"opensuse", "glib2-tools"}})
         },
         ComponentRequirement{
             QStringLiteral("iproute2"),
@@ -67,8 +142,13 @@ QList<ComponentRequirement> componentList()
             QStringLiteral("Diperlukan untuk deteksi network route/default gateway."),
             QStringLiteral("iproute2"),
             QStringList{QStringLiteral("ip")},
+            {},
             true,
-            QStringLiteral("Pasang iproute2 agar layanan jaringan dapat membaca status route.")
+            QStringLiteral("Pasang iproute2 agar layanan jaringan dapat membaca status route."),
+            distroPackages(QStringLiteral("iproute2"),
+                           {{"fedora", "iproute"},
+                            {"arch", "iproute2"},
+                            {"opensuse", "iproute2"}})
         },
         ComponentRequirement{
             QStringLiteral("bluez"),
@@ -76,8 +156,13 @@ QList<ComponentRequirement> componentList()
             QStringLiteral("Diperlukan untuk manajemen perangkat bluetooth."),
             QStringLiteral("bluez"),
             QStringList{QStringLiteral("bluetoothctl")},
+            {},
             true,
-            QStringLiteral("Pasang bluez agar modul bluetooth berfungsi.")
+            QStringLiteral("Pasang bluez agar modul bluetooth berfungsi."),
+            distroPackages(QStringLiteral("bluez"),
+                           {{"fedora", "bluez"},
+                            {"arch", "bluez"},
+                            {"opensuse", "bluez"}})
         },
         ComponentRequirement{
             QStringLiteral("cups-client"),
@@ -85,8 +170,13 @@ QList<ComponentRequirement> componentList()
             QStringLiteral("Diperlukan untuk status printer dan operasi print."),
             QStringLiteral("cups-client"),
             QStringList{QStringLiteral("lpstat")},
+            {},
             true,
-            QStringLiteral("Pasang cups-client agar fitur printing aktif.")
+            QStringLiteral("Pasang cups-client agar fitur printing aktif."),
+            distroPackages(QStringLiteral("cups-client"),
+                           {{"fedora", "cups-client"},
+                            {"arch", "cups"},
+                            {"opensuse", "cups-client"}})
         },
     };
 }
@@ -95,7 +185,9 @@ bool belongsToDomain(const QString &id, const QString &domain)
 {
     const QString d = domain.trimmed().toLower();
     if (d == QStringLiteral("filemanager")) {
-        return id == QStringLiteral("samba");
+        return id == QStringLiteral("samba")
+            || id == QStringLiteral("gvfs")
+            || id == QStringLiteral("gvfs-smb");
     }
     if (d == QStringLiteral("recovery")) {
         return id == QStringLiteral("pkexec")
