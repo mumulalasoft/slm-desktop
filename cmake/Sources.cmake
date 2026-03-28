@@ -205,6 +205,8 @@ set(DESKTOP_SHELL_SERVICES
     src/core/system/componentregistry.h
     src/core/system/dependencyguard.cpp
     src/core/system/dependencyguard.h
+    src/core/system/missingcomponentcontroller.cpp
+    src/core/system/missingcomponentcontroller.h
     src/core/permissions/Capability.cpp
     src/core/permissions/Capability.h
     src/core/permissions/CallerIdentity.cpp
@@ -652,6 +654,8 @@ set(SLM_GREETER_SOURCES
     src/core/system/componentregistry.h
     src/core/system/dependencyguard.cpp
     src/core/system/dependencyguard.h
+    src/core/system/missingcomponentcontroller.cpp
+    src/core/system/missingcomponentcontroller.h
 )
 
 set(SLM_RECOVERY_APP_SOURCES
@@ -662,6 +666,8 @@ set(SLM_RECOVERY_APP_SOURCES
     src/core/system/componentregistry.h
     src/core/system/dependencyguard.cpp
     src/core/system/dependencyguard.h
+    src/core/system/missingcomponentcontroller.cpp
+    src/core/system/missingcomponentcontroller.h
 )
 
 set(SLM_POLKIT_AGENT_SOURCES

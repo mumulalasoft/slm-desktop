@@ -3,6 +3,7 @@
 #include <QQmlContext>
 
 #include "recoveryapp.h"
+#include "src/core/system/missingcomponentcontroller.h"
 
 int main(int argc, char *argv[])
 {
@@ -11,9 +12,11 @@ int main(int argc, char *argv[])
     app.setOrganizationName(QStringLiteral("SLM Desktop"));
 
     Slm::Login::RecoveryApp recovery;
+    Slm::System::MissingComponentController missingComponents;
 
     QQmlApplicationEngine engine;
     engine.rootContext()->setContextProperty(QStringLiteral("RecoveryApp"), &recovery);
+    engine.rootContext()->setContextProperty(QStringLiteral("MissingComponents"), &missingComponents);
 
     const QUrl url(QStringLiteral("qrc:/qt/qml/SlmRecovery/Main.qml"));
     QObject::connect(

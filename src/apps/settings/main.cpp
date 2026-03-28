@@ -23,6 +23,7 @@ using namespace Qt::StringLiterals;
 #include "../../core/icons/themeiconcontroller.h"
 #include "../../printing/core/PrinterManager.h"
 #include "../../printing/core/PrinterAdminService.h"
+#include "../../core/system/missingcomponentcontroller.h"
 #include "modules/developer/envvariablecontroller.h"
 #include "modules/developer/envserviceclient.h"
 #include "modules/developer/effectiveenvpreviewcontroller.h"
@@ -118,6 +119,7 @@ int main(int argc, char *argv[])
     XdgPortalsController    xdgPortals;
     StartupAppsController   startupApps;
     ComponentHealthController componentHealth;
+    Slm::System::MissingComponentController missingComponents;
     WallpaperManager wallpaperManager(&uiPreferences);
     MimeAppsManager mimeAppsManager;
     ThemeManager themeManager(&uiPreferences);
@@ -172,6 +174,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("XdgPortals"),          &xdgPortals);
     engine.rootContext()->setContextProperty(QStringLiteral("StartupAppsController"), &startupApps);
     engine.rootContext()->setContextProperty(QStringLiteral("ComponentHealth"), &componentHealth);
+    engine.rootContext()->setContextProperty(QStringLiteral("MissingComponents"), &missingComponents);
     QObject::connect(&uiPreferences, &UIPreferences::iconThemeLightChanged, &app, [&]() {
         applyIconThemePref();
         applyIconThemeMode();

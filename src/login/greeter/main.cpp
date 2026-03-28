@@ -3,6 +3,7 @@
 #include <QQmlContext>
 #include <QQuickStyle>
 #include "greeterapp.h"
+#include "src/core/system/missingcomponentcontroller.h"
 
 using namespace Qt::StringLiterals;
 using namespace Slm::Login;
@@ -22,7 +23,9 @@ int main(int argc, char *argv[])
     QQmlApplicationEngine engine;
 
     GreeterApp greeterApp;
+    Slm::System::MissingComponentController missingComponents;
     engine.rootContext()->setContextProperty(u"GreeterApp"_s, &greeterApp);
+    engine.rootContext()->setContextProperty(u"MissingComponents"_s, &missingComponents);
 
     const QUrl url(u"qrc:/qt/qml/SlmGreeter/Qml/greeter/Main.qml"_s);
 

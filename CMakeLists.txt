@@ -354,6 +354,8 @@ qt_add_executable(slm-settings
     src/core/system/componentregistry.h
     src/core/system/dependencyguard.cpp
     src/core/system/dependencyguard.h
+    src/core/system/missingcomponentcontroller.cpp
+    src/core/system/missingcomponentcontroller.h
     src/services/envd/systemenvstore.cpp
     src/services/envd/systemenvstore.h
     src/core/launcher/launchenvresolver.cpp

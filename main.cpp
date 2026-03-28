@@ -69,6 +69,7 @@
 #include "src/filemanager/FileManagerShellBridge.h"
 #include "src/filemanager/ThumbnailImageProvider.h"
 #include "src/core/motion/slmmotioncontroller.h"
+#include "src/core/system/missingcomponentcontroller.h"
 #include "src/printing/core/PrinterManager.h"
 #include "src/printing/core/PrintSession.h"
 #include "src/printing/core/PrintPreviewModel.h"
@@ -234,6 +235,7 @@ int main(int argc, char *argv[])
     Slm::Clipboard::ClipboardServiceClient clipboardServiceClient;
     Slm::Session::SessionStateClient sessionStateClient;
     Slm::Motion::MotionController motionController;
+    Slm::System::MissingComponentController missingComponentController;
     Slm::Print::PrinterManager printerManager;
     Slm::Print::PrintSession printSession;
     Slm::Print::PrintPreviewModel printPreviewModel;
@@ -356,6 +358,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("slmActionTreeDebug"),
                                              slmActionTreeDebug);
     engine.rootContext()->setContextProperty(QStringLiteral("SessionStateClient"), &sessionStateClient);
+    engine.rootContext()->setContextProperty(QStringLiteral("MissingComponents"), &missingComponentController);
     engine.rootContext()->setContextProperty(QStringLiteral("PrintManager"), &printerManager);
     engine.rootContext()->setContextProperty(QStringLiteral("PrintSession"), &printSession);
     engine.rootContext()->setContextProperty(QStringLiteral("PrintPreviewModel"), &printPreviewModel);

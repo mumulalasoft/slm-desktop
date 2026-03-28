@@ -1,34 +1,19 @@
 #include "componenthealthcontroller.h"
 
-#include "src/core/system/componentregistry.h"
-#include "src/core/system/dependencyguard.h"
+#include "src/core/system/missingcomponentcontroller.h"
 
 ComponentHealthController::ComponentHealthController(QObject *parent)
     : QObject(parent)
+    , m_missingController(new Slm::System::MissingComponentController(this))
 {
 }
 
 QVariantList ComponentHealthController::missingComponentsForDomain(const QString &domain) const
 {
-    return Slm::System::ComponentRegistry::missingForDomain(domain);
+    return m_missingController->missingComponentsForDomain(domain);
 }
 
 QVariantMap ComponentHealthController::installComponent(const QString &componentId) const
 {
-    Slm::System::ComponentRequirement req;
-    if (!Slm::System::ComponentRegistry::findById(componentId, &req)) {
-        return {
-            {QStringLiteral("ok"), false},
-            {QStringLiteral("error"), QStringLiteral("unsupported-component")},
-            {QStringLiteral("componentId"), componentId.trimmed().toLower()},
-        };
-    }
-    if (!req.autoInstallable) {
-        return {
-            {QStringLiteral("ok"), false},
-            {QStringLiteral("error"), QStringLiteral("component-not-auto-installable")},
-            {QStringLiteral("componentId"), req.id},
-        };
-    }
-    return Slm::System::installComponentWithPolkit(req);
+    return m_missingController->installComponent(componentId);
 }
