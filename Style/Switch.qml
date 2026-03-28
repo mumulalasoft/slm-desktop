@@ -15,13 +15,15 @@ T.Switch {
                     topPadding + bottomPadding
 
     indicator: Rectangle {
-        implicitWidth: 38
-        implicitHeight: 24
+        implicitWidth: 42
+        implicitHeight: 26
         radius: height / 2
         color: !control.enabled ? Theme.color("controlDisabledBg")
-              : (control.checked ? Theme.color("accent") : Theme.color("controlDisabledBg"))
-        border.width: control.checked ? 0 : Theme.borderWidthThin
-        border.color: control.enabled ? Theme.color("controlDisabledBorder") : Theme.color("controlDisabledBorder")
+              : (control.checked ? Theme.color("accent") : Theme.color("controlBg"))
+        border.width: Theme.borderWidthThin
+        border.color: !control.enabled ? Theme.color("controlDisabledBorder")
+                                       : (control.checked ? Qt.darker(Theme.color("accent"), Theme.darkMode ? 1.22 : 1.12)
+                                                          : Theme.color("panelBorder"))
         opacity: 1.0
         y: Math.round((control.height - height) / 2)
 
@@ -33,12 +35,14 @@ T.Switch {
         }
 
         Rectangle {
-            width: 20
-            height: 20
+            width: 22
+            height: 22
             radius: width / 2
             y: 2
             x: control.checked ? parent.width - width - 2 : 2
-            color: control.enabled ? Theme.color("windowCard") : Theme.color("controlDisabledBorder")
+            color: control.enabled ? Theme.color("surface") : Theme.color("controlDisabledBorder")
+            border.width: Theme.borderWidthThin
+            border.color: Qt.rgba(0, 0, 0, Theme.darkMode ? 0.18 : 0.10)
 
             Behavior on x {
                 NumberAnimation {

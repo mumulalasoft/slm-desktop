@@ -10,11 +10,14 @@ T.CheckBox {
     indicator: Rectangle {
         implicitWidth: 18
         implicitHeight: 18
-        radius: 4
+        radius: Theme.radiusSmPlus
         color: !control.enabled ? Theme.color("controlDisabledBg")
-              : (control.checked ? Theme.color("accent") : Theme.color("fileManagerControlBg"))
+              : (control.checked ? Theme.color("accent") : Theme.color("controlBg"))
         border.width: Theme.borderWidthThin
-        border.color: control.enabled ? Theme.color("fileManagerControlBorder") : Theme.color("controlDisabledBorder")
+        border.color: control.enabled
+                      ? (control.checked ? Qt.darker(Theme.color("accent"), Theme.darkMode ? 1.22 : 1.12)
+                                         : Theme.color("panelBorder"))
+                      : Theme.color("controlDisabledBorder")
         anchors.verticalCenter: parent.verticalCenter
 
         Text {

@@ -13,15 +13,15 @@ T.MenuItem {
 
     implicitWidth: Math.max(implicitBackgroundWidth + leftInset + rightInset,
                             implicitContentWidth + leftPadding + rightPadding)
-    implicitHeight: Math.max(26,
+    implicitHeight: Math.max(28,
                              implicitBackgroundHeight + topInset + bottomInset,
                              implicitContentHeight + topPadding + bottomPadding)
 
-    topPadding: 1
-    bottomPadding: 1
-    leftPadding: 7
-    rightPadding: 7
-    spacing: 6
+    topPadding: 2
+    bottomPadding: 2
+    leftPadding: 8
+    rightPadding: 8
+    spacing: 8
     font.family: Theme.fontFamilyUi
     font.pixelSize: Theme.fontSize("menu")
 
@@ -63,7 +63,7 @@ T.MenuItem {
             Layout.alignment: Qt.AlignVCenter
             text: control.checkable && control.checked ? "\u2713" : ""
             color: !control.enabled ? Theme.color("textDisabled")
-                  : (control.highlighted ? Theme.color("selectedItemText") : Theme.color("menuText"))
+                  : (control.highlighted ? Theme.color("selectedItemText") : Theme.color("textPrimary"))
             font.family: Theme.fontFamilyUi
             font.pixelSize: Theme.fontSize("menu")
             font.weight: Theme.fontWeight("bold")
@@ -79,7 +79,7 @@ T.MenuItem {
             font.pixelSize: control.font.pixelSize
             font.weight: control.highlighted ? Theme.fontWeight("medium") : Theme.fontWeight("normal")
             color: !control.enabled ? Theme.color("textDisabled")
-                  : (control.highlighted ? Theme.color("selectedItemText") : Theme.color("menuText"))
+                  : (control.highlighted ? Theme.color("selectedItemText") : Theme.color("textPrimary"))
             elide: Text.ElideRight
             verticalAlignment: Text.AlignVCenter
             lineHeightMode: Text.ProportionalHeight
@@ -103,9 +103,9 @@ T.MenuItem {
             implicitWidth: shortcutLabel.implicitWidth + 10
             implicitHeight: Math.max(16, shortcutLabel.implicitHeight + 2)
             radius: Theme.radiusSm
-            color: control.highlighted ? Qt.rgba(1, 1, 1, 0.24) : Theme.color("fileManagerControlBg")
+            color: control.highlighted ? Qt.rgba(1, 1, 1, Theme.darkMode ? 0.22 : 0.28) : Theme.color("controlBg")
             border.width: Theme.borderWidthThin
-            border.color: control.highlighted ? Qt.rgba(1, 1, 1, 0.45) : Theme.color("fileManagerControlBorder")
+            border.color: control.highlighted ? Qt.rgba(1, 1, 1, Theme.darkMode ? 0.45 : 0.38) : Theme.color("panelBorder")
 
             Text {
                 id: shortcutLabel
@@ -128,7 +128,7 @@ T.MenuItem {
                 anchors.centerIn: parent
                 text: "\u25B6"
                 color: !control.enabled ? Theme.color("textDisabled")
-                      : (control.highlighted ? Theme.color("selectedItemText") : Theme.color("menuText"))
+                      : (control.highlighted ? Theme.color("selectedItemText") : Theme.color("textPrimary"))
                 font.family: Theme.fontFamilyUi
                 font.pixelSize: Theme.fontSize("small")
                 verticalAlignment: Text.AlignVCenter
@@ -138,7 +138,7 @@ T.MenuItem {
     }
 
     background: Rectangle {
-        radius: Theme.radiusControl
+        radius: Theme.radiusMdPlus
         color: (control.enabled && control.highlighted) ? Theme.color("menuHover") : "transparent"
 
         Behavior on color {

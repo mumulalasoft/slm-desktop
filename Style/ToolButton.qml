@@ -6,11 +6,11 @@ T.ToolButton {
     id: control
     readonly property int transitionDuration: Math.round(Theme.transitionDuration * 0.55)
     implicitWidth: Math.max(30, implicitContentWidth + leftPadding + rightPadding)
-    implicitHeight: Theme.metric("controlHeightCompact")
+    implicitHeight: Theme.metric("controlHeightRegular")
     leftPadding: 10
     rightPadding: 10
-    topPadding: 4
-    bottomPadding: 4
+    topPadding: 5
+    bottomPadding: 5
 
     contentItem: Text {
         text: control.text
@@ -22,14 +22,14 @@ T.ToolButton {
     }
 
     background: Rectangle {
-        radius: height / 2
+        radius: Theme.radiusControl
         border.width: Theme.borderWidthThin
-        border.color: control.enabled ? Theme.color("fileManagerControlBorder")
+        border.color: control.enabled ? Theme.color("panelBorder")
                                       : Theme.color("controlDisabledBorder")
         color: !control.enabled ? Theme.color("controlDisabledBg")
-              : (control.down ? Theme.color("fileManagerControlActive")
-                              : (control.hovered ? Theme.color("accentSoft")
-                                                 : Theme.color("fileManagerControlBg")))
+              : (control.down ? Theme.color("controlBgPressed")
+                              : (control.hovered ? Theme.color("controlBgHover")
+                                                 : Theme.color("controlBg")))
         opacity: 1.0
 
         Rectangle {

@@ -7,10 +7,10 @@ T.ComboBox {
     id: control
     readonly property int transitionDuration: Math.round(Theme.transitionDuration * 0.7)
 
-    implicitWidth: 180
+    implicitWidth: 200
     implicitHeight: Theme.metric("controlHeightLarge")
-    leftPadding: 10
-    rightPadding: 30
+    leftPadding: 12
+    rightPadding: 34
 
     delegate: ItemDelegate {
         width: control.width
@@ -19,13 +19,13 @@ T.ComboBox {
 
         background: Rectangle {
             radius: Theme.radiusControl
-            color: highlighted ? Theme.color("accent") : "transparent"
+            color: highlighted ? Theme.color("menuHover") : "transparent"
         }
 
         contentItem: Text {
             text: parent.text
             font: control.font
-            color: parent.highlighted ? Theme.color("accentText") : Theme.color("textPrimary")
+            color: parent.highlighted ? Theme.color("selectedItemText") : Theme.color("textPrimary")
             elide: Text.ElideRight
             verticalAlignment: Text.AlignVCenter
             leftPadding: 4
@@ -33,12 +33,12 @@ T.ComboBox {
     }
 
     indicator: Text {
-        text: "▾"
+        text: "\u2304"
         color: control.enabled ? Theme.color("textPrimary") : Theme.color("textDisabled")
         anchors.right: parent.right
-        anchors.rightMargin: 10
+        anchors.rightMargin: 12
         anchors.verticalCenter: parent.verticalCenter
-        font.pixelSize: Theme.fontSize("body")
+        font.pixelSize: Theme.fontSize("menu")
     }
 
     contentItem: Text {
@@ -53,10 +53,10 @@ T.ComboBox {
 
     background: Rectangle {
         radius: Theme.radiusControlLarge
-        color: control.enabled ? Theme.color("fileManagerControlBg") : Theme.color("controlDisabledBg")
+        color: control.enabled ? Theme.color("controlBg") : Theme.color("controlDisabledBg")
         border.width: control.visualFocus ? Theme.borderWidthThick : Theme.borderWidthThin
         border.color: control.visualFocus ? Theme.color("focusRingStrong")
-                                          : (control.enabled ? Theme.color("fileManagerControlBorder")
+                                          : (control.enabled ? Theme.color("panelBorder")
                                                              : Theme.color("controlDisabledBorder"))
 
         Rectangle {
@@ -78,6 +78,8 @@ T.ComboBox {
         background: PopupSurface {
             popupRadius: Theme.radiusControlLarge
             popupOpacity: Theme.popupSurfaceOpacityStrong
+            popupColor: Theme.color("surface")
+            popupBorderColor: Theme.color("panelBorder")
         }
 
         contentItem: ListView {
