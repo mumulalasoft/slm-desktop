@@ -17,6 +17,7 @@ using namespace Qt::StringLiterals;
 #include "mimeappsmanager.h"
 #include "thememanager.h"
 #include "fontmanager.h"
+#include "modules/useraccounts/useraccountscontroller.h"
 #include "../../core/prefs/uipreferences.h"
 #include "../../core/icons/themeiconprovider.h"
 #include "../../core/icons/themeiconcontroller.h"
@@ -70,12 +71,16 @@ int main(int argc, char *argv[])
     QCommandLineOption deepLinkOption(QStringList{QStringLiteral("d"), QStringLiteral("deep-link")},
                                       QStringLiteral("Open a specific settings deep link (e.g. settings://print/pdf-fallback-printer)."),
                                       QStringLiteral("url"));
+    QCommandLineOption styleGalleryOption(QStringLiteral("style-gallery"),
+                                          QStringLiteral("Open style preview gallery window for visual QA."));
     parser.addOption(moduleOption);
     parser.addOption(deepLinkOption);
+    parser.addOption(styleGalleryOption);
     parser.process(app);
 
     QString initialModuleId = parser.value(moduleOption);
     const QString initialDeepLink = parser.value(deepLinkOption).trimmed();
+    const bool openStyleGallery = parser.isSet(styleGalleryOption);
 
     QQmlApplicationEngine engine;
     const QString qtQmlImportPath = QLibraryInfo::path(QLibraryInfo::QmlImportsPath);
@@ -88,7 +93,9 @@ int main(int argc, char *argv[])
     // found before the full Slm_Desktop module written by appSlm_Desktop.
     engine.addImportPath(u"qrc:/qt/qml"_s);
     engine.addImageProvider(QStringLiteral("icon"), new ThemeIconProvider);
-    const QUrl url(u"qrc:/qt/qml/SlmSettings/Qml/apps/settings/Main.qml"_s);
+    const QUrl url = openStyleGallery
+        ? QUrl(u"qrc:/qt/qml/SlmSettings/Qml/apps/settings/StylePreviewGallery.qml"_s)
+        : QUrl(u"qrc:/qt/qml/SlmSettings/Qml/apps/settings/Main.qml"_s);
     UIPreferences uiPreferences;
     ThemeIconController themeIconController;
     Slm::Print::PrinterManager printManager;
@@ -113,6 +120,7 @@ int main(int argc, char *argv[])
     MimeAppsManager mimeAppsManager;
     ThemeManager themeManager(&uiPreferences);
     FontManager fontManager(&uiPreferences);
+    UserAccountsController userAccounts;
     const auto applyIconThemePref = [&]() {
         const QString light = uiPreferences.iconThemeLight().trimmed();
         const QString dark = uiPreferences.iconThemeDark().trimmed();
@@ -144,6 +152,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("MimeAppsManager"), &mimeAppsManager);
     engine.rootContext()->setContextProperty(QStringLiteral("ThemeManager"), &themeManager);
     engine.rootContext()->setContextProperty(QStringLiteral("FontManager"), &fontManager);
+    engine.rootContext()->setContextProperty(QStringLiteral("UserAccounts"), &userAccounts);
     engine.rootContext()->setContextProperty(QStringLiteral("EnvVarController"), &envVarController);
     engine.rootContext()->setContextProperty(QStringLiteral("EnvServiceClient"), &envServiceClient);
     engine.rootContext()->setContextProperty(QStringLiteral("EffectiveEnvPreview"), &effectiveEnvPreview);
@@ -196,10 +205,12 @@ int main(int argc, char *argv[])
         }
     });
 
-    if (!initialDeepLink.isEmpty()) {
-        settingsApp.openDeepLink(initialDeepLink);
-    } else if (!initialModuleId.isEmpty()) {
-        settingsApp.openModule(initialModuleId);
+    if (!openStyleGallery) {
+        if (!initialDeepLink.isEmpty()) {
+            settingsApp.openDeepLink(initialDeepLink);
+        } else if (!initialModuleId.isEmpty()) {
+            settingsApp.openModule(initialModuleId);
+        }
     }
 
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreated,

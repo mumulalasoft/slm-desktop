@@ -848,6 +848,7 @@ qt_add_qml_module(slm-settings
     RESOURCE_PREFIX "/qt/qml"
     QML_FILES
         Qml/apps/settings/Main.qml
+        Qml/apps/settings/StylePreviewGallery.qml
         Qml/apps/settings/Sidebar.qml
         Qml/apps/settings/ContentPanel.qml
         Qml/apps/settings/components/SettingCard.qml
