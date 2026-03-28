@@ -11,7 +11,8 @@
   - `docs/contracts/workspacemanager.md`
   - `docs/contracts/missingcomponents.md`
   - `docs/contracts/polkit-agent.md`
-- [ ] Week-1: publish CI tier mapping (PR/nightly/weekly) into pipeline config docs.
+- [x] Week-1: publish CI tier mapping (PR/nightly/weekly) into pipeline config docs.
+  - `docs/CI_TIER_MAP.md`
 - [ ] Week-1: define `blocker/high/normal` triage board and SLA owner map.
 - [ ] Week-2: promote `scripts/test.sh nightly` from ad-hoc to required scheduled lane.
 - [ ] Week-2: add release compatibility matrix draft (`platform/login/settings/filemanager/style`).
