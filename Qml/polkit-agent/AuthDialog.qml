@@ -2,7 +2,7 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import QtQuick.Window 2.15
-import Slm_Desktop
+import SlmStyle
 
 Window {
     id: root
@@ -33,6 +33,15 @@ Window {
     property color okText: Theme.color("accentText")
     readonly property int formRowWidth: Math.max(250, root.width - 56)
 
+    function applyThemePreferences() {
+        if (typeof UIPreferences === "undefined" || !UIPreferences) {
+            return
+        }
+        Theme.applyModeString(UIPreferences.themeMode)
+        Theme.userAccentColor = UIPreferences.accentColor
+        Theme.userFontScale = UIPreferences.fontScale
+    }
+
     onControllerActiveChanged: {
         if (controllerActive) {
             isClosing = false
@@ -46,6 +55,8 @@ Window {
             hideAnim.start()
         }
     }
+
+    Component.onCompleted: applyThemePreferences()
 
     onClosing: function(close) {
         if (!authDialogController || !authDialogController.active) {
@@ -379,6 +390,13 @@ Window {
             passwordField.forceActiveFocus()
             passwordField.selectAll()
         }
+    }
+
+    Connections {
+        target: (typeof UIPreferences !== "undefined") ? UIPreferences : null
+        function onThemeModeChanged() { Theme.applyModeString(UIPreferences.themeMode) }
+        function onAccentColorChanged() { Theme.userAccentColor = UIPreferences.accentColor }
+        function onFontScaleChanged() { Theme.userFontScale = UIPreferences.fontScale }
     }
 
     Shortcut {
