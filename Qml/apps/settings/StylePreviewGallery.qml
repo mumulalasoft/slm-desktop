@@ -225,31 +225,10 @@ ApplicationWindow {
                         font.weight: Theme.fontWeight("semibold")
                     }
 
-                    RowLayout {
+                    Breadcrumb {
                         Layout.fillWidth: true
-                        spacing: 4
-
-                        ToolButton {
-                            text: qsTr("System")
-                            onClicked: {}
-                        }
-                        Label {
-                            text: ">"
-                            color: Theme.color("textSecondary")
-                        }
-                        ToolButton {
-                            text: qsTr("Settings")
-                            onClicked: {}
-                        }
-                        Label {
-                            text: ">"
-                            color: Theme.color("textSecondary")
-                        }
-                        ToolButton {
-                            text: qsTr("Appearance")
-                            enabled: false
-                        }
-                        Item { Layout.fillWidth: true }
+                        model: [qsTr("System"), qsTr("Settings"), qsTr("Appearance")]
+                        currentIndex: 2
                     }
 
                     TabBar {
@@ -277,6 +256,44 @@ ApplicationWindow {
                                qsTr("Appearance page preview"),
                                qsTr("About page preview")][window.tabIndex]
                         color: Theme.color("textSecondary")
+                    }
+                }
+            }
+
+            Frame {
+                Layout.fillWidth: true
+                background: Rectangle {
+                    radius: Theme.radiusCard
+                    color: Theme.color("surface")
+                    border.width: Theme.borderWidthThin
+                    border.color: Theme.color("panelBorder")
+                }
+
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: 14
+                    spacing: 10
+
+                    Label {
+                        text: qsTr("State Matrix")
+                        color: Theme.color("textPrimary")
+                        font.weight: Theme.fontWeight("semibold")
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+                        Button { text: qsTr("Normal") }
+                        Button { text: qsTr("Default"); defaultAction: true }
+                        Button { text: qsTr("Disabled"); enabled: false }
+                        Item { Layout.fillWidth: true }
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+                        TextField { Layout.fillWidth: true; placeholderText: qsTr("Enabled input") }
+                        TextField { Layout.fillWidth: true; placeholderText: qsTr("Disabled input"); enabled: false }
                     }
                 }
             }

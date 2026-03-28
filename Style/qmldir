@@ -63,6 +63,9 @@ DialogButtonBox 6.0 DialogButtonBox.qml
 ToolButton ToolButton.qml
 ToolButton 2.15 ToolButton.qml
 ToolButton 6.0 ToolButton.qml
+Breadcrumb Breadcrumb.qml
+Breadcrumb 2.15 Breadcrumb.qml
+Breadcrumb 6.0 Breadcrumb.qml
 IndicatorMenu IndicatorMenu.qml
 AppDialog AppDialog.qml
 AppPopup AppPopup.qml

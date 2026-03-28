@@ -641,6 +641,7 @@ add_custom_target(sync_style ALL
         ${CMAKE_SOURCE_DIR}/Style/ToolTip.qml
         ${CMAKE_SOURCE_DIR}/Style/DialogButtonBox.qml
         ${CMAKE_SOURCE_DIR}/Style/ToolButton.qml
+        ${CMAKE_SOURCE_DIR}/Style/Breadcrumb.qml
         ${CMAKE_SOURCE_DIR}/Style/IndicatorMenu.qml
         ${CMAKE_SOURCE_DIR}/Style/IndicatorSectionLabel.qml
         ${CMAKE_SOURCE_DIR}/Style/IndicatorSectionRow.qml
