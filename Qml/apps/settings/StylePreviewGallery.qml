@@ -20,6 +20,7 @@ ApplicationWindow {
     property real sliderValue: 58
     property string fieldValue: "Big Sur style"
     property int tabIndex: 0
+    property int navTabIndex: 1
 
     function applyThemeMode(mode) {
         if (!UIPreferences) {
@@ -219,9 +220,46 @@ ApplicationWindow {
                     spacing: 10
 
                     Label {
-                        text: qsTr("Tabs")
+                        text: qsTr("Navigation")
                         color: Theme.color("textPrimary")
                         font.weight: Theme.fontWeight("semibold")
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 4
+
+                        ToolButton {
+                            text: qsTr("System")
+                            onClicked: {}
+                        }
+                        Label {
+                            text: ">"
+                            color: Theme.color("textSecondary")
+                        }
+                        ToolButton {
+                            text: qsTr("Settings")
+                            onClicked: {}
+                        }
+                        Label {
+                            text: ">"
+                            color: Theme.color("textSecondary")
+                        }
+                        ToolButton {
+                            text: qsTr("Appearance")
+                            enabled: false
+                        }
+                        Item { Layout.fillWidth: true }
+                    }
+
+                    TabBar {
+                        Layout.fillWidth: true
+                        currentIndex: window.navTabIndex
+                        onCurrentIndexChanged: window.navTabIndex = currentIndex
+
+                        TabButton { text: qsTr("General") }
+                        TabButton { text: qsTr("Display") }
+                        TabButton { text: qsTr("Advanced") }
                     }
 
                     TabBar {

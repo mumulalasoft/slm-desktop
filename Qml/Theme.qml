@@ -527,6 +527,8 @@ QtObject {
         // ── Focus / keyboard navigation ───────────────────────────────────────
         case "focusRing":
             return Qt.lighter(c, darkMode ? 1.55 : 1.35)
+        case "panelBorderStrong":
+            return darkMode ? Qt.rgba(1, 1, 1, 0.22) : Qt.rgba(0, 0, 0, 0.20)
         // ── Selection rectangles (rubber-band, drag ghost) ────────────────────
         case "selectionRectFill":
             return Qt.rgba(c.r, c.g, c.b, 0.20)
