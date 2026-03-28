@@ -2,6 +2,24 @@
 
 > Canonical session summary: `docs/SESSION_STATE.md`
 
+## Release Execution Queue (v1.0)
+- [x] Add release and repo-split execution docs:
+  - `docs/RELEASE_PLAN.md`
+  - `docs/REPO_SPLIT_PLAN.md`
+- [x] Bootstrap shared contract docs folder:
+  - `docs/contracts/README.md`
+  - `docs/contracts/workspacemanager.md`
+  - `docs/contracts/missingcomponents.md`
+  - `docs/contracts/polkit-agent.md`
+- [ ] Week-1: publish CI tier mapping (PR/nightly/weekly) into pipeline config docs.
+- [ ] Week-1: define `blocker/high/normal` triage board and SLA owner map.
+- [ ] Week-2: promote `scripts/test.sh nightly` from ad-hoc to required scheduled lane.
+- [ ] Week-2: add release compatibility matrix draft (`platform/login/settings/filemanager/style`).
+- [ ] Week-3: begin `slm-login` split preparation:
+  - file ownership inventory
+  - include dependency inventory
+  - runtime script/service ownership inventory
+
 ## Backlog (Tothespot)
 - [ ] Add optional preview pane for non-compact popup mode.
 - [x] Add provider health indicators with timeout/fallback status (exported via `tothespot.telemetryMeta().providerHealth` for UI/debug panel).
