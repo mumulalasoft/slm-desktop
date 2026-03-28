@@ -52,7 +52,8 @@
   - [x] Expand gate coverage to all fragile flows (print/network/bluetooth/portal actions).
 - [~] Add end-to-end regression tests:
   - [x] Core baseline: missing dependency -> install pipeline (mocked pkexec/pkg manager) -> recheck -> feature restored (`missingcomponentcontroller_test`).
-  - [ ] UI flow end-to-end: missing dependency -> warning UI -> install via polkit -> recheck -> feature restored.
+  - [~] UI flow baseline (headless harness): missing dependency -> warning UI -> install -> refresh -> restored (`settings_missing_components_ui_test`).
+  - [ ] UI flow full integration: missing dependency -> warning UI -> install via polkit -> recheck -> feature restored.
 - [ ] Add desktop health daemon + structured reason codes and persistent timeline.
 - [ ] Add automatic config rollback on crash-loop (last-known-good snapshot).
 

@@ -3358,6 +3358,24 @@ target_link_libraries(settings_ui_smoke_test
 
 add_test(NAME settings_ui_smoke_test COMMAND settings_ui_smoke_test)
 
+qt_add_executable(settings_missing_components_ui_test
+    tests/settings_missing_components_ui_test.cpp
+)
+
+target_link_libraries(settings_missing_components_ui_test
+    PRIVATE
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Qml
+        Qt6::Quick
+        Qt6::Test
+)
+
+add_test(NAME settings_missing_components_ui_test COMMAND settings_missing_components_ui_test)
+set_tests_properties(settings_missing_components_ui_test PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software"
+)
+
 qt_add_executable(settings_backend_fallback_test
     src/apps/settings/include/settingbinding.cpp
     src/apps/settings/include/settingbinding.h
