@@ -3659,6 +3659,19 @@ target_link_libraries(slmsessionstate_io_test
 )
 add_test(NAME slmsessionstate_io_test COMMAND slmsessionstate_io_test)
 
+qt_add_executable(sessionbroker_recovery_rollback_test
+    tests/sessionbroker_recovery_rollback_test.cpp
+    src/login/libslmlogin/slmconfigmanager.cpp
+    src/login/session-broker/sessionrollback.cpp
+)
+target_include_directories(sessionbroker_recovery_rollback_test PRIVATE ${CMAKE_SOURCE_DIR})
+target_link_libraries(sessionbroker_recovery_rollback_test
+    PRIVATE
+        Qt6::Core
+        Qt6::Test
+)
+add_test(NAME sessionbroker_recovery_rollback_test COMMAND sessionbroker_recovery_rollback_test)
+
 add_custom_target(test_headless
     COMMAND ${CMAKE_COMMAND} -E env
         QT_QPA_PLATFORM=offscreen
@@ -3743,6 +3756,10 @@ target_link_libraries(slm-login-lib PUBLIC Qt6::Core)
 
 # slm-session-broker
 qt_add_executable(slm-session-broker ${SLM_SESSION_BROKER_SOURCES})
+target_sources(slm-session-broker PRIVATE
+    src/login/session-broker/sessionrollback.cpp
+    src/login/session-broker/sessionrollback.h
+)
 target_link_libraries(slm-session-broker
     PRIVATE
         Qt6::Core

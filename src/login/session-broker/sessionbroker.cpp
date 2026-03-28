@@ -1,4 +1,5 @@
 #include "sessionbroker.h"
+#include "sessionrollback.h"
 
 #include <QDir>
 #include <QFile>
@@ -153,28 +154,20 @@ void SessionBroker::performRollback(StartupMode mode)
         }
         break;
     case StartupMode::Recovery:
-        if (!m_state.lastGoodSnapshot.trimmed().isEmpty()) {
-            if (m_config.restoreSnapshot(m_state.lastGoodSnapshot.trimmed(), &err)) {
-                qInfo("slm-session-broker: rolled back config to last_good_snapshot (%s)",
-                      qUtf8Printable(m_state.lastGoodSnapshot));
-                break;
-            }
-            qWarning("slm-session-broker: last_good_snapshot rollback failed (%s): %s",
-                     qUtf8Printable(m_state.lastGoodSnapshot),
-                     qUtf8Printable(err));
-        }
-        if (m_config.hasPreviousConfig()) {
-            if (!m_config.rollbackToPrevious(&err)) {
-                qWarning("slm-session-broker: prev rollback failed: %s", qUtf8Printable(err));
-            } else {
-                qInfo("slm-session-broker: rolled back config to previous");
-                break;
-            }
-        }
-        if (!m_config.rollbackToSafe(&err)) {
-            qWarning("slm-session-broker: safe rollback fallback failed: %s", qUtf8Printable(err));
-        } else {
+        switch (rollbackRecoveryConfig(m_config, m_state, &err)) {
+        case RecoveryRollbackSource::LastGoodSnapshot:
+            qInfo("slm-session-broker: rolled back config to last_good_snapshot (%s)",
+                  qUtf8Printable(m_state.lastGoodSnapshot));
+            break;
+        case RecoveryRollbackSource::Previous:
+            qInfo("slm-session-broker: rolled back config to previous");
+            break;
+        case RecoveryRollbackSource::Safe:
             qInfo("slm-session-broker: rolled back config to safe baseline (fallback)");
+            break;
+        case RecoveryRollbackSource::None:
+            qWarning("slm-session-broker: recovery rollback failed: %s", qUtf8Printable(err));
+            break;
         }
         break;
     }

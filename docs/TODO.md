@@ -61,6 +61,7 @@
 - [x] Add automatic config rollback on crash-loop (last-known-good snapshot).
   - `slm-watchdog` now snapshots healthy config and persists `last_good_snapshot` id.
   - `slm-session-broker` recovery mode now prioritizes rollback to `last_good_snapshot`, then previous, then safe baseline.
+  - rollback priority covered by `sessionbroker_recovery_rollback_test`.
 
 ## Next (Portal Adapter hardening)
 - [ ] Phase-5 InputCapture:
