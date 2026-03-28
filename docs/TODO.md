@@ -18,7 +18,8 @@
 - [x] Week-2: promote `scripts/test.sh nightly` from ad-hoc to required scheduled lane.
   - `.github/workflows/ci.yml` (`build-and-test` now runs nightly lane)
   - `scripts/test.sh` adds `SLM_TEST_NIGHTLY_POLKIT_RUNTIME_MODE=required|auto|skip`
-- [ ] Week-2: add release compatibility matrix draft (`platform/login/settings/filemanager/style`).
+- [x] Week-2: add release compatibility matrix draft (`platform/login/settings/filemanager/style`).
+  - `docs/RELEASE_COMPATIBILITY_MATRIX.md`
 - [ ] Week-3: begin `slm-login` split preparation:
   - file ownership inventory
   - include dependency inventory
