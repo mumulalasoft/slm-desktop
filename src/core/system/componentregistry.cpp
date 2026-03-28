@@ -32,6 +32,7 @@ QList<ComponentRequirement> componentList()
             {},
             true,
             QStringLiteral("Pasang paket samba agar fitur folder sharing aktif."),
+            QStringLiteral("required"),
             distroPackages(QStringLiteral("samba"),
                            {{"debian", "samba"},
                             {"ubuntu", "samba"},
@@ -50,6 +51,7 @@ QList<ComponentRequirement> componentList()
             },
             true,
             QStringLiteral("Pasang gvfs daemons agar file manager dapat berinteraksi dengan storage virtual."),
+            QStringLiteral("required"),
             distroPackages(QStringLiteral("gvfs-daemons"),
                            {{"debian", "gvfs-daemons"},
                             {"ubuntu", "gvfs-daemons"},
@@ -68,6 +70,7 @@ QList<ComponentRequirement> componentList()
             },
             true,
             QStringLiteral("Pasang backend GVFS SMB agar browsing SMB share berfungsi."),
+            QStringLiteral("recommended"),
             distroPackages(QStringLiteral("gvfs-backends"),
                            {{"debian", "gvfs-backends"},
                             {"ubuntu", "gvfs-backends"},
@@ -84,6 +87,7 @@ QList<ComponentRequirement> componentList()
             {},
             true,
             QStringLiteral("Pasang policykit-1 agar aksi perbaikan otomatis bisa berjalan."),
+            QStringLiteral("required"),
             distroPackages(QStringLiteral("policykit-1"),
                            {{"fedora", "polkit"},
                             {"arch", "polkit"},
@@ -98,6 +102,7 @@ QList<ComponentRequirement> componentList()
             {},
             true,
             QStringLiteral("Pasang systemd utils agar log diagnosis tersedia."),
+            QStringLiteral("recommended"),
             {}
         },
         ComponentRequirement{
@@ -109,6 +114,7 @@ QList<ComponentRequirement> componentList()
             {},
             false,
             QStringLiteral("Pasang ulang paket slm-desktop untuk memulihkan slm-watchdog."),
+            QStringLiteral("required"),
             {}
         },
         ComponentRequirement{
@@ -120,6 +126,7 @@ QList<ComponentRequirement> componentList()
             {},
             false,
             QStringLiteral("Pasang ulang paket slm-desktop untuk memulihkan aplikasi recovery."),
+            QStringLiteral("required"),
             {}
         },
         ComponentRequirement{
@@ -131,6 +138,7 @@ QList<ComponentRequirement> componentList()
             {},
             true,
             QStringLiteral("Pasang utilitas GIO agar portal integration berjalan."),
+            QStringLiteral("recommended"),
             distroPackages(QStringLiteral("libglib2.0-bin"),
                            {{"fedora", "glib2"},
                             {"arch", "glib2"},
@@ -145,6 +153,7 @@ QList<ComponentRequirement> componentList()
             {},
             true,
             QStringLiteral("Pasang iproute2 agar layanan jaringan dapat membaca status route."),
+            QStringLiteral("required"),
             distroPackages(QStringLiteral("iproute2"),
                            {{"fedora", "iproute"},
                             {"arch", "iproute2"},
@@ -159,6 +168,7 @@ QList<ComponentRequirement> componentList()
             {},
             true,
             QStringLiteral("Pasang bluez agar modul bluetooth berfungsi."),
+            QStringLiteral("required"),
             distroPackages(QStringLiteral("bluez"),
                            {{"fedora", "bluez"},
                             {"arch", "bluez"},
@@ -173,6 +183,7 @@ QList<ComponentRequirement> componentList()
             {},
             true,
             QStringLiteral("Pasang cups-client agar fitur printing aktif."),
+            QStringLiteral("recommended"),
             distroPackages(QStringLiteral("cups-client"),
                            {{"fedora", "cups-client"},
                             {"arch", "cups"},
@@ -243,6 +254,28 @@ QVariantList ComponentRegistry::missingForDomain(const QString &domain)
         }
     }
     return out;
+}
+
+QVariantList ComponentRegistry::missingRequiredForDomain(const QString &domain)
+{
+    QVariantList out;
+    const QVariantList allMissing = missingForDomain(domain);
+    for (const QVariant &row : allMissing) {
+        const QVariantMap map = row.toMap();
+        const QString severity = map.value(QStringLiteral("severity"))
+                .toString()
+                .trimmed()
+                .toLower();
+        if (severity.isEmpty() || severity == QStringLiteral("required")) {
+            out.push_back(map);
+        }
+    }
+    return out;
+}
+
+bool ComponentRegistry::hasBlockingMissingForDomain(const QString &domain)
+{
+    return !missingRequiredForDomain(domain).isEmpty();
 }
 
 bool ComponentRegistry::findById(const QString &componentId, ComponentRequirement *out)

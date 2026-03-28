@@ -1433,6 +1433,26 @@ target_link_libraries(workspacectl_smoke_test
 add_dependencies(workspacectl_smoke_test workspacectl)
 add_test(NAME workspacectl_smoke_test COMMAND workspacectl_smoke_test)
 
+qt_add_executable(missingcomponentcontroller_test
+    src/core/system/missingcomponentcontroller.cpp
+    src/core/system/missingcomponentcontroller.h
+    src/core/system/componentregistry.cpp
+    src/core/system/componentregistry.h
+    src/core/system/dependencyguard.cpp
+    src/core/system/dependencyguard.h
+    tests/missingcomponentcontroller_test.cpp
+)
+
+target_include_directories(missingcomponentcontroller_test PRIVATE ${CMAKE_SOURCE_DIR})
+
+target_link_libraries(missingcomponentcontroller_test
+    PRIVATE
+        Qt6::Core
+        Qt6::Test
+)
+
+add_test(NAME missingcomponentcontroller_test COMMAND missingcomponentcontroller_test)
+
 qt_add_executable(spacesmanager_invariants_test
     src/core/workspace/spacesmanager.cpp
     src/core/workspace/spacesmanager.h

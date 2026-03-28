@@ -15,6 +15,16 @@ QVariantList MissingComponentController::missingComponentsForDomain(const QStrin
     return ComponentRegistry::missingForDomain(domain);
 }
 
+QVariantList MissingComponentController::blockingMissingComponentsForDomain(const QString &domain) const
+{
+    return ComponentRegistry::missingRequiredForDomain(domain);
+}
+
+bool MissingComponentController::hasBlockingMissingForDomain(const QString &domain) const
+{
+    return ComponentRegistry::hasBlockingMissingForDomain(domain);
+}
+
 QVariantMap MissingComponentController::installComponent(const QString &componentId) const
 {
     ComponentRequirement req;

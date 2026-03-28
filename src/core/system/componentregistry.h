@@ -14,6 +14,8 @@ public:
     static QList<ComponentRequirement> all();
     static QList<ComponentRequirement> forDomain(const QString &domain);
     static QVariantList missingForDomain(const QString &domain);
+    static QVariantList missingRequiredForDomain(const QString &domain);
+    static bool hasBlockingMissingForDomain(const QString &domain);
     static bool findById(const QString &componentId, ComponentRequirement *out);
 };
 

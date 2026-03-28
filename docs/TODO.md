@@ -37,6 +37,22 @@
 ## Backlog (Clipboard)
 - [x] Integrate native `wl-data-control` low-level path for Wayland clipboard watching (event-driven primary path, keep Qt/X11 fallback, with backend-mode observability + fallback test coverage).
 
+## Program (Solid & Unbreakable)
+- [x] Unify missing dependency API across apps via global `MissingComponents` controller.
+- [x] Migrate greeter/recovery QML to use global `MissingComponents` endpoint (domain-scoped install).
+- [x] Remove legacy duplicate missing-component APIs from `GreeterApp` and `RecoveryApp`.
+- [x] Add dependency severity metadata (`required` / `recommended`) in component checks.
+- [x] Add blocking gate APIs:
+  - `MissingComponents.blockingMissingComponentsForDomain(domain)`
+  - `MissingComponents.hasBlockingMissingForDomain(domain)`
+- [x] Add contract test baseline for missing-component controller domain guard + blocking API consistency (`missingcomponentcontroller_test`).
+- [ ] Enforce startup degraded-mode gate by severity:
+  - if `required` missing -> block fragile actions, show recovery/install CTA.
+- [ ] Add end-to-end regression tests:
+  - missing dependency -> warning UI -> install via polkit -> recheck -> feature restored.
+- [ ] Add desktop health daemon + structured reason codes and persistent timeline.
+- [ ] Add automatic config rollback on crash-loop (last-known-good snapshot).
+
 ## Next (Portal Adapter hardening)
 - [ ] Phase-5 InputCapture:
   - [ ] Bind provider to real compositor pointer-capture/barrier primitives (currently stateful contract + optional command hook only).

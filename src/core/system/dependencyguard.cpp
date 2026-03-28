@@ -192,6 +192,7 @@ QVariantMap checkComponent(const ComponentRequirement &req)
                         {QStringLiteral("packageName"), resolvedPackageName},
                         {QStringLiteral("packageNameDefault"), req.packageName},
                         {QStringLiteral("guidance"), req.guidance},
+                        {QStringLiteral("severity"), req.severity.trimmed().isEmpty() ? QStringLiteral("required") : req.severity.trimmed().toLower()},
                         {QStringLiteral("ready"), ready},
                         {QStringLiteral("missingExecutables"), missingExecutables},
                         {QStringLiteral("missingArtifacts"), missing},

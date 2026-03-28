@@ -16,6 +16,7 @@ struct ComponentRequirement {
     QStringList requiredPaths;
     bool autoInstallable = true;
     QString guidance;
+    QString severity = QStringLiteral("required");
     QMap<QString, QString> packageNamesByDistro;
 };
 
