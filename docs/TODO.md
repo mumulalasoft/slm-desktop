@@ -20,10 +20,11 @@
   - `scripts/test.sh` adds `SLM_TEST_NIGHTLY_POLKIT_RUNTIME_MODE=required|auto|skip`
 - [x] Week-2: add release compatibility matrix draft (`platform/login/settings/filemanager/style`).
   - `docs/RELEASE_COMPATIBILITY_MATRIX.md`
-- [ ] Week-3: begin `slm-login` split preparation:
-  - file ownership inventory
-  - include dependency inventory
-  - runtime script/service ownership inventory
+- [x] Week-3: begin `slm-login` split preparation:
+  - [x] file ownership inventory
+  - [x] include dependency inventory
+  - [x] runtime script/service ownership inventory
+  - `docs/LOGIN_SPLIT_PREP.md`
 
 ## Backlog (Tothespot)
 - [ ] Add optional preview pane for non-compact popup mode.
