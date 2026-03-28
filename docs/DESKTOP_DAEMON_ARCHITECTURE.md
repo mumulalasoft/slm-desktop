@@ -195,6 +195,11 @@
 - `devices: a{sv}`
 - `baseDelayMs: int`
 - `maxDelayMs: int`
+- `degraded: bool`
+- `reasonCodes: as` (unique active reason-code list from unhealthy peers)
+- `timeline: aa{sv}` (bounded persistent health event timeline)
+- `timelineSize: int`
+- `timelineFile: string`
 
 ### Peer shape (`fileOperations` / `devices`)
 - `service: string`
@@ -215,6 +220,14 @@
   - `lastError` non-kosong
 - `lastCheckMs` harus monotonic per peer antar snapshot.
 - `baseDelayMs` dan `maxDelayMs` adalah parameter retry/backoff watchdog.
+- `degraded=true` saat minimal satu peer memiliki `failures>0`.
+- `timeline` berisi event terstruktur:
+  - `tsMs` (epoch ms)
+  - `peer` (`monitor`, `fileOperations`, `devices`)
+  - `code` (contoh: `monitor-started`, `service-not-registered`, `ping-failed`, `recovered`)
+  - `severity` (`info`, `error`, `critical`)
+  - `message` (ringkas + actionable)
+  - optional: `service`, `failures`, `registered`, `details`
 
 ## Next Step
 1. Tambah capability negotiation (`supportedCommands`, `supportedEvents`) di `DiagnosticSnapshot`.

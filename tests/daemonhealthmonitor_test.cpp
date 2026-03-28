@@ -1,5 +1,7 @@
 #include <QtTest/QtTest>
+#include <QTemporaryDir>
 #include <QVariantMap>
+#include <memory>
 
 #include "../src/daemon/desktopd/daemonhealthmonitor.h"
 
@@ -8,6 +10,23 @@ class DaemonHealthMonitorTest : public QObject
     Q_OBJECT
 
 private slots:
+    void init()
+    {
+        m_tmpDir.reset(new QTemporaryDir);
+        QVERIFY(m_tmpDir->isValid());
+        m_timelinePath = m_tmpDir->path() + QStringLiteral("/daemon-health-timeline.json");
+        qputenv("SLM_DAEMON_HEALTH_TIMELINE_FILE", m_timelinePath.toUtf8());
+        qputenv("SLM_DAEMON_HEALTH_TIMELINE_LIMIT", "64");
+    }
+
+    void cleanup()
+    {
+        qunsetenv("SLM_DAEMON_HEALTH_TIMELINE_FILE");
+        qunsetenv("SLM_DAEMON_HEALTH_TIMELINE_LIMIT");
+        m_tmpDir.reset();
+        m_timelinePath.clear();
+    }
+
     void snapshot_contractShape()
     {
         DaemonHealthMonitor monitor;
@@ -18,11 +37,19 @@ private slots:
         QVERIFY(snapshot.contains(QStringLiteral("devices")));
         QVERIFY(snapshot.contains(QStringLiteral("baseDelayMs")));
         QVERIFY(snapshot.contains(QStringLiteral("maxDelayMs")));
+        QVERIFY(snapshot.contains(QStringLiteral("degraded")));
+        QVERIFY(snapshot.contains(QStringLiteral("reasonCodes")));
+        QVERIFY(snapshot.contains(QStringLiteral("timeline")));
+        QVERIFY(snapshot.contains(QStringLiteral("timelineSize")));
+        QVERIFY(snapshot.contains(QStringLiteral("timelineFile")));
 
         const int baseDelay = snapshot.value(QStringLiteral("baseDelayMs")).toInt();
         const int maxDelay = snapshot.value(QStringLiteral("maxDelayMs")).toInt();
         QVERIFY(baseDelay > 0);
         QVERIFY(maxDelay >= baseDelay);
+        QVERIFY(snapshot.value(QStringLiteral("timeline")).canConvert<QVariantList>());
+        QVERIFY(snapshot.value(QStringLiteral("timelineSize")).toInt() >= 1);
+        QCOMPARE(snapshot.value(QStringLiteral("timelineFile")).toString(), m_timelinePath);
 
         auto checkPeerShape = [](const QVariantMap &peer) {
             QVERIFY(peer.contains(QStringLiteral("service")));
@@ -159,6 +186,29 @@ private slots:
         assertMissingPeerError(fileOps);
         assertMissingPeerError(devices);
     }
+
+    void timeline_persistsAcrossInstances()
+    {
+        {
+            DaemonHealthMonitor first;
+            QTest::qWait(20);
+            const QVariantMap snap = first.snapshot();
+            const QVariantList timeline = snap.value(QStringLiteral("timeline")).toList();
+            QVERIFY(!timeline.isEmpty());
+            const QVariantMap last = timeline.constLast().toMap();
+            QCOMPARE(last.value(QStringLiteral("code")).toString(), QStringLiteral("monitor-started"));
+        }
+
+        DaemonHealthMonitor second;
+        QTest::qWait(20);
+        const QVariantMap snap2 = second.snapshot();
+        const QVariantList timeline2 = snap2.value(QStringLiteral("timeline")).toList();
+        QVERIFY2(timeline2.size() >= 2, "timeline should retain previous entries and append new startup event");
+    }
+
+private:
+    std::unique_ptr<QTemporaryDir> m_tmpDir;
+    QString m_timelinePath;
 };
 
 QTEST_MAIN(DaemonHealthMonitorTest)

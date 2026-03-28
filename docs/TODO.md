@@ -56,7 +56,8 @@
   - [x] UI flow full integration (headless + real ComponentHealth/MissingComponents + mocked pkexec pipeline): missing -> warning -> install -> recheck -> restored (`settings_missing_components_ui_test`).
   - [~] UI flow real-session polkit dialog integration lane added (`scripts/smoke-polkit-agent-runtime.sh`, gated by `SLM_POLKIT_RUNTIME_SMOKE=1`).
   - [ ] Promote runtime lane from smoke to strict CI gate after host/session reliability baseline stabilizes.
-- [ ] Add desktop health daemon + structured reason codes and persistent timeline.
+- [x] Add desktop health daemon + structured reason codes and persistent timeline.
+  - Implemented in `DaemonHealthMonitor`: `degraded`, `reasonCodes`, persistent `timeline` (+ file path + size) exposed via `DaemonHealthSnapshot()`.
 - [ ] Add automatic config rollback on crash-loop (last-known-good snapshot).
 
 ## Next (Portal Adapter hardening)
