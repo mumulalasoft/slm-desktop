@@ -4,6 +4,7 @@
 #include <QVariantList>
 #include <QVariantMap>
 #include <QDBusContext>
+#include <QDateTime>
 #include "src/core/permissions/AuditLogger.h"
 #include "src/core/permissions/DBusSecurityGuard.h"
 #include "src/core/permissions/PermissionBroker.h"
@@ -45,6 +46,10 @@ signals:
     void searchProfileChanged(const QString &profileId);
 
 private:
+    QVariantList loadEmptyQueryCache() const;
+    void storeEmptyQueryCache(const QVariantList &rows);
+    QVariantList localPopularAppFallback(int limit) const;
+
     void setupSecurity();
     bool checkPermission(Slm::Permissions::Capability capability, const QString &methodName);
     Q_SLOT void handleSearchProfileChanged(const QString &profileId);
@@ -55,4 +60,7 @@ private:
     mutable Slm::Permissions::AuditLogger m_auditLogger;
     mutable Slm::Permissions::PermissionBroker m_permissionBroker;
     mutable Slm::Permissions::DBusSecurityGuard m_securityGuard;
+    mutable QVariantList m_emptyQueryMemoryCache;
+    mutable qint64 m_emptyQueryMemoryCacheMs = 0;
+    mutable QVariantMap m_providerHealth;
 };
