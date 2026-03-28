@@ -52,6 +52,42 @@ QList<ComponentRequirement> componentList()
             false,
             QStringLiteral("Pasang ulang paket slm-desktop untuk memulihkan aplikasi recovery.")
         },
+        ComponentRequirement{
+            QStringLiteral("gio"),
+            QStringLiteral("GIO"),
+            QStringLiteral("Diperlukan oleh portal manager untuk integrasi file URI."),
+            QStringLiteral("libglib2.0-bin"),
+            QStringList{QStringLiteral("gio")},
+            true,
+            QStringLiteral("Pasang utilitas GIO agar portal integration berjalan.")
+        },
+        ComponentRequirement{
+            QStringLiteral("iproute2"),
+            QStringLiteral("IPRoute2"),
+            QStringLiteral("Diperlukan untuk deteksi network route/default gateway."),
+            QStringLiteral("iproute2"),
+            QStringList{QStringLiteral("ip")},
+            true,
+            QStringLiteral("Pasang iproute2 agar layanan jaringan dapat membaca status route.")
+        },
+        ComponentRequirement{
+            QStringLiteral("bluez"),
+            QStringLiteral("BlueZ Tools"),
+            QStringLiteral("Diperlukan untuk manajemen perangkat bluetooth."),
+            QStringLiteral("bluez"),
+            QStringList{QStringLiteral("bluetoothctl")},
+            true,
+            QStringLiteral("Pasang bluez agar modul bluetooth berfungsi.")
+        },
+        ComponentRequirement{
+            QStringLiteral("cups-client"),
+            QStringLiteral("CUPS Client"),
+            QStringLiteral("Diperlukan untuk status printer dan operasi print."),
+            QStringLiteral("cups-client"),
+            QStringList{QStringLiteral("lpstat")},
+            true,
+            QStringLiteral("Pasang cups-client agar fitur printing aktif.")
+        },
     };
 }
 
@@ -70,6 +106,18 @@ bool belongsToDomain(const QString &id, const QString &domain)
             || id == QStringLiteral("slm-watchdog")
             || id == QStringLiteral("slm-recovery-app");
     }
+    if (d == QStringLiteral("printing")) {
+        return id == QStringLiteral("cups-client");
+    }
+    if (d == QStringLiteral("network")) {
+        return id == QStringLiteral("iproute2");
+    }
+    if (d == QStringLiteral("bluetooth")) {
+        return id == QStringLiteral("bluez");
+    }
+    if (d == QStringLiteral("portal")) {
+        return id == QStringLiteral("gio");
+    }
     return true;
 }
 
@@ -87,6 +135,19 @@ QList<ComponentRequirement> ComponentRegistry::forDomain(const QString &domain)
     for (const ComponentRequirement &req : allComponents) {
         if (belongsToDomain(req.id, domain)) {
             out.push_back(req);
+        }
+    }
+    return out;
+}
+
+QVariantList ComponentRegistry::missingForDomain(const QString &domain)
+{
+    QVariantList out;
+    const QList<ComponentRequirement> components = forDomain(domain);
+    for (const ComponentRequirement &req : components) {
+        const QVariantMap result = checkComponent(req);
+        if (!result.value(QStringLiteral("ready")).toBool()) {
+            out.push_back(result);
         }
     }
     return out;
