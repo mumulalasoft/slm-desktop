@@ -14,13 +14,23 @@ Flickable {
     property var pairingBinding: SettingsApp.createBindingFor("bluetooth", "pairing", "")
     property string pairingStatus: ""
     property var componentIssues: []
+    property bool hasBlockingIssues: false
 
     function refreshComponentIssues() {
         if (typeof ComponentHealth === "undefined" || !ComponentHealth) {
             componentIssues = []
+            hasBlockingIssues = false
             return
         }
         componentIssues = ComponentHealth.missingComponentsForDomain("bluetooth")
+        if (ComponentHealth.hasBlockingMissingForDomain) {
+            hasBlockingIssues = !!ComponentHealth.hasBlockingMissingForDomain("bluetooth")
+        } else {
+            hasBlockingIssues = (componentIssues || []).some(function(issue) {
+                var level = String((issue || {}).severity || "required").toLowerCase()
+                return level === "required"
+            })
+        }
     }
 
     ColumnLayout {
@@ -56,6 +66,7 @@ Flickable {
 
                 SettingToggle {
                     checked: Boolean(root.enabledBinding.value)
+                    enabled: !root.hasBlockingIssues
                     onToggled: root.enabledBinding.value = checked
                 }
             }
@@ -68,6 +79,7 @@ Flickable {
                 Layout.fillWidth: true
                 Button {
                     text: qsTr("Pair...")
+                    enabled: !root.hasBlockingIssues
                     onClicked: {
                         root.pairingStatus = qsTr("Discovery requested…")
                         root.pairingBinding.value = undefined

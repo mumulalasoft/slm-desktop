@@ -17,13 +17,23 @@ Flickable {
     property bool wifiGuard: false
     property string wifiAuthReason: ""
     property var componentIssues: []
+    property bool hasBlockingIssues: false
 
     function refreshComponentIssues() {
         if (typeof ComponentHealth === "undefined" || !ComponentHealth) {
             componentIssues = []
+            hasBlockingIssues = false
             return
         }
         componentIssues = ComponentHealth.missingComponentsForDomain("network")
+        if (ComponentHealth.hasBlockingMissingForDomain) {
+            hasBlockingIssues = !!ComponentHealth.hasBlockingMissingForDomain("network")
+        } else {
+            hasBlockingIssues = (componentIssues || []).some(function(issue) {
+                var level = String((issue || {}).severity || "required").toLowerCase()
+                return level === "required"
+            })
+        }
     }
 
     ColumnLayout {
@@ -62,7 +72,7 @@ Flickable {
                 SettingToggle {
                     id: wifiToggle
                     checked: Boolean(root.wifiEnabledBinding.value)
-                    enabled: !root.wifiAuthPending
+                    enabled: !root.wifiAuthPending && !root.hasBlockingIssues
                     onToggled: {
                         if (root.wifiGuard) {
                             return
@@ -91,13 +101,16 @@ Flickable {
                 reason: root.wifiAuthReason
                 defaultMessage: "Permission required to modify Wi-Fi state."
                 onAuthorizationDecision: function(decision) {
-                    if (root.wifiAuthPending) {
+                    if (root.wifiAuthPending || root.hasBlockingIssues) {
                         return
                     }
                     root.wifiAuthPending = true
                     SettingsApp.requestSettingAuthorizationWithDecision("network", "wifi", decision)
                 }
                 onResetRequested: {
+                    if (root.hasBlockingIssues) {
+                        return
+                    }
                     SettingsApp.clearSettingGrant("network", "wifi")
                     root.wifiGrantState = SettingsApp.settingGrantState("network", "wifi")
                     root.wifiAuthorized = !Boolean(root.wifiPolicy.requiresAuthorization)
@@ -141,6 +154,7 @@ Flickable {
                 Button {
                     text: "Add"
                     flat: true
+                    enabled: !root.hasBlockingIssues
                 }
             }
         }

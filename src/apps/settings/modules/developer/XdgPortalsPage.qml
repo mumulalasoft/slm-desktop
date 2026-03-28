@@ -10,13 +10,23 @@ Flickable {
     contentHeight: mainCol.implicitHeight + 48
     clip: true
     property var componentIssues: []
+    property bool hasBlockingIssues: false
 
     function refreshComponentIssues() {
         if (typeof ComponentHealth === "undefined" || !ComponentHealth) {
             componentIssues = []
+            hasBlockingIssues = false
             return
         }
         componentIssues = ComponentHealth.missingComponentsForDomain("portal")
+        if (ComponentHealth.hasBlockingMissingForDomain) {
+            hasBlockingIssues = !!ComponentHealth.hasBlockingMissingForDomain("portal")
+        } else {
+            hasBlockingIssues = (componentIssues || []).some(function(issue) {
+                var level = String((issue || {}).severity || "required").toLowerCase()
+                return level === "required"
+            })
+        }
     }
 
     ColumnLayout {
@@ -54,6 +64,7 @@ Flickable {
 
                 Button {
                     text: qsTr("Reset All")
+                    enabled: !root.hasBlockingIssues
                     onClicked: resetConfirm.open()
                     ToolTip.text: qsTr("Remove all handler overrides and revert to system defaults")
                     ToolTip.visible: hovered
@@ -62,6 +73,7 @@ Flickable {
 
                 Button {
                     text: qsTr("Refresh")
+                    enabled: !root.hasBlockingIssues
                     onClicked: XdgPortals.refresh()
                     ToolTip.text: qsTr("Re-read portal descriptors and portals.conf from disk")
                     ToolTip.visible: hovered
@@ -262,6 +274,7 @@ Flickable {
                         ComboBox {
                             id: handlerCombo
                             Layout.fillWidth: true
+                            enabled: !root.hasBlockingIssues
 
                             // Build model: "(default)" + handler ids
                             model: {

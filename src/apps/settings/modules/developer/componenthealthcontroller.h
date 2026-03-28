@@ -15,6 +15,7 @@ public:
     explicit ComponentHealthController(QObject *parent = nullptr);
 
     Q_INVOKABLE QVariantList missingComponentsForDomain(const QString &domain) const;
+    Q_INVOKABLE bool hasBlockingMissingForDomain(const QString &domain) const;
     Q_INVOKABLE QVariantMap installComponent(const QString &componentId) const;
 
 private:

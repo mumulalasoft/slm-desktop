@@ -46,10 +46,10 @@
   - `MissingComponents.blockingMissingComponentsForDomain(domain)`
   - `MissingComponents.hasBlockingMissingForDomain(domain)`
 - [x] Add contract test baseline for missing-component controller domain guard + blocking API consistency (`missingcomponentcontroller_test`).
-- [~] Enforce startup degraded-mode gate by severity:
+- [x] Enforce startup degraded-mode gate by severity:
   - [x] Greeter: block login submit while `required` session components missing.
   - [x] FileManager Sharing: only `required` issues block readiness; `recommended` stays non-blocking.
-  - [ ] Expand gate coverage to all fragile flows (print/network/bluetooth/portal actions).
+  - [x] Expand gate coverage to all fragile flows (print/network/bluetooth/portal actions).
 - [ ] Add end-to-end regression tests:
   - missing dependency -> warning UI -> install via polkit -> recheck -> feature restored.
 - [ ] Add desktop health daemon + structured reason codes and persistent timeline.

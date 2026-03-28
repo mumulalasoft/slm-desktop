@@ -12,15 +12,25 @@ Flickable {
 
     property string highlightSettingId: ""
     property var componentIssues: []
+    property bool hasBlockingIssues: false
 
     readonly property var printerAdmin: (typeof PrinterAdmin !== "undefined") ? PrinterAdmin : null
 
     function refreshComponentIssues() {
         if (typeof ComponentHealth === "undefined" || !ComponentHealth) {
             componentIssues = []
+            hasBlockingIssues = false
             return
         }
         componentIssues = ComponentHealth.missingComponentsForDomain("printing")
+        if (ComponentHealth.hasBlockingMissingForDomain) {
+            hasBlockingIssues = !!ComponentHealth.hasBlockingMissingForDomain("printing")
+        } else {
+            hasBlockingIssues = (componentIssues || []).some(function(issue) {
+                var level = String((issue || {}).severity || "required").toLowerCase()
+                return level === "required"
+            })
+        }
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────
@@ -250,7 +260,7 @@ Flickable {
                 Button {
                     text: root.printerAdmin && root.printerAdmin.busy
                           ? qsTr("Discovering…") : qsTr("Discover Devices")
-                    enabled: root.printerAdmin !== null && !root.printerAdmin.busy
+                    enabled: root.printerAdmin !== null && !root.printerAdmin.busy && !root.hasBlockingIssues
                     font.pixelSize: Theme.fontSize("small")
                     onClicked: root.printerAdmin.discoverDevices()
                 }
@@ -260,7 +270,9 @@ Flickable {
                 Button {
                     text: qsTr("Add Printer")
                     highlighted: true
-                    enabled: addNameField.text.trim().length > 0 && addUriField.text.trim().length > 0
+                    enabled: addNameField.text.trim().length > 0
+                             && addUriField.text.trim().length > 0
+                             && !root.hasBlockingIssues
                     font.pixelSize: Theme.fontSize("small")
                     onClicked: {
                         if (root.printerAdmin) {
@@ -332,6 +344,8 @@ Flickable {
         SettingGroup {
             title: qsTr("Printers")
             Layout.fillWidth: true
+            enabled: !root.hasBlockingIssues
+            opacity: enabled ? 1.0 : 0.65
 
             // One SettingCard per detected printer
             Repeater {
@@ -383,7 +397,7 @@ Flickable {
                             visible: !isSysDefault
                             text: qsTr("Set Default")
                             font.pixelSize: Theme.fontSize("small")
-                            enabled: root.printerAdmin !== null
+                            enabled: root.printerAdmin !== null && !root.hasBlockingIssues
                             onClicked: {
                                 if (root.printerAdmin)
                                     root.printerAdmin.setDefaultPrinter(pid)
@@ -395,6 +409,7 @@ Flickable {
                             text: isFallback ? qsTr("PDF Fallback ✓") : qsTr("Set PDF Fallback")
                             highlighted: isFallback
                             font.pixelSize: Theme.fontSize("small")
+                            enabled: !root.hasBlockingIssues
                             onClicked: {
                                 if (isFallback) root.clearFallback()
                                 else root.setFallback(pid)
@@ -405,7 +420,7 @@ Flickable {
                         Button {
                             text: printerCard.confirmingRemove ? qsTr("Confirm Remove") : qsTr("Remove")
                             font.pixelSize: Theme.fontSize("small")
-                            enabled: root.printerAdmin !== null
+                            enabled: root.printerAdmin !== null && !root.hasBlockingIssues
                             palette.buttonText: printerCard.confirmingRemove
                                                 ? Theme.color("error") : undefined
                             onClicked: {
@@ -450,6 +465,7 @@ Flickable {
                 Button {
                     text: qsTr("Add Printer…")
                     font.pixelSize: Theme.fontSize("small")
+                    enabled: !root.hasBlockingIssues
                     onClicked: addPrinterSheet.open()
                 }
 
@@ -458,6 +474,7 @@ Flickable {
                 Button {
                     text: qsTr("Reload")
                     font.pixelSize: Theme.fontSize("small")
+                    enabled: !root.hasBlockingIssues
                     onClicked: root.doReload()
                 }
             }
@@ -467,6 +484,8 @@ Flickable {
         SettingGroup {
             title: qsTr("PDF Fallback")
             Layout.fillWidth: true
+            enabled: !root.hasBlockingIssues
+            opacity: enabled ? 1.0 : 0.65
 
             // Picker row
             SettingCard {
@@ -499,7 +518,7 @@ Flickable {
 
                     Button {
                         text: qsTr("Apply")
-                        enabled: root.selectedIndex >= 0
+                        enabled: root.selectedIndex >= 0 && !root.hasBlockingIssues
                         onClicked: {
                             var rows = root.printerList()
                             if (root.selectedIndex >= 0 && root.selectedIndex < rows.length)
@@ -536,6 +555,7 @@ Flickable {
                         visible: root.currentFallbackId.length > 0
                         text: qsTr("Clear")
                         font.pixelSize: Theme.fontSize("small")
+                        enabled: !root.hasBlockingIssues
                         onClicked: root.clearFallback()
                     }
                 }
