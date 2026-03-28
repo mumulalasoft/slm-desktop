@@ -87,20 +87,31 @@ void SessionWatchdog::markSessionHealthy()
     state.recoveryReason.clear();
     state.lastUpdated    = QDateTime::currentDateTimeUtc();
 
-    if (!SessionStateIO::save(state, err)) {
-        qWarning("slm-watchdog: could not save healthy state: %s", qUtf8Printable(err));
-    } else {
-        qInfo("slm-watchdog: session marked healthy (crash_count reset to 0)");
-    }
-
-    // Promote current config as last known good.
     ConfigManager config;
     config.load();
+
+    // Capture immutable snapshot id for crash-loop rollback path.
+    const QString snapshotId = config.snapshot(&err);
+    if (snapshotId.isEmpty()) {
+        qWarning("slm-watchdog: could not snapshot last-good config: %s",
+                 qUtf8Printable(err));
+    } else {
+        state.lastGoodSnapshot = snapshotId;
+        qInfo("slm-watchdog: last_good_snapshot=%s", qUtf8Printable(snapshotId));
+    }
+
+    // Promote current config as safe baseline.
     if (!config.promoteToLastGood(&err)) {
         qWarning("slm-watchdog: could not promote config to last-good: %s",
                  qUtf8Printable(err));
     } else {
         qInfo("slm-watchdog: config promoted to safe baseline");
+    }
+
+    if (!SessionStateIO::save(state, err)) {
+        qWarning("slm-watchdog: could not save healthy state: %s", qUtf8Printable(err));
+    } else {
+        qInfo("slm-watchdog: session marked healthy (crash_count reset to 0)");
     }
 }
 

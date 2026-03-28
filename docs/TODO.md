@@ -58,7 +58,9 @@
   - [ ] Promote runtime lane from smoke to strict CI gate after host/session reliability baseline stabilizes.
 - [x] Add desktop health daemon + structured reason codes and persistent timeline.
   - Implemented in `DaemonHealthMonitor`: `degraded`, `reasonCodes`, persistent `timeline` (+ file path + size) exposed via `DaemonHealthSnapshot()`.
-- [ ] Add automatic config rollback on crash-loop (last-known-good snapshot).
+- [x] Add automatic config rollback on crash-loop (last-known-good snapshot).
+  - `slm-watchdog` now snapshots healthy config and persists `last_good_snapshot` id.
+  - `slm-session-broker` recovery mode now prioritizes rollback to `last_good_snapshot`, then previous, then safe baseline.
 
 ## Next (Portal Adapter hardening)
 - [ ] Phase-5 InputCapture:

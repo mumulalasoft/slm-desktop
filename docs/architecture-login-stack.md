@@ -59,7 +59,7 @@ A C++/Qt Core process launched by greetd after successful authentication, as the
 4. Load `config.json` → read compositor and shell paths
 5. Run `PlatformChecker::checkAll()` — validate compositor, SLM_OFFICIAL_SESSION, required service binaries, XDG_RUNTIME_DIR
 6. `evaluateMode()` — apply priority: forced > crash loop > platform failure > requested > normal
-7. `performRollback()` — Safe → rollback to safe baseline; Recovery → rollback to previous
+7. `performRollback()` — Safe → rollback to safe baseline; Recovery → rollback priority: `last_good_snapshot` → `config.prev.json` → `config.safe.json`
 8. `prepareEnvironment()` — set `SLM_SESSION_MODE`, `SLM_OFFICIAL_SESSION`, `XDG_SESSION_TYPE`, `XDG_CURRENT_DESKTOP`; set `configPending = true` for Normal mode
 9. Launch compositor → wait for `$XDG_RUNTIME_DIR/wayland-0` (10 s timeout)
 10. Launch shell (normal/safe) **or** `slm-recovery-app` (recovery mode)
@@ -78,7 +78,7 @@ A short-lived daemon launched by the broker after the shell starts.
 
 **Responsibilities:**
 - Single-shot timer: 30 seconds after launch
-- On timer: reset `crash_count = 0`, set `configPending = false`, set `lastBootStatus = "healthy"`, promote active config to safe baseline (`config.safe.json`)
+- On timer: reset `crash_count = 0`, set `configPending = false`, set `lastBootStatus = "healthy"`, promote active config to safe baseline (`config.safe.json`), and persist `last_good_snapshot` id.
 - Self-terminates after marking healthy
 
 If the compositor crashes before the watchdog fires, `crash_count` stays elevated for the next boot.
