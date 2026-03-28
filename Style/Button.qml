@@ -4,7 +4,7 @@ import Slm_Desktop
 
 T.Button {
     id: control
-    readonly property int transitionDuration: Math.round(Theme.transitionDuration * 0.6)
+    readonly property int transitionDuration: Math.round(Theme.transitionDuration * 0.55)
     property bool defaultAction: false
     property bool allowAutoDefaultAction: true
     readonly property bool autoDefaultAction: {
@@ -28,32 +28,34 @@ T.Button {
         }
         if (control.effectiveDefaultAction) {
             if (control.down) {
-                return Qt.darker(Theme.color("accent"), 1.1)
+                return Qt.darker(Theme.color("accent"), Theme.darkMode ? 1.24 : 1.14)
             }
             if (control.hovered) {
-                return Qt.lighter(Theme.color("accent"), 1.06)
+                return Qt.lighter(Theme.color("accent"), Theme.darkMode ? 1.14 : 1.08)
             }
             return Theme.color("accent")
         }
         if (control.down) {
-            return Theme.color("fileManagerControlActive")
+            return Theme.color("controlBgPressed")
         }
         if (control.hovered) {
-            return Theme.color("windowCard")
+            return Theme.color("controlBgHover")
         }
-        return Theme.color("fileManagerControlBg")
+        return Theme.color("controlBg")
     }
     readonly property color strokeColor: {
         if (!control.enabled) {
             return Theme.color("controlDisabledBorder")
         }
         if (control.effectiveDefaultAction) {
-            return Qt.darker(Theme.color("accent"), 1.12)
+            return "transparent"
         }
-        return control.hovered ? Theme.color("focusRing")
-                               : Theme.color("fileManagerControlBorder")
+        if (control.hovered) {
+            return Theme.color("panelBorderStrong")
+        }
+        return control.visualFocus ? Theme.color("focusRing") : Theme.color("panelBorder")
     }
-    implicitWidth: Math.max(84, implicitContentWidth + leftPadding + rightPadding)
+    implicitWidth: Math.max(82, implicitContentWidth + leftPadding + rightPadding)
     implicitHeight: Theme.metric("controlHeightRegular")
     leftPadding: 12
     rightPadding: 12
@@ -71,18 +73,9 @@ T.Button {
     }
 
     background: Rectangle {
-        radius: Theme.radiusPill
-        gradient: Gradient {
-            GradientStop {
-                position: 0.0
-                color: control.fillColor
-            }
-            GradientStop {
-                position: 1.0
-                color: control.fillColor
-            }
-        }
-        border.width: Theme.borderWidthThin
+        radius: Theme.radiusControl
+        color: control.fillColor
+        border.width: control.effectiveDefaultAction ? Theme.borderWidthNone : Theme.borderWidthThin
         border.color: control.strokeColor
         opacity: 1.0
 
@@ -90,19 +83,19 @@ T.Button {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top
-            anchors.margins: 1
-            height: Math.max(6, parent.height * 0.42)
-            radius: Math.max(4, parent.radius - 1)
-            color: Qt.rgba(1, 1, 1, Theme.darkMode ? 0.07 : 0.25)
-            visible: !control.down
+            height: Math.round(parent.height * 0.5)
+            radius: parent.radius
+            color: Qt.rgba(1, 1, 1, control.effectiveDefaultAction ? (Theme.darkMode ? 0.10 : 0.22) : (Theme.darkMode ? 0.04 : 0.12))
+            opacity: control.enabled ? 1.0 : 0.0
+            visible: control.enabled
         }
 
         Rectangle {
             anchors.fill: parent
-            anchors.margins: -2
-            radius: parent.radius + 2
+            anchors.margins: -1
+            radius: parent.radius + 1
             color: "transparent"
-            border.width: 2
+            border.width: 1
             border.color: Theme.color("focusRing")
             visible: control.visualFocus && control.enabled
         }

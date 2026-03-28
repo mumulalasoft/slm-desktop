@@ -6,30 +6,29 @@ T.TextField {
     id: control
     readonly property int transitionDuration: Math.round(Theme.transitionDuration * 0.7)
 
-    implicitWidth: 180
-    implicitHeight: Theme.metric("controlHeightLarge")
+    implicitWidth: 200
+    implicitHeight: Theme.metric("controlHeightRegular")
     leftPadding: 10
     rightPadding: 10
-    topPadding: 6
-    bottomPadding: 6
+    topPadding: 5
+    bottomPadding: 5
     color: control.enabled ? Theme.color("textPrimary") : Theme.color("textDisabled")
     placeholderTextColor: control.enabled ? Theme.color("textSecondary") : Theme.color("textDisabled")
     selectedTextColor: Theme.color("accentText")
     selectionColor: Theme.color("accent")
 
     background: Rectangle {
-        radius: Theme.radiusControlLarge
-        color: control.enabled ? Theme.color("fileManagerControlBg") : Theme.color("controlDisabledBg")
-        border.width: control.activeFocus ? Theme.borderWidthThick : Theme.borderWidthThin
-        border.color: control.activeFocus ? Theme.color("focusRingStrong")
-                                          : (control.enabled ? Theme.color("fileManagerControlBorder")
-                                                             : Theme.color("controlDisabledBorder"))
+        radius: Theme.radiusControl
+        color: control.enabled ? Theme.color("controlBg") : Theme.color("controlDisabledBg")
+        border.width: Theme.borderWidthThin
+        border.color: control.activeFocus ? Theme.color("accent")
+                                          : (control.enabled ? Theme.color("panelBorder") : Theme.color("controlDisabledBorder"))
         opacity: 1.0
 
         Rectangle {
             anchors.fill: parent
-            anchors.margins: -2
-            radius: parent.radius + 2
+            anchors.margins: -1
+            radius: parent.radius + 1
             color: "transparent"
             border.width: 1
             border.color: Theme.color("focusRing")
