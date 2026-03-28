@@ -39,6 +39,8 @@ wayland_generate_protocol("${WAYLAND_PROTOCOLS_PKGDATADIR}/staging/ext-data-cont
 pkg_check_modules(PIPEWIRE IMPORTED_TARGET libpipewire-0.3)
 pkg_check_modules(SPA IMPORTED_TARGET libspa-0.2)
 pkg_check_modules(PAM QUIET IMPORTED_TARGET pam)
+pkg_check_modules(POLKIT_AGENT QUIET IMPORTED_TARGET polkit-agent-1)
+pkg_check_modules(POLKIT_GOBJECT QUIET IMPORTED_TARGET polkit-gobject-1)
 find_path(SLM_PAM_INCLUDE_DIR security/pam_appl.h)
 find_library(SLM_PAM_LIBRARY pam)
 
@@ -51,6 +53,11 @@ if(PAM_FOUND OR (SLM_PAM_INCLUDE_DIR AND SLM_PAM_LIBRARY))
     message(STATUS "SLM desktopd PAM auth support: TRUE")
 else()
     message(STATUS "SLM desktopd PAM auth support: FALSE")
+endif()
+if(POLKIT_AGENT_FOUND AND POLKIT_GOBJECT_FOUND)
+    message(STATUS "SLM polkit agent support: TRUE")
+else()
+    message(STATUS "SLM polkit agent support: FALSE")
 endif()
 
 qt_standard_project_setup(REQUIRES 6.5)
@@ -275,6 +282,8 @@ qt_add_executable(slm-settings
     src/apps/settings/thememanager.h
     src/apps/settings/fontmanager.cpp
     src/apps/settings/fontmanager.h
+    src/apps/settings/modules/useraccounts/useraccountscontroller.cpp
+    src/apps/settings/modules/useraccounts/useraccountscontroller.h
     src/core/prefs/uipreferences.cpp
     src/core/prefs/uipreferences.h
     src/printing/core/PrinterCapabilityProvider.cpp
@@ -2822,6 +2831,25 @@ add_test(NAME clipboardsearchprovider_test
         $<TARGET_FILE:clipboardsearchprovider_test>
 )
 
+qt_add_executable(clipboardwatcher_backend_test
+    tests/clipboardwatcher_backend_test.cpp
+)
+
+target_include_directories(clipboardwatcher_backend_test PRIVATE ${CMAKE_SOURCE_DIR})
+
+target_link_libraries(clipboardwatcher_backend_test
+    PRIVATE
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Test
+)
+
+add_test(NAME clipboardwatcher_backend_test
+    COMMAND ${CMAKE_COMMAND} -E env
+        QT_QPA_PLATFORM=offscreen
+        $<TARGET_FILE:clipboardwatcher_backend_test>
+)
+
 qt_add_executable(dbussecurityguard_test
     ${SLM_PERMISSION_TEST_SOURCES}
     tests/dbussecurityguard_test.cpp
@@ -3081,7 +3109,11 @@ target_link_libraries(tothespotservice_dbus_test
         PkgConfig::GIO
 )
 
-add_test(NAME tothespotservice_dbus_test COMMAND tothespotservice_dbus_test)
+add_test(NAME tothespotservice_dbus_test
+    COMMAND ${CMAKE_COMMAND} -E env
+        QT_QPA_PLATFORM=offscreen
+        $<TARGET_FILE:tothespotservice_dbus_test>
+)
 
 qt_add_executable(settingsapp_deeplink_anchor_test
     src/apps/settings/settingsapp.cpp
@@ -3531,6 +3563,30 @@ target_link_libraries(slmcapability_framework_test
 
 add_test(NAME slmcapability_framework_test COMMAND slmcapability_framework_test)
 
+qt_add_executable(slmconfigmanager_validation_test
+    tests/slmconfigmanager_validation_test.cpp
+    src/login/libslmlogin/slmconfigmanager.cpp
+)
+target_include_directories(slmconfigmanager_validation_test PRIVATE ${CMAKE_SOURCE_DIR})
+target_link_libraries(slmconfigmanager_validation_test
+    PRIVATE
+        Qt6::Core
+        Qt6::Test
+)
+add_test(NAME slmconfigmanager_validation_test COMMAND slmconfigmanager_validation_test)
+
+qt_add_executable(slmsessionstate_io_test
+    tests/slmsessionstate_io_test.cpp
+    src/login/libslmlogin/slmsessionstate.cpp
+)
+target_include_directories(slmsessionstate_io_test PRIVATE ${CMAKE_SOURCE_DIR})
+target_link_libraries(slmsessionstate_io_test
+    PRIVATE
+        Qt6::Core
+        Qt6::Test
+)
+add_test(NAME slmsessionstate_io_test COMMAND slmsessionstate_io_test)
+
 add_custom_target(test_headless
     COMMAND ${CMAKE_COMMAND} -E env
         QT_QPA_PLATFORM=offscreen
@@ -3593,6 +3649,8 @@ add_custom_target(test_headless
         slmcapabilityservice_dbus_test
         slmactionregistry_test
         slmcapability_framework_test
+        slmconfigmanager_validation_test
+        slmsessionstate_io_test
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
     USES_TERMINAL
 )
@@ -3641,8 +3699,8 @@ qt_add_qml_module(slm-greeter
         Qml/greeter/ModeSelector.qml
         Qml/greeter/PowerRow.qml
     RESOURCES
-        sddm/theme/SLM/Background.jpeg
-        sddm/theme/SLM/default-logo.svg
+        Qml/greeter/assets/Background.jpeg
+        Qml/greeter/assets/default-logo.svg
 )
 target_link_libraries(slm-greeter
     PRIVATE
@@ -3689,3 +3747,46 @@ target_link_libraries(slm-recovery-app
 target_include_directories(slm-recovery-app PRIVATE ${CMAKE_SOURCE_DIR})
 install(TARGETS slm-recovery-app
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+
+# slm-polkit-agent (phase-1 bootstrap)
+qt_add_executable(slm-polkit-agent
+    src/login/polkit-agent/main.cpp
+    src/login/polkit-agent/polkitagentapp.cpp
+    src/login/polkit-agent/polkitagentapp.h
+    src/login/polkit-agent/authsession.cpp
+    src/login/polkit-agent/authsession.h
+    src/login/polkit-agent/authdialogcontroller.cpp
+    src/login/polkit-agent/authdialogcontroller.h
+)
+qt_add_qml_module(slm-polkit-agent
+    URI SlmPolkitAgent
+    VERSION 1.0
+    RESOURCE_PREFIX "/qt/qml"
+    QML_FILES
+        Qml/polkit-agent/AuthDialog.qml
+)
+qt_add_resources(slm-polkit-agent "slm_polkit_agent_theme_shim_qmldir"
+    PREFIX "/qt/qml/Slm_Desktop"
+    BASE "${CMAKE_SOURCE_DIR}/src/apps/settings/resources"
+    FILES "${CMAKE_SOURCE_DIR}/src/apps/settings/resources/qmldir"
+)
+qt_add_resources(slm-polkit-agent "slm_polkit_agent_theme_shim_theme"
+    PREFIX "/qt/qml/Slm_Desktop"
+    BASE "${CMAKE_SOURCE_DIR}/Qml"
+    FILES "${CMAKE_SOURCE_DIR}/Qml/Theme.qml"
+)
+target_link_libraries(slm-polkit-agent
+    PRIVATE
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Qml
+        Qt6::Quick
+        Qt6::QuickControls2
+)
+if(POLKIT_AGENT_FOUND AND POLKIT_GOBJECT_FOUND)
+    target_compile_definitions(slm-polkit-agent PRIVATE SLM_HAVE_POLKIT_AGENT=1)
+    target_link_libraries(slm-polkit-agent PRIVATE PkgConfig::POLKIT_AGENT PkgConfig::POLKIT_GOBJECT)
+endif()
+target_include_directories(slm-polkit-agent PRIVATE ${CMAKE_SOURCE_DIR})
+install(TARGETS slm-polkit-agent
+    RUNTIME DESTINATION ${CMAKE_INSTALL_LIBEXECDIR})

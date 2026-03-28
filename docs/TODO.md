@@ -1,9 +1,11 @@
 # SLM Desktop TODO
 
+> Canonical session summary: `docs/SESSION_STATE.md`
+
 ## Backlog (Tothespot)
 - [ ] Add optional preview pane for non-compact popup mode.
-- [ ] Add provider health indicators with timeout/fallback status.
-- [ ] Add cold-start cache for empty-query popular results.
+- [x] Add provider health indicators with timeout/fallback status (exported via `tothespot.telemetryMeta().providerHealth` for UI/debug panel).
+- [x] Add cold-start cache for empty-query popular results.
 
 ## Backlog (Theme)
 - [ ] Elevation/shadow tokens:
@@ -33,7 +35,7 @@
   - helper available: `scripts/smoke-globalmenu-focus.sh` (`--strict --min-unique 2`).
 
 ## Backlog (Clipboard)
-- [ ] Integrate native `wl-data-control` low-level path for Wayland clipboard watching (event-driven primary path, keep Qt/X11 fallback).
+- [x] Integrate native `wl-data-control` low-level path for Wayland clipboard watching (event-driven primary path, keep Qt/X11 fallback, with backend-mode observability + fallback test coverage).
 
 ## Next (Portal Adapter hardening)
 - [ ] Phase-5 InputCapture:
@@ -108,13 +110,13 @@
 
 #### Fase 1 — MVP: Agent registration + dialog minimal
 
-- [ ] Buat binary `slm-polkit-agent` (C++ Qt, tanpa QML dulu)
-- [ ] Integrasikan `libpolkit-agent-1`: subclass `PolkitAgentListener`, register ke session
-- [ ] Implementasi `AuthSession` wrapper: mulai, cancel, respond password
-- [ ] Dialog QML minimal: label aksi, label identity, password field, Cancel, OK
-- [ ] Wiring C++ ↔ QML via `AuthDialogController` QObject
-- [ ] Systemd user service: `slm-polkit-agent.service`
-- [ ] Test manual: `pkexec ls /root` dari terminal → dialog muncul
+- [x] Buat binary `slm-polkit-agent` (C++ Qt, bootstrap single-instance daemon tanpa QML dulu)
+- [x] Integrasikan `libpolkit-agent-1`: register listener ke session (custom `PolkitAgentListener` aktif)
+- [x] Implementasi `AuthSession` wrapper: mulai, cancel, respond password
+- [x] Dialog QML minimal: label aksi, label identity, password field, Cancel, OK
+- [x] Wiring C++ ↔ QML via `AuthDialogController` QObject
+- [x] Systemd user service: `slm-polkit-agent.service`
+- [x] Test manual: `pkexec ls /root` dari terminal → dialog muncul
 
 #### Fase 2 — Stabilisasi: multi-request, error handling, state machine
 
