@@ -16,6 +16,17 @@ Flickable {
     property bool wifiAuthPending: false
     property bool wifiGuard: false
     property string wifiAuthReason: ""
+    property var componentIssues: []
+    property bool installBusy: false
+    property string installStatus: ""
+
+    function refreshComponentIssues() {
+        if (typeof ComponentHealth === "undefined" || !ComponentHealth) {
+            componentIssues = []
+            return
+        }
+        componentIssues = ComponentHealth.missingComponentsForDomain("network")
+    }
 
     ColumnLayout {
         id: contentColumn
@@ -29,6 +40,67 @@ Flickable {
             font.pixelSize: 28
             font.weight: Font.Bold
             color: "#ffffff"
+        }
+
+        Rectangle {
+            Layout.fillWidth: true
+            visible: (root.componentIssues || []).length > 0
+            radius: 8
+            color: "#3a2a14"
+            border.width: 1
+            border.color: "#9a6b2f"
+            implicitHeight: depWarnCol.implicitHeight + 16
+
+            ColumnLayout {
+                id: depWarnCol
+                anchors.fill: parent
+                anchors.margins: 8
+                spacing: 8
+
+                Text {
+                    Layout.fillWidth: true
+                    text: "Komponen jaringan hilang. Sebagian fitur network tidak dapat digunakan."
+                    color: "#ffd7a0"
+                    wrapMode: Text.WordWrap
+                }
+
+                Repeater {
+                    model: root.componentIssues || []
+                    delegate: RowLayout {
+                        Layout.fillWidth: true
+                        Text {
+                            Layout.fillWidth: true
+                            text: String((modelData || {}).title || (modelData || {}).componentId || "Unknown")
+                                  + " — "
+                                  + String((modelData || {}).guidance || (modelData || {}).description || "")
+                            color: "#ffffff"
+                            wrapMode: Text.WordWrap
+                        }
+                        Button {
+                            visible: !!(modelData || {}).autoInstallable
+                            enabled: !root.installBusy
+                            text: root.installBusy ? "Installing..." : "Install"
+                            onClicked: {
+                                root.installBusy = true
+                                var res = ComponentHealth.installComponent(String((modelData || {}).componentId || ""))
+                                root.installBusy = false
+                                root.installStatus = (!!res && !!res.ok)
+                                        ? "Instalasi berhasil. Memeriksa ulang..."
+                                        : ("Install gagal: " + String((res && res.error) ? res.error : "unknown"))
+                                root.refreshComponentIssues()
+                            }
+                        }
+                    }
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    visible: root.installStatus.length > 0
+                    text: root.installStatus
+                    color: "#ffcf9b"
+                    wrapMode: Text.WordWrap
+                }
+            }
         }
 
         // Wi-Fi Section
@@ -141,4 +213,6 @@ Flickable {
             }
         }
     }
+
+    Component.onCompleted: refreshComponentIssues()
 }

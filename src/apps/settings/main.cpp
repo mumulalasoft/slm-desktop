@@ -39,6 +39,7 @@ using namespace Qt::StringLiterals;
 #include "modules/developer/systemenvcontroller.h"
 #include "modules/developer/xdgportalscontroller.h"
 #include "modules/applications/startupappscontroller.h"
+#include "modules/developer/componenthealthcontroller.h"
 
 int main(int argc, char *argv[])
 {
@@ -116,6 +117,7 @@ int main(int argc, char *argv[])
     SystemEnvController     systemEnv(&envServiceClient);
     XdgPortalsController    xdgPortals;
     StartupAppsController   startupApps;
+    ComponentHealthController componentHealth;
     WallpaperManager wallpaperManager(&uiPreferences);
     MimeAppsManager mimeAppsManager;
     ThemeManager themeManager(&uiPreferences);
@@ -169,6 +171,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("SystemEnvController"), &systemEnv);
     engine.rootContext()->setContextProperty(QStringLiteral("XdgPortals"),          &xdgPortals);
     engine.rootContext()->setContextProperty(QStringLiteral("StartupAppsController"), &startupApps);
+    engine.rootContext()->setContextProperty(QStringLiteral("ComponentHealth"), &componentHealth);
     QObject::connect(&uiPreferences, &UIPreferences::iconThemeLightChanged, &app, [&]() {
         applyIconThemePref();
         applyIconThemeMode();

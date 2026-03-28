@@ -11,8 +11,19 @@ Flickable {
     clip: true
 
     property string highlightSettingId: ""
+    property var componentIssues: []
+    property bool installBusy: false
+    property string installStatus: ""
 
     readonly property var printerAdmin: (typeof PrinterAdmin !== "undefined") ? PrinterAdmin : null
+
+    function refreshComponentIssues() {
+        if (typeof ComponentHealth === "undefined" || !ComponentHealth) {
+            componentIssues = []
+            return
+        }
+        componentIssues = ComponentHealth.missingComponentsForDomain("printing")
+    }
 
     // ── Helpers ───────────────────────────────────────────────────────────
     function printerList() {
@@ -88,6 +99,7 @@ Flickable {
 
     // ── Reactive wiring ───────────────────────────────────────────────────
     Component.onCompleted: root.syncSelectedIndex()
+    Component.onCompleted: root.refreshComponentIssues()
 
     Connections {
         target: (typeof UIPreferences !== "undefined") ? UIPreferences : null
@@ -303,6 +315,68 @@ Flickable {
                     text: "×"
                     font.pixelSize: Theme.fontSize("regular")
                     onClicked: errorBanner.visible = false
+                }
+            }
+        }
+
+        Rectangle {
+            Layout.fillWidth: true
+            visible: (root.componentIssues || []).length > 0
+            radius: 8
+            color: Theme.color("warningBg")
+            border.width: Theme.borderWidthThin
+            border.color: Theme.color("warning")
+            implicitHeight: depWarnCol.implicitHeight + 16
+
+            ColumnLayout {
+                id: depWarnCol
+                anchors.fill: parent
+                anchors.margins: 8
+                spacing: 6
+
+                Text {
+                    Layout.fillWidth: true
+                    text: qsTr("Printing component missing. Some printer features are unavailable.")
+                    color: Theme.color("textPrimary")
+                    wrapMode: Text.WordWrap
+                }
+
+                Repeater {
+                    model: root.componentIssues || []
+                    delegate: RowLayout {
+                        Layout.fillWidth: true
+                        Text {
+                            Layout.fillWidth: true
+                            text: String((modelData || {}).title || (modelData || {}).componentId || "Unknown")
+                                  + " — "
+                                  + String((modelData || {}).guidance || (modelData || {}).description || "")
+                            color: Theme.color("textSecondary")
+                            wrapMode: Text.WordWrap
+                        }
+                        Button {
+                            visible: !!(modelData || {}).autoInstallable
+                            enabled: !root.installBusy
+                            text: root.installBusy ? qsTr("Installing...") : qsTr("Install")
+                            onClicked: {
+                                root.installBusy = true
+                                var res = ComponentHealth.installComponent(String((modelData || {}).componentId || ""))
+                                root.installBusy = false
+                                root.installStatus = (!!res && !!res.ok)
+                                        ? qsTr("Install completed. Rechecking...")
+                                        : (qsTr("Install failed: ") + String((res && res.error) ? res.error : "unknown"))
+                                root.refreshComponentIssues()
+                                root.doReload()
+                            }
+                        }
+                    }
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    visible: root.installStatus.length > 0
+                    text: root.installStatus
+                    color: Theme.color("textSecondary")
+                    wrapMode: Text.WordWrap
                 }
             }
         }

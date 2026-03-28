@@ -348,6 +348,12 @@ qt_add_executable(slm-settings
     src/apps/settings/modules/developer/portalbridgeservice.h
     src/apps/settings/modules/developer/xdgportalscontroller.cpp
     src/apps/settings/modules/developer/xdgportalscontroller.h
+    src/apps/settings/modules/developer/componenthealthcontroller.cpp
+    src/apps/settings/modules/developer/componenthealthcontroller.h
+    src/core/system/componentregistry.cpp
+    src/core/system/componentregistry.h
+    src/core/system/dependencyguard.cpp
+    src/core/system/dependencyguard.h
     src/services/envd/systemenvstore.cpp
     src/services/envd/systemenvstore.h
     src/core/launcher/launchenvresolver.cpp
