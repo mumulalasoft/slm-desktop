@@ -3533,6 +3533,15 @@ add_test(
     COMMAND bash ${CMAKE_SOURCE_DIR}/scripts/xdg-desktop-portal/portal-installed-artifacts-smoke-test.sh
 )
 
+add_test(
+    NAME polkit_agent_runtime_smoke_test
+    COMMAND bash ${CMAKE_SOURCE_DIR}/scripts/smoke-polkit-agent-runtime.sh
+)
+set_tests_properties(polkit_agent_runtime_smoke_test PROPERTIES
+    TIMEOUT 20
+    RUN_SERIAL TRUE
+)
+
 qt_add_executable(slmactionregistry_test
     src/core/actions/slmactiontypes.cpp
     src/core/actions/slmactiontypes.h

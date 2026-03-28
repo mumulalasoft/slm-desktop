@@ -54,7 +54,8 @@
   - [x] Core baseline: missing dependency -> install pipeline (mocked pkexec/pkg manager) -> recheck -> feature restored (`missingcomponentcontroller_test`).
   - [~] UI flow baseline (headless harness): missing dependency -> warning UI -> install -> refresh -> restored (`settings_missing_components_ui_test`).
   - [x] UI flow full integration (headless + real ComponentHealth/MissingComponents + mocked pkexec pipeline): missing -> warning -> install -> recheck -> restored (`settings_missing_components_ui_test`).
-  - [ ] UI flow real-session polkit dialog integration (actual agent prompt) for runtime/session test lane.
+  - [~] UI flow real-session polkit dialog integration lane added (`scripts/smoke-polkit-agent-runtime.sh`, gated by `SLM_POLKIT_RUNTIME_SMOKE=1`).
+  - [ ] Promote runtime lane from smoke to strict CI gate after host/session reliability baseline stabilizes.
 - [ ] Add desktop health daemon + structured reason codes and persistent timeline.
 - [ ] Add automatic config rollback on crash-loop (last-known-good snapshot).
 
