@@ -164,8 +164,10 @@ jobs:
       - name: Build
         run: cmake --build build -j
 
-      - name: Run headless tests
-        run: scripts/test.sh build
+      - name: Run headless tests (nightly lane)
+        env:
+          SLM_TEST_NIGHTLY_POLKIT_RUNTIME_MODE: auto
+        run: scripts/test.sh nightly build
 
       - name: Run backend smoke checks
         env:

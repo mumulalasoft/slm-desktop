@@ -15,7 +15,9 @@
   - `docs/CI_TIER_MAP.md`
 - [x] Week-1: define `blocker/high/normal` triage board and SLA owner map.
   - `docs/TRIAGE_SLA_OWNER_MAP.md`
-- [ ] Week-2: promote `scripts/test.sh nightly` from ad-hoc to required scheduled lane.
+- [x] Week-2: promote `scripts/test.sh nightly` from ad-hoc to required scheduled lane.
+  - `.github/workflows/ci.yml` (`build-and-test` now runs nightly lane)
+  - `scripts/test.sh` adds `SLM_TEST_NIGHTLY_POLKIT_RUNTIME_MODE=required|auto|skip`
 - [ ] Week-2: add release compatibility matrix draft (`platform/login/settings/filemanager/style`).
 - [ ] Week-3: begin `slm-login` split preparation:
   - file ownership inventory

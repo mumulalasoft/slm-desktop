@@ -51,14 +51,15 @@ Coverage intent:
 - tothespot quick+full regression
 
 Local mirror commands:
-- `scripts/test.sh build`
-- `scripts/test.sh nightly build`
+- `scripts/test.sh nightly build` (default `SLM_TEST_NIGHTLY_POLKIT_RUNTIME_MODE=auto`)
 - `scripts/test-filemanager-integration-modes.sh <build-dir>`
 - `scripts/test-filemanager-dbus-gates.sh --build-dir <build-dir> --strict`
 
 Notes:
-- `scripts/test.sh nightly` runs default suite and adds `polkit_agent_runtime_smoke_test`
-  with `SLM_POLKIT_RUNTIME_SMOKE=1`.
+- `scripts/test.sh nightly` supports:
+  - `SLM_TEST_NIGHTLY_POLKIT_RUNTIME_MODE=required` -> enforce real-session polkit smoke.
+  - `SLM_TEST_NIGHTLY_POLKIT_RUNTIME_MODE=auto` -> run only when user polkit service is present.
+  - `SLM_TEST_NIGHTLY_POLKIT_RUNTIME_MODE=skip` -> skip polkit runtime smoke.
 
 ## Tier-3: Weekly Required (soak / stress)
 

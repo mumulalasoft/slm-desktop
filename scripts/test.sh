@@ -18,7 +18,7 @@ Modes:
   unlock     Run unlock-related DBus test flow (uses secure password prompt helper).
   filemanager-gates  Run FileManager DBus gate subset via unified script.
   filemanager-smoke  Run FileManager smoke+regression subset in isolated DBus session.
-  nightly    Run default suite plus polkit runtime smoke test.
+  nightly    Run default suite plus polkit runtime smoke lane.
 EOF
 }
 
@@ -163,9 +163,30 @@ if [[ "${1:-}" == "nightly" ]]; then
   fi
   echo "[test] mode=nightly build_dir=${BUILD_DIR}"
   run_default_suite "${BUILD_DIR}"
-  echo "[test] running nightly polkit runtime smoke"
-  SLM_POLKIT_RUNTIME_SMOKE=1 \
-  ctest --test-dir "${BUILD_DIR}" --output-on-failure -R "^polkit_agent_runtime_smoke_test$"
+  POLKIT_MODE="${SLM_TEST_NIGHTLY_POLKIT_RUNTIME_MODE:-auto}"
+  case "${POLKIT_MODE}" in
+    required)
+      echo "[test] running nightly polkit runtime smoke (required)"
+      SLM_POLKIT_RUNTIME_SMOKE=1 \
+      ctest --test-dir "${BUILD_DIR}" --output-on-failure -R "^polkit_agent_runtime_smoke_test$"
+      ;;
+    auto)
+      if systemctl --user --no-pager --full status slm-polkit-agent.service >/dev/null 2>&1; then
+        echo "[test] running nightly polkit runtime smoke (auto:enabled)"
+        SLM_POLKIT_RUNTIME_SMOKE=1 \
+        ctest --test-dir "${BUILD_DIR}" --output-on-failure -R "^polkit_agent_runtime_smoke_test$"
+      else
+        echo "[test] skipping nightly polkit runtime smoke (auto:no-user-service)"
+      fi
+      ;;
+    skip)
+      echo "[test] skipping nightly polkit runtime smoke (mode=skip)"
+      ;;
+    *)
+      echo "[test] invalid SLM_TEST_NIGHTLY_POLKIT_RUNTIME_MODE='${POLKIT_MODE}' (expected required|auto|skip)" >&2
+      exit 2
+      ;;
+  esac
   exit 0
 fi
 
