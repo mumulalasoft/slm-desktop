@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(Qt6 6.10 REQUIRED COMPONENTS Quick QuickControls2 QuickLayouts Network DBus Test Sql Concurrent ShaderTools)
 find_package(PkgConfig REQUIRED)
-find_package(Poppler OPTIONAL_COMPONENTS Qt6)
+find_package(Poppler QUIET OPTIONAL_COMPONENTS Qt6)
 pkg_check_modules(GIO REQUIRED IMPORTED_TARGET gio-unix-2.0)
 pkg_check_modules(WAYLAND_CLIENT REQUIRED IMPORTED_TARGET wayland-client)
 pkg_check_modules(WAYLAND_PROTOCOLS REQUIRED wayland-protocols)
@@ -58,6 +58,11 @@ if(POLKIT_AGENT_FOUND AND POLKIT_GOBJECT_FOUND)
     message(STATUS "SLM polkit agent support: TRUE")
 else()
     message(STATUS "SLM polkit agent support: FALSE")
+endif()
+if(TARGET Poppler::Qt6)
+    message(STATUS "SLM Poppler Qt6 support: TRUE")
+else()
+    message(STATUS "SLM Poppler Qt6 support: FALSE (using fallback PDF renderer)")
 endif()
 
 qt_standard_project_setup(REQUIRES 6.5)
@@ -1826,6 +1831,10 @@ qt_add_executable(filemanagerapi_daemon_recovery_test
     src/core/prefs/uipreferences.cpp
     src/core/prefs/uipreferences.h
     src/apps/filemanager/include/filemanagerapi.h
+    src/core/system/componentregistry.cpp
+    src/core/system/componentregistry.h
+    src/core/system/dependencyguard.cpp
+    src/core/system/dependencyguard.h
     src/apps/filemanager/ops/fileoperationsmanager.cpp
     src/apps/filemanager/ops/fileoperationsmanager.h
     src/apps/filemanager/ops/fileoperationserrors.h
@@ -1943,6 +1952,10 @@ qt_add_executable(filemanagerapi_fileops_contract_test
     src/core/prefs/uipreferences.cpp
     src/core/prefs/uipreferences.h
     src/apps/filemanager/include/filemanagerapi.h
+    src/core/system/componentregistry.cpp
+    src/core/system/componentregistry.h
+    src/core/system/dependencyguard.cpp
+    src/core/system/dependencyguard.h
     ${SLM_PERMISSION_TEST_SOURCES}
     tests/filemanager/filemanagerapi_fileops_contract_test.cpp
 )
@@ -1996,6 +2009,10 @@ qt_add_executable(filemanager_shell_contract_test
     src/core/prefs/uipreferences.h
     src/filemanager/FileManagerShellBridge.cpp
     src/filemanager/FileManagerShellBridge.h
+    src/core/system/componentregistry.cpp
+    src/core/system/componentregistry.h
+    src/core/system/dependencyguard.cpp
+    src/core/system/dependencyguard.h
     tests/filemanager/filemanager_shell_contract_test.cpp
 )
 target_include_directories(filemanager_shell_contract_test PRIVATE
