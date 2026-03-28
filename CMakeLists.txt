@@ -862,6 +862,7 @@ qt_add_qml_module(slm-settings
         Qml/apps/settings/components/SettingToggle.qml
         Qml/apps/settings/components/SettingGroup.qml
         Qml/apps/settings/components/AuthorizationHint.qml
+        Qml/apps/settings/components/MissingComponentsCard.qml
 )
 
 set(DESKTOP_SHELL_RESOURCE_FILES

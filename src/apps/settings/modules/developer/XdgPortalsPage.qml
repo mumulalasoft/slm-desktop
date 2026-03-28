@@ -10,8 +10,6 @@ Flickable {
     contentHeight: mainCol.implicitHeight + 48
     clip: true
     property var componentIssues: []
-    property bool installBusy: false
-    property string installStatus: ""
 
     function refreshComponentIssues() {
         if (typeof ComponentHealth === "undefined" || !ComponentHealth) {
@@ -73,64 +71,15 @@ Flickable {
         }
 
         // ── Error banner ──────────────────────────────────────────────────────
-        Rectangle {
+        MissingComponentsCard {
             Layout.fillWidth: true
-            visible: (root.componentIssues || []).length > 0
-            height: portalDepCol.implicitHeight + 16
-            radius: 6
-            color: Theme.color("warningBg")
-            border.color: Theme.color("warning")
-            border.width: 1
-
-            ColumnLayout {
-                id: portalDepCol
-                anchors.fill: parent
-                anchors.margins: 8
-                spacing: 6
-
-                Text {
-                    Layout.fillWidth: true
-                    text: qsTr("Portal runtime component missing.")
-                    color: Theme.color("textPrimary")
-                    wrapMode: Text.WordWrap
-                }
-                Repeater {
-                    model: root.componentIssues || []
-                    delegate: RowLayout {
-                        Layout.fillWidth: true
-                        Text {
-                            Layout.fillWidth: true
-                            text: String((modelData || {}).title || (modelData || {}).componentId || "Unknown")
-                                  + " — "
-                                  + String((modelData || {}).guidance || (modelData || {}).description || "")
-                            color: Theme.color("textSecondary")
-                            wrapMode: Text.WordWrap
-                        }
-                        Button {
-                            visible: !!(modelData || {}).autoInstallable
-                            enabled: !root.installBusy
-                            text: root.installBusy ? qsTr("Installing...") : qsTr("Install")
-                            onClicked: {
-                                root.installBusy = true
-                                var res = ComponentHealth.installComponent(String((modelData || {}).componentId || ""))
-                                root.installBusy = false
-                                root.installStatus = (!!res && !!res.ok)
-                                        ? qsTr("Install completed. Rechecking...")
-                                        : (qsTr("Install failed: ") + String((res && res.error) ? res.error : "unknown"))
-                                root.refreshComponentIssues()
-                                XdgPortals.refresh()
-                            }
-                        }
-                    }
-                }
-                Text {
-                    Layout.fillWidth: true
-                    visible: root.installStatus.length > 0
-                    text: root.installStatus
-                    color: Theme.color("textSecondary")
-                    wrapMode: Text.WordWrap
-                }
+            issues: root.componentIssues
+            message: qsTr("Portal runtime component missing.")
+            installHandler: function(componentId) {
+                return ComponentHealth.installComponent(componentId)
             }
+            onRefreshRequested: root.refreshComponentIssues()
+            onPostInstall: XdgPortals.refresh()
         }
 
         Rectangle {
