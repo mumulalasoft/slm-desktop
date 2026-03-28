@@ -243,6 +243,7 @@ void ModuleLoader::addBuiltinModuleOrder()
         QStringLiteral("keyboard"),
         QStringLiteral("mouse"),
         QStringLiteral("applications"),
+        QStringLiteral("useraccounts"),
         QStringLiteral("permissions"),
         QStringLiteral("developer"),
         QStringLiteral("about")

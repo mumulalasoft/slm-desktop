@@ -7,7 +7,7 @@
 namespace Slm::Login {
 
 // GreetdClient implements the greetd IPC protocol over a Unix domain socket.
-// Wire format: 4-byte big-endian uint32 payload length followed by UTF-8 JSON.
+// Wire format: 4-byte little-endian uint32 payload length followed by UTF-8 JSON.
 // Socket path is read from $GREETD_SOCK.
 class GreetdClient : public QObject
 {

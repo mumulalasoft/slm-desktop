@@ -6,6 +6,8 @@
 #include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QRegularExpression>
+#include <QSaveFile>
 #include <QStandardPaths>
 
 namespace Slm::Login {
@@ -53,6 +55,96 @@ QJsonObject ConfigManager::loadFile(const QString &path)
     return QJsonObject{};
 }
 
+QJsonObject ConfigManager::defaultConfig()
+{
+    return {
+        {QStringLiteral("compositor"),     QStringLiteral("kwin_wayland")},
+        {QStringLiteral("compositorArgs"), QJsonArray{}},
+        {QStringLiteral("shell"),          QStringLiteral("slm-shell")},
+        {QStringLiteral("shellArgs"),      QJsonArray{}},
+    };
+}
+
+bool ConfigManager::validateConfig(const QJsonObject &config,
+                                   QString *error,
+                                   QJsonObject *normalized)
+{
+    QJsonObject out = defaultConfig();
+    for (auto it = config.begin(); it != config.end(); ++it) {
+        out.insert(it.key(), it.value());
+    }
+
+    auto fail = [&](const QString &why) {
+        if (error) {
+            *error = why;
+        }
+        return false;
+    };
+
+    const auto isCommandLike = [](const QString &value) {
+        if (value.trimmed().isEmpty()) {
+            return false;
+        }
+        // Absolute paths are allowed.
+        if (value.startsWith(QLatin1Char('/'))) {
+            return true;
+        }
+        static const QRegularExpression bareNameRx(QStringLiteral("^[A-Za-z0-9._+\\-]+$"));
+        return bareNameRx.match(value).hasMatch();
+    };
+
+    const QJsonValue compositorVal = out.value(QStringLiteral("compositor"));
+    if (!compositorVal.isString() || !isCommandLike(compositorVal.toString())) {
+        return fail(QStringLiteral("invalid compositor value"));
+    }
+    const QJsonValue shellVal = out.value(QStringLiteral("shell"));
+    if (!shellVal.isString() || !isCommandLike(shellVal.toString())) {
+        return fail(QStringLiteral("invalid shell value"));
+    }
+
+    const auto validateArgsArray = [&](const char *key) {
+        const QJsonValue v = out.value(QLatin1String(key));
+        if (!v.isArray()) {
+            return fail(QStringLiteral("%1 must be an array").arg(QLatin1String(key)));
+        }
+        const QJsonArray arr = v.toArray();
+        if (arr.size() > 64) {
+            return fail(QStringLiteral("%1 has too many entries").arg(QLatin1String(key)));
+        }
+        for (const QJsonValue &entry : arr) {
+            if (!entry.isString()) {
+                return fail(QStringLiteral("%1 entries must be strings").arg(QLatin1String(key)));
+            }
+            if (entry.toString().size() > 512) {
+                return fail(QStringLiteral("%1 entry too long").arg(QLatin1String(key)));
+            }
+        }
+        return true;
+    };
+    if (!validateArgsArray("compositorArgs")) {
+        return false;
+    }
+    if (!validateArgsArray("shellArgs")) {
+        return false;
+    }
+
+    if (out.contains(QStringLiteral("uiScale"))) {
+        const QJsonValue uiScale = out.value(QStringLiteral("uiScale"));
+        if (!uiScale.isDouble()) {
+            return fail(QStringLiteral("uiScale must be a number"));
+        }
+        const double scale = uiScale.toDouble();
+        if (scale < 0.5 || scale > 2.0) {
+            return fail(QStringLiteral("uiScale out of range"));
+        }
+    }
+
+    if (normalized) {
+        *normalized = out;
+    }
+    return true;
+}
+
 bool ConfigManager::atomicWriteJson(const QString &path,
                                     const QJsonObject &obj,
                                     QString *error)
@@ -63,23 +155,18 @@ bool ConfigManager::atomicWriteJson(const QString &path,
         return false;
     }
     const QByteArray data = QJsonDocument(obj).toJson(QJsonDocument::Indented);
-    const QString tmp = path + QStringLiteral(".tmp");
-    QFile f(tmp);
-    if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-        if (error) *error = QStringLiteral("cannot open for write: ") + tmp;
+    QSaveFile file(path);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        if (error) *error = QStringLiteral("cannot open for write: ") + path;
         return false;
     }
-    if (f.write(data) != data.size()) {
-        f.close();
-        QFile::remove(tmp);
-        if (error) *error = QStringLiteral("write truncated: ") + tmp;
+    if (file.write(data) != data.size()) {
+        file.cancelWriting();
+        if (error) *error = QStringLiteral("write truncated: ") + path;
         return false;
     }
-    f.flush();
-    f.close();
-    if (QFile::exists(path)) QFile::remove(path);
-    if (!QFile::rename(tmp, path)) {
-        if (error) *error = QStringLiteral("rename failed: ") + tmp + QStringLiteral(" → ") + path;
+    if (!file.commit()) {
+        if (error) *error = QStringLiteral("atomic commit failed: ") + path;
         return false;
     }
     return true;
@@ -99,12 +186,51 @@ bool ConfigManager::atomicCopy(const QString &src, const QString &dst, QString *
 
 bool ConfigManager::load()
 {
-    m_config = loadFile(activePath());
+    QString validationError;
+    QJsonObject normalized;
+    const QJsonObject active = loadFile(activePath());
+    if (!active.isEmpty() && validateConfig(active, &validationError, &normalized)) {
+        m_config = normalized;
+        return true;
+    }
+
+    if (!active.isEmpty()) {
+        qWarning("slm-configmanager: invalid active config: %s", qUtf8Printable(validationError));
+    }
+
+    const QJsonObject safe = loadFile(safePath());
+    if (!safe.isEmpty() && validateConfig(safe, &validationError, &normalized)) {
+        m_config = normalized;
+        QString err;
+        atomicWriteJson(activePath(), m_config, &err);
+        return true;
+    }
+
+    const QJsonObject prev = loadFile(prevPath());
+    if (!prev.isEmpty() && validateConfig(prev, &validationError, &normalized)) {
+        m_config = normalized;
+        QString err;
+        atomicWriteJson(activePath(), m_config, &err);
+        return true;
+    }
+
+    m_config = defaultConfig();
+    QString err;
+    atomicWriteJson(activePath(), m_config, &err);
     return true; // silent on missing file
 }
 
 bool ConfigManager::save(const QJsonObject &config, QString *error)
 {
+    QJsonObject normalized;
+    QString validationError;
+    if (!validateConfig(config, &validationError, &normalized)) {
+        if (error) {
+            *error = validationError;
+        }
+        return false;
+    }
+
     // Back up current active → prev before overwriting.
     if (QFile::exists(activePath())) {
         QString cpErr;
@@ -113,10 +239,10 @@ bool ConfigManager::save(const QJsonObject &config, QString *error)
             // Non-fatal — continue with save.
         }
     }
-    if (!atomicWriteJson(activePath(), config, error)) {
+    if (!atomicWriteJson(activePath(), normalized, error)) {
         return false;
     }
-    m_config = config;
+    m_config = normalized;
     return true;
 }
 
@@ -202,14 +328,9 @@ bool ConfigManager::factoryReset(QString *error)
     }
 
     // 3. Write a minimal default config as the new active config.
-    const QJsonObject defaults{
-        {QStringLiteral("compositor"),     QStringLiteral("kwin_wayland")},
-        {QStringLiteral("compositorArgs"), QJsonArray{}},
-        {QStringLiteral("shell"),          QStringLiteral("slm-shell")},
-        {QStringLiteral("shellArgs"),      QJsonArray{}},
-        {QStringLiteral("factoryReset"),   true},
-        {QStringLiteral("resetAt"),        QDateTime::currentDateTimeUtc().toString(Qt::ISODate)},
-    };
+    QJsonObject defaults = defaultConfig();
+    defaults.insert(QStringLiteral("factoryReset"), true);
+    defaults.insert(QStringLiteral("resetAt"), QDateTime::currentDateTimeUtc().toString(Qt::ISODate));
     if (!atomicWriteJson(activePath(), defaults, error)) {
         return false;
     }

@@ -58,10 +58,10 @@ void GreetdClient::onReadyRead()
     m_readBuf.append(m_socket.readAll());
 
     while (m_readBuf.size() >= 4) {
-        // Read 4-byte big-endian payload length.
+        // Read 4-byte little-endian payload length (greetd IPC framing).
         quint32 payloadLen = 0;
         memcpy(&payloadLen, m_readBuf.constData(), 4);
-        payloadLen = qFromBigEndian(payloadLen);
+        payloadLen = qFromLittleEndian(payloadLen);
 
         if (static_cast<int>(m_readBuf.size()) < 4 + static_cast<int>(payloadLen)) {
             break; // wait for more data
@@ -91,11 +91,11 @@ void GreetdClient::sendMessage(const QJsonObject &obj)
     }
     const QByteArray payload = QJsonDocument(obj).toJson(QJsonDocument::Compact);
     const quint32 len        = static_cast<quint32>(payload.size());
-    quint32 lenBE            = qToBigEndian(len);
+    quint32 lenLE            = qToLittleEndian(len);
 
     QByteArray frame;
     frame.resize(4);
-    memcpy(frame.data(), &lenBE, 4);
+    memcpy(frame.data(), &lenLE, 4);
     frame.append(payload);
     m_socket.write(frame);
     m_socket.flush();

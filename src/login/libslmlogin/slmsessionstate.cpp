@@ -4,6 +4,7 @@
 #include <QFile>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QSaveFile>
 #include <QStandardPaths>
 
 namespace Slm::Login {
@@ -96,26 +97,18 @@ bool SessionStateIO::save(const SessionState &state, QString &outError)
     const QJsonObject obj  = QJsonObject::fromVariantMap(state.toMap());
     const QByteArray  data = QJsonDocument(obj).toJson(QJsonDocument::Indented);
 
-    const QString tmpPath = path + QStringLiteral(".tmp");
-    QFile tmpFile(tmpPath);
-    if (!tmpFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-        outError = QStringLiteral("cannot open tmp state file for writing");
+    QSaveFile file(path);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        outError = QStringLiteral("cannot open state file for writing");
         return false;
     }
-    if (tmpFile.write(data) != data.size()) {
-        tmpFile.close();
-        QFile::remove(tmpPath);
+    if (file.write(data) != data.size()) {
+        file.cancelWriting();
         outError = QStringLiteral("state write truncated");
         return false;
     }
-    tmpFile.flush();
-    tmpFile.close();
-
-    if (QFile::exists(path)) {
-        QFile::remove(path);
-    }
-    if (!QFile::rename(tmpPath, path)) {
-        outError = QStringLiteral("state atomic rename failed");
+    if (!file.commit()) {
+        outError = QStringLiteral("state atomic commit failed");
         return false;
     }
     return true;

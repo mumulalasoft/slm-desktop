@@ -14,6 +14,7 @@ private slots:
     void onHealthyTimeout();
 
 private:
+    bool isSessionHealthy(QString *reason = nullptr) const;
     void markSessionHealthy();
     QTimer m_timer;
 };

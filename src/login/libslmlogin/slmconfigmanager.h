@@ -56,6 +56,10 @@ public:
     QStringList  shellArgs() const;
 
 private:
+    static QJsonObject defaultConfig();
+    static bool validateConfig(const QJsonObject &config,
+                               QString *error = nullptr,
+                               QJsonObject *normalized = nullptr);
     static bool atomicWriteJson(const QString &path,
                                 const QJsonObject &obj,
                                 QString *error = nullptr);
