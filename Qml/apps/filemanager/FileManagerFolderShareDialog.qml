@@ -2,6 +2,7 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import Slm_Desktop
+import "../../components/system"
 
 AppDialog {
     id: root
@@ -24,16 +25,6 @@ AppDialog {
     property string technicalDetailsText: ""
     property bool installInProgress: false
     property string installStatusText: ""
-
-    function hasIssueCode(code) {
-        var c = String(code || "")
-        for (var i = 0; i < (envIssues || []).length; ++i) {
-            if (String((envIssues[i] || {}).code || "") === c) {
-                return true
-            }
-        }
-        return false
-    }
 
     function openForPath(pathValue) {
         targetPath = String(pathValue || "")
@@ -179,6 +170,24 @@ AppDialog {
                 ]
     }
 
+    function missingComponentIssues() {
+        var mapped = []
+        for (var i = 0; i < (envIssues || []).length; ++i) {
+            var issue = envIssues[i] || ({})
+            var code = String(issue.code || "")
+            var installable = (code === "samba-net-not-found")
+            mapped.push({
+                componentId: installable ? "samba" : code,
+                autoInstallable: installable,
+                title: installable ? "Samba" : code,
+                description: String(issue.message || ""),
+                guidance: String(root.issueGuidanceSteps(code).join(" ")),
+                packageName: installable ? "samba" : ""
+            })
+        }
+        return mapped
+    }
+
     title: "Bagikan folder di jaringan"
     standardButtons: Dialog.NoButton
     dialogWidth: 560
@@ -231,39 +240,34 @@ AppDialog {
                     anchors.margins: 7
                     spacing: 6
 
-                    Label {
+                    MissingComponentsCard {
                         Layout.fillWidth: true
-                        text: root.envMessage.length > 0
-                              ? root.envMessage
-                              : "Berbagi jaringan belum siap."
-                        color: Theme.color("textPrimary")
-                        wrapMode: Text.WordWrap
-                    }
-
-                    Repeater {
-                        model: root.envIssues || []
-                        delegate: ColumnLayout {
-                            Layout.fillWidth: true
-                            spacing: 4
-
-                            Label {
-                                Layout.fillWidth: true
-                                text: "Langkah perbaikan:"
-                                color: Theme.color("textPrimary")
-                                visible: (index === 0)
-                                font.pixelSize: Theme.fontSize("small")
-                                font.weight: Theme.fontWeight("medium")
-                            }
-
-                            Repeater {
-                                model: root.issueGuidanceSteps(modelData.code)
-                                delegate: Label {
-                                    Layout.fillWidth: true
-                                    text: "\u2022 " + String(modelData || "")
-                                    color: Theme.color("textSecondary")
-                                    wrapMode: Text.WordWrap
-                                    font.pixelSize: Theme.fontSize("small")
+                        issues: root.missingComponentIssues()
+                        summaryText: root.envMessage.length > 0
+                                     ? root.envMessage
+                                     : "Berbagi jaringan belum siap."
+                        showPackageName: true
+                        busy: root.installInProgress
+                        statusText: root.installStatusText
+                        cardColor: Qt.rgba(1, 1, 1, 0.06)
+                        cardBorderColor: Qt.rgba(1, 1, 1, 0.25)
+                        titleColor: Theme.color("textPrimary")
+                        detailColor: Theme.color("textSecondary")
+                        statusColor: Theme.color("textSecondary")
+                        onInstallRequested: function(componentId) {
+                            root.installInProgress = true
+                            root.installStatusText = ""
+                            var installRes = root.hostRoot.installMissingComponent(componentId)
+                            root.installInProgress = false
+                            if (!!installRes && !!installRes.ok) {
+                                root.installStatusText = "Komponen berhasil dipasang. Memeriksa ulang..."
+                                root.refreshEnvironmentStatus()
+                                if (root.envReady) {
+                                    root.errorText = ""
                                 }
+                            } else {
+                                root.installStatusText = root.friendlyError(installRes, "Gagal memasang komponen")
+                                root.errorText = root.installStatusText
                             }
                         }
                     }
@@ -273,27 +277,6 @@ AppDialog {
                         Button {
                             text: "Periksa lagi"
                             onClicked: root.refreshEnvironmentStatus()
-                        }
-                        Button {
-                            visible: root.hasIssueCode("samba-net-not-found")
-                            enabled: !root.installInProgress
-                            text: root.installInProgress ? "Memasang..." : "Install Samba"
-                            onClicked: {
-                                root.installInProgress = true
-                                root.installStatusText = ""
-                                var installRes = root.hostRoot.installMissingComponent("samba")
-                                root.installInProgress = false
-                                if (!!installRes && !!installRes.ok) {
-                                    root.installStatusText = "Samba berhasil dipasang. Memeriksa ulang..."
-                                    root.refreshEnvironmentStatus()
-                                    if (root.envReady) {
-                                        root.errorText = ""
-                                    }
-                                } else {
-                                    root.installStatusText = root.friendlyError(installRes, "Gagal memasang komponen Samba")
-                                    root.errorText = root.installStatusText
-                                }
-                            }
                         }
                         Button {
                             text: "Perbaiki otomatis"
@@ -335,15 +318,6 @@ AppDialog {
                                 }
                             }
                         }
-                    }
-
-                    Label {
-                        Layout.fillWidth: true
-                        visible: root.installStatusText.length > 0
-                        text: root.installStatusText
-                        color: Theme.color("textSecondary")
-                        wrapMode: Text.WordWrap
-                        font.pixelSize: Theme.fontSize("small")
                     }
 
                     Label {

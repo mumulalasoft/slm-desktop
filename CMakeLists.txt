@@ -692,6 +692,7 @@ set(DESKTOP_SHELL_QML_FILES
     # Qml/components/BluetoothIndicator.qml
     # Qml/components/SoundIndicator.qml
     Qml/components/applet/BatchOperationIndicator.qml
+    Qml/components/system/MissingComponentsCard.qml
     Qml/components/overlay/GlobalProgressOverlay.qml
     Qml/components/overlay/GlobalProgressWindow.qml
     Qml/components/overlay/ShellServiceBridge.qml
@@ -3707,6 +3708,7 @@ qt_add_qml_module(slm-greeter
         Qml/greeter/LoginPage.qml
         Qml/greeter/ModeSelector.qml
         Qml/greeter/PowerRow.qml
+        Qml/components/system/MissingComponentsCard.qml
     RESOURCES
         Qml/greeter/assets/Background.jpeg
         Qml/greeter/assets/default-logo.svg
@@ -3743,6 +3745,7 @@ qt_add_qml_module(slm-recovery-app
         Qml/recovery/ResetPage.qml
         Qml/recovery/SnapshotPage.qml
         Qml/recovery/LogPage.qml
+        Qml/components/system/MissingComponentsCard.qml
 )
 target_link_libraries(slm-recovery-app
     PRIVATE
