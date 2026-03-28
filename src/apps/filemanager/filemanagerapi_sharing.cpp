@@ -14,6 +14,9 @@
 #include <QSysInfo>
 #include <QProcess>
 
+#include "src/core/system/dependencyguard.h"
+#include "src/core/system/componentregistry.h"
+
 namespace {
 
 constexpr const char kFolderSharingService[] = "org.slm.Desktop.FolderSharing";
@@ -556,4 +559,29 @@ QVariantMap FileManagerApi::repairFolderSharingEnvironment()
     };
     env.insert(QStringLiteral("actions"), actions);
     return normalizeEnvironmentResult(env);
+}
+
+QVariantMap FileManagerApi::installMissingComponent(const QString &componentId)
+{
+    const QString id = componentId.trimmed().toLower();
+    Slm::System::ComponentRequirement req;
+    if (!Slm::System::ComponentRegistry::findById(id, &req)
+            || req.id != QStringLiteral("samba")) {
+        return makeResult(false,
+                          QStringLiteral("unsupported-component"),
+                          {{QStringLiteral("componentId"), id}});
+    }
+
+    const QVariantMap install = Slm::System::installComponentWithPolkit(req);
+    if (!install.value(QStringLiteral("ok")).toBool()) {
+        return makeResult(false,
+                          install.value(QStringLiteral("error")).toString(),
+                          install);
+    }
+
+    QVariantMap env = folderSharingEnvironment();
+    env.insert(QStringLiteral("componentId"), id);
+    env.insert(QStringLiteral("install"), install);
+    env.insert(QStringLiteral("message"), QStringLiteral("Komponen berhasil dipasang."));
+    return env;
 }

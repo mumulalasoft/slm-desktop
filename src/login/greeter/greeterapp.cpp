@@ -4,6 +4,38 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QProcess>
+#include <QStandardPaths>
+
+#include "src/core/system/componentregistry.h"
+#include "src/core/system/dependencyguard.h"
+
+namespace {
+QString resolveSessionBrokerCommand()
+{
+    const QString envOverride = qEnvironmentVariable("SLM_SESSION_BROKER_PATH").trimmed();
+    if (!envOverride.isEmpty() && QFileInfo::exists(envOverride)) {
+        return envOverride;
+    }
+
+    const QStringList candidates = {
+        QStringLiteral("/usr/local/libexec/slm-session-broker-launch"),
+        QStringLiteral("/usr/local/bin/slm-session-broker"),
+        QStringLiteral("/usr/libexec/slm-session-broker"),
+    };
+    for (const QString &candidate : candidates) {
+        QFileInfo fi(candidate);
+        if (fi.exists() && fi.isExecutable()) {
+            return candidate;
+        }
+    }
+
+    const QString fromPath = QStandardPaths::findExecutable(QStringLiteral("slm-session-broker"));
+    if (!fromPath.isEmpty()) {
+        return fromPath;
+    }
+    return {};
+}
+}
 
 namespace Slm::Login {
 
@@ -22,6 +54,8 @@ GreeterApp::GreeterApp(QObject *parent)
             this, &GreeterApp::onSuccess);
     connect(m_greetd, &GreetdClient::error,
             this, &GreeterApp::onError);
+
+    m_missingComponents = checkRequiredComponents();
 }
 
 // ── Properties ────────────────────────────────────────────────────────────────
@@ -85,11 +119,15 @@ QString GreeterApp::lastUser() const
 
 QString GreeterApp::backgroundSource() const
 {
-    // Prefer the SLM SDDM theme background embedded as QRC resource.
-    // Falls back to empty string (solid colour background) if not available.
+    // Greeter-local background asset (not tied to any specific DM theme layout).
     const QString qrcPath = QStringLiteral(
-        "qrc:/qt/qml/SlmGreeter/sddm/theme/SLM/Background.jpeg");
+        "qrc:/qt/qml/SlmGreeter/Qml/greeter/assets/Background.jpeg");
     return qrcPath;
+}
+
+QVariantList GreeterApp::missingComponents() const
+{
+    return m_missingComponents;
 }
 
 // ── Public invokables ─────────────────────────────────────────────────────────
@@ -98,6 +136,10 @@ void GreeterApp::login(const QString &username,
                        const QString &password,
                        const QString &mode)
 {
+    qWarning("slm-greeter: login request user='%s' mode='%s' connected=%d",
+             qPrintable(username),
+             qPrintable(mode),
+             m_greetd->isConnected() ? 1 : 0);
     if (m_loginStep != LoginStep::Idle) {
         qWarning("slm-greeter: login() called while another login is in progress");
         return;
@@ -134,6 +176,32 @@ void GreeterApp::powerOff()
                             {QStringLiteral("poweroff")});
 }
 
+QVariantList GreeterApp::refreshMissingComponents()
+{
+    const QVariantList next = checkRequiredComponents();
+    if (next != m_missingComponents) {
+        m_missingComponents = next;
+        emit missingComponentsChanged();
+    }
+    return m_missingComponents;
+}
+
+QVariantMap GreeterApp::installMissingComponent(const QString &componentId)
+{
+    const QString id = componentId.trimmed().toLower();
+    Slm::System::ComponentRequirement req;
+    if (Slm::System::ComponentRegistry::findById(id, &req) && req.autoInstallable) {
+        const QVariantMap result = Slm::System::installComponentWithPolkit(req);
+        refreshMissingComponents();
+        return result;
+    }
+    return QVariantMap{
+        {QStringLiteral("ok"), false},
+        {QStringLiteral("error"), QStringLiteral("unsupported-component")},
+        {QStringLiteral("componentId"), id},
+    };
+}
+
 // ── Private ───────────────────────────────────────────────────────────────────
 
 bool GreeterApp::systemctlCan(const QString &verb)
@@ -145,12 +213,44 @@ bool GreeterApp::systemctlCan(const QString &verb)
     return p.exitCode() == 0;
 }
 
+QVariantList GreeterApp::checkRequiredComponents() const
+{
+    QVariantList out;
+
+    const QString broker = resolveSessionBrokerCommand();
+    if (broker.trimmed().isEmpty()) {
+        out.push_back(QVariantMap{
+            {QStringLiteral("componentId"), QStringLiteral("slm-session-broker")},
+            {QStringLiteral("title"), QStringLiteral("SLM Session Broker")},
+            {QStringLiteral("description"), QStringLiteral("Komponen inti untuk memulai sesi desktop tidak ditemukan.")},
+            {QStringLiteral("packageName"), QStringLiteral("slm-desktop")},
+            {QStringLiteral("autoInstallable"), false},
+            {QStringLiteral("guidance"), QStringLiteral("Masuk ke Recovery lalu pasang ulang paket slm-desktop.")},
+        });
+    }
+
+    const QList<Slm::System::ComponentRequirement> requirements =
+        Slm::System::ComponentRegistry::forDomain(QStringLiteral("greeter"));
+    for (const Slm::System::ComponentRequirement &req : requirements) {
+        const QVariantMap result = Slm::System::checkComponent(req);
+        if (!result.value(QStringLiteral("ready")).toBool()) {
+            out.push_back(result);
+        }
+    }
+
+    return out;
+}
+
 void GreeterApp::onAuthMessage(const QString &type, const QString &message)
 {
+    qWarning("slm-greeter: auth message type='%s' message='%s'",
+             qPrintable(type),
+             qPrintable(message));
     emit authMessageReceived(type, message);
 
     if (m_loginStep == LoginStep::WaitingAuthChallenge) {
         if (type == QStringLiteral("secret") || type == QStringLiteral("visible")) {
+            qWarning("slm-greeter: posting auth response for type='%s'", qPrintable(type));
             m_greetd->postAuthResponse(m_pendingPassword);
         }
     }
@@ -158,26 +258,45 @@ void GreeterApp::onAuthMessage(const QString &type, const QString &message)
 
 void GreeterApp::onSuccess()
 {
+    qWarning("slm-greeter: success callback step=%d", static_cast<int>(m_loginStep));
     switch (m_loginStep) {
     case LoginStep::WaitingAuthChallenge:
         m_loginStep = LoginStep::WaitingStartSession;
+        {
+        const QString broker = resolveSessionBrokerCommand();
+        qWarning("slm-greeter: resolved session broker='%s'", qPrintable(broker));
+        if (broker.isEmpty()) {
+            m_loginStep = LoginStep::Idle;
+            m_greetd->cancelSession();
+            emit loginError(QStringLiteral("session_start_error"),
+                            QStringLiteral("SLM session broker not found"));
+            return;
+        }
         m_greetd->startSession(
-            {QStringLiteral("slm-session-broker"),
+            {broker,
              QStringLiteral("--mode"),
              m_pendingMode},
             {});
+        qWarning("slm-greeter: startSession sent with mode='%s'", qPrintable(m_pendingMode));
+        }
         break;
     case LoginStep::WaitingStartSession:
         m_loginStep = LoginStep::Idle;
+        qWarning("slm-greeter: login success final");
         emit loginSuccess();
         break;
     default:
+        qWarning("slm-greeter: success callback ignored at idle");
         break;
     }
 }
 
 void GreeterApp::onError(const QString &errorType, const QString &description)
 {
+    qWarning("slm-greeter: error type='%s' description='%s' step=%d",
+             qPrintable(errorType),
+             qPrintable(description),
+             static_cast<int>(m_loginStep));
     m_loginStep = LoginStep::Idle;
     m_pendingPassword.clear();
     m_greetd->cancelSession();

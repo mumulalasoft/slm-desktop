@@ -2,6 +2,7 @@
 #include <QObject>
 #include <QString>
 #include <QVariantList>
+#include <QVariantMap>
 #include "greetdclient.h"
 #include "src/login/libslmlogin/slmsessionstate.h"
 
@@ -25,6 +26,7 @@ class GreeterApp : public QObject
     Q_PROPERTY(QVariantList usersList        READ usersList        CONSTANT)
     Q_PROPERTY(QString      lastUser         READ lastUser         CONSTANT)
     Q_PROPERTY(QString      backgroundSource READ backgroundSource CONSTANT)
+    Q_PROPERTY(QVariantList missingComponents READ missingComponents NOTIFY missingComponentsChanged)
 
 public:
     explicit GreeterApp(QObject *parent = nullptr);
@@ -42,6 +44,7 @@ public:
     QVariantList usersList()        const;
     QString      lastUser()         const;
     QString      backgroundSource() const;
+    QVariantList missingComponents() const;
 
     Q_INVOKABLE void login(const QString &username,
                            const QString &password,
@@ -49,12 +52,15 @@ public:
     Q_INVOKABLE void suspend();
     Q_INVOKABLE void reboot();
     Q_INVOKABLE void powerOff();
+    Q_INVOKABLE QVariantList refreshMissingComponents();
+    Q_INVOKABLE QVariantMap installMissingComponent(const QString &componentId);
 
 signals:
     void greetdConnectedChanged();
     void authMessageReceived(const QString &type, const QString &message);
     void loginSuccess();
     void loginError(const QString &errorType, const QString &description);
+    void missingComponentsChanged();
 
 private slots:
     void onAuthMessage(const QString &type, const QString &message);
@@ -65,12 +71,14 @@ private:
     enum class LoginStep { Idle, WaitingAuthChallenge, WaitingStartSession };
 
     static bool systemctlCan(const QString &verb);
+    QVariantList checkRequiredComponents() const;
 
     GreetdClient *m_greetd    = nullptr;
     SessionState  m_state;
     QString       m_pendingPassword;
     QString       m_pendingMode;
     LoginStep     m_loginStep = LoginStep::Idle;
+    QVariantList  m_missingComponents;
 };
 
 } // namespace Slm::Login

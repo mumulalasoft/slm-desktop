@@ -12,6 +12,8 @@ Rectangle {
     property date   now: new Date()
     property bool   capsLockOn: false
     property string selectedMode: "normal"
+    property bool   installBusy: false
+    property string installStatusText: ""
 
     property int    selectedUserIndex: -1
     property bool   lastUserResolved: false
@@ -406,6 +408,101 @@ Rectangle {
                 font.pixelSize: Math.round(13 * root.uiScale)
                 wrapMode: Text.WordWrap
                 horizontalAlignment: Text.AlignHCenter
+            }
+        }
+
+        Rectangle {
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: Math.min(centerContent.width * 0.90, Math.round(560 * root.uiScale))
+            radius: Math.round(8 * root.uiScale)
+            color: "#cc3a3010"
+            border.color: "#88f0b35a"
+            border.width: 1
+            visible: GreeterApp && (GreeterApp.missingComponents || []).length > 0
+            implicitHeight: missingColumn.implicitHeight + Math.round(16 * root.uiScale)
+
+            Column {
+                id: missingColumn
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.margins: Math.round(10 * root.uiScale)
+                spacing: Math.round(8 * root.uiScale)
+
+                Label {
+                    width: parent.width
+                    text: "Komponen inti desktop hilang. Beberapa fitur login/sesi dapat gagal."
+                    color: "#ffe4b0"
+                    font.pixelSize: Math.round(13 * root.uiScale)
+                    wrapMode: Text.WordWrap
+                    horizontalAlignment: Text.AlignHCenter
+                }
+
+                Repeater {
+                    model: GreeterApp ? (GreeterApp.missingComponents || []) : []
+                    delegate: Rectangle {
+                        width: parent ? parent.width : 400
+                        color: "#44201208"
+                        border.width: 1
+                        border.color: "#66ffffff"
+                        radius: Math.round(6 * root.uiScale)
+                        implicitHeight: row.implicitHeight + Math.round(10 * root.uiScale)
+
+                        RowLayout {
+                            id: row
+                            anchors.fill: parent
+                            anchors.margins: Math.round(6 * root.uiScale)
+                            spacing: Math.round(8 * root.uiScale)
+
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 2
+                                Label {
+                                    Layout.fillWidth: true
+                                    text: String((modelData || {}).title || (modelData || {}).componentId || "Unknown")
+                                    color: "#ffffff"
+                                    font.pixelSize: Math.round(12 * root.uiScale)
+                                    font.bold: true
+                                    wrapMode: Text.WordWrap
+                                }
+                                Label {
+                                    Layout.fillWidth: true
+                                    text: String((modelData || {}).guidance || (modelData || {}).description || "")
+                                    color: "#ffd9c6"
+                                    font.pixelSize: Math.round(11 * root.uiScale)
+                                    wrapMode: Text.WordWrap
+                                }
+                            }
+
+                            Button {
+                                visible: !!(modelData || {}).autoInstallable
+                                enabled: !root.installBusy
+                                text: root.installBusy ? "Installing..." : "Install"
+                                onClicked: {
+                                    root.installBusy = true
+                                    var res = GreeterApp.installMissingComponent(String((modelData || {}).componentId || ""))
+                                    root.installBusy = false
+                                    if (!!res && !!res.ok) {
+                                        root.installStatusText = "Komponen berhasil dipasang."
+                                        GreeterApp.refreshMissingComponents()
+                                    } else {
+                                        root.installStatusText = "Install gagal: " + String((res && res.error) ? res.error : "unknown")
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Label {
+                    width: parent.width
+                    visible: root.installStatusText.length > 0
+                    text: root.installStatusText
+                    color: "#ffcc99"
+                    font.pixelSize: Math.round(11 * root.uiScale)
+                    horizontalAlignment: Text.AlignHCenter
+                    wrapMode: Text.WordWrap
+                }
             }
         }
     }

@@ -1,6 +1,9 @@
 #include "sessionwatchdog.h"
 
 #include <QCoreApplication>
+#include <QFileInfo>
+#include <QProcess>
+#include <QStandardPaths>
 #include "src/login/libslmlogin/slmconfigmanager.h"
 #include "src/login/libslmlogin/slmlogindefs.h"
 #include "src/login/libslmlogin/slmsessionstate.h"
@@ -21,8 +24,53 @@ SessionWatchdog::SessionWatchdog(QObject *parent)
 
 void SessionWatchdog::onHealthyTimeout()
 {
+    QString reason;
+    if (!isSessionHealthy(&reason)) {
+        qWarning("slm-watchdog: session unhealthy, skip healthy mark: %s",
+                 qUtf8Printable(reason));
+        QCoreApplication::quit();
+        return;
+    }
     markSessionHealthy();
     QCoreApplication::quit();
+}
+
+bool SessionWatchdog::isSessionHealthy(QString *reason) const
+{
+    const QString runtimeDir = QString::fromLocal8Bit(qgetenv("XDG_RUNTIME_DIR"));
+    const QString waylandDisplay = QString::fromLocal8Bit(qgetenv("WAYLAND_DISPLAY"));
+    if (runtimeDir.isEmpty() || waylandDisplay.isEmpty()) {
+        if (reason) *reason = QStringLiteral("WAYLAND_DISPLAY or XDG_RUNTIME_DIR missing");
+        return false;
+    }
+    const QString socketPath = runtimeDir + QStringLiteral("/") + waylandDisplay;
+    if (!QFileInfo::exists(socketPath)) {
+        if (reason) *reason = QStringLiteral("wayland socket missing: ") + socketPath;
+        return false;
+    }
+
+    // Minimal shell liveness check (best effort): shell process name should exist.
+    if (QStandardPaths::findExecutable(QStringLiteral("pgrep")).isEmpty()) {
+        if (reason) *reason = QStringLiteral("missing-component:pgrep");
+        return false;
+    }
+
+    QProcess pgrep;
+    pgrep.start(QStringLiteral("pgrep"), {QStringLiteral("-x"), QStringLiteral("appSlm_Desktop")});
+    if (!pgrep.waitForFinished(1500)) {
+        if (reason) *reason = QStringLiteral("pgrep timeout");
+        return false;
+    }
+    if (pgrep.exitCode() != 0) {
+        // fallback for renamed binary in install.
+        QProcess pgrepAlt;
+        pgrepAlt.start(QStringLiteral("pgrep"), {QStringLiteral("-x"), QStringLiteral("slm-shell")});
+        if (!pgrepAlt.waitForFinished(1500) || pgrepAlt.exitCode() != 0) {
+            if (reason) *reason = QStringLiteral("shell process not found");
+            return false;
+        }
+    }
+    return true;
 }
 
 void SessionWatchdog::markSessionHealthy()

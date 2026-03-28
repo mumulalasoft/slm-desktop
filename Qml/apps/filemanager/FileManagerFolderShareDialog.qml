@@ -22,6 +22,18 @@ AppDialog {
     property string envMessage: ""
     property bool showTechnicalDetails: false
     property string technicalDetailsText: ""
+    property bool installInProgress: false
+    property string installStatusText: ""
+
+    function hasIssueCode(code) {
+        var c = String(code || "")
+        for (var i = 0; i < (envIssues || []).length; ++i) {
+            if (String((envIssues[i] || {}).code || "") === c) {
+                return true
+            }
+        }
+        return false
+    }
 
     function openForPath(pathValue) {
         targetPath = String(pathValue || "")
@@ -89,6 +101,7 @@ AppDialog {
         envMessage = ""
         technicalDetailsText = ""
         showTechnicalDetails = false
+        installStatusText = ""
         if (!hostRoot || !hostRoot.folderSharingEnvironment) {
             return
         }
@@ -262,6 +275,27 @@ AppDialog {
                             onClicked: root.refreshEnvironmentStatus()
                         }
                         Button {
+                            visible: root.hasIssueCode("samba-net-not-found")
+                            enabled: !root.installInProgress
+                            text: root.installInProgress ? "Memasang..." : "Install Samba"
+                            onClicked: {
+                                root.installInProgress = true
+                                root.installStatusText = ""
+                                var installRes = root.hostRoot.installMissingComponent("samba")
+                                root.installInProgress = false
+                                if (!!installRes && !!installRes.ok) {
+                                    root.installStatusText = "Samba berhasil dipasang. Memeriksa ulang..."
+                                    root.refreshEnvironmentStatus()
+                                    if (root.envReady) {
+                                        root.errorText = ""
+                                    }
+                                } else {
+                                    root.installStatusText = root.friendlyError(installRes, "Gagal memasang komponen Samba")
+                                    root.errorText = root.installStatusText
+                                }
+                            }
+                        }
+                        Button {
                             text: "Perbaiki otomatis"
                             onClicked: {
                                 var res = root.hostRoot.repairFolderSharingEnvironment()
@@ -301,6 +335,15 @@ AppDialog {
                                 }
                             }
                         }
+                    }
+
+                    Label {
+                        Layout.fillWidth: true
+                        visible: root.installStatusText.length > 0
+                        text: root.installStatusText
+                        color: Theme.color("textSecondary")
+                        wrapMode: Text.WordWrap
+                        font.pixelSize: Theme.fontSize("small")
                     }
 
                     Label {

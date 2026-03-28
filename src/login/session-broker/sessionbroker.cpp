@@ -1,7 +1,9 @@
 #include "sessionbroker.h"
 
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
+#include <QStandardPaths>
 #include <QThread>
 #include <sys/types.h>
 #include <unistd.h>
@@ -21,6 +23,15 @@ int SessionBroker::run()
     readState();
     m_config.load();
 
+    // Ensure core session env exists before integrity checks.
+    qputenv("SLM_OFFICIAL_SESSION", "1");
+    qputenv("XDG_SESSION_TYPE", "wayland");
+    qputenv("XDG_CURRENT_DESKTOP", "SLM");
+    if (qgetenv("XDG_RUNTIME_DIR").isEmpty()) {
+        const QString runtimeDir = QStringLiteral("/run/user/") + QString::number(::getuid());
+        qputenv("XDG_RUNTIME_DIR", runtimeDir.toLocal8Bit());
+    }
+
     const PlatformChecker checker;
     const PlatformStatus platform = checker.checkAll(m_config.compositor(), m_config.shell());
     if (!platform.ok) {
@@ -38,6 +49,14 @@ int SessionBroker::run()
 
     performRollback(m_finalMode);
     prepareEnvironment(m_finalMode);
+
+    const QString missingReason = preflightMissingComponentReason();
+    if (!missingReason.isEmpty()) {
+        qCritical("slm-session-broker: missing required component: %s",
+                  qUtf8Printable(missingReason));
+        writeStartupFailed(missingReason);
+        return 1;
+    }
 
     if (!launchCompositor()) {
         writeStartupFailed(QStringLiteral("compositor-launch-failed"));
@@ -166,8 +185,45 @@ void SessionBroker::prepareEnvironment(StartupMode mode)
     }
 }
 
+QString SessionBroker::preflightMissingComponentReason() const
+{
+    const QFileInfo compositorInfo(m_config.compositor());
+    if (!compositorInfo.exists() || !compositorInfo.isExecutable()) {
+        return QStringLiteral("missing-component:compositor:%1").arg(m_config.compositor());
+    }
+
+    if (m_finalMode != StartupMode::Recovery) {
+        const QFileInfo shellInfo(m_config.shell());
+        if (!shellInfo.exists() || !shellInfo.isExecutable()) {
+            return QStringLiteral("missing-component:shell:%1").arg(m_config.shell());
+        }
+    }
+
+    if (QStandardPaths::findExecutable(QStringLiteral("slm-watchdog")).isEmpty()) {
+        return QStringLiteral("missing-component:slm-watchdog");
+    }
+
+    if (m_finalMode == StartupMode::Recovery
+            && QStandardPaths::findExecutable(QStringLiteral("slm-recovery-app")).isEmpty()) {
+        return QStringLiteral("missing-component:slm-recovery-app");
+    }
+
+    return QString();
+}
+
 bool SessionBroker::launchCompositor()
 {
+    // Guard against stale socket from a previously crashed session causing
+    // false "socket ready" detection.
+    const QString runtimeDir = QString::fromLocal8Bit(qgetenv("XDG_RUNTIME_DIR"));
+    const QString socketPath = runtimeDir + QStringLiteral("/wayland-0");
+    if (!runtimeDir.isEmpty() && QFileInfo::exists(socketPath)) {
+        if (QFile::remove(socketPath)) {
+            qWarning("slm-session-broker: removed pre-existing compositor socket: %s",
+                     qUtf8Printable(socketPath));
+        }
+    }
+
     m_compositorProcess.setProgram(m_config.compositor());
     m_compositorProcess.setArguments(m_config.compositorArgs());
     m_compositorProcess.setProcessChannelMode(QProcess::ForwardedChannels);
@@ -191,6 +247,10 @@ bool SessionBroker::waitCompositorSocket()
 
     const int maxAttempts = kCompositorSocketTimeoutMs / 100;
     for (int i = 0; i < maxAttempts; ++i) {
+        if (m_compositorProcess.state() != QProcess::Running) {
+            qWarning("slm-session-broker: compositor exited before socket became ready");
+            return false;
+        }
         if (QFileInfo::exists(socketPath)) {
             qputenv("WAYLAND_DISPLAY", "wayland-0");
             qInfo("slm-session-broker: compositor socket ready after %dms", i * 100);

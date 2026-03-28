@@ -22,6 +22,7 @@ private:
     StartupMode  evaluateMode(const PlatformStatus &platform);
     void         performRollback(StartupMode mode);
     void         prepareEnvironment(StartupMode mode);
+    QString      preflightMissingComponentReason() const;
     bool         waitCompositorSocket();
     bool         launchCompositor();
     void         launchShell();

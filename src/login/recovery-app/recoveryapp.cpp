@@ -4,6 +4,8 @@
 #include <QDir>
 #include <QProcess>
 
+#include "src/core/system/componentregistry.h"
+#include "src/core/system/dependencyguard.h"
 #include "src/login/libslmlogin/slmconfigmanager.h"
 #include "src/login/libslmlogin/slmsessionstate.h"
 
@@ -34,6 +36,8 @@ RecoveryApp::RecoveryApp(QObject *parent)
     // Strip .json suffix to expose snapshot ids.
     for (const QString &entry : entries)
         m_snapshots.append(QFileInfo(entry).baseName());
+
+    m_missingComponents = checkRequiredComponents();
 }
 
 // ── Properties ────────────────────────────────────────────────────────────────
@@ -43,6 +47,7 @@ QString RecoveryApp::lastBootStatus()    const { return m_lastBootStatus; }
 int     RecoveryApp::crashCount()        const { return m_crashCount; }
 bool    RecoveryApp::hasPreviousConfig() const { return m_hasPreviousConfig; }
 QStringList RecoveryApp::availableSnapshots() const { return m_snapshots; }
+QVariantList RecoveryApp::missingComponents() const { return m_missingComponents; }
 
 // ── Invokables ────────────────────────────────────────────────────────────────
 
@@ -119,6 +124,48 @@ void RecoveryApp::exitToDesktop()
 {
     qInfo("slm-recovery-app: user requested exit to desktop");
     QCoreApplication::quit();
+}
+
+QVariantMap RecoveryApp::installMissingComponent(const QString &componentId)
+{
+    const QString id = componentId.trimmed().toLower();
+    Slm::System::ComponentRequirement req;
+    if (!Slm::System::ComponentRegistry::findById(id, &req)) {
+        return QVariantMap{
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), QStringLiteral("unsupported-component")},
+            {QStringLiteral("componentId"), id},
+        };
+    }
+
+    const QVariantMap result = Slm::System::installComponentWithPolkit(req);
+    refreshMissingComponents();
+    return result;
+}
+
+QVariantList RecoveryApp::refreshMissingComponents()
+{
+    const QVariantList next = checkRequiredComponents();
+    if (next != m_missingComponents) {
+        m_missingComponents = next;
+        emit missingComponentsChanged();
+    }
+    return m_missingComponents;
+}
+
+QVariantList RecoveryApp::checkRequiredComponents() const
+{
+    QVariantList out;
+    const QList<Slm::System::ComponentRequirement> requirements =
+        Slm::System::ComponentRegistry::forDomain(QStringLiteral("recovery"));
+
+    for (const auto &req : requirements) {
+        const QVariantMap result = Slm::System::checkComponent(req);
+        if (!result.value(QStringLiteral("ready")).toBool()) {
+            out.push_back(result);
+        }
+    }
+    return out;
 }
 
 } // namespace Slm::Login

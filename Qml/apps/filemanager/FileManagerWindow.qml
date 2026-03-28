@@ -684,6 +684,15 @@ Rectangle {
         }
         return fileManagerApiRef.repairFolderSharingEnvironment()
     }
+    function installMissingComponent(componentIdValue) {
+        if (!fileManagerApiRef || !fileManagerApiRef.installMissingComponent) {
+            return ({
+                        "ok": false,
+                        "error": "api-unavailable"
+                    })
+        }
+        return fileManagerApiRef.installMissingComponent(String(componentIdValue || ""))
+    }
     function openContextEntryInApp(appIdValue) { FileManagerOpenWith.openContextEntryInApp(root, fileManagerApiRef, appIdValue) }
     function setDefaultContextEntryApp(appIdValue) { FileManagerOpenWith.setDefaultContextEntryApp(root, fileManagerApiRef, appIdValue) }
     function openWithOtherApplication() { FileManagerOpenWith.openWithOtherApplication(root, openWithDialogRef) }

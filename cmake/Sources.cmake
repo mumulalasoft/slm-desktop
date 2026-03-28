@@ -201,6 +201,10 @@ set(DESKTOP_SHELL_SERVICES
     src/core/workspace/workspacepreviewmanager.cpp
     src/core/workspace/workspacepreviewmanager.h
     src/core/workspace/overviewpreviewmanager.h
+    src/core/system/componentregistry.cpp
+    src/core/system/componentregistry.h
+    src/core/system/dependencyguard.cpp
+    src/core/system/dependencyguard.h
     src/core/permissions/Capability.cpp
     src/core/permissions/Capability.h
     src/core/permissions/CallerIdentity.cpp
@@ -644,10 +648,24 @@ set(SLM_GREETER_SOURCES
     src/login/greeter/greetdclient.cpp
     src/login/greeter/greeterapp.h
     src/login/greeter/greeterapp.cpp
+    src/core/system/componentregistry.cpp
+    src/core/system/componentregistry.h
+    src/core/system/dependencyguard.cpp
+    src/core/system/dependencyguard.h
 )
 
 set(SLM_RECOVERY_APP_SOURCES
     src/login/recovery-app/main.cpp
     src/login/recovery-app/recoveryapp.h
     src/login/recovery-app/recoveryapp.cpp
+    src/core/system/componentregistry.cpp
+    src/core/system/componentregistry.h
+    src/core/system/dependencyguard.cpp
+    src/core/system/dependencyguard.h
+)
+
+set(SLM_POLKIT_AGENT_SOURCES
+    src/login/polkit-agent/main.cpp
+    src/login/polkit-agent/polkitagentapp.h
+    src/login/polkit-agent/polkitagentapp.cpp
 )

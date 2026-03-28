@@ -155,6 +155,7 @@ public:
     Q_INVOKABLE QVariantMap copyFolderShareAddress(const QString &path) const;
     Q_INVOKABLE QVariantMap folderSharingEnvironment() const;
     Q_INVOKABLE QVariantMap repairFolderSharingEnvironment();
+    Q_INVOKABLE QVariantMap installMissingComponent(const QString &componentId);
     QVariantList openWithApplications(const QString &path, int limit = 24) const;
     Q_INVOKABLE QVariantMap startOpenWithApplications(const QString &path,
                                                       int limit = 24,
