@@ -100,6 +100,11 @@ QVariantList ClipboardService::search(const QString &query, int limit) const
     return m_history ? sanitizeHistoryRows(m_history->search(query, limit)) : QVariantList{};
 }
 
+QString ClipboardService::backendMode() const
+{
+    return m_watcher ? m_watcher->backendModeString() : QStringLiteral("unknown");
+}
+
 bool ClipboardService::pasteItem(qint64 id)
 {
     if (!m_history || id <= 0) {
