@@ -3359,7 +3359,19 @@ target_link_libraries(settings_ui_smoke_test
 add_test(NAME settings_ui_smoke_test COMMAND settings_ui_smoke_test)
 
 qt_add_executable(settings_missing_components_ui_test
+    src/apps/settings/modules/developer/componenthealthcontroller.cpp
+    src/apps/settings/modules/developer/componenthealthcontroller.h
+    src/core/system/missingcomponentcontroller.cpp
+    src/core/system/missingcomponentcontroller.h
+    src/core/system/componentregistry.cpp
+    src/core/system/componentregistry.h
+    src/core/system/dependencyguard.cpp
+    src/core/system/dependencyguard.h
     tests/settings_missing_components_ui_test.cpp
+)
+
+target_include_directories(settings_missing_components_ui_test PRIVATE
+    ${CMAKE_SOURCE_DIR}
 )
 
 target_link_libraries(settings_missing_components_ui_test
@@ -3368,6 +3380,7 @@ target_link_libraries(settings_missing_components_ui_test
         Qt6::Gui
         Qt6::Qml
         Qt6::Quick
+        Qt6::DBus
         Qt6::Test
 )
 
