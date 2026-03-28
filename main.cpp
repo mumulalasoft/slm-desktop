@@ -102,18 +102,7 @@ int main(int argc, char *argv[])
     // Force a project-level Controls style so menus are unified app-wide.
     qputenv("QT_QUICK_CONTROLS_FALLBACK_STYLE", "Basic");
     const QString appDir = QFileInfo(QString::fromLocal8Bit(argv[0])).absolutePath();
-    const QString currentStylePath = QDir::current().filePath("Style");
-    const QString appStylePath = QDir(appDir).filePath("Style");
-    const QString selectedStylePath =
-        QFileInfo::exists(currentStylePath) ? currentStylePath : appStylePath;
-
-    QString styleImportRoot;
-    if (QFileInfo::exists(selectedStylePath)) {
-        qputenv("QT_QUICK_CONTROLS_STYLE", "Style");
-        styleImportRoot = QFileInfo(selectedStylePath).absolutePath();
-    } else {
-        qputenv("QT_QUICK_CONTROLS_STYLE", "Basic");
-    }
+    qputenv("QT_QUICK_CONTROLS_STYLE", "Basic");
 
     QGuiApplication app(argc, argv);
     qInfo().noquote() << "[startup] QGuiApplication ready"
@@ -193,9 +182,6 @@ int main(int argc, char *argv[])
     const QString qtQmlImportsPath = QLibraryInfo::path(QLibraryInfo::QmlImportsPath);
     if (!qtQmlImportsPath.isEmpty()) {
         engine.addImportPath(qtQmlImportsPath);
-    }
-    if (!styleImportRoot.isEmpty()) {
-        engine.addImportPath(styleImportRoot);
     }
     engine.addImageProvider(QStringLiteral("themeicon"), new ThemeIconProvider);
     ThemeIconController themeIconController;

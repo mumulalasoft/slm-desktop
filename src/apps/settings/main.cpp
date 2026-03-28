@@ -46,19 +46,7 @@ using namespace Qt::StringLiterals;
 int main(int argc, char *argv[])
 {
     qputenv("QT_QUICK_CONTROLS_FALLBACK_STYLE", "Basic");
-    const QString appDir = QFileInfo(QString::fromLocal8Bit(argv[0])).absolutePath();
-    const QString currentStylePath = QDir::current().filePath("Style");
-    const QString appStylePath     = QDir(appDir).filePath("Style");
-    const QString selectedStylePath =
-        QFileInfo::exists(currentStylePath) ? currentStylePath : appStylePath;
-
-    QString styleImportRoot;
-    if (QFileInfo::exists(selectedStylePath)) {
-        qputenv("QT_QUICK_CONTROLS_STYLE", "Style");
-        styleImportRoot = QFileInfo(selectedStylePath).absolutePath();
-    } else {
-        qputenv("QT_QUICK_CONTROLS_STYLE", "Basic");
-    }
+    qputenv("QT_QUICK_CONTROLS_STYLE", "Basic");
 
     QGuiApplication app(argc, argv);
     app.setOrganizationName("SLM");
@@ -89,8 +77,6 @@ int main(int argc, char *argv[])
     const QString qtQmlImportPath = QLibraryInfo::path(QLibraryInfo::QmlImportsPath);
     if (!qtQmlImportPath.trimmed().isEmpty())
         engine.addImportPath(qtQmlImportPath);
-    if (!styleImportRoot.isEmpty())
-        engine.addImportPath(styleImportRoot);
     // Ensure embedded resources (qrc:/qt/qml) take precedence over the
     // filesystem build/ directory so the Theme-only Slm_Desktop shim is
     // found before the full Slm_Desktop module written by appSlm_Desktop.

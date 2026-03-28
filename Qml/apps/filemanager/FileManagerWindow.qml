@@ -2,7 +2,7 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Window 2.15
 import Slm_Desktop
-import Style
+import SlmStyle
 import "." as FM
 import "./FileManagerOps.js" as FileManagerOps
 import "./FileManagerKeys.js" as FileManagerKeys
