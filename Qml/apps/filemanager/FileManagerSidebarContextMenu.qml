@@ -6,8 +6,19 @@ Menu {
     id: root
 
     required property var hostRoot
+    property string contextPathSnapshot: ""
+    property string contextLabelSnapshot: ""
+    property string contextRowTypeSnapshot: ""
+    property bool contextMountedSnapshot: false
 
     function openAt(px, py) {
+        contextPathSnapshot = String(hostRoot.sidebarContextPath || "")
+        contextLabelSnapshot = String(hostRoot.sidebarContextLabel || "")
+        contextRowTypeSnapshot = String(hostRoot.sidebarContextRowType || "")
+        contextMountedSnapshot = !!hostRoot.sidebarContextMounted
+        console.log("[fm-sidebar-menu] openAt path=", contextPathSnapshot,
+                    "label=", contextLabelSnapshot,
+                    "rowType=", contextRowTypeSnapshot)
         x = px
         y = py
         open()
@@ -19,19 +30,23 @@ Menu {
     MenuItem {
         text: "Open"
         enabled: hostRoot.sidebarContextCanOpenPath()
-        onTriggered: hostRoot.openSidebarContextPath(hostRoot.sidebarContextPath)
+        onTriggered: hostRoot.openPath(root.contextPathSnapshot)
     }
 
     MenuItem {
         text: "Open in New Tab"
         enabled: hostRoot.sidebarContextCanOpenPath()
-        onTriggered: hostRoot.openSidebarContextPathInNewTab(hostRoot.sidebarContextPath)
+        onTriggered: {
+            console.log("[fm-sidebar-menu] open-new-tab path=", root.contextPathSnapshot,
+                        "label=", root.contextLabelSnapshot)
+            hostRoot.openPathInNewTab(root.contextPathSnapshot)
+        }
     }
 
     MenuItem {
         text: "Open in New Window"
         enabled: hostRoot.sidebarContextCanOpenInNewWindow()
-        onTriggered: hostRoot.openSidebarContextPathInNewWindow(hostRoot.sidebarContextPath)
+        onTriggered: hostRoot.openInNewWindowRequested(root.contextPathSnapshot)
     }
 
     MenuSeparator {

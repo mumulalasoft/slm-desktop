@@ -42,6 +42,22 @@ ApplicationWindow {
     property var appModelRef: null
     property var fileManagerApiRef: null
     property var tothespotServiceRef: null
+    function openFileManagerFromShortcut(pathValue) {
+        var targetPath = String(pathValue && String(pathValue).length > 0 ? pathValue : "~")
+        ShellUtils.openDetachedFileManager(root, targetPath)
+        Qt.callLater(function() {
+            var detachedUnavailable = !detachedFileManagerWindow
+                                     || root.detachedFileManagerLoadFailed
+                                     || detachedFileManagerWindow.loaderStatus === Loader.Error
+            if (!detachedUnavailable) {
+                return
+            }
+            if (root.fileManagerApiRef && root.fileManagerApiRef.startOpenPathInFileManager) {
+                root.fileManagerApiRef.startOpenPathInFileManager(targetPath,
+                                                                  "shortcut-open-filemanager")
+            }
+        })
+    }
     onDetachedFileManagerVisibleChanged: {
         if (!detachedFileManagerVisible) {
             detachedFileManagerLoadFailed = false
@@ -285,7 +301,15 @@ ApplicationWindow {
         sequence: "Alt+Shift+E"
         context: Qt.ApplicationShortcut
         onActivated: {
-            ShellUtils.openDetachedFileManager(root, "~")
+            root.openFileManagerFromShortcut("~")
+        }
+    }
+
+    Shortcut {
+        sequence: "Meta+E"
+        context: Qt.ApplicationShortcut
+        onActivated: {
+            root.openFileManagerFromShortcut("~")
         }
     }
 

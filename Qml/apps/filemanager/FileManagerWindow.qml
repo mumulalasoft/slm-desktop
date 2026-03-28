@@ -157,6 +157,7 @@ Rectangle {
     readonly property var fileManagerApiRef: (typeof FileManagerApi !== "undefined") ? FileManagerApi : null
     readonly property var modelFactoryRef: (typeof FileManagerModelFactory !== "undefined") ? FileManagerModelFactory : null
     readonly property var uiPreferencesRef: (typeof UIPreferences !== "undefined") ? UIPreferences : null
+    readonly property var tabModelRef: tabModel
     readonly property var appCommandRouterRef: (typeof AppCommandRouter !== "undefined") ? AppCommandRouter : null
     readonly property var notificationManagerRef: (typeof NotificationManager !== "undefined") ? NotificationManager : null
     readonly property var cursorControllerRef: (typeof CursorController !== "undefined") ? CursorController : null
@@ -235,7 +236,7 @@ Rectangle {
     function switchToTab(indexValue) { FileManagerTabs.switchToTab(root, indexValue) }
     function closeTab(indexValue) { FileManagerTabs.closeTab(root, modelFactoryRef, uiPreferencesRef, indexValue) }
     function saveTabState() { FileManagerTabs.saveTabState(root, uiPreferencesRef) }
-    function restoreTabState(defaultPath) { FileManagerTabs.restoreTabState(root, defaultPath) }
+    function restoreTabState(defaultPath) { FileManagerTabs.restoreTabState(root, uiPreferencesRef, defaultPath) }
     function openContextEntryInNewTab() { FileManagerTabs.openContextEntryInNewTab(root, modelFactoryRef, uiPreferencesRef) }
     function openSidebarContextPath(pathValue) { FileManagerSidebarContextOps.openSidebarContextPath(root, pathValue) }
     function openSidebarContextPathInNewTab(pathValue) { FileManagerSidebarContextOps.openSidebarContextPathInNewTab(root, pathValue) }

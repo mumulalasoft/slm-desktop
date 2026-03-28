@@ -92,6 +92,7 @@ Rectangle {
                         id: tabCloseButton
                         visible: (tabModel.count > 1)
                                  && (hostRoot.activeTabIndex === index)
+                        z: 3
                         width: 12
                         height: 12
                         radius: Theme.radiusMdPlus
@@ -122,6 +123,7 @@ Rectangle {
 
                     MouseArea {
                         anchors.fill: parent
+                        anchors.rightMargin: tabCloseButton.visible ? (tabCloseButton.width + 12) : 0
                         hoverEnabled: true
                         acceptedButtons: Qt.LeftButton | Qt.MiddleButton
                         onClicked: function(mouse) {
