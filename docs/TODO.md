@@ -50,8 +50,9 @@
   - [x] Greeter: block login submit while `required` session components missing.
   - [x] FileManager Sharing: only `required` issues block readiness; `recommended` stays non-blocking.
   - [x] Expand gate coverage to all fragile flows (print/network/bluetooth/portal actions).
-- [ ] Add end-to-end regression tests:
-  - missing dependency -> warning UI -> install via polkit -> recheck -> feature restored.
+- [~] Add end-to-end regression tests:
+  - [x] Core baseline: missing dependency -> install pipeline (mocked pkexec/pkg manager) -> recheck -> feature restored (`missingcomponentcontroller_test`).
+  - [ ] UI flow end-to-end: missing dependency -> warning UI -> install via polkit -> recheck -> feature restored.
 - [ ] Add desktop health daemon + structured reason codes and persistent timeline.
 - [ ] Add automatic config rollback on crash-loop (last-known-good snapshot).
 
