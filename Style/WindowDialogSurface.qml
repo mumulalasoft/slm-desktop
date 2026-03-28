@@ -6,20 +6,22 @@ Item {
     id: control
 
     property string title: ""
-    property int outerMargin: Theme.metric("spacingMd")
-    property int contentSpacing: Theme.metric("spacingSm")
+    property int outerMargin: Theme.metric("spacingLg")
+    property int contentSpacing: Theme.metric("spacingMd")
     property Component bodyComponent
     property Component footerComponent
     property bool showDivider: true
 
-    implicitWidth: 420
+    implicitWidth: 380
     implicitHeight: (layoutColumn.implicitHeight + (outerMargin * 2))
 
     DSStyle.PopupSurface {
         anchors.fill: parent
-        popupRadius: Theme.radiusWindow
-        popupOpacity: Theme.popupSurfaceOpacityStrong
-        elevation: "high"
+        popupRadius: Theme.radiusWindowAlt
+        popupColor: Theme.color("surface")
+        popupBorderColor: Theme.color("panelBorder")
+        popupOpacity: Theme.cardSurfaceOpacity
+        elevation: "medium"
     }
 
     Column {
@@ -33,9 +35,12 @@ Item {
             width: parent.width
             text: control.title
             color: Theme.color("textPrimary")
-            font.pixelSize: Theme.fontSize("title")
-            font.weight: Theme.fontWeight("bold")
+            font.family: Theme.fontFamilyDisplay
+            font.pixelSize: Theme.fontSize("subtitle")
+            font.weight: Theme.fontWeight("semibold")
             elide: Text.ElideRight
+            lineHeightMode: Text.ProportionalHeight
+            lineHeight: Theme.lineHeight("tight")
         }
 
         Loader {
@@ -48,8 +53,8 @@ Item {
             visible: !!control.footerComponent && control.showDivider
             width: parent.width
             height: 1
-            color: Theme.color("windowCardBorder")
-            opacity: 0.8
+            color: Theme.color("panelBorder")
+            opacity: Theme.darkMode ? 0.65 : 0.9
         }
 
         Loader {

@@ -8,12 +8,13 @@ import Style as DSStyle
 T.Dialog {
     id: control
 
-    property int dialogWidth: 360
-    property int bodyPadding: Theme.metric("spacingLg")
-    property int footerPadding: Theme.metric("spacingSm")
+    property int dialogWidth: 332
+    property int bodyPadding: Theme.metric("spacingMd")
+    property int footerPadding: Theme.metric("spacingMd")
     property Component bodyComponent
     property Component footerComponent
     property bool showDefaultCloseFooter: false
+    property bool showFooterDivider: true
     property string closeButtonText: "Close"
 
     modal: true
@@ -24,28 +25,27 @@ T.Dialog {
     font.family: Theme.fontFamilyUi
     font.pixelSize: Theme.fontSize("body")
 
-    background: Rectangle {
+    background: DSStyle.PopupSurface {
         implicitWidth: control.dialogWidth
-        implicitHeight: 180
-        radius: Theme.radiusWindowAlt
-        antialiasing: true
-        color: Theme.color("windowCard")
-        border.width: Theme.borderWidthThin
-        border.color: Theme.color("windowCardBorder")
-        opacity: Theme.cardSurfaceOpacity
+        implicitHeight: 164
+        popupRadius: Theme.radiusWindowAlt
+        popupColor: Theme.color("surface")
+        popupBorderColor: Theme.color("panelBorder")
+        popupOpacity: Theme.cardSurfaceOpacity
+        elevation: "high"
     }
 
     header: Item {
         visible: control.title && control.title.length > 0
-        implicitHeight: visible ? (Theme.metric("controlHeightLarge") + Theme.metric("spacingXs")) : 0
+        implicitHeight: visible ? (Theme.metric("controlHeightRegular") + Theme.metric("spacingXxs")) : 0
 
         DSStyle.Label {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top
-            anchors.leftMargin: Theme.metric("spacingLg")
-            anchors.rightMargin: Theme.metric("spacingLg")
-            anchors.topMargin: Theme.metric("spacingSm")
+            anchors.leftMargin: Theme.metric("spacingMd")
+            anchors.rightMargin: Theme.metric("spacingMd")
+            anchors.topMargin: Theme.metric("spacingXs")
             text: control.title
             color: Theme.color("textPrimary")
             font.family: Theme.fontFamilyDisplay
@@ -73,16 +73,32 @@ T.Dialog {
     footer: Item {
         visible: !!control.footerComponent || control.showDefaultCloseFooter
         implicitWidth: control.dialogWidth
+        readonly property bool hasCustomFooter: !!control.footerComponent
+        readonly property bool hasAnyFooter: hasCustomFooter || control.showDefaultCloseFooter
         implicitHeight: (footerLoader.item ? footerLoader.item.implicitHeight : 0)
+                        + (divider.visible ? divider.height : 0)
                         + (defaultFooter.visible ? defaultFooter.implicitHeight : 0)
                         + (control.footerPadding * 2)
+
+        Rectangle {
+            id: divider
+            visible: control.showFooterDivider && footer.hasAnyFooter
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            height: 1
+            color: Theme.color("panelBorder")
+            opacity: Theme.darkMode ? 0.65 : 0.9
+        }
 
         Loader {
             id: footerLoader
             anchors.left: parent.left
             anchors.right: parent.right
-            anchors.top: parent.top
-            anchors.margins: control.footerPadding
+            anchors.top: divider.bottom
+            anchors.leftMargin: control.footerPadding
+            anchors.rightMargin: control.footerPadding
+            anchors.topMargin: control.footerPadding
             sourceComponent: control.footerComponent
         }
 
@@ -92,7 +108,9 @@ T.Dialog {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.bottom: parent.bottom
-            anchors.margins: control.footerPadding
+            anchors.leftMargin: control.footerPadding
+            anchors.rightMargin: control.footerPadding
+            anchors.bottomMargin: control.footerPadding
             alignment: Qt.AlignRight
 
             DSStyle.Button {
