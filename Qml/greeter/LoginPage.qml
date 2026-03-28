@@ -16,6 +16,7 @@ Rectangle {
     property bool   installBusy: false
     property string installStatusText: ""
     property var    missingIssues: []
+    property var    blockingMissingIssues: []
 
     property int    selectedUserIndex: -1
     property bool   lastUserResolved: false
@@ -64,6 +65,10 @@ Rectangle {
 
     function submitLogin() {
         notificationMessage = ""
+        if ((root.blockingMissingIssues || []).length > 0) {
+            notificationMessage = "Komponen inti sesi masih hilang. Pasang komponen wajib dulu sebelum login."
+            return
+        }
         if (GreeterApp) {
             GreeterApp.login(userField.text.trim(),
                              passwordField.text,
@@ -74,9 +79,11 @@ Rectangle {
     function refreshMissingIssues() {
         if (typeof MissingComponents === "undefined" || !MissingComponents) {
             root.missingIssues = []
+            root.blockingMissingIssues = []
             return
         }
         root.missingIssues = MissingComponents.missingComponentsForDomain("greeter")
+        root.blockingMissingIssues = MissingComponents.blockingMissingComponentsForDomain("greeter")
     }
 
     Keys.onPressed: function(event) {
@@ -263,14 +270,16 @@ Rectangle {
                 width: Math.round(44 * root.uiScale)
                 height: Math.round(44 * root.uiScale)
                 text: "❯"
+                enabled: (root.blockingMissingIssues || []).length === 0
                 onClicked: root.submitLogin()
                 background: Rectangle {
                     radius: width / 2
-                    color: parent.down ? "#0a5fb5" : "#0a84ff"
+                    color: !parent.enabled ? "#6e7a8a"
+                          : (parent.down ? "#0a5fb5" : "#0a84ff")
                 }
                 contentItem: Text {
                     text: parent.text
-                    color: "#ffffff"
+                    color: parent.enabled ? "#ffffff" : "#d0d7e0"
                     font.pixelSize: Math.round(20 * root.uiScale)
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter

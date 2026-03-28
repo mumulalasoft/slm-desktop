@@ -478,12 +478,27 @@ QVariantMap FileManagerApi::folderSharingEnvironment() const
     }
 
     QVariantList issues;
-    auto pushIssue = [&issues](const QString &code, const QString &message, bool fixable) {
+    QVariantList blockingIssues;
+    bool hasBlockingMissing = false;
+    auto pushIssue = [&issues, &blockingIssues, &hasBlockingMissing](const QString &code,
+                                                                      const QString &message,
+                                                                      bool fixable,
+                                                                      const QString &severity = QStringLiteral("required")) {
+        const QString level = severity.trimmed().isEmpty()
+                ? QStringLiteral("required")
+                : severity.trimmed().toLower();
+        if (level == QStringLiteral("required")) {
+            hasBlockingMissing = true;
+        }
         issues.push_back(QVariantMap{
             {QStringLiteral("code"), code},
             {QStringLiteral("message"), message},
             {QStringLiteral("fixable"), fixable},
+            {QStringLiteral("severity"), level},
         });
+        if (level == QStringLiteral("required")) {
+            blockingIssues.push_back(issues.back());
+        }
     };
 
     const QVariantList missingComponents = Slm::System::ComponentRegistry::missingForDomain(QStringLiteral("filemanager"));
@@ -494,6 +509,13 @@ QVariantMap FileManagerApi::folderSharingEnvironment() const
         if (componentId == QStringLiteral("samba")) {
             sambaMissing = true;
         }
+        const QString severity = row.value(QStringLiteral("severity")).toString();
+        const QString level = severity.trimmed().isEmpty()
+                ? QStringLiteral("required")
+                : severity.trimmed().toLower();
+        if (level == QStringLiteral("required")) {
+            hasBlockingMissing = true;
+        }
         QVariantMap issue{
             {QStringLiteral("code"), QStringLiteral("component-missing:%1").arg(componentId)},
             {QStringLiteral("message"), row.value(QStringLiteral("description")).toString()},
@@ -503,8 +525,12 @@ QVariantMap FileManagerApi::folderSharingEnvironment() const
             {QStringLiteral("guidance"), row.value(QStringLiteral("guidance")).toString()},
             {QStringLiteral("packageName"), row.value(QStringLiteral("packageName")).toString()},
             {QStringLiteral("autoInstallable"), row.value(QStringLiteral("autoInstallable")).toBool()},
+            {QStringLiteral("severity"), level},
         };
         issues.push_back(issue);
+        if (level == QStringLiteral("required")) {
+            blockingIssues.push_back(issue);
+        }
     }
 
     if (!sambaMissing) {
@@ -516,29 +542,34 @@ QVariantMap FileManagerApi::folderSharingEnvironment() const
             proc.waitForFinished();
             pushIssue(QStringLiteral("usershare-timeout"),
                       QStringLiteral("Layanan berbagi jaringan tidak merespons."),
-                      false);
+                      false,
+                      QStringLiteral("required"));
         } else if (proc.exitCode() != 0) {
             const QString err = QString::fromUtf8(proc.readAllStandardError()).toLower();
             if (err.contains(QStringLiteral("permission denied")) || err.contains(QStringLiteral("denied"))) {
                 pushIssue(QStringLiteral("usershare-permission-denied"),
                           QStringLiteral("Akun ini belum diizinkan untuk berbagi folder."),
-                          false);
+                          false,
+                          QStringLiteral("required"));
             } else if (err.contains(QStringLiteral("usershare")) && err.contains(QStringLiteral("not allowed"))) {
                 pushIssue(QStringLiteral("usershare-not-enabled"),
                           QStringLiteral("Berbagi jaringan belum diaktifkan pada sistem."),
-                          false);
+                          false,
+                          QStringLiteral("required"));
             } else {
                 pushIssue(QStringLiteral("usershare-check-failed"),
                           QStringLiteral("Pemeriksaan layanan berbagi gagal."),
-                          false);
+                          false,
+                          QStringLiteral("required"));
             }
         }
     }
-    const bool ready = issues.isEmpty();
+    const bool ready = !hasBlockingMissing;
     return normalizeEnvironmentResult(makeResult(ready,
                                                  ready ? QString() : QStringLiteral("sharing-env-not-ready"),
                                                  {{QStringLiteral("ready"), ready},
                                                   {QStringLiteral("issues"), issues},
+                                                  {QStringLiteral("blockingIssues"), blockingIssues},
                                                   {QStringLiteral("backendError"), daemonFailure}}));
 }
 
