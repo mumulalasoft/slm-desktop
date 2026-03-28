@@ -1,6 +1,9 @@
 #include "recoveryapp.h"
 
 #include <QCoreApplication>
+#include <QDBusConnection>
+#include <QDBusInterface>
+#include <QDBusReply>
 #include <QDir>
 #include <QProcess>
 
@@ -113,6 +116,23 @@ QString RecoveryApp::logSummary() const
     }
     const QString output = QString::fromLocal8Bit(proc.readAllStandardOutput()).trimmed();
     return output.isEmpty() ? QStringLiteral("(no log entries found)") : output;
+}
+
+QVariantMap RecoveryApp::daemonHealthSnapshot() const
+{
+    QDBusInterface iface(QStringLiteral("org.slm.WorkspaceManager"),
+                         QStringLiteral("/org/slm/WorkspaceManager"),
+                         QStringLiteral("org.slm.WorkspaceManager1"),
+                         QDBusConnection::sessionBus());
+    if (!iface.isValid()) {
+        return {};
+    }
+
+    const QDBusReply<QVariantMap> reply = iface.call(QStringLiteral("DaemonHealthSnapshot"));
+    if (!reply.isValid()) {
+        return {};
+    }
+    return reply.value();
 }
 
 void RecoveryApp::exitToDesktop()

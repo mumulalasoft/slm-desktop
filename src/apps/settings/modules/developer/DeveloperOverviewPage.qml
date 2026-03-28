@@ -9,6 +9,13 @@ Flickable {
     anchors.fill: parent
     contentHeight: mainCol.implicitHeight + 48
     clip: true
+    property var daemonHealthSnapshot: (DaemonHealthClient && DaemonHealthClient.snapshot) ? DaemonHealthClient.snapshot : ({})
+
+    function formatTimelineTs(tsMs) {
+        if (!tsMs || Number(tsMs) <= 0)
+            return "-"
+        return new Date(Number(tsMs)).toLocaleString()
+    }
 
     ColumnLayout {
         id: mainCol
@@ -145,6 +152,94 @@ Flickable {
             }
         }
 
+        SettingGroup {
+            Layout.fillWidth: true
+            label: qsTr("Daemon Health")
+
+            SettingCard {
+                width: parent.width
+                label: qsTr("Workspace Daemon")
+                description: DaemonHealthClient && DaemonHealthClient.serviceAvailable
+                             ? qsTr("org.slm.WorkspaceManager1")
+                             : qsTr("service offline")
+                control: Row {
+                    spacing: 6
+                    Rectangle {
+                        width: 8
+                        height: 8
+                        radius: 4
+                        anchors.verticalCenter: parent.verticalCenter
+                        color: {
+                            if (!DaemonHealthClient || !DaemonHealthClient.serviceAvailable)
+                                return Theme.color("textDisabled")
+                            return root.daemonHealthSnapshot.degraded
+                                   ? (Theme.color("warning") || "#f59e0b")
+                                   : (Theme.color("success") || "#22c55e")
+                        }
+                    }
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        font.pixelSize: Theme.fontSize("xs")
+                        color: Theme.color("textSecondary")
+                        text: {
+                            if (!DaemonHealthClient || !DaemonHealthClient.serviceAvailable)
+                                return qsTr("offline")
+                            return root.daemonHealthSnapshot.degraded ? qsTr("degraded") : qsTr("healthy")
+                        }
+                    }
+                }
+            }
+
+            SettingCard {
+                width: parent.width
+                label: qsTr("Reason Codes")
+                description: {
+                    const reasons = root.daemonHealthSnapshot.reasonCodes || []
+                    return reasons.length > 0 ? reasons.join(", ") : qsTr("none")
+                }
+                control: Item {
+                    width: 1
+                    height: 1
+                }
+            }
+
+            SettingCard {
+                width: parent.width
+                label: qsTr("Recent Timeline")
+                description: {
+                    const list = root.daemonHealthSnapshot.timeline || []
+                    return qsTr("%1 events").arg(list.length)
+                }
+                control: Column {
+                    width: parent.width
+                    spacing: 4
+
+                    Repeater {
+                        model: {
+                            const rows = root.daemonHealthSnapshot.timeline || []
+                            return rows.slice(Math.max(0, rows.length - 5)).reverse()
+                        }
+                        delegate: Text {
+                            width: parent.width
+                            wrapMode: Text.WordWrap
+                            font.pixelSize: Theme.fontSize("xs")
+                            color: Theme.color("textSecondary")
+                            text: {
+                                const row = modelData || {}
+                                const ts = root.formatTimelineTs(row.tsMs)
+                                const peer = row.peer || "unknown"
+                                const code = row.code || "n/a"
+                                const sev = row.severity || "n/a"
+                                const msg = row.message || ""
+                                return ts + " • " + peer + " • " + code + " • " + sev
+                                       + (msg.length > 0 ? " • " + msg : "")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // ── Quick actions ─────────────────────────────────────────────────
         SettingGroup {
             Layout.fillWidth: true
@@ -157,7 +252,12 @@ Flickable {
 
                 Button {
                     text: qsTr("Refresh Status")
-                    onClicked: if (ProcessServicesController) ProcessServicesController.refresh()
+                    onClicked: {
+                        if (ProcessServicesController)
+                            ProcessServicesController.refresh()
+                        if (DaemonHealthClient)
+                            DaemonHealthClient.refresh()
+                    }
                 }
 
                 Button {
@@ -171,5 +271,10 @@ Flickable {
                 }
             }
         }
+    }
+
+    Component.onCompleted: {
+        if (DaemonHealthClient)
+            DaemonHealthClient.refresh()
     }
 }

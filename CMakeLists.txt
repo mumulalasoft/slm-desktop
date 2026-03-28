@@ -350,6 +350,8 @@ qt_add_executable(slm-settings
     src/apps/settings/modules/developer/xdgportalscontroller.h
     src/apps/settings/modules/developer/componenthealthcontroller.cpp
     src/apps/settings/modules/developer/componenthealthcontroller.h
+    src/apps/settings/modules/developer/daemonhealthclient.cpp
+    src/apps/settings/modules/developer/daemonhealthclient.h
     src/core/system/componentregistry.cpp
     src/core/system/componentregistry.h
     src/core/system/dependencyguard.cpp
@@ -3829,6 +3831,7 @@ qt_add_qml_module(slm-recovery-app
 target_link_libraries(slm-recovery-app
     PRIVATE
         Qt6::Core
+        Qt6::DBus
         Qt6::Gui
         Qt6::Qml
         Qt6::Quick

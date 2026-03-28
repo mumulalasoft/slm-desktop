@@ -11,13 +11,81 @@ Usage:
   $0 unlock [build_dir] [ctest_regex]
   $0 filemanager-gates [build_dir] [stable|strict]
   $0 filemanager-smoke [build_dir]
+  $0 nightly [build_dir]
 
 Modes:
   default    Run lint + fileops suite + full ctest suite.
   unlock     Run unlock-related DBus test flow (uses secure password prompt helper).
   filemanager-gates  Run FileManager DBus gate subset via unified script.
   filemanager-smoke  Run FileManager smoke+regression subset in isolated DBus session.
+  nightly    Run default suite plus polkit runtime smoke test.
 EOF
+}
+
+run_default_suite() {
+  local build_dir="$1"
+
+  echo "[test] build_dir=${build_dir}"
+  local fileops_regex="${SLM_TEST_FILEOPS_REGEX:-^(fileoperationsmanager_test|fileoperationsservice_dbus_test|fileopctl_smoke_test|filemanagerapi_daemon_recovery_test)$}"
+  local skip_ui_lint="${SLM_TEST_SKIP_UI_LINT:-0}"
+  local skip_cap_matrix_lint="${SLM_TEST_SKIP_CAPABILITY_MATRIX_LINT:-0}"
+
+  if [[ "${skip_ui_lint}" != "1" ]]; then
+    echo "[test] running UI style lint"
+    "${ROOT_DIR}/scripts/lint-ui-style.sh"
+  fi
+
+  if [[ "${skip_cap_matrix_lint}" != "1" ]]; then
+    echo "[test] running capability matrix lint"
+    "${ROOT_DIR}/scripts/check-capability-matrix.sh"
+  fi
+
+  echo "[test] running file operations contract suite: ${fileops_regex}"
+  QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-offscreen}" \
+  ctest --test-dir "${build_dir}" --output-on-failure -R "${fileops_regex}"
+
+  echo "[test] running full suite"
+  QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-offscreen}" \
+  ctest --test-dir "${build_dir}" --output-on-failure
+
+  local soak_enabled="${SLM_TEST_ENABLE_SOAK:-0}"
+  if [[ "${soak_enabled}" == "1" ]]; then
+    local soak_minutes="${SLM_TEST_SOAK_MINUTES:-5}"
+    local soak_regex="${SLM_TEST_SOAK_REGEX:-^(filemanagerapi_daemon_recovery_test)$}"
+    local soak_qpa="${SLM_TEST_SOAK_QPA_PLATFORM:-${QT_QPA_PLATFORM:-offscreen}}"
+
+    if ! [[ "${soak_minutes}" =~ ^[0-9]+$ ]] || [[ "${soak_minutes}" -lt 1 ]]; then
+      echo "[test] invalid SLM_TEST_SOAK_MINUTES='${soak_minutes}' (expected integer >= 1)" >&2
+      exit 2
+    fi
+
+    local soak_seconds=$((soak_minutes * 60))
+    local start_ts
+    start_ts="$(date +%s)"
+    local deadline_ts=$((start_ts + soak_seconds))
+    local iter=0
+
+    echo "[test] soak mode enabled"
+    echo "[test] soak_minutes=${soak_minutes} soak_regex=${soak_regex} qpa=${soak_qpa}"
+
+    while [[ "$(date +%s)" -lt "${deadline_ts}" ]]; do
+      iter=$((iter + 1))
+      local now_ts
+      now_ts="$(date +%s)"
+      local remain=$((deadline_ts - now_ts))
+      if [[ "${remain}" -lt 0 ]]; then
+        remain=0
+      fi
+      echo "[test][soak] iteration=${iter} remaining_sec=${remain}"
+      QT_QPA_PLATFORM="${soak_qpa}" \
+      ctest --test-dir "${build_dir}" --output-on-failure -R "${soak_regex}"
+    done
+
+    local end_ts
+    end_ts="$(date +%s)"
+    local elapsed=$((end_ts - start_ts))
+    echo "[test] soak completed elapsed_sec=${elapsed} iterations=${iter}"
+  fi
 }
 
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
@@ -86,6 +154,21 @@ if [[ "${1:-}" == "filemanager-smoke" ]]; then
   exec "${ROOT_DIR}/scripts/test-filemanager-smoke-regression.sh" "${BUILD_DIR}"
 fi
 
+if [[ "${1:-}" == "nightly" ]]; then
+  BUILD_DIR="${2:-${DEFAULT_BUILD_DIR}}"
+  if [[ ! -d "${BUILD_DIR}" ]]; then
+    echo "Build directory not found: ${BUILD_DIR}" >&2
+    echo "Usage: $0 nightly [build_dir]" >&2
+    exit 2
+  fi
+  echo "[test] mode=nightly build_dir=${BUILD_DIR}"
+  run_default_suite "${BUILD_DIR}"
+  echo "[test] running nightly polkit runtime smoke"
+  SLM_POLKIT_RUNTIME_SMOKE=1 \
+  ctest --test-dir "${BUILD_DIR}" --output-on-failure -R "^polkit_agent_runtime_smoke_test$"
+  exit 0
+fi
+
 BUILD_DIR="${1:-${DEFAULT_BUILD_DIR}}"
 
 if [[ ! -d "${BUILD_DIR}" ]]; then
@@ -94,61 +177,4 @@ if [[ ! -d "${BUILD_DIR}" ]]; then
   exit 2
 fi
 
-echo "[test] build_dir=${BUILD_DIR}"
-FILEOPS_REGEX="${SLM_TEST_FILEOPS_REGEX:-^(fileoperationsmanager_test|fileoperationsservice_dbus_test|fileopctl_smoke_test|filemanagerapi_daemon_recovery_test)$}"
-SKIP_UI_LINT="${SLM_TEST_SKIP_UI_LINT:-0}"
-SKIP_CAP_MATRIX_LINT="${SLM_TEST_SKIP_CAPABILITY_MATRIX_LINT:-0}"
-
-if [[ "${SKIP_UI_LINT}" != "1" ]]; then
-  echo "[test] running UI style lint"
-  "${ROOT_DIR}/scripts/lint-ui-style.sh"
-fi
-
-if [[ "${SKIP_CAP_MATRIX_LINT}" != "1" ]]; then
-  echo "[test] running capability matrix lint"
-  "${ROOT_DIR}/scripts/check-capability-matrix.sh"
-fi
-
-echo "[test] running file operations contract suite: ${FILEOPS_REGEX}"
-QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-offscreen}" \
-ctest --test-dir "${BUILD_DIR}" --output-on-failure -R "${FILEOPS_REGEX}"
-
-echo "[test] running full suite"
-QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-offscreen}" \
-ctest --test-dir "${BUILD_DIR}" --output-on-failure
-
-SOAK_ENABLED="${SLM_TEST_ENABLE_SOAK:-0}"
-if [[ "${SOAK_ENABLED}" == "1" ]]; then
-  SOAK_MINUTES="${SLM_TEST_SOAK_MINUTES:-5}"
-  SOAK_REGEX="${SLM_TEST_SOAK_REGEX:-^(filemanagerapi_daemon_recovery_test)$}"
-  SOAK_QPA="${SLM_TEST_SOAK_QPA_PLATFORM:-${QT_QPA_PLATFORM:-offscreen}}"
-
-  if ! [[ "${SOAK_MINUTES}" =~ ^[0-9]+$ ]] || [[ "${SOAK_MINUTES}" -lt 1 ]]; then
-    echo "[test] invalid SLM_TEST_SOAK_MINUTES='${SOAK_MINUTES}' (expected integer >= 1)" >&2
-    exit 2
-  fi
-
-  SOAK_SECONDS=$((SOAK_MINUTES * 60))
-  START_TS="$(date +%s)"
-  DEADLINE_TS=$((START_TS + SOAK_SECONDS))
-  ITER=0
-
-  echo "[test] soak mode enabled"
-  echo "[test] soak_minutes=${SOAK_MINUTES} soak_regex=${SOAK_REGEX} qpa=${SOAK_QPA}"
-
-  while [[ "$(date +%s)" -lt "${DEADLINE_TS}" ]]; do
-    ITER=$((ITER + 1))
-    NOW_TS="$(date +%s)"
-    REMAIN=$((DEADLINE_TS - NOW_TS))
-    if [[ "${REMAIN}" -lt 0 ]]; then
-      REMAIN=0
-    fi
-    echo "[test][soak] iteration=${ITER} remaining_sec=${REMAIN}"
-    QT_QPA_PLATFORM="${SOAK_QPA}" \
-    ctest --test-dir "${BUILD_DIR}" --output-on-failure -R "${SOAK_REGEX}"
-  done
-
-  END_TS="$(date +%s)"
-  ELAPSED=$((END_TS - START_TS))
-  echo "[test] soak completed elapsed_sec=${ELAPSED} iterations=${ITER}"
-fi
+run_default_suite "${BUILD_DIR}"

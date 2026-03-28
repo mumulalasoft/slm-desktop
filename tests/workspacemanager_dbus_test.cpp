@@ -126,8 +126,36 @@ private slots:
                  QStringLiteral("org.slm.Desktop.Devices"));
         QVERIFY(health.contains(QStringLiteral("baseDelayMs")));
         QVERIFY(health.contains(QStringLiteral("maxDelayMs")));
+        QVERIFY(health.contains(QStringLiteral("degraded")));
+        QVERIFY(health.contains(QStringLiteral("reasonCodes")));
+        QVERIFY(health.contains(QStringLiteral("timeline")));
+        QVERIFY(health.contains(QStringLiteral("timelineSize")));
+        QVERIFY(health.contains(QStringLiteral("timelineFile")));
         QVERIFY(health.value(QStringLiteral("baseDelayMs")).toInt() > 0);
         QVERIFY(health.value(QStringLiteral("maxDelayMs")).toInt() >= health.value(QStringLiteral("baseDelayMs")).toInt());
+        QVERIFY(health.value(QStringLiteral("reasonCodes")).canConvert<QVariantList>());
+        QVERIFY(health.value(QStringLiteral("timeline")).canConvert<QVariantList>());
+        const QVariantList timeline = health.value(QStringLiteral("timeline")).toList();
+        const int timelineSize = health.value(QStringLiteral("timelineSize")).toInt();
+        QCOMPARE(timelineSize, timeline.size());
+        QVERIFY(timelineSize <= 200);
+        QVERIFY(!health.value(QStringLiteral("timelineFile")).toString().trimmed().isEmpty());
+        if (!timeline.isEmpty()) {
+            QVERIFY(timeline.constFirst().canConvert<QVariantMap>());
+            const QVariantMap firstRow = timeline.constFirst().toMap();
+            QVERIFY(firstRow.contains(QStringLiteral("tsMs")));
+            QVERIFY(firstRow.contains(QStringLiteral("peer")));
+            QVERIFY(firstRow.contains(QStringLiteral("code")));
+            QVERIFY(firstRow.contains(QStringLiteral("severity")));
+            QVERIFY(firstRow.contains(QStringLiteral("message")));
+        }
+
+        QDBusReply<QVariantMap> healthReply2 = iface.call(QStringLiteral("DaemonHealthSnapshot"));
+        QVERIFY(healthReply2.isValid());
+        const QVariantMap health2 = healthReply2.value();
+        QCOMPARE(health2.value(QStringLiteral("timelineFile")).toString(),
+                 health.value(QStringLiteral("timelineFile")).toString());
+        QCOMPARE(health2.value(QStringLiteral("timelineSize")).toInt(), timelineSize);
 
         QDBusReply<bool> presentReply = iface.call(QStringLiteral("PresentWindow"),
                                                    QStringLiteral("non-existent-app"));

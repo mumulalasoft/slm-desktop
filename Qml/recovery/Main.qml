@@ -11,6 +11,7 @@ Window {
     property bool installBusy: false
     property string installStatusText: ""
     property var missingIssues: []
+    property var daemonHealth: ({})
 
     function refreshMissingIssues() {
         if (typeof MissingComponents === "undefined" || !MissingComponents) {
@@ -18,6 +19,14 @@ Window {
             return
         }
         missingIssues = MissingComponents.missingComponentsForDomain("recovery")
+    }
+
+    function refreshDaemonHealth() {
+        if (typeof RecoveryApp === "undefined" || !RecoveryApp) {
+            daemonHealth = ({})
+            return
+        }
+        daemonHealth = RecoveryApp.daemonHealthSnapshot() || ({})
     }
 
     // ── Header ────────────────────────────────────────────────────────────────
@@ -106,6 +115,90 @@ Window {
                 } else {
                     root.installStatusText = qsTr("Gagal instal komponen: ")
                             + String((res && res.error) ? res.error : "unknown")
+                }
+            }
+        }
+
+        Rectangle {
+            Layout.fillWidth: true
+            color: "#242424"
+            border.color: "#353535"
+            border.width: 1
+            radius: 8
+            visible: true
+            implicitHeight: daemonHealthColumn.implicitHeight + 20
+
+            ColumnLayout {
+                id: daemonHealthColumn
+                anchors.fill: parent
+                anchors.margins: 10
+                spacing: 6
+
+                RowLayout {
+                    Layout.fillWidth: true
+
+                    Text {
+                        text: qsTr("Daemon Health")
+                        color: "white"
+                        font.pixelSize: 13
+                        font.bold: true
+                    }
+
+                    Item { Layout.fillWidth: true }
+
+                    Text {
+                        text: {
+                            if (!root.daemonHealth || Object.keys(root.daemonHealth).length === 0)
+                                return qsTr("unavailable")
+                            return root.daemonHealth.degraded ? qsTr("degraded") : qsTr("healthy")
+                        }
+                        color: (!root.daemonHealth || Object.keys(root.daemonHealth).length === 0)
+                               ? "#aaaaaa"
+                               : (root.daemonHealth.degraded ? "#ffcc80" : "#a5d6a7")
+                        font.pixelSize: 12
+                    }
+
+                    Button {
+                        text: qsTr("Refresh")
+                        font.pixelSize: 12
+                        onClicked: root.refreshDaemonHealth()
+                    }
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    wrapMode: Text.WordWrap
+                    color: "#bdbdbd"
+                    font.pixelSize: 12
+                    text: {
+                        if (!root.daemonHealth || Object.keys(root.daemonHealth).length === 0)
+                            return qsTr("Workspace daemon snapshot not available.")
+                        const reasons = root.daemonHealth.reasonCodes || []
+                        return reasons.length > 0
+                               ? qsTr("Reasons: %1").arg(reasons.join(", "))
+                               : qsTr("No active degradation reason.")
+                    }
+                }
+
+                Repeater {
+                    model: {
+                        const rows = (root.daemonHealth && root.daemonHealth.timeline) ? root.daemonHealth.timeline : []
+                        return rows.slice(Math.max(0, rows.length - 3)).reverse()
+                    }
+                    delegate: Text {
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                        color: "#9e9e9e"
+                        font.pixelSize: 11
+                        text: {
+                            const row = modelData || {}
+                            const tsMs = Number(row.tsMs || 0)
+                            const ts = tsMs > 0 ? new Date(tsMs).toLocaleString() : "-"
+                            const peer = row.peer || "unknown"
+                            const code = row.code || "n/a"
+                            return ts + " • " + peer + " • " + code
+                        }
+                    }
                 }
             }
         }
@@ -224,5 +317,8 @@ Window {
         }
     }
 
-    Component.onCompleted: refreshMissingIssues()
+    Component.onCompleted: {
+        refreshMissingIssues()
+        refreshDaemonHealth()
+    }
 }

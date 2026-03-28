@@ -1,6 +1,7 @@
 #pragma once
 #include <QObject>
 #include <QStringList>
+#include <QVariantMap>
 
 namespace Slm::Login {
 
@@ -28,6 +29,7 @@ public:
     Q_INVOKABLE bool restoreSnapshot(const QString &snapshotId);
     Q_INVOKABLE bool factoryReset();
     Q_INVOKABLE QString logSummary() const;
+    Q_INVOKABLE QVariantMap daemonHealthSnapshot() const;
     Q_INVOKABLE void    exitToDesktop();
 
 private:
