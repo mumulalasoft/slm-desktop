@@ -123,10 +123,10 @@ else()
     )
 endif()
 
-# appSlm_Desktop consumes FileManager via library target to ease standalone split.
+# slm-desktop consumes FileManager via library target to ease standalone split.
 if(SLM_USE_EXTERNAL_FILEMANAGER_PACKAGE)
     # In external package mode, FileManager units are provided by SlmFileManager::Core.
-    # Keep execution gate/runtime registry in appSlm_Desktop (shell-owned dependencies).
+    # Keep execution gate/runtime registry in slm-desktop (shell-owned dependencies).
     list(REMOVE_ITEM DESKTOP_SHELL_SERVICES
         ${FILEMANAGER_APP_SOURCES}
         ${FILEMANAGER_PROGRESS_SOURCES}
@@ -199,7 +199,7 @@ else()
     )
 endif()
 
-qt_add_executable(appSlm_Desktop
+qt_add_executable(slm-desktop
     ${DESKTOP_SHELL_APP_ENTRY}
     ${DESKTOP_SHELL_MODELS_AND_RUNTIME}
     ${DESKTOP_SHELL_SERVICES}
@@ -207,7 +207,7 @@ qt_add_executable(appSlm_Desktop
     src/apps/settings/modules/developer/envserviceclient.cpp
     src/apps/settings/modules/developer/envserviceclient.h
 )
-target_include_directories(appSlm_Desktop PRIVATE
+target_include_directories(slm-desktop PRIVATE
     ${CMAKE_SOURCE_DIR}
     ${CMAKE_SOURCE_DIR}/src/apps/filemanager/include
     ${CMAKE_SOURCE_DIR}/src/printing
@@ -216,11 +216,11 @@ target_include_directories(appSlm_Desktop PRIVATE
 
 # Ensure the runtime linker can resolve the same Qt used at configure time.
 # Some local build trees may end up with an empty RUNPATH placeholder list.
-if(DEFINED Qt6_DIR AND TARGET appSlm_Desktop)
+if(DEFINED Qt6_DIR AND TARGET slm-desktop)
     get_filename_component(_qt6_cmake_dir "${Qt6_DIR}" ABSOLUTE)
     get_filename_component(_qt6_lib_dir "${_qt6_cmake_dir}/../.." ABSOLUTE)
     if(EXISTS "${_qt6_lib_dir}/libQt6Core.so" OR EXISTS "${_qt6_lib_dir}/libQt6Core.so.6")
-        set_target_properties(appSlm_Desktop PROPERTIES
+        set_target_properties(slm-desktop PROPERTIES
             BUILD_RPATH "${_qt6_lib_dir}"
             INSTALL_RPATH "${_qt6_lib_dir}"
         )
@@ -629,44 +629,6 @@ target_link_libraries(slm-svcmgrd
 )
 target_include_directories(slm-svcmgrd PRIVATE ${CMAKE_SOURCE_DIR})
 
-add_custom_target(sync_style ALL
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-    ${CMAKE_SOURCE_DIR}/Style
-    ${CMAKE_CURRENT_BINARY_DIR}/Style
-    DEPENDS
-        ${CMAKE_SOURCE_DIR}/Style/qmldir
-        ${CMAKE_SOURCE_DIR}/Style/Menu.qml
-        ${CMAKE_SOURCE_DIR}/Style/MenuItem.qml
-        ${CMAKE_SOURCE_DIR}/Style/MenuSeparator.qml
-        ${CMAKE_SOURCE_DIR}/Style/Label.qml
-        ${CMAKE_SOURCE_DIR}/Style/Popup.qml
-        ${CMAKE_SOURCE_DIR}/Style/Dialog.qml
-        ${CMAKE_SOURCE_DIR}/Style/Switch.qml
-        ${CMAKE_SOURCE_DIR}/Style/Button.qml
-        ${CMAKE_SOURCE_DIR}/Style/TextField.qml
-        ${CMAKE_SOURCE_DIR}/Style/ComboBox.qml
-        ${CMAKE_SOURCE_DIR}/Style/Slider.qml
-        ${CMAKE_SOURCE_DIR}/Style/RadioButton.qml
-        ${CMAKE_SOURCE_DIR}/Style/CheckBox.qml
-        ${CMAKE_SOURCE_DIR}/Style/ProgressBar.qml
-        ${CMAKE_SOURCE_DIR}/Style/ScrollBar.qml
-        ${CMAKE_SOURCE_DIR}/Style/TabBar.qml
-        ${CMAKE_SOURCE_DIR}/Style/TabButton.qml
-        ${CMAKE_SOURCE_DIR}/Style/SpinBox.qml
-        ${CMAKE_SOURCE_DIR}/Style/ToolTip.qml
-        ${CMAKE_SOURCE_DIR}/Style/DialogButtonBox.qml
-        ${CMAKE_SOURCE_DIR}/Style/ToolButton.qml
-        ${CMAKE_SOURCE_DIR}/Style/Breadcrumb.qml
-        ${CMAKE_SOURCE_DIR}/Style/IndicatorMenu.qml
-        ${CMAKE_SOURCE_DIR}/Style/IndicatorSectionLabel.qml
-        ${CMAKE_SOURCE_DIR}/Style/IndicatorSectionRow.qml
-        ${CMAKE_SOURCE_DIR}/Style/AppDialog.qml
-        ${CMAKE_SOURCE_DIR}/Style/AppPopup.qml
-        ${CMAKE_SOURCE_DIR}/Style/PopupSurface.qml
-        ${CMAKE_SOURCE_DIR}/Style/WindowDialogSurface.qml
-)
-add_dependencies(appSlm_Desktop sync_style)
-
 add_custom_target(lint_ui_style
     COMMAND ${CMAKE_SOURCE_DIR}/scripts/lint-ui-style.sh
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
@@ -852,7 +814,7 @@ set(DESKTOP_SHELL_QML_FILES
     Qml/apps/filemanager/TrashBadgeController.qml
 )
 
-qt_add_qml_module(appSlm_Desktop
+qt_add_qml_module(slm-desktop
     URI Slm_Desktop
     VERSION 1.0
     QML_FILES
@@ -934,7 +896,7 @@ set(DESKTOP_SHELL_RESOURCE_FILES
 
 )
 
-qt6_add_resources(appSlm_Desktop resources
+qt6_add_resources(slm-desktop resources
     PREFIX "/"
     FILES
         ${DESKTOP_SHELL_RESOURCE_FILES}
@@ -943,15 +905,15 @@ qt6_add_resources(appSlm_Desktop resources
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.
 # If you are developing for iOS or macOS you should consider setting an
 # explicit, fixed bundle identifier manually though.
-set_target_properties(appSlm_Desktop PROPERTIES
-#    MACOSX_BUNDLE_GUI_IDENTIFIER com.example.appSlm_Desktop
+set_target_properties(slm-desktop PROPERTIES
+#    MACOSX_BUNDLE_GUI_IDENTIFIER com.example.slm-desktop
     MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
     MACOSX_BUNDLE_SHORT_VERSION_STRING ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}
     MACOSX_BUNDLE TRUE
     WIN32_EXECUTABLE TRUE
 )
 
-target_link_libraries(appSlm_Desktop
+target_link_libraries(slm-desktop
     PRIVATE
         Qt6::Quick
         Qt6::Network
@@ -963,9 +925,15 @@ target_link_libraries(appSlm_Desktop
         ${SLM_FILEMANAGER_CORE_TARGET}
 )
 if(TARGET Poppler::Qt6)
-    target_link_libraries(appSlm_Desktop PRIVATE Poppler::Qt6)
-    target_compile_definitions(appSlm_Desktop PRIVATE SLM_HAVE_POPPLER_QT6)
+    target_link_libraries(slm-desktop PRIVATE Poppler::Qt6)
+    target_compile_definitions(slm-desktop PRIVATE SLM_HAVE_POPPLER_QT6)
 endif()
+
+add_custom_command(TARGET slm-desktop POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:slm-desktop>
+            $<TARGET_FILE_DIR:slm-desktop>/appSlm_Desktop
+)
 
 target_link_libraries(uipreference
     PRIVATE
@@ -1018,8 +986,6 @@ qt_add_resources(slm-settings "slm_settings_titlebuttons"
         icons/titlebuttons/titlebutton-unmaximize-hover.svg
         icons/titlebuttons/titlebutton-unmaximize-active.svg
 )
-add_dependencies(slm-settings sync_style)
-
 target_include_directories(slm-settings PRIVATE
     ${CMAKE_SOURCE_DIR}/src/apps/settings
     ${CMAKE_SOURCE_DIR}/src/apps/settings/include
@@ -1027,11 +993,14 @@ target_include_directories(slm-settings PRIVATE
 )
 
 include(GNUInstallDirs)
-install(TARGETS appSlm_Desktop
+install(TARGETS slm-desktop
     BUNDLE DESTINATION .
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
+
+# Backward-compatible build alias for legacy scripts.
+add_custom_target(appSlm_Desktop DEPENDS slm-desktop)
 
 install(TARGETS uipreference
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
@@ -1087,10 +1056,6 @@ install(TARGETS slm-portald
 
 install(TARGETS slm-envd
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-)
-
-install(DIRECTORY Style/
-    DESTINATION ${CMAKE_INSTALL_BINDIR}/Style
 )
 
 enable_testing()
@@ -3761,7 +3726,7 @@ add_custom_target(test_headless
 
 add_custom_target(smoke_backends
     COMMAND ${CMAKE_SOURCE_DIR}/scripts/smoke-backends.sh
-    DEPENDS appSlm_Desktop
+    DEPENDS slm-desktop
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
     USES_TERMINAL
 )
@@ -3881,6 +3846,16 @@ qt_add_qml_module(slm-polkit-agent
 file(GLOB SLM_STYLE_MODULE_FILES
     "${CMAKE_SOURCE_DIR}/third_party/slm-style/qml/SlmStyle/*.qml"
     "${CMAKE_SOURCE_DIR}/third_party/slm-style/qml/SlmStyle/qmldir"
+)
+qt_add_resources(slm-desktop "slm_desktop_slmstyle_module"
+    PREFIX "/qt/qml/SlmStyle"
+    BASE "${CMAKE_SOURCE_DIR}/third_party/slm-style/qml/SlmStyle"
+    FILES ${SLM_STYLE_MODULE_FILES}
+)
+qt_add_resources(slm-settings "slm_settings_slmstyle_module"
+    PREFIX "/qt/qml/SlmStyle"
+    BASE "${CMAKE_SOURCE_DIR}/third_party/slm-style/qml/SlmStyle"
+    FILES ${SLM_STYLE_MODULE_FILES}
 )
 qt_add_resources(slm-polkit-agent "slm_polkit_agent_slmstyle_module"
     PREFIX "/qt/qml/SlmStyle"
