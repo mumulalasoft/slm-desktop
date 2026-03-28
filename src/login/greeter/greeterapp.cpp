@@ -6,9 +6,6 @@
 #include <QProcess>
 #include <QStandardPaths>
 
-#include "src/core/system/componentregistry.h"
-#include "src/core/system/dependencyguard.h"
-
 namespace {
 QString resolveSessionBrokerCommand()
 {
@@ -54,8 +51,6 @@ GreeterApp::GreeterApp(QObject *parent)
             this, &GreeterApp::onSuccess);
     connect(m_greetd, &GreetdClient::error,
             this, &GreeterApp::onError);
-
-    m_missingComponents = checkRequiredComponents();
 }
 
 // ── Properties ────────────────────────────────────────────────────────────────
@@ -125,11 +120,6 @@ QString GreeterApp::backgroundSource() const
     return qrcPath;
 }
 
-QVariantList GreeterApp::missingComponents() const
-{
-    return m_missingComponents;
-}
-
 // ── Public invokables ─────────────────────────────────────────────────────────
 
 void GreeterApp::login(const QString &username,
@@ -176,32 +166,6 @@ void GreeterApp::powerOff()
                             {QStringLiteral("poweroff")});
 }
 
-QVariantList GreeterApp::refreshMissingComponents()
-{
-    const QVariantList next = checkRequiredComponents();
-    if (next != m_missingComponents) {
-        m_missingComponents = next;
-        emit missingComponentsChanged();
-    }
-    return m_missingComponents;
-}
-
-QVariantMap GreeterApp::installMissingComponent(const QString &componentId)
-{
-    const QString id = componentId.trimmed().toLower();
-    Slm::System::ComponentRequirement req;
-    if (Slm::System::ComponentRegistry::findById(id, &req) && req.autoInstallable) {
-        const QVariantMap result = Slm::System::installComponentWithPolkit(req);
-        refreshMissingComponents();
-        return result;
-    }
-    return QVariantMap{
-        {QStringLiteral("ok"), false},
-        {QStringLiteral("error"), QStringLiteral("unsupported-component")},
-        {QStringLiteral("componentId"), id},
-    };
-}
-
 // ── Private ───────────────────────────────────────────────────────────────────
 
 bool GreeterApp::systemctlCan(const QString &verb)
@@ -211,34 +175,6 @@ bool GreeterApp::systemctlCan(const QString &verb)
             {QStringLiteral("can-") + verb});
     p.waitForFinished(2000);
     return p.exitCode() == 0;
-}
-
-QVariantList GreeterApp::checkRequiredComponents() const
-{
-    QVariantList out;
-
-    const QString broker = resolveSessionBrokerCommand();
-    if (broker.trimmed().isEmpty()) {
-        out.push_back(QVariantMap{
-            {QStringLiteral("componentId"), QStringLiteral("slm-session-broker")},
-            {QStringLiteral("title"), QStringLiteral("SLM Session Broker")},
-            {QStringLiteral("description"), QStringLiteral("Komponen inti untuk memulai sesi desktop tidak ditemukan.")},
-            {QStringLiteral("packageName"), QStringLiteral("slm-desktop")},
-            {QStringLiteral("autoInstallable"), false},
-            {QStringLiteral("guidance"), QStringLiteral("Masuk ke Recovery lalu pasang ulang paket slm-desktop.")},
-        });
-    }
-
-    const QList<Slm::System::ComponentRequirement> requirements =
-        Slm::System::ComponentRegistry::forDomain(QStringLiteral("greeter"));
-    for (const Slm::System::ComponentRequirement &req : requirements) {
-        const QVariantMap result = Slm::System::checkComponent(req);
-        if (!result.value(QStringLiteral("ready")).toBool()) {
-            out.push_back(result);
-        }
-    }
-
-    return out;
 }
 
 void GreeterApp::onAuthMessage(const QString &type, const QString &message)
