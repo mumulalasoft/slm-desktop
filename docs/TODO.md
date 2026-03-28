@@ -13,7 +13,8 @@
   - `docs/contracts/polkit-agent.md`
 - [x] Week-1: publish CI tier mapping (PR/nightly/weekly) into pipeline config docs.
   - `docs/CI_TIER_MAP.md`
-- [ ] Week-1: define `blocker/high/normal` triage board and SLA owner map.
+- [x] Week-1: define `blocker/high/normal` triage board and SLA owner map.
+  - `docs/TRIAGE_SLA_OWNER_MAP.md`
 - [ ] Week-2: promote `scripts/test.sh nightly` from ad-hoc to required scheduled lane.
 - [ ] Week-2: add release compatibility matrix draft (`platform/login/settings/filemanager/style`).
 - [ ] Week-3: begin `slm-login` split preparation:
