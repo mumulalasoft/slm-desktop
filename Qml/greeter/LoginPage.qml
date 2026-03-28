@@ -15,6 +15,7 @@ Rectangle {
     property string selectedMode: "normal"
     property bool   installBusy: false
     property string installStatusText: ""
+    property var    missingIssues: []
 
     property int    selectedUserIndex: -1
     property bool   lastUserResolved: false
@@ -70,6 +71,14 @@ Rectangle {
         }
     }
 
+    function refreshMissingIssues() {
+        if (typeof MissingComponents === "undefined" || !MissingComponents) {
+            root.missingIssues = []
+            return
+        }
+        root.missingIssues = MissingComponents.missingComponentsForDomain("greeter")
+    }
+
     Keys.onPressed: function(event) {
         if (event.key === Qt.Key_CapsLock) {
             capsLockOn = !capsLockOn
@@ -95,6 +104,7 @@ Rectangle {
             userField.text = GreeterApp.lastUser
         }
         passwordField.forceActiveFocus()
+        root.refreshMissingIssues()
     }
 
     // ── Background ───────────────────────────────────────────────────────────
@@ -415,7 +425,7 @@ Rectangle {
         MissingComponentsCard {
             anchors.horizontalCenter: parent.horizontalCenter
             width: Math.min(centerContent.width * 0.90, Math.round(560 * root.uiScale))
-            issues: GreeterApp ? (GreeterApp.missingComponents || []) : []
+            issues: root.missingIssues || []
             summaryText: "Komponen inti desktop hilang. Beberapa fitur login/sesi dapat gagal."
             statusText: root.installStatusText
             busy: root.installBusy
@@ -427,11 +437,11 @@ Rectangle {
             statusColor: "#ffcc99"
             onInstallRequested: function(componentId) {
                 root.installBusy = true
-                var res = GreeterApp.installMissingComponent(componentId)
+                var res = MissingComponents.installComponentForDomain("greeter", componentId)
                 root.installBusy = false
                 if (!!res && !!res.ok) {
                     root.installStatusText = "Komponen berhasil dipasang."
-                    GreeterApp.refreshMissingComponents()
+                    root.refreshMissingIssues()
                 } else {
                     root.installStatusText = "Install gagal: " + String((res && res.error) ? res.error : "unknown")
                 }

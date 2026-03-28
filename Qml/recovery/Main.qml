@@ -10,6 +10,15 @@ Window {
     title: qsTr("SLM Recovery")
     property bool installBusy: false
     property string installStatusText: ""
+    property var missingIssues: []
+
+    function refreshMissingIssues() {
+        if (typeof MissingComponents === "undefined" || !MissingComponents) {
+            missingIssues = []
+            return
+        }
+        missingIssues = MissingComponents.missingComponentsForDomain("recovery")
+    }
 
     // ── Header ────────────────────────────────────────────────────────────────
 
@@ -77,7 +86,7 @@ Window {
 
         MissingComponentsCard {
             Layout.fillWidth: true
-            issues: RecoveryApp.missingComponents || []
+            issues: root.missingIssues || []
             summaryText: qsTr("Komponen penting hilang. Beberapa fitur SLM mungkin tidak berjalan.")
             showPackageName: true
             busy: root.installBusy
@@ -89,11 +98,11 @@ Window {
             statusColor: "#ffcdd2"
             onInstallRequested: function(componentId) {
                 root.installBusy = true
-                var res = RecoveryApp.installMissingComponent(componentId)
+                var res = MissingComponents.installComponentForDomain("recovery", componentId)
                 root.installBusy = false
                 if (!!res && !!res.ok) {
                     root.installStatusText = qsTr("Instalasi komponen berhasil.")
-                    RecoveryApp.refreshMissingComponents()
+                    root.refreshMissingIssues()
                 } else {
                     root.installStatusText = qsTr("Gagal instal komponen: ")
                             + String((res && res.error) ? res.error : "unknown")
@@ -214,4 +223,6 @@ Window {
             }
         }
     }
+
+    Component.onCompleted: refreshMissingIssues()
 }
