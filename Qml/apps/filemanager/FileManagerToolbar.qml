@@ -3,6 +3,8 @@ import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import QtQuick.Window 2.15
 import Slm_Desktop
+import SlmStyle as DSStyle
+import "../../components/style" as StyleComp
 
 Rectangle {
     id: toolbar
@@ -127,76 +129,16 @@ Rectangle {
         spacing: 10
 
         Row {
-            spacing: 8
+            spacing: 0
             Layout.alignment: Qt.AlignVCenter
-            Item {
-                width: 16
-                height: 16
-                scale: closeMouse.pressed ? 0.9 : (closeMouse.containsMouse ? 1.04 : 1.0)
-                Behavior on scale {
-                    NumberAnimation { duration: 90; easing.type: Easing.OutCubic }
+            StyleComp.WindowControlsCapsule {
+                spacing: 0
+                iconProvider: function(kind, hovered, pressed) {
+                    return toolbar.titleButtonIcon(kind, hovered, pressed)
                 }
-                Image {
-                    anchors.fill: parent
-                    fillMode: Image.PreserveAspectFit
-                    source: toolbar.titleButtonIcon("close", closeMouse.containsMouse, closeMouse.pressed)
-                    opacity: closeMouse.pressed ? 0.9 : 1.0
-                    Behavior on opacity {
-                        NumberAnimation { duration: 80; easing.type: Easing.OutCubic }
-                    }
-                }
-                MouseArea {
-                    id: closeMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    onClicked: toolbar.closeRequested()
-                }
-            }
-            Item {
-                width: 16
-                height: 16
-                scale: minimizeMouse.pressed ? 0.9 : (minimizeMouse.containsMouse ? 1.04 : 1.0)
-                Behavior on scale {
-                    NumberAnimation { duration: 90; easing.type: Easing.OutCubic }
-                }
-                Image {
-                    anchors.fill: parent
-                    fillMode: Image.PreserveAspectFit
-                    source: toolbar.titleButtonIcon("minimize", minimizeMouse.containsMouse, minimizeMouse.pressed)
-                    opacity: minimizeMouse.pressed ? 0.9 : 1.0
-                    Behavior on opacity {
-                        NumberAnimation { duration: 80; easing.type: Easing.OutCubic }
-                    }
-                }
-                MouseArea {
-                    id: minimizeMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    onClicked: toolbar.minimizeWindow()
-                }
-            }
-            Item {
-                width: 16
-                height: 16
-                scale: maximizeMouse.pressed ? 0.9 : (maximizeMouse.containsMouse ? 1.04 : 1.0)
-                Behavior on scale {
-                    NumberAnimation { duration: 90; easing.type: Easing.OutCubic }
-                }
-                Image {
-                    anchors.fill: parent
-                    fillMode: Image.PreserveAspectFit
-                    source: toolbar.titleButtonIcon("maximize", maximizeMouse.containsMouse, maximizeMouse.pressed)
-                    opacity: maximizeMouse.pressed ? 0.9 : 1.0
-                    Behavior on opacity {
-                        NumberAnimation { duration: 80; easing.type: Easing.OutCubic }
-                    }
-                }
-                MouseArea {
-                    id: maximizeMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    onClicked: toolbar.toggleMaximizeWindow()
-                }
+                onCloseRequested: toolbar.closeRequested()
+                onMinimizeRequested: toolbar.minimizeWindow()
+                onMaximizeRequested: toolbar.toggleMaximizeWindow()
             }
         }
 
@@ -212,12 +154,12 @@ Rectangle {
                 anchors.leftMargin: 6
                 anchors.rightMargin: 6
                 spacing: 2
-                ToolButton {
+                DSStyle.ToolButton {
                     text: "\u2039"
                     enabled: toolbar.canGoPrevious
                     onClicked: toolbar.previousRequested()
                 }
-                ToolButton {
+                DSStyle.ToolButton {
                     text: "\u203a"
                     enabled: toolbar.canGoNext
                     onClicked: toolbar.nextRequested()
@@ -225,7 +167,7 @@ Rectangle {
             }
         }
 
-        Label {
+        DSStyle.Label {
             Layout.fillWidth: true
             text: {
                 var p = fileModel && fileModel.currentPath ? String(fileModel.currentPath) : "~"
@@ -281,7 +223,7 @@ Rectangle {
                                 ((typeof ThemeIconController !== "undefined" && ThemeIconController)
                                  ? ThemeIconController.revision : 0)
                     }
-                    Label {
+                    DSStyle.Label {
                         anchors.centerIn: parent
                         visible: gridModeIcon.status !== Image.Ready
                         text: "\u25a6"
@@ -305,7 +247,7 @@ Rectangle {
                                 ((typeof ThemeIconController !== "undefined" && ThemeIconController)
                                  ? ThemeIconController.revision : 0)
                     }
-                    Label {
+                    DSStyle.Label {
                         anchors.centerIn: parent
                         visible: listModeIcon.status !== Image.Ready
                         text: "\u2261"
@@ -326,7 +268,7 @@ Rectangle {
             color: Theme.color("fileManagerControlBg")
             border.width: Theme.borderWidthThin
             border.color: Theme.color("fileManagerControlBorder")
-            ToolButton {
+            DSStyle.ToolButton {
                 anchors.fill: parent
                 onClicked: toolbar.searchAccepted()
                 contentItem: Image {
@@ -354,14 +296,14 @@ Rectangle {
                 anchors.leftMargin: 6
                 anchors.rightMargin: 6
                 spacing: 2
-                ToolButton {
+                DSStyle.ToolButton {
                     Layout.fillWidth: true
                     text: "\u21bb"
                     onClicked: toolbar.reindexRequested()
                     ToolTip.visible: hovered
                     ToolTip.text: "Reindex"
                 }
-                ToolButton {
+                DSStyle.ToolButton {
                     Layout.fillWidth: true
                     enabled: toolbar.indexing
                     text: "\u2715"

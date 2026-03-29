@@ -7,6 +7,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(Qt6 6.10 REQUIRED COMPONENTS Quick QuickControls2 QuickLayouts Network DBus Test Sql Concurrent ShaderTools)
 find_package(PkgConfig REQUIRED)
 find_package(Poppler QUIET OPTIONAL_COMPONENTS Qt6)
+pkg_check_modules(POPPLER_QT6 QUIET IMPORTED_TARGET poppler-qt6)
+if(NOT TARGET Poppler::Qt6 AND POPPLER_QT6_FOUND)
+    add_library(Poppler::Qt6 INTERFACE IMPORTED)
+    target_link_libraries(Poppler::Qt6 INTERFACE PkgConfig::POPPLER_QT6)
+endif()
 pkg_check_modules(GIO REQUIRED IMPORTED_TARGET gio-unix-2.0)
 pkg_check_modules(WAYLAND_CLIENT REQUIRED IMPORTED_TARGET wayland-client)
 pkg_check_modules(WAYLAND_PROTOCOLS REQUIRED wayland-protocols)
@@ -519,6 +524,12 @@ qt_add_executable(slm-envd-helper
     src/apps/settings/modules/developer/localenvstore.h
 )
 
+qt_add_executable(slm-secretd
+    src/daemon/secretd/secretd_main.cpp
+    src/services/secret/secretservice.cpp
+    src/services/secret/secretservice.h
+)
+
 if(LIBARCHIVE_FOUND)
 qt_add_executable(slm-archived
     src/daemon/archived/archived_main.cpp
@@ -649,6 +660,13 @@ target_link_libraries(slm-envd-helper
 )
 target_include_directories(slm-envd-helper PRIVATE ${CMAKE_SOURCE_DIR})
 
+target_link_libraries(slm-secretd
+    PRIVATE
+        Qt6::Core
+        Qt6::DBus
+)
+target_include_directories(slm-secretd PRIVATE ${CMAKE_SOURCE_DIR})
+
 target_link_libraries(slm-loggerd
     PRIVATE
         Qt6::Core
@@ -685,6 +703,12 @@ add_custom_target(lint_ui_style
     COMMAND ${CMAKE_SOURCE_DIR}/scripts/lint-ui-style.sh
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
     COMMENT "Running SLM Desktop UI style lint"
+)
+
+add_custom_target(lint_slm_style_usage
+    COMMAND ${CMAKE_SOURCE_DIR}/scripts/check-slm-style-usage.sh
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    COMMENT "Checking SLM style component usage in QML"
 )
 
 add_custom_target(lint_capability_matrix
@@ -752,6 +776,7 @@ set(DESKTOP_SHELL_QML_FILES
     Qml/components/indicators/AppIndicatorItem.qml
     Qml/components/indicators/IndicatorMenu.qml
     Qml/components/style/StyleGallery.qml
+    Qml/components/style/WindowControlsCapsule.qml
     Qml/components/shell/Shell.qml
     Qml/components/screenshot/ScreenshotSaveDialog.qml
     Qml/components/screenshot/ScreenshotOverwriteDialog.qml
@@ -880,6 +905,7 @@ qt_add_qml_module(slm-settings
     QML_FILES
         Qml/apps/settings/Main.qml
         Qml/apps/settings/StylePreviewGallery.qml
+        Qml/components/style/WindowControlsCapsule.qml
         Qml/apps/settings/Sidebar.qml
         Qml/apps/settings/ContentPanel.qml
         Qml/apps/settings/components/SettingCard.qml
@@ -1029,14 +1055,22 @@ qt_add_resources(slm-settings "slm_settings_titlebuttons"
         icons/titlebuttons/titlebutton-close.svg
         icons/titlebuttons/titlebutton-close-hover.svg
         icons/titlebuttons/titlebutton-close-active.svg
+        icons/titlebuttons/titlebutton-close-backdrop.svg
+        icons/titlebuttons/titlebutton-close-backdrop-active.svg
         icons/titlebuttons/titlebutton-minimize.svg
         icons/titlebuttons/titlebutton-minimize-hover.svg
         icons/titlebuttons/titlebutton-minimize-active.svg
+        icons/titlebuttons/titlebutton-minimize-backdrop.svg
+        icons/titlebuttons/titlebutton-minimize-backdrop-active.svg
         icons/titlebuttons/titlebutton-maximize.svg
         icons/titlebuttons/titlebutton-maximize-hover.svg
         icons/titlebuttons/titlebutton-maximize-active.svg
+        icons/titlebuttons/titlebutton-maximize-backdrop.svg
+        icons/titlebuttons/titlebutton-maximize-backdrop-active.svg
         icons/titlebuttons/titlebutton-unmaximize-hover.svg
         icons/titlebuttons/titlebutton-unmaximize-active.svg
+        icons/titlebuttons/titlebutton-unmaximize-backdrop.svg
+        icons/titlebuttons/titlebutton-unmaximize-backdrop-active.svg
 )
 target_include_directories(slm-settings PRIVATE
     ${CMAKE_SOURCE_DIR}/src/apps/settings
@@ -1110,6 +1144,10 @@ install(TARGETS slm-envd
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
+install(TARGETS slm-secretd
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
 if(TARGET slm-archived)
 install(TARGETS slm-archived
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
@@ -1180,6 +1218,20 @@ target_compile_definitions(packagepolicy_oneshot_cli_test
 )
 target_include_directories(packagepolicy_oneshot_cli_test PRIVATE ${CMAKE_SOURCE_DIR})
 add_test(NAME packagepolicy_oneshot_cli_test COMMAND packagepolicy_oneshot_cli_test)
+
+qt_add_executable(secretservice_contract_test
+    src/services/secret/secretservice.cpp
+    src/services/secret/secretservice.h
+    tests/secretservice_contract_test.cpp
+)
+target_link_libraries(secretservice_contract_test
+    PRIVATE
+        Qt6::Core
+        Qt6::DBus
+        Qt6::Test
+)
+target_include_directories(secretservice_contract_test PRIVATE ${CMAKE_SOURCE_DIR})
+add_test(NAME secretservice_contract_test COMMAND secretservice_contract_test)
 
 qt_add_executable(dock_identity_test
     dockidentity.cpp
@@ -2358,6 +2410,8 @@ qt_add_executable(implportalservice_dbus_test
     src/daemon/portald/portal-adapter/PortalPermissionStoreAdapter.h
     src/daemon/portald/portal-adapter/PortalDialogBridge.cpp
     src/daemon/portald/portal-adapter/PortalDialogBridge.h
+    src/daemon/portald/portal-adapter/PortalSecretBridge.cpp
+    src/daemon/portald/portal-adapter/PortalSecretBridge.h
     src/daemon/portald/portal-adapter/PortalRequestManager.cpp
     src/daemon/portald/portal-adapter/PortalRequestManager.h
     src/daemon/portald/portal-adapter/PortalRequestObject.cpp
@@ -2384,6 +2438,55 @@ target_link_libraries(implportalservice_dbus_test
 target_include_directories(implportalservice_dbus_test PRIVATE ${CMAKE_SOURCE_DIR})
 
 add_test(NAME implportalservice_dbus_test COMMAND implportalservice_dbus_test)
+
+qt_add_executable(portal_secret_integration_test
+    src/daemon/portald/portalmanager.cpp
+    src/daemon/portald/portalmanager.h
+    src/daemon/portald/portalservice.cpp
+    src/daemon/portald/portalservice.h
+    src/daemon/portald/portal-adapter/PortalBackendService.cpp
+    src/daemon/portald/portal-adapter/PortalBackendService.h
+    src/daemon/portald/portal-adapter/PortalAccessMediator.cpp
+    src/daemon/portald/portal-adapter/PortalAccessMediator.h
+    src/daemon/portald/portal-adapter/PortalCapabilityMapper.cpp
+    src/daemon/portald/portal-adapter/PortalCapabilityMapper.h
+    src/daemon/portald/portal-adapter/PortalPermissionStoreAdapter.cpp
+    src/daemon/portald/portal-adapter/PortalPermissionStoreAdapter.h
+    src/daemon/portald/portal-adapter/PortalDialogBridge.cpp
+    src/daemon/portald/portal-adapter/PortalDialogBridge.h
+    src/daemon/portald/portal-adapter/PortalRequestManager.cpp
+    src/daemon/portald/portal-adapter/PortalRequestManager.h
+    src/daemon/portald/portal-adapter/PortalRequestObject.cpp
+    src/daemon/portald/portal-adapter/PortalRequestObject.h
+    src/daemon/portald/portal-adapter/PortalSessionManager.cpp
+    src/daemon/portald/portal-adapter/PortalSessionManager.h
+    src/daemon/portald/portal-adapter/PortalSessionObject.cpp
+    src/daemon/portald/portal-adapter/PortalSessionObject.h
+    src/daemon/portald/portal-adapter/PortalResponseSerializer.cpp
+    src/daemon/portald/portal-adapter/PortalResponseSerializer.h
+    src/daemon/portald/portal-adapter/PortalSecretBridge.cpp
+    src/daemon/portald/portal-adapter/PortalSecretBridge.h
+    src/services/secret/secretservice.cpp
+    src/services/secret/secretservice.h
+    ${SLM_PERMISSION_TEST_SOURCES}
+    tests/portal_secret_integration_test.cpp
+)
+
+target_include_directories(portal_secret_integration_test PRIVATE ${CMAKE_SOURCE_DIR})
+
+target_link_libraries(portal_secret_integration_test
+    PRIVATE
+        Qt6::Core
+        Qt6::DBus
+        Qt6::Sql
+        Qt6::Test
+        PkgConfig::GIO
+)
+
+add_test(NAME portal_secret_integration_test COMMAND portal_secret_integration_test)
+set_tests_properties(portal_secret_integration_test PROPERTIES
+    LABELS "secret-consent"
+)
 
 qt_add_executable(screencast_revoke_e2e_test
     src/daemon/portald/portalmanager.cpp
@@ -3361,6 +3464,115 @@ target_link_libraries(settingsapp_policy_test
 )
 
 add_test(NAME settingsapp_policy_test COMMAND settingsapp_policy_test)
+set_tests_properties(settingsapp_policy_test PROPERTIES
+    LABELS "baseline-flaky"
+)
+
+qt_add_executable(settingsapp_policy_core_test
+    src/apps/settings/settingsapp.cpp
+    src/apps/settings/settingsapp.h
+    src/apps/settings/moduleloader.cpp
+    src/apps/settings/moduleloader.h
+    src/apps/settings/searchengine.cpp
+    src/apps/settings/searchengine.h
+    src/apps/settings/include/settingbinding.cpp
+    src/apps/settings/include/settingbinding.h
+    src/apps/settings/include/mockbinding.cpp
+    src/apps/settings/include/mockbinding.h
+    src/apps/settings/include/gsettingsbinding.cpp
+    src/apps/settings/include/gsettingsbinding.h
+    src/apps/settings/include/networkmanagerbinding.cpp
+    src/apps/settings/include/networkmanagerbinding.h
+    src/apps/settings/include/dbusbinding.cpp
+    src/apps/settings/include/dbusbinding.h
+    src/apps/settings/include/localsettingsbinding.cpp
+    src/apps/settings/include/localsettingsbinding.h
+    src/apps/settings/include/settingbindingresolver.cpp
+    src/apps/settings/include/settingbindingresolver.h
+    src/apps/settings/include/settingbindingfactory.cpp
+    src/apps/settings/include/settingbindingfactory.h
+    src/apps/settings/include/settingspolkitbridge.cpp
+    src/apps/settings/include/settingspolkitbridge.h
+    tests/settingsapp_policy_core_test.cpp
+)
+
+target_include_directories(settingsapp_policy_core_test PRIVATE
+    ${CMAKE_SOURCE_DIR}
+    ${CMAKE_SOURCE_DIR}/src/apps/settings
+    ${CMAKE_SOURCE_DIR}/src/apps/settings/include
+)
+
+target_link_libraries(settingsapp_policy_core_test
+    PRIVATE
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Qml
+        Qt6::Quick
+        Qt6::DBus
+        Qt6::Test
+        PkgConfig::GIO
+)
+
+add_test(NAME settingsapp_policy_core_test COMMAND settingsapp_policy_core_test)
+set_tests_properties(settingsapp_policy_core_test PROPERTIES
+    LABELS "policy-core"
+)
+set(_SLM_POLICY_CORE_TEST_SUITE_DEPS
+    settingsapp_policy_core_test
+)
+add_custom_target(policy_core_test_suite
+    DEPENDS ${_SLM_POLICY_CORE_TEST_SUITE_DEPS}
+)
+
+qt_add_executable(settingsapp_secret_consent_test
+    src/apps/settings/settingsapp.cpp
+    src/apps/settings/settingsapp.h
+    src/apps/settings/moduleloader.cpp
+    src/apps/settings/moduleloader.h
+    src/apps/settings/searchengine.cpp
+    src/apps/settings/searchengine.h
+    src/apps/settings/include/settingbinding.cpp
+    src/apps/settings/include/settingbinding.h
+    src/apps/settings/include/mockbinding.cpp
+    src/apps/settings/include/mockbinding.h
+    src/apps/settings/include/gsettingsbinding.cpp
+    src/apps/settings/include/gsettingsbinding.h
+    src/apps/settings/include/networkmanagerbinding.cpp
+    src/apps/settings/include/networkmanagerbinding.h
+    src/apps/settings/include/dbusbinding.cpp
+    src/apps/settings/include/dbusbinding.h
+    src/apps/settings/include/localsettingsbinding.cpp
+    src/apps/settings/include/localsettingsbinding.h
+    src/apps/settings/include/settingbindingresolver.cpp
+    src/apps/settings/include/settingbindingresolver.h
+    src/apps/settings/include/settingbindingfactory.cpp
+    src/apps/settings/include/settingbindingfactory.h
+    src/apps/settings/include/settingspolkitbridge.cpp
+    src/apps/settings/include/settingspolkitbridge.h
+    tests/settingsapp_secret_consent_test.cpp
+)
+
+target_include_directories(settingsapp_secret_consent_test PRIVATE
+    ${CMAKE_SOURCE_DIR}
+    ${CMAKE_SOURCE_DIR}/src/apps/settings
+    ${CMAKE_SOURCE_DIR}/src/apps/settings/include
+)
+
+target_link_libraries(settingsapp_secret_consent_test
+    PRIVATE
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Qml
+        Qt6::Quick
+        Qt6::DBus
+        Qt6::Test
+        PkgConfig::GIO
+)
+
+add_test(NAME settingsapp_secret_consent_test COMMAND settingsapp_secret_consent_test)
+set_tests_properties(settingsapp_secret_consent_test PROPERTIES
+    LABELS "secret-consent"
+)
 
 qt_add_executable(settings_bindingresolver_test
     src/apps/settings/include/settingbindingresolver.cpp
@@ -3593,6 +3805,103 @@ target_link_libraries(portal_profile_snapshot_test
 )
 
 add_test(NAME portal_profile_snapshot_test COMMAND portal_profile_snapshot_test)
+
+qt_add_executable(portal_consent_dialog_copy_contract_test
+    tests/portal_consent_dialog_copy_contract_test.cpp
+)
+
+target_link_libraries(portal_consent_dialog_copy_contract_test
+    PRIVATE
+        Qt6::Core
+        Qt6::Test
+)
+
+target_compile_definitions(portal_consent_dialog_copy_contract_test PRIVATE
+    DESKTOP_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\"
+)
+
+add_test(NAME portal_consent_dialog_copy_contract_test COMMAND portal_consent_dialog_copy_contract_test)
+set_tests_properties(portal_consent_dialog_copy_contract_test PROPERTIES
+    LABELS "secret-consent"
+)
+
+qt_add_executable(portal_consent_dialog_behavior_test
+    tests/portal_consent_dialog_behavior_test.cpp
+)
+
+target_link_libraries(portal_consent_dialog_behavior_test
+    PRIVATE
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Qml
+        Qt6::Quick
+        Qt6::Test
+)
+
+target_compile_definitions(portal_consent_dialog_behavior_test PRIVATE
+    BUILD_QML_IMPORT_ROOT=\"${CMAKE_CURRENT_BINARY_DIR}\"
+    DESKTOP_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\"
+)
+
+add_test(NAME portal_consent_dialog_behavior_test COMMAND portal_consent_dialog_behavior_test)
+set_tests_properties(portal_consent_dialog_behavior_test PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software;QT_QUICK_CONTROLS_STYLE=Basic;QT_QUICK_CONTROLS_FALLBACK_STYLE=Basic"
+    LABELS "secret-consent"
+)
+
+qt_add_executable(portal_dialog_bridge_payload_test
+    src/core/permissions/AccessContext.cpp
+    src/core/permissions/AccessContext.h
+    src/core/permissions/Capability.cpp
+    src/core/permissions/Capability.h
+    src/daemon/portald/portal-adapter/PortalDialogBridge.cpp
+    src/daemon/portald/portal-adapter/PortalDialogBridge.h
+    tests/portal_dialog_bridge_payload_test.cpp
+)
+
+target_link_libraries(portal_dialog_bridge_payload_test
+    PRIVATE
+        Qt6::Core
+        Qt6::DBus
+        Qt6::Test
+)
+
+add_test(NAME portal_dialog_bridge_payload_test COMMAND portal_dialog_bridge_payload_test)
+set_tests_properties(portal_dialog_bridge_payload_test PROPERTIES
+    LABELS "secret-consent"
+)
+
+qt_add_executable(portal_secret_consent_contract_snapshot_test
+    tests/portal_secret_consent_contract_snapshot_test.cpp
+)
+
+target_compile_definitions(portal_secret_consent_contract_snapshot_test PRIVATE
+    CONTRACTS_DIR=\"${CMAKE_SOURCE_DIR}/docs/contracts\"
+)
+
+target_link_libraries(portal_secret_consent_contract_snapshot_test
+    PRIVATE
+        Qt6::Core
+        Qt6::Test
+)
+
+add_test(NAME portal_secret_consent_contract_snapshot_test
+    COMMAND portal_secret_consent_contract_snapshot_test)
+set_tests_properties(portal_secret_consent_contract_snapshot_test PROPERTIES
+    LABELS "secret-consent"
+)
+
+set(_SLM_SECRET_CONSENT_TEST_SUITE_DEPS
+    portal_secret_integration_test
+    portal_consent_dialog_copy_contract_test
+    portal_consent_dialog_behavior_test
+    portal_dialog_bridge_payload_test
+    portal_secret_consent_contract_snapshot_test
+    settingsapp_secret_consent_test
+)
+add_custom_target(secret_consent_test_suite
+    DEPENDS ${_SLM_SECRET_CONSENT_TEST_SUITE_DEPS}
+)
 
 qt_add_executable(portal_slm_portal_snapshot_test
     tests/portal_slm_portal_snapshot_test.cpp
@@ -3993,6 +4302,14 @@ file(GLOB SLM_STYLE_MODULE_FILES
     "${CMAKE_SOURCE_DIR}/third_party/slm-style/qml/SlmStyle/*.qml"
     "${CMAKE_SOURCE_DIR}/third_party/slm-style/qml/SlmStyle/qmldir"
 )
+# Keep a filesystem QML module copy in the build root so components loaded
+# from file:// (tests, ad-hoc loaders) can still resolve `import SlmStyle`.
+file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/SlmStyle")
+foreach(_slm_style_file ${SLM_STYLE_MODULE_FILES})
+    configure_file("${_slm_style_file}"
+                   "${CMAKE_CURRENT_BINARY_DIR}/SlmStyle/"
+                   COPYONLY)
+endforeach()
 qt_add_resources(slm-desktop "slm_desktop_slmstyle_module"
     PREFIX "/qt/qml/SlmStyle"
     BASE "${CMAKE_SOURCE_DIR}/third_party/slm-style/qml/SlmStyle"

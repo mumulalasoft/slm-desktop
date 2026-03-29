@@ -3,6 +3,8 @@ import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import QtQuick.Window 2.15
 import Slm_Desktop
+import SlmSettings 1.0 as SettingsComp
+import SlmStyle as DSStyle
 
 ApplicationWindow {
     id: window
@@ -38,17 +40,24 @@ ApplicationWindow {
         window.atHome = false
     }
 
-    Component.onCompleted: {
+    function syncThemePreferences() {
         Theme.applyModeString(UIPreferences.themeMode)
         Theme.userAccentColor = UIPreferences.accentColor
-        Theme.userFontScale   = UIPreferences.fontScale
+        Theme.userFontScale = UIPreferences.fontScale
+        DSStyle.Theme.applyModeString(UIPreferences.themeMode)
+        DSStyle.Theme.userAccentColor = UIPreferences.accentColor
+        DSStyle.Theme.userFontScale = UIPreferences.fontScale
+    }
+
+    Component.onCompleted: {
+        syncThemePreferences()
     }
 
     Connections {
         target: UIPreferences
-        function onThemeModeChanged()   { Theme.applyModeString(UIPreferences.themeMode) }
-        function onAccentColorChanged() { Theme.userAccentColor = UIPreferences.accentColor }
-        function onFontScaleChanged()   { Theme.userFontScale   = UIPreferences.fontScale }
+        function onThemeModeChanged() { window.syncThemePreferences() }
+        function onAccentColorChanged() { window.syncThemePreferences() }
+        function onFontScaleChanged() { window.syncThemePreferences() }
     }
 
     // External module open (deep link / D-Bus)
@@ -78,32 +87,51 @@ ApplicationWindow {
         }
     }
 
-    // ── Traffic-light button component ────────────────────────────────────
-    component TitleButton: Item {
-        required property string normalSrc
-        required property string hoverSrc
-        required property string activeSrc
-        signal clicked()
-        implicitWidth: 14; implicitHeight: 14
-        property bool _hovered: false
-        property bool _pressed: false
-        Image {
-            anchors.fill: parent
-            source: parent._pressed ? parent.activeSrc
-                                    : (parent._hovered ? parent.hoverSrc : parent.normalSrc)
-            fillMode: Image.PreserveAspectFit
-            smooth: true; antialiasing: true
+    function titleButtonIcon(kind, hovered, pressed) {
+        var base = "qrc:/icons/titlebuttons/"
+        var active = window.active
+        if (kind === "close") {
+            if (!active) {
+                return base + ((hovered || pressed)
+                               ? "titlebutton-close-backdrop-active.svg"
+                               : "titlebutton-close-backdrop.svg")
+            }
+            if (pressed) {
+                return base + "titlebutton-close-active.svg"
+            }
+            return base + (hovered ? "titlebutton-close-hover.svg" : "titlebutton-close.svg")
         }
-        MouseArea {
-            anchors.fill: parent
-            hoverEnabled: true
-            cursorShape: Qt.ArrowCursor
-            onEntered:  parent._hovered = true
-            onExited:   { parent._hovered = false; parent._pressed = false }
-            onPressed:  parent._pressed = true
-            onReleased: parent._pressed = false
-            onClicked:  parent.clicked()
+        if (kind === "minimize") {
+            if (!active) {
+                return base + ((hovered || pressed)
+                               ? "titlebutton-minimize-backdrop-active.svg"
+                               : "titlebutton-minimize-backdrop.svg")
+            }
+            if (pressed) {
+                return base + "titlebutton-minimize-active.svg"
+            }
+            return base + (hovered ? "titlebutton-minimize-hover.svg" : "titlebutton-minimize.svg")
         }
+        if (kind === "maximize") {
+            var isMax = window.visibility === Window.Maximized || window.visibility === Window.FullScreen
+            if (!active) {
+                return base + ((hovered || pressed)
+                               ? (isMax ? "titlebutton-unmaximize-backdrop-active.svg"
+                                        : "titlebutton-maximize-backdrop-active.svg")
+                               : (isMax ? "titlebutton-unmaximize-backdrop.svg"
+                                        : "titlebutton-maximize-backdrop.svg"))
+            }
+            if (pressed) {
+                return base + (isMax ? "titlebutton-unmaximize-active.svg"
+                                     : "titlebutton-maximize-active.svg")
+            }
+            return base + (hovered
+                           ? (isMax ? "titlebutton-unmaximize-hover.svg"
+                                    : "titlebutton-maximize-hover.svg")
+                           : (isMax ? "titlebutton-unmaximize.svg"
+                                    : "titlebutton-maximize.svg"))
+        }
+        return ""
     }
 
     // ── Shadow layers ─────────────────────────────────────────────────────
@@ -164,28 +192,24 @@ ApplicationWindow {
                 anchors.left: parent.left
                 anchors.leftMargin: 14
                 anchors.verticalCenter: parent.verticalCenter
-                spacing: 6
+                spacing: 0
 
-                TitleButton {
-                    normalSrc: "qrc:/icons/titlebuttons/titlebutton-close.svg"
-                    hoverSrc:  "qrc:/icons/titlebuttons/titlebutton-close-hover.svg"
-                    activeSrc: "qrc:/icons/titlebuttons/titlebutton-close-active.svg"
-                    onClicked: window.close()
-                }
-                TitleButton {
-                    normalSrc: "qrc:/icons/titlebuttons/titlebutton-minimize.svg"
-                    hoverSrc:  "qrc:/icons/titlebuttons/titlebutton-minimize-hover.svg"
-                    activeSrc: "qrc:/icons/titlebuttons/titlebutton-minimize-active.svg"
-                    onClicked: window.showMinimized()
-                }
-                TitleButton {
-                    property bool isMax: window.visibility === Window.Maximized
-                    normalSrc: "qrc:/icons/titlebuttons/titlebutton-maximize.svg"
-                    hoverSrc: isMax ? "qrc:/icons/titlebuttons/titlebutton-unmaximize-hover.svg"
-                                    : "qrc:/icons/titlebuttons/titlebutton-maximize-hover.svg"
-                    activeSrc: isMax ? "qrc:/icons/titlebuttons/titlebutton-unmaximize-active.svg"
-                                     : "qrc:/icons/titlebuttons/titlebutton-maximize-active.svg"
-                    onClicked: isMax ? window.showNormal() : window.showMaximized()
+                SettingsComp.WindowControlsCapsule {
+                    spacing: 0
+                    iconProvider: function(kind, hovered, pressed) {
+                        return window.titleButtonIcon(kind, hovered, pressed)
+                    }
+                    onCloseRequested: window.close()
+                    onMinimizeRequested: window.showMinimized()
+                    onMaximizeRequested: {
+                        var isMax = window.visibility === Window.Maximized
+                                || window.visibility === Window.FullScreen
+                        if (isMax && window.showNormal) {
+                            window.showNormal()
+                        } else if (window.showMaximized) {
+                            window.showMaximized()
+                        }
+                    }
                 }
             }
 
@@ -245,7 +269,7 @@ ApplicationWindow {
             }
 
             // ── Search field (right-aligned, home state only) ─────────────
-            TextField {
+            DSStyle.TextField {
                 id: searchField
                 anchors.right: parent.right
                 anchors.rightMargin: 16
@@ -319,7 +343,7 @@ ApplicationWindow {
         }
 
         // ── Debug telemetry ───────────────────────────────────────────────
-        Label {
+        DSStyle.Label {
             anchors.right: parent.right
             anchors.bottom: parent.bottom
             anchors.rightMargin: 12; anchors.bottomMargin: 6
@@ -356,7 +380,7 @@ ApplicationWindow {
                     anchors.fill: parent
                     spacing: 10
 
-                    TextField {
+                    DSStyle.TextField {
                         id: commandSearch
                         Layout.fillWidth: true
                         placeholderText: qsTr("Command palette")
