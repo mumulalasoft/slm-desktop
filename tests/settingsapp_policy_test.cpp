@@ -1,6 +1,8 @@
 #include <QtTest/QtTest>
 
 #include <QDir>
+#include <QDBusConnection>
+#include <QDBusConnectionInterface>
 #include <QFile>
 #include <QQmlApplicationEngine>
 #include <QSignalSpy>
@@ -53,6 +55,68 @@ void clearGrantStore()
     const QString dir = QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
     QFile::remove(dir + QStringLiteral("/settings-permissions.ini"));
 }
+
+class FakePortalServiceForSettings : public QObject
+{
+    Q_OBJECT
+    Q_CLASSINFO("D-Bus Interface", "org.slm.Desktop.Portal")
+
+public:
+    QString lastRevokedAppId;
+    QString lastClearedAppId;
+    int revokeCallCount = 0;
+    int clearCallCount = 0;
+
+public slots:
+    QVariantMap ListSecretConsentGrants(const QVariantMap &)
+    {
+        return {
+            {QStringLiteral("ok"), true},
+            {QStringLiteral("items"), QVariantList{
+                 QVariantMap{
+                     {QStringLiteral("appId"), QStringLiteral("org.demo.app")},
+                     {QStringLiteral("capability"), QStringLiteral("Secret.Read")},
+                     {QStringLiteral("decision"), QStringLiteral("allow-always")},
+                     {QStringLiteral("updatedAt"), 1000ll},
+                 },
+                 QVariantMap{
+                     {QStringLiteral("appId"), QStringLiteral("org.demo.app")},
+                     {QStringLiteral("capability"), QStringLiteral("Secret.Store")},
+                     {QStringLiteral("decision"), QStringLiteral("allow-always")},
+                     {QStringLiteral("updatedAt"), 2000ll},
+                 },
+                 QVariantMap{
+                     {QStringLiteral("appId"), QStringLiteral("org.other.app")},
+                     {QStringLiteral("capability"), QStringLiteral("Secret.Delete")},
+                     {QStringLiteral("decision"), QStringLiteral("deny-always")},
+                     {QStringLiteral("updatedAt"), 1500ll},
+                 },
+             }},
+        };
+    }
+
+    QVariantMap RevokeSecretConsentGrants(const QVariantMap &options)
+    {
+        lastRevokedAppId = options.value(QStringLiteral("appId")).toString();
+        ++revokeCallCount;
+        return {
+            {QStringLiteral("ok"), true},
+            {QStringLiteral("appId"), lastRevokedAppId},
+            {QStringLiteral("revokeCount"), 2},
+            {QStringLiteral("failedCount"), 0},
+        };
+    }
+
+    QVariantMap ClearAppSecrets(const QVariantMap &options)
+    {
+        lastClearedAppId = options.value(QStringLiteral("appId")).toString();
+        ++clearCallCount;
+        return {
+            {QStringLiteral("ok"), true},
+            {QStringLiteral("appId"), lastClearedAppId},
+        };
+    }
+};
 }
 
 class SettingsAppPolicyTest : public QObject
@@ -283,6 +347,144 @@ private slots:
         QVERIFY(grantsSpy.count() >= 1);
 
         QDir(moduleDir).removeRecursively();
+    }
+
+    void secretConsentSummary_andRevoke_fromPortal()
+    {
+        QDBusConnection bus = QDBusConnection::sessionBus();
+        if (!bus.isConnected()) {
+            QSKIP("session bus is not available in this test environment");
+        }
+        QDBusConnectionInterface *iface = bus.interface();
+        if (!iface) {
+            QSKIP("session bus interface unavailable");
+        }
+        if (iface->isServiceRegistered(QStringLiteral("org.slm.Desktop.Portal")).value()) {
+            QSKIP("org.slm.Desktop.Portal already owned by another process");
+        }
+
+        FakePortalServiceForSettings fakePortal;
+        QVERIFY(bus.registerService(QStringLiteral("org.slm.Desktop.Portal")));
+        QVERIFY(bus.registerObject(QStringLiteral("/org/slm/Desktop/Portal"),
+                                   &fakePortal,
+                                   QDBusConnection::ExportAllSlots));
+
+        QQmlApplicationEngine engine;
+        SettingsApp app(&engine);
+
+        const QVariantList summary = app.listSecretConsentSummary();
+        QCOMPARE(summary.size(), 2);
+        QCOMPARE(summary.at(0).toMap().value(QStringLiteral("appId")).toString(),
+                 QStringLiteral("org.demo.app"));
+        QCOMPARE(summary.at(0).toMap().value(QStringLiteral("grantCount")).toInt(), 2);
+        QCOMPARE(summary.at(1).toMap().value(QStringLiteral("appId")).toString(),
+                 QStringLiteral("org.other.app"));
+        QCOMPARE(summary.at(1).toMap().value(QStringLiteral("grantCount")).toInt(), 1);
+
+        const QVariantMap revoke = app.revokeSecretConsentForApp(QStringLiteral("org.demo.app"));
+        QVERIFY(revoke.value(QStringLiteral("ok")).toBool());
+        QCOMPARE(revoke.value(QStringLiteral("revokeCount")).toInt(), 2);
+        QCOMPARE(fakePortal.lastRevokedAppId, QStringLiteral("org.demo.app"));
+
+        bus.unregisterObject(QStringLiteral("/org/slm/Desktop/Portal"));
+        bus.unregisterService(QStringLiteral("org.slm.Desktop.Portal"));
+    }
+
+    void secretConsentRevoke_thenClear_contract()
+    {
+        QDBusConnection bus = QDBusConnection::sessionBus();
+        if (!bus.isConnected()) {
+            QSKIP("session bus is not available in this test environment");
+        }
+        QDBusConnectionInterface *iface = bus.interface();
+        if (!iface) {
+            QSKIP("session bus interface unavailable");
+        }
+        if (iface->isServiceRegistered(QStringLiteral("org.slm.Desktop.Portal")).value()) {
+            QSKIP("org.slm.Desktop.Portal already owned by another process");
+        }
+
+        FakePortalServiceForSettings fakePortal;
+        QVERIFY(bus.registerService(QStringLiteral("org.slm.Desktop.Portal")));
+        QVERIFY(bus.registerObject(QStringLiteral("/org/slm/Desktop/Portal"),
+                                   &fakePortal,
+                                   QDBusConnection::ExportAllSlots));
+
+        QQmlApplicationEngine engine;
+        SettingsApp app(&engine);
+
+        const QVariantMap revoke = app.revokeSecretConsentForApp(QStringLiteral("org.demo.app"));
+        QVERIFY(revoke.value(QStringLiteral("ok")).toBool());
+        QCOMPARE(fakePortal.revokeCallCount, 1);
+        QCOMPARE(fakePortal.lastRevokedAppId, QStringLiteral("org.demo.app"));
+
+        const QVariantMap clear = app.clearSecretDataForApp(QStringLiteral("org.demo.app"));
+        QVERIFY(clear.value(QStringLiteral("ok")).toBool());
+        QCOMPARE(fakePortal.clearCallCount, 1);
+        QCOMPARE(fakePortal.lastClearedAppId, QStringLiteral("org.demo.app"));
+
+        bus.unregisterObject(QStringLiteral("/org/slm/Desktop/Portal"));
+        bus.unregisterService(QStringLiteral("org.slm.Desktop.Portal"));
+    }
+
+    void secretConsentRevoke_thenClear_nonDbusInvoker_contract()
+    {
+        QQmlApplicationEngine engine;
+        SettingsApp app(&engine);
+
+        QStringList methodCalls;
+        app.setPortalInvokerForTests([&methodCalls](const QString &method, const QVariantList &args) -> QVariantMap {
+            methodCalls.push_back(method);
+            if (method == QStringLiteral("ListSecretConsentGrants")) {
+                return {
+                    {QStringLiteral("ok"), true},
+                    {QStringLiteral("items"), QVariantList{
+                         QVariantMap{
+                             {QStringLiteral("appId"), QStringLiteral("org.demo.app")},
+                             {QStringLiteral("capability"), QStringLiteral("Secret.Read")},
+                             {QStringLiteral("updatedAt"), 42ll},
+                         },
+                     }},
+                };
+            }
+            if (method == QStringLiteral("RevokeSecretConsentGrants")) {
+                const QVariantMap payload = args.value(0).toMap();
+                return {
+                    {QStringLiteral("ok"), payload.value(QStringLiteral("appId")).toString() == QStringLiteral("org.demo.app")},
+                    {QStringLiteral("revokeCount"), 1},
+                };
+            }
+            if (method == QStringLiteral("ClearAppSecrets")) {
+                const QVariantMap payload = args.value(0).toMap();
+                return {
+                    {QStringLiteral("ok"), payload.value(QStringLiteral("appId")).toString() == QStringLiteral("org.demo.app")},
+                };
+            }
+            return {
+                {QStringLiteral("ok"), false},
+                {QStringLiteral("error"), QStringLiteral("unexpected-method")},
+                {QStringLiteral("method"), method},
+            };
+        });
+
+        const QVariantList summary = app.listSecretConsentSummary();
+        QCOMPARE(summary.size(), 1);
+        QCOMPARE(summary.constFirst().toMap().value(QStringLiteral("appId")).toString(),
+                 QStringLiteral("org.demo.app"));
+        QCOMPARE(summary.constFirst().toMap().value(QStringLiteral("grantCount")).toInt(), 1);
+
+        const QVariantMap revoke = app.revokeSecretConsentForApp(QStringLiteral("org.demo.app"));
+        QVERIFY(revoke.value(QStringLiteral("ok")).toBool());
+        QCOMPARE(revoke.value(QStringLiteral("revokeCount")).toInt(), 1);
+
+        const QVariantMap clear = app.clearSecretDataForApp(QStringLiteral("org.demo.app"));
+        QVERIFY(clear.value(QStringLiteral("ok")).toBool());
+
+        QCOMPARE(methodCalls, QStringList({
+                         QStringLiteral("ListSecretConsentGrants"),
+                         QStringLiteral("RevokeSecretConsentGrants"),
+                         QStringLiteral("ClearAppSecrets"),
+                     }));
     }
 };
 
