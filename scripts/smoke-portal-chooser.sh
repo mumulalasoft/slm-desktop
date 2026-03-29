@@ -16,8 +16,8 @@ if [[ ! -x "${SMOKE_RUNTIME}" ]]; then
 fi
 
 if [[ "${SLM_SMOKE_BUILD:-1}" == "1" ]]; then
-  echo "[smoke-portal-chooser] building appSlm_Desktop"
-  cmake --build "${ROOT_DIR}/build" -j4 --target appSlm_Desktop
+  echo "[smoke-portal-chooser] building slm-desktop"
+  cmake --build "${ROOT_DIR}/build" -j4 --target slm-desktop
 fi
 
 echo "[smoke-portal-chooser] running runtime smoke"

@@ -29,7 +29,7 @@ Checklist migrasi struktur proyek SLM Desktop.
 
 - [x] Buat folder `src/filemanager/ops/`
 - [x] Pindahkan `fileoperations*`, `globalprogresscenter.*`, `fileoperationserrors.h`
-- [x] Build `desktopd`, `slm-fileopsd`, `appSlm_Desktop`
+- [x] Build `desktopd`, `slm-fileopsd`, `slm-desktop`
 - [x] Jalankan test file operation DBus
 
 ## Stage 4 - Daemons and CLI (DONE)

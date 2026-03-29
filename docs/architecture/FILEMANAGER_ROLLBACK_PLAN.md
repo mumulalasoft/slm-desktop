@@ -4,7 +4,7 @@
 Rollback strategy if external `SlmFileManager` package integration causes runtime/build regressions.
 
 ## Trigger conditions
-- `appSlm_Desktop` fails to link/run in external package mode.
+- `slm-desktop` fails to link/run in external package mode.
 - FileManager QML/runtime regressions in smoke testing.
 - Critical file operation regressions in release candidate.
 
@@ -12,7 +12,7 @@ Rollback strategy if external `SlmFileManager` package integration causes runtim
 1. Disable external package consumption:
    - Configure with `-DSLM_USE_EXTERNAL_FILEMANAGER_PACKAGE=OFF`
 2. Rebuild shell and daemon targets:
-   - `cmake --build <build-dir> --target appSlm_Desktop desktopd -j8`
+   - `cmake --build <build-dir> --target slm-desktop desktopd -j8`
 3. Re-run extraction gate + core smoke checks:
    - `scripts/check-filemanager-extraction-gate.sh <build-dir>`
 4. Pin release to last known-good integrated commit in monorepo.

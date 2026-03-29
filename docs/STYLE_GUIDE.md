@@ -157,7 +157,7 @@ Before merging UI changes:
 5. No new hardcoded numeric `font.pixelSize` values.
 6. No direct `font.bold` usage and no direct literal `font.weight`.
 7. Build passes:
-   - `cmake --build build -j4 --target appSlm_Desktop`
+   - `cmake --build build -j4 --target slm-desktop`
 8. Style lint passes:
    - `scripts/lint-ui-style.sh`
 

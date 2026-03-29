@@ -70,8 +70,8 @@ if [[ ! -x "${SMOKE_RUNTIME}" ]]; then
 fi
 
 if [[ "${SLM_SMOKE_BUILD:-1}" == "1" ]]; then
-  echo "[smoke-tothespot] building appSlm_Desktop"
-  cmake --build "${BUILD_DIR}" -j4 --target appSlm_Desktop
+  echo "[smoke-tothespot] building slm-desktop"
+  cmake --build "${BUILD_DIR}" -j4 --target slm-desktop
 fi
 
 echo "[smoke-tothespot] running runtime smoke"

@@ -89,27 +89,27 @@ jobs:
         run: cmake -S . -B build -G Ninja
 
       - name: Build desktop runtime target
-        run: cmake --build build --target appSlm_Desktop -j
+        run: cmake --build build --target slm-desktop -j
 
       - name: Smoke runtime
         env:
           QT_QPA_PLATFORM: offscreen
         run: |
-          scripts/smoke-runtime.sh --build-dir build --app-bin build/appSlm_Desktop
+          scripts/smoke-runtime.sh --build-dir build --app-bin build/slm-desktop
 
       - name: Smoke backends
         env:
           QT_QPA_PLATFORM: offscreen
           DS_WINDOWING_AUTOROLLBACK: "1"
         run: |
-          scripts/smoke-backends.sh --build-dir build --app-bin build/appSlm_Desktop
+          scripts/smoke-backends.sh --build-dir build --app-bin build/slm-desktop
 
       - name: Smoke tothespot
         env:
           QT_QPA_PLATFORM: offscreen
           SLM_SMOKE_BUILD: "0"
         run: |
-          scripts/smoke-tothespot-contextmenu.sh --build-dir build --app-bin build/appSlm_Desktop
+          scripts/smoke-tothespot-contextmenu.sh --build-dir build --app-bin build/slm-desktop
 
   build-and-test:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'

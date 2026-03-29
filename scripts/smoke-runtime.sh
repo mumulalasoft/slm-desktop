@@ -37,20 +37,26 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-APP_BIN_DEFAULT="${BUILD_DIR}/appSlm_Desktop"
-APP_BIN_ALT="${BUILD_DIR}/toppanel-Debug/appSlm_Desktop"
+APP_BIN_DEFAULT="${BUILD_DIR}/slm-desktop"
+APP_BIN_ALT="${BUILD_DIR}/toppanel-Debug/slm-desktop"
+APP_BIN_LEGACY="${BUILD_DIR}/appSlm_Desktop"
+APP_BIN_LEGACY_ALT="${BUILD_DIR}/toppanel-Debug/appSlm_Desktop"
 
 if [[ -z "${APP_BIN}" ]]; then
   if [[ -x "${APP_BIN_DEFAULT}" ]]; then
     APP_BIN="${APP_BIN_DEFAULT}"
   elif [[ -x "${APP_BIN_ALT}" ]]; then
     APP_BIN="${APP_BIN_ALT}"
+  elif [[ -x "${APP_BIN_LEGACY}" ]]; then
+    APP_BIN="${APP_BIN_LEGACY}"
+  elif [[ -x "${APP_BIN_LEGACY_ALT}" ]]; then
+    APP_BIN="${APP_BIN_LEGACY_ALT}"
   fi
 fi
 
 if [[ -z "${APP_BIN}" || ! -x "${APP_BIN}" ]]; then
   echo "[smoke-runtime] app binary not found." >&2
-  echo "[smoke-runtime] pass binary path as arg1 or build appSlm_Desktop first." >&2
+  echo "[smoke-runtime] pass binary path as arg1 or build slm-desktop first." >&2
   exit 2
 fi
 

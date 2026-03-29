@@ -38,7 +38,11 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ -z "${APP_BIN}" ]]; then
-  if [[ -x "${BUILD_DIR}/appSlm_Desktop" ]]; then
+  if [[ -x "${BUILD_DIR}/slm-desktop" ]]; then
+    APP_BIN="${BUILD_DIR}/slm-desktop"
+  elif [[ -x "${BUILD_DIR}/toppanel-Debug/slm-desktop" ]]; then
+    APP_BIN="${BUILD_DIR}/toppanel-Debug/slm-desktop"
+  elif [[ -x "${BUILD_DIR}/appSlm_Desktop" ]]; then
     APP_BIN="${BUILD_DIR}/appSlm_Desktop"
   elif [[ -x "${BUILD_DIR}/toppanel-Debug/appSlm_Desktop" ]]; then
     APP_BIN="${BUILD_DIR}/toppanel-Debug/appSlm_Desktop"
@@ -46,7 +50,7 @@ if [[ -z "${APP_BIN}" ]]; then
 fi
 
 if [[ -z "${APP_BIN}" || ! -x "${APP_BIN}" ]]; then
-  echo "appSlm_Desktop binary not found. Set DS_SHELL_APP_BIN=/path/to/appSlm_Desktop" >&2
+  echo "slm-desktop binary not found. Set DS_SHELL_APP_BIN=/path/to/slm-desktop" >&2
   exit 1
 fi
 

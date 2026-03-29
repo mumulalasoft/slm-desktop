@@ -12,7 +12,7 @@ compositor/scripts/run-nested.sh
 
 - `DS_WINDOWING_BACKEND`: `kwin-wayland` (canonicalized)
 - `DS_KWIN_PROFILE`: enable KWin runtime profile logs.
-- `DS_SHELL_APP_BIN`: explicit path for `appSlm_Desktop` binary.
+- `DS_SHELL_APP_BIN`: explicit path for `slm-desktop` binary.
 
 ## Log Files
 

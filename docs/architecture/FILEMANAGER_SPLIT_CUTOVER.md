@@ -13,7 +13,7 @@
   - scaffolding commit is created automatically in split repo:
     - `Add standalone split scaffolding (build + CI)`
 - Shell integration already uses link-based FileManager core target:
-  - `appSlm_Desktop` -> `SlmFileManager::Core`
+  - `slm-desktop` -> `SlmFileManager::Core`
   - toggle via CMake option:
     - `SLM_USE_EXTERNAL_FILEMANAGER_PACKAGE`
 

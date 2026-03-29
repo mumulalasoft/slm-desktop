@@ -55,7 +55,11 @@ must_install_bin "$BUILD_DIR/slm-session-broker" "$LIBEXEC_DIR/slm-session-broke
 ln -sfn "$LIBEXEC_DIR/slm-session-broker" "$BIN_DIR/slm-session-broker"
 echo "[install-slm-runtime][OK] $BIN_DIR/slm-session-broker -> $LIBEXEC_DIR/slm-session-broker"
 
-install_if_exists "$BUILD_DIR/appSlm_Desktop" "$BIN_DIR/slm-shell"
+if [[ -x "$BUILD_DIR/slm-desktop" ]]; then
+  install_if_exists "$BUILD_DIR/slm-desktop" "$BIN_DIR/slm-shell"
+else
+  install_if_exists "$BUILD_DIR/appSlm_Desktop" "$BIN_DIR/slm-shell"
+fi
 install_if_exists "$BUILD_DIR/desktopd" "$BIN_DIR/desktopd"
 install_if_exists "$BUILD_DIR/slm-svcmgrd" "$BIN_DIR/slm-svcmgrd"
 install_if_exists "$BUILD_DIR/slm-loggerd" "$BIN_DIR/slm-loggerd"

@@ -24,9 +24,9 @@ Coverage intent:
 - backend smoke and tothespot contextmenu smoke
 
 Local mirror commands:
-- `scripts/smoke-runtime.sh --build-dir build --app-bin build/appSlm_Desktop`
-- `scripts/smoke-backends.sh --build-dir build --app-bin build/appSlm_Desktop`
-- `scripts/smoke-tothespot-contextmenu.sh --build-dir build --app-bin build/appSlm_Desktop`
+- `scripts/smoke-runtime.sh --build-dir build --app-bin build/slm-desktop`
+- `scripts/smoke-backends.sh --build-dir build --app-bin build/slm-desktop`
+- `scripts/smoke-tothespot-contextmenu.sh --build-dir build --app-bin build/slm-desktop`
 
 ## Tier-2: Nightly Required (release gate)
 

@@ -96,7 +96,7 @@ Slm_Desktop/
 6. Ekstrak daftar source ke `cmake/Sources.cmake`.
 
 Setiap tahap wajib:
-- build `appSlm_Desktop`
+- build `slm-desktop`
 - build daemon terkait
 - jalankan smoke tests penting
 
