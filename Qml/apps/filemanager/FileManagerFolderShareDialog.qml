@@ -2,6 +2,7 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import Slm_Desktop
+import SlmStyle as DSStyle
 import "../../components/system"
 
 AppDialog {
@@ -225,7 +226,7 @@ AppDialog {
                 width: bodyFlick.width
                 spacing: 10
 
-                Label {
+                DSStyle.Label {
                     Layout.fillWidth: true
                     text: successState
                           ? "Folder sekarang dibagikan di jaringan"
@@ -283,11 +284,11 @@ AppDialog {
 
                     RowLayout {
                         spacing: 8
-                        Button {
+                        DSStyle.Button {
                             text: "Periksa lagi"
                             onClicked: root.refreshEnvironmentStatus()
                         }
-                        Button {
+                        DSStyle.Button {
                             text: "Perbaiki otomatis"
                             onClicked: {
                                 var res = root.hostRoot.repairFolderSharingEnvironment()
@@ -329,7 +330,7 @@ AppDialog {
                         }
                     }
 
-                    Label {
+                    DSStyle.Label {
                         Layout.fillWidth: true
                         text: root.showTechnicalDetails ? "Sembunyikan detail teknis" : "Tampilkan detail teknis"
                         color: Theme.color("accent")
@@ -370,12 +371,12 @@ AppDialog {
                     anchors.leftMargin: 10
                     anchors.rightMargin: 10
 
-                    Label {
+                    DSStyle.Label {
                         Layout.fillWidth: true
                         text: "Bagikan folder ini"
                         color: Theme.color("textPrimary")
                     }
-                    Switch {
+                    DSStyle.Switch {
                         checked: root.sharingEnabled
                         onToggled: root.sharingEnabled = checked
                     }
@@ -386,42 +387,42 @@ AppDialog {
                     visible: !successState && root.sharingEnabled
                     spacing: 8
 
-                Label {
+                DSStyle.Label {
                     text: "Nama folder di jaringan"
                     color: Theme.color("textPrimary")
                 }
-                TextField {
+                DSStyle.TextField {
                     Layout.fillWidth: true
                     text: root.shareName
                     onTextChanged: root.shareName = text
                     placeholderText: hostRoot.basename(root.targetPath)
                 }
-                Label {
+                DSStyle.Label {
                     Layout.fillWidth: true
                     text: "Nama ini akan terlihat dari perangkat lain"
                     color: Theme.color("textSecondary")
                     font.pixelSize: Theme.fontSize("small")
                 }
 
-                Label {
+                DSStyle.Label {
                     text: "Akses"
                     color: Theme.color("textPrimary")
                     topPadding: 4
                 }
                 ButtonGroup { id: accessGroup }
-                RadioButton {
+                DSStyle.RadioButton {
                     text: "Hanya saya"
                     checked: root.accessMode === "owner"
                     ButtonGroup.group: accessGroup
                     onToggled: if (checked) { root.accessMode = "owner" }
                 }
-                RadioButton {
+                DSStyle.RadioButton {
                     text: "Siapa pun di jaringan ini"
                     checked: root.accessMode === "anyone"
                     ButtonGroup.group: accessGroup
                     onToggled: if (checked) { root.accessMode = "anyone" }
                 }
-                Label {
+                DSStyle.Label {
                     visible: root.accessMode === "anyone"
                     Layout.fillWidth: true
                     text: "Siapa pun di jaringan ini dapat membuka folder ini. Pastikan Anda mempercayai jaringan yang digunakan."
@@ -429,13 +430,13 @@ AppDialog {
                     wrapMode: Text.WordWrap
                     font.pixelSize: Theme.fontSize("small")
                 }
-                RadioButton {
+                DSStyle.RadioButton {
                     text: "Pengguna tertentu"
                     checked: root.accessMode === "users"
                     ButtonGroup.group: accessGroup
                     onToggled: if (checked) { root.accessMode = "users" }
                 }
-                TextField {
+                DSStyle.TextField {
                     Layout.fillWidth: true
                     visible: root.accessMode === "users"
                     placeholderText: "Pisahkan nama pengguna dengan koma"
@@ -453,38 +454,38 @@ AppDialog {
                     }
                 }
 
-                Label {
+                DSStyle.Label {
                     text: "Izin"
                     color: Theme.color("textPrimary")
                     topPadding: 4
                 }
                 ButtonGroup { id: permissionGroup }
-                RadioButton {
+                DSStyle.RadioButton {
                     text: "Hanya lihat"
                     checked: root.permissionMode === "read"
                     ButtonGroup.group: permissionGroup
                     onToggled: if (checked) { root.permissionMode = "read" }
                 }
-                RadioButton {
+                DSStyle.RadioButton {
                     text: "Bisa mengubah file"
                     checked: root.permissionMode === "write"
                     ButtonGroup.group: permissionGroup
                     onToggled: if (checked) { root.permissionMode = "write" }
                 }
 
-                CheckBox {
+                DSStyle.CheckBox {
                     checked: root.allowGuest
                     text: "Izinkan akses tanpa login"
                     onToggled: root.allowGuest = checked
                 }
-                Label {
+                DSStyle.Label {
                     Layout.fillWidth: true
                     text: "Cocok untuk jaringan rumah yang dipercaya"
                     color: Theme.color("textSecondary")
                     font.pixelSize: Theme.fontSize("small")
                 }
 
-                Label {
+                DSStyle.Label {
                     Layout.fillWidth: true
                     text: "Pengaturan lanjutan"
                     color: Theme.color("accent")
@@ -496,13 +497,13 @@ AppDialog {
                 ColumnLayout {
                     visible: successState
                     spacing: 8
-                    Label {
+                    DSStyle.Label {
                         Layout.fillWidth: true
                         text: "Alamat folder: " + String(root.successAddress || "-")
                         color: Theme.color("textPrimary")
                         wrapMode: Text.WrapAnywhere
                     }
-                    Label {
+                    DSStyle.Label {
                         Layout.fillWidth: true
                         text: "Buka dari Windows Explorer, Finder, atau file manager Linux lain di jaringan yang sama."
                         color: Theme.color("textSecondary")
@@ -510,7 +511,7 @@ AppDialog {
                     }
                 }
 
-                Label {
+                DSStyle.Label {
                     Layout.fillWidth: true
                     visible: String(root.errorText || "").length > 0
                     text: root.errorText
@@ -526,22 +527,22 @@ AppDialog {
             spacing: 8
             Item { Layout.fillWidth: true }
 
-            Button {
+            DSStyle.Button {
                 visible: !successState
                 text: "Batal"
                 onClicked: root.close()
             }
-            Button {
+            DSStyle.Button {
                 visible: successState
                 text: "Tutup"
                 onClicked: root.close()
             }
-            Button {
+            DSStyle.Button {
                 visible: successState
                 text: "Salin alamat"
                 onClicked: root.hostRoot.copyFolderShareAddress(root.targetPath)
             }
-            Button {
+            DSStyle.Button {
                 visible: successState
                 text: "Hentikan berbagi"
                 onClicked: {
@@ -554,7 +555,7 @@ AppDialog {
                     }
                 }
             }
-            Button {
+            DSStyle.Button {
                 visible: !successState
                 highlighted: true
                 text: "Selesai"

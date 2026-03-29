@@ -242,6 +242,65 @@ Item {
             }
         }
 
+        function onArchiveExtractFinished(archivePath, ok, destinationDir, error, result) {
+            var payload = result || ({})
+            if (!ok) {
+                // Keep failure UX non-blocking: close transient filemanager dialogs
+                // and avoid showing failure popup inside FileManager window.
+                // Failure notification is handled by global batch indicator.
+                var refs = [
+                    root.hostRoot.batchOverlayPopupDialogRef,
+                    root.hostRoot.fileManagerMenusDialogRef,
+                    root.hostRoot.sidebarContextMenuDialogRef,
+                    root.hostRoot.quickPreviewDialogRef,
+                    root.hostRoot.renameDialogRef,
+                    root.hostRoot.propertiesDialogRef,
+                    root.hostRoot.compressDialogRef,
+                    root.hostRoot.openWithDialogRef,
+                    root.hostRoot.folderShareDialogRef,
+                    root.hostRoot.shareSheetRef
+                ]
+                for (var i = 0; i < refs.length; ++i) {
+                    var d = refs[i]
+                    if (d && d.close) {
+                        d.close()
+                    }
+                }
+                root.hostRoot.batchOverlayVisible = false
+                return
+            }
+
+            if (root.hostRoot.fileModel && root.hostRoot.fileModel.refresh) {
+                root.hostRoot.fileModel.refresh()
+            }
+
+            var to = String(destinationDir || (payload && payload.to ? payload.to : ""))
+            var openTarget = String((payload && payload.openPath) ? payload.openPath : "")
+            if (openTarget.length <= 0) {
+                var layout = String((payload && payload.layout) ? payload.layout : "")
+                var singleRoot = String((payload && payload.singleRootName) ? payload.singleRootName : "")
+                if (layout === "single_root_folder" && to.length > 0 && singleRoot.length > 0) {
+                    openTarget = to + "/" + singleRoot
+                }
+            }
+            if (openTarget.length > 0) {
+                root.hostRoot.openPath(openTarget)
+            } else if (to.length > 0) {
+                var parentDir = String(root.hostRoot.parentPathOf(to) || "")
+                if (parentDir.length > 0) {
+                    root.hostRoot.openPath(parentDir)
+                    Qt.callLater(function() {
+                        root.hostRoot.selectEntryByPath(to)
+                    })
+                }
+            }
+
+            root.hostRoot.notifyResult("Extract", {
+                                           "ok": true,
+                                           "path": to.length > 0 ? to : String(archivePath || "")
+                                       })
+        }
+
         function onPortalFileChooserFinished(requestId, result) {
             var rid = String(requestId || "")
             if (rid.length <= 0 || rid !== String(
@@ -250,12 +309,18 @@ Item {
             }
             var action = String(root.hostRoot.pendingPortalChooserAction || "")
             var sources = root.hostRoot.pendingPortalChooserSources || []
+            var archivePath = String(root.hostRoot.pendingPortalChooserArchive || "")
             root.hostRoot.pendingPortalChooserRequestId = ""
             root.hostRoot.pendingPortalChooserAction = ""
             root.hostRoot.pendingPortalChooserSources = []
+            root.hostRoot.pendingPortalChooserArchive = ""
             var payload = result || ({})
             if (!payload || !payload.ok) {
                 if (!!payload.canceled) {
+                    return
+                }
+                if (action === "extract") {
+                    root.hostRoot.notifyResult("Extract", payload)
                     return
                 }
                 root.hostRoot.notifyResult(action === "move" ? "Move" : "Copy",
@@ -270,6 +335,13 @@ Item {
                 }
             }
             if (targetDir.length <= 0) {
+                if (action === "extract") {
+                    root.hostRoot.notifyResult("Extract", {
+                                                   "ok": false,
+                                                   "error": "missing-destination"
+                                               })
+                    return
+                }
                 root.hostRoot.notifyResult(action === "move" ? "Move" : "Copy", {
                                                "ok": false,
                                                "error": "missing-destination"
@@ -280,7 +352,15 @@ Item {
                 return
             }
             var opRes
-            if (action === "move") {
+            if (action === "extract") {
+                opRes = root.fileManagerApi.startExtractArchive
+                        ? root.fileManagerApi.startExtractArchive(
+                            archivePath, targetDir)
+                        : {
+                            "ok": false,
+                            "error": "async-extract-api-unavailable"
+                        }
+            } else if (action === "move") {
                 opRes = root.fileManagerApi.startMovePaths
                         ? root.fileManagerApi.startMovePaths(
                             sources, targetDir, false)
@@ -298,6 +378,10 @@ Item {
                         }
             }
             if (!opRes || !opRes.ok) {
+                if (action === "extract") {
+                    root.hostRoot.notifyResult("Extract", opRes)
+                    return
+                }
                 root.hostRoot.notifyResult(action === "move" ? "Move" : "Copy",
                                            opRes)
             }

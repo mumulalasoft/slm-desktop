@@ -14,6 +14,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import SlmStyle as DSStyle
 
 Drawer {
     id: root
@@ -151,10 +152,9 @@ Drawer {
             }
 
             // Set default button (bila ada aplikasi)
-            Button {
+            DSStyle.Button {
                 Layout.fillWidth: true
                 text: qsTr("Jadikan default untuk tipe file ini")
-                flat: true
                 visible: root.applications.length > 0 && !root.loading
 
                 Accessible.role: Accessible.Button

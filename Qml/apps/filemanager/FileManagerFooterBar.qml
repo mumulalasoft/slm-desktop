@@ -3,6 +3,7 @@ import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import Slm_Desktop
 import SlmStyle
+import SlmStyle as DSStyle
 
 Rectangle {
     id: root
@@ -19,7 +20,7 @@ Rectangle {
         anchors.rightMargin: 10
         spacing: 6
 
-        Label {
+        DSStyle.Label {
             Layout.fillWidth: true
             text: {
                 var items = Number(hostRoot.fileModel

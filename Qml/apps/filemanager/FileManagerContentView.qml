@@ -2,6 +2,7 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import Slm_Desktop
+import SlmStyle as DSStyle
 import "FileManagerUtils.js" as FileManagerUtils
 
 Rectangle {
@@ -1050,7 +1051,7 @@ Rectangle {
                 required property bool isDir
                 required property int size
                 required property string lastModified
-                readonly property bool networkShared: !!model.networkShared
+                required property bool networkShared
                 readonly property bool previewCandidate: (!isDir && FileManagerUtils.isPreviewCandidateName(name))
                 readonly property real rowCenterY: y + (height * 0.5)
                 readonly property real viewportCenterY: gridView.contentY + (gridView.height * 0.5)
@@ -1362,7 +1363,7 @@ Rectangle {
                     required property string mimeType
                     required property string iconName
                     required property bool isDir
-                    readonly property bool networkShared: !!model.networkShared
+                    required property bool networkShared
                     required property int size
                     required property string suffix
                     required property string dateAdded
@@ -2136,25 +2137,25 @@ Rectangle {
                 spacing: 8
                 visible: !root.deepSearching && !root.contentLoading
 
-                Button {
+                DSStyle.Button {
                     visible: root.searching
                     text: "Clear Search"
                     onClicked: root.clearSearchRequested()
                 }
 
-                Button {
+                DSStyle.Button {
                     visible: !root.searching && !root.trashView && !root.recentView
                     text: "New Folder"
                     onClicked: root.createFolderRequested()
                 }
 
-                Button {
+                DSStyle.Button {
                     visible: root.recentView || root.trashView
                     text: "Open Home"
                     onClicked: root.openHomeRequested()
                 }
 
-                Button {
+                DSStyle.Button {
                     visible: root.recentView
                     text: "Clear Recents"
                     onClicked: root.clearRecentsRequested()

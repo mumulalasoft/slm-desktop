@@ -31,6 +31,13 @@ Rectangle {
     property string contextEntryPath: ""
     property string contextEntryName: ""
     property bool contextEntryIsDir: false
+    property string contextEntryMimeType: ""
+    property string contextEntrySuffix: ""
+    readonly property bool contextEntryIsArchive: FileManagerOps.isArchiveEntryPath(
+                                                      contextEntryPath,
+                                                      contextEntryName,
+                                                      contextEntryMimeType,
+                                                      contextEntrySuffix)
     readonly property bool contextEntryProtected: isProtectedEntryPath(
                                                       contextEntryPath)
     property string renameDialogError: ""
@@ -130,6 +137,11 @@ Rectangle {
     property string quickPreviewMetaText: ""
     property string quickPreviewImageSource: ""
     property string quickPreviewFallbackIconSource: ""
+    property bool quickPreviewArchiveMode: false
+    property var quickPreviewArchiveEntries: []
+    property int quickPreviewArchiveEntryCount: 0
+    property bool quickPreviewArchiveTruncated: false
+    property string quickPreviewArchiveLayout: ""
     property var propertiesEntry: ({})
     property var propertiesStat: ({})
     property int propertiesTabIndex: 0
@@ -144,6 +156,10 @@ Rectangle {
     property string pendingPortalChooserRequestId: ""
     property string pendingPortalChooserAction: ""
     property var pendingPortalChooserSources: []
+    property string pendingPortalChooserArchive: ""
+    property var archiveMissingIssues: []
+    property string archiveMissingStatusText: ""
+    property bool archiveMissingInstallBusy: false
     readonly property bool propertiesShowDeviceUsage: !!(propertiesStat
                                                          && propertiesStat.isDir)
                                                       && Number(
@@ -694,6 +710,50 @@ Rectangle {
         }
         return fileManagerApiRef.installMissingComponent(String(componentIdValue || ""))
     }
+    function refreshArchiveMissingComponents() {
+        archiveMissingStatusText = ""
+        if (!fileManagerApiRef || !fileManagerApiRef.missingComponentsForDomain) {
+            archiveMissingIssues = []
+            return []
+        }
+        var list = fileManagerApiRef.missingComponentsForDomain("archive")
+        archiveMissingIssues = list || []
+        return archiveMissingIssues
+    }
+    function installArchiveMissingComponent(componentIdValue) {
+        var componentId = String(componentIdValue || "").trim()
+        if (componentId.length <= 0) {
+            return ({
+                        "ok": false,
+                        "error": "invalid-component"
+                    })
+        }
+        if (!fileManagerApiRef || !fileManagerApiRef.installMissingComponentForDomain) {
+            return ({
+                        "ok": false,
+                        "error": "api-unavailable"
+                    })
+        }
+        archiveMissingInstallBusy = true
+        var res = fileManagerApiRef.installMissingComponentForDomain("archive",
+                                                                     componentId)
+        archiveMissingInstallBusy = false
+        if (!!res && !!res.ok) {
+            archiveMissingStatusText = "Archive component installed. Rechecking..."
+            refreshArchiveMissingComponents()
+            notifyResult("Archive", {
+                             "ok": true,
+                             "message": "Archive component installed."
+                         })
+        } else {
+            archiveMissingStatusText = "Install failed: " + String((res && res.error) ? res.error : "unknown")
+            notifyResult("Archive", {
+                             "ok": false,
+                             "error": String((res && res.error) ? res.error : "install-failed")
+                         })
+        }
+        return res
+    }
     function openContextEntryInApp(appIdValue) { FileManagerOpenWith.openContextEntryInApp(root, fileManagerApiRef, appIdValue) }
     function setDefaultContextEntryApp(appIdValue) { FileManagerOpenWith.setDefaultContextEntryApp(root, fileManagerApiRef, appIdValue) }
     function openWithOtherApplication() { FileManagerOpenWith.openWithOtherApplication(root, openWithDialogRef) }
@@ -735,6 +795,9 @@ Rectangle {
     function sendSelectionViaBluetooth() { FileManagerOps.sendSelectionViaBluetooth(root, appCommandRouterRef) }
     function compressSelection() { FileManagerOps.compressSelection(root, fileManagerApiRef, compressDialogRef) }
     function applyCompressSelection() { FileManagerOps.applyCompressSelection(root, fileManagerApiRef, compressDialogRef) }
+    function extractContextArchive(destinationDir) { FileManagerOps.extractContextArchive(root, fileManagerApiRef, destinationDir) }
+    function chooseExtractDestinationForContextArchive() { FileManagerOps.chooseExtractDestinationForContextArchive(root, fileManagerApiRef) }
+    function selectEntryByPath(pathValue) { return FileManagerOps.selectEntryByPath(root, pathValue) }
     function showPropertiesForSelection() { FileManagerOps.showPropertiesForSelection(root, fileManagerApiRef, propertiesDialogRef) }
     function showPropertiesForPath(pathValue) { FileManagerOps.showPropertiesForPath(root, fileManagerApiRef, pathValue, propertiesDialogRef) }
     function isImageSuffix(nameValue) { return FileManagerOps.isImageSuffix(nameValue) }
@@ -753,6 +816,8 @@ Rectangle {
         root.contextEntryName = String(entry.name || basename(
                                            root.contextEntryPath))
         root.contextEntryIsDir = !!entry.isDir
+        root.contextEntryMimeType = String(entry.mimeType || "")
+        root.contextEntrySuffix = String(entry.suffix || "")
         requestRenameContextEntry()
     }
 

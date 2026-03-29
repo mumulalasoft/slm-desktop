@@ -2,6 +2,7 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import Slm_Desktop
+import SlmStyle as DSStyle
 
 AppDialog {
     id: root
@@ -47,7 +48,7 @@ AppDialog {
             spacing: 8
             implicitHeight: 140
 
-            Label {
+            DSStyle.Label {
                 Layout.fillWidth: true
                 text: String(hostRoot.contextEntryName || "")
                 color: Theme.color("textSecondary")
@@ -55,12 +56,12 @@ AppDialog {
                 elide: Text.ElideMiddle
             }
 
-            Label {
+            DSStyle.Label {
                 text: "New name"
                 color: Theme.color("textPrimary")
             }
 
-            TextField {
+            DSStyle.TextField {
                 id: renameField
                 Layout.fillWidth: true
                 text: hostRoot.renameInputText
@@ -84,7 +85,7 @@ AppDialog {
                 Component.onCompleted: root.renameFieldRef = renameField
             }
 
-            Label {
+            DSStyle.Label {
                 Layout.fillWidth: true
                 visible: String(hostRoot.renameDialogError || "").length > 0
                 text: String(hostRoot.renameDialogError || "")
@@ -104,12 +105,12 @@ AppDialog {
                 Layout.fillWidth: true
             }
 
-            Button {
+            DSStyle.Button {
                 text: "Cancel"
                 onClicked: root.close()
             }
 
-            Button {
+            DSStyle.Button {
                 text: "Rename"
                 highlighted: true
                 enabled: String(hostRoot.renameInputText || "").trim().length > 0

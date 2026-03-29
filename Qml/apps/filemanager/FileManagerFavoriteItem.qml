@@ -1,6 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import Slm_Desktop
+import SlmStyle as DSStyle
 
 Rectangle {
     id: root
@@ -19,12 +20,12 @@ Rectangle {
         anchors.leftMargin: 12
         spacing: 8
 
-        Label {
+        DSStyle.Label {
             text: "\u2605"
             color: Theme.color("accent")
         }
 
-        Label {
+        DSStyle.Label {
             text: root.name
             color: Theme.color("textPrimary")
             width: 180

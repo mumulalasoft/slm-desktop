@@ -78,11 +78,13 @@ Item {
     Loader {
         id: shareSheetLoader
         active: true
-        source: "FileManagerShareSheet.qml"
-        onLoaded: {
-            if (item) {
-                item.hostRoot = root.hostRoot
-            }
+        sourceComponent: shareSheetComponent
+    }
+
+    Component {
+        id: shareSheetComponent
+        FileManagerShareSheet {
+            hostRoot: root.hostRoot
         }
     }
 

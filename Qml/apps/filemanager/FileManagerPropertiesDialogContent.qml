@@ -2,6 +2,7 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import Slm_Desktop
+import SlmStyle as DSStyle
 
 Item {
     id: root
@@ -67,7 +68,7 @@ ColumnLayout {
             border.width: Theme.borderWidthThin
             border.color: Theme.color("fileManagerControlBorder")
 
-            Label {
+            DSStyle.Label {
                 anchors.fill: parent
                 anchors.leftMargin: 10
                 anchors.rightMargin: 10
@@ -101,7 +102,7 @@ ColumnLayout {
                 color: hostRoot.propertiesTabIndex === 0 ? Theme.color(
                                                            "selectedItem") : "transparent"
 
-                Label {
+                DSStyle.Label {
                     anchors.centerIn: parent
                     text: "General"
                     color: hostRoot.propertiesTabIndex
@@ -123,7 +124,7 @@ ColumnLayout {
                 color: hostRoot.propertiesTabIndex === 1 ? Theme.color(
                                                            "selectedItem") : "transparent"
 
-                Label {
+                DSStyle.Label {
                     anchors.centerIn: parent
                     text: "Permissions"
                     color: hostRoot.propertiesTabIndex
@@ -147,7 +148,7 @@ ColumnLayout {
                 enabled: !!(propertiesStat && propertiesStat.isDir)
                 opacity: enabled ? 1.0 : 0.5
 
-                Label {
+                DSStyle.Label {
                     anchors.centerIn: parent
                     text: "Sharing"
                     color: hostRoot.propertiesTabIndex
@@ -176,7 +177,7 @@ ColumnLayout {
                 Layout.alignment: Qt.AlignVCenter
                 spacing: 8
 
-                Label {
+                DSStyle.Label {
                     text: "Info"
                     color: Theme.color("textSecondary")
                     font.pixelSize: Theme.fontSize("body")
@@ -184,11 +185,11 @@ ColumnLayout {
                 }
 
                 RowLayout {
-                    Label {
+                    DSStyle.Label {
                         text: "Size:"
                         color: Theme.color("textSecondary")
                     }
-                    Label {
+                    DSStyle.Label {
                         text: {
                             var isDir = !!(propertiesStat
                                            && propertiesStat.isDir)
@@ -203,7 +204,7 @@ ColumnLayout {
 
                 RowLayout {
 
-                    Label {
+                    DSStyle.Label {
                         visible: !(propertiesStat
                                    && propertiesStat.isDir)
                         text: "Type:"
@@ -211,7 +212,7 @@ ColumnLayout {
 
                         // Layout.preferredWidth: 84
                     }
-                    Label {
+                    DSStyle.Label {
                         visible: !(propertiesStat
                                    && propertiesStat.isDir)
                         text: fileTypeDisplay(propertiesStat,
@@ -221,11 +222,11 @@ ColumnLayout {
                 }
 
                 RowLayout {
-                    Label {
+                    DSStyle.Label {
                         text: "Created:"
                         color: Theme.color("textSecondary")
                     }
-                    Label {
+                    DSStyle.Label {
                         text: formatDateTimeHuman(
                                   (propertiesStat
                                    && propertiesStat.created) ? propertiesStat.created : "")
@@ -234,11 +235,11 @@ ColumnLayout {
                 }
 
                 RowLayout {
-                    Label {
+                    DSStyle.Label {
                         text: "Modified:"
                         color: Theme.color("textSecondary")
                     }
-                    Label {
+                    DSStyle.Label {
                         text: formatDateTimeHuman(
                                   (propertiesStat
                                    && propertiesStat.modified) ? propertiesStat.modified : ((propertiesStat && propertiesStat.lastModified) ? propertiesStat.lastModified : ""))
@@ -246,11 +247,11 @@ ColumnLayout {
                     }
                 }
                 RowLayout {
-                    Label {
+                    DSStyle.Label {
                         text: "Media type:"
                         color: Theme.color("textSecondary")
                     }
-                    Label {
+                    DSStyle.Label {
                         text: String(
                                   (propertiesStat
                                    && propertiesStat.mimeType) ? propertiesStat.mimeType : "-")
@@ -258,11 +259,11 @@ ColumnLayout {
                     }
                 }
                 RowLayout {
-                    Label {
+                    DSStyle.Label {
                         text: "Resolution:"
                         color: Theme.color("textSecondary")
                     }
-                    Label {
+                    DSStyle.Label {
                         text: {
                             var w = Number(
                                         (propertiesStat
@@ -280,11 +281,11 @@ ColumnLayout {
                 }
                 RowLayout {
 
-                    Label {
+                    DSStyle.Label {
                         text: "Location:"
                         color: Theme.color("textSecondary")
                     }
-                    Label {
+                    DSStyle.Label {
                         text: locationDisplay(propertiesStat,
                                               propertiesEntry)
                         color: Theme.color("accent")
@@ -294,13 +295,13 @@ ColumnLayout {
 
                 RowLayout {
 
-                    Label {
+                    DSStyle.Label {
                         visible: !(propertiesStat
                                    && propertiesStat.isDir)
                         text: "Open with:"
                         color: Theme.color("textSecondary")
                     }
-                    ComboBox {
+                    DSStyle.ComboBox {
                         id: propertiesOpenWithCombo
                         visible: !(propertiesStat
                                    && propertiesStat.isDir)
@@ -328,7 +329,7 @@ ColumnLayout {
                                                  && modelData.iconName) ? modelData.iconName : "application-x-executable-symbolic")
                                             + "?v=" + root.iconRevision
                                 }
-                                Label {
+                                DSStyle.Label {
                                     Layout.fillWidth: true
                                     color: Theme.color("textPrimary")
                                     elide: Text.ElideRight
@@ -363,7 +364,7 @@ ColumnLayout {
                                              && hostRoot.propertiesOpenWithApps[hostRoot.propertiesOpenWithCurrentIndex] && hostRoot.propertiesOpenWithApps[hostRoot.propertiesOpenWithCurrentIndex].iconName) ? hostRoot.propertiesOpenWithApps[hostRoot.propertiesOpenWithCurrentIndex].iconName : "application-x-executable-symbolic")
                                         + "?v=" + root.iconRevision
                             }
-                            Label {
+                            DSStyle.Label {
                                 Layout.fillWidth: true
                                 color: Theme.color("textPrimary")
                                 elide: Text.ElideRight
@@ -380,7 +381,7 @@ ColumnLayout {
                             height: 22
                             radius: Theme.radiusMd
                             color: Theme.color("selectedItem")
-                            Label {
+                            DSStyle.Label {
                                 anchors.centerIn: parent
                                 text: "▾"
                                 color: Theme.color("selectedItemText")
@@ -407,7 +408,7 @@ ColumnLayout {
                         anchors.fill: parent
                         spacing: 6
 
-                        Label {
+                        DSStyle.Label {
                             text: "Device Usage"
                             color: Theme.color("textSecondary")
                             font.pixelSize: Theme.fontSize("body")
@@ -470,7 +471,7 @@ ColumnLayout {
                             }
                         }
 
-                        Label {
+                        DSStyle.Label {
                             Layout.fillWidth: true
                             horizontalAlignment: Text.AlignHCenter
                             color: Theme.color("textPrimary")
@@ -497,21 +498,21 @@ ColumnLayout {
                     columns: 2
                     rowSpacing: 4
                     columnSpacing: 10
-                    Label {
+                    DSStyle.Label {
                         text: "Owner:"
                         color: Theme.color("textSecondary")
                     }
-                    Label {
+                    DSStyle.Label {
                         text: String(
                                   (propertiesStat
                                    && propertiesStat.owner) ? propertiesStat.owner : "-")
                         color: Theme.color("textPrimary")
                     }
-                    Label {
+                    DSStyle.Label {
                         text: "Group:"
                         color: Theme.color("textSecondary")
                     }
-                    Label {
+                    DSStyle.Label {
                         text: String(
                                   (propertiesStat
                                    && propertiesStat.group) ? propertiesStat.group : "-")
@@ -536,7 +537,7 @@ ColumnLayout {
                         RowLayout {
                             Layout.fillWidth: true
                             spacing: 6
-                            Label {
+                            DSStyle.Label {
                                 Layout.preferredWidth: 72
                                 text: "Owner"
                                 color: Theme.color("textPrimary")
@@ -550,7 +551,7 @@ ColumnLayout {
                                 border.width: Theme.borderWidthThin
                                 border.color: Theme.color(
                                                   "fileManagerControlBorder")
-                                Label {
+                                DSStyle.Label {
                                     anchors.centerIn: parent
                                     text: "◉"
                                     color: (propertiesStat
@@ -566,7 +567,7 @@ ColumnLayout {
                                 border.width: Theme.borderWidthThin
                                 border.color: Theme.color(
                                                   "fileManagerControlBorder")
-                                Label {
+                                DSStyle.Label {
                                     anchors.centerIn: parent
                                     text: "✎"
                                     color: (propertiesStat
@@ -582,7 +583,7 @@ ColumnLayout {
                                 border.width: Theme.borderWidthThin
                                 border.color: Theme.color(
                                                   "fileManagerControlBorder")
-                                Label {
+                                DSStyle.Label {
                                     anchors.centerIn: parent
                                     text: "▶"
                                     color: (propertiesStat
@@ -600,7 +601,7 @@ ColumnLayout {
                         RowLayout {
                             Layout.fillWidth: true
                             spacing: 6
-                            Label {
+                            DSStyle.Label {
                                 Layout.preferredWidth: 72
                                 text: "Group"
                                 color: Theme.color("textPrimary")
@@ -614,7 +615,7 @@ ColumnLayout {
                                 border.width: Theme.borderWidthThin
                                 border.color: Theme.color(
                                                   "fileManagerControlBorder")
-                                Label {
+                                DSStyle.Label {
                                     anchors.centerIn: parent
                                     text: "◉"
                                     color: (propertiesStat
@@ -630,7 +631,7 @@ ColumnLayout {
                                 border.width: Theme.borderWidthThin
                                 border.color: Theme.color(
                                                   "fileManagerControlBorder")
-                                Label {
+                                DSStyle.Label {
                                     anchors.centerIn: parent
                                     text: "✎"
                                     color: (propertiesStat
@@ -646,7 +647,7 @@ ColumnLayout {
                                 border.width: Theme.borderWidthThin
                                 border.color: Theme.color(
                                                   "fileManagerControlBorder")
-                                Label {
+                                DSStyle.Label {
                                     anchors.centerIn: parent
                                     text: "▶"
                                     color: (propertiesStat
@@ -664,7 +665,7 @@ ColumnLayout {
                         RowLayout {
                             Layout.fillWidth: true
                             spacing: 6
-                            Label {
+                            DSStyle.Label {
                                 Layout.preferredWidth: 72
                                 text: "Everyone"
                                 color: Theme.color("textPrimary")
@@ -678,7 +679,7 @@ ColumnLayout {
                                 border.width: Theme.borderWidthThin
                                 border.color: Theme.color(
                                                   "fileManagerControlBorder")
-                                Label {
+                                DSStyle.Label {
                                     anchors.centerIn: parent
                                     text: "◉"
                                     color: (propertiesStat
@@ -694,7 +695,7 @@ ColumnLayout {
                                 border.width: Theme.borderWidthThin
                                 border.color: Theme.color(
                                                   "fileManagerControlBorder")
-                                Label {
+                                DSStyle.Label {
                                     anchors.centerIn: parent
                                     text: "✎"
                                     color: (propertiesStat
@@ -710,7 +711,7 @@ ColumnLayout {
                                 border.width: Theme.borderWidthThin
                                 border.color: Theme.color(
                                                   "fileManagerControlBorder")
-                                Label {
+                                DSStyle.Label {
                                     anchors.centerIn: parent
                                     text: "▶"
                                     color: (propertiesStat
@@ -724,7 +725,7 @@ ColumnLayout {
                 RowLayout {
                     Layout.fillWidth: true
                     spacing: 8
-                    Label {
+                    DSStyle.Label {
                         text: "-" + String(
                                   (propertiesStat
                                    && propertiesStat.permissionsSymbolic) ? propertiesStat.permissionsSymbolic : "---------")
@@ -738,7 +739,7 @@ ColumnLayout {
                                           "fileManagerControlBorder")
                         Layout.preferredHeight: 28
                         Layout.preferredWidth: 56
-                        Label {
+                        DSStyle.Label {
                             anchors.centerIn: parent
                             text: String(
                                       (propertiesStat
@@ -757,21 +758,21 @@ ColumnLayout {
             ColumnLayout {
                 spacing: 8
 
-                Label {
+                DSStyle.Label {
                     text: "Sharing"
                     color: Theme.color("textSecondary")
                     font.pixelSize: Theme.fontSize("body")
                     font.weight: Theme.fontWeight("medium")
                 }
 
-                Label {
+                DSStyle.Label {
                     Layout.fillWidth: true
                     visible: !!(propertiesShareInfo && propertiesShareInfo.enabled)
                     text: "Dibagikan di jaringan"
                     color: Theme.color("accent")
                 }
 
-                Label {
+                DSStyle.Label {
                     Layout.fillWidth: true
                     visible: !propertiesShareInfo.enabled
                     text: "Belum dibagikan"
@@ -780,11 +781,11 @@ ColumnLayout {
 
                 RowLayout {
                     visible: !!(propertiesShareInfo && propertiesShareInfo.enabled)
-                    Label {
+                    DSStyle.Label {
                         text: "Nama:"
                         color: Theme.color("textSecondary")
                     }
-                    Label {
+                    DSStyle.Label {
                         text: String(propertiesShareInfo.shareName || "-")
                         color: Theme.color("textPrimary")
                     }
@@ -792,11 +793,11 @@ ColumnLayout {
 
                 RowLayout {
                     visible: !!(propertiesShareInfo && propertiesShareInfo.enabled)
-                    Label {
+                    DSStyle.Label {
                         text: "Akses:"
                         color: Theme.color("textSecondary")
                     }
-                    Label {
+                    DSStyle.Label {
                         text: {
                             var mode = String(propertiesShareInfo.access || "owner")
                             if (mode === "anyone" || mode === "all")
@@ -811,11 +812,11 @@ ColumnLayout {
 
                 RowLayout {
                     visible: !!(propertiesShareInfo && propertiesShareInfo.enabled)
-                    Label {
+                    DSStyle.Label {
                         text: "Izin:"
                         color: Theme.color("textSecondary")
                     }
-                    Label {
+                    DSStyle.Label {
                         text: String(propertiesShareInfo.permission || "read") === "write"
                               ? "Bisa mengubah file" : "Hanya lihat"
                         color: Theme.color("textPrimary")
@@ -824,11 +825,11 @@ ColumnLayout {
 
                 RowLayout {
                     visible: !!(propertiesShareInfo && propertiesShareInfo.enabled)
-                    Label {
+                    DSStyle.Label {
                         text: "Status backend:"
                         color: Theme.color("textSecondary")
                     }
-                    Label {
+                    DSStyle.Label {
                         text: propertiesShareInfo.backendApplied ? "Siap"
                               : (propertiesShareInfo.backendPending ? "Perlu tindakan" : "Belum siap")
                         color: propertiesShareInfo.backendApplied
@@ -837,7 +838,7 @@ ColumnLayout {
                     }
                 }
 
-                Label {
+                DSStyle.Label {
                     Layout.fillWidth: true
                     visible: !!(propertiesShareInfo && propertiesShareInfo.enabled
                                 && propertiesShareInfo.backendError)
@@ -849,22 +850,22 @@ ColumnLayout {
 
                 RowLayout {
                     spacing: 8
-                    Button {
+                    DSStyle.Button {
                         text: propertiesShareInfo.enabled ? "Ubah" : "Bagikan Folder..."
                         enabled: !!(propertiesStat && propertiesStat.isDir)
                         onClicked: hostRoot.openFolderShareDialog(propertiesSharePath)
                     }
-                    Button {
+                    DSStyle.Button {
                         text: "Salin alamat"
                         visible: !!(propertiesShareInfo && propertiesShareInfo.enabled)
                         onClicked: hostRoot.copyFolderShareAddress(propertiesSharePath)
                     }
-                    Button {
+                    DSStyle.Button {
                         text: "Hentikan berbagi"
                         visible: !!(propertiesShareInfo && propertiesShareInfo.enabled)
                         onClicked: hostRoot.disableFolderShare(propertiesSharePath)
                     }
-                    Button {
+                    DSStyle.Button {
                         text: "Periksa backend"
                         visible: !!(propertiesStat && propertiesStat.isDir)
                         onClicked: {
@@ -872,7 +873,7 @@ ColumnLayout {
                             hostRoot.notifyResult("Bagikan Folder", status)
                         }
                     }
-                    Button {
+                    DSStyle.Button {
                         text: "Perbaiki backend"
                         visible: !!(propertiesStat && propertiesStat.isDir)
                         onClicked: {
@@ -890,7 +891,7 @@ ColumnLayout {
         Item {
             Layout.fillWidth: true
         }
-        Button {
+        DSStyle.Button {
             text: "Close"
             onClicked: dialogRef.close()
         }

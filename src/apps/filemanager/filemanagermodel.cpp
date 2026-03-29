@@ -27,6 +27,7 @@ struct DirectoryScanResult
 };
 
 QString mimeIconForInfo(const QFileInfo &info);
+bool isArchiveEntry(const FileEntry &entry);
 
 QString fileKindSortKey(const FileEntry &e)
 {
@@ -245,6 +246,46 @@ QString mimeIconForInfo(const QFileInfo &info)
         return mime.genericIconName();
     }
     return QStringLiteral("text-x-generic-symbolic");
+}
+
+bool isArchiveEntry(const FileEntry &entry)
+{
+    if (entry.dir) {
+        return false;
+    }
+    const QString suffix = entry.suffix.trimmed().toLower();
+    if (suffix == QLatin1String("zip")
+            || suffix == QLatin1String("tar")
+            || suffix == QLatin1String("tgz")
+            || suffix == QLatin1String("gz")
+            || suffix == QLatin1String("xz")
+            || suffix == QLatin1String("bz2")
+            || suffix == QLatin1String("tbz")
+            || suffix == QLatin1String("tbz2")
+            || suffix == QLatin1String("txz")
+            || suffix == QLatin1String("zst")
+            || suffix == QLatin1String("tzst")
+            || suffix == QLatin1String("7z")
+            || suffix == QLatin1String("rar")
+            || suffix == QLatin1String("cpio")
+            || suffix == QLatin1String("ar")
+            || suffix == QLatin1String("lz")
+            || suffix == QLatin1String("lzma")) {
+        return true;
+    }
+    const QString mime = entry.mimeType.trimmed().toLower();
+    if (mime.contains(QStringLiteral("zip"))
+            || mime.contains(QStringLiteral("tar"))
+            || mime.contains(QStringLiteral("gzip"))
+            || mime.contains(QStringLiteral("bzip"))
+            || mime.contains(QStringLiteral("xz"))
+            || mime.contains(QStringLiteral("7z"))
+            || mime.contains(QStringLiteral("rar"))
+            || mime.contains(QStringLiteral("cpio"))
+            || mime.contains(QStringLiteral("archive"))) {
+        return true;
+    }
+    return false;
 }
 
 QVector<FileEntry> entriesFromApiResult(const QVariantList &rows)
@@ -901,6 +942,12 @@ QVariantMap FileManagerModel::activate(int index)
             {QStringLiteral("type"), QStringLiteral("directory")},
             {QStringLiteral("path"), m_currentPath}
         };
+    }
+    const FileEntry &raw = m_entries.at(index);
+    if (isArchiveEntry(raw)) {
+        QVariantMap out = entry;
+        out.insert(QStringLiteral("type"), QStringLiteral("archive"));
+        return out;
     }
     QVariantMap out = entry;
     out.insert(QStringLiteral("type"), QStringLiteral("file"));

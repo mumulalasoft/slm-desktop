@@ -9,6 +9,7 @@
 #include <QFileInfo>
 #include <QProcess>
 #include <QSet>
+#include <QStandardPaths>
 #include <QThread>
 #include <QVariant>
 
@@ -212,12 +213,28 @@ static QVariantMap runBsdtarExtractFallback(const QString &archive, const QStrin
     }
     QDir().mkpath(target);
 
+    const QString bsdtarBin = QStandardPaths::findExecutable(QStringLiteral("bsdtar"));
+    const QString unzipBin = QStandardPaths::findExecutable(QStringLiteral("unzip"));
+
     QProcess p;
-    p.start(QStringLiteral("bsdtar"), QStringList{QStringLiteral("-xf"), archive, QStringLiteral("-C"), target});
+    if (!bsdtarBin.isEmpty()) {
+        p.start(bsdtarBin,
+                QStringList{QStringLiteral("-xf"), archive, QStringLiteral("-C"), target});
+    } else if (!unzipBin.isEmpty()) {
+        p.start(unzipBin,
+                QStringList{QStringLiteral("-o"), archive, QStringLiteral("-d"), target});
+    } else {
+        QDir(target).removeRecursively();
+        return QVariantMap{
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), QStringLiteral("extract-tool-unavailable")}
+        };
+    }
     p.waitForFinished(-1);
     const QString out = QString::fromUtf8(p.readAllStandardOutput());
     const QString err = QString::fromUtf8(p.readAllStandardError()).trimmed();
     if (p.exitStatus() != QProcess::NormalExit || p.exitCode() != 0) {
+        QDir(target).removeRecursively();
         return QVariantMap{
             {QStringLiteral("ok"), false},
             {QStringLiteral("error"), err.isEmpty() ? QStringLiteral("extract-failed") : err}
@@ -583,11 +600,20 @@ QVariantMap FileManagerApi::startExtractArchive(const QString &archivePath,
         const QString to = result.value(QStringLiteral("to")).toString();
         const QString error = result.value(QStringLiteral("error")).toString();
         QMetaObject::invokeMethod(this, [this, archive, ok, to, error, result, opId, activeJobId]() {
+            qlonglong processed = m_batchCurrent;
+            qlonglong total = m_batchTotal;
             if (m_batchKind == BatchKind::Extract
                     && (m_batchId == opId || m_batchId == activeJobId || m_batchId.isEmpty())) {
                 if (ok) {
                     m_batchCurrent = m_batchTotal;
                 }
+                processed = m_batchCurrent;
+                total = m_batchTotal;
+                emit fileBatchOperationFinished(QStringLiteral("extract"),
+                                                ok,
+                                                processed,
+                                                total,
+                                                error);
                 m_batchKind = BatchKind::None;
                 m_batchId.clear();
                 m_batchTasks.clear();
@@ -714,11 +740,20 @@ QVariantMap FileManagerApi::startCompressArchive(const QVariantList &sourcePaths
         const bool ok = result.value(QStringLiteral("ok")).toBool();
         const QString error = result.value(QStringLiteral("error")).toString();
         QMetaObject::invokeMethod(this, [this, archive, ok, error, result, opId, activeJobId]() {
+            qlonglong processed = m_batchCurrent;
+            qlonglong total = m_batchTotal;
             if (m_batchKind == BatchKind::Compress
                     && (m_batchId == opId || m_batchId == activeJobId || m_batchId.isEmpty())) {
                 if (ok) {
                     m_batchCurrent = m_batchTotal;
                 }
+                processed = m_batchCurrent;
+                total = m_batchTotal;
+                emit fileBatchOperationFinished(QStringLiteral("compress"),
+                                                ok,
+                                                processed,
+                                                total,
+                                                error);
                 m_batchKind = BatchKind::None;
                 m_batchId.clear();
                 m_batchTasks.clear();

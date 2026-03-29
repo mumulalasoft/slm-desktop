@@ -3,6 +3,7 @@ import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import Slm_Desktop
 import SlmStyle
+import SlmStyle as DSStyle
 
 Rectangle {
     id: root
@@ -104,7 +105,7 @@ Rectangle {
             }
         }
 
-        Label {
+        DSStyle.Label {
             Layout.preferredWidth: 300
             Layout.maximumWidth: 460
             text: {
@@ -245,7 +246,7 @@ Rectangle {
                             source: "image://themeicon/system-search-symbolic?v=" + root.iconRevision
                         }
 
-                        TextField {
+                        DSStyle.TextField {
                             id: toolbarSearchField
                             Layout.fillWidth: true
                             visible: hostRoot.toolbarSearchExpanded
@@ -285,19 +286,19 @@ Rectangle {
             visible: hostRoot.trashView
             spacing: 8
 
-            Button {
+            DSStyle.Button {
                 text: "Restore"
                 enabled: hostRoot.selectedEntryIndex >= 0
                 onClicked: hostRoot.restoreSelectedFromTrash()
             }
 
-            Button {
+            DSStyle.Button {
                 text: "Restore All"
                 enabled: hostRoot.fileModel && Number(hostRoot.fileModel.count || 0) > 0
                 onClicked: hostRoot.restoreAllFromTrash()
             }
 
-            Button {
+            DSStyle.Button {
                 text: hostRoot.selectedEntryIndex >= 0 ? "Delete Selected" : "Empty Trash"
                 enabled: hostRoot.fileModel && Number(hostRoot.fileModel.count || 0) > 0
                 onClicked: hostRoot.deleteSelectedOrEmptyTrash()

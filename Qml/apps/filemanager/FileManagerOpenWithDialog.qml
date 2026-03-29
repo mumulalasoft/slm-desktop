@@ -2,6 +2,7 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import Slm_Desktop
+import SlmStyle as DSStyle
 
 AppDialog {
     id: root
@@ -29,7 +30,7 @@ AppDialog {
     contentItem: ColumnLayout {
         spacing: 8
 
-        TextField {
+        DSStyle.TextField {
             id: openWithSearchField
             Layout.fillWidth: true
             placeholderText: "Search application"

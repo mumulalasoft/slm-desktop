@@ -1,6 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import Slm_Desktop
+import SlmStyle as DSStyle
 
 Popup {
     id: root
@@ -52,7 +53,7 @@ Popup {
             }
         }
 
-        ProgressBar {
+        DSStyle.ProgressBar {
             width: parent.width
             height: 10
             from: 0
@@ -65,13 +66,13 @@ Popup {
             width: parent.width
             spacing: 8
 
-            Button {
+            DSStyle.Button {
                 text: hostRoot.batchOverlayPaused ? "Resume" : "Pause"
                 enabled: hostRoot.batchOverlayVisible
                 onClicked: hostRoot.toggleBatchPauseResume()
             }
 
-            Button {
+            DSStyle.Button {
                 text: "Cancel"
                 enabled: hostRoot.batchOverlayVisible
                 onClicked: hostRoot.cancelBatchOperation()

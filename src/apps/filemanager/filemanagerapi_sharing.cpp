@@ -612,7 +612,30 @@ QVariantMap FileManagerApi::repairFolderSharingEnvironment()
 
 QVariantMap FileManagerApi::installMissingComponent(const QString &componentId)
 {
+    return installMissingComponentForDomain(QStringLiteral("filemanager"), componentId);
+}
+
+QVariantList FileManagerApi::missingComponentsForDomain(const QString &domain) const
+{
+    const QString d = domain.trimmed().toLower();
+    if (d.isEmpty()) {
+        return QVariantList{};
+    }
+    return Slm::System::ComponentRegistry::missingForDomain(d);
+}
+
+QVariantMap FileManagerApi::installMissingComponentForDomain(const QString &domain,
+                                                             const QString &componentId)
+{
+    const QString d = domain.trimmed().toLower();
     const QString id = componentId.trimmed().toLower();
+    if (d.isEmpty() || id.isEmpty()) {
+        return makeResult(false,
+                          QStringLiteral("invalid-arguments"),
+                          {{QStringLiteral("domain"), d},
+                           {QStringLiteral("componentId"), id}});
+    }
+
     Slm::System::ComponentRequirement req;
     if (!Slm::System::ComponentRegistry::findById(id, &req)) {
         return makeResult(false,
@@ -622,7 +645,7 @@ QVariantMap FileManagerApi::installMissingComponent(const QString &componentId)
 
     bool domainAllowed = false;
     const QList<Slm::System::ComponentRequirement> allowed =
-            Slm::System::ComponentRegistry::forDomain(QStringLiteral("filemanager"));
+            Slm::System::ComponentRegistry::forDomain(d);
     for (const Slm::System::ComponentRequirement &candidate : allowed) {
         if (candidate.id == id) {
             domainAllowed = true;
@@ -639,12 +662,21 @@ QVariantMap FileManagerApi::installMissingComponent(const QString &componentId)
     if (!install.value(QStringLiteral("ok")).toBool()) {
         return makeResult(false,
                           install.value(QStringLiteral("error")).toString(),
-                          install);
+                          {{QStringLiteral("domain"), d},
+                           {QStringLiteral("componentId"), id},
+                           {QStringLiteral("install"), install}});
     }
 
-    QVariantMap env = folderSharingEnvironment();
-    env.insert(QStringLiteral("componentId"), id);
-    env.insert(QStringLiteral("install"), install);
-    env.insert(QStringLiteral("message"), QStringLiteral("Komponen berhasil dipasang."));
-    return env;
+    QVariantMap out = makeResult(true, QString());
+    out.insert(QStringLiteral("domain"), d);
+    out.insert(QStringLiteral("componentId"), id);
+    out.insert(QStringLiteral("install"), install);
+    out.insert(QStringLiteral("message"), QStringLiteral("Komponen berhasil dipasang."));
+    out.insert(QStringLiteral("missing"), Slm::System::ComponentRegistry::missingForDomain(d));
+    if (d == QStringLiteral("filemanager")) {
+        QVariantMap env = folderSharingEnvironment();
+        out.insert(QStringLiteral("environment"), env);
+        out.insert(QStringLiteral("ready"), env.value(QStringLiteral("ready")).toBool());
+    }
+    return out;
 }

@@ -1,8 +1,9 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import Slm_Desktop
+import SlmStyle as DSStyle
 
-Menu {
+DSStyle.Menu {
     id: root
 
     required property var hostRoot
@@ -27,13 +28,13 @@ Menu {
     modal: false
     closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside | Popup.CloseOnPressOutsideParent
 
-    MenuItem {
+    DSStyle.MenuItem {
         text: "Open"
         enabled: hostRoot.sidebarContextCanOpenPath()
         onTriggered: hostRoot.openPath(root.contextPathSnapshot)
     }
 
-    MenuItem {
+    DSStyle.MenuItem {
         text: "Open in New Tab"
         enabled: hostRoot.sidebarContextCanOpenPath()
         onTriggered: {
@@ -43,7 +44,7 @@ Menu {
         }
     }
 
-    MenuItem {
+    DSStyle.MenuItem {
         text: "Open in New Window"
         enabled: hostRoot.sidebarContextCanOpenInNewWindow()
         onTriggered: hostRoot.openInNewWindowRequested(root.contextPathSnapshot)
@@ -53,14 +54,14 @@ Menu {
         visible: hostRoot.sidebarContextCanMount() || hostRoot.sidebarContextCanUnmount()
     }
 
-    MenuItem {
+    DSStyle.MenuItem {
         text: "Mount"
         visible: hostRoot.sidebarContextCanMount()
         enabled: visible
         onTriggered: hostRoot.sidebarContextMount()
     }
 
-    MenuItem {
+    DSStyle.MenuItem {
         text: "Unmount"
         visible: hostRoot.sidebarContextCanUnmount()
         enabled: visible
@@ -71,14 +72,14 @@ Menu {
         visible: String(hostRoot.sidebarContextPath || "").length > 0
     }
 
-    MenuItem {
+    DSStyle.MenuItem {
         text: "Reveal in File Manager"
         enabled: hostRoot.sidebarContextCanOpenPath()
                  && String(hostRoot.sidebarContextPath || "").indexOf("__mount__:") !== 0
         onTriggered: hostRoot.sidebarContextRevealInFileManager()
     }
 
-    MenuItem {
+    DSStyle.MenuItem {
         text: "Copy Path"
         enabled: String(hostRoot.sidebarContextPath || "").length > 0
                  && String(hostRoot.sidebarContextPath || "").indexOf("__mount__:") !== 0
@@ -87,7 +88,7 @@ Menu {
 
     MenuSeparator {}
 
-    MenuItem {
+    DSStyle.MenuItem {
         text: "Refresh Sidebar"
         onTriggered: hostRoot.rebuildSidebarItems()
     }
