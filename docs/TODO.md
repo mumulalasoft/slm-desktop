@@ -584,14 +584,14 @@ scripts/
 ## Roadmap: SLM Unbreakable Package System (`slm-package-policy-service`)
 
 Tujuan:
-- [ ] Desktop tidak rusak akibat install/remove paket
-- [ ] Semua transaksi paket melewati policy engine
+- [~] Desktop tidak rusak akibat install/remove paket
+- [~] Semua transaksi paket melewati policy engine
 - [ ] User tetap bisa install aplikasi eksternal dengan kontrol risiko
-- [ ] Recovery + rollback tersedia
-- [ ] Backend awal APT, arsitektur extensible
+- [~] Recovery + rollback tersedia
+- [~] Backend awal APT, arsitektur extensible
 
 Arsitektur target:
-- [ ] `User/GUI/Terminal -> Wrapper(apt/apt-get/dpkg) -> slm-package-policy-service -> Simulator -> Rule Engine -> Backend Executor -> Audit + Recovery`
+- [~] `User/GUI/Terminal -> Wrapper(apt/apt-get/dpkg) -> slm-package-policy-service -> Simulator -> Rule Engine -> Backend Executor -> Audit + Recovery`
 
 ### Phase 1 - Core Protection (Wajib)
 
@@ -660,15 +660,73 @@ Arsitektur target:
   - [ ] replace provider
 
 Deliverables minimum:
-- [ ] service daemon aktif
-- [ ] wrapper CLI aktif
-- [ ] proteksi removal core aktif
+- [x] service daemon aktif
+- [x] wrapper CLI aktif
+- [x] proteksi removal core aktif
 - [ ] policy system berbasis JSON/YAML
-- [ ] simulator + parser stabil
-- [ ] logging aktif
+- [x] simulator + parser stabil
+- [x] logging aktif
 - [ ] basic UI integration siap
 
 Eksekusi:
-- [ ] Mulai implementasi dari Phase 1
-- [ ] Lanjut bertahap per fase
+- [x] Mulai implementasi dari Phase 1
+- [~] Lanjut bertahap per fase
 - [ ] Fokus reliability (simulation + policy), bukan banyak fitur
+
+---
+
+## Roadmap: FileManager Archive Service (`slm-archived`)
+
+Tujuan:
+- [~] UX arsip sederhana ala Finder (tanpa dialog teknis berlebihan)
+- [~] File manager hanya UI layer, semua logika arsip di service
+- [x] Backend utama: `libarchive`
+- [~] Aman default (anti path traversal, policy symlink/hardlink, resource limits)
+
+Prinsip UX:
+- [~] Arsip diperlakukan sebagai file biasa
+- [x] Double click menjalankan aksi default yang natural (extract otomatis aman)
+- [x] Preview read-only tanpa ekstraksi penuh
+- [~] Opsi advanced disembunyikan dari alur utama
+
+Arsitektur:
+- [x] `FileManager UI -> Archive IPC API -> slm-archived -> libarchive backend`
+- [x] API asynchronous berbasis Job (`pending/running/completed/failed/cancelled`)
+- [x] Error mapping user-friendly + diagnostic log terpisah
+
+Phase A - Foundation
+- [x] Tambah daemon `slm-archived` + service contract (`ListArchive`, `ExtractArchive`, `CompressPaths`, `TestArchive`, `CancelJob`, `GetJobStatus`)
+- [x] Integrasi `libarchive` untuk list/extract/compress minimal
+- [x] Tambah kategori error archive standar + mapping pesan UI
+- [x] Tambah unit tests parser/layout/security guard
+
+Phase B - Finder-like UX defaults
+- [x] Double click default: extract sibling folder dengan naming aman
+- [ ] Heuristik post-extract:
+  - [x] single-root-folder: auto open folder hasil
+  - [x] lainnya: seleksi folder hasil + notifikasi ringkas
+- [ ] Context menu minimal:
+  - [x] Open / Extract
+  - [x] Extract to...
+  - [x] Compress
+
+Phase C - Preview & Performance
+- [x] Preview list isi arsip read-only tanpa ekstraksi penuh
+- [x] Metadata dasar entry + top-level layout detection
+- [x] Integrasi quick look / preview panel file manager
+- [x] Progress model + cancellation untuk operasi besar
+
+Phase D - Security hardening
+- [x] Path traversal guard (`../`) + absolute path stripping
+- [x] Symlink/hardlink extraction policy default aman
+- [ ] Overwrite strategy aman + conflict resolution sederhana
+- [ ] Resource limits (entry count, total expanded size, timeout, cancellation)
+- [ ] Archive bomb detection heuristik + fail-safe
+
+Phase E - Integration polish
+- [ ] Drag-and-drop archive behavior konsisten
+- [ ] Smart progress UX:
+  - [ ] tiny archive -> no modal (toast only)
+  - [ ] medium/large -> non-blocking progress UI
+- [ ] Telemetry internal (success/fail/latency) untuk tuning
+- [ ] Docs + compatibility matrix format archive

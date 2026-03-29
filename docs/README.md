@@ -7,6 +7,7 @@ A modular Qt Quick project targeting a macOS-like desktop environment on Linux.
 - Diagram index: `docs/architecture/DIAGRAM_INDEX.md`
 - FileManager split compatibility matrix: `docs/architecture/FILEMANAGER_COMPATIBILITY_MATRIX.md`
 - High-level structure: `docs/PROJECT_STRUCTURE.md`
+- Session snapshot/status: `docs/SESSION_STATE.md`
 - Architecture notes: `docs/ARCHITECTURE.md`
 - AppExecutionGate flow diagram: `docs/ARCHITECTURE.md` (section: `Execution flow (one gate)`)
 - AppExecutionGate detailed diagrams: `docs/architecture/APP_EXECUTION_GATE.md`
@@ -17,6 +18,8 @@ A modular Qt Quick project targeting a macOS-like desktop environment on Linux.
 - DBus API changelog: `docs/DBUS_API_CHANGELOG.md`
 - SDDM theme adaptation/install guide: `docs/SDDM_THEME.md`
 - Modular target structure: `docs/MODULAR_STRUCTURE.md`
+- Archive service blueprint + status: `docs/architecture/ARCHIVE_SERVICE_ARCHITECTURE.md`
+- Package policy phase-1: `docs/architecture/SLM_PACKAGE_POLICY_PHASE1.md`
 - Run mode matrix: `docs/RUN_MODES.md`
 - Regression checklist: `docs/REGRESSION_CHECKLIST.md`
 - Testing guide: `docs/testing.md`
@@ -88,16 +91,11 @@ Lihat detail kontrak portal di `docs/PORTAL.md`.
 - Access tokens anywhere in QML: `Theme.color("tokenName")`.
 - Theme switch transition: global desktop crossfade + color animations keyed by `Theme.transitionDuration`.
 
-## Global menu style override
+## Style source
 
-- Menu visuals are overridden globally via Qt Quick Controls custom style in `Style/`.
-- Active style files:
-  - `Style/Menu.qml`
-  - `Style/MenuItem.qml`
-  - `Style/MenuSeparator.qml`
-  - `Style/qmldir`
-- Runtime setup is in `main.cpp` (`QQuickStyle::setStyle(...)`) and applies to all `Menu`, `MenuItem`, and `MenuSeparator` instances in the app.
-- Edit `Style/Menu.qml` (and related files) to change Tahoe menu appearance once for the whole app.
+- Shared style components sekarang bersumber dari `third_party/slm-style`.
+- Token bridge project tetap diekspos via `Qml/Theme.qml`.
+- Legacy local style folder `Style/` sudah dipindahkan dari repo utama.
 
 ## Tothespot Scope Naming (Canonical)
 

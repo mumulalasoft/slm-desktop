@@ -1,6 +1,7 @@
 # SLM Package Policy Service - Phase 1
 
-Status: implemented in monorepo as baseline protection layer.
+Status: implemented in monorepo as baseline protection layer (APT-focused).
+Last updated: 2026-03-29
 
 ## Components
 
@@ -15,6 +16,28 @@ Status: implemented in monorepo as baseline protection layer.
   - `scripts/package-policy/wrappers/apt`
   - `scripts/package-policy/wrappers/apt-get`
   - `scripts/package-policy/wrappers/dpkg`
+
+## What is already done
+
+- Phase-1 core protection is active in code:
+  - protected capabilities + mapping loader
+  - apt simulation parser (`Remv/Inst/Upgr`)
+  - block on protected remove/replace/downgrade
+  - logging pipeline
+- Wrapper layer exists for `apt`, `apt-get`, and `dpkg`.
+- Recovery hooks already shipped:
+  - pre-transaction snapshot
+  - post-transaction health check
+  - snapshot recovery helper
+  - safe-mode trigger
+  - optional auto-disable external repos on incident
+
+## Current scope and limits
+
+- Backend focus is still APT/DPKG (no Flatpak backend executor yet).
+- Source trust policy (`official/vendor/community/local`) is not enforced yet.
+- GUI software-center integration is not implemented yet.
+- Wrapper interception depends on PATH priority (install script must be applied correctly).
 
 ## Policy files
 
@@ -103,6 +126,16 @@ sudo scripts/package-policy/install-wrappers.sh
 
 Ensure wrapper `bin` directory is ahead of `/usr/bin` in `PATH`.
 
+Quick verify:
+
+```bash
+which apt
+which apt-get
+which dpkg
+```
+
+All three should resolve to wrapper location after install.
+
 ## Systemd unit
 
 Unit file:
@@ -116,3 +149,9 @@ sudo install -m 0644 scripts/systemd/system/slm-package-policy.service /etc/syst
 sudo systemctl daemon-reload
 sudo systemctl enable --now slm-package-policy.service
 ```
+
+## Near-term next steps
+
+1. Enforce source policy classification (`official/vendor/community/local`).
+2. Add dependency-chain/autoremove risk classification in check result.
+3. Expose result payload to settings/software-center UI (risk level + reason).
