@@ -84,6 +84,9 @@ enum class Capability {
     PortalNotificationSend,
     PortalInhibit,
     PortalOpenWith,
+    SecretStore,
+    SecretRead,
+    SecretDelete,
 };
 
 QString capabilityToString(Capability capability);

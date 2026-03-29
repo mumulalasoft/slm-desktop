@@ -164,6 +164,8 @@ set(DESKTOP_SHELL_SERVICES
     src/services/bluetooth/bluetoothmanager.h
     src/services/notifications/notificationmanager.cpp
     src/services/notifications/notificationmanager.h
+    src/services/notifications/desktopnotificationadaptor.cpp
+    src/services/notifications/desktopnotificationadaptor.h
     src/services/sound/soundmanager.cpp
     src/services/sound/soundmanager.h
     src/services/media/mediasessionmanager.cpp
@@ -551,6 +553,8 @@ set(SLM_PORTALD_SOURCES
     src/daemon/portald/portal-adapter/PortalAppContextResolver.h
     src/daemon/portald/portal-adapter/PortalBackendService.cpp
     src/daemon/portald/portal-adapter/PortalBackendService.h
+    src/daemon/portald/portal-adapter/PortalSecretBridge.cpp
+    src/daemon/portald/portal-adapter/PortalSecretBridge.h
     src/core/permissions/Capability.cpp
     src/core/permissions/Capability.h
     src/core/permissions/CallerIdentity.cpp

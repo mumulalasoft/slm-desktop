@@ -16,10 +16,43 @@
 #include <QSettings>
 #include <QQuickWindow>
 #include <QUrl>
+#include <QDBusConnection>
+#include <QDBusInterface>
+#include <QDBusReply>
 
 #include <algorithm>
+#include <utility>
 
 namespace {
+constexpr const char kPortalService[] = "org.slm.Desktop.Portal";
+constexpr const char kPortalPath[] = "/org/slm/Desktop/Portal";
+constexpr const char kPortalIface[] = "org.slm.Desktop.Portal";
+
+QVariantMap portalCallMap(const QString &method, const QVariantList &args = {})
+{
+    QDBusInterface iface(QString::fromLatin1(kPortalService),
+                         QString::fromLatin1(kPortalPath),
+                         QString::fromLatin1(kPortalIface),
+                         QDBusConnection::sessionBus());
+    if (!iface.isValid()) {
+        return {
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), QStringLiteral("portal-unavailable")},
+            {QStringLiteral("message"), QStringLiteral("Portal service is unavailable.")},
+        };
+    }
+
+    QDBusReply<QVariantMap> reply = iface.callWithArgumentList(QDBus::Block, method, args);
+    if (!reply.isValid()) {
+        return {
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), QStringLiteral("portal-call-failed")},
+            {QStringLiteral("message"), reply.error().message()},
+        };
+    }
+    return reply.value();
+}
+
 QString defaultPrivilegedActionFor(const QString &moduleId, const QString &settingId)
 {
     const QString mod = moduleId.trimmed().toLower();
@@ -538,6 +571,141 @@ void SettingsApp::saveGrantStore()
     settings.setValue(QStringLiteral("grants/updatedAt"), updatedAt);
     settings.sync();
     emit grantsChanged();
+}
+
+QVariantList SettingsApp::listSecretApps() const
+{
+    QVariantList rows;
+    const QVariantMap appsReply = callPortal(QStringLiteral("ListSecretAppIds"));
+    if (!appsReply.value(QStringLiteral("ok")).toBool()) {
+        return rows;
+    }
+
+    const QVariantList apps = appsReply.value(QStringLiteral("apps")).toList();
+    for (const QVariant &appVar : apps) {
+        const QString appId = appVar.toString().trimmed();
+        if (appId.isEmpty()) {
+            continue;
+        }
+        const QVariantMap metadataReply = callPortal(
+            QStringLiteral("ListOwnSecretMetadata"),
+            {QVariantMap{{QStringLiteral("appId"), appId}}});
+        if (!metadataReply.value(QStringLiteral("ok")).toBool()) {
+            continue;
+        }
+        const QVariantList items = metadataReply.value(QStringLiteral("items")).toList();
+        qint64 lastUpdatedMs = 0;
+        for (const QVariant &itemVar : items) {
+            const QVariantMap item = itemVar.toMap();
+            lastUpdatedMs = std::max(lastUpdatedMs, item.value(QStringLiteral("updatedAtMs")).toLongLong());
+        }
+        QVariantMap row{
+            {QStringLiteral("appId"), appId},
+            {QStringLiteral("count"), items.size()},
+            {QStringLiteral("lastUpdatedMs"), lastUpdatedMs},
+            {QStringLiteral("lastUpdatedIso"),
+             lastUpdatedMs > 0
+                 ? QDateTime::fromMSecsSinceEpoch(lastUpdatedMs).toUTC().toString(Qt::ISODateWithMs)
+                 : QString()},
+        };
+        rows.push_back(row);
+    }
+
+    std::sort(rows.begin(), rows.end(), [](const QVariant &a, const QVariant &b) {
+        const qint64 av = a.toMap().value(QStringLiteral("lastUpdatedMs")).toLongLong();
+        const qint64 bv = b.toMap().value(QStringLiteral("lastUpdatedMs")).toLongLong();
+        return av > bv;
+    });
+    return rows;
+}
+
+QVariantMap SettingsApp::clearSecretDataForApp(const QString &appId) const
+{
+    const QString normalizedAppId = appId.trimmed().toLower();
+    if (normalizedAppId.isEmpty()) {
+        return {
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), QStringLiteral("invalid-app-id")},
+        };
+    }
+    return callPortal(
+        QStringLiteral("ClearAppSecrets"),
+        {QVariantMap{{QStringLiteral("appId"), normalizedAppId}}});
+}
+
+QVariantList SettingsApp::listSecretConsentSummary() const
+{
+    QVariantList rows;
+    const QVariantMap reply = callPortal(QStringLiteral("ListSecretConsentGrants"));
+    if (!reply.value(QStringLiteral("ok")).toBool()) {
+        return rows;
+    }
+
+    const QVariantList items = reply.value(QStringLiteral("items")).toList();
+    QHash<QString, QVariantMap> byApp;
+    for (const QVariant &itemVar : items) {
+        const QVariantMap item = itemVar.toMap();
+        const QString appId = item.value(QStringLiteral("appId")).toString().trimmed().toLower();
+        if (appId.isEmpty()) {
+            continue;
+        }
+        QVariantMap agg = byApp.value(appId);
+        if (agg.isEmpty()) {
+            agg.insert(QStringLiteral("appId"), appId);
+            agg.insert(QStringLiteral("grantCount"), 0);
+            agg.insert(QStringLiteral("lastUpdatedMs"), 0ll);
+        }
+        const int grantCount = agg.value(QStringLiteral("grantCount")).toInt() + 1;
+        const qint64 updatedAt = item.value(QStringLiteral("updatedAt")).toLongLong();
+        const qint64 currentLast = agg.value(QStringLiteral("lastUpdatedMs")).toLongLong();
+        agg.insert(QStringLiteral("grantCount"), grantCount);
+        agg.insert(QStringLiteral("lastUpdatedMs"), std::max(currentLast, updatedAt));
+        byApp.insert(appId, agg);
+    }
+
+    rows.reserve(byApp.size());
+    for (auto it = byApp.constBegin(); it != byApp.constEnd(); ++it) {
+        QVariantMap row = it.value();
+        const qint64 lastUpdatedMs = row.value(QStringLiteral("lastUpdatedMs")).toLongLong();
+        row.insert(QStringLiteral("lastUpdatedIso"),
+                   lastUpdatedMs > 0
+                       ? QDateTime::fromMSecsSinceEpoch(lastUpdatedMs).toUTC().toString(Qt::ISODateWithMs)
+                       : QString());
+        rows.push_back(row);
+    }
+
+    std::sort(rows.begin(), rows.end(), [](const QVariant &a, const QVariant &b) {
+        const qint64 av = a.toMap().value(QStringLiteral("lastUpdatedMs")).toLongLong();
+        const qint64 bv = b.toMap().value(QStringLiteral("lastUpdatedMs")).toLongLong();
+        return av > bv;
+    });
+    return rows;
+}
+
+QVariantMap SettingsApp::revokeSecretConsentForApp(const QString &appId) const
+{
+    const QString normalizedAppId = appId.trimmed().toLower();
+    if (normalizedAppId.isEmpty()) {
+        return {
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), QStringLiteral("invalid-app-id")},
+        };
+    }
+    return callPortal(QStringLiteral("RevokeSecretConsentGrants"),
+                      {QVariantMap{{QStringLiteral("appId"), normalizedAppId}}});
+}
+
+void SettingsApp::setPortalInvokerForTests(PortalInvoker invoker)
+{
+    m_portalInvoker = std::move(invoker);
+}
+
+QVariantMap SettingsApp::callPortal(const QString &method, const QVariantList &args) const
+{
+    if (m_portalInvoker) {
+        return m_portalInvoker(method, args);
+    }
+    return portalCallMap(method, args);
 }
 
 void SettingsApp::touchGrantTimestamp(const QString &grantKey)

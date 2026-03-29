@@ -43,6 +43,10 @@ public:
                         const QString &scope,
                         const QString &resourceType = QString(),
                         const QString &resourceId = QString());
+    bool removePermission(const QString &appId,
+                          Capability capability,
+                          const QString &resourceType = QString(),
+                          const QString &resourceId = QString());
 
     bool appendAudit(const QString &appId,
                      Capability capability,
@@ -64,4 +68,3 @@ private:
 };
 
 } // namespace Slm::Permissions
-

@@ -146,6 +146,12 @@ QVariantList normalizeProvidedStreams(const QVariantMap &parameters)
     return out;
 }
 
+bool persistenceAllowedForConsent(const PortalMethodSpec &spec,
+                                  const Slm::Permissions::PolicyDecision &policy)
+{
+    return spec.persistenceAllowed && policy.persistentEligible;
+}
+
 } // namespace
 
 PortalAccessMediator::PortalAccessMediator(QObject *parent)
@@ -248,19 +254,22 @@ QVariantMap PortalAccessMediator::handlePortalRequest(const QString &portalMetho
         return successWithHandle(requestPath, {{QStringLiteral("pending"), false}});
     }
 
+    const bool persistentEligible = persistenceAllowedForConsent(spec, policy);
     m_dialogBridge->requestConsent(
         requestPath,
         caller,
         spec.capability,
         context,
-        [this, requestPath, request, spec, caller, context](const ConsentResult &consent) {
+        persistentEligible,
+        [this, requestPath, request, spec, caller, context, persistentEligible](const ConsentResult &consent) {
             if (!request || request->isCompleted()) {
                 return;
             }
             const Slm::Permissions::DecisionType mapped = decisionFromConsent(consent.decision);
-            const bool shouldPersist = consent.persist
-                                       || consent.decision == UserDecision::AllowAlways
-                                       || consent.decision == UserDecision::DenyAlways;
+            const bool shouldPersist = persistentEligible
+                                       && (consent.persist
+                                           || consent.decision == UserDecision::AllowAlways
+                                           || consent.decision == UserDecision::DenyAlways);
             if (shouldPersist && m_storeAdapter && !caller.appId.isEmpty()) {
                 m_storeAdapter->saveDecision(caller.appId,
                                              spec.capability,
@@ -421,19 +430,22 @@ QVariantMap PortalAccessMediator::handlePortalSessionRequest(const QString &port
         return successWithHandle(requestPath, {{QStringLiteral("pending"), false}});
     }
 
+    const bool persistentEligible = persistenceAllowedForConsent(spec, policy);
     m_dialogBridge->requestConsent(
         requestPath,
         caller,
         spec.capability,
         context,
-        [this, request, requestPath, spec, caller, context, createActiveSession](const ConsentResult &consent) mutable {
+        persistentEligible,
+        [this, request, requestPath, spec, caller, context, createActiveSession, persistentEligible](const ConsentResult &consent) mutable {
             if (!request || request->isCompleted()) {
                 return;
             }
             const Slm::Permissions::DecisionType mapped = decisionFromConsent(consent.decision);
-            const bool shouldPersist = consent.persist
-                                       || consent.decision == UserDecision::AllowAlways
-                                       || consent.decision == UserDecision::DenyAlways;
+            const bool shouldPersist = persistentEligible
+                                       && (consent.persist
+                                           || consent.decision == UserDecision::AllowAlways
+                                           || consent.decision == UserDecision::DenyAlways);
             if (shouldPersist && m_storeAdapter && !caller.appId.isEmpty()) {
                 m_storeAdapter->saveDecision(caller.appId,
                                              spec.capability,
@@ -627,19 +639,22 @@ QVariantMap PortalAccessMediator::handlePortalSessionOperation(const QString &po
         request->respondDenied(QStringLiteral("missing-consent-ui"));
         return successWithHandle(requestPath, {{QStringLiteral("pending"), false}});
     }
+    const bool persistentEligible = persistenceAllowedForConsent(spec, policy);
     m_dialogBridge->requestConsent(
         requestPath,
         caller,
         spec.capability,
         context,
-        [this, request, requestPath, spec, caller, context, sessionPath, successPayload](const ConsentResult &consent) {
+        persistentEligible,
+        [this, request, requestPath, spec, caller, context, sessionPath, successPayload, persistentEligible](const ConsentResult &consent) {
             if (!request || request->isCompleted()) {
                 return;
             }
             const Slm::Permissions::DecisionType mapped = decisionFromConsent(consent.decision);
-            const bool shouldPersist = consent.persist
-                                       || consent.decision == UserDecision::AllowAlways
-                                       || consent.decision == UserDecision::DenyAlways;
+            const bool shouldPersist = persistentEligible
+                                       && (consent.persist
+                                           || consent.decision == UserDecision::AllowAlways
+                                           || consent.decision == UserDecision::DenyAlways);
             if (shouldPersist && m_storeAdapter && !caller.appId.isEmpty()) {
                 m_storeAdapter->saveDecision(caller.appId,
                                              spec.capability,

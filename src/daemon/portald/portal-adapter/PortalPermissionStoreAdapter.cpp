@@ -63,12 +63,10 @@ bool PortalPermissionStoreAdapter::removeDecision(const QString &appId,
     if (!m_store || appId.trimmed().isEmpty()) {
         return false;
     }
-    return m_store->savePermission(appId,
-                                   capability,
-                                   Slm::Permissions::DecisionType::Deny,
-                                   QStringLiteral("session"),
-                                   resourceType,
-                                   resourceId);
+    return m_store->removePermission(appId,
+                                     capability,
+                                     resourceType,
+                                     resourceId);
 }
 
 QVariantList PortalPermissionStoreAdapter::listDecisions(const QString &appId) const

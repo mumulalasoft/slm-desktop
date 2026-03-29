@@ -9,6 +9,15 @@ namespace Slm::System {
 
 namespace {
 
+QString resolvePkexecExecutable()
+{
+    const QString overridePath = qEnvironmentVariable("SLM_PKEXEC_BIN").trimmed();
+    if (!overridePath.isEmpty() && QFileInfo::exists(overridePath)) {
+        return overridePath;
+    }
+    return QStandardPaths::findExecutable(QStringLiteral("pkexec"));
+}
+
 QString findPackageManagerExecutable(QString *managerId)
 {
     const struct Candidate {
@@ -214,7 +223,7 @@ QVariantMap installComponentWithPolkit(const ComponentRequirement &req, int time
         return toResult(false, QStringLiteral("component-not-auto-installable"), status);
     }
 
-    const QString pkexec = QStandardPaths::findExecutable(QStringLiteral("pkexec"));
+    const QString pkexec = resolvePkexecExecutable();
     if (pkexec.isEmpty()) {
         return toResult(false, QStringLiteral("pkexec-not-found"), status);
     }

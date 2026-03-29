@@ -187,6 +187,7 @@ void ArchiveBackendTest::extractArchive_blocksSuspiciousExpansionRatio()
     QVERIFY(!extracted.value(QStringLiteral("ok")).toBool());
     QCOMPARE(extracted.value(QStringLiteral("errorCode")).toString(),
              QStringLiteral("ERR_RESOURCE_LIMIT"));
+    QVERIFY(!QFileInfo::exists(QDir(extractRoot).filePath(QStringLiteral("blob"))));
 }
 
 void ArchiveBackendTest::compressArchive_enforcesEntryLimit()

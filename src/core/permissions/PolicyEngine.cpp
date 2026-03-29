@@ -42,6 +42,9 @@ const QSet<Capability> &thirdPartyAskUser()
         Capability::AccountsReadContacts,
         Capability::AccountsReadCalendar,
         Capability::AccountsReadMailMetadata,
+        Capability::SecretStore,
+        Capability::SecretRead,
+        Capability::SecretDelete,
     };
     return caps;
 }
@@ -80,6 +83,9 @@ PolicyEngine::PolicyEngine()
     m_sensitivity[Capability::InputCaptureEnable] = SensitivityLevel::High;
     m_sensitivity[Capability::InputCaptureDisable] = SensitivityLevel::Medium;
     m_sensitivity[Capability::InputCaptureRelease] = SensitivityLevel::Medium;
+    m_sensitivity[Capability::SecretStore] = SensitivityLevel::High;
+    m_sensitivity[Capability::SecretRead] = SensitivityLevel::High;
+    m_sensitivity[Capability::SecretDelete] = SensitivityLevel::Medium;
 
     // Gesture-gated defaults.
     m_requiresGesture[Capability::ClipboardReadHistoryContent] = true;

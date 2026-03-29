@@ -6,6 +6,7 @@
 #include <QPointer>
 #include <QSet>
 #include <QVariantList>
+#include <functional>
 
 class ModuleLoader;
 class SearchEngine;
@@ -27,6 +28,8 @@ class SettingsApp : public QObject
     Q_PROPERTY(qint64 lastDeepLinkLatencyMs READ lastDeepLinkLatencyMs NOTIFY telemetryChanged)
 
 public:
+    using PortalInvoker = std::function<QVariantMap(const QString &method, const QVariantList &args)>;
+
     explicit SettingsApp(QQmlApplicationEngine *engine, QObject *parent = nullptr);
 
     ModuleLoader* moduleLoader() const { return m_moduleLoader; }
@@ -68,6 +71,11 @@ public:
     Q_INVOKABLE QVariantList listSettingGrants() const;
     Q_INVOKABLE bool clearSettingGrant(const QString &moduleId, const QString &settingId);
     Q_INVOKABLE void clearAllSettingGrants();
+    Q_INVOKABLE QVariantList listSecretApps() const;
+    Q_INVOKABLE QVariantMap clearSecretDataForApp(const QString &appId) const;
+    Q_INVOKABLE QVariantList listSecretConsentSummary() const;
+    Q_INVOKABLE QVariantMap revokeSecretConsentForApp(const QString &appId) const;
+    void setPortalInvokerForTests(PortalInvoker invoker);
 
 signals:
     void currentModuleIdChanged();
@@ -93,6 +101,7 @@ private:
     QString resolveSettingId(const QString &moduleId, const QString &settingToken) const;
     void appendRecent(const QString &moduleId, const QString &settingId);
     void updateBreadcrumb();
+    QVariantMap callPortal(const QString &method, const QVariantList &args = {}) const;
 
     QQmlApplicationEngine *m_engine;
     ModuleLoader *m_moduleLoader;
@@ -111,4 +120,5 @@ private:
     bool m_commandPaletteVisible = false;
     qint64 m_lastModuleOpenLatencyMs = 0;
     qint64 m_lastDeepLinkLatencyMs = 0;
+    PortalInvoker m_portalInvoker;
 };

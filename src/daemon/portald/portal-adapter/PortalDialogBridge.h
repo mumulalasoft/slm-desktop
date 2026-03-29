@@ -40,6 +40,7 @@ public:
                         const Slm::Permissions::CallerIdentity &caller,
                         Slm::Permissions::Capability capability,
                         const Slm::Permissions::AccessContext &context,
+                        bool persistentEligible,
                         const ConsentCallback &callback);
 
 public slots:
@@ -57,4 +58,3 @@ private:
 };
 
 } // namespace Slm::PortalAdapter
-

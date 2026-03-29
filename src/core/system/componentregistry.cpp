@@ -189,6 +189,23 @@ QList<ComponentRequirement> componentList()
                             {"arch", "cups"},
                             {"opensuse", "cups-client"}})
         },
+        ComponentRequirement{
+            QStringLiteral("archive-extractor-tools"),
+            QStringLiteral("Archive Extractor Tools"),
+            QStringLiteral("Diperlukan untuk fallback ekstraksi arsip saat archive service tidak tersedia."),
+            QStringLiteral("libarchive-tools"),
+            {},
+            QStringList{QStringLiteral("/usr/bin/bsdtar|/usr/bin/unzip")},
+            true,
+            QStringLiteral("Pasang libarchive-tools atau unzip agar ekstraksi arsip tetap berjalan."),
+            QStringLiteral("recommended"),
+            distroPackages(QStringLiteral("libarchive-tools"),
+                           {{"debian", "libarchive-tools"},
+                            {"ubuntu", "libarchive-tools"},
+                            {"fedora", "bsdtar"},
+                            {"arch", "libarchive"},
+                            {"opensuse", "libarchive-tools"}})
+        },
     };
 }
 
@@ -220,6 +237,9 @@ bool belongsToDomain(const QString &id, const QString &domain)
     }
     if (d == QStringLiteral("portal")) {
         return id == QStringLiteral("gio");
+    }
+    if (d == QStringLiteral("archive")) {
+        return id == QStringLiteral("archive-extractor-tools");
     }
     return true;
 }

@@ -68,6 +68,24 @@ Item {
         submitConsentDecision("cancelled", false, "session", "cancelled-by-user")
     }
 
+    function openConsentSettings() {
+        if (typeof AppExecutionGate === "undefined" || !AppExecutionGate) {
+            return
+        }
+        var deepLink = "settings://permissions/app-secrets"
+        var cmd = "slm-settings --deep-link " + deepLink
+        var opened = AppExecutionGate.launchCommand(cmd, "", "portal-consent-open-settings")
+        if (!opened && typeof AppBinaryDir !== "undefined" && String(AppBinaryDir || "").length > 0) {
+            var localSettingsBin = String(AppBinaryDir) + "/slm-settings"
+            opened = AppExecutionGate.launchCommand(localSettingsBin + " --deep-link " + deepLink,
+                                                    "",
+                                                    "portal-consent-open-settings-local")
+        }
+        if (!opened) {
+            AppExecutionGate.launchDesktopId("slm-settings.desktop", "portal-consent-open-settings")
+        }
+    }
+
     Connections {
         target: root.portalUiBridge
         ignoreUnknownSignals: true

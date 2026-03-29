@@ -769,6 +769,12 @@ set(DESKTOP_SHELL_QML_FILES
     Qml/components/applet/SoundApplet.qml
     Qml/components/applet/PrintJobApplet.qml
     Qml/components/overlay/ClipboardOverlay.qml
+    Qml/components/notification/NotificationManager.qml
+    Qml/components/notification/BannerContainer.qml
+    Qml/components/notification/NotificationCard.qml
+    Qml/components/notification/NotificationCenter.qml
+    Qml/components/notification/NotificationGroup.qml
+    Qml/components/notification/NotificationManagerWindow.qml
     Qml/components/notification/NotificationBubble.qml
     # Qml/components/BatteryIndicator.qml
     Qml/components/topbar/TopBar.qml

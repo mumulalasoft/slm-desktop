@@ -181,6 +181,7 @@ QVariantMap PortalService::GetCapabilities() const
              QStringLiteral("pick_color"),
              QStringLiteral("pick_folder"),
              QStringLiteral("wallpaper"),
+             QStringLiteral("secrets"),
         }},
     };
 }
@@ -1024,6 +1025,80 @@ QVariantMap PortalService::CaptureArea(const QVariantMap &options)
         return SlmPortalResponseBuilder::serviceUnavailable(QStringLiteral("CaptureArea"));
     }
     return callBackendRequest(QStringLiteral("CaptureArea"), options);
+}
+
+QVariantMap PortalService::StoreSecret(const QVariantMap &options, const QByteArray &secret)
+{
+    if (!m_backend) {
+        return SlmPortalResponseBuilder::serviceUnavailable(QStringLiteral("StoreSecret"));
+    }
+    QVariantMap request = options;
+    request.insert(QStringLiteral("secret"), secret);
+    return callBackendRequest(QStringLiteral("StoreSecret"), request);
+}
+
+QVariantMap PortalService::GetSecret(const QVariantMap &query)
+{
+    if (!m_backend) {
+        return SlmPortalResponseBuilder::serviceUnavailable(QStringLiteral("GetSecret"));
+    }
+    return callBackendRequest(QStringLiteral("GetSecret"), query);
+}
+
+QVariantMap PortalService::DeleteSecret(const QVariantMap &query)
+{
+    if (!m_backend) {
+        return SlmPortalResponseBuilder::serviceUnavailable(QStringLiteral("DeleteSecret"));
+    }
+    return callBackendRequest(QStringLiteral("DeleteSecret"), query);
+}
+
+QVariantMap PortalService::ClearAppSecrets(const QVariantMap &options)
+{
+    if (!m_backend) {
+        return SlmPortalResponseBuilder::serviceUnavailable(QStringLiteral("ClearAppSecrets"));
+    }
+    return callBackendRequest(QStringLiteral("ClearAppSecrets"), options);
+}
+
+QVariantMap PortalService::DescribeSecret(const QVariantMap &query)
+{
+    if (!m_backend) {
+        return SlmPortalResponseBuilder::serviceUnavailable(QStringLiteral("DescribeSecret"));
+    }
+    return callBackendDirect(QStringLiteral("DescribeSecret"), query);
+}
+
+QVariantMap PortalService::ListOwnSecretMetadata(const QVariantMap &options)
+{
+    if (!m_backend) {
+        return SlmPortalResponseBuilder::serviceUnavailable(QStringLiteral("ListOwnSecretMetadata"));
+    }
+    return callBackendDirect(QStringLiteral("ListOwnSecretMetadata"), options);
+}
+
+QVariantMap PortalService::ListSecretAppIds(const QVariantMap &options)
+{
+    if (!m_backend) {
+        return SlmPortalResponseBuilder::serviceUnavailable(QStringLiteral("ListSecretAppIds"));
+    }
+    return callBackendDirect(QStringLiteral("ListSecretAppIds"), options);
+}
+
+QVariantMap PortalService::ListSecretConsentGrants(const QVariantMap &options)
+{
+    if (!m_backend) {
+        return SlmPortalResponseBuilder::serviceUnavailable(QStringLiteral("ListSecretConsentGrants"));
+    }
+    return callBackendDirect(QStringLiteral("ListSecretConsentGrants"), options);
+}
+
+QVariantMap PortalService::RevokeSecretConsentGrants(const QVariantMap &options)
+{
+    if (!m_backend) {
+        return SlmPortalResponseBuilder::serviceUnavailable(QStringLiteral("RevokeSecretConsentGrants"));
+    }
+    return callBackendDirect(QStringLiteral("RevokeSecretConsentGrants"), options);
 }
 
 QVariantMap PortalService::GlobalShortcutsCreateSession(const QVariantMap &options)
