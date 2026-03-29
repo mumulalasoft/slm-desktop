@@ -11,6 +11,9 @@ Usage:
   $0 unlock [build_dir] [ctest_regex]
   $0 filemanager-gates [build_dir] [stable|strict]
   $0 filemanager-smoke [build_dir]
+  $0 secret-consent [build_dir]
+  $0 policy-core [build_dir]
+  $0 baseline-flaky [build_dir]
   $0 nightly [build_dir]
 
 Modes:
@@ -18,7 +21,10 @@ Modes:
   unlock     Run unlock-related DBus test flow (uses secure password prompt helper).
   filemanager-gates  Run FileManager DBus gate subset via unified script.
   filemanager-smoke  Run FileManager smoke+regression subset in isolated DBus session.
-  nightly    Run default suite plus runtime smoke lanes (polkit + package-policy wrapper).
+  secret-consent     Run Secret consent contract suite (label: secret-consent).
+  policy-core        Run stable settings policy suite (label: policy-core).
+  baseline-flaky     Run baseline-flaky labeled tests explicitly.
+  nightly    Run default suite plus runtime smoke lanes (polkit + package-policy wrapper + secret-consent + policy-core).
 EOF
 }
 
@@ -29,6 +35,7 @@ run_default_suite() {
   local fileops_regex="${SLM_TEST_FILEOPS_REGEX:-^(fileoperationsmanager_test|fileoperationsservice_dbus_test|fileopctl_smoke_test|filemanagerapi_daemon_recovery_test)$}"
   local skip_ui_lint="${SLM_TEST_SKIP_UI_LINT:-0}"
   local skip_cap_matrix_lint="${SLM_TEST_SKIP_CAPABILITY_MATRIX_LINT:-0}"
+  local exclude_labels="${SLM_TEST_FULL_EXCLUDE_LABELS:-baseline-flaky}"
 
   if [[ "${skip_ui_lint}" != "1" ]]; then
     echo "[test] running UI style lint"
@@ -45,8 +52,14 @@ run_default_suite() {
   ctest --test-dir "${build_dir}" --output-on-failure -R "${fileops_regex}"
 
   echo "[test] running full suite"
-  QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-offscreen}" \
-  ctest --test-dir "${build_dir}" --output-on-failure
+  if [[ -n "${exclude_labels}" ]]; then
+    echo "[test] excluding labels from full suite: ${exclude_labels}"
+    QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-offscreen}" \
+    ctest --test-dir "${build_dir}" --output-on-failure -LE "${exclude_labels}"
+  else
+    QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-offscreen}" \
+    ctest --test-dir "${build_dir}" --output-on-failure
+  fi
 
   local soak_enabled="${SLM_TEST_ENABLE_SOAK:-0}"
   if [[ "${soak_enabled}" == "1" ]]; then
@@ -86,6 +99,23 @@ run_default_suite() {
     local elapsed=$((end_ts - start_ts))
     echo "[test] soak completed elapsed_sec=${elapsed} iterations=${iter}"
   fi
+}
+
+run_secret_consent_suite() {
+  local build_dir="$1"
+  exec "${ROOT_DIR}/scripts/test-secret-consent-suite.sh" "${build_dir}"
+}
+
+run_policy_core_suite() {
+  local build_dir="$1"
+  exec "${ROOT_DIR}/scripts/test-policy-core-suite.sh" "${build_dir}"
+}
+
+run_baseline_flaky_suite() {
+  local build_dir="$1"
+  echo "[test] run baseline-flaky label suite"
+  QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-offscreen}" \
+  ctest --test-dir "${build_dir}" --output-on-failure -L baseline-flaky
 }
 
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
@@ -154,6 +184,41 @@ if [[ "${1:-}" == "filemanager-smoke" ]]; then
   exec "${ROOT_DIR}/scripts/test-filemanager-smoke-regression.sh" "${BUILD_DIR}"
 fi
 
+if [[ "${1:-}" == "secret-consent" ]]; then
+  BUILD_DIR="${2:-${DEFAULT_BUILD_DIR}}"
+  if [[ ! -d "${BUILD_DIR}" ]]; then
+    echo "Build directory not found: ${BUILD_DIR}" >&2
+    echo "Usage: $0 secret-consent [build_dir]" >&2
+    exit 2
+  fi
+  echo "[test] mode=secret-consent build_dir=${BUILD_DIR}"
+  run_secret_consent_suite "${BUILD_DIR}"
+fi
+
+if [[ "${1:-}" == "policy-core" ]]; then
+  BUILD_DIR="${2:-${DEFAULT_BUILD_DIR}}"
+  if [[ ! -d "${BUILD_DIR}" ]]; then
+    echo "Build directory not found: ${BUILD_DIR}" >&2
+    echo "Usage: $0 policy-core [build_dir]" >&2
+    exit 2
+  fi
+  echo "[test] mode=policy-core build_dir=${BUILD_DIR}"
+  run_policy_core_suite "${BUILD_DIR}"
+  exit 0
+fi
+
+if [[ "${1:-}" == "baseline-flaky" ]]; then
+  BUILD_DIR="${2:-${DEFAULT_BUILD_DIR}}"
+  if [[ ! -d "${BUILD_DIR}" ]]; then
+    echo "Build directory not found: ${BUILD_DIR}" >&2
+    echo "Usage: $0 baseline-flaky [build_dir]" >&2
+    exit 2
+  fi
+  echo "[test] mode=baseline-flaky build_dir=${BUILD_DIR}"
+  run_baseline_flaky_suite "${BUILD_DIR}"
+  exit 0
+fi
+
 if [[ "${1:-}" == "nightly" ]]; then
   BUILD_DIR="${2:-${DEFAULT_BUILD_DIR}}"
   if [[ ! -d "${BUILD_DIR}" ]]; then
@@ -162,6 +227,11 @@ if [[ "${1:-}" == "nightly" ]]; then
     exit 2
   fi
   echo "[test] mode=nightly build_dir=${BUILD_DIR}"
+  NIGHTLY_FULL_EXCLUDE_LABELS="${SLM_TEST_NIGHTLY_FULL_EXCLUDE_LABELS:-}"
+  if [[ -n "${NIGHTLY_FULL_EXCLUDE_LABELS}" ]]; then
+    echo "[test] nightly full-suite extra excludes: ${NIGHTLY_FULL_EXCLUDE_LABELS}"
+    export SLM_TEST_FULL_EXCLUDE_LABELS="${NIGHTLY_FULL_EXCLUDE_LABELS}"
+  fi
   run_default_suite "${BUILD_DIR}"
   POLKIT_MODE="${SLM_TEST_NIGHTLY_POLKIT_RUNTIME_MODE:-auto}"
   case "${POLKIT_MODE}" in
@@ -214,6 +284,64 @@ if [[ "${1:-}" == "nightly" ]]; then
       ;;
     *)
       echo "[test] invalid SLM_TEST_NIGHTLY_PACKAGE_POLICY_WRAPPER_MODE='${PKG_POLICY_MODE}' (expected required|auto|skip)" >&2
+      exit 2
+      ;;
+  esac
+  SECRET_CONSENT_MODE="${SLM_TEST_NIGHTLY_SECRET_CONSENT_MODE:-auto}"
+  SECRET_CONSENT_SKIP_BUILD="${SLM_TEST_NIGHTLY_SECRET_CONSENT_SKIP_BUILD:-1}"
+  if [[ "${SECRET_CONSENT_SKIP_BUILD}" != "0" && "${SECRET_CONSENT_SKIP_BUILD}" != "1" ]]; then
+    echo "[test] invalid SLM_TEST_NIGHTLY_SECRET_CONSENT_SKIP_BUILD='${SECRET_CONSENT_SKIP_BUILD}' (expected 0|1)" >&2
+    exit 2
+  fi
+  case "${SECRET_CONSENT_MODE}" in
+    required)
+      echo "[test] running nightly secret-consent suite (required, skip_build=${SECRET_CONSENT_SKIP_BUILD})"
+      SLM_SECRET_CONSENT_SKIP_BUILD="${SECRET_CONSENT_SKIP_BUILD}" \
+      "${ROOT_DIR}/scripts/test-secret-consent-suite.sh" "${BUILD_DIR}"
+      ;;
+    auto)
+      if [[ -x "${ROOT_DIR}/scripts/test-secret-consent-suite.sh" ]]; then
+        echo "[test] running nightly secret-consent suite (auto:enabled, skip_build=${SECRET_CONSENT_SKIP_BUILD})"
+        SLM_SECRET_CONSENT_SKIP_BUILD="${SECRET_CONSENT_SKIP_BUILD}" \
+        "${ROOT_DIR}/scripts/test-secret-consent-suite.sh" "${BUILD_DIR}"
+      else
+        echo "[test] skipping nightly secret-consent suite (auto:runner-not-found)"
+      fi
+      ;;
+    skip)
+      echo "[test] skipping nightly secret-consent suite (mode=skip)"
+      ;;
+    *)
+      echo "[test] invalid SLM_TEST_NIGHTLY_SECRET_CONSENT_MODE='${SECRET_CONSENT_MODE}' (expected required|auto|skip)" >&2
+      exit 2
+      ;;
+  esac
+  POLICY_CORE_MODE="${SLM_TEST_NIGHTLY_POLICY_CORE_MODE:-required}"
+  POLICY_CORE_SKIP_BUILD="${SLM_TEST_NIGHTLY_POLICY_CORE_SKIP_BUILD:-1}"
+  if [[ "${POLICY_CORE_SKIP_BUILD}" != "0" && "${POLICY_CORE_SKIP_BUILD}" != "1" ]]; then
+    echo "[test] invalid SLM_TEST_NIGHTLY_POLICY_CORE_SKIP_BUILD='${POLICY_CORE_SKIP_BUILD}' (expected 0|1)" >&2
+    exit 2
+  fi
+  case "${POLICY_CORE_MODE}" in
+    required)
+      echo "[test] running nightly policy-core suite (required, skip_build=${POLICY_CORE_SKIP_BUILD})"
+      SLM_POLICY_CORE_SKIP_BUILD="${POLICY_CORE_SKIP_BUILD}" \
+      run_policy_core_suite "${BUILD_DIR}"
+      ;;
+    auto)
+      if ctest --test-dir "${BUILD_DIR}" -N -L policy-core 2>/dev/null | grep -q '^Total Tests: [1-9]'; then
+        echo "[test] running nightly policy-core suite (auto:enabled, skip_build=${POLICY_CORE_SKIP_BUILD})"
+        SLM_POLICY_CORE_SKIP_BUILD="${POLICY_CORE_SKIP_BUILD}" \
+        run_policy_core_suite "${BUILD_DIR}"
+      else
+        echo "[test] skipping nightly policy-core suite (auto:no-policy-core-tests)"
+      fi
+      ;;
+    skip)
+      echo "[test] skipping nightly policy-core suite (mode=skip)"
+      ;;
+    *)
+      echo "[test] invalid SLM_TEST_NIGHTLY_POLICY_CORE_MODE='${POLICY_CORE_MODE}' (expected required|auto|skip)" >&2
       exit 2
       ;;
   esac

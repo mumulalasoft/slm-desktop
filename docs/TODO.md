@@ -3,35 +3,23 @@
 > Canonical session summary: `docs/SESSION_STATE.md`
 
 ## Release Execution Queue (v1.0)
-- [x] Add release and repo-split execution docs:
   - `docs/RELEASE_PLAN.md`
   - `docs/REPO_SPLIT_PLAN.md`
-- [x] Bootstrap shared contract docs folder:
   - `docs/contracts/README.md`
   - `docs/contracts/workspacemanager.md`
   - `docs/contracts/missingcomponents.md`
   - `docs/contracts/polkit-agent.md`
-- [x] Week-1: publish CI tier mapping (PR/nightly/weekly) into pipeline config docs.
   - `docs/CI_TIER_MAP.md`
-- [x] Week-1: define `blocker/high/normal` triage board and SLA owner map.
   - `docs/TRIAGE_SLA_OWNER_MAP.md`
-- [x] Week-2: promote `scripts/test.sh nightly` from ad-hoc to required scheduled lane.
   - `.github/workflows/ci.yml` (`build-and-test` now runs nightly lane)
   - `scripts/test.sh` adds `SLM_TEST_NIGHTLY_POLKIT_RUNTIME_MODE=required|auto|skip`
   - `scripts/test.sh` adds `SLM_TEST_NIGHTLY_PACKAGE_POLICY_WRAPPER_MODE=required|auto|skip`
   - `.github/workflows/ci.yml` adds dedicated `packagepolicy-wrapper-smoke` nightly/manual job
-- [x] Week-2: add release compatibility matrix draft (`platform/login/settings/filemanager/style`).
   - `docs/RELEASE_COMPATIBILITY_MATRIX.md`
-- [x] Week-3: begin `slm-login` split preparation:
-  - [x] file ownership inventory
-  - [x] include dependency inventory
-  - [x] runtime script/service ownership inventory
   - `docs/LOGIN_SPLIT_PREP.md`
 
 ## Backlog (Tothespot)
 - [ ] Add optional preview pane for non-compact popup mode.
-- [x] Add provider health indicators with timeout/fallback status (exported via `tothespot.telemetryMeta().providerHealth` for UI/debug panel).
-- [x] Add cold-start cache for empty-query popular results.
 
 ## Backlog (Theme)
 - [ ] Elevation/shadow tokens:
@@ -46,45 +34,119 @@
 - [ ] Add reduced-motion mode toggle:
   - scale/disable non-essential transitions globally.
 - [ ] Add optional dynamic wallpaper sampling tint with contrast guardrail.
+- [~] SlmStyle migration guardrail:
+  - [x] Runtime default Qt Quick Controls style switched to `SlmStyle` (`main.cpp`, `src/apps/settings/main.cpp`, `src/login/greeter/main.cpp`).
+  - [x] Add audit script `scripts/check-slm-style-usage.sh` + build target `lint_slm_style_usage`.
+  - [ ] Migrate remaining flagged files (current baseline: 49 files from style-usage checker).
 
 ## Backlog (FileManager)
 - [ ] Continue shrinking `FileManagerWindow.qml` by moving remaining dialog/menu glue into `Qml/apps/filemanager/`.
-- [x] Folder Sharing UX (non-teknis, task-oriented):
-  - [x] Entry point: context menu `Bagikan…` (folder), Properties tab `Sharing`, info status.
-  - [x] Dialog sederhana: toggle ON/OFF, nama folder jaringan, akses, izin, guest access.
-  - [x] Success state + aksi cepat: salin alamat, cara akses, hentikan berbagi.
-  - [x] Badge/status folder dibagikan di tampilan file manager.
-  - [x] Backend bridge SMB otomatis (best-effort), tanpa expose istilah teknis di UI.
 
 ## Backlog (Global Menu)
 - [ ] Runtime integration check global menu end-to-end on active GTK/Qt/KDE apps (verify active binding/top-level changes by focus switching).
   - helper available: `scripts/smoke-globalmenu-focus.sh` (`--strict --min-unique 2`).
 
 ## Backlog (Clipboard)
-- [x] Integrate native `wl-data-control` low-level path for Wayland clipboard watching (event-driven primary path, keep Qt/X11 fallback, with backend-mode observability + fallback test coverage).
+
+## Program (Notification System Refresh: macOS-like Notification Center)
+- [x] Define architecture boundary (3 layers, no tight coupling):
+  - `Notification Service` (backend daemon, source of truth)
+  - `Notification UI` (QML only, model-driven rendering)
+  - `Integration Layer` (D-Bus + portal + shell hooks)
+- [~] Finalize notification types:
+  - Banner (transient, top-right, max 3 visible, auto-dismiss 5–8s, hover pause, swipe dismiss)
+  - Notification Center (persistent, slide-in right panel, grouped history, virtualized list)
+- [ ] Lock visual spec tokens:
+  - card radius `14`
+  - padding `12–16`
+  - vertical rhythm `8`
+  - light bg `rgba(255,255,255,0.7)`
+  - dark bg `rgba(30,30,30,0.7)`
+  - blur + subtle shadow + elevation layering
+- [ ] Lock animation spec:
+  - banner entry: slide-right-to-left + fade
+  - banner exit: fade + slight shrink
+  - center panel: slide-in right `300ms` + dim overlay
+  - motion uses spring curves (no linear feel)
+- [x] Implement interaction model:
+  - mouse: hover pause, click default action, drag/swipe dismiss
+  - keyboard: `Super+N` toggle center, arrows navigate, `Enter` open, `Delete` dismiss
+  - optional edge gesture to open center
+- [ ] Implement inline action system:
+  - compact action buttons
+  - max 2–3 actions per card
+  - support reply/open/accept/decline patterns
+- [~] Add advanced policy features:
+  - Do Not Disturb (suppress banner, keep center)
+  - priority routing (`low=center`, `normal=banner`, `high=sticky banner`)
+  - smart grouping by app/thread
+  - rich payload support (image preview, progress, media controls)
+- [x] Implement backend D-Bus service skeleton:
+  - Service: `org.example.Desktop.Notification`
+  - Methods: `Notify`, `Dismiss`, `GetAll`, `ClearAll`, `ToggleCenter`
+  - Signals: `NotificationAdded`, `NotificationRemoved`
+  - Add internal mapping plan to SLM naming convention when stabilized
+- [x] Add freedesktop compatibility adapter:
+  - consume `org.freedesktop.Notifications`
+  - translate to internal notification model + priority/group semantics
+- [x] Finalize data model contract:
+  - `id`, `app_id`, `title`, `body`, `icon`, `timestamp`, `actions[]`, `priority`, `group_id`, `read/unread`
+- [x] Implement QML component structure:
+  - `NotificationManager.qml`
+  - `BannerContainer.qml`
+  - `NotificationCard.qml`
+  - `NotificationCenter.qml`
+  - `NotificationGroup.qml`
+- [~] Performance hardening:
+  - enforce max visible banners = 3
+  - virtualized `ListView` for center/history
+  - avoid expensive blur invalidation/recomputation
+  - prefer GPU-friendly effects
+- [ ] Deep system integration:
+  - global search indexing/query for recent notifications
+  - per-app notification permission controls (portal permission store integration)
+  - top panel icon + unread badge + toggle behavior
+- [ ] Multi-monitor logic:
+  - banners on active monitor
+  - center opens on focused screen
+- [ ] Edge-case policy:
+  - fullscreen app: minimal/delayed banners
+  - gaming mode: queue banners
+  - crash recovery: persist/restore queue + history state
+- [ ] Notification sound subsystem:
+  - subtle sound categories: `message`, `warning`, `system alert`
+  - per-category mute/volume policy hooks
+- [ ] Storage strategy:
+  - in-memory active queue
+  - persistent history (JSON/DB) with retention policy
+- [ ] Security & abuse control:
+  - per-app rate limit
+  - app identity validation
+  - optional sandbox/portal permission gating
+- [ ] Developer API wrapper:
+  - provide simple helper contract:
+    - `notify({app, title, body, priority, actions})`
+- [ ] Optional extensions (post-v1):
+  - mobile sync
+  - smart prioritization
+  - timeline view
+
+### Deliverables (Notification Program)
+- [x] QML component structure document + ownership map
+- [x] D-Bus interface definition (`org.example.Desktop.Notification`)
+- [x] backend service skeleton (daemon + model + dispatcher)
+- [x] UI mock structure (banner + center grouping states)
+- [x] animation spec sheet (durations, springs, transitions)
+- [x] end-to-end data flow diagram (source -> service -> ui -> action callback)
 
 ## Program (Solid & Unbreakable)
-- [x] Unify missing dependency API across apps via global `MissingComponents` controller.
-- [x] Migrate greeter/recovery QML to use global `MissingComponents` endpoint (domain-scoped install).
-- [x] Remove legacy duplicate missing-component APIs from `GreeterApp` and `RecoveryApp`.
-- [x] Add dependency severity metadata (`required` / `recommended`) in component checks.
-- [x] Add blocking gate APIs:
   - `MissingComponents.blockingMissingComponentsForDomain(domain)`
   - `MissingComponents.hasBlockingMissingForDomain(domain)`
-- [x] Add contract test baseline for missing-component controller domain guard + blocking API consistency (`missingcomponentcontroller_test`).
-- [x] Enforce startup degraded-mode gate by severity:
-  - [x] Greeter: block login submit while `required` session components missing.
-  - [x] FileManager Sharing: only `required` issues block readiness; `recommended` stays non-blocking.
-  - [x] Expand gate coverage to all fragile flows (print/network/bluetooth/portal actions).
 - [~] Add end-to-end regression tests:
-  - [x] Core baseline: missing dependency -> install pipeline (mocked pkexec/pkg manager) -> recheck -> feature restored (`missingcomponentcontroller_test`).
   - [~] UI flow baseline (headless harness): missing dependency -> warning UI -> install -> refresh -> restored (`settings_missing_components_ui_test`).
-  - [x] UI flow full integration (headless + real ComponentHealth/MissingComponents + mocked pkexec pipeline): missing -> warning -> install -> recheck -> restored (`settings_missing_components_ui_test`).
   - [~] UI flow real-session polkit dialog integration lane added (`scripts/smoke-polkit-agent-runtime.sh`, gated by `SLM_POLKIT_RUNTIME_SMOKE=1`).
   - [ ] Promote runtime lane from smoke to strict CI gate after host/session reliability baseline stabilizes.
-- [x] Add desktop health daemon + structured reason codes and persistent timeline.
   - Implemented in `DaemonHealthMonitor`: `degraded`, `reasonCodes`, persistent `timeline` (+ file path + size) exposed via `DaemonHealthSnapshot()`.
-- [x] Add automatic config rollback on crash-loop (last-known-good snapshot).
   - `slm-watchdog` now snapshots healthy config and persists `last_good_snapshot` id.
   - `slm-session-broker` recovery mode now prioritizes rollback to `last_good_snapshot`, then previous, then safe baseline.
   - rollback priority covered by `sessionbroker_recovery_rollback_test`.
@@ -98,16 +160,8 @@
   - [ ] PIM metadata/resolution portals (contacts/calendar/mail metadata first, body last)
 - [ ] Phase-7 Hardening & interop:
   - [ ] DBus contract/regression suite GTK/Qt/Electron/Flatpak
-  - [x] Race/cancellation/multi-session stress tests (`portal_adapter_race_cancellation_test.cpp` — 15 cases: double-close/revoke no-op, rapid create/destroy N=20, cancellation ordering, operation on terminal state, revocation mid-stream, multi-session isolation, manager signals)
 
 ## Next (Permission Foundation)
-- [x] Integrate `DBusSecurityGuard` into live service endpoints: clipboard, desktopd, inputcapture, screencast, globalmenu, sessionstate, slmcapability, foldersharing.
-- [x] Add consent mediation contract for `AskUser` decisions: `ConsentMediator` (async requestConsent/fulfillConsent, timeout auto-deny, AllowAlways/DenyAlways auto-persist to PermissionStore).
-- [x] Add tests:
-  - [x] trust resolver classification (`trustresolver_test.cpp` — 12 test cases)
-  - [x] policy defaults per trust level (`policyengine_test.cpp`)
-  - [x] gesture-gated capability checks (`policyengine_test.cpp`)
-  - [x] permission persistence/audit writes (`policy_integration_test.cpp` — stored override, audit round-trip, ConsentMediator fulfill/persist/timeout/cancel)
 
 ---
 
@@ -162,13 +216,6 @@
 
 #### Fase 1 — MVP: Agent registration + dialog minimal
 
-- [x] Buat binary `slm-polkit-agent` (C++ Qt, bootstrap single-instance daemon tanpa QML dulu)
-- [x] Integrasikan `libpolkit-agent-1`: register listener ke session (custom `PolkitAgentListener` aktif)
-- [x] Implementasi `AuthSession` wrapper: mulai, cancel, respond password
-- [x] Dialog QML minimal: label aksi, label identity, password field, Cancel, OK
-- [x] Wiring C++ ↔ QML via `AuthDialogController` QObject
-- [x] Systemd user service: `slm-polkit-agent.service`
-- [x] Test manual: `pkexec ls /root` dari terminal → dialog muncul
 
 #### Fase 2 — Stabilisasi: multi-request, error handling, state machine
 
@@ -555,31 +602,15 @@ scripts/
 
 #### Fase 1 — MVP
 
-- [x] Rancang kontrak data: `state.json`, `config.json`, snapshot metadata, schema version
-- [x] Implementasi `ConfigManager` (atomic write, rollback, snapshot)
-- [x] Skeleton `slm-session-broker`: baca state, putuskan mode, launch compositor+shell
-- [x] Session file `slm.desktop` → broker
-- [x] Integrasi greetd dasar dengan greeter placeholder
 
 #### Fase 2 — Stabilisasi
 
-- [x] `slm-greeter` Qt/QML: login UI, pilih mode, pesan recovery
-- [x] `slm-watchdog`: deteksi crash loop, tulis `crash_count`, mark healthy
-- [x] Crash loop threshold → auto safe mode
-- [x] Rollback otomatis ke `last_good_snapshot`
 
 #### Fase 3 — Recovery hardening
 
-- [x] `slm-recovery-app`: reset to safe defaults, rollback to previous, restore snapshot, log viewer
-- [x] Platform integrity check hardening: required service binaries + XDG_RUNTIME_DIR
-- [x] Delayed commit + health confirmation (`configPending` flag, broker + watchdog)
-- [x] Recovery mode shell minimal (broker launches `slm-recovery-app` in Recovery mode)
 
 #### Fase 4 — UX polish
 
-- [x] Greeter: animasi minimal (fade-in 600ms, shake on login error), pesan kontekstual (configPending banner, safeModeForced banner, crash detail + count)
-- [x] Factory reset config action (`ConfigManager::factoryReset()` + UI confirmation di recovery app)
-- [x] Dokumentasi arsitektur final (`docs/architecture-login-stack.md`)
 
 ---
 
@@ -597,28 +628,10 @@ Arsitektur target:
 
 ### Phase 1 - Core Protection (Wajib)
 
-- [x] Buat protected capability file: `/etc/slm/package-policy/protected-capabilities.yaml`
-  - [x] `core.init`, `core.libc`, `core.session`, `core.shell`, `core.compositor`, `core.login`, `core.portal`, `core.network`, `core.audio`, `core.graphics`, `core.desktop-services`
-- [x] Buat package mapping Debian/Ubuntu: `/etc/slm/package-policy/package-mappings/debian.yaml`
-  - [x] Map capability ke paket inti (`systemd`, `libc6`, `network-manager`, `pipewire`, `wireplumber`, `mesa`, `libgl1`, `xdg-desktop-portal`, `greetd`, `sddm`, `slm-shell`)
-- [x] Implement simulator APT berbasis `apt-get -s <command>`
-  - [x] Parser transaksi `Remv`, `Inst`, `Upgr`
-  - [x] Normalisasi output ke JSON: `{install:[], remove:[], upgrade:[]}`
-- [x] Implement minimum rule engine
-  - [x] `BLOCK`: remove/replace/downgrade paket protected
-  - [x] `ALLOW`: jika tidak menyentuh protected
-- [x] Implement CLI wrapper wajib
-  - [x] Wrapper `apt`, `apt-get`, `dpkg`
-  - [x] Flow: `command -> wrapper -> policy-service -> allow/block -> real binary`
 
 ### Phase 2 - Trust & Source Control
 
-- [x] Source policy directory: `/etc/slm/package-policy/source-policies/`
-- [x] Definisikan kelas source: `official`, `vendor`, `community`, `local`
-- [x] Labeling source per paket
 - [ ] Rule extension
-  - [x] `BLOCK` external repo yang replace core
-  - [x] `ALLOW WITH WARNING` untuk trusted external install
 
 ### Phase 3 - Advanced Safety
 
@@ -632,50 +645,19 @@ Arsitektur target:
 
 ### Phase 4 - Recovery System
 
-- [x] Pre-transaction snapshot
-  - [x] daftar paket berubah
-  - [x] repo aktif
-  - [x] config desktop
 - [ ] Recovery mode package incident
-  - [x] disable external repo (auto action on health-check failure)
-  - [x] rollback config (prefer safe baseline, fallback previous)
-  - [x] force safe mode desktop (set `safe_mode_forced=true` in session state)
-  - [x] helper recovery snapshot (`recover-last-snapshot.sh`) untuk restore baseline apt + desktop-critical config
 
 ### Phase 5 - Software Center Integration
 
-- [x] UI expose trust level, risk level, dan dampak sistem
-  - [x] Settings > Permissions > `Package Policy Check` (tool + args + evaluasi hasil)
-  - [x] Fallback one-shot check saat DBus service policy tidak aktif
-- [x] User messaging standar
-  - [x] Block: "Instalasi diblokir karena memengaruhi komponen inti sistem."
-  - [x] Warning: "Paket ini berasal dari sumber eksternal."
 
 ### Phase 6 - Hardening
 
-- [x] Logging transaksi ke `/var/log/slm-package-policy.log`
-- [x] Terminal interception hardening
-  - [x] wrapper aktif
-  - [x] PATH priority benar (install-time verify + optional profile drop-in)
-  - [x] runtime smoke lane (`scripts/smoke-package-policy-wrapper.sh` + CTest `packagepolicy_wrapper_runtime_smoke_test`)
 - [ ] Edge case handling
-  - [x] `dpkg` direct install
-  - [x] `apt autoremove`
-  - [x] dependency conflict
-  - [x] replace provider
 
 Deliverables minimum:
-- [x] service daemon aktif
-- [x] wrapper CLI aktif
-- [x] proteksi removal core aktif
 - [ ] policy system berbasis JSON/YAML
-- [x] simulator + parser stabil
-- [x] logging aktif
-- [x] basic UI integration siap
-- [x] one-shot CLI integration test siap (`packagepolicy_oneshot_cli_test`)
 
 Eksekusi:
-- [x] Mulai implementasi dari Phase 1
 - [~] Lanjut bertahap per fase
 - [ ] Fokus reliability (simulation + policy), bukan banyak fitur
 
@@ -686,53 +668,123 @@ Eksekusi:
 Tujuan:
 - [~] UX arsip sederhana ala Finder (tanpa dialog teknis berlebihan)
 - [~] File manager hanya UI layer, semua logika arsip di service
-- [x] Backend utama: `libarchive`
 - [~] Aman default (anti path traversal, policy symlink/hardlink, resource limits)
 
 Prinsip UX:
 - [~] Arsip diperlakukan sebagai file biasa
-- [x] Double click menjalankan aksi default yang natural (extract otomatis aman)
-- [x] Preview read-only tanpa ekstraksi penuh
 - [~] Opsi advanced disembunyikan dari alur utama
 
 Arsitektur:
-- [x] `FileManager UI -> Archive IPC API -> slm-archived -> libarchive backend`
-- [x] API asynchronous berbasis Job (`pending/running/completed/failed/cancelled`)
-- [x] Error mapping user-friendly + diagnostic log terpisah
 
 Phase A - Foundation
-- [x] Tambah daemon `slm-archived` + service contract (`ListArchive`, `ExtractArchive`, `CompressPaths`, `TestArchive`, `CancelJob`, `GetJobStatus`)
-- [x] Integrasi `libarchive` untuk list/extract/compress minimal
-- [x] Tambah kategori error archive standar + mapping pesan UI
-- [x] Tambah unit tests parser/layout/security guard
 
 Phase B - Finder-like UX defaults
-- [x] Double click default: extract sibling folder dengan naming aman
 - [ ] Heuristik post-extract:
-  - [x] single-root-folder: auto open folder hasil
-  - [x] lainnya: seleksi folder hasil + notifikasi ringkas
 - [ ] Context menu minimal:
-  - [x] Open / Extract
-  - [x] Extract to...
-  - [x] Compress
 
 Phase C - Preview & Performance
-- [x] Preview list isi arsip read-only tanpa ekstraksi penuh
-- [x] Metadata dasar entry + top-level layout detection
-- [x] Integrasi quick look / preview panel file manager
-- [x] Progress model + cancellation untuk operasi besar
 
 Phase D - Security hardening
-- [x] Path traversal guard (`../`) + absolute path stripping
-- [x] Symlink/hardlink extraction policy default aman
 - [ ] Overwrite strategy aman + conflict resolution sederhana
-- [x] Resource limits (entry count, total expanded size, timeout, cancellation)
-- [x] Archive bomb detection heuristik + fail-safe
 
 Phase E - Integration polish
 - [ ] Drag-and-drop archive behavior konsisten
 - [ ] Smart progress UX:
-  - [x] tiny archive -> no modal (toast only)
-  - [x] medium/large -> non-blocking progress UI
 - [ ] Telemetry internal (success/fail/latency) untuk tuning
 - [ ] Docs + compatibility matrix format archive
+
+---
+
+## Roadmap Prompt: XDG Portal Secret (`org.freedesktop.portal.Secret`)
+
+Status:
+  - `docs/architecture/XDG_PORTAL_SECRET_ARCHITECTURE.md`
+  - DBus spec draft: `docs/contracts/org.freedesktop.portal.Secret.xml`
+  - Secret daemon skeleton: `slm-secretd` + `src/services/secret/secretservice.*`
+  - Portal backend stub: `src/daemon/portald/portal-adapter/PortalSecretBridge.*`
+  - Contract test baseline: `secretservice_contract_test` (Store/Get/Delete/Describe)
+  - Dialog copy contract test: `portal_consent_dialog_copy_contract_test`
+  - Runtime guard behavior test: `portal_consent_dialog_behavior_test` (`Always Allow` for `Secret.Delete` requires explicit confirm)
+  - Runtime guard behavior test: `portal_consent_dialog_behavior_test::secretDelete_nonPersistent_hidesAlwaysAllowControls`
+  - Dialog receives `persistentEligible` and hides `Always Allow` when policy disallows persistence.
+  - `PermissionStore` persistence now enforced by policy/spec eligibility (not only by UI response).
+  - `ClearAppSecrets` forced to one-time consent (no persistent grant).
+  - Integration contract: `portal_secret_integration_test::clearAppSecrets_consentAlwaysAllowDoesNotPersist_contract`
+  - Integration contract: `portal_secret_integration_test::clearAppSecrets_denyAlwaysDoesNotPersistAndReprompts_contract`
+  - Integration contract: `portal_secret_integration_test::deleteSecret_consentAlwaysAllowPersists_contract`
+  - Integration contract: `portal_secret_integration_test::getSecret_consentAlwaysAllowPersists_contract`
+  - Integration contract: `portal_secret_integration_test::storeSecret_consentAlwaysAllowPersists_contract`
+  - Integration contract: `portal_secret_integration_test::secretConsentPayload_persistentEligible_matrix_contract`
+  - Integration contract: `portal_dialog_bridge_payload_test` (payload field contract incl. `persistentEligible`)
+  - Integration contract: `portal_secret_consent_contract_snapshot_test` (docs snapshot guard for consent invariants)
+  - Settings MVP (`Permissions > App Secrets`) now includes:
+    - read-only secret consent summary per app (`grantCount` + `lastUpdated`)
+    - revoke stored secret access grants per app (`RevokeSecretConsentGrants`)
+    - existing clear-secret-data action remains available (`ClearAppSecrets`)
+    - headless-safe test hook in `SettingsApp` (`setPortalInvokerForTests`) for non-DBus contract coverage
+  - Test suite runner:
+    - build: `cmake --build build/toppanel-Debug --target secret_consent_test_suite -j8`
+    - run: `ctest --test-dir build/toppanel-Debug -L secret-consent --output-on-failure`
+    - one-shot: `scripts/test-secret-consent-suite.sh build/toppanel-Debug`
+    - test-only fast path: `SLM_SECRET_CONSENT_SKIP_BUILD=1 scripts/test-secret-consent-suite.sh build/toppanel-Debug`
+    - unified entrypoint: `scripts/test.sh secret-consent build/toppanel-Debug`
+    - nightly toggle: `SLM_TEST_NIGHTLY_SECRET_CONSENT_MODE=required|auto|skip` (default `auto`)
+    - nightly build toggle: `SLM_TEST_NIGHTLY_SECRET_CONSENT_SKIP_BUILD=1|0` (default `1`)
+    - guard env: `SLM_SECRET_CONSENT_MIN_TESTS` / `SLM_SECRET_CONSENT_STRICT_NAMES` / `SLM_SECRET_CONSENT_EXPECTED_TESTS`
+    - split settings-side secret consent contracts into dedicated target: `settingsapp_secret_consent_test` (non-DBus, headless-safe)
+    - isolate legacy policy baseline test into label `baseline-flaky` (`settingsapp_policy_test`) and exclude by default from full/nightly suite
+    - nightly CI report lane for `baseline-flaky` (non-blocking) to keep visibility without blocking release gates
+    - add stable settings policy lane `policy-core` (`settingsapp_policy_core_test`) for deterministic coverage in main suite
+    - nightly policy-core enforcement (`SLM_TEST_NIGHTLY_POLICY_CORE_MODE=required`) in `scripts/test.sh` + CI workflow
+    - add dedicated runner `scripts/test-policy-core-suite.sh` with guard env (`MIN_TESTS` + `STRICT_NAMES` + `EXPECTED_TESTS`)
+    - nightly fast-path toggle for policy-core (`SLM_TEST_NIGHTLY_POLICY_CORE_SKIP_BUILD=1|0`, default `1`)
+    - nightly full-suite exclude override (`SLM_TEST_NIGHTLY_FULL_EXCLUDE_LABELS`) to avoid duplicate execution of dedicated lanes
+    - CI nightly skips duplicate lint in `scripts/test.sh nightly` via `SLM_TEST_SKIP_UI_LINT=1` + `SLM_TEST_SKIP_CAPABILITY_MATRIX_LINT=1`
+    - add PR/push quick gate job `policy-core-only` in CI workflow
+
+Tujuan utama:
+- [ ] Secret Portal sebagai lapisan standar resmi desktop untuk store/get/delete/manage secret.
+- [ ] API dan trust model konsisten untuk app sandbox + non-sandbox.
+- [ ] UX sederhana non-teknis, dengan keamanan terpusat dan recovery-friendly.
+
+Deliverable dokumen desain (wajib):
+  - secure-by-default, least privilege, consent jelas, interoperabilitas, recovery-friendly.
+  - pemetaan peran: app biasa/sandbox, xdg-desktop-portal, `xdg-desktop-portal-slm`, PermissionStore, bus, secret daemon, encrypted backend, Settings, shell/dialog, lock/login, recovery.
+  - diagram arsitektur teks.
+  - object path, interface, methods, argumen, return, error, async flow, request object usage, identity/binding app (sandbox vs non-sandbox).
+  - bahas method: `StoreSecret`, `GetSecret`, `DeleteSecret`, `ListSecrets` (atau alternatif aman), `GrantAccess`, `RevokeAccess`, `DescribeSecret`, `ClearAppSecrets`, `LockSecrets`, `UnlockSecrets`.
+  - jelaskan method yang sebaiknya tidak ada (jika ada) + alternatif.
+  - trigger popup, allow always/one-time, re-prompt policy, read/write/delete split, cross-app access, system service policy, helper/background policy.
+  - tabel policy decision.
+  - alur dialog save/read/cross-app secret, trust indicator, wording sederhana, tombol utama/sekunder, re-auth vs normal consent, notif sukses/gagal, error non-teknis.
+  - microcopy bahasa Inggris.
+  - Settings (`Privacy & Security -> Secrets`)
+  - login/unlock session
+  - network & Wi-Fi
+  - browser/web apps/cloud accounts
+  - file manager (SMB/SFTP/WebDAV/cloud creds)
+  - developer settings/debug
+  - global search
+  - clipboard/share/automation.
+  - libsecret/Secret Service, GNOME Keyring, KWallet, backend internal, encrypted file store, systemd credentials (ephemeral), TPM/hardware-backed.
+  - rekomendasi untuk MVP, v1 stabil, jangka panjang.
+  - failure scenarios: daemon gagal start, storage korup, permission DB rusak, fallback behavior, safe mode/recovery, health check, watchdog, migration, backup/restore.
+  - threat model + mitigasi: cross-app read, identity spoofing, helper abuse, memory/log/crash/clipboard/search/backup leak, brute force, lock-session exposure, root boundary.
+  - FileChooser, Background, Notification, GlobalShortcuts, Screenshot/ScreenCast, PermissionStore, Account/Settings, OpenURI/Documents.
+  - Phase 0..7 (foundation -> hardening) dengan tujuan, dependensi, risiko, DoD, test plan.
+  - DBus/API, backend, daemon, portal backend, permission system, shell/dialog UI, settings, login/session, file manager, network, QA/security, recovery, packaging.
+  - sandbox save token pertama kali
+  - non-sandbox read own token
+  - file manager save SMB password (`remember`)
+  - online accounts refresh token
+  - user revoke access dari Settings
+  - daemon gagal start saat login
+  - storage korup -> recovery flow
+  - app coba baca secret app lain.
+  - komponen build-vs-reuse, urutan implementasi paling realistis, fitur yang ditunda, tradeoff utama.
+
+Preferensi keputusan arsitektur:
+- [ ] MVP boleh reuse Secret Service/libsecret untuk percepatan.
+- [ ] Jangka panjang boleh menuju secret backend milik desktop sendiri.
+- [ ] Secret subsystem tidak boleh jadi single point of failure untuk boot sesi grafis.
+- [ ] Selaras penuh dengan permission architecture desktop (policy sentral, auditable, recoverable).

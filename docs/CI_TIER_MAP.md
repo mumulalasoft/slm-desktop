@@ -16,6 +16,7 @@ Primary jobs:
 - `runtime-manifest-report`
 - `repo-sanity`
 - `quick-lint`
+- `policy-core-only`
 - `desktop-runtime-smoke`
 
 Coverage intent:
@@ -24,6 +25,7 @@ Coverage intent:
 - backend smoke and tothespot contextmenu smoke
 
 Local mirror commands:
+- `scripts/test-policy-core-suite.sh build/toppanel-Debug`
 - `scripts/smoke-runtime.sh --build-dir build --app-bin build/slm-desktop`
 - `scripts/smoke-backends.sh --build-dir build --app-bin build/slm-desktop`
 - `scripts/smoke-tothespot-contextmenu.sh --build-dir build --app-bin build/slm-desktop`
@@ -52,14 +54,37 @@ Coverage intent:
 
 Local mirror commands:
 - `scripts/test.sh nightly build` (default `SLM_TEST_NIGHTLY_POLKIT_RUNTIME_MODE=auto`)
+- `scripts/test.sh` default/full suite now excludes label `baseline-flaky` unless `SLM_TEST_FULL_EXCLUDE_LABELS` di-override.
+- Baseline lane manual:
+  - `scripts/test.sh baseline-flaky <build-dir>`
+- CI nightly (`build-and-test`) juga menjalankan lane `baseline-flaky` sebagai non-blocking report (`continue-on-error: true`).
+- Stable settings policy checks berada di label `policy-core` (`settingsapp_policy_core_test`) dan ikut full/default suite.
 - `scripts/test-filemanager-integration-modes.sh <build-dir>`
 - `scripts/test-filemanager-dbus-gates.sh --build-dir <build-dir> --strict`
+- `scripts/test.sh secret-consent <build-dir>` (or `scripts/test-secret-consent-suite.sh <build-dir>`)
 
 Notes:
 - `scripts/test.sh nightly` supports:
+  - `SLM_TEST_NIGHTLY_FULL_EXCLUDE_LABELS` -> override exclude label set khusus full-suite nightly (untuk menghindari double-run lane dedicated).
   - `SLM_TEST_NIGHTLY_POLKIT_RUNTIME_MODE=required` -> enforce real-session polkit smoke.
   - `SLM_TEST_NIGHTLY_POLKIT_RUNTIME_MODE=auto` -> run only when user polkit service is present.
   - `SLM_TEST_NIGHTLY_POLKIT_RUNTIME_MODE=skip` -> skip polkit runtime smoke.
+  - `SLM_TEST_NIGHTLY_SECRET_CONSENT_MODE=required|auto|skip` -> control secret-consent lane.
+  - `SLM_TEST_NIGHTLY_POLICY_CORE_MODE=required|auto|skip` -> control stable settings policy lane (`policy-core`).
+  - `SLM_TEST_NIGHTLY_POLICY_CORE_SKIP_BUILD=1|0` -> default `1` for test-only fast path in nightly policy-core lane.
+  - `SLM_TEST_NIGHTLY_SECRET_CONSENT_SKIP_BUILD=1|0` -> default `1` for test-only fast path in nightly.
+- Current CI nightly (`build-and-test`) sets:
+  - `SLM_TEST_SKIP_UI_LINT=1`
+  - `SLM_TEST_SKIP_CAPABILITY_MATRIX_LINT=1`
+  - `SLM_TEST_NIGHTLY_FULL_EXCLUDE_LABELS=baseline-flaky;secret-consent;policy-core`
+  - `SLM_TEST_NIGHTLY_SECRET_CONSENT_MODE=required`
+  - `SLM_TEST_NIGHTLY_POLICY_CORE_MODE=required`
+  - `SLM_TEST_NIGHTLY_POLICY_CORE_SKIP_BUILD=1`
+  - `SLM_POLICY_CORE_SKIP_BUILD=1`
+  - `SLM_POLICY_CORE_MIN_TESTS=1`
+  - `SLM_POLICY_CORE_STRICT_NAMES=1`
+  - `SLM_POLICY_CORE_EXPECTED_TESTS=settingsapp_policy_core_test`
+  - `SLM_TEST_NIGHTLY_SECRET_CONSENT_SKIP_BUILD=1`
 
 ## Tier-3: Weekly Required (soak / stress)
 

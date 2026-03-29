@@ -20,9 +20,28 @@ A modular Qt Quick project targeting a macOS-like desktop environment on Linux.
 - Modular target structure: `docs/MODULAR_STRUCTURE.md`
 - Archive service blueprint + status: `docs/architecture/ARCHIVE_SERVICE_ARCHITECTURE.md`
 - Package policy phase-1: `docs/architecture/SLM_PACKAGE_POLICY_PHASE1.md`
+- Notification system phase-1: `docs/architecture/NOTIFICATION_SYSTEM_PHASE1.md`
+- Notification UI mock: `docs/architecture/NOTIFICATION_UI_MOCK.md`
+- Notification animation spec: `docs/architecture/NOTIFICATION_ANIMATION_SPEC.md`
+- Notification data flow: `docs/architecture/NOTIFICATION_DATA_FLOW.md`
 - Run mode matrix: `docs/RUN_MODES.md`
 - Regression checklist: `docs/REGRESSION_CHECKLIST.md`
 - Testing guide: `docs/testing.md`
+
+## CI Health Gates
+
+Tier-1 fast gates (PR/push):
+- `quick-lint`
+- `policy-core-only`
+- `desktop-runtime-smoke`
+
+Local mirrors:
+- `scripts/lint-ui-style.sh`
+- `scripts/test-policy-core-suite.sh build/toppanel-Debug`
+- `scripts/smoke-runtime.sh --build-dir build --app-bin build/slm-desktop`
+
+Detail tier map:
+- `docs/CI_TIER_MAP.md`
 
 ## Current architecture
 
@@ -123,6 +142,19 @@ Gunakan script helper agar test stabil di environment headless:
 scripts/test.sh
 ```
 
+Quick commands (recommended lanes):
+
+```bash
+# Stable settings policy gate
+scripts/test.sh policy-core build/toppanel-Debug
+
+# Secret consent contract gate
+scripts/test.sh secret-consent build/toppanel-Debug
+
+# Legacy baseline lane (non-blocking in CI)
+scripts/test.sh baseline-flaky build/toppanel-Debug
+```
+
 Dengan build dir custom:
 
 ```bash
@@ -130,11 +162,29 @@ scripts/test.sh /path/to/build-dir
 ```
 
 Catatan:
-- Script akan set `QT_QPA_PLATFORM=offscreen` (jika belum diset), menjalankan dulu suite kontrak file-operations (`fileoperationsmanager_test`, `fileoperationsservice_dbus_test`, `fileopctl_smoke_test`), lalu menjalankan seluruh `ctest --output-on-failure`.
-- Script akan menjalankan UI style lint (`scripts/lint-ui-style.sh`) sebelum test suite.
-- Regex suite file-operations bisa dioverride lewat env `SLM_TEST_FILEOPS_REGEX`.
-- Untuk skip lint di test lokal: `SLM_TEST_SKIP_UI_LINT=1`.
-- Soak profile nightly (opsional, off by default):
+- Full suite (`scripts/test.sh`):
+  - Script akan set `QT_QPA_PLATFORM=offscreen` (jika belum diset), menjalankan dulu suite kontrak file-operations (`fileoperationsmanager_test`, `fileoperationsservice_dbus_test`, `fileopctl_smoke_test`), lalu seluruh `ctest --output-on-failure`.
+  - Lint default: UI style lint + capability matrix lint sebelum test suite.
+  - Override env:
+    - `SLM_TEST_FILEOPS_REGEX` (custom regex suite file-operations)
+    - `SLM_TEST_SKIP_UI_LINT=1`
+    - `SLM_TEST_SKIP_CAPABILITY_MATRIX_LINT=1`
+    - `SLM_TEST_FULL_EXCLUDE_LABELS` (default `baseline-flaky`)
+- Secret-consent lane:
+  - `scripts/test.sh secret-consent build/toppanel-Debug`
+  - fast path: `SLM_SECRET_CONSENT_SKIP_BUILD=1 scripts/test-secret-consent-suite.sh build/toppanel-Debug`
+  - nightly env:
+    - `SLM_TEST_NIGHTLY_SECRET_CONSENT_MODE=required|auto|skip`
+    - `SLM_TEST_NIGHTLY_SECRET_CONSENT_SKIP_BUILD=1|0`
+- Policy-core lane:
+  - `scripts/test.sh policy-core build/toppanel-Debug`
+  - fast path: `SLM_POLICY_CORE_SKIP_BUILD=1 scripts/test-policy-core-suite.sh build/toppanel-Debug`
+  - nightly env:
+    - `SLM_TEST_NIGHTLY_POLICY_CORE_MODE=required|auto|skip`
+    - `SLM_TEST_NIGHTLY_POLICY_CORE_SKIP_BUILD=1|0`
+- Nightly dedicated-lane de-duplication:
+  - `SLM_TEST_NIGHTLY_FULL_EXCLUDE_LABELS` (contoh CI: `baseline-flaky;secret-consent;policy-core`)
+- Soak profile (opsional, off by default):
   - `SLM_TEST_ENABLE_SOAK=1` aktifkan mode soak setelah full suite.
   - `SLM_TEST_SOAK_MINUTES=5` durasi soak (menit).
   - `SLM_TEST_SOAK_REGEX='^(filemanagerapi_daemon_recovery_test)$'` target test soak.
@@ -163,6 +213,8 @@ UI style lint standalone:
 ```bash
 scripts/lint-ui-style.sh
 cmake --build build --target lint_ui_style
+scripts/check-slm-style-usage.sh
+cmake --build build --target lint_slm_style_usage
 ```
 
 ## CLI UIPreference

@@ -18,6 +18,11 @@
 #include <QProcess>
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
+#include <csignal>
+#if defined(__linux__)
+#include <execinfo.h>
+#include <unistd.h>
+#endif
 
 #include "appmodel.h"
 #include "src/core/execution/appcommandrouter.h"
@@ -75,8 +80,35 @@
 #include "src/printing/core/PrintPreviewModel.h"
 #include "src/printing/core/JobSubmitter.h"
 
+#if defined(__linux__)
+namespace {
+void slmCrashSignalHandler(int sig)
+{
+    const char msg[] = "\n[crash] fatal signal received, dumping stack trace...\n";
+    ::write(STDERR_FILENO, msg, sizeof(msg) - 1);
+    void *frames[128];
+    const int n = ::backtrace(frames, 128);
+    ::backtrace_symbols_fd(frames, n, STDERR_FILENO);
+    ::signal(sig, SIG_DFL);
+    ::raise(sig);
+}
+
+void installCrashSignalHandlers()
+{
+    ::signal(SIGSEGV, slmCrashSignalHandler);
+    ::signal(SIGABRT, slmCrashSignalHandler);
+    ::signal(SIGBUS, slmCrashSignalHandler);
+    ::signal(SIGILL, slmCrashSignalHandler);
+    ::signal(SIGFPE, slmCrashSignalHandler);
+}
+} // namespace
+#endif
+
 int main(int argc, char *argv[])
 {
+#if defined(__linux__)
+    installCrashSignalHandlers();
+#endif
     const auto roundedRegionForRect = [](const QRect &rect, int radius) -> QRegion {
         if (rect.isEmpty() || radius <= 0) {
             return QRegion(rect);
@@ -99,10 +131,11 @@ int main(int argc, char *argv[])
         QSurfaceFormat::setDefaultFormat(fmt);
     }
     QQuickWindow::setDefaultAlphaBuffer(true);
-    // Force a project-level Controls style so menus are unified app-wide.
+    // Force project-level Controls style so all unqualified QtQuick.Controls
+    // widgets follow slm-style consistently across shell surfaces.
     qputenv("QT_QUICK_CONTROLS_FALLBACK_STYLE", "Basic");
     const QString appDir = QFileInfo(QString::fromLocal8Bit(argv[0])).absolutePath();
-    qputenv("QT_QUICK_CONTROLS_STYLE", "Basic");
+    qputenv("QT_QUICK_CONTROLS_STYLE", "SlmStyle");
 
     QGuiApplication app(argc, argv);
     qInfo().noquote() << "[startup] QGuiApplication ready"
@@ -183,6 +216,8 @@ int main(int argc, char *argv[])
     if (!qtQmlImportsPath.isEmpty()) {
         engine.addImportPath(qtQmlImportsPath);
     }
+    // Ensure qrc QML modules (including SlmStyle) are always resolvable.
+    engine.addImportPath(QStringLiteral("qrc:/qt/qml"));
     engine.addImageProvider(QStringLiteral("themeicon"), new ThemeIconProvider);
     ThemeIconController themeIconController;
     ExternalIndicatorRegistry externalIndicatorRegistry;

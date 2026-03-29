@@ -61,6 +61,7 @@ Checklist ini dipakai sebelum merge perubahan UI/windowing/filemanager.
 
 ```bash
 scripts/test.sh
+scripts/test.sh secret-consent build/toppanel-Debug
 scripts/smoke-runtime.sh
 scripts/test-globalmenu.sh
 ```
@@ -69,4 +70,12 @@ Nightly soak (opsional):
 
 ```bash
 SLM_TEST_ENABLE_SOAK=1 SLM_TEST_SOAK_MINUTES=5 scripts/test.sh
+```
+
+Nightly secret-consent lane knobs:
+
+```bash
+SLM_TEST_NIGHTLY_SECRET_CONSENT_MODE=required \
+SLM_TEST_NIGHTLY_SECRET_CONSENT_SKIP_BUILD=1 \
+scripts/test.sh nightly build
 ```
