@@ -12,6 +12,7 @@ Item {
     property bool popupHint: false
     property bool popupOpen: popupHint || opMenu.opened
     property bool autoOpenWhenActive: true
+    property real tinyArchiveAutoPopupBytes: 2 * 1024 * 1024
     readonly property int compactH: Theme.metric("controlHeightCompact")
     readonly property int regularH: Theme.metric("controlHeightRegular")
     readonly property int largeH: Theme.metric("controlHeightLarge")
@@ -149,6 +150,11 @@ Item {
         return String(root.lastOperationType || "")
     }
 
+    function supportsPause(op) {
+        var t = String(op || "").toLowerCase()
+        return t !== "extract" && t !== "compress"
+    }
+
     function captureProgressSnapshot(opOverride, currentOverride, totalOverride) {
         var op = (opOverride !== undefined && opOverride !== null)
                 ? String(opOverride || "")
@@ -163,6 +169,24 @@ Item {
         root.lastCurrentValue = current
         root.lastTotalValue = total
         root.lastProgressValue = total > 0 ? Math.max(0, Math.min(1, current / total)) : 0
+    }
+
+    function shouldAutoOpenPopupForActiveOperation() {
+        if (!root.fileManagerApi) {
+            return true
+        }
+        var op = String(root.fileManagerApi.batchOperationType || "").toLowerCase()
+        if (op !== "extract" && op !== "compress") {
+            return true
+        }
+        if (!root.fileManagerApi.batchOperationTotalIsBytes) {
+            return true
+        }
+        var total = Number(root.fileManagerApi.batchOperationTotal || 0)
+        if (!(total > 0)) {
+            return true
+        }
+        return total > Number(root.tinyArchiveAutoPopupBytes || 0)
     }
 
     function updateEta() {
@@ -372,7 +396,8 @@ Item {
             inactiveCloseDebounce.stop()
             root.holdVisible = true
             visibleHoldTimer.restart()
-            if (root.autoOpenWhenActive && !opMenu.opened) {
+            if (root.autoOpenWhenActive && !opMenu.opened
+                    && root.shouldAutoOpenPopupForActiveOperation()) {
                 root.popupHint = true
                 popupHintTimer.restart()
                 Qt.callLater(function() {
@@ -553,6 +578,8 @@ Item {
                     if (op === "delete") return "Delete in progress" + paused
                     if (op === "trash") return "Move to Trash in progress" + paused
                     if (op === "restore") return "Restore in progress" + paused
+                    if (op === "extract") return "Extract in progress" + paused
+                    if (op === "compress") return "Compress in progress" + paused
                     return "Operation in progress"
                 }
                 color: Theme.color("textPrimary")
@@ -622,8 +649,12 @@ Item {
 
                 Button {
                     text: (root.fileManagerApi && root.fileManagerApi.batchOperationPaused) ? "Resume" : "Pause"
+                    enabled: root.fileManagerApi && root.supportsPause(root.displayOperationType())
                     onClicked: {
                         if (!root.fileManagerApi) {
+                            return
+                        }
+                        if (!root.supportsPause(root.displayOperationType())) {
                             return
                         }
                         if (root.fileManagerApi.batchOperationPaused && root.fileManagerApi.resumeActiveBatchOperation) {

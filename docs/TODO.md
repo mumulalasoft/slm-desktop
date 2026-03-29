@@ -611,12 +611,12 @@ Arsitektur target:
 
 ### Phase 2 - Trust & Source Control
 
-- [ ] Source policy directory: `/etc/slm/package-policy/source-policies/`
-- [ ] Definisikan kelas source: `official`, `vendor`, `community`, `local`
-- [ ] Labeling source per paket
+- [x] Source policy directory: `/etc/slm/package-policy/source-policies/`
+- [x] Definisikan kelas source: `official`, `vendor`, `community`, `local`
+- [x] Labeling source per paket
 - [ ] Rule extension
-  - [ ] `BLOCK` external repo yang replace core
-  - [ ] `ALLOW WITH WARNING` untuk trusted external install
+  - [x] `BLOCK` external repo yang replace core
+  - [x] `ALLOW WITH WARNING` untuk trusted external install
 
 ### Phase 3 - Advanced Safety
 
@@ -720,13 +720,13 @@ Phase D - Security hardening
 - [x] Path traversal guard (`../`) + absolute path stripping
 - [x] Symlink/hardlink extraction policy default aman
 - [ ] Overwrite strategy aman + conflict resolution sederhana
-- [ ] Resource limits (entry count, total expanded size, timeout, cancellation)
-- [ ] Archive bomb detection heuristik + fail-safe
+- [x] Resource limits (entry count, total expanded size, timeout, cancellation)
+- [x] Archive bomb detection heuristik + fail-safe
 
 Phase E - Integration polish
 - [ ] Drag-and-drop archive behavior konsisten
 - [ ] Smart progress UX:
-  - [ ] tiny archive -> no modal (toast only)
-  - [ ] medium/large -> non-blocking progress UI
+  - [x] tiny archive -> no modal (toast only)
+  - [x] medium/large -> non-blocking progress UI
 - [ ] Telemetry internal (success/fail/latency) untuk tuning
 - [ ] Docs + compatibility matrix format archive

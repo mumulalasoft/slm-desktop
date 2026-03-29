@@ -2,10 +2,14 @@
 
 #include "src/services/packagepolicy/aptsimulator.h"
 #include "src/services/packagepolicy/packagepolicyengine.h"
+#include "src/services/packagepolicy/packagepolicyconfig.h"
+#include "src/services/packagepolicy/packagesourceresolver.h"
 
 using Slm::PackagePolicy::AptSimulator;
 using Slm::PackagePolicy::PackagePolicyEngine;
+using Slm::PackagePolicy::PackageSourceInfo;
 using Slm::PackagePolicy::PackageTransaction;
+using Slm::PackagePolicy::SourcePolicy;
 
 class PackagePolicyEngineTest : public QObject
 {
@@ -15,6 +19,8 @@ private slots:
     void parseAptSimulationOutput_extractsTransactions();
     void evaluate_blocksProtectedRemoval();
     void evaluate_allowsSafeTransaction();
+    void evaluate_blocksExternalReplaceProtected();
+    void evaluate_warnsTrustedExternalInstall();
 };
 
 void PackagePolicyEngineTest::parseAptSimulationOutput_extractsTransactions()
@@ -63,6 +69,76 @@ void PackagePolicyEngineTest::evaluate_allowsSafeTransaction()
     const auto decision = PackagePolicyEngine::evaluate(tx, protectedPackages);
     QCOMPARE(decision.allowed, true);
     QVERIFY(decision.blockReasons.isEmpty());
+}
+
+void PackagePolicyEngineTest::evaluate_blocksExternalReplaceProtected()
+{
+    PackageTransaction tx;
+    tx.install = {QStringLiteral("vendor-gl-driver")};
+    tx.replace = {QStringLiteral("mesa")};
+
+    const QSet<QString> protectedPackages = {
+        QStringLiteral("mesa"),
+        QStringLiteral("libc6")
+    };
+
+    QHash<QString, PackageSourceInfo> sources;
+    PackageSourceInfo vendorInfo;
+    vendorInfo.sourceId = QStringLiteral("vendor");
+    vendorInfo.sourceKind = QStringLiteral("trusted-external");
+    vendorInfo.sourceRisk = QStringLiteral("medium");
+    sources.insert(QStringLiteral("vendor-gl-driver"), vendorInfo);
+
+    QHash<QString, SourcePolicy> sourcePolicies;
+    SourcePolicy official;
+    official.id = QStringLiteral("official");
+    official.kind = QStringLiteral("official");
+    official.risk = QStringLiteral("low");
+    official.canReplaceCore = true;
+    sourcePolicies.insert(official.id, official);
+
+    SourcePolicy vendor;
+    vendor.id = QStringLiteral("vendor");
+    vendor.kind = QStringLiteral("trusted-external");
+    vendor.risk = QStringLiteral("medium");
+    vendor.canReplaceCore = false;
+    sourcePolicies.insert(vendor.id, vendor);
+
+    const auto decision = PackagePolicyEngine::evaluate(tx, protectedPackages, sources, sourcePolicies);
+    QCOMPARE(decision.allowed, false);
+    QVERIFY(!decision.blockReasons.isEmpty());
+    QVERIFY(decision.blockReasons.join(QStringLiteral(" ")).contains(QStringLiteral("external"), Qt::CaseInsensitive));
+}
+
+void PackagePolicyEngineTest::evaluate_warnsTrustedExternalInstall()
+{
+    PackageTransaction tx;
+    tx.install = {QStringLiteral("vendor-note-app")};
+
+    const QSet<QString> protectedPackages = {
+        QStringLiteral("libc6"),
+        QStringLiteral("systemd")
+    };
+
+    QHash<QString, PackageSourceInfo> sources;
+    PackageSourceInfo vendorInfo;
+    vendorInfo.sourceId = QStringLiteral("vendor");
+    vendorInfo.sourceKind = QStringLiteral("trusted-external");
+    vendorInfo.sourceRisk = QStringLiteral("medium");
+    sources.insert(QStringLiteral("vendor-note-app"), vendorInfo);
+
+    QHash<QString, SourcePolicy> sourcePolicies;
+    SourcePolicy vendor;
+    vendor.id = QStringLiteral("vendor");
+    vendor.kind = QStringLiteral("trusted-external");
+    vendor.risk = QStringLiteral("medium");
+    vendor.canReplaceCore = false;
+    sourcePolicies.insert(vendor.id, vendor);
+
+    const auto decision = PackagePolicyEngine::evaluate(tx, protectedPackages, sources, sourcePolicies);
+    QCOMPARE(decision.allowed, true);
+    QVERIFY(decision.warnings.join(QStringLiteral(" ")).contains(QStringLiteral("trusted external"),
+                                                                 Qt::CaseInsensitive));
 }
 
 QTEST_MAIN(PackagePolicyEngineTest)

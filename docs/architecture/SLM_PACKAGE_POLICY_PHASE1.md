@@ -31,11 +31,16 @@ Last updated: 2026-03-29
   - snapshot recovery helper
   - safe-mode trigger
   - optional auto-disable external repos on incident
+- Phase-2 trust baseline (implemented):
+  - source policy model loaded from `/etc/slm/package-policy/source-policies/`
+  - source classification for package candidates (`official/vendor/community/local`)
+  - block rule for external source replacing protected/core package
+  - warning path for trusted external installs
 
 ## Current scope and limits
 
 - Backend focus is still APT/DPKG (no Flatpak backend executor yet).
-- Source trust policy (`official/vendor/community/local`) is not enforced yet.
+- Source trust policy is enforced at baseline heuristics; repo/source labeling still needs hardening for edge repositories.
 - GUI software-center integration is not implemented yet.
 - Wrapper interception depends on PATH priority (install script must be applied correctly).
 

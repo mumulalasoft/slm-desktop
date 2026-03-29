@@ -4,9 +4,11 @@
 #include "packagepolicyconfig.h"
 #include "packagepolicyengine.h"
 #include "packagepolicylogger.h"
+#include "packagesourceresolver.h"
 
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QJsonObject>
 
 namespace Slm::PackagePolicy {
 
@@ -57,7 +59,16 @@ QVariantMap PackagePolicyService::evaluateInternal(const QString &tool, const QS
         return buildError(QStringLiteral("unsupported tool: %1").arg(tool));
     }
 
-    const PolicyDecision decision = PackagePolicyEngine::evaluate(transaction, config.protectedPackages());
+    QStringList sourceTargetPackages;
+    sourceTargetPackages << transaction.install << transaction.upgrade;
+    sourceTargetPackages.removeDuplicates();
+    const QHash<QString, PackageSourceInfo> packageSources =
+        PackageSourceResolver::detectForPackages(sourceTargetPackages, normalizedTool);
+
+    const PolicyDecision decision = PackagePolicyEngine::evaluate(transaction,
+                                                                  config.protectedPackages(),
+                                                                  packageSources,
+                                                                  config.sourcePolicies());
 
     QJsonObject decisionJson = decision.toJson();
     decisionJson.insert(QStringLiteral("protectedPackageCount"), static_cast<int>(config.protectedPackages().size()));
@@ -66,6 +77,17 @@ QVariantMap PackagePolicyService::evaluateInternal(const QString &tool, const QS
     if (!transaction.rawOutput.isEmpty()) {
         transactionJson.insert(QStringLiteral("raw"), transaction.rawOutput.left(8000));
     }
+
+    QJsonObject packageSourcesJson;
+    for (auto it = packageSources.constBegin(); it != packageSources.constEnd(); ++it) {
+        QJsonObject row;
+        row.insert(QStringLiteral("sourceId"), it.value().sourceId);
+        row.insert(QStringLiteral("sourceKind"), it.value().sourceKind);
+        row.insert(QStringLiteral("sourceRisk"), it.value().sourceRisk);
+        row.insert(QStringLiteral("detail"), it.value().sourceDetail);
+        packageSourcesJson.insert(it.key(), row);
+    }
+    decisionJson.insert(QStringLiteral("packageSources"), packageSourcesJson);
 
     QJsonArray touchedProtected;
     for (const QString &pkg : transaction.remove) {

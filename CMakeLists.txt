@@ -41,6 +41,7 @@ pkg_check_modules(SPA IMPORTED_TARGET libspa-0.2)
 pkg_check_modules(PAM QUIET IMPORTED_TARGET pam)
 pkg_check_modules(POLKIT_AGENT QUIET IMPORTED_TARGET polkit-agent-1)
 pkg_check_modules(POLKIT_GOBJECT QUIET IMPORTED_TARGET polkit-gobject-1)
+pkg_check_modules(LIBARCHIVE QUIET IMPORTED_TARGET libarchive)
 find_path(SLM_PAM_INCLUDE_DIR security/pam_appl.h)
 find_library(SLM_PAM_LIBRARY pam)
 
@@ -63,6 +64,11 @@ if(TARGET Poppler::Qt6)
     message(STATUS "SLM Poppler Qt6 support: TRUE")
 else()
     message(STATUS "SLM Poppler Qt6 support: FALSE (using fallback PDF renderer)")
+endif()
+if(LIBARCHIVE_FOUND)
+    message(STATUS "SLM libarchive support: TRUE")
+else()
+    message(STATUS "SLM libarchive support: FALSE (archive backend disabled)")
 endif()
 
 qt_standard_project_setup(REQUIRES 6.5)
@@ -397,6 +403,8 @@ qt_add_executable(slm-package-policy-service
     src/services/packagepolicy/aptsimulator.h
     src/services/packagepolicy/packagepolicyengine.cpp
     src/services/packagepolicy/packagepolicyengine.h
+    src/services/packagepolicy/packagesourceresolver.cpp
+    src/services/packagepolicy/packagesourceresolver.h
     src/services/packagepolicy/packagepolicylogger.cpp
     src/services/packagepolicy/packagepolicylogger.h
     src/services/packagepolicy/packagepolicyservice.cpp
@@ -510,6 +518,16 @@ qt_add_executable(slm-envd-helper
     src/apps/settings/modules/developer/localenvstore.cpp
     src/apps/settings/modules/developer/localenvstore.h
 )
+
+if(LIBARCHIVE_FOUND)
+qt_add_executable(slm-archived
+    src/daemon/archived/archived_main.cpp
+    src/services/archive/archiveservice.cpp
+    src/services/archive/archiveservice.h
+    src/services/archive/archivebackend.cpp
+    src/services/archive/archivebackend.h
+)
+endif()
 
 target_link_libraries(windowingctl
     PRIVATE
@@ -644,6 +662,17 @@ target_link_libraries(slm-svcmgrd
         Qt6::DBus
 )
 target_include_directories(slm-svcmgrd PRIVATE ${CMAKE_SOURCE_DIR})
+
+if(TARGET slm-archived)
+target_link_libraries(slm-archived
+    PRIVATE
+        Qt6::Core
+        Qt6::DBus
+        Qt6::Concurrent
+        PkgConfig::LIBARCHIVE
+)
+target_include_directories(slm-archived PRIVATE ${CMAKE_SOURCE_DIR})
+endif()
 
 target_link_libraries(slm-package-policy-service
     PRIVATE
@@ -1080,6 +1109,12 @@ install(TARGETS slm-portald
 install(TARGETS slm-envd
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
+
+if(TARGET slm-archived)
+install(TARGETS slm-archived
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+endif()
 
 install(TARGETS slm-package-policy-service
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
@@ -2015,6 +2050,22 @@ add_test(NAME filemanagerapi_fileops_contract_test COMMAND filemanagerapi_fileop
 set_tests_properties(filemanagerapi_fileops_contract_test PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
+
+if(LIBARCHIVE_FOUND)
+qt_add_executable(archivebackend_test
+    src/services/archive/archivebackend.cpp
+    src/services/archive/archivebackend.h
+    tests/archivebackend_test.cpp
+)
+target_include_directories(archivebackend_test PRIVATE ${CMAKE_SOURCE_DIR})
+target_link_libraries(archivebackend_test
+    PRIVATE
+        Qt6::Core
+        Qt6::Test
+        PkgConfig::LIBARCHIVE
+)
+add_test(NAME archivebackend_test COMMAND $<TARGET_FILE:archivebackend_test>)
+endif()
 
 # Contract test: FileManagerShellBridge ↔ fileopsd integration
 qt_add_executable(filemanager_shell_contract_test

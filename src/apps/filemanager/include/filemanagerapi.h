@@ -45,6 +45,7 @@ class FileManagerApi : public QObject
     Q_PROPERTY(QString batchOperationId READ batchOperationId NOTIFY batchOperationStateChanged)
     Q_PROPERTY(qlonglong batchOperationCurrent READ batchOperationCurrent NOTIFY batchOperationStateChanged)
     Q_PROPERTY(qlonglong batchOperationTotal READ batchOperationTotal NOTIFY batchOperationStateChanged)
+    Q_PROPERTY(bool batchOperationTotalIsBytes READ batchOperationTotalIsBytes NOTIFY batchOperationStateChanged)
     Q_PROPERTY(double batchOperationProgress READ batchOperationProgress NOTIFY batchOperationStateChanged)
     Q_PROPERTY(bool batchOperationPaused READ batchOperationPaused NOTIFY batchOperationStateChanged)
     Q_PROPERTY(int failedBatchCount READ failedBatchCount NOTIFY failedBatchItemsChanged)
@@ -116,6 +117,8 @@ public:
     QVariantMap compressArchive(const QVariantList &sourcePaths,
                                 const QString &archivePath,
                                 const QString &format = QStringLiteral("zip")) const;
+    Q_INVOKABLE QVariantMap previewArchiveContents(const QString &archivePath,
+                                                   int maxEntries = 120) const;
     Q_INVOKABLE QVariantMap startExtractArchive(const QString &archivePath,
                                                 const QString &destinationDir = QString());
     Q_INVOKABLE QVariantMap startCompressArchive(const QVariantList &sourcePaths,
@@ -199,6 +202,7 @@ public:
     QString batchOperationId() const;
     qlonglong batchOperationCurrent() const;
     qlonglong batchOperationTotal() const;
+    bool batchOperationTotalIsBytes() const;
     double batchOperationProgress() const;
     bool batchOperationPaused() const;
     int failedBatchCount() const;
@@ -290,7 +294,9 @@ private:
         Move,
         Delete,
         Trash,
-        Restore
+        Restore,
+        Extract,
+        Compress
     };
     enum class BatchState {
         Idle,
