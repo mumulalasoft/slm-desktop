@@ -916,66 +916,67 @@ qt_add_qml_module(slm-settings
 )
 
 set(DESKTOP_SHELL_RESOURCE_FILES
-    icons/battery_0.svg
-    icons/battery_25.svg
-    icons/battery_50.svg
-    icons/battery_75.svg
-    icons/battery_75_white.svg
-    icons/battery_100.svg
-    icons/battery_missing.svg
-    icons/ethernet.svg
-    icons/ethernet_white.svg
-    icons/logo.svg
-    icons/logo_white.svg
-    icons/launchpad.svg
-    icons/wifi_1_bar.svg
-    icons/wifi_1_bar_white.svg
-    icons/wifi_2_bar.svg
-    icons/wifi_2_bar_white.svg
-    icons/wifi_3_bar.svg
-    icons/wifi_3_bar_white.svg
-    images/wallpaper.jpeg
-    icons/titlebuttons/titlebutton-menu-backdrop.svg
-    icons/titlebuttons/titlebutton-unmaximize-active.svg
-    icons/titlebuttons/titlebutton-maximize.svg
-    icons/titlebuttons/titlebutton-minimize.svg
-    icons/titlebuttons/titlebutton-close-hover.svg
-    icons/titlebuttons/titlebutton-unshade-backdrop.svg
-    icons/titlebuttons/titlebutton-minimize-active.svg
-    icons/titlebuttons/titlebutton-backdrop.svg
-    icons/titlebuttons/titlebutton-minimize-backdrop-active.svg
-    icons/titlebuttons/titlebutton-maximize-active.svg
-    icons/titlebuttons/titlebutton-close.svg
-    icons/titlebuttons/titlebutton-unshade.svg
-    icons/titlebuttons/titlebutton-shade-hover.svg
-    icons/titlebuttons/titlebutton-shade-backdrop.svg
-    icons/titlebuttons/titlebutton-minimize-hover.svg
-    icons/titlebuttons/titlebutton-maximize-backdrop-active.svg
-    icons/titlebuttons/titlebutton-close-backdrop-active.svg
-    icons/titlebuttons/titlebutton-menu-backdrop-active.svg
-    icons/titlebuttons/titlebutton-unmaximize-backdrop-active.svg
-    icons/titlebuttons/titlebutton-unmaximize-backdrop.svg
-    icons/titlebuttons/titlebutton-minimize-backdrop.svg
-    icons/titlebuttons/titlebutton-unmaximize-hover.svg
-    icons/titlebuttons/titlebutton-shade.svg
-    icons/titlebuttons/titlebutton-shade-active.svg
-    icons/titlebuttons/titlebutton-maximize-hover.svg
-    icons/titlebuttons/titlebutton-close-backdrop.svg
-    icons/titlebuttons/titlebutton-menu-active.svg
-    icons/titlebuttons/titlebutton-unshade-hover.svg
-    icons/titlebuttons/titlebutton-maximize-backdrop.svg
-    icons/titlebuttons/titlebutton-unshade-active.svg
-    icons/titlebuttons/titlebutton-close-active.svg
-    icons/titlebuttons/titlebutton-menu.svg
-    icons/titlebuttons/titlebutton-menu-hover.svg
-    icons/titlebuttons/titlebutton-shade-backdrop-active.svg
-    icons/titlebuttons/titlebutton-unshade-backdrop-active.svg
+    assets/icons/battery_0.svg
+    assets/icons/battery_25.svg
+    assets/icons/battery_50.svg
+    assets/icons/battery_75.svg
+    assets/icons/battery_75_white.svg
+    assets/icons/battery_100.svg
+    assets/icons/battery_missing.svg
+    assets/icons/ethernet.svg
+    assets/icons/ethernet_white.svg
+    assets/icons/logo.svg
+    assets/icons/logo_white.svg
+    assets/icons/launchpad.svg
+    assets/icons/wifi_1_bar.svg
+    assets/icons/wifi_1_bar_white.svg
+    assets/icons/wifi_2_bar.svg
+    assets/icons/wifi_2_bar_white.svg
+    assets/icons/wifi_3_bar.svg
+    assets/icons/wifi_3_bar_white.svg
+    assets/images/wallpaper.jpeg
+    assets/icons/titlebuttons/titlebutton-menu-backdrop.svg
+    assets/icons/titlebuttons/titlebutton-unmaximize-active.svg
+    assets/icons/titlebuttons/titlebutton-maximize.svg
+    assets/icons/titlebuttons/titlebutton-minimize.svg
+    assets/icons/titlebuttons/titlebutton-close-hover.svg
+    assets/icons/titlebuttons/titlebutton-unshade-backdrop.svg
+    assets/icons/titlebuttons/titlebutton-minimize-active.svg
+    assets/icons/titlebuttons/titlebutton-backdrop.svg
+    assets/icons/titlebuttons/titlebutton-minimize-backdrop-active.svg
+    assets/icons/titlebuttons/titlebutton-maximize-active.svg
+    assets/icons/titlebuttons/titlebutton-close.svg
+    assets/icons/titlebuttons/titlebutton-unshade.svg
+    assets/icons/titlebuttons/titlebutton-shade-hover.svg
+    assets/icons/titlebuttons/titlebutton-shade-backdrop.svg
+    assets/icons/titlebuttons/titlebutton-minimize-hover.svg
+    assets/icons/titlebuttons/titlebutton-maximize-backdrop-active.svg
+    assets/icons/titlebuttons/titlebutton-close-backdrop-active.svg
+    assets/icons/titlebuttons/titlebutton-menu-backdrop-active.svg
+    assets/icons/titlebuttons/titlebutton-unmaximize-backdrop-active.svg
+    assets/icons/titlebuttons/titlebutton-unmaximize-backdrop.svg
+    assets/icons/titlebuttons/titlebutton-minimize-backdrop.svg
+    assets/icons/titlebuttons/titlebutton-unmaximize-hover.svg
+    assets/icons/titlebuttons/titlebutton-shade.svg
+    assets/icons/titlebuttons/titlebutton-shade-active.svg
+    assets/icons/titlebuttons/titlebutton-maximize-hover.svg
+    assets/icons/titlebuttons/titlebutton-close-backdrop.svg
+    assets/icons/titlebuttons/titlebutton-menu-active.svg
+    assets/icons/titlebuttons/titlebutton-unshade-hover.svg
+    assets/icons/titlebuttons/titlebutton-maximize-backdrop.svg
+    assets/icons/titlebuttons/titlebutton-unshade-active.svg
+    assets/icons/titlebuttons/titlebutton-close-active.svg
+    assets/icons/titlebuttons/titlebutton-menu.svg
+    assets/icons/titlebuttons/titlebutton-menu-hover.svg
+    assets/icons/titlebuttons/titlebutton-shade-backdrop-active.svg
+    assets/icons/titlebuttons/titlebutton-unshade-backdrop-active.svg
 
 
 )
 
 qt6_add_resources(slm-desktop resources
     PREFIX "/"
+    BASE "${CMAKE_SOURCE_DIR}/assets"
     FILES
         ${DESKTOP_SHELL_RESOURCE_FILES}
 )
@@ -1051,26 +1052,27 @@ qt_add_resources(slm-settings "slm_desktop_theme_shim_theme"
 )
 qt_add_resources(slm-settings "slm_settings_titlebuttons"
     PREFIX "/"
+    BASE "${CMAKE_SOURCE_DIR}/assets"
     FILES
-        icons/titlebuttons/titlebutton-close.svg
-        icons/titlebuttons/titlebutton-close-hover.svg
-        icons/titlebuttons/titlebutton-close-active.svg
-        icons/titlebuttons/titlebutton-close-backdrop.svg
-        icons/titlebuttons/titlebutton-close-backdrop-active.svg
-        icons/titlebuttons/titlebutton-minimize.svg
-        icons/titlebuttons/titlebutton-minimize-hover.svg
-        icons/titlebuttons/titlebutton-minimize-active.svg
-        icons/titlebuttons/titlebutton-minimize-backdrop.svg
-        icons/titlebuttons/titlebutton-minimize-backdrop-active.svg
-        icons/titlebuttons/titlebutton-maximize.svg
-        icons/titlebuttons/titlebutton-maximize-hover.svg
-        icons/titlebuttons/titlebutton-maximize-active.svg
-        icons/titlebuttons/titlebutton-maximize-backdrop.svg
-        icons/titlebuttons/titlebutton-maximize-backdrop-active.svg
-        icons/titlebuttons/titlebutton-unmaximize-hover.svg
-        icons/titlebuttons/titlebutton-unmaximize-active.svg
-        icons/titlebuttons/titlebutton-unmaximize-backdrop.svg
-        icons/titlebuttons/titlebutton-unmaximize-backdrop-active.svg
+        assets/icons/titlebuttons/titlebutton-close.svg
+        assets/icons/titlebuttons/titlebutton-close-hover.svg
+        assets/icons/titlebuttons/titlebutton-close-active.svg
+        assets/icons/titlebuttons/titlebutton-close-backdrop.svg
+        assets/icons/titlebuttons/titlebutton-close-backdrop-active.svg
+        assets/icons/titlebuttons/titlebutton-minimize.svg
+        assets/icons/titlebuttons/titlebutton-minimize-hover.svg
+        assets/icons/titlebuttons/titlebutton-minimize-active.svg
+        assets/icons/titlebuttons/titlebutton-minimize-backdrop.svg
+        assets/icons/titlebuttons/titlebutton-minimize-backdrop-active.svg
+        assets/icons/titlebuttons/titlebutton-maximize.svg
+        assets/icons/titlebuttons/titlebutton-maximize-hover.svg
+        assets/icons/titlebuttons/titlebutton-maximize-active.svg
+        assets/icons/titlebuttons/titlebutton-maximize-backdrop.svg
+        assets/icons/titlebuttons/titlebutton-maximize-backdrop-active.svg
+        assets/icons/titlebuttons/titlebutton-unmaximize-hover.svg
+        assets/icons/titlebuttons/titlebutton-unmaximize-active.svg
+        assets/icons/titlebuttons/titlebutton-unmaximize-backdrop.svg
+        assets/icons/titlebuttons/titlebutton-unmaximize-backdrop-active.svg
 )
 target_include_directories(slm-settings PRIVATE
     ${CMAKE_SOURCE_DIR}/src/apps/settings
