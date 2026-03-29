@@ -905,4 +905,14 @@ Item {
             }
         }
     }
+
+    Shortcut {
+        sequence: "Meta+N"
+        onActivated: {
+            if (typeof NotificationManager !== "undefined" && NotificationManager &&
+                    NotificationManager.toggleCenter) {
+                NotificationManager.toggleCenter()
+            }
+        }
+    }
 }

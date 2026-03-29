@@ -1,0 +1,35 @@
+<!DOCTYPE node PUBLIC
+  "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN"
+  "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
+<node>
+  <interface name="org.example.Desktop.Notification">
+    <method name="Notify">
+      <arg name="app" type="s" direction="in"/>
+      <arg name="title" type="s" direction="in"/>
+      <arg name="body" type="s" direction="in"/>
+      <arg name="icon" type="s" direction="in"/>
+      <arg name="actions" type="as" direction="in"/>
+      <arg name="priority" type="s" direction="in"/>
+      <arg name="id" type="u" direction="out"/>
+    </method>
+    <method name="Dismiss">
+      <arg name="notification_id" type="u" direction="in"/>
+      <arg name="ok" type="b" direction="out"/>
+    </method>
+    <method name="GetAll">
+      <arg name="items" type="aa{sv}" direction="out"/>
+    </method>
+    <method name="ClearAll"/>
+    <method name="ToggleCenter">
+      <arg name="visible" type="b" direction="out"/>
+    </method>
+
+    <signal name="NotificationAdded">
+      <arg name="id" type="u"/>
+    </signal>
+    <signal name="NotificationRemoved">
+      <arg name="id" type="u"/>
+    </signal>
+  </interface>
+</node>
+

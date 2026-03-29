@@ -1,0 +1,115 @@
+import QtQuick 2.15
+import QtQuick.Layouts 1.15
+
+Item {
+    id: root
+
+    property var notificationManager: null
+    property int maxVisible: 3
+    property int autoDismissMs: 6200
+
+    signal dismissRequested(int notificationId)
+    signal notificationClicked(int notificationId)
+
+    width: 392
+    implicitHeight: listView.contentHeight
+
+    ListView {
+        id: listView
+        anchors.fill: parent
+        spacing: 8
+        clip: true
+        interactive: false
+        model: root.notificationManager ? root.notificationManager.bannerNotifications : null
+        delegate: Item {
+            id: rowItem
+
+            required property int index
+            required property int notificationId
+            required property string appName
+            required property string appIcon
+            required property string summary
+            required property string body
+            required property string priority
+            required property bool banner
+
+            property bool hovered: false
+            property bool pendingDismiss: false
+            readonly property bool sticky: String(priority || "").toLowerCase() === "high"
+
+            width: listView.width
+            height: visible ? card.implicitHeight : 0
+            visible: index < root.maxVisible && !!banner && !pendingDismiss
+            opacity: pendingDismiss ? 0 : 1
+            scale: pendingDismiss ? 0.96 : 1.0
+            x: pendingDismiss ? width : 0
+
+            Behavior on opacity { NumberAnimation { duration: 170; easing.type: Easing.OutCubic } }
+            Behavior on scale { NumberAnimation { duration: 170; easing.type: Easing.OutCubic } }
+            Behavior on x { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+
+            Timer {
+                id: dismissTimer
+                interval: root.autoDismissMs
+                repeat: false
+                running: rowItem.visible && !rowItem.sticky && !rowItem.hovered
+                onTriggered: rowItem.startDismiss()
+            }
+
+            function startDismiss() {
+                if (pendingDismiss) {
+                    return
+                }
+                pendingDismiss = true
+                dismissFinalize.restart()
+            }
+
+            Timer {
+                id: dismissFinalize
+                interval: 190
+                repeat: false
+                onTriggered: root.dismissRequested(rowItem.notificationId)
+            }
+
+            NotificationCard {
+                id: card
+                anchors.fill: parent
+                compact: true
+                appName: rowItem.appName
+                appIcon: rowItem.appIcon
+                notificationId: rowItem.notificationId
+                title: rowItem.summary.length > 0 ? rowItem.summary : rowItem.appName
+                body: rowItem.body
+                priority: rowItem.priority
+                onClicked: root.notificationClicked(rowItem.notificationId)
+
+                Behavior on x {
+                    NumberAnimation { duration: 130; easing.type: Easing.OutCubic }
+                }
+            }
+
+            HoverHandler {
+                onHoveredChanged: rowItem.hovered = hovered
+            }
+
+            DragHandler {
+                id: dragHandler
+                target: card
+                xAxis.enabled: true
+                yAxis.enabled: false
+                onActiveChanged: {
+                    if (active) {
+                        dismissTimer.stop()
+                    } else {
+                        if (Math.abs(card.x) > rowItem.width * 0.32) {
+                            rowItem.startDismiss()
+                        } else {
+                            card.x = 0
+                        }
+                    }
+                }
+            }
+
+        }
+    }
+}

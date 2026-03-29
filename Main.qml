@@ -2,6 +2,7 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Window 2.15
 import Slm_Desktop
+import SlmStyle as DSStyle
 import "Qml/components" as Components
 import "Qml/components/globalmenu" as GlobalMenuComp
 import "Qml/components/overlay" as OverlayComp
@@ -261,6 +262,18 @@ ApplicationWindow {
         }
     }
 
+    function syncStyleThemeFromPreferences() {
+        if (typeof UIPreferences === "undefined" || !UIPreferences) {
+            return
+        }
+        Theme.applyModeString(UIPreferences.themeMode)
+        Theme.userAccentColor = UIPreferences.accentColor
+        Theme.userFontScale = UIPreferences.fontScale
+        DSStyle.Theme.applyModeString(UIPreferences.themeMode)
+        DSStyle.Theme.userAccentColor = UIPreferences.accentColor
+        DSStyle.Theme.userFontScale = UIPreferences.fontScale
+    }
+
     onPortalChooserSelectedPathsChanged: {
         if (portalChooserApi) {
             portalChooserApi.portalChooserUpdatePreviewPath()
@@ -268,6 +281,7 @@ ApplicationWindow {
     }
 
     Component.onCompleted: {
+        syncStyleThemeFromPreferences()
         if (typeof AppModel !== "undefined" && AppModel) {
             appModelRef = AppModel
         }
@@ -284,6 +298,13 @@ ApplicationWindow {
         if (typeof SessionStateClient !== "undefined" && SessionStateClient) {
             root.lockScreenVisible = !!SessionStateClient.locked
         }
+    }
+
+    Connections {
+        target: typeof UIPreferences !== "undefined" ? UIPreferences : null
+        function onThemeModeChanged() { root.syncStyleThemeFromPreferences() }
+        function onAccentColorChanged() { root.syncStyleThemeFromPreferences() }
+        function onFontScaleChanged() { root.syncStyleThemeFromPreferences() }
     }
 
     GlobalMenuComp.GlobalMenuActionRouter {
@@ -735,6 +756,7 @@ ApplicationWindow {
         onAllowAlwaysRequested: shellServiceBridge.acceptConsentAlways()
         onDenyRequested: shellServiceBridge.denyConsent()
         onCancelRequested: shellServiceBridge.cancelConsent()
+        onOpenSettingsRequested: shellServiceBridge.openConsentSettings()
     }
 
     OverlayComp.DetachedFileManagerWindow {
