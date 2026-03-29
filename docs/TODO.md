@@ -578,3 +578,97 @@ scripts/
 - [x] Greeter: animasi minimal (fade-in 600ms, shake on login error), pesan kontekstual (configPending banner, safeModeForced banner, crash detail + count)
 - [x] Factory reset config action (`ConfigManager::factoryReset()` + UI confirmation di recovery app)
 - [x] Dokumentasi arsitektur final (`docs/architecture-login-stack.md`)
+
+---
+
+## Roadmap: SLM Unbreakable Package System (`slm-package-policy-service`)
+
+Tujuan:
+- [ ] Desktop tidak rusak akibat install/remove paket
+- [ ] Semua transaksi paket melewati policy engine
+- [ ] User tetap bisa install aplikasi eksternal dengan kontrol risiko
+- [ ] Recovery + rollback tersedia
+- [ ] Backend awal APT, arsitektur extensible
+
+Arsitektur target:
+- [ ] `User/GUI/Terminal -> Wrapper(apt/apt-get/dpkg) -> slm-package-policy-service -> Simulator -> Rule Engine -> Backend Executor -> Audit + Recovery`
+
+### Phase 1 - Core Protection (Wajib)
+
+- [x] Buat protected capability file: `/etc/slm/package-policy/protected-capabilities.yaml`
+  - [x] `core.init`, `core.libc`, `core.session`, `core.shell`, `core.compositor`, `core.login`, `core.portal`, `core.network`, `core.audio`, `core.graphics`, `core.desktop-services`
+- [x] Buat package mapping Debian/Ubuntu: `/etc/slm/package-policy/package-mappings/debian.yaml`
+  - [x] Map capability ke paket inti (`systemd`, `libc6`, `network-manager`, `pipewire`, `wireplumber`, `mesa`, `libgl1`, `xdg-desktop-portal`, `greetd`, `sddm`, `slm-shell`)
+- [x] Implement simulator APT berbasis `apt-get -s <command>`
+  - [x] Parser transaksi `Remv`, `Inst`, `Upgr`
+  - [x] Normalisasi output ke JSON: `{install:[], remove:[], upgrade:[]}`
+- [x] Implement minimum rule engine
+  - [x] `BLOCK`: remove/replace/downgrade paket protected
+  - [x] `ALLOW`: jika tidak menyentuh protected
+- [x] Implement CLI wrapper wajib
+  - [x] Wrapper `apt`, `apt-get`, `dpkg`
+  - [x] Flow: `command -> wrapper -> policy-service -> allow/block -> real binary`
+
+### Phase 2 - Trust & Source Control
+
+- [ ] Source policy directory: `/etc/slm/package-policy/source-policies/`
+- [ ] Definisikan kelas source: `official`, `vendor`, `community`, `local`
+- [ ] Labeling source per paket
+- [ ] Rule extension
+  - [ ] `BLOCK` external repo yang replace core
+  - [ ] `ALLOW WITH WARNING` untuk trusted external install
+
+### Phase 3 - Advanced Safety
+
+- [ ] Dependency chain detection (termasuk indirect removal dan autoremove)
+- [ ] Risk scoring
+  - [ ] touching core = high
+  - [ ] external repo = medium
+  - [ ] local deb = high
+- [ ] Sandbox redirect
+  - [ ] Jika tersedia Flatpak, arahkan rekomendasi install via Flatpak
+
+### Phase 4 - Recovery System
+
+- [x] Pre-transaction snapshot
+  - [x] daftar paket berubah
+  - [x] repo aktif
+  - [x] config desktop
+- [ ] Recovery mode package incident
+  - [x] disable external repo (auto action on health-check failure)
+  - [x] rollback config (prefer safe baseline, fallback previous)
+  - [x] force safe mode desktop (set `safe_mode_forced=true` in session state)
+  - [x] helper recovery snapshot (`recover-last-snapshot.sh`) untuk restore baseline apt + desktop-critical config
+
+### Phase 5 - Software Center Integration
+
+- [ ] UI expose trust level, risk level, dan dampak sistem
+- [ ] User messaging standar
+  - [ ] Block: "Instalasi diblokir karena memengaruhi komponen inti sistem."
+  - [ ] Warning: "Paket ini berasal dari sumber eksternal."
+
+### Phase 6 - Hardening
+
+- [x] Logging transaksi ke `/var/log/slm-package-policy.log`
+- [ ] Terminal interception hardening
+  - [ ] wrapper aktif
+  - [ ] PATH priority benar
+- [ ] Edge case handling
+  - [ ] `dpkg` direct install
+  - [ ] `apt autoremove`
+  - [ ] dependency conflict
+  - [ ] replace provider
+
+Deliverables minimum:
+- [ ] service daemon aktif
+- [ ] wrapper CLI aktif
+- [ ] proteksi removal core aktif
+- [ ] policy system berbasis JSON/YAML
+- [ ] simulator + parser stabil
+- [ ] logging aktif
+- [ ] basic UI integration siap
+
+Eksekusi:
+- [ ] Mulai implementasi dari Phase 1
+- [ ] Lanjut bertahap per fase
+- [ ] Fokus reliability (simulation + policy), bukan banyak fitur

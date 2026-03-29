@@ -387,6 +387,22 @@ qt_add_executable(slm-svcmgrd
     src/services/svcmgr/svcmanagerdbusinterface.h
 )
 
+qt_add_executable(slm-package-policy-service
+    src/daemon/packagepolicyd/packagepolicyd_main.cpp
+    src/services/packagepolicy/packagetransaction.cpp
+    src/services/packagepolicy/packagetransaction.h
+    src/services/packagepolicy/packagepolicyconfig.cpp
+    src/services/packagepolicy/packagepolicyconfig.h
+    src/services/packagepolicy/aptsimulator.cpp
+    src/services/packagepolicy/aptsimulator.h
+    src/services/packagepolicy/packagepolicyengine.cpp
+    src/services/packagepolicy/packagepolicyengine.h
+    src/services/packagepolicy/packagepolicylogger.cpp
+    src/services/packagepolicy/packagepolicylogger.h
+    src/services/packagepolicy/packagepolicyservice.cpp
+    src/services/packagepolicy/packagepolicyservice.h
+)
+
 qt_add_executable(slmcapdemo
     src/cli/slmcapdemo.cpp
     src/core/actions/slmactiontypes.cpp
@@ -628,6 +644,13 @@ target_link_libraries(slm-svcmgrd
         Qt6::DBus
 )
 target_include_directories(slm-svcmgrd PRIVATE ${CMAKE_SOURCE_DIR})
+
+target_link_libraries(slm-package-policy-service
+    PRIVATE
+        Qt6::Core
+        Qt6::DBus
+)
+target_include_directories(slm-package-policy-service PRIVATE ${CMAKE_SOURCE_DIR})
 
 add_custom_target(lint_ui_style
     COMMAND ${CMAKE_SOURCE_DIR}/scripts/lint-ui-style.sh
@@ -1058,7 +1081,55 @@ install(TARGETS slm-envd
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
+install(TARGETS slm-package-policy-service
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
+install(DIRECTORY config/package-policy/
+    DESTINATION ${CMAKE_INSTALL_SYSCONFDIR}/slm/package-policy
+)
+
+install(DIRECTORY scripts/package-policy/wrappers/
+    DESTINATION ${CMAKE_INSTALL_LIBEXECDIR}/slm-package-policy/wrappers
+    USE_SOURCE_PERMISSIONS
+)
+
+install(PROGRAMS
+    scripts/package-policy/install-wrappers.sh
+    scripts/package-policy/pre-transaction-snapshot.sh
+    scripts/package-policy/post-transaction-health-check.sh
+    scripts/package-policy/recover-last-snapshot.sh
+    scripts/package-policy/disable-external-repos.sh
+    scripts/package-policy/trigger-safe-mode-recovery.sh
+    DESTINATION ${CMAKE_INSTALL_LIBEXECDIR}/slm-package-policy
+)
+
+install(PROGRAMS scripts/package-policy/install-wrappers.sh
+    DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
+install(FILES scripts/systemd/system/slm-package-policy.service
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/systemd/system
+)
+
 enable_testing()
+
+qt_add_executable(packagepolicy_engine_test
+    src/services/packagepolicy/packagetransaction.cpp
+    src/services/packagepolicy/packagetransaction.h
+    src/services/packagepolicy/aptsimulator.cpp
+    src/services/packagepolicy/aptsimulator.h
+    src/services/packagepolicy/packagepolicyengine.cpp
+    src/services/packagepolicy/packagepolicyengine.h
+    tests/packagepolicy_engine_test.cpp
+)
+target_link_libraries(packagepolicy_engine_test
+    PRIVATE
+        Qt6::Core
+        Qt6::Test
+)
+target_include_directories(packagepolicy_engine_test PRIVATE ${CMAKE_SOURCE_DIR})
+add_test(NAME packagepolicy_engine_test COMMAND packagepolicy_engine_test)
 
 qt_add_executable(dock_identity_test
     dockidentity.cpp

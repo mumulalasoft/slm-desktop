@@ -1,0 +1,12 @@
+protected_capabilities:
+  - core.init
+  - core.libc
+  - core.session
+  - core.shell
+  - core.compositor
+  - core.login
+  - core.portal
+  - core.network
+  - core.audio
+  - core.graphics
+  - core.desktop-services
