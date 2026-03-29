@@ -1,8 +1,9 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import Slm_Desktop
+import SlmStyle as DSStyle
 
-Switch {
+DSStyle.Switch {
     id: control
 
     indicator: Rectangle {

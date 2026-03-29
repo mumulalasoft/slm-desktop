@@ -1,5 +1,6 @@
 #include <QDebug>
 #include <QGuiApplication>
+#include <QLibraryInfo>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QString>
@@ -26,6 +27,11 @@ int main(int argc, char *argv[])
     }
 
     QQmlApplicationEngine engine;
+    const QString qtQmlImportPath = QLibraryInfo::path(QLibraryInfo::QmlImportsPath);
+    if (!qtQmlImportPath.trimmed().isEmpty()) {
+        engine.addImportPath(qtQmlImportPath);
+    }
+    engine.addImportPath(u"qrc:/qt/qml"_s);
     UIPreferences uiPreferences;
     engine.rootContext()->setContextProperty(u"authDialogController"_s, agent.dialogController());
     engine.rootContext()->setContextProperty(u"UIPreferences"_s, &uiPreferences);

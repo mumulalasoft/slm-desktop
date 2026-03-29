@@ -2,6 +2,7 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import Slm_Desktop
+import SlmStyle as DSStyle
 
 Item {
     id: root
@@ -57,7 +58,7 @@ Item {
                         wrapMode: Text.WordWrap
                     }
 
-                    Button {
+                    DSStyle.Button {
                         visible: !!(modelData || {}).autoInstallable
                         enabled: !root.installBusy
                         text: root.installBusy ? qsTr("Installing...") : qsTr("Install")

@@ -2,6 +2,7 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import Slm_Desktop
+import SlmStyle as DSStyle
 
 ApplicationWindow {
     id: window
@@ -27,20 +28,27 @@ ApplicationWindow {
             return
         }
         UIPreferences.setThemeMode(mode)
-        Theme.applyModeString(UIPreferences.themeMode)
+        syncThemePreferences()
     }
 
-    Component.onCompleted: {
+    function syncThemePreferences() {
         Theme.applyModeString(UIPreferences.themeMode)
         Theme.userAccentColor = UIPreferences.accentColor
         Theme.userFontScale = UIPreferences.fontScale
+        DSStyle.Theme.applyModeString(UIPreferences.themeMode)
+        DSStyle.Theme.userAccentColor = UIPreferences.accentColor
+        DSStyle.Theme.userFontScale = UIPreferences.fontScale
+    }
+
+    Component.onCompleted: {
+        syncThemePreferences()
     }
 
     Connections {
         target: UIPreferences
-        function onThemeModeChanged() { Theme.applyModeString(UIPreferences.themeMode) }
-        function onAccentColorChanged() { Theme.userAccentColor = UIPreferences.accentColor }
-        function onFontScaleChanged() { Theme.userFontScale = UIPreferences.fontScale }
+        function onThemeModeChanged() { window.syncThemePreferences() }
+        function onAccentColorChanged() { window.syncThemePreferences() }
+        function onFontScaleChanged() { window.syncThemePreferences() }
     }
 
     header: ToolBar {
@@ -57,7 +65,7 @@ ApplicationWindow {
             anchors.rightMargin: 12
             spacing: 10
 
-            Label {
+            DSStyle.Label {
                 text: qsTr("Style Preview")
                 color: Theme.color("textPrimary")
                 font.pixelSize: Theme.fontSize("title")
@@ -66,17 +74,17 @@ ApplicationWindow {
 
             Item { Layout.fillWidth: true }
 
-            Button {
+            DSStyle.Button {
                 text: qsTr("Light")
                 defaultAction: UIPreferences.themeMode === "light"
                 onClicked: window.applyThemeMode("light")
             }
-            Button {
+            DSStyle.Button {
                 text: qsTr("Dark")
                 defaultAction: UIPreferences.themeMode === "dark"
                 onClicked: window.applyThemeMode("dark")
             }
-            Button {
+            DSStyle.Button {
                 text: qsTr("Auto")
                 defaultAction: UIPreferences.themeMode !== "light" && UIPreferences.themeMode !== "dark"
                 onClicked: window.applyThemeMode("auto")
@@ -107,13 +115,13 @@ ApplicationWindow {
                     anchors.margins: 14
                     spacing: 10
 
-                    Label {
+                    DSStyle.Label {
                         text: qsTr("Theme State")
                         color: Theme.color("textPrimary")
                         font.weight: Theme.fontWeight("semibold")
                     }
 
-                    Label {
+                    DSStyle.Label {
                         text: qsTr("Mode: %1 | Dark active: %2")
                                 .arg(UIPreferences.themeMode)
                                 .arg(Theme.darkMode ? "yes" : "no")
@@ -136,7 +144,7 @@ ApplicationWindow {
                     anchors.margins: 14
                     spacing: 12
 
-                    Label {
+                    DSStyle.Label {
                         text: qsTr("Controls")
                         color: Theme.color("textPrimary")
                         font.weight: Theme.fontWeight("semibold")
@@ -145,13 +153,13 @@ ApplicationWindow {
                     RowLayout {
                         Layout.fillWidth: true
                         spacing: 10
-                        TextField {
+                        DSStyle.TextField {
                             Layout.fillWidth: true
                             text: window.fieldValue
                             placeholderText: qsTr("Input text")
                             onTextChanged: window.fieldValue = text
                         }
-                        ComboBox {
+                        DSStyle.ComboBox {
                             Layout.preferredWidth: 180
                             model: [qsTr("Compact"), qsTr("Regular"), qsTr("Large")]
                             currentIndex: window.comboIndex
@@ -162,17 +170,17 @@ ApplicationWindow {
                     RowLayout {
                         Layout.fillWidth: true
                         spacing: 10
-                        Button { text: qsTr("Cancel") }
-                        Button {
+                        DSStyle.Button { text: qsTr("Cancel") }
+                        DSStyle.Button {
                             text: qsTr("OK")
                             defaultAction: true
                         }
                         Item { Layout.fillWidth: true }
-                        Switch {
+                        DSStyle.Switch {
                             checked: window.swOn
                             onToggled: window.swOn = checked
                         }
-                        CheckBox {
+                        DSStyle.CheckBox {
                             text: qsTr("Enabled")
                             checked: window.checkOn
                             onToggled: window.checkOn = checked
@@ -182,20 +190,20 @@ ApplicationWindow {
                     RowLayout {
                         Layout.fillWidth: true
                         spacing: 10
-                        Slider {
+                        DSStyle.Slider {
                             Layout.fillWidth: true
                             from: 0
                             to: 100
                             value: window.sliderValue
                             onMoved: window.sliderValue = value
                         }
-                        Label {
+                        DSStyle.Label {
                             text: Math.round(window.sliderValue).toString() + "%"
                             color: Theme.color("textSecondary")
                         }
                     }
 
-                    ProgressBar {
+                    DSStyle.ProgressBar {
                         Layout.fillWidth: true
                         from: 0
                         to: 100
@@ -219,7 +227,7 @@ ApplicationWindow {
                     anchors.margins: 14
                     spacing: 10
 
-                    Label {
+                    DSStyle.Label {
                         text: qsTr("Navigation")
                         color: Theme.color("textPrimary")
                         font.weight: Theme.fontWeight("semibold")
@@ -231,27 +239,27 @@ ApplicationWindow {
                         currentIndex: 2
                     }
 
-                    TabBar {
+                    DSStyle.TabBar {
                         Layout.fillWidth: true
                         currentIndex: window.navTabIndex
                         onCurrentIndexChanged: window.navTabIndex = currentIndex
 
-                        TabButton { text: qsTr("General") }
-                        TabButton { text: qsTr("Display") }
-                        TabButton { text: qsTr("Advanced") }
+                        DSStyle.TabButton { text: qsTr("General") }
+                        DSStyle.TabButton { text: qsTr("Display") }
+                        DSStyle.TabButton { text: qsTr("Advanced") }
                     }
 
-                    TabBar {
+                    DSStyle.TabBar {
                         Layout.fillWidth: true
                         currentIndex: window.tabIndex
                         onCurrentIndexChanged: window.tabIndex = currentIndex
 
-                        TabButton { text: qsTr("General") }
-                        TabButton { text: qsTr("Appearance") }
-                        TabButton { text: qsTr("About") }
+                        DSStyle.TabButton { text: qsTr("General") }
+                        DSStyle.TabButton { text: qsTr("Appearance") }
+                        DSStyle.TabButton { text: qsTr("About") }
                     }
 
-                    Label {
+                    DSStyle.Label {
                         text: [qsTr("General page preview"),
                                qsTr("Appearance page preview"),
                                qsTr("About page preview")][window.tabIndex]
@@ -274,7 +282,7 @@ ApplicationWindow {
                     anchors.margins: 14
                     spacing: 10
 
-                    Label {
+                    DSStyle.Label {
                         text: qsTr("State Matrix")
                         color: Theme.color("textPrimary")
                         font.weight: Theme.fontWeight("semibold")
@@ -283,17 +291,17 @@ ApplicationWindow {
                     RowLayout {
                         Layout.fillWidth: true
                         spacing: 8
-                        Button { text: qsTr("Normal") }
-                        Button { text: qsTr("Default"); defaultAction: true }
-                        Button { text: qsTr("Disabled"); enabled: false }
+                        DSStyle.Button { text: qsTr("Normal") }
+                        DSStyle.Button { text: qsTr("Default"); defaultAction: true }
+                        DSStyle.Button { text: qsTr("Disabled"); enabled: false }
                         Item { Layout.fillWidth: true }
                     }
 
                     RowLayout {
                         Layout.fillWidth: true
                         spacing: 8
-                        TextField { Layout.fillWidth: true; placeholderText: qsTr("Enabled input") }
-                        TextField { Layout.fillWidth: true; placeholderText: qsTr("Disabled input"); enabled: false }
+                        DSStyle.TextField { Layout.fillWidth: true; placeholderText: qsTr("Enabled input") }
+                        DSStyle.TextField { Layout.fillWidth: true; placeholderText: qsTr("Disabled input"); enabled: false }
                     }
                 }
             }

@@ -3,6 +3,7 @@ import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import Slm_Desktop
 import SlmStyle
+import SlmStyle as DSStyle
 
 // Modal font picker dialog.
 // Usage:
@@ -125,14 +126,14 @@ Popup {
             Layout.bottomMargin: 6
             spacing: 0
 
-            Button {
+            DSStyle.Button {
                 flat: true
                 text: qsTr("Cancel")
                 font.pixelSize: Theme.fontSize("body")
                 onClicked: root.close()
             }
 
-            Label {
+            DSStyle.Label {
                 Layout.fillWidth: true
                 horizontalAlignment: Text.AlignHCenter
                 text: qsTr("Pick a Font")
@@ -142,7 +143,7 @@ Popup {
                 elide: Text.ElideRight
             }
 
-            Button {
+            DSStyle.Button {
                 flat: true
                 text: qsTr("Select")
                 font.pixelSize: Theme.fontSize("body")
@@ -162,7 +163,7 @@ Popup {
         }
 
         // ── Search ──────────────────────────────────────────
-        TextField {
+        DSStyle.TextField {
             id: searchField
             Layout.fillWidth: true
             Layout.margins: 8
@@ -278,13 +279,13 @@ Popup {
             Layout.margins: 8
             spacing: 8
 
-            Label {
+            DSStyle.Label {
                 text: qsTr("Size")
                 font.pixelSize: Theme.fontSize("small")
                 color: Theme.color("textSecondary")
             }
 
-            Slider {
+            DSStyle.Slider {
                 id: sizeSlider
                 Layout.fillWidth: true
                 from: 6; to: 72; stepSize: 1
@@ -296,7 +297,7 @@ Popup {
             RowLayout {
                 spacing: 0
 
-                Button {
+                DSStyle.Button {
                     flat: true
                     text: "−"
                     font.pixelSize: Theme.fontSize("body")
@@ -305,7 +306,7 @@ Popup {
                     onClicked: root._size = Math.max(6, root._size - 1)
                 }
 
-                Label {
+                DSStyle.Label {
                     text: root._size
                     font.pixelSize: Theme.fontSize("body")
                     color: Theme.color("textPrimary")
@@ -313,7 +314,7 @@ Popup {
                     Layout.preferredWidth: 28
                 }
 
-                Button {
+                DSStyle.Button {
                     flat: true
                     text: "+"
                     font.pixelSize: Theme.fontSize("body")

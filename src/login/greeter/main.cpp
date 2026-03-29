@@ -11,6 +11,7 @@ using namespace Slm::Login;
 int main(int argc, char *argv[])
 {
     qputenv("QT_QUICK_CONTROLS_FALLBACK_STYLE", "Basic");
+    qputenv("QT_QUICK_CONTROLS_STYLE", "SlmStyle");
     // Greeter runs on the real framebuffer; disable GPU compositor if needed.
     qputenv("QT_QPA_PLATFORM", qgetenv("QT_QPA_PLATFORM").isEmpty()
                                     ? "wayland;xcb"

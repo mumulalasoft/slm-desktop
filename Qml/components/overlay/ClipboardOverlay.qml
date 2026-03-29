@@ -2,6 +2,7 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import SlmStyle
+import SlmStyle as DSStyle
 import Slm_Desktop
 import "../applet" as Applet
 
@@ -109,7 +110,7 @@ Rectangle {
         anchors.margins: Theme.metric("spacingLg")
         spacing: Theme.metric("spacingSm")
 
-        Label {
+        DSStyle.Label {
             Layout.fillWidth: true
             text: "Clipboard History"
             font.family: Theme.fontFamilyUi
@@ -118,7 +119,7 @@ Rectangle {
             color: Theme.color("textPrimary")
         }
 
-        TextField {
+        DSStyle.TextField {
             id: searchField
             Layout.fillWidth: true
             placeholderText: "Search clipboard"
@@ -156,7 +157,7 @@ Rectangle {
                         anchors.rightMargin: Theme.metric("spacingSm")
                         spacing: Theme.metric("spacingSm")
 
-                        Label {
+                        DSStyle.Label {
                             Layout.fillWidth: true
                             text: row.preview || row.content || ""
                             color: Theme.color("textPrimary")
@@ -165,7 +166,7 @@ Rectangle {
                             elide: Text.ElideRight
                         }
 
-                        Label {
+                        DSStyle.Label {
                             text: String(row.type || "").toUpperCase()
                             color: Theme.color("textSecondary")
                             font.pixelSize: Theme.fontSize("small")
@@ -183,7 +184,7 @@ Rectangle {
                     }
                 }
 
-                ScrollBar.vertical: ScrollBar {}
+                ScrollBar.vertical: DSStyle.ScrollBar {}
             }
         }
     }

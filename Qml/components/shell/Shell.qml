@@ -1,6 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import Slm_Desktop
+import SlmStyle as DSStyle
 
 Item {
     id: root
@@ -477,6 +478,18 @@ Item {
         }
     }
 
+    function syncThemePreferences() {
+        if (typeof UIPreferences === "undefined") {
+            return
+        }
+        Theme.applyModeString(UIPreferences.themeMode)
+        Theme.userAccentColor = UIPreferences.accentColor
+        Theme.userFontScale = UIPreferences.fontScale
+        DSStyle.Theme.applyModeString(UIPreferences.themeMode)
+        DSStyle.Theme.userAccentColor = UIPreferences.accentColor
+        DSStyle.Theme.userFontScale = UIPreferences.fontScale
+    }
+
     onVisibleChanged: {
         if (visible) {
             refreshShortcuts()
@@ -491,18 +504,14 @@ Item {
         refreshShortcuts()
         loadPersistedSlotMap()
         rebuildSlots()
-        if (typeof UIPreferences !== "undefined") {
-            Theme.applyModeString(UIPreferences.themeMode)
-            Theme.userAccentColor = UIPreferences.accentColor
-            Theme.userFontScale   = UIPreferences.fontScale
-        }
+        syncThemePreferences()
     }
 
     Connections {
         target: typeof UIPreferences !== "undefined" ? UIPreferences : null
-        function onThemeModeChanged()  { Theme.applyModeString(UIPreferences.themeMode) }
-        function onAccentColorChanged() { Theme.userAccentColor = UIPreferences.accentColor }
-        function onFontScaleChanged()  { Theme.userFontScale   = UIPreferences.fontScale  }
+        function onThemeModeChanged() { root.syncThemePreferences() }
+        function onAccentColorChanged() { root.syncThemePreferences() }
+        function onFontScaleChanged() { root.syncThemePreferences() }
     }
 
     Connections {
