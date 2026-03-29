@@ -18,7 +18,7 @@ Modes:
   unlock     Run unlock-related DBus test flow (uses secure password prompt helper).
   filemanager-gates  Run FileManager DBus gate subset via unified script.
   filemanager-smoke  Run FileManager smoke+regression subset in isolated DBus session.
-  nightly    Run default suite plus polkit runtime smoke lane.
+  nightly    Run default suite plus runtime smoke lanes (polkit + package-policy wrapper).
 EOF
 }
 
@@ -184,6 +184,36 @@ if [[ "${1:-}" == "nightly" ]]; then
       ;;
     *)
       echo "[test] invalid SLM_TEST_NIGHTLY_POLKIT_RUNTIME_MODE='${POLKIT_MODE}' (expected required|auto|skip)" >&2
+      exit 2
+      ;;
+  esac
+  PKG_POLICY_MODE="${SLM_TEST_NIGHTLY_PACKAGE_POLICY_WRAPPER_MODE:-auto}"
+  case "${PKG_POLICY_MODE}" in
+    required)
+      echo "[test] running nightly package-policy wrapper runtime smoke (required)"
+      SLM_PACKAGE_POLICY_RUNTIME_SMOKE=1 \
+      ctest --test-dir "${BUILD_DIR}" --output-on-failure -R "^packagepolicy_wrapper_runtime_smoke_test$"
+      ;;
+    auto)
+      if command -v apt >/dev/null 2>&1 && command -v dpkg >/dev/null 2>&1; then
+        apt_resolved=""
+        apt_resolved="$(readlink -f "$(command -v apt)" 2>/dev/null || true)"
+        if [[ "${apt_resolved}" == *"/slm-package-policy/wrappers/apt" ]]; then
+          echo "[test] running nightly package-policy wrapper runtime smoke (auto:enabled)"
+          SLM_PACKAGE_POLICY_RUNTIME_SMOKE=1 \
+          ctest --test-dir "${BUILD_DIR}" --output-on-failure -R "^packagepolicy_wrapper_runtime_smoke_test$"
+        else
+          echo "[test] skipping nightly package-policy wrapper runtime smoke (auto:wrapper-not-active)"
+        fi
+      else
+        echo "[test] skipping nightly package-policy wrapper runtime smoke (auto:missing apt/dpkg)"
+      fi
+      ;;
+    skip)
+      echo "[test] skipping nightly package-policy wrapper runtime smoke (mode=skip)"
+      ;;
+    *)
+      echo "[test] invalid SLM_TEST_NIGHTLY_PACKAGE_POLICY_WRAPPER_MODE='${PKG_POLICY_MODE}' (expected required|auto|skip)" >&2
       exit 2
       ;;
   esac

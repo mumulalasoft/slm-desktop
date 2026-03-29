@@ -167,6 +167,7 @@ jobs:
       - name: Run headless tests (nightly lane)
         env:
           SLM_TEST_NIGHTLY_POLKIT_RUNTIME_MODE: auto
+          SLM_TEST_NIGHTLY_PACKAGE_POLICY_WRAPPER_MODE: auto
         run: scripts/test.sh nightly build
 
       - name: Run backend smoke checks
@@ -181,6 +182,59 @@ jobs:
           SLM_PORTAL_SKIP_SYSTEMCTL: "1"
         run: |
           ctest --test-dir build -R "(portal_portals_conf_strategy_test|portal_install_script_integration_test|portal_profile_snapshot_test|portal_slm_portal_snapshot_test|portal_dbus_service_template_snapshot_test|portal_systemd_unit_template_snapshot_test|portal_profile_smoke_test|portal_installed_artifacts_smoke_test)" --output-on-failure
+
+  packagepolicy-wrapper-smoke:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            ninja-build \
+            pkg-config \
+            meson \
+            libglib2.0-dev
+
+      - name: Install Qt 6.10
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.10.0'
+          host: 'linux'
+          target: 'desktop'
+          modules: 'qtshadertools'
+          cache: true
+
+      - name: Configure
+        run: cmake -S . -B build -G Ninja
+
+      - name: Build package policy targets
+        run: cmake --build build --target slm-package-policy-service packagepolicy_engine_test packagepolicy_oneshot_cli_test -j
+
+      - name: Install wrappers into user PATH sandbox
+        run: |
+          ROOT_DIR="${RUNNER_TEMP}/slm-package-policy"
+          BIN_DIR="${RUNNER_TEMP}/slm-package-policy-bin"
+          scripts/package-policy/install-wrappers.sh \
+            "${ROOT_DIR}" \
+            "${BIN_DIR}" \
+            --install-profile-script "${RUNNER_TEMP}/slm-package-policy-path.sh"
+          echo "${BIN_DIR}" >> "${GITHUB_PATH}"
+
+      - name: Run package policy runtime smoke
+        env:
+          SLM_PACKAGE_POLICY_RUNTIME_SMOKE: "1"
+          SLM_PACKAGE_POLICY_WRAPPER_SMOKE_STRICT: "1"
+          SLM_PACKAGE_POLICY_SERVICE_BIN: "${{ github.workspace }}/build/slm-package-policy-service"
+          SLM_PACKAGE_POLICY_PROTECTED_FILE: "${{ github.workspace }}/config/package-policy/protected-capabilities.yaml"
+          SLM_PACKAGE_POLICY_MAPPING_FILE: "${{ github.workspace }}/config/package-policy/package-mappings/debian.yaml"
+          SLM_PACKAGE_POLICY_SOURCE_POLICIES_DIR: "${{ github.workspace }}/config/package-policy/source-policies"
+        run: |
+          scripts/smoke-package-policy-wrapper.sh
 
   filemanager-integration-modes:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'

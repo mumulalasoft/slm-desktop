@@ -20,7 +20,10 @@ QString AptSimulator::normalizePackageName(const QString &name)
     return out;
 }
 
-bool AptSimulator::simulateApt(const QStringList &args, PackageTransaction *transaction, QString *error)
+bool AptSimulator::simulateApt(const QStringList &args,
+                               PackageTransaction *transaction,
+                               QString *error,
+                               QString *errorCode)
 {
     if (!transaction) {
         if (error) {
@@ -53,6 +56,9 @@ bool AptSimulator::simulateApt(const QStringList &args, PackageTransaction *tran
     const QString combined = out + (errOut.isEmpty() ? QString() : QStringLiteral("\n") + errOut);
 
     if (process.exitStatus() != QProcess::NormalExit || process.exitCode() != 0) {
+        if (errorCode) {
+            *errorCode = classifyAptFailure(combined);
+        }
         if (error) {
             *error = QStringLiteral("apt simulation failed: %1").arg(combined.trimmed());
         }
@@ -60,6 +66,28 @@ bool AptSimulator::simulateApt(const QStringList &args, PackageTransaction *tran
     }
 
     return parseAptSimulationOutput(combined, transaction, error);
+}
+
+QString AptSimulator::classifyAptFailure(const QString &output)
+{
+    const QString text = output.toLower();
+    if (text.contains(QStringLiteral("could not get lock"))
+        || text.contains(QStringLiteral("unable to acquire the dpkg frontend lock"))) {
+        return QStringLiteral("apt-lock-busy");
+    }
+    if (text.contains(QStringLiteral("unable to locate package"))
+        || text.contains(QStringLiteral("has no installation candidate"))) {
+        return QStringLiteral("package-not-found");
+    }
+    if (text.contains(QStringLiteral("unmet dependencies"))
+        || text.contains(QStringLiteral("held broken packages"))
+        || text.contains(QStringLiteral("conflicts with"))) {
+        return QStringLiteral("dependency-conflict");
+    }
+    if (text.contains(QStringLiteral("is not available"))) {
+        return QStringLiteral("package-unavailable");
+    }
+    return QStringLiteral("apt-simulation-failed");
 }
 
 bool AptSimulator::parseAptSimulationOutput(const QString &output,
@@ -85,6 +113,8 @@ bool AptSimulator::parseAptSimulationOutput(const QString &output,
     const QRegularExpression upgrRx(QStringLiteral("^Upgr\\s+([^\\s:]+(?::[^\\s]+)?)"));
     const QRegularExpression replacingRx(QStringLiteral("Replacing\\s+([^\\s,]+)"),
                                          QRegularExpression::CaseInsensitiveOption);
+    const QRegularExpression replacesRx(QStringLiteral("Replaces\\s+([^\\s,]+)"),
+                                        QRegularExpression::CaseInsensitiveOption);
 
     QSet<QString> removeSet;
     QSet<QString> installSet;
@@ -125,9 +155,18 @@ bool AptSimulator::parseAptSimulationOutput(const QString &output,
                 }
             }
 
-            QRegularExpressionMatch replacingMatch = replacingRx.match(line);
-            if (replacingMatch.hasMatch()) {
+            QRegularExpressionMatchIterator replacingIt = replacingRx.globalMatch(line);
+            while (replacingIt.hasNext()) {
+                const QRegularExpressionMatch replacingMatch = replacingIt.next();
                 const QString replaced = normalizePackageName(replacingMatch.captured(1));
+                if (!replaced.isEmpty()) {
+                    replaceSet.insert(replaced);
+                }
+            }
+            QRegularExpressionMatchIterator replacesIt = replacesRx.globalMatch(line);
+            while (replacesIt.hasNext()) {
+                const QRegularExpressionMatch replacesMatch = replacesIt.next();
+                const QString replaced = normalizePackageName(replacesMatch.captured(1));
                 if (!replaced.isEmpty()) {
                     replaceSet.insert(replaced);
                 }
@@ -144,6 +183,22 @@ bool AptSimulator::parseAptSimulationOutput(const QString &output,
             if (line.contains(QStringLiteral("downgrad"), Qt::CaseInsensitive)) {
                 if (!pkg.isEmpty()) {
                     downgradeSet.insert(pkg);
+                }
+            }
+            QRegularExpressionMatchIterator replacingIt = replacingRx.globalMatch(line);
+            while (replacingIt.hasNext()) {
+                const QRegularExpressionMatch replacingMatch = replacingIt.next();
+                const QString replaced = normalizePackageName(replacingMatch.captured(1));
+                if (!replaced.isEmpty()) {
+                    replaceSet.insert(replaced);
+                }
+            }
+            QRegularExpressionMatchIterator replacesIt = replacesRx.globalMatch(line);
+            while (replacesIt.hasNext()) {
+                const QRegularExpressionMatch replacesMatch = replacesIt.next();
+                const QString replaced = normalizePackageName(replacesMatch.captured(1));
+                if (!replaced.isEmpty()) {
+                    replaceSet.insert(replaced);
                 }
             }
             continue;
@@ -203,7 +258,8 @@ bool AptSimulator::parseDpkgIntent(const QStringList &args, PackageTransaction *
             continue;
         }
         if (arg == QLatin1String("-i")
-            || arg == QLatin1String("--install")) {
+            || arg == QLatin1String("--install")
+            || arg == QLatin1String("--unpack")) {
             installMode = true;
             removeMode = false;
             continue;
@@ -217,7 +273,7 @@ bool AptSimulator::parseDpkgIntent(const QStringList &args, PackageTransaction *
             if (!pkg.isEmpty()) {
                 removeSet.insert(pkg);
             }
-        } else if (installMode) {
+        } else if (installMode || arg.endsWith(QStringLiteral(".deb"), Qt::CaseInsensitive)) {
             const QFileInfo info(arg);
             QString pkg = info.baseName().toLower();
             const int underscorePos = pkg.indexOf(QLatin1Char('_'));

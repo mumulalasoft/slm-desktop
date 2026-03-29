@@ -24,10 +24,18 @@ Last updated: 2026-03-29 (WIB)
 3. Package policy phase-1 baseline:
    - simulator apt + engine block protected capability removal/replacement/downgrade.
    - wrappers `apt/apt-get/dpkg` + logging + snapshot/recovery hooks.
-4. Missing component policy:
+4. Package policy phase-5 baseline:
+   - Settings `Permissions` now exposes `Package Policy Check` (tool, args, evaluate).
+   - UI shows `allowed`, `trustLevel`, `riskLevel`, `impactMessage`, warnings, and protected-touch counters.
+   - Controller uses DBus `Evaluate(...)` and falls back to one-shot CLI when service is unavailable.
+5. Package policy phase-6 hardening:
+   - Edge parser covers `apt autoremove`, direct `dpkg` `.deb` intent, dependency-conflict classification, and replace-provider detection.
+   - Runtime smoke lane added for wrapper interception (`packagepolicy_wrapper_runtime_smoke_test`).
+   - One-shot CLI contract test added (`packagepolicy_oneshot_cli_test`).
+6. Missing component policy:
    - global missing-component controller + severity (`required/recommended`) dan gate API.
    - flow install dependency via polkit pipeline sudah tersedia di level contract/UI.
-5. Style migration:
+7. Style migration:
    - style shared dipindah ke `third_party/slm-style`.
    - direktori legacy `Style/` di repo utama sudah tidak dipakai lagi.
 

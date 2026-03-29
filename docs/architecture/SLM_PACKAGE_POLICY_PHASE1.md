@@ -41,8 +41,8 @@ Last updated: 2026-03-29
 
 - Backend focus is still APT/DPKG (no Flatpak backend executor yet).
 - Source trust policy is enforced at baseline heuristics; repo/source labeling still needs hardening for edge repositories.
-- GUI software-center integration is not implemented yet.
-- Wrapper interception depends on PATH priority (install script must be applied correctly).
+- Basic GUI integration is implemented in Settings (`Permissions > Package Policy Check`).
+- Wrapper interception now includes install-time PATH priority verification and optional profile script install.
 
 ## Policy files
 
@@ -125,8 +125,17 @@ Bypass switch for emergency:
 
 ## Install wrappers
 
-```
+```bash
 sudo scripts/package-policy/install-wrappers.sh
+```
+
+Optional: install PATH profile drop-in to keep wrapper bin ahead of `/usr/bin` across sessions:
+
+```bash
+sudo scripts/package-policy/install-wrappers.sh \
+  /usr/local/lib/slm-package-policy \
+  /usr/local/bin \
+  --install-profile-script /etc/profile.d/slm-package-policy-path.sh
 ```
 
 Ensure wrapper `bin` directory is ahead of `/usr/bin` in `PATH`.
@@ -140,6 +149,17 @@ which dpkg
 ```
 
 All three should resolve to wrapper location after install.
+
+Runtime smoke helper:
+
+```bash
+SLM_PACKAGE_POLICY_RUNTIME_SMOKE=1 scripts/smoke-package-policy-wrapper.sh
+```
+
+This verifies:
+- `apt/apt-get/dpkg` resolve to SLM wrappers
+- one-shot protected remove check returns blocked (`exit 42`)
+- wrapper block path returns wrapper block code (`exit 100`)
 
 ## Systemd unit
 

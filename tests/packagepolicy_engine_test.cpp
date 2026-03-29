@@ -17,6 +17,10 @@ class PackagePolicyEngineTest : public QObject
 
 private slots:
     void parseAptSimulationOutput_extractsTransactions();
+    void parseAptSimulationOutput_autoremove_extractsRemovals();
+    void parseAptSimulationOutput_detectsReplacesProvider();
+    void classifyAptFailure_dependencyConflictAndLock();
+    void parseDpkgIntent_handlesDirectDebInstallAndRemove();
     void evaluate_blocksProtectedRemoval();
     void evaluate_allowsSafeTransaction();
     void evaluate_blocksExternalReplaceProtected();
@@ -53,6 +57,72 @@ void PackagePolicyEngineTest::evaluate_blocksProtectedRemoval()
     const auto decision = PackagePolicyEngine::evaluate(tx, protectedPackages);
     QCOMPARE(decision.allowed, false);
     QVERIFY(!decision.blockReasons.isEmpty());
+}
+
+void PackagePolicyEngineTest::parseAptSimulationOutput_autoremove_extractsRemovals()
+{
+    const QString sample = QStringLiteral(
+        "Reading package lists... Done\n"
+        "Building dependency tree... Done\n"
+        "The following packages will be REMOVED:\n"
+        "  gvfs-backends libexample1\n"
+        "Remv gvfs-backends [1.54.0-1]\n"
+        "Remv libexample1 [2.0-1]\n");
+
+    PackageTransaction tx;
+    QString error;
+    QVERIFY(AptSimulator::parseAptSimulationOutput(sample, &tx, &error));
+    QVERIFY2(error.isEmpty(), qPrintable(error));
+    QVERIFY(tx.remove.contains(QStringLiteral("gvfs-backends")));
+    QVERIFY(tx.remove.contains(QStringLiteral("libexample1")));
+}
+
+void PackagePolicyEngineTest::classifyAptFailure_dependencyConflictAndLock()
+{
+    const QString dependencyConflict = QStringLiteral(
+        "E: Unable to correct problems, you have held broken packages.\n"
+        "The following packages have unmet dependencies:");
+    QCOMPARE(AptSimulator::classifyAptFailure(dependencyConflict),
+             QStringLiteral("dependency-conflict"));
+
+    const QString aptLock = QStringLiteral(
+        "E: Could not get lock /var/lib/dpkg/lock-frontend. It is held by process 1234");
+    QCOMPARE(AptSimulator::classifyAptFailure(aptLock),
+             QStringLiteral("apt-lock-busy"));
+}
+
+void PackagePolicyEngineTest::parseAptSimulationOutput_detectsReplacesProvider()
+{
+    const QString sample = QStringLiteral(
+        "Inst vendor-gl-driver (2.0 Vendor:stable) Replacing mesa\n"
+        "Upgr another-provider (3.1 Vendor:stable) Replaces libgl1\n");
+
+    PackageTransaction tx;
+    QString error;
+    QVERIFY(AptSimulator::parseAptSimulationOutput(sample, &tx, &error));
+    QVERIFY2(error.isEmpty(), qPrintable(error));
+    QVERIFY(tx.replace.contains(QStringLiteral("mesa")));
+    QVERIFY(tx.replace.contains(QStringLiteral("libgl1")));
+}
+
+void PackagePolicyEngineTest::parseDpkgIntent_handlesDirectDebInstallAndRemove()
+{
+    PackageTransaction installTx;
+    QString error;
+    QVERIFY(AptSimulator::parseDpkgIntent(
+        {QStringLiteral("-i"), QStringLiteral("/tmp/samba_2.0.1-1_amd64.deb")},
+        &installTx,
+        &error));
+    QVERIFY2(error.isEmpty(), qPrintable(error));
+    QCOMPARE(installTx.install, QStringList({QStringLiteral("samba")}));
+
+    PackageTransaction removeTx;
+    QVERIFY(AptSimulator::parseDpkgIntent(
+        {QStringLiteral("--remove"), QStringLiteral("libc6:amd64")},
+        &removeTx,
+        &error));
+    QVERIFY2(error.isEmpty(), qPrintable(error));
+    QCOMPARE(removeTx.remove, QStringList({QStringLiteral("libc6")}));
 }
 
 void PackagePolicyEngineTest::evaluate_allowsSafeTransaction()

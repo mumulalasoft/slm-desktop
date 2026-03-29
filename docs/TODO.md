@@ -18,6 +18,8 @@
 - [x] Week-2: promote `scripts/test.sh nightly` from ad-hoc to required scheduled lane.
   - `.github/workflows/ci.yml` (`build-and-test` now runs nightly lane)
   - `scripts/test.sh` adds `SLM_TEST_NIGHTLY_POLKIT_RUNTIME_MODE=required|auto|skip`
+  - `scripts/test.sh` adds `SLM_TEST_NIGHTLY_PACKAGE_POLICY_WRAPPER_MODE=required|auto|skip`
+  - `.github/workflows/ci.yml` adds dedicated `packagepolicy-wrapper-smoke` nightly/manual job
 - [x] Week-2: add release compatibility matrix draft (`platform/login/settings/filemanager/style`).
   - `docs/RELEASE_COMPATIBILITY_MATRIX.md`
 - [x] Week-3: begin `slm-login` split preparation:
@@ -642,22 +644,25 @@ Arsitektur target:
 
 ### Phase 5 - Software Center Integration
 
-- [ ] UI expose trust level, risk level, dan dampak sistem
-- [ ] User messaging standar
-  - [ ] Block: "Instalasi diblokir karena memengaruhi komponen inti sistem."
-  - [ ] Warning: "Paket ini berasal dari sumber eksternal."
+- [x] UI expose trust level, risk level, dan dampak sistem
+  - [x] Settings > Permissions > `Package Policy Check` (tool + args + evaluasi hasil)
+  - [x] Fallback one-shot check saat DBus service policy tidak aktif
+- [x] User messaging standar
+  - [x] Block: "Instalasi diblokir karena memengaruhi komponen inti sistem."
+  - [x] Warning: "Paket ini berasal dari sumber eksternal."
 
 ### Phase 6 - Hardening
 
 - [x] Logging transaksi ke `/var/log/slm-package-policy.log`
-- [ ] Terminal interception hardening
-  - [ ] wrapper aktif
-  - [ ] PATH priority benar
+- [x] Terminal interception hardening
+  - [x] wrapper aktif
+  - [x] PATH priority benar (install-time verify + optional profile drop-in)
+  - [x] runtime smoke lane (`scripts/smoke-package-policy-wrapper.sh` + CTest `packagepolicy_wrapper_runtime_smoke_test`)
 - [ ] Edge case handling
-  - [ ] `dpkg` direct install
-  - [ ] `apt autoremove`
-  - [ ] dependency conflict
-  - [ ] replace provider
+  - [x] `dpkg` direct install
+  - [x] `apt autoremove`
+  - [x] dependency conflict
+  - [x] replace provider
 
 Deliverables minimum:
 - [x] service daemon aktif
@@ -666,7 +671,8 @@ Deliverables minimum:
 - [ ] policy system berbasis JSON/YAML
 - [x] simulator + parser stabil
 - [x] logging aktif
-- [ ] basic UI integration siap
+- [x] basic UI integration siap
+- [x] one-shot CLI integration test siap (`packagepolicy_oneshot_cli_test`)
 
 Eksekusi:
 - [x] Mulai implementasi dari Phase 1

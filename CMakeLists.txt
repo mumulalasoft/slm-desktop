@@ -1166,6 +1166,21 @@ target_link_libraries(packagepolicy_engine_test
 target_include_directories(packagepolicy_engine_test PRIVATE ${CMAKE_SOURCE_DIR})
 add_test(NAME packagepolicy_engine_test COMMAND packagepolicy_engine_test)
 
+qt_add_executable(packagepolicy_oneshot_cli_test
+    tests/packagepolicy_oneshot_cli_test.cpp
+)
+target_link_libraries(packagepolicy_oneshot_cli_test
+    PRIVATE
+        Qt6::Core
+        Qt6::Test
+)
+target_compile_definitions(packagepolicy_oneshot_cli_test
+    PRIVATE
+        SLM_PACKAGE_POLICY_SERVICE_BIN_PATH="${CMAKE_BINARY_DIR}/slm-package-policy-service"
+)
+target_include_directories(packagepolicy_oneshot_cli_test PRIVATE ${CMAKE_SOURCE_DIR})
+add_test(NAME packagepolicy_oneshot_cli_test COMMAND packagepolicy_oneshot_cli_test)
+
 qt_add_executable(dock_identity_test
     dockidentity.cpp
     dockidentity.h
@@ -3644,6 +3659,15 @@ add_test(
     COMMAND bash ${CMAKE_SOURCE_DIR}/scripts/smoke-polkit-agent-runtime.sh
 )
 set_tests_properties(polkit_agent_runtime_smoke_test PROPERTIES
+    TIMEOUT 20
+    RUN_SERIAL TRUE
+)
+
+add_test(
+    NAME packagepolicy_wrapper_runtime_smoke_test
+    COMMAND bash ${CMAKE_SOURCE_DIR}/scripts/smoke-package-policy-wrapper.sh
+)
+set_tests_properties(packagepolicy_wrapper_runtime_smoke_test PROPERTIES
     TIMEOUT 20
     RUN_SERIAL TRUE
 )

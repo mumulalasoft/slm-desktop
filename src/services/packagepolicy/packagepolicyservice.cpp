@@ -9,6 +9,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <algorithm>
 
 namespace Slm::PackagePolicy {
 
@@ -19,6 +20,76 @@ QVariantMap buildError(const QString &message)
     out.insert(QStringLiteral("allowed"), false);
     out.insert(QStringLiteral("error"), message);
     return out;
+}
+
+QString sourceRisk(const PackageSourceInfo &info)
+{
+    return info.sourceRisk.trimmed().toLower();
+}
+
+QString sourceId(const PackageSourceInfo &info)
+{
+    return info.sourceId.trimmed().toLower();
+}
+
+QString summarizeTrustLevel(const QHash<QString, PackageSourceInfo> &packageSources)
+{
+    if (packageSources.isEmpty()) {
+        return QStringLiteral("official");
+    }
+    QSet<QString> ids;
+    for (auto it = packageSources.constBegin(); it != packageSources.constEnd(); ++it) {
+        const QString id = sourceId(it.value());
+        if (!id.isEmpty()) {
+            ids.insert(id);
+        }
+    }
+    if (ids.isEmpty()) {
+        return QStringLiteral("unknown");
+    }
+    if (ids.size() == 1) {
+        return *ids.constBegin();
+    }
+    return QStringLiteral("mixed");
+}
+
+QString summarizeRiskLevel(const PolicyDecision &decision,
+                           const QHash<QString, PackageSourceInfo> &packageSources,
+                           const QJsonArray &touchedProtectedAll)
+{
+    if (!decision.allowed || !touchedProtectedAll.isEmpty()) {
+        return QStringLiteral("high");
+    }
+    bool hasMedium = false;
+    for (auto it = packageSources.constBegin(); it != packageSources.constEnd(); ++it) {
+        const QString risk = sourceRisk(it.value());
+        if (risk == QLatin1String("high")) {
+            return QStringLiteral("high");
+        }
+        if (risk == QLatin1String("medium")) {
+            hasMedium = true;
+        }
+    }
+    return hasMedium ? QStringLiteral("medium") : QStringLiteral("low");
+}
+
+QString summarizeImpactMessage(const PolicyDecision &decision,
+                               const QJsonArray &touchedProtectedAll,
+                               const QString &riskLevel)
+{
+    if (!decision.allowed && !touchedProtectedAll.isEmpty()) {
+        return QStringLiteral("Instalasi diblokir karena memengaruhi komponen inti sistem.");
+    }
+    if (!decision.allowed) {
+        return QStringLiteral("Instalasi diblokir oleh kebijakan keamanan paket.");
+    }
+    if (riskLevel == QLatin1String("high")) {
+        return QStringLiteral("Transaksi berisiko tinggi. Tinjau sumber paket sebelum lanjut.");
+    }
+    if (riskLevel == QLatin1String("medium")) {
+        return QStringLiteral("Paket ini berasal dari sumber eksternal tepercaya.");
+    }
+    return QStringLiteral("Tidak ada dampak ke komponen inti terdeteksi.");
 }
 } // namespace
 
@@ -48,12 +119,19 @@ QVariantMap PackagePolicyService::evaluateInternal(const QString &tool, const QS
         return buildError(QStringLiteral("tool is required"));
     }
     if (normalizedTool == QLatin1String("apt") || normalizedTool == QLatin1String("apt-get")) {
-        if (!AptSimulator::simulateApt(args, &transaction, &simulationError)) {
-            return buildError(simulationError);
+        QString simulationErrorCode;
+        if (!AptSimulator::simulateApt(args, &transaction, &simulationError, &simulationErrorCode)) {
+            QVariantMap out = buildError(simulationErrorCode.isEmpty()
+                                             ? QStringLiteral("apt-simulation-failed")
+                                             : simulationErrorCode);
+            out.insert(QStringLiteral("message"), simulationError);
+            return out;
         }
     } else if (normalizedTool == QLatin1String("dpkg")) {
         if (!AptSimulator::parseDpkgIntent(args, &transaction, &simulationError)) {
-            return buildError(simulationError);
+            QVariantMap out = buildError(QStringLiteral("dpkg-intent-parse-failed"));
+            out.insert(QStringLiteral("message"), simulationError);
+            return out;
         }
     } else {
         return buildError(QStringLiteral("unsupported tool: %1").arg(tool));
@@ -89,13 +167,46 @@ QVariantMap PackagePolicyService::evaluateInternal(const QString &tool, const QS
     }
     decisionJson.insert(QStringLiteral("packageSources"), packageSourcesJson);
 
-    QJsonArray touchedProtected;
+    QJsonArray touchedProtectedRemove;
+    QJsonArray touchedProtectedReplace;
+    QJsonArray touchedProtectedDowngrade;
+    QSet<QString> touchedProtectedAllSet;
     for (const QString &pkg : transaction.remove) {
         if (config.protectedPackages().contains(pkg)) {
-            touchedProtected.push_back(pkg);
+            touchedProtectedRemove.push_back(pkg);
+            touchedProtectedAllSet.insert(pkg);
         }
     }
-    decisionJson.insert(QStringLiteral("touchedProtectedRemove"), touchedProtected);
+    for (const QString &pkg : transaction.replace) {
+        if (config.protectedPackages().contains(pkg)) {
+            touchedProtectedReplace.push_back(pkg);
+            touchedProtectedAllSet.insert(pkg);
+        }
+    }
+    for (const QString &pkg : transaction.downgrade) {
+        if (config.protectedPackages().contains(pkg)) {
+            touchedProtectedDowngrade.push_back(pkg);
+            touchedProtectedAllSet.insert(pkg);
+        }
+    }
+    QJsonArray touchedProtectedAll;
+    QStringList touchedProtectedRows = QStringList(touchedProtectedAllSet.begin(), touchedProtectedAllSet.end());
+    std::sort(touchedProtectedRows.begin(), touchedProtectedRows.end());
+    for (const QString &pkg : touchedProtectedRows) {
+        touchedProtectedAll.push_back(pkg);
+    }
+
+    decisionJson.insert(QStringLiteral("touchedProtectedRemove"), touchedProtectedRemove);
+    decisionJson.insert(QStringLiteral("touchedProtectedReplace"), touchedProtectedReplace);
+    decisionJson.insert(QStringLiteral("touchedProtectedDowngrade"), touchedProtectedDowngrade);
+    decisionJson.insert(QStringLiteral("touchedProtectedAny"), touchedProtectedAll);
+
+    const QString trustLevel = summarizeTrustLevel(packageSources);
+    const QString riskLevel = summarizeRiskLevel(decision, packageSources, touchedProtectedAll);
+    const QString impactMessage = summarizeImpactMessage(decision, touchedProtectedAll, riskLevel);
+    decisionJson.insert(QStringLiteral("trustLevel"), trustLevel);
+    decisionJson.insert(QStringLiteral("riskLevel"), riskLevel);
+    decisionJson.insert(QStringLiteral("impactMessage"), impactMessage);
 
     PackagePolicyLogger::writeDecision(normalizedTool, args, decisionJson, transactionJson);
 
