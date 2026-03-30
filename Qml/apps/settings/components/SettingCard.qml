@@ -15,11 +15,22 @@ Item {
     property bool highlighted: false
     default property alias content: controlContainer.data
 
+    function microAnimationAllowed() {
+        if (!Theme.animationsEnabled) {
+            return false
+        }
+        if (typeof MotionController === "undefined" || !MotionController || !MotionController.allowMotionPriority) {
+            return true
+        }
+        return MotionController.allowMotionPriority(MotionController.LowPriority)
+    }
+
     // Highlighted-row background (replaces the old per-card border)
     Rectangle {
         anchors.fill: parent
         color: root.highlighted ? Theme.color("accentSoft") : "transparent"
         Behavior on color {
+            enabled: root.microAnimationAllowed()
             ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault }
         }
     }
@@ -37,7 +48,7 @@ Item {
             Text {
                 id: labelText
                 font.pixelSize: Theme.fontSize("body")
-                font.weight: Font.Medium
+                font.weight: Theme.fontWeight("medium")
                 color: Theme.color("textPrimary")
                 Layout.fillWidth: true
             }
@@ -84,6 +95,7 @@ Item {
     SequentialAnimation {
         id: highlightPulse
         running: false
+        alwaysRunToEnd: true
         NumberAnimation {
             target: root; property: "opacity"
             from: 1.0; to: 0.6
@@ -97,6 +109,12 @@ Item {
     }
 
     onHighlightedChanged: {
-        if (highlighted) highlightPulse.restart()
+        if (highlighted) {
+            if (!root.microAnimationAllowed()) {
+                root.opacity = 1.0
+                return
+            }
+            highlightPulse.restart()
+        }
     }
 }

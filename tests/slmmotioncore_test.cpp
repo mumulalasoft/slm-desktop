@@ -1,5 +1,6 @@
 #include <QtTest>
 
+#include "src/core/motion/slmanimationscheduler.h"
 #include "src/core/motion/slmgesturebinding.h"
 #include "src/core/motion/slmspringsolver.h"
 
@@ -10,6 +11,7 @@ class SlmMotionCoreTest : public QObject
 private slots:
     void springConverges();
     void gestureSettleDecision();
+    void schedulerLifecyclePrioritySuppression();
 };
 
 void SlmMotionCoreTest::springConverges()
@@ -44,6 +46,42 @@ void SlmMotionCoreTest::gestureSettleDecision()
     g.begin(0.1);
     const int backward = g.end(-1200.0, cfg);
     QCOMPARE(backward, static_cast<int>(Slm::Motion::SettleDecision::Backward));
+}
+
+void SlmMotionCoreTest::schedulerLifecyclePrioritySuppression()
+{
+    Slm::Motion::AnimationScheduler scheduler;
+    QVERIFY(!scheduler.microInteractionSuppressed());
+    QCOMPARE(scheduler.activeLifecyclePriority(), 0);
+    QVERIFY(scheduler.canRunPriority(0));
+    QVERIFY(scheduler.canRunPriority(2));
+
+    scheduler.beginLifecycle(QStringLiteral("workspace"), 1);
+    QVERIFY(scheduler.microInteractionSuppressed());
+    QCOMPARE(scheduler.activeLifecyclePriority(), 1);
+    QVERIFY(!scheduler.canRunPriority(0));
+    QVERIFY(scheduler.canRunPriority(1));
+    QVERIFY(scheduler.canRunPriority(2));
+
+    scheduler.beginLifecycle(QStringLiteral("window"), 2);
+    QVERIFY(scheduler.microInteractionSuppressed());
+    QCOMPARE(scheduler.activeLifecyclePriority(), 2);
+    QVERIFY(!scheduler.canRunPriority(1));
+    QVERIFY(scheduler.canRunPriority(2));
+
+    scheduler.endLifecycle(QStringLiteral("window"));
+    QVERIFY(scheduler.microInteractionSuppressed());
+    QCOMPARE(scheduler.activeLifecyclePriority(), 1);
+    QVERIFY(!scheduler.canRunPriority(0));
+    QVERIFY(scheduler.canRunPriority(1));
+
+    scheduler.endLifecycle(QStringLiteral("workspace"));
+    QVERIFY(!scheduler.microInteractionSuppressed());
+    QCOMPARE(scheduler.activeLifecyclePriority(), 0);
+    QVERIFY(scheduler.canRunPriority(0));
+
+    QVERIFY(!scheduler.shouldCoalesce(QStringLiteral("event.test"), 1000));
+    QVERIFY(scheduler.shouldCoalesce(QStringLiteral("event.test"), 1000));
 }
 
 QTEST_MAIN(SlmMotionCoreTest)

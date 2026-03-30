@@ -60,6 +60,16 @@ Rectangle {
     signal appActivated(string appName)
     signal launchpadRequested()
 
+    function microAnimationAllowed() {
+        if (!Theme.animationsEnabled) {
+            return false
+        }
+        if (typeof MotionController === "undefined" || !MotionController || !MotionController.allowMotionPriority) {
+            return true
+        }
+        return MotionController.allowMotionPriority(MotionController.LowPriority)
+    }
+
     width: Math.max(baseWidth, dockRow.width + 12)
     height: baseHeight + amplitude + hoverLift + 8
     radius: Theme.radiusWindow
@@ -481,24 +491,28 @@ Rectangle {
     }
 
     Behavior on color {
+        enabled: root.microAnimationAllowed()
         ColorAnimation {
             duration: Theme.transitionDuration
             easing.type: Theme.easingStandard
         }
     }
     Behavior on width {
+        enabled: root.microAnimationAllowed()
         NumberAnimation {
             duration: Theme.durationMd
             easing.type: Theme.easingDecelerate
         }
     }
     Behavior on height {
+        enabled: root.microAnimationAllowed()
         NumberAnimation {
             duration: Theme.durationMd
             easing.type: Theme.easingDecelerate
         }
     }
     Behavior on radius {
+        enabled: root.microAnimationAllowed()
         NumberAnimation {
             duration: Theme.durationMd
             easing.type: Theme.easingDecelerate
@@ -582,8 +596,14 @@ Rectangle {
         color: Theme.darkMode ? "#46cfe8ff" : "#55cde8ff"
         opacity: root.hovered ? 0.48 : 0.0
 
-        Behavior on x { NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingDecelerate } }
-        Behavior on opacity { NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingDecelerate } }
+        Behavior on x {
+            enabled: root.microAnimationAllowed()
+            NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingDecelerate }
+        }
+        Behavior on opacity {
+            enabled: root.microAnimationAllowed()
+            NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingDecelerate }
+        }
     }
 
     DockReorderMarker {

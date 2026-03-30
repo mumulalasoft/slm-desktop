@@ -84,10 +84,20 @@ Item {
     }
 
     function animateBadgePulse() {
-        if (!Theme.animationsEnabled) {
+        if (!root.microAnimationAllowed()) {
             return
         }
         badgePulse.restart()
+    }
+
+    function microAnimationAllowed() {
+        if (!Theme.animationsEnabled) {
+            return false
+        }
+        if (typeof MotionController === "undefined" || !MotionController || !MotionController.allowMotionPriority) {
+            return true
+        }
+        return MotionController.allowMotionPriority(MotionController.LowPriority)
     }
 
     Component.onCompleted: {
@@ -139,7 +149,7 @@ Item {
                          ? ThemeIconController.revision : 0)
                 color: root.centerOpen ? Theme.color("accent") : Theme.color("textOnGlass")
                 Behavior on color {
-                    enabled: Theme.animationsEnabled
+                    enabled: root.microAnimationAllowed()
                     ColorAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault }
                 }
             }
@@ -169,11 +179,11 @@ Item {
                 }
 
                 Behavior on opacity {
-                    enabled: Theme.animationsEnabled
+                    enabled: root.microAnimationAllowed()
                     NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault }
                 }
                 Behavior on y {
-                    enabled: Theme.animationsEnabled
+                    enabled: root.microAnimationAllowed()
                     NumberAnimation { duration: Theme.durationNormal; easing.type: Theme.easingDefault }
                 }
             }
@@ -186,8 +196,14 @@ Item {
             border.color: (button.hovered || root.centerOpen)
                           ? (root.centerOpen ? Theme.color("accent") : Theme.color("panelBorder"))
                           : "transparent"
-            Behavior on color { ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault } }
-            Behavior on border.color { ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault } }
+            Behavior on color {
+                enabled: root.microAnimationAllowed()
+                ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault }
+            }
+            Behavior on border.color {
+                enabled: root.microAnimationAllowed()
+                ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault }
+            }
         }
     }
 

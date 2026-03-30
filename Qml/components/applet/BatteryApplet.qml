@@ -29,6 +29,16 @@ Item {
     implicitWidth: indicatorButton.implicitWidth
     implicitHeight: indicatorButton.implicitHeight
 
+    function microAnimationAllowed() {
+        if (!Theme.animationsEnabled) {
+            return false
+        }
+        if (typeof MotionController === "undefined" || !MotionController || !MotionController.allowMotionPriority) {
+            return true
+        }
+        return MotionController.allowMotionPriority(MotionController.LowPriority)
+    }
+
     function openMenuSafely() {
         if ((Date.now() - lastMenuCloseMs) < 180) {
             return
@@ -117,8 +127,14 @@ Item {
             color: indicatorButton.hovered ? Theme.color("accentSoft") : "transparent"
             border.width: Theme.borderWidthThin
             border.color: indicatorButton.hovered ? Theme.color("panelBorder") : "transparent"
-            Behavior on color { ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault } }
-            Behavior on border.color { ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault } }
+            Behavior on color {
+                enabled: root.microAnimationAllowed()
+                ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault }
+            }
+            Behavior on border.color {
+                enabled: root.microAnimationAllowed()
+                ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault }
+            }
         }
     }
 

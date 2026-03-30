@@ -74,11 +74,26 @@
   - `onWindowMinimized -> Minimizing`
   - `onWorkspaceChanged -> Switching`
   - Larangan: `onClick/onEvent` langsung start animasi lifecycle.
-- [ ] Bangun `GlobalAnimationScheduler`:
+- [~] Bangun `GlobalAnimationScheduler`:
   - priority: `HIGH` (window open/close), `MEDIUM` (workspace switch), `LOW` (micro interaction).
   - interrupt rule: `HIGH` interrupt `LOW`; `LOW` tidak boleh interrupt `HIGH`.
   - workspace transition menunda/menahan micro interaction berat.
   - coalescing/debounce untuk event beruntun.
+  - [x] Foundation implemented in `src/core/motion/{slmanimationscheduler,slmmotioncontroller}`:
+    - lifecycle ownership + active priority tracking (`Low/Medium/High`)
+    - micro-interaction suppression when lifecycle priority is active
+    - scheduler coalescing helper (`shouldCoalesce*`)
+  - [x] Added core regression test for scheduler priority/suppression contract in `tests/slmmotioncore_test.cpp`
+    (covers `allow/canRunPriority`, suppression state, and coalescing behavior).
+  - [x] Workspace lifecycle integration baseline in `Qml/DesktopScene.qml`:
+    - `workspaceVisible/swipeActive/swipeSettling` drive lifecycle begin/end through `MotionController`
+  - [~] Extend lifecycle hooks to window lifecycle transitions (open/minimize/close/focus) from compositor events.
+    - [x] Baseline `DesktopScene` hook from `CompositorStateModel.lastEvent` for open/close/minimize transitions (HIGH priority lifecycle + timed release).
+    - [x] Add explicit focus active/inactive lifecycle mapping from normalized compositor events (LOW priority lifecycle + coalescing).
+    - [x] Ensure `CompositorStateModel.lastEvent.event` always populated via fallback normalization in `KWinWaylandStateModel`.
+    - [x] Add canonical event contract in backend adapter (`WindowingBackendManager`) so event names stay stable lint/tested.
+      - [x] Baseline canonical lifecycle normalization added (focus/open/close/minimize aliases -> canonical event names).
+      - [x] Added contract test coverage (`windowingbackendmanager_test`) for workspace command mapping + lifecycle canonicalization.
 - [~] Standardisasi timing global (single source of truth):
   - `Fast=120ms`, `Normal=220ms`, `Slow=320ms`, `Workspace=400ms`.
   - implemented token baseline in `Qml/Theme.qml`: `durationFast/Normal/Slow/Workspace` (+ safe-mode off gate).
@@ -118,6 +133,21 @@
   - hover, click feedback, toggle.
   - durasi 100-150ms.
   - tidak masuk scheduler lifecycle compositor.
+  - [~] baseline scheduler guard wired:
+    - `MotionController.allowMotionPriority(LowPriority)` integrated for micro transitions in
+      `Qml/components/dock/DockItem.qml`,
+      `Qml/components/dock/Dock.qml`,
+      `Qml/components/topbar/{TopBarSearchButton,TopBarMainMenuControl,TopBarScreenshotControl,TopBarBrandSection}.qml`,
+      `Qml/apps/filemanager/FileManagerContentView.qml` (list/columns row hover/opacity transitions),
+      `Qml/apps/settings/{Sidebar,components/SettingCard}.qml`,
+      `Qml/apps/settings/components/FontPickerDialog.qml`,
+      `Qml/components/portalchooser/PortalChooserListRow.qml`,
+      `Qml/components/shell/ShellShortcutTile.qml`,
+      `Qml/components/notification/NotificationCard.qml`,
+      `Qml/components/notification/BannerContainer.qml`,
+      `Qml/components/applet/{NetworkApplet,SoundApplet,BluetoothApplet,BatteryApplet,ClipboardApplet,NotificationApplet,PrintJobApplet,DatetimeApplet,ScreencastIndicator,InputCaptureIndicator}.qml`.
+    - [x] Add UI guard regression test: `tests/motion_scheduler_ui_guard_test.cpp` (critical micro-interaction files must keep `allowMotionPriority`).
+    - lanjutkan rollout guard ke komponen hover-heavy lain (minor leftovers: additional dialogs/controls outside core applets).
 - [ ] Terapkan anti-patent guideline:
   - hindari genie minimize, dock bounce khas Apple, dan mission-control layout identik.
   - gunakan spatial movement sederhana + scale/fade + easing internal SLM.

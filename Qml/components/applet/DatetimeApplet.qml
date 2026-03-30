@@ -17,6 +17,16 @@ Item {
     Layout.preferredHeight: manager.indicatorSlotHeight
     Layout.alignment: Qt.AlignVCenter
 
+    function microAnimationAllowed() {
+        if (!Theme.animationsEnabled) {
+            return false
+        }
+        if (typeof MotionController === "undefined" || !MotionController || !MotionController.allowMotionPriority) {
+            return true
+        }
+        return MotionController.allowMotionPriority(MotionController.LowPriority)
+    }
+
     Rectangle {
         id: clockFrame
         implicitWidth: clockText.implicitWidth + (Theme.metric("spacingLg") + Theme.metric("spacingXxs"))
@@ -24,6 +34,10 @@ Item {
         anchors.centerIn: parent
         radius: Theme.radiusControl
         color: clockMouse.containsMouse ? Theme.color("accentSoft") : "transparent"
+        Behavior on color {
+            enabled: clockButtonHost.microAnimationAllowed()
+            ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault }
+        }
 
         Text {
             id: clockText
@@ -309,6 +323,7 @@ Item {
                             opacity: dayValue > 0 ? 1.0 : 0.0
                             scale: dayMouse.pressed && dayValue > 0 ? 0.94 : 1.0
                             Behavior on scale {
+                                enabled: clockButtonHost.microAnimationAllowed()
                                 NumberAnimation {
                                     duration: Theme.durationMicro
                                     easing.type: Theme.easingDefault

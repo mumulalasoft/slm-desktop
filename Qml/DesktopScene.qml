@@ -33,6 +33,9 @@ Item {
     property bool shellPointerBlocked: false
     property bool workspaceSwipeActive: MultitaskingController.workspaceSwipeActive
     property bool workspaceSwipeSettling: MultitaskingController.workspaceSwipeSettling
+    property bool workspaceLifecycleActive: false
+    property bool windowLifecycleActive: false
+    property bool windowFocusLifecycleActive: false
     property real workspaceSwipeOffset: MultitaskingController.workspaceSwipeOffset
     property int workspaceSwipeStartSpace: MultitaskingController.workspaceSwipeStartSpace
     property int workspaceSwipeTargetSpace: MultitaskingController.workspaceSwipeTargetSpace
@@ -232,8 +235,26 @@ Item {
         }
         root.pushSpaceToCompositor()
         root.pushWorkspaceVisibilityToCompositor()
+        root.syncWorkspaceLifecycleState()
         root.pushLaunchpadToCompositor()
         root.lastKnownActiveSpace = Number(SpacesManager && SpacesManager.activeSpace ? SpacesManager.activeSpace : 1)
+    }
+    Component.onDestruction: {
+        if (root.workspaceLifecycleActive &&
+                typeof MotionController !== "undefined" && MotionController &&
+                MotionController.endLifecycleTransition) {
+            MotionController.endLifecycleTransition("workspace.overview")
+        }
+        if (root.windowLifecycleActive &&
+                typeof MotionController !== "undefined" && MotionController &&
+                MotionController.endLifecycleTransition) {
+            MotionController.endLifecycleTransition("window.lifecycle")
+        }
+        if (root.windowFocusLifecycleActive &&
+                typeof MotionController !== "undefined" && MotionController &&
+                MotionController.endLifecycleTransition) {
+            MotionController.endLifecycleTransition("window.focus")
+        }
     }
     onStyleGalleryVisibleChanged: {
         if (!styleGalleryVisible) {
@@ -463,6 +484,9 @@ Item {
         function onLastEventChanged() {
             root.refreshDockSmartOcclusion()
             root.refreshShellPointerBlock()
+            if (CompositorStateModel && CompositorStateModel.lastEvent) {
+                root.processCompositorLifecycleEvent(CompositorStateModel.lastEvent)
+            }
         }
         function onConnectedChanged() {
             root.refreshShellPointerBlock()
@@ -503,7 +527,12 @@ Item {
     }
 
     onLaunchpadVisibleChanged: pushLaunchpadToCompositor()
-    onWorkspaceVisibleChanged: pushWorkspaceVisibilityToCompositor()
+    onWorkspaceVisibleChanged: {
+        syncWorkspaceLifecycleState()
+        pushWorkspaceVisibilityToCompositor()
+    }
+    onWorkspaceSwipeActiveChanged: syncWorkspaceLifecycleState()
+    onWorkspaceSwipeSettlingChanged: syncWorkspaceLifecycleState()
 
     Timer {
         id: shellPointerBlockPoll
@@ -511,6 +540,34 @@ Item {
         repeat: true
         running: true
         onTriggered: root.refreshShellPointerBlock()
+    }
+
+    Timer {
+        id: windowLifecycleReleaseTimer
+        interval: Theme.durationNormal
+        repeat: false
+        onTriggered: {
+            if (root.windowLifecycleActive &&
+                    typeof MotionController !== "undefined" && MotionController &&
+                    MotionController.endLifecycleTransition) {
+                MotionController.endLifecycleTransition("window.lifecycle")
+                root.windowLifecycleActive = false
+            }
+        }
+    }
+
+    Timer {
+        id: windowFocusLifecycleReleaseTimer
+        interval: Theme.durationFast
+        repeat: false
+        onTriggered: {
+            if (root.windowFocusLifecycleActive &&
+                    typeof MotionController !== "undefined" && MotionController &&
+                    MotionController.endLifecycleTransition) {
+                MotionController.endLifecycleTransition("window.focus")
+                root.windowFocusLifecycleActive = false
+            }
+        }
     }
 
     Connections {
@@ -598,6 +655,68 @@ Item {
         if (MotionController.preset !== "responsive") {
             MotionController.preset = "responsive"
         }
+    }
+
+    function syncWorkspaceLifecycleState() {
+        if (typeof MotionController === "undefined" || !MotionController ||
+                !MotionController.beginLifecycleTransition || !MotionController.endLifecycleTransition) {
+            return
+        }
+        var shouldBeActive = !!root.workspaceVisible || !!root.workspaceSwipeActive || !!root.workspaceSwipeSettling
+        if (shouldBeActive && !root.workspaceLifecycleActive) {
+            MotionController.beginLifecycleTransition("workspace.overview", MotionController.MediumPriority)
+            root.workspaceLifecycleActive = true
+        } else if (!shouldBeActive && root.workspaceLifecycleActive) {
+            MotionController.endLifecycleTransition("workspace.overview")
+            root.workspaceLifecycleActive = false
+        }
+    }
+
+    function processCompositorLifecycleEvent(payload) {
+        if (!payload || typeof MotionController === "undefined" || !MotionController) {
+            return
+        }
+        if (!MotionController.beginLifecycleTransition || !MotionController.endLifecycleTransition) {
+            return
+        }
+        var eventName = String(payload.event || payload.eventName || payload.type || payload.action || "")
+        eventName = eventName.toLowerCase().replace(/_/g, "-")
+        if (eventName.length <= 0) {
+            return
+        }
+        var focusMatch = (eventName === "window-focused" ||
+                          eventName === "window-unfocused" ||
+                          eventName === "window-activated" ||
+                          eventName === "window-deactivated" ||
+                          eventName === "focus-changed")
+        if (focusMatch) {
+            var focusKey = "window-focus:" + eventName + ":" + String(payload.viewId || payload.windowId || "")
+            if (MotionController.shouldCoalesceEvent && MotionController.shouldCoalesceEvent(focusKey, 90)) {
+                return
+            }
+            MotionController.beginLifecycleTransition("window.focus", MotionController.LowPriority)
+            root.windowFocusLifecycleActive = true
+            windowFocusLifecycleReleaseTimer.restart()
+            return
+        }
+        var lifecycleMatch = (eventName === "window-created" ||
+                              eventName === "window-opened" ||
+                              eventName === "window-shown" ||
+                              eventName === "window-closing" ||
+                              eventName === "window-closed" ||
+                              eventName === "window-minimized" ||
+                              eventName === "window-unminimized")
+        if (!lifecycleMatch) {
+            return
+        }
+        var viewId = String(payload.viewId || payload.viewid || payload.windowId || payload.windowid || "")
+        var coalesceKey = "window-lifecycle:" + eventName + ":" + viewId
+        if (MotionController.shouldCoalesceEvent && MotionController.shouldCoalesceEvent(coalesceKey, 120)) {
+            return
+        }
+        MotionController.beginLifecycleTransition("window.lifecycle", MotionController.HighPriority)
+        root.windowLifecycleActive = true
+        windowLifecycleReleaseTimer.restart()
     }
 
 

@@ -29,6 +29,16 @@ Popup {
     readonly property string _currentSpec:
         (_family.length > 0) ? (_family + "," + _style + "," + _size) : ""
 
+    function microAnimationAllowed() {
+        if (!Theme.animationsEnabled) {
+            return false
+        }
+        if (typeof MotionController === "undefined" || !MotionController || !MotionController.allowMotionPriority) {
+            return true
+        }
+        return MotionController.allowMotionPriority(MotionController.LowPriority)
+    }
+
     // ────────────────────────────────────────────────────────
     modal: true
     focus: true
@@ -223,6 +233,7 @@ Popup {
                         : (fontDelegate.hovered ? Theme.color("accentSoft") : "transparent")
                     radius: Theme.radiusControl
                     Behavior on color {
+                        enabled: root.microAnimationAllowed()
                         ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault }
                     }
                 }

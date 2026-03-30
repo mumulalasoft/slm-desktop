@@ -12,6 +12,14 @@ MotionController::MotionController(QObject *parent)
             &AnimationScheduler::droppedFrameCountChanged,
             this,
             &MotionController::droppedFrameCountChanged);
+    connect(&m_scheduler,
+            &AnimationScheduler::microInteractionSuppressedChanged,
+            this,
+            &MotionController::microInteractionSuppressedChanged);
+    connect(&m_scheduler,
+            &AnimationScheduler::activeLifecyclePriorityChanged,
+            this,
+            &MotionController::activeLifecyclePriorityChanged);
     connect(&m_scheduler, &AnimationScheduler::frameStepped, this, [this](double dt) {
         if (qFuzzyCompare(1.0 + m_lastFrameDt, 1.0 + dt)) {
             return;
@@ -63,6 +71,16 @@ qulonglong MotionController::droppedFrameCount() const
 bool MotionController::reducedMotion() const
 {
     return m_reducedMotion;
+}
+
+bool MotionController::microInteractionSuppressed() const
+{
+    return m_scheduler.microInteractionSuppressed();
+}
+
+int MotionController::activeLifecyclePriority() const
+{
+    return m_scheduler.activeLifecyclePriority();
 }
 
 QString MotionController::channel() const
@@ -151,6 +169,26 @@ void MotionController::cancelAndSettle(double target)
 QVariantList MotionController::channelsSnapshot() const
 {
     return m_engine.channelsSnapshot();
+}
+
+void MotionController::beginLifecycleTransition(const QString &owner, int priority)
+{
+    m_scheduler.beginLifecycle(owner, priority);
+}
+
+void MotionController::endLifecycleTransition(const QString &owner)
+{
+    m_scheduler.endLifecycle(owner);
+}
+
+bool MotionController::allowMotionPriority(int priority) const
+{
+    return m_scheduler.canRunPriority(priority);
+}
+
+bool MotionController::shouldCoalesceEvent(const QString &eventKey, int windowMs)
+{
+    return m_scheduler.shouldCoalesce(eventKey, windowMs);
 }
 
 void MotionController::gestureBegin(double initialProgress)

@@ -12,11 +12,24 @@ Rectangle {
 
     signal clicked()
 
+    function microAnimationAllowed() {
+        if (!Theme.animationsEnabled) {
+            return false
+        }
+        if (typeof MotionController === "undefined" || !MotionController || !MotionController.allowMotionPriority) {
+            return true
+        }
+        return MotionController.allowMotionPriority(MotionController.LowPriority)
+    }
+
     width: iconButtonW
     height: iconButtonH
     radius: Theme.radiusControl
     color: searchMouse.containsMouse ? Theme.color("accentSoft") : "transparent"
-    Behavior on color { ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault } }
+    Behavior on color {
+        enabled: root.microAnimationAllowed()
+        ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault }
+    }
 
     IconImage {
         id: searchIcon

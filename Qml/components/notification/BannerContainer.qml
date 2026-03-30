@@ -12,6 +12,16 @@ Item {
     signal dismissRequested(int notificationId)
     signal notificationClicked(int notificationId)
 
+    function microAnimationAllowed() {
+        if (!Theme.animationsEnabled) {
+            return false
+        }
+        if (typeof MotionController === "undefined" || !MotionController || !MotionController.allowMotionPriority) {
+            return true
+        }
+        return MotionController.allowMotionPriority(MotionController.LowPriority)
+    }
+
     width: 392
     implicitHeight: listView.contentHeight
 
@@ -24,7 +34,7 @@ Item {
         model: root.notificationManager ? root.notificationManager.bannerNotifications : null
 
         add: Transition {
-            enabled: Theme.animationsEnabled
+            enabled: root.microAnimationAllowed()
             ParallelAnimation {
                 NumberAnimation {
                     property: "opacity"
@@ -68,15 +78,15 @@ Item {
             x: pendingDismiss ? width : 0
 
             Behavior on opacity {
-                enabled: Theme.animationsEnabled
+                enabled: root.microAnimationAllowed()
                 NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault }
             }
             Behavior on scale {
-                enabled: Theme.animationsEnabled
+                enabled: root.microAnimationAllowed()
                 NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault }
             }
             Behavior on x {
-                enabled: Theme.animationsEnabled
+                enabled: root.microAnimationAllowed()
                 NumberAnimation { duration: Theme.durationNormal; easing.type: Theme.easingDefault }
             }
 
@@ -98,7 +108,7 @@ Item {
 
             Timer {
                 id: dismissFinalize
-                interval: Theme.animationsEnabled ? Theme.durationNormal : 1
+                interval: root.microAnimationAllowed() ? Theme.durationNormal : 1
                 repeat: false
                 onTriggered: root.dismissRequested(rowItem.notificationId)
             }
@@ -116,7 +126,7 @@ Item {
                 onClicked: root.notificationClicked(rowItem.notificationId)
 
                 Behavior on x {
-                    enabled: Theme.animationsEnabled
+                    enabled: root.microAnimationAllowed()
                     NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault }
                 }
             }

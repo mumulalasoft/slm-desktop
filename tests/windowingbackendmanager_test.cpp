@@ -83,6 +83,52 @@ private slots:
                                           Q_ARG(QVariantMap, payload)));
         QCOMPARE(relaySpy.count(), 1);
     }
+
+    void commandWorkspaceOn_emitsCanonicalWorkspaceOpen()
+    {
+        WindowingBackendManager manager;
+        KWinWaylandIpcClient *kwinIpc = manager.findChild<KWinWaylandIpcClient *>();
+        QVERIFY(kwinIpc != nullptr);
+
+        QSignalSpy relaySpy(&manager, SIGNAL(eventReceived(QString,QVariantMap)));
+        QVariantMap payload;
+        payload.insert(QStringLiteral("backend"), QStringLiteral("kwin-wayland"));
+        payload.insert(QStringLiteral("ok"), true);
+        payload.insert(QStringLiteral("command"), QStringLiteral("workspace on"));
+        QVERIFY(QMetaObject::invokeMethod(kwinIpc, "eventReceived",
+                                          Qt::DirectConnection,
+                                          Q_ARG(QString, QStringLiteral("command")),
+                                          Q_ARG(QVariantMap, payload)));
+        QCOMPARE(relaySpy.count(), 2);
+        const QList<QVariant> mappedArgs = relaySpy.at(1);
+        QCOMPARE(mappedArgs.at(0).toString(), QStringLiteral("workspace-open"));
+        const QVariantMap mappedPayload = mappedArgs.at(1).toMap();
+        QCOMPARE(mappedPayload.value(QStringLiteral("event")).toString(), QStringLiteral("workspace-open"));
+        QCOMPARE(mappedPayload.value(QStringLiteral("legacy_event_alias")).toString(),
+                 QStringLiteral("overview-open"));
+    }
+
+    void windowActivated_emitsCanonicalWindowFocused()
+    {
+        WindowingBackendManager manager;
+        KWinWaylandIpcClient *kwinIpc = manager.findChild<KWinWaylandIpcClient *>();
+        QVERIFY(kwinIpc != nullptr);
+
+        QSignalSpy relaySpy(&manager, SIGNAL(eventReceived(QString,QVariantMap)));
+        QVariantMap payload;
+        payload.insert(QStringLiteral("event"), QStringLiteral("window_activated"));
+        payload.insert(QStringLiteral("viewId"), QStringLiteral("view-1"));
+        QVERIFY(QMetaObject::invokeMethod(kwinIpc, "eventReceived",
+                                          Qt::DirectConnection,
+                                          Q_ARG(QString, QStringLiteral("window-activated")),
+                                          Q_ARG(QVariantMap, payload)));
+        QCOMPARE(relaySpy.count(), 2);
+        const QList<QVariant> canonicalArgs = relaySpy.at(1);
+        QCOMPARE(canonicalArgs.at(0).toString(), QStringLiteral("window-focused"));
+        const QVariantMap canonicalPayload = canonicalArgs.at(1).toMap();
+        QCOMPARE(canonicalPayload.value(QStringLiteral("event")).toString(), QStringLiteral("window-focused"));
+        QCOMPARE(canonicalPayload.value(QStringLiteral("canonicalized")).toBool(), true);
+    }
 };
 
 QTEST_MAIN(WindowingBackendManagerTest)

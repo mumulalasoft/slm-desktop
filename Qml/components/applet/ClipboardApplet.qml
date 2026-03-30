@@ -20,6 +20,16 @@ Item {
     implicitWidth: button.implicitWidth
     implicitHeight: button.implicitHeight
 
+    function microAnimationAllowed() {
+        if (!Theme.animationsEnabled) {
+            return false
+        }
+        if (typeof MotionController === "undefined" || !MotionController || !MotionController.allowMotionPriority) {
+            return true
+        }
+        return MotionController.allowMotionPriority(MotionController.LowPriority)
+    }
+
     function openMenuSafely() {
         if ((Date.now() - lastMenuCloseMs) < 180) {
             return
@@ -53,8 +63,14 @@ Item {
             color: button.down ? Theme.color("controlBgPressed") : (button.hovered ? Theme.color("accentSoft") : "transparent")
             border.width: Theme.borderWidthThin
             border.color: button.hovered ? Theme.color("panelBorder") : "transparent"
-            Behavior on color { ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault } }
-            Behavior on border.color { ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault } }
+            Behavior on color {
+                enabled: root.microAnimationAllowed()
+                ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault }
+            }
+            Behavior on border.color {
+                enabled: root.microAnimationAllowed()
+                ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault }
+            }
         }
         onClicked: {
             if (menu.opened || menu.visible) {
@@ -165,7 +181,10 @@ Item {
                                 height: Theme.metric("controlHeightLarge")
                                 radius: Theme.radiusControl
                                 color: rowMouse.pressed ? Theme.color("controlBgPressed") : (rowMouse.containsMouse ? Theme.color("accentSoft") : "transparent")
-                                Behavior on color { ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDecelerate } }
+                                Behavior on color {
+                                    enabled: root.microAnimationAllowed()
+                                    ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDecelerate }
+                                }
 
                                 RowLayout {
                                     anchors.fill: parent

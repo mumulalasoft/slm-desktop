@@ -65,6 +65,16 @@ Rectangle {
     signal openHomeRequested()
     signal clearRecentsRequested()
 
+    function microAnimationAllowed() {
+        if (!Theme.animationsEnabled) {
+            return false
+        }
+        if (typeof MotionController === "undefined" || !MotionController || !MotionController.allowMotionPriority) {
+            return true
+        }
+        return MotionController.allowMotionPriority(MotionController.LowPriority)
+    }
+
     color: "transparent"
     border.width: Theme.borderWidthNone
     border.color: "transparent"
@@ -1400,6 +1410,7 @@ Rectangle {
                                   ? Theme.color("hoverItem")
                                   : ((index % 2) === 1 ? Theme.color("fileManagerRowAlt") : "transparent"))
                         Behavior on color {
+                            enabled: root.microAnimationAllowed()
                             ColorAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault }
                         }
                     }
@@ -1430,6 +1441,7 @@ Rectangle {
                                     cache: true
                                     opacity: status === Image.Ready ? 1.0 : 0.0
                                     Behavior on opacity {
+                                        enabled: root.microAnimationAllowed()
                                         NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault }
                                     }
                                 }
@@ -1639,6 +1651,7 @@ Rectangle {
                                 color: selected ? Theme.color("selectedItem")
                                                 : (parentMouse.containsMouse ? Theme.color("hoverItem") : "transparent")
                                 Behavior on color {
+                                    enabled: root.microAnimationAllowed()
                                     ColorAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault }
                                 }
                             }
@@ -1672,6 +1685,7 @@ Rectangle {
                                     cache: true
                                     opacity: selected ? 0.95 : 0.7
                                     Behavior on opacity {
+                                        enabled: root.microAnimationAllowed()
                                         NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault }
                                     }
                                 }
@@ -1737,6 +1751,7 @@ Rectangle {
                                 color: root.isSelected(index) ? Theme.color("selectedItem")
                                                                : (currentMouse.containsMouse ? Theme.color("hoverItem") : "transparent")
                                 Behavior on color {
+                                    enabled: root.microAnimationAllowed()
                                     ColorAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault }
                                 }
                             }
@@ -1759,6 +1774,7 @@ Rectangle {
                                         cache: true
                                         opacity: status === Image.Ready ? 1.0 : 0.0
                                         Behavior on opacity {
+                                            enabled: root.microAnimationAllowed()
                                             NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault }
                                         }
                                     }
@@ -1916,6 +1932,7 @@ Rectangle {
                                        ? Theme.color("selectedItem")
                                        : (childMouse.containsMouse ? Theme.color("hoverItem") : "transparent")
                                 Behavior on color {
+                                    enabled: root.microAnimationAllowed()
                                     ColorAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault }
                                 }
                             }
@@ -1951,6 +1968,7 @@ Rectangle {
                                     cache: true
                                     opacity: (root.columnChildIndex === index && root.columnsFocusPane === 2) ? 0.95 : 0.7
                                     Behavior on opacity {
+                                        enabled: root.microAnimationAllowed()
                                         NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault }
                                     }
                                 }
@@ -1992,6 +2010,7 @@ Rectangle {
                                     cache: true
                                     opacity: status === Image.Ready ? 1.0 : 0.0
                                     Behavior on opacity {
+                                        enabled: root.microAnimationAllowed()
                                         NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault }
                                     }
                                     source: root.previewSource(String(root.columnsPreviewEntry ? root.columnsPreviewEntry.path : ""),

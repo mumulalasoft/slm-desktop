@@ -57,6 +57,16 @@ Item {
     implicitHeight: visible ? indicatorButton.implicitHeight : 0
     visible: jobModel.count > 0
 
+    function microAnimationAllowed() {
+        if (!Theme.animationsEnabled) {
+            return false
+        }
+        if (typeof MotionController === "undefined" || !MotionController || !MotionController.allowMotionPriority) {
+            return true
+        }
+        return MotionController.allowMotionPriority(MotionController.LowPriority)
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────
 
     function iconSource(name) {
@@ -267,7 +277,7 @@ Item {
 
                 // Subtle pulse while printing
                 SequentialAnimation on opacity {
-                    running: root.anyPrinting
+                    running: root.anyPrinting && root.microAnimationAllowed()
                     loops: Animation.Infinite
                     NumberAnimation { to: 0.55; duration: Theme.durationWorkspace + Theme.durationSlow; easing.type: Theme.easingStandard }
                     NumberAnimation { to: 1.0;  duration: Theme.durationWorkspace + Theme.durationSlow; easing.type: Theme.easingStandard }
@@ -287,7 +297,10 @@ Item {
                 border.width: Theme.borderWidthThin
                 border.color: Theme.color("menuBg")
 
-                Behavior on color { ColorAnimation { duration: Theme.durationSm } }
+                Behavior on color {
+                    enabled: root.microAnimationAllowed()
+                    ColorAnimation { duration: Theme.durationSm }
+                }
 
                 Text {
                     anchors.centerIn: parent
@@ -305,8 +318,14 @@ Item {
             color: indicatorButton.hovered ? Theme.color("accentSoft") : "transparent"
             border.width: Theme.borderWidthThin
             border.color: indicatorButton.hovered ? Theme.color("panelBorder") : "transparent"
-            Behavior on color { ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault } }
-            Behavior on border.color { ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault } }
+            Behavior on color {
+                enabled: root.microAnimationAllowed()
+                ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault }
+            }
+            Behavior on border.color {
+                enabled: root.microAnimationAllowed()
+                ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault }
+            }
         }
     }
 
@@ -368,11 +387,14 @@ Item {
                                 default:         return Theme.color("textSecondary")
                                 }
                             }
-                            Behavior on color { ColorAnimation { duration: Theme.durationMd; easing.type: Theme.easingDefault } }
+                            Behavior on color {
+                                enabled: root.microAnimationAllowed()
+                                ColorAnimation { duration: Theme.durationMd; easing.type: Theme.easingDefault }
+                            }
 
                             // Animated pulse for printing state
                             SequentialAnimation on opacity {
-                                running: model.status === "printing"
+                                running: model.status === "printing" && root.microAnimationAllowed()
                                 loops: Animation.Infinite
                                 NumberAnimation { to: 0.3; duration: Theme.durationWorkspace + Theme.durationFast; easing.type: Theme.easingStandard }
                                 NumberAnimation { to: 1.0; duration: Theme.durationWorkspace + Theme.durationFast; easing.type: Theme.easingStandard }
@@ -458,7 +480,10 @@ Item {
                             height: parent.height
                             radius: parent.radius
                             color: Theme.color("accent")
-                            Behavior on width { NumberAnimation { duration: Theme.durationWorkspace; easing.type: Theme.easingDefault } }
+                            Behavior on width {
+                                enabled: root.microAnimationAllowed()
+                                NumberAnimation { duration: Theme.durationWorkspace; easing.type: Theme.easingDefault }
+                            }
                         }
                     }
                 }

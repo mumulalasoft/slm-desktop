@@ -19,7 +19,18 @@ Item {
     implicitWidth: active ? button.implicitWidth : 0
     implicitHeight: button.implicitHeight
 
+    function microAnimationAllowed() {
+        if (!Theme.animationsEnabled) {
+            return false
+        }
+        if (typeof MotionController === "undefined" || !MotionController || !MotionController.allowMotionPriority) {
+            return true
+        }
+        return MotionController.allowMotionPriority(MotionController.LowPriority)
+    }
+
     Behavior on opacity {
+        enabled: root.microAnimationAllowed()
         NumberAnimation {
             duration: Theme.durationSm
             easing.type: Theme.easingDefault
@@ -45,8 +56,14 @@ Item {
             opacity: button.hovered ? 1.0 : (root.active ? 0.22 : 0.0)
             border.width: Theme.borderWidthThin
             border.color: button.hovered ? Theme.color("panelBorder") : "transparent"
-            Behavior on color { ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault } }
-            Behavior on opacity { NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault } }
+            Behavior on color {
+                enabled: root.microAnimationAllowed()
+                ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault }
+            }
+            Behavior on opacity {
+                enabled: root.microAnimationAllowed()
+                NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault }
+            }
         }
 
         contentItem: Item {

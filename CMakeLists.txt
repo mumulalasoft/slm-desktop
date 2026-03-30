@@ -1266,6 +1266,14 @@ qt_add_executable(slmmotioncore_test
     src/core/motion/slmmotiontypes.h
     src/core/motion/slmspringsolver.cpp
     src/core/motion/slmspringsolver.h
+    src/core/motion/slmphysicsintegrator.cpp
+    src/core/motion/slmphysicsintegrator.h
+    src/core/motion/slmmotionpresetlibrary.cpp
+    src/core/motion/slmmotionpresetlibrary.h
+    src/core/motion/slmanimationengine.cpp
+    src/core/motion/slmanimationengine.h
+    src/core/motion/slmanimationscheduler.cpp
+    src/core/motion/slmanimationscheduler.h
     src/core/motion/slmgesturebinding.cpp
     src/core/motion/slmgesturebinding.h
     tests/slmmotioncore_test.cpp
@@ -1740,6 +1748,23 @@ target_link_libraries(workspace_overlay_guard_test
 )
 
 add_test(NAME workspace_overlay_guard_test COMMAND workspace_overlay_guard_test)
+
+qt_add_executable(motion_scheduler_ui_guard_test
+    tests/motion_scheduler_ui_guard_test.cpp
+)
+
+target_compile_definitions(motion_scheduler_ui_guard_test
+    PRIVATE
+        DESKTOP_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\"
+)
+
+target_link_libraries(motion_scheduler_ui_guard_test
+    PRIVATE
+        Qt6::Core
+        Qt6::Test
+)
+
+add_test(NAME motion_scheduler_ui_guard_test COMMAND motion_scheduler_ui_guard_test)
 
 qt_add_executable(workspace_ui_smoke_test
     tests/workspace_ui_smoke_test.cpp
@@ -4174,6 +4199,7 @@ add_custom_target(test_headless
         workspacemanager_workspace_ops_test
         workspace_shortcuts_guard_test
         workspace_overlay_guard_test
+        motion_scheduler_ui_guard_test
         daemonhealthmonitor_test
         dbussecurityguard_test
         policyengine_test

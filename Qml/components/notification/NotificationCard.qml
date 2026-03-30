@@ -21,6 +21,16 @@ Rectangle {
     signal dismissRequested()
     signal clicked()
 
+    function microAnimationAllowed() {
+        if (!Theme.animationsEnabled) {
+            return false
+        }
+        if (typeof MotionController === "undefined" || !MotionController || !MotionController.allowMotionPriority) {
+            return true
+        }
+        return MotionController.allowMotionPriority(MotionController.LowPriority)
+    }
+
     readonly property bool _isHigh: String(priority || "").toLowerCase() === "high"
     readonly property bool _hasPairedActions: !!actionsModel
                                               && actionsModel.length >= 2
@@ -137,7 +147,7 @@ Rectangle {
                         color: dismissHover.containsMouse ? Theme.color("textPrimary") : Theme.color("textMuted")
                         font.pixelSize: Theme.fontSize("tiny")
                         Behavior on color {
-                            enabled: Theme.animationsEnabled
+                            enabled: root.microAnimationAllowed()
                             ColorAnimation { duration: Theme.durationFast; easing.type: Theme.easingLight }
                         }
                     }
@@ -197,7 +207,7 @@ Rectangle {
                         border.color: primary ? Theme.color("accent") : Theme.color("panelBorder")
 
                         Behavior on color {
-                            enabled: Theme.animationsEnabled
+                            enabled: root.microAnimationAllowed()
                             ColorAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault }
                         }
 

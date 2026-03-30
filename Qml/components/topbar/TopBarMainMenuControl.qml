@@ -26,6 +26,16 @@ Item {
 
     property double lastCloseMs: 0
 
+    function microAnimationAllowed() {
+        if (!Theme.animationsEnabled) {
+            return false
+        }
+        if (typeof MotionController === "undefined" || !MotionController || !MotionController.allowMotionPriority) {
+            return true
+        }
+        return MotionController.allowMotionPriority(MotionController.LowPriority)
+    }
+
     function normalizeProfileId(idValue) {
         var id = String(idValue || "").toLowerCase()
         if (id === "apps-first" || id === "files-first" || id === "balanced") {
@@ -55,7 +65,10 @@ Item {
         anchors.fill: parent
         radius: Theme.radiusControl
         color: mainMouse.containsMouse ? Theme.color("accentSoft") : "transparent"
-        Behavior on color { ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault } }
+        Behavior on color {
+            enabled: root.microAnimationAllowed()
+            ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault }
+        }
 
         Image {
             id: mainLogo

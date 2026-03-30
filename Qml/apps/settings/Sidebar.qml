@@ -15,6 +15,16 @@ Rectangle {
 
     signal moduleSelected(string id)
 
+    function microAnimationAllowed() {
+        if (!Theme.animationsEnabled) {
+            return false
+        }
+        if (typeof MotionController === "undefined" || !MotionController || !MotionController.allowMotionPriority) {
+            return true
+        }
+        return MotionController.allowMotionPriority(MotionController.LowPriority)
+    }
+
     // ── Compute groups from flat module list ───────────────────────────────
 
     readonly property var groupedModules: {
@@ -83,7 +93,7 @@ Rectangle {
                             anchors.bottomMargin: 6
                             text: modelData.name
                             font.pixelSize: Theme.fontSize("xs")
-                            font.weight: Font.DemiBold
+                            font.weight: Theme.fontWeight("semibold")
                             color: Theme.color("textSecondary")
                             textFormat: Text.PlainText
                         }
@@ -117,8 +127,9 @@ Rectangle {
                                             ? Theme.color("controlBgHover")
                                             : Theme.color("surface")
                                         border.color: Theme.color("panelBorder")
-                                        border.width: 1
+                                        border.width: Theme.borderWidthThin
                                         Behavior on color {
+                                            enabled: root.microAnimationAllowed()
                                             ColorAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault }
                                         }
                                     }
@@ -143,7 +154,7 @@ Rectangle {
                                             Layout.fillWidth: true
                                             text: modelData.name || ""
                                             font.pixelSize: Theme.fontSize("sm")
-                                            font.weight: Font.Medium
+                                            font.weight: Theme.fontWeight("medium")
                                             color: Theme.color("textPrimary")
                                             wrapMode: Text.WordWrap
                                             elide: Text.ElideRight
@@ -157,6 +168,7 @@ Rectangle {
                                     // Subtle press scale
                                     scale: pressed ? 0.97 : 1.0
                                     Behavior on scale {
+                                        enabled: root.microAnimationAllowed()
                                         NumberAnimation { duration: Theme.durationMicro; easing.type: Theme.easingDefault }
                                     }
                                 }

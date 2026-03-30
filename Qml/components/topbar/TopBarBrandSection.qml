@@ -8,6 +8,16 @@ Row {
     spacing: 6
     property var fileManagerContent: null
 
+    function microAnimationAllowed() {
+        if (!Theme.animationsEnabled) {
+            return false
+        }
+        if (typeof MotionController === "undefined" || !MotionController || !MotionController.allowMotionPriority) {
+            return true
+        }
+        return MotionController.allowMotionPriority(MotionController.LowPriority)
+    }
+
     function printMenuEnabled() {
         var content = root.fileManagerContent
         if (!content || !content.canPrintSelection) {
@@ -81,6 +91,10 @@ Row {
                 background: Rectangle {
                     radius: Theme.radiusMd
                     color: parent.hovered ? Theme.color("accentSoft") : "transparent"
+                    Behavior on color {
+                        enabled: root.microAnimationAllowed()
+                        ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault }
+                    }
                 }
 
                 Menu {

@@ -41,6 +41,16 @@ Item {
     signal dragMoved(real deltaX)
     signal dragFinished(real deltaX)
 
+    function microAnimationAllowed() {
+        if (!Theme.animationsEnabled) {
+            return false
+        }
+        if (typeof MotionController === "undefined" || !MotionController || !MotionController.allowMotionPriority) {
+            return true
+        }
+        return MotionController.allowMotionPriority(MotionController.LowPriority)
+    }
+
     width: baseSlotWidth + (gapTarget ? gapWidthExtra : 0)
     height: 76
     z: root.dragging ? 200 : 0
@@ -52,18 +62,21 @@ Item {
         }
     }
     Behavior on hoverBlend {
+        enabled: root.microAnimationAllowed()
         NumberAnimation {
             duration: Theme.durationSm
             easing.type: Theme.easingDecelerate
         }
     }
     Behavior on itemScale {
+        enabled: root.microAnimationAllowed()
         NumberAnimation {
             duration: Theme.durationMicro
             easing.type: Theme.easingDecelerate
         }
     }
     Behavior on iconLift {
+        enabled: root.microAnimationAllowed()
         NumberAnimation {
             duration: Theme.durationSm
             easing.type: Theme.easingDecelerate
@@ -100,9 +113,11 @@ Item {
             }
 
             Behavior on width {
+                enabled: root.microAnimationAllowed()
                 NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingDecelerate }
             }
             Behavior on opacity {
+                enabled: root.microAnimationAllowed()
                 NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingDecelerate }
             }
         }
@@ -208,6 +223,7 @@ Item {
             }
 
             Behavior on opacity {
+                enabled: root.microAnimationAllowed()
                 NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingDecelerate }
             }
         }
