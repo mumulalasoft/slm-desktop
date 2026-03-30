@@ -123,9 +123,13 @@
 - [ ] Definisikan profile animasi workspace:
   - switch: slide horizontal antar workspace (+ optional parallax ringan).
   - overview: scale-down window + grid sederhana.
-- [ ] Definisikan active/inactive visual response:
+- [~] Definisikan active/inactive visual response:
   - trigger dari focus compositor.
   - perubahan ringan shadow/opacity, tanpa animasi berat.
+  - [x] Baseline diterapkan pada `Qml/components/workspace/WindowThumbnail.qml`:
+    - focus compositor (`windowData.focused`) memicu `focusBlend` state.
+    - perubahan ringan border/opacity/glow dengan `Theme.durationFast` + `Theme.easingLight`.
+    - tanpa animasi berat; hanya emphasis visual halus untuk active vs inactive.
 - [ ] Implement kondisi disable/degrade animasi:
   - CPU tinggi, GPU fallback, battery saver, dan accessibility `reduce motion`.
   - [x] safe mode/recovery mode: paksa mode animasi `off` (tanpa transition dekoratif).

@@ -11,6 +11,8 @@ Item {
     property bool showCloseButton: true
     property string iconSource: "qrc:/icons/logo.svg"
     property bool transitionActive: false
+    readonly property bool focusedWindow: !!(windowData && windowData.focused)
+    property real focusBlend: focusedWindow ? 1.0 : 0.0
 
     property bool wasDragged: false
     property string dragViewId: String((windowData && windowData.viewId) || "")
@@ -47,6 +49,10 @@ Item {
     Drag.hotSpot.y: height / 2
     Drag.keys: [ "workspaceWindowThumbnail" ]
 
+    Behavior on focusBlend {
+        enabled: !root.transitionActive && Theme.animationsEnabled
+        NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingLight }
+    }
     Behavior on x { enabled: !root.transitionActive; NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingDecelerate } }
     Behavior on y { enabled: !root.transitionActive; NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingDecelerate } }
     Behavior on width { enabled: !root.transitionActive; NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingDecelerate } }
@@ -54,12 +60,29 @@ Item {
 
     Rectangle {
         anchors.fill: parent
+        anchors.margins: -2
+        radius: Theme.radiusControlLarge + 2
+        color: Theme.color("accent")
+        opacity: root.focusBlend * Theme.opacityFaint
+        visible: opacity > 0
+    }
+
+    Rectangle {
+        anchors.fill: parent
         radius: Theme.radiusControlLarge
         color: "transparent"
-        border.width: !!(windowData && windowData.focused) ? 2 : 1
-        border.color: !!(windowData && windowData.focused)
+        border.width: root.focusedWindow ? Theme.borderWidthThick : Theme.borderWidthThin
+        border.color: root.focusedWindow
                       ? Theme.color("accent")
                       : Theme.color("workspaceWindowBorderUnfocused")
+        Behavior on border.width {
+            enabled: !root.transitionActive && Theme.animationsEnabled
+            NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingLight }
+        }
+        Behavior on border.color {
+            enabled: !root.transitionActive && Theme.animationsEnabled
+            ColorAnimation { duration: Theme.durationFast; easing.type: Theme.easingLight }
+        }
     }
 
     Image {
@@ -70,6 +93,11 @@ Item {
         source: String((windowData && windowData.previewSource) || "")
         smooth: true
         visible: source.toString().length > 0
+        opacity: Theme.opacityMuted + (root.focusBlend * (Theme.opacitySurfaceStrong - Theme.opacityMuted))
+        Behavior on opacity {
+            enabled: !root.transitionActive && Theme.animationsEnabled
+            NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingLight }
+        }
     }
 
     Rectangle {
@@ -78,6 +106,11 @@ Item {
         radius: Theme.radiusControl
         color: Theme.color("workspaceWindowPlaceholder")
         visible: !previewImage.visible
+        opacity: Theme.opacityMuted + (root.focusBlend * (Theme.opacitySurfaceStrong - Theme.opacityMuted))
+        Behavior on opacity {
+            enabled: !root.transitionActive && Theme.animationsEnabled
+            NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingLight }
+        }
     }
 
     Image {
@@ -125,6 +158,11 @@ Item {
         color: Theme.color("workspaceCaptionBg")
         border.width: Theme.borderWidthThin
         border.color: Theme.color("workspaceCaptionBorder")
+        opacity: Theme.opacityMuted + (root.focusBlend * (Theme.opacitySurfaceStrong - Theme.opacityMuted))
+        Behavior on opacity {
+            enabled: !root.transitionActive && Theme.animationsEnabled
+            NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingLight }
+        }
 
         Row {
             anchors.fill: parent
