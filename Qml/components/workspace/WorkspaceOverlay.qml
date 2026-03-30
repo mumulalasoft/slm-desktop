@@ -40,7 +40,7 @@ Item {
     }
 
     Behavior on workspaceSwitchOffset {
-        NumberAnimation { duration: root.smoothMotionDuration; easing.type: Theme.easingStandard }
+        NumberAnimation { duration: root.smoothMotionDuration; easing.type: Theme.easingDecelerate }
     }
 
     function isShellWindow(appId, title) {

@@ -34,6 +34,7 @@ Item {
     property bool workspaceSwipeActive: MultitaskingController.workspaceSwipeActive
     property bool workspaceSwipeSettling: MultitaskingController.workspaceSwipeSettling
     property bool workspaceLifecycleActive: false
+    property bool workspaceSwitchLifecycleActive: false
     property bool windowLifecycleActive: false
     property bool windowFocusLifecycleActive: false
     property bool windowLifecycleProfilePinned: false
@@ -248,6 +249,11 @@ Item {
                 typeof MotionController !== "undefined" && MotionController &&
                 MotionController.endLifecycleTransition) {
             MotionController.endLifecycleTransition("workspace.overview")
+        }
+        if (root.workspaceSwitchLifecycleActive &&
+                typeof MotionController !== "undefined" && MotionController &&
+                MotionController.endLifecycleTransition) {
+            MotionController.endLifecycleTransition("workspace.switch")
         }
         if (root.windowLifecycleActive &&
                 typeof MotionController !== "undefined" && MotionController &&
@@ -527,6 +533,13 @@ Item {
                 root.spaceHudBootstrapped = true
             }
             root.lastKnownActiveSpace = nextSpace
+            if (nextSpace !== prevSpace &&
+                    typeof MotionController !== "undefined" && MotionController &&
+                    MotionController.beginLifecycleTransition) {
+                MotionController.beginLifecycleTransition("workspace.switch", MotionController.MediumPriority)
+                root.workspaceSwitchLifecycleActive = true
+                workspaceSwitchLifecycleReleaseTimer.restart()
+            }
         }
     }
 
@@ -574,6 +587,20 @@ Item {
         }
         root.releaseWindowLifecycleProfile()
     }
+    }
+
+    Timer {
+        id: workspaceSwitchLifecycleReleaseTimer
+        interval: Theme.durationWorkspace
+        repeat: false
+        onTriggered: {
+            if (root.workspaceSwitchLifecycleActive &&
+                    typeof MotionController !== "undefined" && MotionController &&
+                    MotionController.endLifecycleTransition) {
+                MotionController.endLifecycleTransition("workspace.switch")
+                root.workspaceSwitchLifecycleActive = false
+            }
+        }
     }
 
     Connections {

@@ -53,10 +53,10 @@ Item {
         enabled: !root.transitionActive && Theme.animationsEnabled
         NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingLight }
     }
-    Behavior on x { enabled: !root.transitionActive; NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingDecelerate } }
-    Behavior on y { enabled: !root.transitionActive; NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingDecelerate } }
-    Behavior on width { enabled: !root.transitionActive; NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingDecelerate } }
-    Behavior on height { enabled: !root.transitionActive; NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingDecelerate } }
+    Behavior on x { enabled: !root.transitionActive; NumberAnimation { duration: Theme.durationNormal; easing.type: Theme.easingDecelerate } }
+    Behavior on y { enabled: !root.transitionActive; NumberAnimation { duration: Theme.durationNormal; easing.type: Theme.easingDecelerate } }
+    Behavior on width { enabled: !root.transitionActive; NumberAnimation { duration: Theme.durationNormal; easing.type: Theme.easingDecelerate } }
+    Behavior on height { enabled: !root.transitionActive; NumberAnimation { duration: Theme.durationNormal; easing.type: Theme.easingDecelerate } }
 
     Rectangle {
         anchors.fill: parent
