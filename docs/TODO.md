@@ -452,20 +452,35 @@ Rule 5: SystemModalLayer bypass semua state
 ### Implementation Phases
 
 #### Phase 1 — Audit & Baseline (refactor, no new feature)
-- [ ] Audit `Qml/DesktopScene.qml`: identifikasi semua "page switch" pattern, ganti ke state binding
-- [ ] Audit semua z-order assignment di overlay windows — buat konstanta di Theme atau ShellConst
-- [ ] Definisikan `ShellState` sebagai QML singleton / C++ `QObject` dengan `Q_PROPERTY` per field
-- [ ] Pastikan `DockLayer` dan `TopBarLayer` tidak pernah di-`visible: false` atau `destroy()`
-- [ ] Verifikasi `WorkspaceLayer` tidak di-reset pada setiap mode change
+- [x] Audit `Qml/DesktopScene.qml`: identifikasi semua "page switch" pattern, ganti ke state binding
+  - Findings: boolean state machine (launchpadVisible, workspaceVisible, styleGalleryVisible),
+    direct assignments in signal handlers — no formal state machine.
+  - Anti-pattern: `TopBarWindow.qml:19` hidden `!desktopScene.launchpadVisible` → **fixed**.
+- [x] Audit semua z-order assignment di overlay windows — buat konstanta di `ShellConst`
+  - Created `Qml/ShellZOrder.qml` singleton with named constants.
+  - DockWindow and TopBarWindow updated to use `ShellZOrder.dock` / `ShellZOrder.topBar`.
+  - Remaining: internal DesktopScene z-values (different coordinate space, future phase).
+- [x] Definisikan `ShellState` sebagai QML singleton
+  - Created `Qml/ShellState.qml`: overlay flags + derived per-layer opacity/blur state.
+  - DesktopScene syncs `launchpadVisible`, `workspaceOverviewVisible`, `styleGalleryVisible`.
+  - Main.qml syncs `toTheSpotVisible`.
+  - WorkspaceWindow, TopBarWindow, DockWindow now bind to `ShellState` values.
+- [x] Pastikan `DockLayer` dan `TopBarLayer` tidak pernah di-`visible: false` saat overlay aktif
+  - TopBar: removed `!desktopScene.launchpadVisible` guard — now always visible, opacity-dimmed.
+  - LaunchpadWindow: offset `launchpadFrame` to `y: panelHeight` so TopBar panel shows through.
+  - DockWindow: opacity driven by `ShellState.dockOpacity` (0.0 while launchpad shows own dock).
+- [x] Verifikasi `WorkspaceLayer` tidak di-reset pada setiap mode change
+  - Audit confirmed: no `workspaceState = {}` or full reset on mode change — state preserved. ✓
 
 #### Phase 2 — ShellStateController
+- [~] Semua overlay bind ke `ShellState` (partial — opacity/visibility wired for Dock, TopBar, Workspace)
 - [ ] Implementasi `ShellStateController` (C++ `QObject`, exposed ke QML) dengan:
   - `requestMode(ShellMode mode, QString source)`
   - `cancelMode(ShellMode mode)`
   - `toggleOverlay(OverlayType overlay)`
   - `Q_PROPERTY ShellState currentState`
-- [ ] Semua overlay (Launchpad, Overview, ToTheSpot) bind opacity/visibility ke `ShellState`
-- [ ] Semua persistent layer bind opacity/blur/input ke `ShellState`
+- [ ] Invert write direction: ShellStateController becomes sole writer to ShellState;
+  DesktopScene / Main.qml call requestMode() instead of setting booleans directly
 - [ ] Unit test: `shell_state_controller_test` — mode request, cancel, concurrent overlay
 
 #### Phase 3 — InputRouter

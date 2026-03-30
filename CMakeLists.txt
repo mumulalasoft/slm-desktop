@@ -728,11 +728,15 @@ set_source_files_properties(
     third_party/slm-style/qml/SlmStyle/Theme.qml
     PROPERTIES QT_QML_SINGLETON_TYPE TRUE
 )
+set_source_files_properties(Qml/ShellState.qml  PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
+set_source_files_properties(Qml/ShellZOrder.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
 
 set(DESKTOP_SHELL_QML_FILES
     Main.qml
     third_party/slm-style/qml/SlmStyle/Theme.qml
     Qml/IndicatorRegistry.qml
+    Qml/ShellState.qml
+    Qml/ShellZOrder.qml
     Qml/DesktopScene.qml
     Qml/apps/filemanager/FileManagerShareSheet.qml
     Qml/apps/filemanager/RecursiveMenu.qml

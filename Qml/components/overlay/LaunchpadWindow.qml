@@ -11,6 +11,9 @@ Window {
     required property var appsModel
     required property var dockModel
 
+    // Panel height reserved at the top so TopBarWindow (persistent) shows through.
+    readonly property int panelHeight: desktopScene ? desktopScene.panelHeight : 34
+
     signal appChosen(var appData)
     signal addToDockRequested(var appData)
     signal addToDesktopRequested(var appData)
@@ -96,8 +99,13 @@ Window {
             }
         }
 
+        // Dismiss area excludes the top panel strip so TopBar remains interactive.
         MouseArea {
-            anchors.fill: parent
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.topMargin: root.panelHeight
+            anchors.bottom: parent.bottom
             z: 0
             onClicked: desktopScene.launchpadVisible = false
         }
@@ -106,9 +114,9 @@ Window {
             id: launchpadFrame
             z: 1
             x: 0
-            y: 0
+            y: root.panelHeight
             width: parent.width
-            height: parent.height
+            height: parent.height - root.panelHeight
             radius: 0
             clip: false
             color: "transparent"

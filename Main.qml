@@ -198,6 +198,7 @@ ApplicationWindow {
                                        ? Number(UIPreferences.getPreference("tothespot.windowHeight", -1)) : -1
     property bool tothespotRestoringGeometry: false
     onTothespotVisibleChanged: {
+        ShellState.toTheSpotVisible = tothespotVisible
         if (lockScreenVisible && tothespotVisible) {
             tothespotVisible = false
             return

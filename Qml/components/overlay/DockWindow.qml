@@ -10,8 +10,10 @@ Item {
     required property var appsModel
     readonly property alias dockItem: dockSurface
 
+    // DockLayer is persistent — visibility never toggled by mode.
+    // Opacity is driven by ShellState: hidden when launchpad shows its own dock.
     visible: !!rootWindow && rootWindow.visible
-    z: 230
+    z: ShellZOrder.dock
     readonly property int zoomHeadroom: 76
     readonly property bool headroomActive: dockSurface.hovered || (desktopScene ? desktopScene.pointerNearDock : false)
     x: Math.round(((rootWindow ? rootWindow.width : width) - width) / 2)
@@ -24,7 +26,7 @@ Item {
         id: dockSurface
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
-        opacity: 1.0
+        opacity: ShellState.dockOpacity
         appsModel: root.appsModel
 
         Behavior on opacity {
