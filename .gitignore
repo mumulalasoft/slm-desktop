@@ -81,3 +81,6 @@ CMakeLists.txt.user*
 .uic/
 /build*/
 /Testing/
+
+# Local assistant workspace metadata
+.claude/
