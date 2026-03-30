@@ -23,7 +23,7 @@ Rectangle {
 
         FileManagerTabBar {
             Layout.fillWidth: true
-            Layout.preferredHeight: 28
+            Layout.preferredHeight: Theme.controlHeightRegular
             hostRoot: root.hostRoot
             tabModel: root.tabModel
         }
@@ -127,7 +127,7 @@ Rectangle {
 
         FileManagerFooterBar {
             Layout.fillWidth: true
-            Layout.preferredHeight: 30
+            Layout.preferredHeight: Theme.fileManagerStatusBarHeight
             Layout.bottomMargin: 4
             hostRoot: root.hostRoot
         }

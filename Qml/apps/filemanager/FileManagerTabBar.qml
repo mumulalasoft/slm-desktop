@@ -51,7 +51,7 @@ Rectangle {
 
         Rectangle {
             Layout.fillWidth: true
-            Layout.preferredHeight: 22
+            Layout.preferredHeight: Theme.controlHeightCompact
             color: "transparent"
             clip: true
 
@@ -71,7 +71,7 @@ Rectangle {
                     readonly property real availableTabsWidth: Math.max(
                                                                    120, contentTabsView.width - Math.max(0, (tabCountValue - 1) * contentTabsView.spacing))
                     width: Math.max(96, Math.floor(availableTabsWidth / tabCountValue))
-                    height: 22
+                    height: Theme.controlHeightCompact
                     radius: Theme.radiusControl
                     color: hostRoot.activeTabIndex === index ? Theme.color("fileManagerTabActive") : "transparent"
                     border.width: Theme.borderWidthNone
