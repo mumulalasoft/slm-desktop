@@ -45,7 +45,13 @@ private slots:
             base + QStringLiteral("/Qml/components/applet/PrintJobApplet.qml"),
             base + QStringLiteral("/Qml/components/applet/DatetimeApplet.qml"),
             base + QStringLiteral("/Qml/components/applet/ScreencastIndicator.qml"),
-            base + QStringLiteral("/Qml/components/applet/InputCaptureIndicator.qml")
+            base + QStringLiteral("/Qml/components/applet/InputCaptureIndicator.qml"),
+            base + QStringLiteral("/Qml/components/indicators/AppIndicatorItem.qml"),
+            base + QStringLiteral("/Qml/components/style/WindowControlsCapsule.qml"),
+            base + QStringLiteral("/Qml/apps/settings/components/SettingToggle.qml"),
+            base + QStringLiteral("/Qml/apps/filemanager/FileManagerMenus.qml"),
+            base + QStringLiteral("/Qml/apps/filemanager/FileManagerHeaderBar.qml"),
+            base + QStringLiteral("/Qml/apps/settings/Main.qml")
         };
 
         for (const QString &file : files) {

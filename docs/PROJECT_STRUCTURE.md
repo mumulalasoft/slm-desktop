@@ -64,7 +64,7 @@ Under `src/services/`:
 ## Styling
 
 - Shared style library: `third_party/slm-style/`
-- Project theme shim/token bridge: `Qml/Theme.qml`
+- Project theme shim/token bridge: `third_party/slm-style/qml/SlmStyle/Theme.qml`
 - Legacy `Style/` directory is removed from this repo.
 
 ## Scripts and Ops

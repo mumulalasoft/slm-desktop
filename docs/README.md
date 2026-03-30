@@ -47,7 +47,7 @@ Detail tier map:
 
 - `main.cpp`: app bootstrap and QML engine entry.
 - `Main.qml`: top-level frameless window.
-- `Qml/Theme.qml`: centralized singleton theme (macOS-like glass palette) with light/dark + system-follow mode.
+- `third_party/slm-style/qml/SlmStyle/Theme.qml`: centralized singleton theme (macOS-like glass palette) with light/dark + system-follow mode.
 - `Qml/DesktopScene.qml`: orchestration layer for desktop background, top bar, dock, launchpad, and workspace windows.
 - `Qml/components/DesktopBackground.qml`: wallpaper and tint layer.
 - `Qml/components/TopBar.qml`: macOS-like status/menu bar shell.
@@ -113,7 +113,7 @@ Lihat detail kontrak portal di `docs/PORTAL.md`.
 ## Style source
 
 - Shared style components sekarang bersumber dari `third_party/slm-style`.
-- Token bridge project tetap diekspos via `Qml/Theme.qml`.
+- Token bridge project tetap diekspos via `third_party/slm-style/qml/SlmStyle/Theme.qml`.
 - Legacy local style folder `Style/` sudah dipindahkan dari repo utama.
 
 ## Tothespot Scope Naming (Canonical)

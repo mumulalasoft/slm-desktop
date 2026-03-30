@@ -12,7 +12,7 @@ fi
 
 collect_all_targets() {
   find Qml -type f -name '*.qml' \
-    ! -path 'Qml/Theme.qml' \
+    ! -path 'third_party/slm-style/qml/SlmStyle/Theme.qml' \
     ! -path 'Qml/vendor/*' \
     ! -path 'Qml/3rdparty/*' | sort
 }

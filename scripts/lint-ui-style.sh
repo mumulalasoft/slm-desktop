@@ -149,7 +149,7 @@ check "no IPP color value 'monochrome' in UI" \
   "value\\s*:\\s*\"monochrome\""
 
 if [[ "${FAILED}" -ne 0 ]]; then
-  echo "[lint-ui-style] style lint failed. Promote constants to Qml/Theme.qml tokens." >&2
+  echo "[lint-ui-style] style lint failed. Promote constants to third_party/slm-style/qml/SlmStyle/Theme.qml tokens." >&2
   exit 1
 fi
 

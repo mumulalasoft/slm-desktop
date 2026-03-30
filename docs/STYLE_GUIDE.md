@@ -4,7 +4,7 @@ This guide defines the visual rules for SLM Desktop QML UI so future changes sta
 
 ## 1. Source of Truth
 
-- Use `Qml/Theme.qml` as the only source for visual tokens.
+- Use `third_party/slm-style/qml/SlmStyle/Theme.qml` as the only source for visual tokens.
 - Do not hardcode radius, border width, or core surface opacity in component files.
 - Prefer `Theme.color("...")` tokens over literal hex colors for app UI surfaces and text.
 
@@ -104,8 +104,8 @@ Default:
 ### 5.2 Hex Literal Policy
 
 - Do not use direct hex colors (for example `#rrggbb`/`#aarrggbb`) in `Qml/components/**`, `Qml/DesktopScene.qml`, or `Main.qml`.
-- Define or update tokens in `Qml/Theme.qml`, then consume via `Theme.color("...")`.
-- Exception: Only `Qml/Theme.qml` stores palette hex values.
+- Define or update tokens in `third_party/slm-style/qml/SlmStyle/Theme.qml`, then consume via `Theme.color("...")`.
+- Exception: Only `third_party/slm-style/qml/SlmStyle/Theme.qml` stores palette hex values.
 
 ## 6. Text Selection Rules
 
@@ -153,7 +153,7 @@ Before merging UI changes:
 1. No new hardcoded `radius:` numeric values (except intentional `0`).
 2. No new hardcoded `border.width:` numeric values.
 3. No new hardcoded popup/card opacity values where Theme token exists.
-4. No new hardcoded hex colors outside `Qml/Theme.qml`.
+4. No new hardcoded hex colors outside `third_party/slm-style/qml/SlmStyle/Theme.qml`.
 5. No new hardcoded numeric `font.pixelSize` values.
 6. No direct `font.bold` usage and no direct literal `font.weight`.
 7. Build passes:

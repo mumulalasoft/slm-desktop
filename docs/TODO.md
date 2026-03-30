@@ -22,17 +22,19 @@
 - [ ] Add optional preview pane for non-compact popup mode.
 
 ## Backlog (Theme)
-- [ ] Elevation/shadow tokens:
-  - unify popup/window shadow strength (`elevationLow/Medium/High`).
-- [ ] Motion tokens:
-  - replace ad-hoc durations/easing with shared animation tokens.
-- [ ] Semantic control states:
-  - define `controlBgHover/Pressed/Disabled`, `textDisabled`, `focusRing`.
+- [x] Elevation/shadow tokens:
+  - `elevationLow/Medium/High` semantic aliases added to `third_party/slm-style/qml/SlmStyle/Theme.qml`.
+- [x] Motion tokens:
+  - all duration tokens (`durationFast/Normal/Slow/Workspace/Micro/Sm/Md/Lg/Xl`) in `Theme.qml`, scaled by `_modeScale`.
+  - physics tokens (`physicsSpring/Damping/Mass` × 3 presets + `physicsEpsilon`) in `Theme.qml`.
+  - easing aliases (`easingDefault`, `easingLight`) added.
+- [x] Semantic control states:
+  - `controlBgHover`, `controlBgPressed`, `controlDisabledBg`, `controlDisabledBorder`, `textDisabled`, `focusRing` present in `Theme.qml` light/dark palettes.
 - [ ] FileManager density pass:
   - align toolbar/search/tab/status heights to compact token grid.
 - [ ] Add high-contrast mode toggle in `UIPreferences` + runtime Theme switch.
-- [ ] Add reduced-motion mode toggle:
-  - scale/disable non-essential transitions globally.
+- [x] Add reduced-motion mode toggle:
+  - `UIPreferences.animationMode` (`full`/`reduced`/`minimal`) + `Theme._modeScale` + `MotionController.reducedMotion` wired in `main.cpp`.
 - [ ] Add optional dynamic wallpaper sampling tint with contrast guardrail.
 - [~] SlmStyle migration guardrail:
   - [x] Runtime default Qt Quick Controls style switched to `SlmStyle` (`main.cpp`, `src/apps/settings/main.cpp`, `src/login/greeter/main.cpp`).
@@ -96,21 +98,23 @@
       - [x] Added contract test coverage (`windowingbackendmanager_test`) for workspace command mapping + lifecycle canonicalization.
 - [~] Standardisasi timing global (single source of truth):
   - `Fast=120ms`, `Normal=220ms`, `Slow=320ms`, `Workspace=400ms`.
-  - implemented token baseline in `Qml/Theme.qml`: `durationFast/Normal/Slow/Workspace` (+ safe-mode off gate).
+  - implemented token baseline in `third_party/slm-style/qml/SlmStyle/Theme.qml`: `durationFast/Normal/Slow/Workspace` (+ safe-mode off gate).
   - notification stack migrated to global tokens/easing.
   - desktop/workspace baseline migrated: `Qml/DesktopScene.qml`, `Qml/components/workspace/WorkspaceOverlay.qml`.
   - overlay/topbar/indicators baseline migrated: `Qml/components/overlay/{DockWindow,ClipboardOverlay,ClipboardOverlayWindow}.qml`, `Qml/components/topbar/{TopBar,TopBarMainMenuControl,TopBarSearchButton}.qml`, `Qml/components/indicators/IndicatorManager.qml`.
   - applet/compositor/shell baseline migrated: `Qml/components/applet/{ScreencastIndicator,SoundApplet,BluetoothApplet,ClipboardApplet,BatteryApplet,InputCaptureIndicator,NetworkApplet,BatchOperationIndicator,DatetimeApplet}.qml`, `Qml/components/compositor/CompositorSwitcherOverlay.qml`, `Qml/components/dock/DockReorderMarker.qml`, `Qml/components/shell/ShellShortcutTile.qml`, `Qml/components/{AppWindow}.qml`, `Qml/components/desktop/DesktopBackground.qml`.
   - settings/filemanager/dock/polkit batch migrated: `Qml/apps/settings/{Main,Sidebar}.qml`, `Qml/apps/settings/components/{SettingToggle,SettingCard,FontPickerDialog}.qml`, `Qml/apps/filemanager/{FileManagerContentView,FileManagerHeaderBar,FileManagerToolbar,FileOperationsProgressOverlay,FileManagerShareSheet,FileManagerMenus}.qml`, `Qml/components/dock/{Dock,DockItem}.qml`, `Qml/polkit-agent/AuthDialog.qml`.
   - greeter/launchpad/print/portalchooser batch migrated: `Qml/greeter/{Main,LoginPage}.qml`, `Qml/components/launchpad/Launchpad.qml`, `Qml/components/print/{PrintAdvancedPanel,PrinterFeatureSection}.qml`, `Qml/components/portalchooser/PortalChooserPathBar.qml`.
-  - final QML sweep complete: no remaining hardcoded `duration:<number>` / `easing.type: Easing.*` outside token definitions in `Qml/Theme.qml` (verified via `rg`).
+  - final QML sweep complete: no remaining hardcoded `duration:<number>` / `easing.type: Easing.*` outside token definitions in `third_party/slm-style/qml/SlmStyle/Theme.qml` (verified via `rg`).
   - hapus hardcoded duration tersebar; migrasi ke `AnimationTokens`.
 - [~] Standardisasi easing & physics:
   - default `EaseOutCubic`.
   - alternatif ringan `EaseOutQuad`.
   - spring untuk transisi natural tertentu.
   - larang `Linear` untuk lifecycle utama.
-  - [ ] Physics token global (`spring/damping/mass/epsilon`) sebagai single source + migrasi komponen yang masih literal.
+  - [x] Physics token global (`spring/damping/mass/epsilon`) sebagai single source + migrasi komponen yang masih literal.
+      - implemented in `third_party/slm-style/qml/SlmStyle/Theme.qml`: `physicsSpringGentle/Default/Snappy`, `physicsDamping*/physicsMass*`, `physicsEpsilon`.
+      - migrated: `DockReorderMarker.qml`, `DockItem.qml`, `NotificationApplet.qml`, `NotificationCenter.qml`.
 - [ ] Definisikan profile animasi window (safe/non-patent):
   - open: `scale 0.96->1.0`, `opacity 0->1`, `translateY kecil (8-16)`.
   - minimize: scale down + translate ke arah dock + fade ringan (tanpa genie/curved warp).
@@ -120,9 +124,13 @@
     - event `window-minimized` -> profile `window.minimize` (`preset=snappy`, release `Theme.durationFast`)
     - event `window-closing/window-closed` -> profile `window.close` (`preset=snappy`, release `Theme.durationFast`)
     - profile push/pop aman (restore channel+preset `MotionController` setelah lifecycle selesai/destruction)
-- [ ] Definisikan profile animasi workspace:
+- [x] Definisikan profile animasi workspace:
   - switch: slide horizontal antar workspace (+ optional parallax ringan).
+    - [x] `workspace.switch` lifecycle wired in `DesktopScene.qml` (`MediumPriority`, timed release `durationWorkspace`).
+    - [x] `WorkspaceOverlay` switch Behavior easing fixed to `easingDecelerate` (OutCubic).
   - overview: scale-down window + grid sederhana.
+    - [x] `workspace.overview` lifecycle already active via `syncWorkspaceLifecycleState`.
+    - [x] `WindowThumbnail` grid layout animation upgraded to `durationNormal` + `easingDecelerate`.
 - [~] Definisikan active/inactive visual response:
   - trigger dari focus compositor.
   - perubahan ringan shadow/opacity, tanpa animasi berat.
@@ -130,15 +138,24 @@
     - focus compositor (`windowData.focused`) memicu `focusBlend` state.
     - perubahan ringan border/opacity/glow dengan `Theme.durationFast` + `Theme.easingLight`.
     - tanpa animasi berat; hanya emphasis visual halus untuk active vs inactive.
-- [ ] Implement kondisi disable/degrade animasi:
-  - CPU tinggi, GPU fallback, battery saver, dan accessibility `reduce motion`.
+- [~] Implement kondisi disable/degrade animasi:
+  - CPU tinggi, GPU fallback, battery saver, dan accessibility `reduce motion`. (triggers — future work)
   - [x] safe mode/recovery mode: paksa mode animasi `off` (tanpa transition dekoratif).
     - implemented runtime gate: `SLM_SESSION_MODE in {safe,recovery}` -> `SafeModeActive=true`,
       `Theme.duration* ~= 0`, `Theme.transitionDuration ~= 0`, `MotionController.reducedMotion=true`.
-  - sediakan mode `full`, `reduced`, `minimal`.
-- [ ] Integrasi frame sync:
+  - [x] sediakan mode `full`, `reduced`, `minimal`.
+    - `UIPreferences.animationMode` property + `setAnimationMode` + stored in `windowing/animationMode`.
+    - `Theme.animationMode` reads `UIPreferences.animationMode` reactively.
+    - `Theme._modeScale`: `full=1.0`, `reduced=0.60`, `minimal=0.25` — all duration tokens scaled.
+    - `MotionController.reducedMotion` set true for reduced/minimal at startup + runtime in `main.cpp`.
+- [x] Integrasi frame sync:
   - semua animasi lewat frame clock vsync.
   - pastikan sinkron lintas window/workspace untuk hindari tearing/jitter.
+  - implemented: `AnimationScheduler::setExternalDriving(true)` suspends internal `QTimer`;
+    `AnimationScheduler::windowFrame()` provides the same dt logic triggered externally.
+  - `MotionController::enableVsyncDriving()` + `windowFrame()` exposed as Q_INVOKABLE.
+  - `main.cpp`: after QML loads, connects `QQuickWindow::afterAnimating` →
+    `MotionController::windowFrame()` so gesture-driven spring physics ticks exactly at vsync.
 - [ ] Batasan micro interaction (UI-only/QML):
   - hover, click feedback, toggle.
   - durasi 100-150ms.
@@ -157,7 +174,14 @@
       `Qml/components/notification/BannerContainer.qml`,
       `Qml/components/applet/{NetworkApplet,SoundApplet,BluetoothApplet,BatteryApplet,ClipboardApplet,NotificationApplet,PrintJobApplet,DatetimeApplet,ScreencastIndicator,InputCaptureIndicator}.qml`.
     - [x] Add UI guard regression test: `tests/motion_scheduler_ui_guard_test.cpp` (critical micro-interaction files must keep `allowMotionPriority`).
-    - lanjutkan rollout guard ke komponen hover-heavy lain (minor leftovers: additional dialogs/controls outside core applets).
+    - [x] Rollout guard ke komponen hover-heavy lain:
+      `AppIndicatorItem.qml` (tray hover color/border),
+      `WindowControlsCapsule.qml` (title-button scale/opacity),
+      `SettingToggle.qml` (toggle bg color + thumb x),
+      `FileManagerMenus.qml` (share action row color),
+      `FileManagerHeaderBar.qml` (search field width),
+      `Settings/Main.qml` (back button + search border color).
+      Test extended to cover all 6 new files.
 - [ ] Terapkan anti-patent guideline:
   - hindari genie minimize, dock bounce khas Apple, dan mission-control layout identik.
   - gunakan spatial movement sederhana + scale/fade + easing internal SLM.
