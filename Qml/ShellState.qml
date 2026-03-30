@@ -2,57 +2,43 @@ pragma Singleton
 
 import QtQuick 2.15
 
-// Centralized shell mode state — single source of truth for overlay visibility
-// and per-layer derived state.
+// Centralized shell mode state — thin reactive view over ShellStateController (C++).
 //
-// Phase 1 (current): DesktopScene / Main.qml write here on state change.
-//   Overlay components read here instead of directly binding to desktopScene.
-// Phase 2 (future): ShellStateController becomes the sole writer; all callers
-//   go through requestMode() / toggleOverlay() instead of setting these directly.
+// ShellStateController (C++) is the sole writer and source of truth.
+// QML components read from this singleton; overlay/layer components must NOT
+// bind directly to DesktopScene or Main properties.
 //
-// NOTE: Use ShellState.xxx bindings in overlay components, not desktopScene.xxx,
-//   so the binding point can be migrated in Phase 2 without touching every file.
+// Phase 2 (current): all property reads/writes go through ShellStateController.
+//   DesktopScene / Main.qml call ShellStateController.setXxx() instead of
+//   writing local booleans.
 //
 QtObject {
     id: root
 
     // ── Overlay visibility ────────────────────────────────────────────────────
-    // Written by DesktopScene.qml and Main.qml on every state change.
-    property bool launchpadVisible:          false
-    property bool workspaceOverviewVisible:  false
-    property bool toTheSpotVisible:          false
-    property bool styleGalleryVisible:       false
+    // Read-only from QML; backed by ShellStateController C++ object.
+    readonly property bool launchpadVisible:         ShellStateController ? ShellStateController.launchpadVisible : false
+    readonly property bool workspaceOverviewVisible: ShellStateController ? ShellStateController.workspaceOverviewVisible : false
+    readonly property bool toTheSpotVisible:         ShellStateController ? ShellStateController.toTheSpotVisible : false
+    readonly property bool styleGalleryVisible:      ShellStateController ? ShellStateController.styleGalleryVisible : false
 
     // ── Shell mode flags ──────────────────────────────────────────────────────
-    property bool showDesktop: false
+    readonly property bool showDesktop: ShellStateController ? ShellStateController.showDesktop : false
 
     // ── Derived per-layer state ───────────────────────────────────────────────
-    // These are computed from the overlay flags above; overlay components should
-    // bind to these rather than recomputing the same logic independently.
+    // Computed in C++ and exposed via ShellStateController properties.
 
-    // TopBarLayer: always visible — opacity dims slightly while launchpad is open
-    // so it blends with the launchpad frosted backdrop.
-    readonly property real topBarOpacity: launchpadVisible ? 0.72 : 1.0
+    // TopBarLayer: always visible — opacity dims slightly while launchpad is open.
+    readonly property real topBarOpacity:   ShellStateController ? ShellStateController.topBarOpacity : 1.0
 
-    // DockLayer: visible in all modes; dims while launchpad occupies full screen.
-    readonly property real dockOpacity: {
-        if (showDesktop) return 0.0
-        if (launchpadVisible) return 0.0  // LaunchpadWindow shows its own dock
-        return 1.0
-    }
+    // DockLayer: hidden while launchpad or show-desktop is active.
+    readonly property real dockOpacity:     ShellStateController ? ShellStateController.dockOpacity : 1.0
 
     // WorkspaceLayer: blurred during fullscreen overlays.
-    readonly property bool workspaceBlurred: launchpadVisible || showDesktop
-    readonly property real workspaceBlurAlpha: {
-        if (launchpadVisible) return 0.50
-        if (showDesktop) return 0.40
-        return 0.0
-    }
-    // Workspace interaction blocked only during fullscreen overlays (not overview,
-    // where users can still drag windows).
-    readonly property bool workspaceInteractionBlocked: launchpadVisible
+    readonly property bool workspaceBlurred:      ShellStateController ? ShellStateController.workspaceBlurred : false
+    readonly property real workspaceBlurAlpha:    ShellStateController ? ShellStateController.workspaceBlurAlpha : 0.0
+    readonly property bool workspaceInteractionBlocked: ShellStateController ? ShellStateController.workspaceInteractionBlocked : false
 
     // ── Convenience predicates ────────────────────────────────────────────────
-    readonly property bool anyOverlayVisible:
-        launchpadVisible || workspaceOverviewVisible || toTheSpotVisible || styleGalleryVisible
+    readonly property bool anyOverlayVisible: ShellStateController ? ShellStateController.anyOverlayVisible : false
 }

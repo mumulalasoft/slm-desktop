@@ -63,6 +63,8 @@ set(DESKTOP_SHELL_MODELS_AND_RUNTIME
     src/core/motion/slmgesturebinding.h
     src/core/motion/slmmotioncontroller.cpp
     src/core/motion/slmmotioncontroller.h
+    src/core/shell/shellstatecontroller.cpp
+    src/core/shell/shellstatecontroller.h
     src/daemon/desktopd/daemonhealthmonitor.cpp
     src/daemon/desktopd/daemonhealthmonitor.h
     src/daemon/desktopd/desktopdaemonservice.cpp

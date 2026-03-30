@@ -1772,6 +1772,23 @@ target_link_libraries(motion_scheduler_ui_guard_test
 
 add_test(NAME motion_scheduler_ui_guard_test COMMAND motion_scheduler_ui_guard_test)
 
+qt_add_executable(shell_state_controller_test
+    src/core/shell/shellstatecontroller.cpp
+    src/core/shell/shellstatecontroller.h
+    tests/shell_state_controller_test.cpp
+)
+
+target_link_libraries(shell_state_controller_test
+    PRIVATE
+        Qt6::Core
+        Qt6::Qml
+        Qt6::Test
+)
+
+target_include_directories(shell_state_controller_test PRIVATE ${CMAKE_SOURCE_DIR})
+
+add_test(NAME shell_state_controller_test COMMAND shell_state_controller_test)
+
 qt_add_executable(workspace_ui_smoke_test
     tests/workspace_ui_smoke_test.cpp
 )

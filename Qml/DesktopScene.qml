@@ -267,7 +267,7 @@ Item {
         }
     }
     onStyleGalleryVisibleChanged: {
-        ShellState.styleGalleryVisible = styleGalleryVisible
+        if (ShellStateController) ShellStateController.setStyleGalleryVisible(styleGalleryVisible)
         if (!styleGalleryVisible) {
             syncDockHidePrefs()
         }
@@ -545,11 +545,11 @@ Item {
     }
 
     onLaunchpadVisibleChanged: {
-        ShellState.launchpadVisible = launchpadVisible
+        if (ShellStateController) ShellStateController.setLaunchpadVisible(launchpadVisible)
         pushLaunchpadToCompositor()
     }
     onWorkspaceVisibleChanged: {
-        ShellState.workspaceOverviewVisible = workspaceVisible
+        if (ShellStateController) ShellStateController.setWorkspaceOverviewVisible(workspaceVisible)
         syncWorkspaceLifecycleState()
         pushWorkspaceVisibilityToCompositor()
     }
