@@ -200,6 +200,296 @@
   - UI lint baseline guardrail aktif: `scripts/lint-ui-style.sh` support allowlist `config/lint/ui-style-allowlist.txt` (new violations fail, debt lama tetap terpantau).
   - [x] baseline debt reduction complete: notification/applet/workspace/dock/system/overlay/print/style migrated; `ui-style-allowlist` now empty.
 
+## Program (Fondasi Arsitektur Shell: Layer System & State Machine)
+
+> Desain ulang fondasi shell desktop menjadi arsitektur layer-based yang stabil, state-driven,
+> dan "unbreakable". Inspirasi: macOS layer model.
+> Terminologi: **TopBar** (bukan MenuBar), **WorkspaceLayer** (bukan OverviewLayer),
+> **ToTheSpotLayer** (bukan SpotlightLayer).
+
+### Prinsip Utama
+
+- Shell adalah **state machine tunggal** — satu source of truth untuk seluruh UI mode.
+- UI dibagi ke dua kategori: **Persistent Layer** (tidak pernah di-destroy) dan
+  **Transient / Overlay Layer** (muncul-hilang sesuai state).
+- Tidak ada "page switching" atau navigation-based UI. Semua mode adalah state, bukan halaman.
+- Animasi harus reversible, interruptible, dan berbasis state — bukan trigger event.
+
+### Diagram Arsitektur Layer (ShellRoot)
+
+```
+ShellRoot                        z-order (low → high)
+ ├─ WallpaperLayer                 0   — static background, never redrawn
+ ├─ DesktopLayer                   10  — desktop icons, widgets
+ ├─ WorkspaceLayer                 20  — window stack, compositor surface, focus management
+ ├─ DockLayer            [P]       30  — persistent, opacity-only changes
+ ├─ TopBarLayer          [P]       40  — persistent, context-aware controls
+ ├─ LaunchpadLayer       [T]       50  — fullscreen overlay, lazy-loaded
+ ├─ WorkspaceOverviewLayer [T]     60  — mission-control style overview
+ ├─ ToTheSpotLayer       [T]       70  — global search, lightweight overlay
+ ├─ NotificationLayer    [T]       80  — banners + notification center
+ └─ SystemModalLayer               90  — polkit, crash dialogs, system alerts
+
+[P] = Persistent — always alive, never unmounted
+[T] = Transient  — created/shown on demand, state-preserved on hide
+```
+
+### Klasifikasi Layer
+
+#### Persistent Layers — tidak boleh crash, tidak boleh di-unmount
+
+- **DockLayer**: selalu aktif. Hanya berubah opacity, blur/material, dan input priority.
+  Tidak di-hide atau di-destroy saat overlay muncul.
+- **TopBarLayer**: selalu visible. Status system + entry point quick actions +
+  context-aware controls (menampilkan menu app yang aktif, indikator, dsb.).
+- **WorkspaceLayer**: mengelola window stacking, focus, workspace switching.
+  Tidak pernah di-reset saat mode berubah — hanya state-nya yang berubah (blurred, dimmed, dsb.).
+
+#### Transient / Overlay Layers — state-preserved, lazy-loaded
+
+- **LaunchpadLayer**: fullscreen overlay, workspace di-blur/dim, dock tetap visible (opsional dim).
+- **WorkspaceOverviewLayer**: tampilkan semua workspace + window, dock visible (opsional redup).
+- **ToTheSpotLayer**: search global, overlay ringan di atas semua layer, tidak ganggu workspace state.
+- **NotificationLayer**: banner transient + notification center. Independent dari mode lain.
+
+### State Machine — `ShellState`
+
+```
+ShellState {
+  // Mode flags — kombinasi diperbolehkan (kecuali yang mutex)
+  showDesktop:        bool   // window fade-out, DesktopLayer ditonjolkan
+  focusMode:          bool   // semua elemen non-aktif dim
+
+  // Overlay visibility — diatur oleh state, bukan event langsung
+  overlayState {
+    launchpadVisible:    bool
+    overviewVisible:     bool
+    toTheSpotVisible:    bool
+    notificationsVisible: bool
+  }
+
+  // Per-layer state cache
+  dockState {
+    opacity:          real   // 1.0 normal, 0.7 saat overlay, 0.0 saat showDesktop gestur
+    inputEnabled:     bool
+    blurred:          bool
+  }
+
+  topBarState {
+    opacity:          real
+    activeAppTitle:   string
+    inputEnabled:     bool
+  }
+
+  workspaceState {
+    blurred:          bool   // true saat launchpad/overview aktif
+    dimAlpha:         real   // 0.0–0.6
+    interactionBlocked: bool
+    activeWorkspaceId: int
+  }
+}
+```
+
+**Yang harus dihindari:**
+```
+// ❌ navigation-based — jangan lakukan ini
+currentPage = "desktop" | "launchpad" | "overview"
+
+// ✅ state-based — gunakan ini
+overlayState.launchpadVisible = true
+workspaceState.blurred = true
+dockState.opacity = 0.7
+```
+
+### Interface Antar Layer
+
+Setiap layer mengekspos kontrak minimal:
+
+```
+interface PersistentLayer {
+  // State setters — tidak ada side-effect antar layer
+  setBlurred(enabled: bool, alpha: real)
+  setDimmed(enabled: bool, alpha: real)
+  setInputEnabled(enabled: bool)
+  setOpacity(value: real, animated: bool)
+}
+
+interface TransientLayer : PersistentLayer {
+  show(animated: bool)
+  hide(animated: bool)
+  readonly property bool visible
+  readonly property bool animating
+}
+
+interface ShellStateController {
+  // Single entry point untuk semua mode change
+  requestMode(mode: ShellMode, source: InputSource)
+  cancelMode(mode: ShellMode)
+  toggleOverlay(overlay: OverlayType)
+}
+```
+
+Layer tidak boleh mengubah state layer lain secara langsung —
+semua perubahan melalui `ShellStateController`.
+
+### Event Flow (Input → State → Render)
+
+```
+InputEvent (keyboard / mouse / gesture / D-Bus)
+    │
+    ▼
+InputRouter
+    │  (menentukan target layer berdasarkan mode aktif)
+    ▼
+ShellStateController.requestMode() / toggleOverlay()
+    │
+    ├─ update ShellState (single write)
+    │
+    ▼
+StateBindings (reaktif — setiap layer bind ke ShellState)
+    │
+    ├─ DockLayer.setOpacity / setBlurred
+    ├─ WorkspaceLayer.setBlurred / setDimmed
+    ├─ TopBarLayer update context
+    └─ TransientLayer.show / hide
+    │
+    ▼
+AnimationController (runs entrance/exit transitions)
+    │
+    ▼
+Render (compositor frame)
+```
+
+### Behavior Rules Per Mode
+
+#### Show Desktop
+- `workspaceState.dimAlpha → 0.4`, window content fade-out
+- `DesktopLayer` opacity → 1.0
+- `DockLayer` dan `TopBarLayer` tetap fully active
+- Trigger: hot-corner, keyboard shortcut, gesture
+
+#### LaunchpadLayer aktif
+- `overlayState.launchpadVisible = true`
+- `workspaceState.blurred = true`, `dimAlpha → 0.5`
+- `dockState.opacity → 0.7` (masih visible)
+- `topBarState.inputEnabled = false` (tapi visible)
+- Dismiss: klik background, Escape, keyboard shortcut
+
+#### WorkspaceOverviewLayer aktif
+- `overlayState.overviewVisible = true`
+- `workspaceState.interactionBlocked = false` (masih bisa drag window)
+- `dockState.opacity → 0.85`
+- Tidak ada blur di TopBar
+
+#### ToTheSpotLayer aktif
+- `overlayState.toTheSpotVisible = true`
+- Workspace tidak di-blur — overlay ringan saja
+- `dockState` tidak berubah
+- Semua layer lain tetap interaktif (focus intercept only)
+
+#### Multiple overlay aktif bersamaan
+- ToTheSpot bisa coexist dengan overlay lain (z-order tertinggi)
+- Launchpad + Overview: mutex — hanya satu aktif
+- Notification: selalu independent dari overlay state
+
+### Z-Order Policy
+
+Normal state:
+```
+WallpaperLayer(0) < DesktopLayer(10) < WorkspaceLayer(20)
+  < DockLayer(30) < TopBarLayer(40) < Overlays(50–80) < SystemModal(90)
+```
+
+Saat overlay aktif (contoh Launchpad):
+```
+WallpaperLayer(0) < DesktopLayer(10) < WorkspaceLayer(20, dimmed)
+  < DockLayer(30, 0.7) < TopBarLayer(40) < LaunchpadLayer(50) < ToTheSpot(70) < SystemModal(90)
+```
+
+Aturan:
+- SystemModalLayer selalu di atas semua layer (z=90)
+- ToTheSpotLayer selalu di atas overlay lain tapi di bawah SystemModal (z=70)
+- DockLayer tidak pernah di-raise/lower — z-order static, hanya opacity berubah
+
+### Recovery Strategy (Unbreakable Rules)
+
+```
+Rule 1: Persistent layer tidak boleh crash karena overlay
+  → TransientLayer berjalan dalam isolated QML context
+  → Error di TransientLayer → log + hide gracefully → state reset
+
+Rule 2: Overlay crash → fallback ke base shell
+  → ShellStateController mendeteksi overlay timeout / null reference
+  → Auto-dismiss overlay, reset ShellState ke default
+  → DockLayer + TopBarLayer tetap accessible
+
+Rule 3: WorkspaceLayer state preserved meskipun overlay gagal
+  → workspaceState tidak di-clear saat mode change
+  → window stack di-restore dari compositor state model
+
+Rule 4: Input tidak boleh deadlock
+  → InputRouter memiliki timeout: jika layer tidak respond dalam 500ms
+    → fallback ke DockLayer + TopBarLayer input
+
+Rule 5: SystemModalLayer bypass semua state
+  → polkit / crash dialogs muncul di z=90 tanpa perlu ShellState update
+  → selalu interactable, tidak dipengaruhi overlay state
+```
+
+### Testing Scenarios
+
+- [ ] Toggle LaunchpadLayer berulang cepat (< 100ms interval) tanpa state corruption
+- [ ] Masuk WorkspaceOverview lalu buka app dari DockLayer — overview dismiss, app launch normal
+- [ ] Aktifkan Show Desktop saat drag window — drag cancel gracefully, window position restored
+- [ ] Trigger ToTheSpotLayer saat LaunchpadLayer aktif — keduanya coexist tanpa z-order conflict
+- [ ] Simulasi crash/null pada LaunchpadLayer — base shell (Dock + TopBar) tetap responsive
+- [ ] WorkspaceLayer state preserved saat launchpad dismiss — focused window tidak berubah
+- [ ] SystemModalLayer muncul saat overview aktif — modal menang, overview tetap di belakang
+- [ ] Rapid mode switching: desktop → launchpad → overview → tothespot dalam < 1s
+- [ ] WorkspaceLayer blur/unblur cycle 10x tanpa frame drop
+- [ ] InputRouter deadlock sim: layer tidak respond → timeout → fallback confirmed
+
+### Implementation Phases
+
+#### Phase 1 — Audit & Baseline (refactor, no new feature)
+- [ ] Audit `Qml/DesktopScene.qml`: identifikasi semua "page switch" pattern, ganti ke state binding
+- [ ] Audit semua z-order assignment di overlay windows — buat konstanta di Theme atau ShellConst
+- [ ] Definisikan `ShellState` sebagai QML singleton / C++ `QObject` dengan `Q_PROPERTY` per field
+- [ ] Pastikan `DockLayer` dan `TopBarLayer` tidak pernah di-`visible: false` atau `destroy()`
+- [ ] Verifikasi `WorkspaceLayer` tidak di-reset pada setiap mode change
+
+#### Phase 2 — ShellStateController
+- [ ] Implementasi `ShellStateController` (C++ `QObject`, exposed ke QML) dengan:
+  - `requestMode(ShellMode mode, QString source)`
+  - `cancelMode(ShellMode mode)`
+  - `toggleOverlay(OverlayType overlay)`
+  - `Q_PROPERTY ShellState currentState`
+- [ ] Semua overlay (Launchpad, Overview, ToTheSpot) bind opacity/visibility ke `ShellState`
+- [ ] Semua persistent layer bind opacity/blur/input ke `ShellState`
+- [ ] Unit test: `shell_state_controller_test` — mode request, cancel, concurrent overlay
+
+#### Phase 3 — InputRouter
+- [ ] Implementasi `InputRouter` dengan layer priority table per `ShellMode`
+- [ ] Keyboard shortcut dispatch lewat `InputRouter` — tidak langsung ke layer
+- [ ] Gesture recognizer output → `InputRouter` → `ShellStateController`
+- [ ] Timeout guard: layer non-response > 500ms → `InputRouter` fallback ke base layer
+- [ ] Test: deadlock prevention, rapid switching, gesture cancel mid-transition
+
+#### Phase 4 — Recovery & Crash Isolation
+- [ ] Overlay context isolation: `LaunchpadLayer`, `WorkspaceOverviewLayer`, `ToTheSpotLayer`
+  dipindah ke sub-window atau deferred Loader dengan error boundary
+- [ ] `ShellStateController` mendeteksi overlay timeout → auto-dismiss + state reset
+- [ ] `WorkspaceLayer` state recovery dari `CompositorStateModel` setelah overlay crash
+- [ ] Persistent layer health check timer (1s interval): jika Dock/TopBar tidak visible → re-show
+- [ ] Test: simulasi `Loader` error, null ref, timing crash → base shell always accessible
+
+#### Phase 5 — Hardening & Contract Tests
+- [ ] Kontrak test: `persistent_layer_stability_test` — toggle overlay 1000x, assert Dock+TopBar intact
+- [ ] Kontrak test: `overlay_isolation_test` — overlay crash tidak propagate ke persistent layer
+- [ ] Kontrak test: `state_machine_transition_test` — semua mode transition valid, tidak ada invalid state
+- [ ] Kontrak test: `z_order_policy_test` — SystemModal selalu di atas, Dock z-order tidak berubah
+- [ ] Performance test: mode switch latency < 16ms (single vsync frame untuk state update)
+
 ## Program (Notification System Refresh: macOS-like Notification Center)
 - [x] Define architecture boundary (3 layers, no tight coupling):
   - `Notification Service` (backend daemon, source of truth)
