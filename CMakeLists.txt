@@ -723,13 +723,15 @@ add_custom_target(lint_capability_matrix
     COMMENT "Checking SLM capability matrix sync"
 )
 
-set_source_files_properties(Qml/Theme.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
 set_source_files_properties(Qml/IndicatorRegistry.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
-
+set_source_files_properties(
+    third_party/slm-style/qml/SlmStyle/Theme.qml
+    PROPERTIES QT_QML_SINGLETON_TYPE TRUE
+)
 
 set(DESKTOP_SHELL_QML_FILES
     Main.qml
-    Qml/Theme.qml
+    third_party/slm-style/qml/SlmStyle/Theme.qml
     Qml/IndicatorRegistry.qml
     Qml/DesktopScene.qml
     Qml/apps/filemanager/FileManagerShareSheet.qml
@@ -1059,8 +1061,8 @@ qt_add_resources(slm-settings "slm_desktop_theme_shim_qmldir"
 )
 qt_add_resources(slm-settings "slm_desktop_theme_shim_theme"
     PREFIX "/qt/qml/Slm_Desktop"
-    BASE "${CMAKE_SOURCE_DIR}/Qml"
-    FILES "${CMAKE_SOURCE_DIR}/Qml/Theme.qml"
+    BASE "${CMAKE_SOURCE_DIR}/third_party/slm-style/qml/SlmStyle"
+    FILES "${CMAKE_SOURCE_DIR}/third_party/slm-style/qml/SlmStyle/Theme.qml"
 )
 qt_add_resources(slm-settings "slm_settings_titlebuttons"
     PREFIX "/"
