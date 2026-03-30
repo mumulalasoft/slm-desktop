@@ -27,7 +27,9 @@ void AnimationScheduler::start()
     m_running = true;
     m_timer.restart();
     m_lastMs = 0;
-    m_tick.start();
+    if (!m_externalDriving) {
+        m_tick.start();
+    }
     emit runningChanged();
 }
 
@@ -39,6 +41,35 @@ void AnimationScheduler::stop()
     m_running = false;
     m_tick.stop();
     emit runningChanged();
+}
+
+void AnimationScheduler::setExternalDriving(bool enabled)
+{
+    if (m_externalDriving == enabled) {
+        return;
+    }
+    m_externalDriving = enabled;
+    if (m_running) {
+        if (enabled) {
+            m_tick.stop();
+        } else {
+            m_lastMs = m_timer.elapsed();
+            m_tick.start();
+        }
+    }
+}
+
+bool AnimationScheduler::externalDriving() const
+{
+    return m_externalDriving;
+}
+
+void AnimationScheduler::windowFrame()
+{
+    if (!m_running || !m_externalDriving) {
+        return;
+    }
+    onFrame();
 }
 
 double AnimationScheduler::timeScale() const

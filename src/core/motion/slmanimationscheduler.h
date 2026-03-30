@@ -32,6 +32,14 @@ public:
     int activeLifecyclePriority() const;
 
     bool running() const;
+
+    // External (vsync-driven) stepping — when enabled the internal QTimer is suspended and
+    // the caller is responsible for calling windowFrame() on each display frame
+    // (e.g. by connecting QQuickWindow::afterAnimating to MotionController::windowFrame).
+    void setExternalDriving(bool enabled);
+    bool externalDriving() const;
+    void windowFrame();  // same dt logic as onFrame() but triggered externally
+
     Q_INVOKABLE void beginLifecycle(const QString &owner, int priority);
     Q_INVOKABLE void endLifecycle(const QString &owner);
     Q_INVOKABLE bool canRunPriority(int priority) const;
@@ -55,6 +63,7 @@ private:
     double m_timeScale = 1.0;
     qulonglong m_droppedFrameCount = 0;
     bool m_running = false;
+    bool m_externalDriving = false;
     bool m_microInteractionSuppressed = false;
     int m_activeLifecyclePriority = 0;
     QHash<QString, int> m_lifecycleOwners;

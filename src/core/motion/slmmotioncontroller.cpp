@@ -132,6 +132,17 @@ void MotionController::ensureRunning()
     }
 }
 
+void MotionController::enableVsyncDriving()
+{
+    ensureRunning();
+    m_scheduler.setExternalDriving(true);
+}
+
+void MotionController::windowFrame()
+{
+    m_scheduler.windowFrame();
+}
+
 void MotionController::startFromCurrent(double target)
 {
     if (m_reducedMotion) {

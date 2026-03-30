@@ -51,6 +51,8 @@ public:
     void setReducedMotion(bool enabled);
 
     Q_INVOKABLE void ensureRunning();
+    Q_INVOKABLE void enableVsyncDriving();
+    Q_INVOKABLE void windowFrame();
     Q_INVOKABLE void startFromCurrent(double target);
     Q_INVOKABLE void retarget(double target);
     Q_INVOKABLE void adoptVelocity(double velocity);
