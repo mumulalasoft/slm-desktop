@@ -293,7 +293,17 @@ int main(int argc, char *argv[])
     const bool userAnimationEnabled =
         uiPreferences.getPreference(QStringLiteral("windowing.animationEnabled"), true).toBool();
     const bool runtimeAnimationsEnabled = userAnimationEnabled && !safeModeActive;
-    motionController.setReducedMotion(!runtimeAnimationsEnabled);
+    const auto applyAnimationMode = [&]() {
+        const QString amode = uiPreferences.animationMode();
+        const bool needsReduced = !runtimeAnimationsEnabled
+                                  || amode == QLatin1String("reduced")
+                                  || amode == QLatin1String("minimal");
+        motionController.setReducedMotion(needsReduced);
+    };
+    applyAnimationMode();
+    QObject::connect(&uiPreferences, &UIPreferences::animationModeChanged, &app, [&]() {
+        applyAnimationMode();
+    });
 
     QObject::connect(&uiPreferences, &UIPreferences::iconThemeLightChanged, &app, [&]() {
         applyIconThemePref();
@@ -427,6 +437,18 @@ int main(int argc, char *argv[])
     qInfo().noquote() << "[startup] qml loaded"
                       << (QDateTime::currentMSecsSinceEpoch() - t0) << "ms"
                       << "rootObjects=" << engine.rootObjects().size();
+
+    // Wire the motion scheduler to the display vsync via QQuickWindow::afterAnimating.
+    // This replaces the internal 16ms QTimer with a vsync-synchronised tick so that
+    // gesture-driven spring physics stays aligned with the render frame budget.
+    if (!engine.rootObjects().isEmpty()) {
+        auto *shellWindow = qobject_cast<QQuickWindow *>(engine.rootObjects().first());
+        if (shellWindow) {
+            motionController.enableVsyncDriving();
+            QObject::connect(shellWindow, &QQuickWindow::afterAnimating,
+                             &motionController, &Slm::Motion::MotionController::windowFrame);
+        }
+    }
 
     QTimer detachedWindowMaskTimer;
     detachedWindowMaskTimer.setInterval(250);
