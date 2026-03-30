@@ -222,8 +222,8 @@ Item {
             target: badge
             property: "scale"
             to: 1.0
-            spring: 3.0
-            damping: 0.26
+            spring: Theme.physicsSpringGentle
+            damping: Theme.physicsDampingGentle
             duration: Theme.durationNormal
         }
     }

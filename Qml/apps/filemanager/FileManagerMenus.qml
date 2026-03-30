@@ -14,6 +14,12 @@ Item {
     property var folderMenuSlmRows: []
     property var multiMenuSlmRows: []
 
+    function microAnimationAllowed() {
+        if (!Theme.animationsEnabled) return false
+        if (typeof MotionController === "undefined" || !MotionController || !MotionController.allowMotionPriority) return true
+        return MotionController.allowMotionPriority(MotionController.LowPriority)
+    }
+
     function menuColor(key, fallback) {
         if (typeof Theme !== "undefined" && Theme && Theme.color) {
             return Theme.color(String(key || ""))
@@ -581,6 +587,7 @@ Item {
                                                       : "transparent"
                 border.width: Theme.borderWidthNone
                 Behavior on color {
+                    enabled: root.microAnimationAllowed()
                     ColorAnimation {
                         duration: Theme.durationFast
                         easing.type: Theme.easingDefault

@@ -30,6 +30,12 @@ ApplicationWindow {
         return ModuleLoader.moduleById(SettingsApp.currentModuleId) || null
     }
 
+    function microAnimationAllowed() {
+        if (!Theme.animationsEnabled) return false
+        if (typeof MotionController === "undefined" || !MotionController || !MotionController.allowMotionPriority) return true
+        return MotionController.allowMotionPriority(MotionController.LowPriority)
+    }
+
     function goHome() {
         window.atHome = true
     }
@@ -226,9 +232,9 @@ ApplicationWindow {
                 visible: opacity > 0
                 Behavior on opacity { NumberAnimation { duration: Theme.durationMd; easing.type: Theme.easingDefault } }
                 background: Rectangle {
-                    radius: 6
+                    radius: Theme.radiusMd
                     color: backBtn.hovered ? Theme.color("controlBgHover") : "transparent"
-                    Behavior on color { ColorAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault } }
+                    Behavior on color { enabled: window.microAnimationAllowed(); ColorAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault } }
                 }
                 contentItem: Image {
                     anchors.centerIn: parent
@@ -262,7 +268,7 @@ ApplicationWindow {
                 Text {
                     text: window.currentModule ? (window.currentModule.name || "") : ""
                     font.pixelSize: Theme.fontSize("body")
-                    font.weight: Font.DemiBold
+                    font.weight: Theme.fontWeight("semibold")
                     color: Theme.color("textPrimary")
                     anchors.verticalCenter: parent.verticalCenter
                 }
@@ -285,15 +291,15 @@ ApplicationWindow {
                 Text {
                     anchors.left: parent.left; anchors.leftMargin: 10
                     anchors.verticalCenter: parent.verticalCenter
-                    text: "🔍"; font.pixelSize: 13
+                    text: "🔍"; font.pixelSize: Theme.fontSize("menu")
                     color: Theme.color("textDisabled")
                 }
                 background: Rectangle {
-                    radius: 8
+                    radius: Theme.radiusControl
                     color: Theme.color("surface")
                     border.color: searchField.activeFocus ? Theme.color("accent") : Theme.color("panelBorder")
                     border.width: searchField.activeFocus ? 2 : 1
-                    Behavior on border.color { ColorAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault } }
+                    Behavior on border.color { enabled: window.microAnimationAllowed(); ColorAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault } }
                 }
             }
         }

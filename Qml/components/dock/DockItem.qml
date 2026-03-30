@@ -12,9 +12,9 @@ Item {
     property real influence: 0
     property real hoverLift: 5
     property real gapWidthExtra: 28
-    property real gapSpring: 4.8
-    property real gapDamping: 0.43
-    property real gapMass: 0.55
+    property real gapSpring: Theme.physicsSpringDefault
+    property real gapDamping: Theme.physicsDampingDefault
+    property real gapMass: Theme.physicsMassDefault
     property real dragSourceOpacity: 0.36
     property int dragThresholdMousePx: 6
     property int dragThresholdTouchpadPx: 3

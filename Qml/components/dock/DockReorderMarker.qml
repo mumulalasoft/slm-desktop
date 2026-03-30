@@ -22,9 +22,9 @@ Rectangle {
     Behavior on x {
         enabled: Math.abs(root.draggingDeltaX) > 0.1
         SpringAnimation {
-            spring: 6.2
-            damping: 0.55
-            mass: 0.48
+            spring: Theme.physicsSpringSnappy
+            damping: Theme.physicsDampingSnappy
+            mass: Theme.physicsMassSnappy
         }
     }
     Behavior on opacity {

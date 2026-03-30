@@ -58,10 +58,10 @@ Item {
         Behavior on x {
             enabled: Theme.animationsEnabled
             SpringAnimation {
-                spring: 3.2
-                damping: 0.30
-                mass: 1.0
-                epsilon: 0.5
+                spring: Theme.physicsSpringGentle
+                damping: Theme.physicsDampingGentle
+                mass: Theme.physicsMassGentle
+                epsilon: Theme.physicsEpsilon
             }
         }
 

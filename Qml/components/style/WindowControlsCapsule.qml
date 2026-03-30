@@ -15,6 +15,12 @@ Item {
     implicitWidth: (buttonSize * 3) + (spacing * 2)
     implicitHeight: buttonSize
 
+    function microAnimationAllowed() {
+        if (!Theme.animationsEnabled) return false
+        if (typeof MotionController === "undefined" || !MotionController || !MotionController.allowMotionPriority) return true
+        return MotionController.allowMotionPriority(MotionController.LowPriority)
+    }
+
     Row {
         anchors.fill: parent
         spacing: root.spacing
@@ -34,6 +40,7 @@ Item {
                 scale: buttonMouse.pressed ? 0.9 : (buttonMouse.containsMouse ? 1.04 : 1.0)
 
                 Behavior on scale {
+                    enabled: root.microAnimationAllowed()
                     NumberAnimation {
                         duration: Theme.durationMicro
                         easing.type: Theme.easingDefault
@@ -51,6 +58,7 @@ Item {
                     opacity: buttonMouse.pressed ? 0.9 : 1.0
 
                     Behavior on opacity {
+                        enabled: root.microAnimationAllowed()
                         NumberAnimation {
                             duration: Theme.durationMicro
                             easing.type: Theme.easingDefault

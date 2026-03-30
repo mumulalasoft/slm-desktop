@@ -14,6 +14,12 @@ Rectangle {
     readonly property int iconRevision: ((typeof ThemeIconController !== "undefined" && ThemeIconController)
                                          ? ThemeIconController.revision : 0)
 
+    function microAnimationAllowed() {
+        if (!Theme.animationsEnabled) return false
+        if (typeof MotionController === "undefined" || !MotionController || !MotionController.allowMotionPriority) return true
+        return MotionController.allowMotionPriority(MotionController.LowPriority)
+    }
+
     function focusSearchField(selectAllText) {
         hostRoot.toolbarSearchExpanded = true
         Qt.callLater(function() {
@@ -44,7 +50,7 @@ Rectangle {
 
         Rectangle {
             Layout.preferredWidth: 76
-            Layout.preferredHeight: 26
+            Layout.preferredHeight: Theme.fileManagerControlHeight
             radius: Theme.radiusWindowAlt
             color: Theme.color("fileManagerControlBg")
             border.width: Theme.borderWidthNone
@@ -143,7 +149,7 @@ Rectangle {
 
             Rectangle {
                 width: 138
-                height: 26
+                height: Theme.fileManagerControlHeight
                 radius: Theme.radiusWindowAlt
                 color: Theme.color("fileManagerControlBg")
                 border.width: Theme.borderWidthNone
@@ -210,14 +216,14 @@ Rectangle {
             Item {
                 id: toolbarSearch
                 width: 40
-                height: 30
+                height: Theme.fileManagerStatusBarHeight
 
                 Rectangle {
                     id: toolbarSearchPanel
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
                     width: hostRoot.toolbarSearchExpanded ? 220 : 40
-                    height: 26
+                    height: Theme.fileManagerControlHeight
                     radius: Theme.radiusWindowAlt
                     color: Theme.color("fileManagerControlBg")
                     border.width: Theme.borderWidthNone
@@ -225,6 +231,7 @@ Rectangle {
                     clip: true
                     z: 8
                     Behavior on width {
+                        enabled: root.microAnimationAllowed()
                         NumberAnimation {
                             duration: Theme.durationMd
                             easing.type: Theme.easingDefault
