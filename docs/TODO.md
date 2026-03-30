@@ -105,15 +105,21 @@
   - greeter/launchpad/print/portalchooser batch migrated: `Qml/greeter/{Main,LoginPage}.qml`, `Qml/components/launchpad/Launchpad.qml`, `Qml/components/print/{PrintAdvancedPanel,PrinterFeatureSection}.qml`, `Qml/components/portalchooser/PortalChooserPathBar.qml`.
   - final QML sweep complete: no remaining hardcoded `duration:<number>` / `easing.type: Easing.*` outside token definitions in `Qml/Theme.qml` (verified via `rg`).
   - hapus hardcoded duration tersebar; migrasi ke `AnimationTokens`.
-- [ ] Standardisasi easing & physics:
+- [~] Standardisasi easing & physics:
   - default `EaseOutCubic`.
   - alternatif ringan `EaseOutQuad`.
   - spring untuk transisi natural tertentu.
   - larang `Linear` untuk lifecycle utama.
+  - [ ] Physics token global (`spring/damping/mass/epsilon`) sebagai single source + migrasi komponen yang masih literal.
 - [ ] Definisikan profile animasi window (safe/non-patent):
   - open: `scale 0.96->1.0`, `opacity 0->1`, `translateY kecil (8-16)`.
   - minimize: scale down + translate ke arah dock + fade ringan (tanpa genie/curved warp).
   - close: scale down + fade out cepat.
+  - [~] Baseline state-driven profile mapping diterapkan di `Qml/DesktopScene.qml`:
+    - event `window-opened/window-shown/window-unminimized` -> profile `window.open` (`preset=smooth`, release `Theme.durationNormal`)
+    - event `window-minimized` -> profile `window.minimize` (`preset=snappy`, release `Theme.durationFast`)
+    - event `window-closing/window-closed` -> profile `window.close` (`preset=snappy`, release `Theme.durationFast`)
+    - profile push/pop aman (restore channel+preset `MotionController` setelah lifecycle selesai/destruction)
 - [ ] Definisikan profile animasi workspace:
   - switch: slide horizontal antar workspace (+ optional parallax ringan).
   - overview: scale-down window + grid sederhana.

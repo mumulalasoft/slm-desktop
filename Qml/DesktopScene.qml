@@ -36,6 +36,10 @@ Item {
     property bool workspaceLifecycleActive: false
     property bool windowLifecycleActive: false
     property bool windowFocusLifecycleActive: false
+    property bool windowLifecycleProfilePinned: false
+    property string windowLifecyclePrevChannel: ""
+    property string windowLifecyclePrevPreset: ""
+    property int windowLifecycleReleaseMs: Theme.durationNormal
     property real workspaceSwipeOffset: MultitaskingController.workspaceSwipeOffset
     property int workspaceSwipeStartSpace: MultitaskingController.workspaceSwipeStartSpace
     property int workspaceSwipeTargetSpace: MultitaskingController.workspaceSwipeTargetSpace
@@ -544,7 +548,7 @@ Item {
 
     Timer {
         id: windowLifecycleReleaseTimer
-        interval: Theme.durationNormal
+        interval: Math.max(1, Number(root.windowLifecycleReleaseMs || Theme.durationNormal))
         repeat: false
         onTriggered: {
             if (root.windowLifecycleActive &&
@@ -553,6 +557,7 @@ Item {
                 MotionController.endLifecycleTransition("window.lifecycle")
                 root.windowLifecycleActive = false
             }
+            root.releaseWindowLifecycleProfile()
         }
     }
 
@@ -561,13 +566,14 @@ Item {
         interval: Theme.durationFast
         repeat: false
         onTriggered: {
-            if (root.windowFocusLifecycleActive &&
-                    typeof MotionController !== "undefined" && MotionController &&
-                    MotionController.endLifecycleTransition) {
-                MotionController.endLifecycleTransition("window.focus")
-                root.windowFocusLifecycleActive = false
-            }
+        if (root.windowFocusLifecycleActive &&
+                typeof MotionController !== "undefined" && MotionController &&
+                MotionController.endLifecycleTransition) {
+            MotionController.endLifecycleTransition("window.focus")
+            root.windowFocusLifecycleActive = false
         }
+        root.releaseWindowLifecycleProfile()
+    }
     }
 
     Connections {
@@ -714,9 +720,88 @@ Item {
         if (MotionController.shouldCoalesceEvent && MotionController.shouldCoalesceEvent(coalesceKey, 120)) {
             return
         }
+        root.applyWindowLifecycleProfile(eventName)
         MotionController.beginLifecycleTransition("window.lifecycle", MotionController.HighPriority)
         root.windowLifecycleActive = true
         windowLifecycleReleaseTimer.restart()
+    }
+
+    function windowLifecycleProfileForEvent(eventName) {
+        var event = String(eventName || "").toLowerCase()
+        if (event === "window-minimized") {
+            // Minimize: quick settle (no genie-like distortion).
+            return {
+                "channel": "window.minimize",
+                "preset": "snappy",
+                "releaseMs": Theme.durationFast
+            }
+        }
+        if (event === "window-closing" || event === "window-closed") {
+            // Close: fast decay with crisp response.
+            return {
+                "channel": "window.close",
+                "preset": "snappy",
+                "releaseMs": Theme.durationFast
+            }
+        }
+        if (event === "window-created" || event === "window-opened" ||
+                event === "window-shown" || event === "window-unminimized") {
+            // Open/restore: smooth scale+fade style profile.
+            return {
+                "channel": "window.open",
+                "preset": "smooth",
+                "releaseMs": Theme.durationNormal
+            }
+        }
+        return {
+            "channel": "window.lifecycle",
+            "preset": "smooth",
+            "releaseMs": Theme.durationNormal
+        }
+    }
+
+    function applyWindowLifecycleProfile(eventName) {
+        if (typeof MotionController === "undefined" || !MotionController) {
+            return
+        }
+        var profile = root.windowLifecycleProfileForEvent(eventName)
+        var nextChannel = String(profile.channel || "window.lifecycle")
+        var nextPreset = String(profile.preset || "smooth")
+        var releaseMs = Number(profile.releaseMs || Theme.durationNormal)
+        if (isNaN(releaseMs) || releaseMs < 1) {
+            releaseMs = Theme.durationNormal
+        }
+        root.windowLifecycleReleaseMs = Math.max(1, Math.round(releaseMs))
+        if (!root.windowLifecycleProfilePinned) {
+            root.windowLifecyclePrevChannel = String(MotionController.channel || "")
+            root.windowLifecyclePrevPreset = String(MotionController.preset || "")
+            root.windowLifecycleProfilePinned = true
+        }
+        if (MotionController.channel !== nextChannel) {
+            MotionController.channel = nextChannel
+        }
+        if (MotionController.preset !== nextPreset) {
+            MotionController.preset = nextPreset
+        }
+    }
+
+    function releaseWindowLifecycleProfile() {
+        if (!root.windowLifecycleProfilePinned ||
+                typeof MotionController === "undefined" || !MotionController) {
+            return
+        }
+        if (root.windowLifecyclePrevChannel.length > 0 &&
+                MotionController.channel !== root.windowLifecyclePrevChannel) {
+            MotionController.channel = root.windowLifecyclePrevChannel
+        }
+        if (root.windowLifecyclePrevPreset.length > 0 &&
+                MotionController.preset !== root.windowLifecyclePrevPreset) {
+            MotionController.preset = root.windowLifecyclePrevPreset
+        }
+        root.windowLifecycleProfilePinned = false
+        root.windowLifecyclePrevChannel = ""
+        root.windowLifecyclePrevPreset = ""
+        root.windowLifecycleReleaseMs = Theme.durationNormal
     }
 
 
