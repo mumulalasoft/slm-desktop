@@ -751,6 +751,12 @@ Item {
         MotionController.beginLifecycleTransition("window.lifecycle", MotionController.HighPriority)
         root.windowLifecycleActive = true
         windowLifecycleReleaseTimer.restart()
+
+        // Dock visual feedback: bounce the matching icon on open/minimize.
+        var appId = String(payload.appId || payload.app_id || payload.appid || "")
+        if (appId.length > 0 && root.dockItem && root.dockItem.notifyWindowLifecycle) {
+            root.dockItem.notifyWindowLifecycle(eventName, appId)
+        }
     }
 
     function windowLifecycleProfileForEvent(eventName) {

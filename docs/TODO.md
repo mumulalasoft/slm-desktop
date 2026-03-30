@@ -115,15 +115,19 @@
   - [x] Physics token global (`spring/damping/mass/epsilon`) sebagai single source + migrasi komponen yang masih literal.
       - implemented in `third_party/slm-style/qml/SlmStyle/Theme.qml`: `physicsSpringGentle/Default/Snappy`, `physicsDamping*/physicsMass*`, `physicsEpsilon`.
       - migrated: `DockReorderMarker.qml`, `DockItem.qml`, `NotificationApplet.qml`, `NotificationCenter.qml`.
-- [ ] Definisikan profile animasi window (safe/non-patent):
-  - open: `scale 0.96->1.0`, `opacity 0->1`, `translateY kecil (8-16)`.
-  - minimize: scale down + translate ke arah dock + fade ringan (tanpa genie/curved warp).
-  - close: scale down + fade out cepat.
-  - [~] Baseline state-driven profile mapping diterapkan di `Qml/DesktopScene.qml`:
+- [~] Definisikan profile animasi window (safe/non-patent):
+  - open: `scale 0.96->1.0`, `opacity 0->1` — implemented in `WorkspaceOverviewScene` thumbnail entrance.
+  - minimize: dock icon focus-bounce on minimize (spatial cue without genie effect).
+  - close: scale down + fade out — future compositor extension (shell cannot animate window surfaces directly).
+  - [x] Baseline state-driven profile mapping diterapkan di `Qml/DesktopScene.qml`:
     - event `window-opened/window-shown/window-unminimized` -> profile `window.open` (`preset=smooth`, release `Theme.durationNormal`)
     - event `window-minimized` -> profile `window.minimize` (`preset=snappy`, release `Theme.durationFast`)
     - event `window-closing/window-closed` -> profile `window.close` (`preset=snappy`, release `Theme.durationFast`)
     - profile push/pop aman (restore channel+preset `MotionController` setelah lifecycle selesai/destruction)
+  - [x] Shell-side visual feedback:
+    - `WorkspaceOverviewScene` thumbnail entrance: `scale 0.96→1.0`, `opacity 0→1` (`durationNormal`, `easingDecelerate`) on new window while overview is open.
+    - `Dock.notifyWindowLifecycle()` → `DockAppDelegate.matchesWindowAppId()` → launch-bounce on window-opened, focus-bounce on window-minimized.
+    - `DesktopScene.processCompositorLifecycleEvent()` routes `appId` to dock after setting MotionController profile.
 - [x] Definisikan profile animasi workspace:
   - switch: slide horizontal antar workspace (+ optional parallax ringan).
     - [x] `workspace.switch` lifecycle wired in `DesktopScene.qml` (`MediumPriority`, timed release `durationWorkspace`).

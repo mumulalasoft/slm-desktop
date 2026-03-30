@@ -339,6 +339,29 @@ Rectangle {
         return 1
     }
 
+    // Trigger a dock-item bounce animation when a window lifecycle event fires.
+    // Called by DesktopScene when the compositor reports window-opened / window-minimized.
+    function notifyWindowLifecycle(eventName, appId) {
+        if (!appId || appId.length === 0 || !Theme.animationsEnabled) {
+            return
+        }
+        var ev = String(eventName || "").toLowerCase()
+        var isOpen = (ev === "window-opened" || ev === "window-shown" ||
+                      ev === "window-unminimized" || ev === "window-created")
+        var isMinimize = (ev === "window-minimized")
+        if (!isOpen && !isMinimize) {
+            return
+        }
+        var mode = isOpen ? "launch" : "focus"
+        for (var i = 0; i < appsRepeater.count; ++i) {
+            var item = appsRepeater.itemAt(i)
+            if (item && item.matchesWindowAppId && item.matchesWindowAppId(appId)) {
+                item.playBounce(mode)
+                return
+            }
+        }
+    }
+
     function _focusOrLaunchEntry(state, entry) {
         var s = state || {}
         var focusedViewId = String(s.preferredViewId || "")
