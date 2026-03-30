@@ -51,6 +51,7 @@ constexpr auto kWindowRoundedEnabledKey = "windowing/roundedEnabled";
 constexpr auto kWindowRoundedRadiusKey = "windowing/roundedRadius";
 constexpr auto kWindowAnimationEnabledKey = "windowing/animationEnabled";
 constexpr auto kWindowAnimationSpeedKey = "windowing/animationSpeed";
+constexpr auto kWindowAnimationModeKey = "windowing/animationMode";
 constexpr auto kWindowSceneFxEnabledKey = "windowing/sceneFxEnabled";
 constexpr auto kWindowSceneFxDimAlphaKey = "windowing/sceneFxDimAlpha";
 constexpr auto kWindowSceneFxAnimBoostKey = "windowing/sceneFxAnimBoost";
@@ -79,6 +80,7 @@ constexpr auto kWindowRoundedEnabledDefault = false;
 constexpr auto kWindowRoundedRadiusDefault = 10;
 constexpr auto kWindowAnimationEnabledDefault = true;
 constexpr auto kWindowAnimationSpeedDefault = 100;
+constexpr auto kWindowAnimationModeDefault = "full";
 constexpr auto kWindowSceneFxEnabledDefault = false;
 constexpr auto kWindowSceneFxDimAlphaDefault = 0.38;
 constexpr auto kWindowSceneFxAnimBoostDefault = 115;
@@ -227,6 +229,10 @@ QString normalizePreferenceKey(const QString &key)
         k.compare(QStringLiteral("windowing.animation.speed"), Qt::CaseInsensitive) == 0) {
         return QString::fromLatin1(kWindowAnimationSpeedKey);
     }
+    if (k.compare(QStringLiteral("windowing.animationMode"), Qt::CaseInsensitive) == 0 ||
+        k.compare(QStringLiteral("windowing.animation.mode"), Qt::CaseInsensitive) == 0) {
+        return QString::fromLatin1(kWindowAnimationModeKey);
+    }
     if (k.compare(QStringLiteral("windowing.sceneFxEnabled"), Qt::CaseInsensitive) == 0 ||
         k.compare(QStringLiteral("windowing.scenefxenabled"), Qt::CaseInsensitive) == 0 ||
         k.compare(QStringLiteral("windowing.scenefx.enabled"), Qt::CaseInsensitive) == 0) {
@@ -298,6 +304,14 @@ UIPreferences::UIPreferences(QObject *parent)
     m_accentColor = m_settings.value(kAccentColorKey, QString::fromLatin1(kDefaultAccentColor)).toString().trimmed();
     if (m_accentColor.isEmpty()) m_accentColor = QString::fromLatin1(kDefaultAccentColor);
     m_fontScale = qBound(0.8, m_settings.value(kFontScaleKey, 1.0).toDouble(), 1.5);
+    {
+        const QString mode = m_settings.value(kWindowAnimationModeKey,
+                                              QString::fromLatin1(kWindowAnimationModeDefault))
+                                 .toString().trimmed().toLower();
+        m_animationMode = (mode == QLatin1String("reduced") || mode == QLatin1String("minimal"))
+                              ? mode
+                              : QStringLiteral("full");
+    }
     m_gtkThemeLight = m_settings.value(kGtkThemeLightKey).toString().trimmed();
     m_gtkThemeDark = m_settings.value(kGtkThemeDarkKey).toString().trimmed();
     m_kdeColorSchemeLight = m_settings.value(kKdeColorSchemeLightKey).toString().trimmed();
@@ -410,6 +424,21 @@ void UIPreferences::setFontScale(qreal scale)
     emit fontScaleChanged();
     emit appearanceChanged();
     emit preferenceChanged(QString::fromLatin1(kFontScaleKey), m_fontScale);
+}
+
+QString UIPreferences::animationMode() const { return m_animationMode; }
+
+void UIPreferences::setAnimationMode(const QString &mode)
+{
+    const QString v = mode.trimmed().toLower();
+    const QString normalized = (v == QLatin1String("reduced") || v == QLatin1String("minimal"))
+                                   ? v
+                                   : QStringLiteral("full");
+    if (normalized == m_animationMode) return;
+    m_animationMode = normalized;
+    m_settings.setValue(kWindowAnimationModeKey, m_animationMode);
+    emit animationModeChanged();
+    emit preferenceChanged(QString::fromLatin1(kWindowAnimationModeKey), m_animationMode);
 }
 
 QString UIPreferences::gtkThemeLight() const { return m_gtkThemeLight; }

@@ -19,6 +19,8 @@ class UIPreferences : public QObject {
     Q_PROPERTY(QString themeMode READ themeMode WRITE setThemeMode NOTIFY themeModeChanged)
     Q_PROPERTY(QString accentColor READ accentColor WRITE setAccentColor NOTIFY accentColorChanged)
     Q_PROPERTY(qreal fontScale READ fontScale WRITE setFontScale NOTIFY fontScaleChanged)
+    // Animation quality mode: "full" | "reduced" | "minimal"
+    Q_PROPERTY(QString animationMode READ animationMode WRITE setAnimationMode NOTIFY animationModeChanged)
     Q_PROPERTY(QString gtkThemeLight READ gtkThemeLight NOTIFY gtkThemeLightChanged)
     Q_PROPERTY(QString gtkThemeDark READ gtkThemeDark NOTIFY gtkThemeDarkChanged)
     Q_PROPERTY(QString kdeColorSchemeLight READ kdeColorSchemeLight NOTIFY kdeColorSchemeLightChanged)
@@ -48,6 +50,7 @@ public:
     QString themeMode() const;
     QString accentColor() const;
     qreal fontScale() const;
+    QString animationMode() const;
     QString gtkThemeLight() const;
     QString gtkThemeDark() const;
     QString kdeColorSchemeLight() const;
@@ -74,6 +77,7 @@ public:
     Q_INVOKABLE void setThemeMode(const QString &mode);
     Q_INVOKABLE void setAccentColor(const QString &color);
     Q_INVOKABLE void setFontScale(qreal scale);
+    Q_INVOKABLE void setAnimationMode(const QString &mode);
     Q_INVOKABLE void setGtkThemeLight(const QString &theme);
     Q_INVOKABLE void setGtkThemeDark(const QString &theme);
     Q_INVOKABLE void setKdeColorSchemeLight(const QString &scheme);
@@ -106,6 +110,7 @@ signals:
     void themeModeChanged();
     void accentColorChanged();
     void fontScaleChanged();
+    void animationModeChanged();
     void gtkThemeLightChanged();
     void gtkThemeDarkChanged();
     void kdeColorSchemeLightChanged();
@@ -141,6 +146,7 @@ private:
     QString m_themeMode;
     QString m_accentColor;
     qreal m_fontScale = 1.0;
+    QString m_animationMode;
     QString m_gtkThemeLight;
     QString m_gtkThemeDark;
     QString m_kdeColorSchemeLight;
