@@ -472,16 +472,16 @@ Rule 5: SystemModalLayer bypass semua state
 - [x] Verifikasi `WorkspaceLayer` tidak di-reset pada setiap mode change
   - Audit confirmed: no `workspaceState = {}` or full reset on mode change — state preserved. ✓
 
-#### Phase 2 — ShellStateController
-- [~] Semua overlay bind ke `ShellState` (partial — opacity/visibility wired for Dock, TopBar, Workspace)
-- [ ] Implementasi `ShellStateController` (C++ `QObject`, exposed ke QML) dengan:
-  - `requestMode(ShellMode mode, QString source)`
-  - `cancelMode(ShellMode mode)`
-  - `toggleOverlay(OverlayType overlay)`
-  - `Q_PROPERTY ShellState currentState`
-- [ ] Invert write direction: ShellStateController becomes sole writer to ShellState;
-  DesktopScene / Main.qml call requestMode() instead of setting booleans directly
-- [ ] Unit test: `shell_state_controller_test` — mode request, cancel, concurrent overlay
+#### Phase 2 — ShellStateController ✓ DONE
+- [x] Semua overlay bind ke `ShellState` (Dock, TopBar, Workspace, LaunchpadWindow)
+- [x] Implementasi `ShellStateController` (`src/core/shell/shellstatecontroller.h/.cpp`):
+  - Q_PROPERTY writable: launchpadVisible, workspaceOverviewVisible, toTheSpotVisible, styleGalleryVisible, showDesktop
+  - Q_PROPERTY readonly (derived): topBarOpacity, dockOpacity, workspaceBlurred, workspaceBlurAlpha, workspaceInteractionBlocked, anyOverlayVisible
+  - Q_INVOKABLE: setXxx(), toggleXxx(), dismissAllOverlays()
+  - Registered as context property "ShellStateController" via AppStartupBridge
+- [x] Invert write direction: ShellState.qml reads from ShellStateController (thin reactive view);
+  DesktopScene.qml and Main.qml call ShellStateController.setXxx() instead of writing ShellState directly
+- [x] Unit test: `shell_state_controller_test` — defaults, derived state, signal guards, dismissAll
 
 #### Phase 3 — InputRouter
 - [ ] Implementasi `InputRouter` dengan layer priority table per `ShellMode`
