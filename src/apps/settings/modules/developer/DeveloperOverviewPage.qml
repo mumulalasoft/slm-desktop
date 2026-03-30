@@ -10,6 +10,20 @@ Flickable {
     contentHeight: mainCol.implicitHeight + 48
     clip: true
     property var daemonHealthSnapshot: (DaemonHealthClient && DaemonHealthClient.snapshot) ? DaemonHealthClient.snapshot : ({})
+    property string sessionStartupMode: (typeof SessionStartupMode !== "undefined") ? String(SessionStartupMode || "normal") : "normal"
+    property bool safeModeActive: (typeof SafeModeActive !== "undefined") ? !!SafeModeActive : false
+    property bool userAnimationEnabled: true
+    readonly property bool runtimeAnimationsEnabled: !safeModeActive && userAnimationEnabled
+
+    function refreshAnimationPolicy() {
+        if (typeof UIPreferences !== "undefined" && UIPreferences && UIPreferences.getPreference) {
+            userAnimationEnabled = !!UIPreferences.getPreference("windowing.animationEnabled", true)
+        } else if (typeof AnimationsEnabled !== "undefined") {
+            userAnimationEnabled = !!AnimationsEnabled
+        } else {
+            userAnimationEnabled = true
+        }
+    }
 
     function formatTimelineTs(tsMs) {
         if (!tsMs || Number(tsMs) <= 0)
@@ -154,6 +168,96 @@ Flickable {
 
         SettingGroup {
             Layout.fillWidth: true
+            label: qsTr("Animation Runtime")
+
+            SettingCard {
+                width: parent.width
+                label: qsTr("Session Mode")
+                description: root.sessionStartupMode
+                control: Item { width: 1; height: 1 }
+            }
+
+            SettingCard {
+                width: parent.width
+                label: qsTr("Safe Mode")
+                description: root.safeModeActive ? qsTr("active") : qsTr("inactive")
+                control: Row {
+                    spacing: 6
+                    Rectangle {
+                        width: 8; height: 8; radius: 4
+                        anchors.verticalCenter: parent.verticalCenter
+                        color: root.safeModeActive
+                               ? (Theme.color("warning") || "#f59e0b")
+                               : (Theme.color("success") || "#22c55e")
+                    }
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        font.pixelSize: Theme.fontSize("xs")
+                        color: Theme.color("textSecondary")
+                        text: root.safeModeActive ? qsTr("forces animation off") : qsTr("normal policy")
+                    }
+                }
+            }
+
+            SettingCard {
+                width: parent.width
+                label: qsTr("User Animation Preference")
+                description: root.userAnimationEnabled ? qsTr("enabled") : qsTr("disabled")
+                control: Item { width: 1; height: 1 }
+            }
+
+            SettingCard {
+                width: parent.width
+                label: qsTr("Effective Animations")
+                description: root.runtimeAnimationsEnabled ? qsTr("enabled") : qsTr("disabled")
+                control: Row {
+                    spacing: 6
+                    Rectangle {
+                        width: 8; height: 8; radius: 4
+                        anchors.verticalCenter: parent.verticalCenter
+                        color: root.runtimeAnimationsEnabled
+                               ? (Theme.color("success") || "#22c55e")
+                               : (Theme.color("warning") || "#f59e0b")
+                    }
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        font.pixelSize: Theme.fontSize("xs")
+                        color: Theme.color("textSecondary")
+                        text: root.runtimeAnimationsEnabled
+                              ? qsTr("normal motion profile")
+                              : qsTr("reduced/minimal motion policy")
+                    }
+                }
+            }
+
+            SettingCard {
+                width: parent.width
+                label: qsTr("Quick Action")
+                description: qsTr("Open animation and visual motion settings.")
+                control: RowLayout {
+                    spacing: 8
+                    Button {
+                        text: qsTr("Open Motion Settings")
+                        onClicked: {
+                            var opened = false
+                            if (typeof SettingsApp !== "undefined" && SettingsApp && SettingsApp.openDeepLink) {
+                                opened = !!SettingsApp.openDeepLink("settings://appearance/theme")
+                            }
+                            if (!opened && typeof SettingsApp !== "undefined" && SettingsApp && SettingsApp.openModuleSetting) {
+                                SettingsApp.openModuleSetting("appearance", "theme")
+                                opened = true
+                            }
+                            if (!opened && typeof SettingsApp !== "undefined" && SettingsApp && SettingsApp.openModule) {
+                                SettingsApp.openModule("appearance")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        SettingGroup {
+            Layout.fillWidth: true
             label: qsTr("Daemon Health")
 
             SettingCard {
@@ -274,7 +378,18 @@ Flickable {
     }
 
     Component.onCompleted: {
+        root.refreshAnimationPolicy()
         if (DaemonHealthClient)
             DaemonHealthClient.refresh()
+    }
+
+    Connections {
+        target: (typeof UIPreferences !== "undefined" && UIPreferences) ? UIPreferences : null
+        function onPreferenceChanged(key, value) {
+            const normalized = String(key || "").replace(/\./g, "/").toLowerCase()
+            if (normalized === "windowing/animationenabled") {
+                root.userAnimationEnabled = !!value
+            }
+        }
     }
 }

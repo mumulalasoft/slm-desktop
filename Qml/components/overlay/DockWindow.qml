@@ -1,4 +1,5 @@
 import QtQuick 2.15
+import Slm_Desktop
 import "../dock" as DockComp
 
 Item {
@@ -28,8 +29,8 @@ Item {
 
         Behavior on opacity {
             NumberAnimation {
-                duration: 180
-                easing.type: Easing.OutQuad
+                duration: Theme.durationFast
+                easing.type: Theme.easingLight
             }
         }
     }

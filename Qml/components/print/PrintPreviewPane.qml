@@ -200,7 +200,7 @@ Rectangle {
                 DSStyle.Label {
                     anchors.horizontalCenter: parent.horizontalCenter
                     text: "⚠"
-                    font.pixelSize: 28
+                    font.pixelSize: Theme.fontPxDisplay
                     color: Theme.color("error")
                 }
                 DSStyle.Label {
@@ -224,7 +224,7 @@ Rectangle {
                 DSStyle.Label {
                     anchors.horizontalCenter: parent.horizontalCenter
                     text: "📄"
-                    font.pixelSize: 36
+                    font.pixelSize: Theme.fontPxJumbo
                     color: Theme.color("textTertiary")
                 }
                 DSStyle.Label {

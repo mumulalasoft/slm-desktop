@@ -226,8 +226,8 @@ Rectangle {
                     z: 8
                     Behavior on width {
                         NumberAnimation {
-                            duration: 160
-                            easing.type: Easing.OutCubic
+                            duration: Theme.durationMd
+                            easing.type: Theme.easingDefault
                         }
                     }
 

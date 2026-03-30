@@ -55,7 +55,7 @@ Item {
         anchors.fill: parent
         radius: Theme.radiusControl
         color: mainMouse.containsMouse ? Theme.color("accentSoft") : "transparent"
-        Behavior on color { ColorAnimation { duration: Theme.durationSm; easing.type: Easing.OutCubic } }
+        Behavior on color { ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault } }
 
         Image {
             id: mainLogo

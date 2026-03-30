@@ -170,9 +170,9 @@ RowLayout {
         property: "monthGridOffset"
         to: 0
         duration: Theme.durationMd
-        easing.type: Easing.OutCubic
+        easing.type: Theme.easingDefault
         onStarted: {
-            easing.type = root.monthTransitionDirection > 0 ? Easing.OutCubic : Easing.OutQuad
+            easing.type = root.monthTransitionDirection > 0 ? Theme.easingDefault : Theme.easingLight
             duration = root.monthTransitionDirection > 0 ? Theme.durationMd : Theme.durationLg
         }
         onStopped: root.monthGridOpacity = 1.0
@@ -184,7 +184,7 @@ RowLayout {
         property: "monthGridOpacity"
         to: 1.0
         duration: Theme.durationMd
-        easing.type: Easing.OutCubic
+        easing.type: Theme.easingDefault
     }
 
     Repeater {

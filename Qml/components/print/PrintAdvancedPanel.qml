@@ -24,7 +24,7 @@ Item {
     implicitHeight: headerRow.implicitHeight + (expanded ? contentCol.implicitHeight + 8 : 0)
 
     Behavior on implicitHeight {
-        NumberAnimation { duration: 160; easing.type: Easing.OutCubic }
+        NumberAnimation { duration: Theme.durationMd; easing.type: Theme.easingDefault }
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────

@@ -1,6 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
+import Slm_Desktop
 import "../components/system"
 
 Rectangle {
@@ -142,11 +143,11 @@ Rectangle {
     SequentialAnimation {
         id: shakeAnimation
         property real originX: 0
-        NumberAnimation { target: centerContent; property: "x"; from: shakeAnimation.originX;     to: shakeAnimation.originX - 14; duration: 50; easing.type: Easing.InOutSine }
-        NumberAnimation { target: centerContent; property: "x"; from: shakeAnimation.originX - 14; to: shakeAnimation.originX + 14; duration: 80; easing.type: Easing.InOutSine }
-        NumberAnimation { target: centerContent; property: "x"; from: shakeAnimation.originX + 14; to: shakeAnimation.originX - 8;  duration: 70; easing.type: Easing.InOutSine }
-        NumberAnimation { target: centerContent; property: "x"; from: shakeAnimation.originX - 8;  to: shakeAnimation.originX + 8;  duration: 60; easing.type: Easing.InOutSine }
-        NumberAnimation { target: centerContent; property: "x"; from: shakeAnimation.originX + 8;  to: shakeAnimation.originX;      duration: 50; easing.type: Easing.OutCubic }
+        NumberAnimation { target: centerContent; property: "x"; from: shakeAnimation.originX;     to: shakeAnimation.originX - 14; duration: Math.max(1, Math.round(Theme.durationMicro * 0.56)); easing.type: Theme.easingStandard }
+        NumberAnimation { target: centerContent; property: "x"; from: shakeAnimation.originX - 14; to: shakeAnimation.originX + 14; duration: Math.max(1, Math.round(Theme.durationMicro * 0.89)); easing.type: Theme.easingStandard }
+        NumberAnimation { target: centerContent; property: "x"; from: shakeAnimation.originX + 14; to: shakeAnimation.originX - 8;  duration: Math.max(1, Math.round(Theme.durationMicro * 0.78)); easing.type: Theme.easingStandard }
+        NumberAnimation { target: centerContent; property: "x"; from: shakeAnimation.originX - 8;  to: shakeAnimation.originX + 8;  duration: Math.max(1, Math.round(Theme.durationMicro * 0.67)); easing.type: Theme.easingStandard }
+        NumberAnimation { target: centerContent; property: "x"; from: shakeAnimation.originX + 8;  to: shakeAnimation.originX;      duration: Math.max(1, Math.round(Theme.durationMicro * 0.56)); easing.type: Theme.easingDefault }
     }
 
     // ── Center content ────────────────────────────────────────────────────────

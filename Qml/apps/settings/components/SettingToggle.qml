@@ -15,7 +15,7 @@ DSStyle.Switch {
         color: control.checked ? Theme.color("accent") : Theme.color("controlDisabledBg")
 
         Behavior on color {
-            ColorAnimation { duration: 180; easing.type: Easing.OutCubic }
+            ColorAnimation { duration: Theme.durationMd; easing.type: Theme.easingDefault }
         }
 
         Rectangle {
@@ -27,7 +27,7 @@ DSStyle.Switch {
             color: "white"
 
             Behavior on x {
-                NumberAnimation { duration: 200; easing.type: Easing.OutBack }
+                NumberAnimation { duration: Theme.durationMd; easing.type: Theme.easingSpring }
             }
         }
     }

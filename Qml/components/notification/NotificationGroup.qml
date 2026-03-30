@@ -18,7 +18,7 @@ ColumnLayout {
     Rectangle {
         Layout.fillWidth: true
         height: 34
-        radius: 10
+        radius: Theme.radiusControlLarge
         color: Theme.color("controlBg")
         border.width: Theme.borderWidthThin
         border.color: Theme.color("panelBorder")
@@ -61,7 +61,14 @@ ColumnLayout {
 
         delegate: NotificationCard {
             width: ListView.view ? ListView.view.width : 360
+            appName: String(appName || "")
+            appIcon: String(appIcon || "")
             title: String(summary || appName || "")
+            body: String(body || "")
+            timestamp: String(timestamp || "")
+            priority: String(priority || "normal")
+            read: !!read
+            actionsModel: actions || []
 
             onClicked: {
                 var id = Number(notificationId || -1)
@@ -70,6 +77,12 @@ ColumnLayout {
             onDismissRequested: {
                 var id = Number(notificationId || -1)
                 if (id > 0) root.dismissRequested(id)
+            }
+            onActionTriggered: function(_actionKey) {
+                var id = Number(notificationId || -1)
+                if (id > 0) {
+                    root.notificationClicked(id)
+                }
             }
         }
     }

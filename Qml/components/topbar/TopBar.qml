@@ -51,7 +51,7 @@ Rectangle {
     Behavior on color {
         ColorAnimation {
             duration: Theme.transitionDuration
-            easing.type: Easing.InOutQuad
+            easing.type: Theme.easingStandard
         }
     }
 

@@ -454,8 +454,8 @@ Item {
 
                                     Behavior on scale {
                                         NumberAnimation {
-                                            duration: 120
-                                            easing.type: Easing.OutQuad
+                                            duration: Theme.durationFast
+                                            easing.type: Theme.easingLight
                                         }
                                     }
 
@@ -642,29 +642,29 @@ Item {
             target: root
             property: "pageTransitionOffset"
             to: 0
-            duration: 190
-            easing.type: Easing.OutCubic
+            duration: Theme.durationMd
+            easing.type: Theme.easingDefault
         }
         NumberAnimation {
             target: root
             property: "pageTransitionOpacity"
             to: 1
-            duration: 170
-            easing.type: Easing.OutQuad
+            duration: Theme.durationMd
+            easing.type: Theme.easingLight
         }
         NumberAnimation {
             target: root
             property: "pageTransitionHeaderOffset"
             to: 0
-            duration: 210
-            easing.type: Easing.OutCubic
+            duration: Theme.durationNormal
+            easing.type: Theme.easingDefault
         }
         NumberAnimation {
             target: root
             property: "pageTransitionDotsOffset"
             to: 0
-            duration: 210
-            easing.type: Easing.OutCubic
+            duration: Theme.durationNormal
+            easing.type: Theme.easingDefault
         }
     }
 

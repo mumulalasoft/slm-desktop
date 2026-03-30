@@ -15,7 +15,24 @@ Item {
     readonly property int iconSize: 22
     readonly property int popupGap: Theme.metric("spacingXs")
     readonly property int rowGap: Theme.metric("spacingMd")
-    readonly property bool popupOpen: popupHint || menu.opened
+    readonly property bool centerOpen: notificationManager && !!notificationManager.centerVisible
+    readonly property bool hasUnread: unreadCount > 0
+    readonly property int unreadCount: {
+        if (!notificationManager) {
+            return 0
+        }
+        if (notificationManager.unreadCount !== undefined && notificationManager.unreadCount !== null) {
+            return Number(notificationManager.unreadCount)
+        }
+        if (notificationManager.count !== undefined && notificationManager.count !== null) {
+            return Number(notificationManager.count)
+        }
+        return 0
+    }
+    readonly property bool popupOpen: popupHint
+                                      || menu.opened
+                                      || centerOpen
+    property int _lastUnreadCount: 0
 
     Timer {
         id: popupHintTimer
@@ -60,22 +77,52 @@ Item {
         return Number(root.notificationManager.count)
     }
 
-    Component.onCompleted: loadPreference()
+    function toggleCenter() {
+        if (root.notificationManager && root.notificationManager.toggleCenter) {
+            root.notificationManager.toggleCenter()
+        }
+    }
+
+    function animateBadgePulse() {
+        if (!Theme.animationsEnabled) {
+            return
+        }
+        badgePulse.restart()
+    }
+
+    Component.onCompleted: {
+        loadPreference()
+        root._lastUnreadCount = root.unreadCount
+    }
+
+    onUnreadCountChanged: {
+        if (root.unreadCount > root._lastUnreadCount) {
+            root.animateBadgePulse()
+        }
+        root._lastUnreadCount = root.unreadCount
+    }
 
     ToolButton {
         id: button
         anchors.fill: parent
         padding: 0
         onClicked: {
-            if ((Date.now() - root.lastMenuCloseMs) < 220) {
-                return
+            root.toggleCenter()
+        }
+
+        TapHandler {
+            acceptedButtons: Qt.RightButton
+            onTapped: function() {
+                if ((Date.now() - root.lastMenuCloseMs) < 220) {
+                    return
+                }
+                if (menu.opened || menu.visible) {
+                    root.lastMenuCloseMs = Date.now()
+                    menu.close()
+                    return
+                }
+                root.openMenuSafely()
             }
-            if (menu.opened || menu.visible) {
-                root.lastMenuCloseMs = Date.now()
-                menu.close()
-                return
-            }
-            root.openMenuSafely()
         }
 
         contentItem: Item {
@@ -90,11 +137,16 @@ Item {
                 source: "image://themeicon/preferences-system-notifications-symbolic?v=" +
                         ((typeof ThemeIconController !== "undefined" && ThemeIconController)
                          ? ThemeIconController.revision : 0)
-                color: Theme.color("textOnGlass")
+                color: root.centerOpen ? Theme.color("accent") : Theme.color("textOnGlass")
+                Behavior on color {
+                    enabled: Theme.animationsEnabled
+                    ColorAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault }
+                }
             }
 
             Rectangle {
-                visible: root.notificationCount() > 0
+                id: badge
+                visible: root.hasUnread
                 anchors.right: parent.right
                 anchors.top: parent.top
                 width: 14
@@ -103,25 +155,60 @@ Item {
                 color: Theme.color("accent")
                 border.width: Theme.borderWidthThin
                 border.color: Theme.color("menuBg")
+                scale: 1.0
+                opacity: root.hasUnread ? 1.0 : 0.0
+                y: root.hasUnread ? 0 : -3
 
                 Text {
                     anchors.centerIn: parent
-                    text: root.notificationCount() > 9 ? "9+" : String(root.notificationCount())
+                    text: root.unreadCount > 9 ? "9+" : String(root.unreadCount)
                     color: Theme.color("accentText")
                     font.family: Theme.fontFamilyUi
                     font.pixelSize: Theme.fontSize("micro")
                     font.weight: Theme.fontWeight("bold")
+                }
+
+                Behavior on opacity {
+                    enabled: Theme.animationsEnabled
+                    NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault }
+                }
+                Behavior on y {
+                    enabled: Theme.animationsEnabled
+                    NumberAnimation { duration: Theme.durationNormal; easing.type: Theme.easingDefault }
                 }
             }
         }
 
         background: Rectangle {
             radius: Theme.radiusControl
-            color: button.hovered ? Theme.color("accentSoft") : "transparent"
+            color: (button.hovered || root.centerOpen) ? Theme.color("accentSoft") : "transparent"
             border.width: Theme.borderWidthThin
-            border.color: button.hovered ? Theme.color("panelBorder") : "transparent"
-            Behavior on color { ColorAnimation { duration: Theme.durationSm; easing.type: Easing.OutCubic } }
-            Behavior on border.color { ColorAnimation { duration: Theme.durationSm; easing.type: Easing.OutCubic } }
+            border.color: (button.hovered || root.centerOpen)
+                          ? (root.centerOpen ? Theme.color("accent") : Theme.color("panelBorder"))
+                          : "transparent"
+            Behavior on color { ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault } }
+            Behavior on border.color { ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault } }
+        }
+    }
+
+    SequentialAnimation {
+        id: badgePulse
+        running: false
+        NumberAnimation {
+            target: badge
+            property: "scale"
+            from: 1.0
+            to: 1.18
+            duration: Theme.durationFast
+            easing.type: Theme.easingDefault
+        }
+        SpringAnimation {
+            target: badge
+            property: "scale"
+            to: 1.0
+            spring: 3.0
+            damping: 0.26
+            duration: Theme.durationNormal
         }
     }
 

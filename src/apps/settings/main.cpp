@@ -87,6 +87,12 @@ int main(int argc, char *argv[])
         : QUrl(u"qrc:/qt/qml/SlmSettings/Qml/apps/settings/Main.qml"_s);
     UIPreferences uiPreferences;
     ThemeIconController themeIconController;
+    const QString sessionMode = qEnvironmentVariable("SLM_SESSION_MODE").trimmed().toLower();
+    const bool safeModeActive = (sessionMode == QStringLiteral("safe")
+                                 || sessionMode == QStringLiteral("recovery"));
+    const bool userAnimationEnabled =
+        uiPreferences.getPreference(QStringLiteral("windowing.animationEnabled"), true).toBool();
+    const bool runtimeAnimationsEnabled = userAnimationEnabled && !safeModeActive;
     Slm::Print::PrinterManager printManager;
     Slm::Print::PrinterAdminService printerAdmin;
     EnvVariableController envVarController;
@@ -164,6 +170,9 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("ComponentHealth"), &componentHealth);
     engine.rootContext()->setContextProperty(QStringLiteral("DaemonHealthClient"), &daemonHealthClient);
     engine.rootContext()->setContextProperty(QStringLiteral("MissingComponents"), &missingComponents);
+    engine.rootContext()->setContextProperty(QStringLiteral("SessionStartupMode"), sessionMode);
+    engine.rootContext()->setContextProperty(QStringLiteral("SafeModeActive"), safeModeActive);
+    engine.rootContext()->setContextProperty(QStringLiteral("AnimationsEnabled"), runtimeAnimationsEnabled);
     QObject::connect(&uiPreferences, &UIPreferences::iconThemeLightChanged, &app, [&]() {
         applyIconThemePref();
         applyIconThemeMode();

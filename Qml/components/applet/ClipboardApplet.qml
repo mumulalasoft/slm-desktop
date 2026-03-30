@@ -53,8 +53,8 @@ Item {
             color: button.down ? Theme.color("controlBgPressed") : (button.hovered ? Theme.color("accentSoft") : "transparent")
             border.width: Theme.borderWidthThin
             border.color: button.hovered ? Theme.color("panelBorder") : "transparent"
-            Behavior on color { ColorAnimation { duration: Theme.durationSm; easing.type: Easing.OutCubic } }
-            Behavior on border.color { ColorAnimation { duration: Theme.durationSm; easing.type: Easing.OutCubic } }
+            Behavior on color { ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault } }
+            Behavior on border.color { ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault } }
         }
         onClicked: {
             if (menu.opened || menu.visible) {

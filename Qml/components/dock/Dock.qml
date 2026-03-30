@@ -483,7 +483,7 @@ Rectangle {
     Behavior on color {
         ColorAnimation {
             duration: Theme.transitionDuration
-            easing.type: Easing.InOutQuad
+            easing.type: Theme.easingStandard
         }
     }
     Behavior on width {
@@ -610,7 +610,7 @@ Rectangle {
             from: 0
             to: root.dropPulsePeakOpacity
             duration: root.dropPulseInDuration
-            easing.type: Easing.OutCubic
+            easing.type: Theme.easingDefault
         }
         ParallelAnimation {
             NumberAnimation {
@@ -619,14 +619,14 @@ Rectangle {
                 from: root.dropPulseStartScale
                 to: root.dropPulseEndScale
                 duration: root.dropPulseOutDuration
-                easing.type: Easing.OutQuad
+                easing.type: Theme.easingLight
             }
             NumberAnimation {
                 target: dropPulse
                 property: "opacity"
                 to: 0
                 duration: root.dropPulseFadeDuration
-                easing.type: Easing.OutQuad
+                easing.type: Theme.easingLight
             }
         }
         ScriptAction {

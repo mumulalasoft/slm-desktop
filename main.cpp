@@ -286,6 +286,15 @@ int main(int argc, char *argv[])
         themeIconController.applyForDarkMode(darkMode);
     };
     applyIconThemePref();
+
+    const QString sessionMode = qEnvironmentVariable("SLM_SESSION_MODE").trimmed().toLower();
+    const bool safeModeActive = (sessionMode == QStringLiteral("safe")
+                                 || sessionMode == QStringLiteral("recovery"));
+    const bool userAnimationEnabled =
+        uiPreferences.getPreference(QStringLiteral("windowing.animationEnabled"), true).toBool();
+    const bool runtimeAnimationsEnabled = userAnimationEnabled && !safeModeActive;
+    motionController.setReducedMotion(!runtimeAnimationsEnabled);
+
     QObject::connect(&uiPreferences, &UIPreferences::iconThemeLightChanged, &app, [&]() {
         applyIconThemePref();
     });
@@ -386,6 +395,9 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("PrintJobSubmitter"), &printJobSubmitter);
     engine.rootContext()->setContextProperty(QStringLiteral("AppBinaryDir"),
                                              QCoreApplication::applicationDirPath());
+    engine.rootContext()->setContextProperty(QStringLiteral("SessionStartupMode"), sessionMode);
+    engine.rootContext()->setContextProperty(QStringLiteral("SafeModeActive"), safeModeActive);
+    engine.rootContext()->setContextProperty(QStringLiteral("AnimationsEnabled"), runtimeAnimationsEnabled);
     AppStartupBridge::wireGlobalBatchProgress(&app,
                                               &fileManagerApi,
                                               &windowingBackendManager,

@@ -224,11 +224,11 @@ ApplicationWindow {
                 padding: 0
                 opacity: window.atHome ? 0 : 1
                 visible: opacity > 0
-                Behavior on opacity { NumberAnimation { duration: 160 } }
+                Behavior on opacity { NumberAnimation { duration: Theme.durationMd; easing.type: Theme.easingDefault } }
                 background: Rectangle {
                     radius: 6
                     color: backBtn.hovered ? Theme.color("controlBgHover") : "transparent"
-                    Behavior on color { ColorAnimation { duration: 100 } }
+                    Behavior on color { ColorAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault } }
                 }
                 contentItem: Image {
                     anchors.centerIn: parent
@@ -248,7 +248,7 @@ ApplicationWindow {
                 spacing: 8
                 opacity: window.atHome ? 0 : 1
                 visible: opacity > 0
-                Behavior on opacity { NumberAnimation { duration: 160 } }
+                Behavior on opacity { NumberAnimation { duration: Theme.durationMd; easing.type: Theme.easingDefault } }
 
                 Image {
                     source: window.currentModule
@@ -277,7 +277,7 @@ ApplicationWindow {
                 width: 280
                 opacity: window.atHome ? 1 : 0
                 visible: opacity > 0
-                Behavior on opacity { NumberAnimation { duration: 160 } }
+                Behavior on opacity { NumberAnimation { duration: Theme.durationMd; easing.type: Theme.easingDefault } }
                 placeholderText: qsTr("Search Settings")
                 selectByMouse: true
                 leftPadding: 32
@@ -293,7 +293,7 @@ ApplicationWindow {
                     color: Theme.color("surface")
                     border.color: searchField.activeFocus ? Theme.color("accent") : Theme.color("panelBorder")
                     border.width: searchField.activeFocus ? 2 : 1
-                    Behavior on border.color { ColorAnimation { duration: 120 } }
+                    Behavior on border.color { ColorAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault } }
                 }
             }
         }
@@ -323,7 +323,7 @@ ApplicationWindow {
                 height: parent.height
                 x: window.atHome ? 0 : -width
                 Behavior on x {
-                    NumberAnimation { duration: 300; easing.type: Easing.InOutCubic }
+                    NumberAnimation { duration: Theme.durationSlow; easing.type: Theme.easingStandard }
                 }
                 moduleModel: ModuleLoader ? ModuleLoader.modules : []
                 searchQuery: SearchEngine ? SearchEngine.searchQuery : ""
@@ -337,7 +337,7 @@ ApplicationWindow {
                 height: parent.height
                 x: window.atHome ? parent.width : 0
                 Behavior on x {
-                    NumberAnimation { duration: 300; easing.type: Easing.InOutCubic }
+                    NumberAnimation { duration: Theme.durationSlow; easing.type: Theme.easingStandard }
                 }
             }
         }

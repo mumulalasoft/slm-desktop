@@ -49,6 +49,9 @@ jobs:
             bash -n "$f"
           done
 
+      - name: Animation token lint (QML)
+        run: scripts/check-animation-token-usage.sh
+
       - name: Rebrand guard (no legacy desktop shell naming)
         run: |
           if [[ -d modules/desktop-shell-core || -d modules/desktop-shell-style ]]; then
@@ -209,6 +212,9 @@ jobs:
 
       - name: UI style lint
         run: cmake --build build --target lint_ui_style
+
+      - name: Animation token lint
+        run: cmake --build build --target lint_animation_tokens
 
       - name: Build
         run: cmake --build build -j

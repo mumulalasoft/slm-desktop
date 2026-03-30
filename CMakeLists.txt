@@ -711,6 +711,12 @@ add_custom_target(lint_slm_style_usage
     COMMENT "Checking SLM style component usage in QML"
 )
 
+add_custom_target(lint_animation_tokens
+    COMMAND ${CMAKE_SOURCE_DIR}/scripts/check-animation-token-usage.sh
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    COMMENT "Checking animation token usage in QML"
+)
+
 add_custom_target(lint_capability_matrix
     COMMAND ${CMAKE_SOURCE_DIR}/scripts/check-capability-matrix.sh
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}

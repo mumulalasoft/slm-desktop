@@ -37,8 +37,8 @@ Item {
             opacity: button.hovered ? 1.0 : (root.active ? 0.2 : 0.0)
             border.width: Theme.borderWidthThin
             border.color: button.hovered ? Theme.color("panelBorder") : "transparent"
-            Behavior on color { ColorAnimation { duration: Theme.durationSm; easing.type: Easing.OutCubic } }
-            Behavior on opacity { NumberAnimation { duration: Theme.durationSm; easing.type: Easing.OutCubic } }
+            Behavior on color { ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault } }
+            Behavior on opacity { NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault } }
         }
 
         contentItem: Item {
@@ -58,7 +58,7 @@ Item {
                 visible: root.active
                 width: 8
                 height: 8
-                radius: 4
+                radius: height * 0.5
                 color: Theme.color("warning")
                 anchors.right: parent.right
                 anchors.top: parent.top
@@ -154,4 +154,3 @@ Item {
         }
     }
 }
-

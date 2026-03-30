@@ -269,8 +269,8 @@ Item {
                 SequentialAnimation on opacity {
                     running: root.anyPrinting
                     loops: Animation.Infinite
-                    NumberAnimation { to: 0.55; duration: 700; easing.type: Easing.InOutSine }
-                    NumberAnimation { to: 1.0;  duration: 700; easing.type: Easing.InOutSine }
+                    NumberAnimation { to: 0.55; duration: Theme.durationWorkspace + Theme.durationSlow; easing.type: Theme.easingStandard }
+                    NumberAnimation { to: 1.0;  duration: Theme.durationWorkspace + Theme.durationSlow; easing.type: Theme.easingStandard }
                 }
                 opacity: root.anyPrinting ? 1.0 : 1.0
             }
@@ -305,8 +305,8 @@ Item {
             color: indicatorButton.hovered ? Theme.color("accentSoft") : "transparent"
             border.width: Theme.borderWidthThin
             border.color: indicatorButton.hovered ? Theme.color("panelBorder") : "transparent"
-            Behavior on color { ColorAnimation { duration: Theme.durationSm; easing.type: Easing.OutCubic } }
-            Behavior on border.color { ColorAnimation { duration: Theme.durationSm; easing.type: Easing.OutCubic } }
+            Behavior on color { ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault } }
+            Behavior on border.color { ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault } }
         }
     }
 
@@ -359,7 +359,7 @@ Item {
                         // Status dot
                         Rectangle {
                             width: 8; height: 8
-                            radius: 4
+                            radius: height * 0.5
                             color: {
                                 switch (model.status) {
                                 case "printing": return Theme.color("accent")
@@ -368,14 +368,14 @@ Item {
                                 default:         return Theme.color("textSecondary")
                                 }
                             }
-                            Behavior on color { ColorAnimation { duration: 200 } }
+                            Behavior on color { ColorAnimation { duration: Theme.durationMd; easing.type: Theme.easingDefault } }
 
                             // Animated pulse for printing state
                             SequentialAnimation on opacity {
                                 running: model.status === "printing"
                                 loops: Animation.Infinite
-                                NumberAnimation { to: 0.3; duration: 500; easing.type: Easing.InOutSine }
-                                NumberAnimation { to: 1.0; duration: 500; easing.type: Easing.InOutSine }
+                                NumberAnimation { to: 0.3; duration: Theme.durationWorkspace + Theme.durationFast; easing.type: Theme.easingStandard }
+                                NumberAnimation { to: 1.0; duration: Theme.durationWorkspace + Theme.durationFast; easing.type: Theme.easingStandard }
                             }
                         }
 
@@ -450,7 +450,7 @@ Item {
                         visible: model.status === "printing"
                         Layout.fillWidth: true
                         height: 3
-                        radius: 2
+                        radius: Theme.radiusTiny
                         color: Theme.color("borderSubtle")
 
                         Rectangle {
@@ -458,7 +458,7 @@ Item {
                             height: parent.height
                             radius: parent.radius
                             color: Theme.color("accent")
-                            Behavior on width { NumberAnimation { duration: 400; easing.type: Easing.OutCubic } }
+                            Behavior on width { NumberAnimation { duration: Theme.durationWorkspace; easing.type: Theme.easingDefault } }
                         }
                     }
                 }

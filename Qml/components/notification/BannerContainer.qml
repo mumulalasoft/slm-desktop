@@ -7,6 +7,7 @@ Item {
     property var notificationManager: null
     property int maxVisible: 3
     property int autoDismissMs: 6200
+    property bool doNotDisturb: false
 
     signal dismissRequested(int notificationId)
     signal notificationClicked(int notificationId)
@@ -21,6 +22,27 @@ Item {
         clip: true
         interactive: false
         model: root.notificationManager ? root.notificationManager.bannerNotifications : null
+
+        add: Transition {
+            enabled: Theme.animationsEnabled
+            ParallelAnimation {
+                NumberAnimation {
+                    property: "opacity"
+                    from: 0
+                    to: 1
+                    duration: Theme.durationNormal
+                    easing.type: Theme.easingDefault
+                }
+                NumberAnimation {
+                    property: "x"
+                    from: 56
+                    to: 0
+                    duration: Theme.durationSlow
+                    easing.type: Theme.easingDecelerate
+                }
+            }
+        }
+
         delegate: Item {
             id: rowItem
 
@@ -40,13 +62,23 @@ Item {
             width: listView.width
             height: visible ? card.implicitHeight : 0
             visible: index < root.maxVisible && !!banner && !pendingDismiss
+                     && (!root.doNotDisturb || sticky)
             opacity: pendingDismiss ? 0 : 1
             scale: pendingDismiss ? 0.96 : 1.0
             x: pendingDismiss ? width : 0
 
-            Behavior on opacity { NumberAnimation { duration: 170; easing.type: Easing.OutCubic } }
-            Behavior on scale { NumberAnimation { duration: 170; easing.type: Easing.OutCubic } }
-            Behavior on x { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+            Behavior on opacity {
+                enabled: Theme.animationsEnabled
+                NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault }
+            }
+            Behavior on scale {
+                enabled: Theme.animationsEnabled
+                NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault }
+            }
+            Behavior on x {
+                enabled: Theme.animationsEnabled
+                NumberAnimation { duration: Theme.durationNormal; easing.type: Theme.easingDefault }
+            }
 
             Timer {
                 id: dismissTimer
@@ -66,7 +98,7 @@ Item {
 
             Timer {
                 id: dismissFinalize
-                interval: 190
+                interval: Theme.animationsEnabled ? Theme.durationNormal : 1
                 repeat: false
                 onTriggered: root.dismissRequested(rowItem.notificationId)
             }
@@ -84,7 +116,8 @@ Item {
                 onClicked: root.notificationClicked(rowItem.notificationId)
 
                 Behavior on x {
-                    NumberAnimation { duration: 130; easing.type: Easing.OutCubic }
+                    enabled: Theme.animationsEnabled
+                    NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault }
                 }
             }
 

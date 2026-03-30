@@ -8,7 +8,7 @@ Item {
     anchors.fill: parent
 
     property bool active: false
-    readonly property int smoothMotionDuration: Theme.durationMd
+    readonly property int smoothMotionDuration: Theme.durationWorkspace
     property real transitionProgress: active ? 1.0 : 0.0
     property int lastAnimatedSpace: (typeof SpacesManager !== "undefined" && SpacesManager)
                                     ? Number(SpacesManager.activeSpace || 1) : 1
@@ -36,11 +36,11 @@ Item {
     signal dismissed()
 
     Behavior on transitionProgress {
-        NumberAnimation { duration: root.smoothMotionDuration; easing.type: Easing.InOutCubic }
+        NumberAnimation { duration: root.smoothMotionDuration; easing.type: Theme.easingStandard }
     }
 
     Behavior on workspaceSwitchOffset {
-        NumberAnimation { duration: root.smoothMotionDuration; easing.type: Easing.InOutCubic }
+        NumberAnimation { duration: root.smoothMotionDuration; easing.type: Theme.easingStandard }
     }
 
     function isShellWindow(appId, title) {
@@ -350,7 +350,7 @@ Item {
     Rectangle {
         anchors.fill: parent
         color: Theme.color("workspaceBackdrop")
-        opacity: 0.96 * root.transitionProgress
+        opacity: Theme.opacityElevated * root.transitionProgress
     }
 
     MouseArea {

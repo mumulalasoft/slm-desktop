@@ -1025,19 +1025,19 @@ Rectangle {
             interactive: visible && !root.suppressFlick && contentHeight > height
             highlightMoveDuration: 80
             add: Transition {
-                NumberAnimation { properties: "x,y"; duration: 145; easing.type: Easing.OutBack; easing.overshoot: 1.15 }
-                NumberAnimation { properties: "opacity"; from: 0; to: 1; duration: 130; easing.type: Easing.OutCubic }
-                NumberAnimation { properties: "scale"; from: 0.84; to: 1.0; duration: 145; easing.type: Easing.OutBack; easing.overshoot: 1.12 }
+                NumberAnimation { properties: "x,y"; duration: Theme.durationSm; easing.type: Theme.easingSpring; easing.overshoot: 1.15 }
+                NumberAnimation { properties: "opacity"; from: 0; to: 1; duration: Theme.durationSm; easing.type: Theme.easingDefault }
+                NumberAnimation { properties: "scale"; from: 0.84; to: 1.0; duration: Theme.durationSm; easing.type: Theme.easingSpring; easing.overshoot: 1.12 }
             }
             addDisplaced: Transition {
-                NumberAnimation { properties: "x,y"; duration: 135; easing.type: Easing.OutCubic }
+                NumberAnimation { properties: "x,y"; duration: Theme.durationSm; easing.type: Theme.easingDefault }
             }
             remove: Transition {
-                NumberAnimation { properties: "opacity"; from: 1; to: 0; duration: 125; easing.type: Easing.InCubic }
-                NumberAnimation { properties: "scale"; from: 1.0; to: 0.78; duration: 125; easing.type: Easing.InCubic }
+                NumberAnimation { properties: "opacity"; from: 1; to: 0; duration: Theme.durationFast; easing.type: Theme.easingAccelerate }
+                NumberAnimation { properties: "scale"; from: 1.0; to: 0.78; duration: Theme.durationFast; easing.type: Theme.easingAccelerate }
             }
             removeDisplaced: Transition {
-                NumberAnimation { properties: "x,y"; duration: 135; easing.type: Easing.OutCubic }
+                NumberAnimation { properties: "x,y"; duration: Theme.durationSm; easing.type: Theme.easingDefault }
             }
 
             delegate: Item {
@@ -1097,7 +1097,7 @@ Rectangle {
                             cache: true
                             opacity: status === Image.Ready ? 1.0 : 0.0
                             Behavior on opacity {
-                                NumberAnimation { duration: 130; easing.type: Easing.OutCubic }
+                                NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault }
                             }
                             source: root.previewSource(path, name, isDir, thumbnailPath, rowItem.thumbSide, nearViewport, allowThumb,
                                                        Math.abs(rowCenterY - viewportCenterY))
@@ -1400,7 +1400,7 @@ Rectangle {
                                   ? Theme.color("hoverItem")
                                   : ((index % 2) === 1 ? Theme.color("fileManagerRowAlt") : "transparent"))
                         Behavior on color {
-                            ColorAnimation { duration: 100; easing.type: Easing.OutCubic }
+                            ColorAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault }
                         }
                     }
 
@@ -1430,7 +1430,7 @@ Rectangle {
                                     cache: true
                                     opacity: status === Image.Ready ? 1.0 : 0.0
                                     Behavior on opacity {
-                                        NumberAnimation { duration: 120; easing.type: Easing.OutCubic }
+                                        NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault }
                                     }
                                 }
 
@@ -1639,7 +1639,7 @@ Rectangle {
                                 color: selected ? Theme.color("selectedItem")
                                                 : (parentMouse.containsMouse ? Theme.color("hoverItem") : "transparent")
                                 Behavior on color {
-                                    ColorAnimation { duration: 100; easing.type: Easing.OutCubic }
+                                    ColorAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault }
                                 }
                             }
 
@@ -1672,7 +1672,7 @@ Rectangle {
                                     cache: true
                                     opacity: selected ? 0.95 : 0.7
                                     Behavior on opacity {
-                                        NumberAnimation { duration: 100; easing.type: Easing.OutCubic }
+                                        NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault }
                                     }
                                 }
                             }
@@ -1737,7 +1737,7 @@ Rectangle {
                                 color: root.isSelected(index) ? Theme.color("selectedItem")
                                                                : (currentMouse.containsMouse ? Theme.color("hoverItem") : "transparent")
                                 Behavior on color {
-                                    ColorAnimation { duration: 100; easing.type: Easing.OutCubic }
+                                    ColorAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault }
                                 }
                             }
                             Row {
@@ -1759,7 +1759,7 @@ Rectangle {
                                         cache: true
                                         opacity: status === Image.Ready ? 1.0 : 0.0
                                         Behavior on opacity {
-                                            NumberAnimation { duration: 120; easing.type: Easing.OutCubic }
+                                            NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault }
                                         }
                                     }
                                     Image {
@@ -1789,7 +1789,7 @@ Rectangle {
                                     cache: true
                                     opacity: root.isSelected(index) ? 0.95 : 0.7
                                     Behavior on opacity {
-                                        NumberAnimation { duration: 100; easing.type: Easing.OutCubic }
+                                        NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault }
                                     }
                                 }
                             }
@@ -1916,7 +1916,7 @@ Rectangle {
                                        ? Theme.color("selectedItem")
                                        : (childMouse.containsMouse ? Theme.color("hoverItem") : "transparent")
                                 Behavior on color {
-                                    ColorAnimation { duration: 100; easing.type: Easing.OutCubic }
+                                    ColorAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault }
                                 }
                             }
 
@@ -1951,7 +1951,7 @@ Rectangle {
                                     cache: true
                                     opacity: (root.columnChildIndex === index && root.columnsFocusPane === 2) ? 0.95 : 0.7
                                     Behavior on opacity {
-                                        NumberAnimation { duration: 100; easing.type: Easing.OutCubic }
+                                        NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault }
                                     }
                                 }
                             }
@@ -1992,7 +1992,7 @@ Rectangle {
                                     cache: true
                                     opacity: status === Image.Ready ? 1.0 : 0.0
                                     Behavior on opacity {
-                                        NumberAnimation { duration: 140; easing.type: Easing.OutCubic }
+                                        NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault }
                                     }
                                     source: root.previewSource(String(root.columnsPreviewEntry ? root.columnsPreviewEntry.path : ""),
                                                                String(root.columnsPreviewEntry ? root.columnsPreviewEntry.name : ""),
@@ -2212,8 +2212,8 @@ Rectangle {
                     SequentialAnimation on opacity {
                         loops: Animation.Infinite
                         running: parent.visible
-                        NumberAnimation { from: 0.35; to: 0.62; duration: 580; easing.type: Easing.InOutQuad }
-                        NumberAnimation { from: 0.62; to: 0.35; duration: 580; easing.type: Easing.InOutQuad }
+                        NumberAnimation { from: 0.35; to: 0.62; duration: Theme.durationWorkspace + Theme.durationMd; easing.type: Theme.easingStandard }
+                        NumberAnimation { from: 0.62; to: 0.35; duration: Theme.durationWorkspace + Theme.durationMd; easing.type: Theme.easingStandard }
                     }
                 }
             }

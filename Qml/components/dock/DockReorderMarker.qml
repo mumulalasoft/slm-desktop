@@ -29,8 +29,8 @@ Rectangle {
     }
     Behavior on opacity {
         NumberAnimation {
-            duration: 80
-            easing.type: Easing.OutQuad
+            duration: Theme.durationMicro
+            easing.type: Theme.easingLight
         }
     }
 }

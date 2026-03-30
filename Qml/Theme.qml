@@ -8,6 +8,17 @@ QtObject {
     readonly property string modeSystem: "system"
     readonly property string modeLight: "light"
     readonly property string modeDark: "dark"
+    readonly property bool safeModeActive: (typeof SafeModeActive !== "undefined") ? !!SafeModeActive : false
+    readonly property bool animationsEnabled: {
+        var enabled = true
+        if (typeof AnimationsEnabled !== "undefined") {
+            enabled = !!AnimationsEnabled
+        }
+        if (safeModeActive) {
+            enabled = false
+        }
+        return enabled
+    }
 
     property bool followSystem: true
     property bool forcedDarkMode: false
@@ -20,25 +31,34 @@ QtObject {
         var c = Qt.color(userAccentColor)
         return c.valid ? c : Qt.color("#0a84ff")
     }
-    readonly property int transitionDuration: 260
+    readonly property int transitionDuration: animationsEnabled ? 260 : 1
+    // Canonical global timing tokens for state-driven transitions.
+    readonly property int durationFast: animationsEnabled ? 120 : 1
+    readonly property int durationNormal: animationsEnabled ? 220 : 1
+    readonly property int durationSlow: animationsEnabled ? 320 : 1
+    readonly property int durationWorkspace: animationsEnabled ? 400 : 1
 
     // Motion tokens — use these instead of hardcoded duration/easing values.
     // Micro: icon swap, badge pulse, small opacity transitions.
-    readonly property int durationMicro: 90
+    readonly property int durationMicro: animationsEnabled ? 90 : 1
     // Short: hover state, chip scale, button press feedback.
-    readonly property int durationSm: 130
+    readonly property int durationSm: animationsEnabled ? 130 : 1
     // Medium: panel slide, dropdown open, popover appear.
-    readonly property int durationMd: 200
+    readonly property int durationMd: animationsEnabled ? 200 : 1
     // Large: overlay enter/exit, workspace transition.
-    readonly property int durationLg: 290
+    readonly property int durationLg: animationsEnabled ? 290 : 1
     // Extra-large: full-screen transitions, theme switch.
-    readonly property int durationXl: 380
+    readonly property int durationXl: animationsEnabled ? 380 : 1
 
     // Easing presets aligned with macOS HIG motion feel.
     // Standard: bi-directional transitions (e.g. card flip, panel resize).
     readonly property int easingStandard: Easing.InOutCubic
     // Decelerate: elements entering the screen (ease-out feel).
     readonly property int easingDecelerate: Easing.OutCubic
+    // Default motion profile for most transitions.
+    readonly property int easingDefault: Easing.OutCubic
+    // Light profile for subtle micro interactions.
+    readonly property int easingLight: Easing.OutQuad
     // Accelerate: elements leaving the screen (ease-in feel).
     readonly property int easingAccelerate: Easing.InCubic
     // Spring-like: interactive gesture settle / bounce.

@@ -267,8 +267,8 @@ Item {
 
         Behavior on opacity {
             NumberAnimation {
-                duration: 140
-                easing.type: Easing.OutQuad
+                duration: Theme.durationFast
+                easing.type: Theme.easingLight
             }
         }
     }
@@ -334,8 +334,8 @@ Item {
 
         Behavior on opacity {
             NumberAnimation {
-                duration: 150
-                easing.type: Easing.OutCubic
+                duration: Theme.durationNormal
+                easing.type: Theme.easingDefault
             }
         }
     }
@@ -348,15 +348,15 @@ Item {
             property: "opacity"
             from: 1.0
             to: 0.90
-            duration: 75
-            easing.type: Easing.OutQuad
+            duration: Theme.durationMicro
+            easing.type: Theme.easingLight
         }
         NumberAnimation {
             target: shell
             property: "opacity"
             to: 1.0
-            duration: 140
-            easing.type: Easing.OutCubic
+            duration: Theme.durationFast
+            easing.type: Theme.easingDefault
         }
     }
 
@@ -392,15 +392,15 @@ Item {
             property: "opacity"
             from: 0.0
             to: 0.20
-            duration: Math.round(Theme.transitionDuration * 0.35)
-            easing.type: Easing.OutCubic
+            duration: Theme.durationFast
+            easing.type: Theme.easingDefault
         }
         NumberAnimation {
             target: themeTransition
             property: "opacity"
             to: 0.0
-            duration: Theme.transitionDuration
-            easing.type: Easing.OutCubic
+            duration: Theme.durationNormal
+            easing.type: Theme.easingDefault
         }
     }
 

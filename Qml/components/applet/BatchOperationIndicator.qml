@@ -28,15 +28,15 @@ Item {
 
     Behavior on opacity {
         NumberAnimation {
-            duration: 180
-            easing.type: Easing.OutCubic
+            duration: Theme.durationMd
+            easing.type: Theme.easingDefault
         }
     }
 
     Behavior on scale {
         NumberAnimation {
-            duration: 180
-            easing.type: Easing.OutCubic
+            duration: Theme.durationMd
+            easing.type: Theme.easingDefault
         }
     }
 

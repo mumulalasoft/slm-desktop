@@ -201,7 +201,7 @@ Rectangle {
                 height: parent.height - 8
                 radius: Theme.radiusControlLarge
                 color: Theme.color("fileManagerControlActive")
-                Behavior on x { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
+                Behavior on x { NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault } }
             }
             Row {
                 anchors.fill: parent

@@ -8,6 +8,36 @@ Item {
     readonly property int bannerRightMargin: 16
     readonly property int bannerTopMargin: 18
 
+    function dismissBannerOnly(id) {
+        if (!root.notificationManager) {
+            return
+        }
+        if (root.notificationManager.dismissBanner) {
+            root.notificationManager.dismissBanner(id)
+        } else if (root.notificationManager.dismiss) {
+            root.notificationManager.dismiss(id)
+        } else if (root.notificationManager.closeById) {
+            root.notificationManager.closeById(id)
+        }
+    }
+
+    function openNotification(id, fromBanner) {
+        if (!root.notificationManager || id <= 0) {
+            return
+        }
+        if (root.notificationManager.markRead) {
+            root.notificationManager.markRead(id, true)
+        }
+        if (root.notificationManager.invokeAction) {
+            root.notificationManager.invokeAction(id, "default")
+        }
+        if (fromBanner === true) {
+            root.dismissBannerOnly(id)
+        } else if (root.notificationManager.centerVisible && root.notificationManager.toggleCenter) {
+            root.notificationManager.toggleCenter()
+        }
+    }
+
     BannerContainer {
         id: banners
         z: 20
@@ -19,11 +49,10 @@ Item {
         anchors.rightMargin: root.bannerRightMargin
 
         onDismissRequested: function(id) {
-            if (root.notificationManager && root.notificationManager.dismiss) {
-                root.notificationManager.dismiss(id)
-            } else if (root.notificationManager && root.notificationManager.closeById) {
-                root.notificationManager.closeById(id)
-            }
+            root.dismissBannerOnly(id)
+        }
+        onNotificationClicked: function(id) {
+            root.openNotification(id, true)
         }
     }
 
@@ -40,6 +69,9 @@ Item {
             } else if (root.notificationManager && root.notificationManager.closeById) {
                 root.notificationManager.closeById(id)
             }
+        }
+        onNotificationClicked: function(id) {
+            root.openNotification(id, false)
         }
         onCloseRequested: {
             if (root.notificationManager && root.notificationManager.toggleCenter) {

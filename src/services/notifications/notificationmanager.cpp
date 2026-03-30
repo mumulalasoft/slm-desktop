@@ -113,6 +113,38 @@ bool NotificationListModel::removeById(uint id)
     return false;
 }
 
+bool NotificationListModel::markReadById(uint id, bool read)
+{
+    for (int i = 0; i < m_items.size(); ++i) {
+        if (m_items.at(i).id != id) {
+            continue;
+        }
+        if (m_items.at(i).read == read) {
+            return false;
+        }
+        m_items[i].read = read;
+        const QModelIndex idx = index(i, 0);
+        emit dataChanged(idx, idx, {ReadRole});
+        return true;
+    }
+    return false;
+}
+
+int NotificationListModel::markAllRead(bool read)
+{
+    int changed = 0;
+    for (int i = 0; i < m_items.size(); ++i) {
+        if (m_items.at(i).read == read) {
+            continue;
+        }
+        m_items[i].read = read;
+        const QModelIndex idx = index(i, 0);
+        emit dataChanged(idx, idx, {ReadRole});
+        ++changed;
+    }
+    return changed;
+}
+
 void NotificationListModel::clear()
 {
     if (m_items.isEmpty()) {
@@ -126,6 +158,35 @@ void NotificationListModel::clear()
 int NotificationListModel::count() const
 {
     return m_items.size();
+}
+
+int NotificationListModel::unreadCount() const
+{
+    int unread = 0;
+    for (const NotificationEntry &entry : m_items) {
+        if (!entry.read) {
+            ++unread;
+        }
+    }
+    return unread;
+}
+
+int NotificationListModel::unreadCountForApp(const QString &appName) const
+{
+    const QString wanted = appName.trimmed();
+    if (wanted.isEmpty()) {
+        return 0;
+    }
+    int unread = 0;
+    for (const NotificationEntry &entry : m_items) {
+        if (entry.read) {
+            continue;
+        }
+        if (entry.appName == wanted) {
+            ++unread;
+        }
+    }
+    return unread;
 }
 
 NotificationManager::NotificationManager(QObject *parent)
@@ -175,6 +236,16 @@ int NotificationManager::count() const
     return m_model ? m_model->count() : 0;
 }
 
+int NotificationManager::unreadCount() const
+{
+    return m_model ? m_model->unreadCount() : 0;
+}
+
+int NotificationManager::unreadCountForApp(const QString &appName) const
+{
+    return m_model ? m_model->unreadCountForApp(appName) : 0;
+}
+
 bool NotificationManager::doNotDisturb() const
 {
     return m_doNotDisturb;
@@ -217,6 +288,7 @@ bool NotificationManager::centerVisible() const
 void NotificationManager::clearAll()
 {
     const int before = count();
+    const int beforeUnread = unreadCount();
     if (m_model) {
         m_model->clear();
     }
@@ -224,11 +296,13 @@ void NotificationManager::clearAll()
         m_bannerModel->clear();
     }
     emitCountIfChanged(before);
+    emitUnreadCountIfChanged(beforeUnread);
 }
 
 bool NotificationManager::closeById(uint id)
 {
     const int before = count();
+    const int beforeUnread = unreadCount();
     const bool ok = m_model && m_model->removeById(id);
     if (m_bannerModel) {
         m_bannerModel->removeById(id);
@@ -237,6 +311,7 @@ bool NotificationManager::closeById(uint id)
         emit NotificationClosed(id, 2u);
         emit NotificationRemoved(id);
         emitCountIfChanged(before);
+        emitUnreadCountIfChanged(beforeUnread);
     }
     return ok;
 }
@@ -244,6 +319,9 @@ bool NotificationManager::closeById(uint id)
 void NotificationManager::toggleCenter()
 {
     m_centerVisible = !m_centerVisible;
+    if (m_centerVisible) {
+        markAllRead();
+    }
     emit centerVisibleChanged();
 }
 
@@ -352,6 +430,11 @@ bool NotificationManager::Dismiss(uint id)
     return closeById(id);
 }
 
+bool NotificationManager::dismissBanner(uint id)
+{
+    return m_bannerModel ? m_bannerModel->removeById(id) : false;
+}
+
 QVariantList NotificationManager::GetAll() const
 {
     QVariantList rows;
@@ -391,6 +474,35 @@ bool NotificationManager::ToggleCenter()
 {
     toggleCenter();
     return m_centerVisible;
+}
+
+void NotificationManager::markAllRead()
+{
+    const int beforeUnread = unreadCount();
+    if (!m_model) {
+        return;
+    }
+    m_model->markAllRead(true);
+    emitUnreadCountIfChanged(beforeUnread);
+}
+
+bool NotificationManager::markRead(uint id, bool read)
+{
+    const int beforeUnread = unreadCount();
+    if (!m_model) {
+        return false;
+    }
+    const bool changed = m_model->markReadById(id, read);
+    if (changed && read && m_bannerModel) {
+        m_bannerModel->removeById(id);
+    }
+    emitUnreadCountIfChanged(beforeUnread);
+    return changed;
+}
+
+void NotificationManager::invokeAction(uint id, const QString &actionKey)
+{
+    emit ActionInvoked(id, actionKey.trimmed().isEmpty() ? QStringLiteral("default") : actionKey.trimmed());
 }
 
 void NotificationManager::registerDbusService()
@@ -474,6 +586,13 @@ void NotificationManager::emitCountIfChanged(int previousCount)
     }
 }
 
+void NotificationManager::emitUnreadCountIfChanged(int previousUnreadCount)
+{
+    if (previousUnreadCount != unreadCount()) {
+        emit unreadCountChanged();
+    }
+}
+
 QString NotificationManager::normalizePriority(const QString &priority) const
 {
     const QString lowered = priority.trimmed().toLower();
@@ -488,6 +607,7 @@ QString NotificationManager::normalizePriority(const QString &priority) const
 uint NotificationManager::upsertNotification(const NotificationEntry &entry, bool suppressBanner)
 {
     const int before = count();
+    const int beforeUnread = unreadCount();
     if (m_model) {
         m_model->upsert(entry);
     }
@@ -499,6 +619,7 @@ uint NotificationManager::upsertNotification(const NotificationEntry &entry, boo
         }
     }
     emitCountIfChanged(before);
+    emitUnreadCountIfChanged(beforeUnread);
     emit NotificationAdded(entry.id);
 
     if (!suppressBanner) {

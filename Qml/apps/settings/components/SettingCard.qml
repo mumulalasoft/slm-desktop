@@ -20,7 +20,7 @@ Item {
         anchors.fill: parent
         color: root.highlighted ? Theme.color("accentSoft") : "transparent"
         Behavior on color {
-            ColorAnimation { duration: 140; easing.type: Easing.OutCubic }
+            ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault }
         }
     }
 
@@ -87,12 +87,12 @@ Item {
         NumberAnimation {
             target: root; property: "opacity"
             from: 1.0; to: 0.6
-            duration: 100; easing.type: Easing.OutCubic
+            duration: Theme.durationFast; easing.type: Theme.easingDefault
         }
         NumberAnimation {
             target: root; property: "opacity"
             from: 0.6; to: 1.0
-            duration: 200; easing.type: Easing.OutCubic
+            duration: Theme.durationMd; easing.type: Theme.easingDefault
         }
     }
 

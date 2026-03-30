@@ -1056,7 +1056,7 @@ Rectangle {
                                         anchors.fill: parent
                                         radius: parent.height / 2
                                         color: Theme.color("accent")
-                                        opacity: 0.15
+                                        opacity: Theme.opacityFaint
                                     }
                                 }
 
@@ -1146,7 +1146,7 @@ Rectangle {
                                     border.color: Qt.rgba(0, 0, 0,
                                         modelData.shadow.opacity * (Theme.darkMode ? 1.6 : 1.0))
                                     z: -1
-                                    opacity: 0.5
+                                    opacity: Theme.opacityMuted
                                     scale: 1.0
                                 }
 

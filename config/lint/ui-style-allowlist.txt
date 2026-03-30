@@ -1,0 +1,2 @@
+# UI style lint allowlist (temporary debt baseline)
+# Keep sorted. Remove entries as files are migrated to Theme tokens.

@@ -18,13 +18,24 @@ Item {
     anchors.fill: parent
     visible: dimmer.opacity > 0.01 || panel.x < width
 
+    function ensureCurrentIndex() {
+        if (!centerList || centerList.count <= 0) {
+            centerList.currentIndex = -1
+            return
+        }
+        if (centerList.currentIndex < 0 || centerList.currentIndex >= centerList.count) {
+            centerList.currentIndex = 0
+        }
+    }
+
     Rectangle {
         id: dimmer
         anchors.fill: parent
         color: Qt.rgba(0, 0, 0, 0.32)
         opacity: root.open ? 1 : 0
         Behavior on opacity {
-            NumberAnimation { duration: 180; easing.type: Easing.OutCubic }
+            enabled: Theme.animationsEnabled
+            NumberAnimation { duration: Theme.durationNormal; easing.type: Theme.easingDefault }
         }
 
         MouseArea {
@@ -45,7 +56,13 @@ Item {
         border.color: Theme.color("panelBorder")
 
         Behavior on x {
-            NumberAnimation { duration: 300; easing.type: Easing.OutCubic }
+            enabled: Theme.animationsEnabled
+            SpringAnimation {
+                spring: 3.2
+                damping: 0.30
+                mass: 1.0
+                epsilon: 0.5
+            }
         }
 
         ColumnLayout {
@@ -68,6 +85,16 @@ Item {
                 }
 
                 Button {
+                    text: qsTr("Mark All Read")
+                    enabled: root.notificationManager && root.notificationManager.unreadCount > 0
+                    onClicked: {
+                        if (root.notificationManager && root.notificationManager.markAllRead) {
+                            root.notificationManager.markAllRead()
+                        }
+                    }
+                }
+
+                Button {
                     text: qsTr("Clear All")
                     enabled: root.notificationManager && root.notificationManager.count > 0
                     onClicked: {
@@ -86,13 +113,47 @@ Item {
                 spacing: 10
                 model: root.notificationManager ? root.notificationManager.notifications : null
                 focus: root.open
-                currentIndex: count > 0 ? 0 : -1
+                keyNavigationWraps: true
+                highlightFollowsCurrentItem: true
+                highlightMoveDuration: 140
+                highlightMoveVelocity: -1
+                highlightResizeDuration: 140
                 section.property: "appName"
                 section.criteria: ViewSection.FullString
+                onCountChanged: root.ensureCurrentIndex()
+                onModelChanged: root.ensureCurrentIndex()
+                onFocusChanged: {
+                    if (focus) {
+                        root.ensureCurrentIndex()
+                    }
+                }
+                Component.onCompleted: root.ensureCurrentIndex()
+
+                highlight: Rectangle {
+                    radius: Theme.radiusWindow
+                    color: "transparent"
+                    border.width: Theme.borderWidthThin
+                    border.color: Theme.color("accent")
+                    opacity: centerList.activeFocus ? 0.9 : 0.0
+                    Behavior on opacity {
+                        enabled: Theme.animationsEnabled
+                        NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault }
+                    }
+                }
+
                 section.delegate: Rectangle {
+                    readonly property int _unreadTick: root.notificationManager
+                                                       ? Number(root.notificationManager.unreadCount || 0) : 0
+                    readonly property int unreadInSection: {
+                        var _tick = _unreadTick
+                        if (!root.notificationManager || !root.notificationManager.unreadCountForApp) {
+                            return 0
+                        }
+                        return Number(root.notificationManager.unreadCountForApp(String(section || "")) || 0)
+                    }
                     width: centerList.width
                     height: 28
-                    radius: 8
+                    radius: Theme.radiusControl
                     color: Theme.color("controlBg")
                     border.width: Theme.borderWidthThin
                     border.color: Theme.color("panelBorder")
@@ -108,12 +169,52 @@ Item {
                         font.weight: Theme.fontWeight("semiBold")
                         elide: Text.ElideRight
                     }
+
+                    Rectangle {
+                        visible: parent.unreadInSection > 0
+                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.right: parent.right
+                        anchors.rightMargin: 8
+                        width: 18
+                        height: 18
+                        radius: height * 0.5
+                        color: Theme.color("accent")
+                        border.width: Theme.borderWidthThin
+                        border.color: Theme.color("menuBg")
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: parent.parent.unreadInSection > 99
+                                  ? "99+"
+                                  : String(parent.parent.unreadInSection)
+                            color: Theme.color("accentText")
+                            font.family: Theme.fontFamilyUi
+                            font.pixelSize: Theme.fontSize("micro")
+                            font.weight: Theme.fontWeight("bold")
+                        }
+                    }
                 }
                 delegate: NotificationCard {
                     width: ListView.view ? ListView.view.width : 380
+                    appName: String(appName || "")
+                    appIcon: String(appIcon || "")
                     title: String(summary || appName || "")
+                    body: String(body || "")
+                    timestamp: String(timestamp || "")
+                    priority: String(priority || "normal")
+                    read: !!read
+                    actionsModel: actions || []
                     opacity: ListView.isCurrentItem ? 1 : 0.96
+                    scale: ListView.isCurrentItem ? 1.0 : 0.992
                     border.color: ListView.isCurrentItem ? Theme.color("accent") : Theme.color("panelBorder")
+                    Behavior on opacity {
+                        enabled: Theme.animationsEnabled
+                        NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault }
+                    }
+                    Behavior on scale {
+                        enabled: Theme.animationsEnabled
+                        NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault }
+                    }
 
                     onClicked: {
                         var id = Number(notificationId || -1)
@@ -122,6 +223,18 @@ Item {
                     onDismissRequested: {
                         var id = Number(notificationId || -1)
                         if (id > 0) root.dismissRequested(id)
+                    }
+                    onActionTriggered: function(actionKey) {
+                        var id = Number(notificationId || -1)
+                        if (id > 0) {
+                            if (root.notificationManager && root.notificationManager.markRead) {
+                                root.notificationManager.markRead(id, true)
+                            }
+                            if (root.notificationManager && root.notificationManager.invokeAction) {
+                                root.notificationManager.invokeAction(id, String(actionKey || "default"))
+                            }
+                            root.closeRequested()
+                        }
                     }
                 }
 
@@ -146,6 +259,13 @@ Item {
                     }
                 }
             }
+        }
+    }
+
+    onOpenChanged: {
+        if (open) {
+            root.ensureCurrentIndex()
+            centerList.forceActiveFocus()
         }
     }
 }

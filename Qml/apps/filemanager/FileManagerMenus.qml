@@ -582,8 +582,8 @@ Item {
                 border.width: Theme.borderWidthNone
                 Behavior on color {
                     ColorAnimation {
-                        duration: 100
-                        easing.type: Easing.OutCubic
+                        duration: Theme.durationFast
+                        easing.type: Theme.easingDefault
                     }
                 }
             }

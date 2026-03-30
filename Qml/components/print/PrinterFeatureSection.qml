@@ -32,7 +32,7 @@ Item {
     visible: root.resolver && root.resolver.descriptorValid
 
     Behavior on implicitHeight {
-        NumberAnimation { duration: 160; easing.type: Easing.OutCubic }
+        NumberAnimation { duration: Theme.durationMd; easing.type: Theme.easingDefault }
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────

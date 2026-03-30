@@ -223,7 +223,7 @@ Popup {
                         : (fontDelegate.hovered ? Theme.color("accentSoft") : "transparent")
                     radius: Theme.radiusControl
                     Behavior on color {
-                        ColorAnimation { duration: Theme.durationSm; easing.type: Easing.OutCubic }
+                        ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault }
                     }
                 }
 

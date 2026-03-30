@@ -51,8 +51,12 @@ public:
 
     void upsert(const NotificationEntry &entry);
     bool removeById(uint id);
+    bool markReadById(uint id, bool read = true);
+    int markAllRead(bool read = true);
     void clear();
     int count() const;
+    int unreadCount() const;
+    int unreadCountForApp(const QString &appName) const;
 
 private:
     QVector<NotificationEntry> m_items;
@@ -66,6 +70,7 @@ class NotificationManager : public QObject {
     Q_PROPERTY(QAbstractListModel* notifications READ notifications CONSTANT)
     Q_PROPERTY(QAbstractListModel* bannerNotifications READ bannerNotifications CONSTANT)
     Q_PROPERTY(int count READ count NOTIFY countChanged)
+    Q_PROPERTY(int unreadCount READ unreadCount NOTIFY unreadCountChanged)
     Q_PROPERTY(bool doNotDisturb READ doNotDisturb WRITE setDoNotDisturb NOTIFY doNotDisturbChanged)
     Q_PROPERTY(QVariantMap latestNotification READ latestNotification NOTIFY latestNotificationChanged)
     Q_PROPERTY(int bubbleDurationMs READ bubbleDurationMs WRITE setBubbleDurationMs NOTIFY bubbleDurationMsChanged)
@@ -80,6 +85,7 @@ public:
     QAbstractListModel* notifications() const;
     QAbstractListModel* bannerNotifications() const;
     int count() const;
+    int unreadCount() const;
     bool doNotDisturb() const;
     void setDoNotDisturb(bool enabled);
     QVariantMap latestNotification() const;
@@ -98,6 +104,11 @@ public:
                                   const QStringList &actions,
                                   const QString &priority = QStringLiteral("normal"));
     Q_INVOKABLE bool dismiss(uint id);
+    Q_INVOKABLE bool dismissBanner(uint id);
+    Q_INVOKABLE void markAllRead();
+    Q_INVOKABLE bool markRead(uint id, bool read = true);
+    Q_INVOKABLE void invokeAction(uint id, const QString &actionKey = QStringLiteral("default"));
+    Q_INVOKABLE int unreadCountForApp(const QString &appName) const;
 
 public slots:
     QStringList GetCapabilities() const;
@@ -126,6 +137,7 @@ signals:
     void serviceRegisteredChanged();
     void desktopServiceRegisteredChanged();
     void countChanged();
+    void unreadCountChanged();
     void doNotDisturbChanged();
     void latestNotificationChanged();
     void bubbleDurationMsChanged();
@@ -139,6 +151,7 @@ private:
     void registerDbusService();
     int urgencyFromHints(const QVariantMap &hints) const;
     void emitCountIfChanged(int previousCount);
+    void emitUnreadCountIfChanged(int previousUnreadCount);
     QString normalizePriority(const QString &priority) const;
     uint upsertNotification(const NotificationEntry &entry, bool suppressBanner = false);
     QVariantMap toVariantMap(const NotificationEntry &entry) const;

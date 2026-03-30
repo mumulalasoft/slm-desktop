@@ -310,8 +310,8 @@ Item {
                             scale: dayMouse.pressed && dayValue > 0 ? 0.94 : 1.0
                             Behavior on scale {
                                 NumberAnimation {
-                                    duration: 90
-                                    easing.type: Easing.OutCubic
+                                    duration: Theme.durationMicro
+                                    easing.type: Theme.easingDefault
                                 }
                             }
 

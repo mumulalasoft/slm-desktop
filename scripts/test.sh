@@ -34,12 +34,18 @@ run_default_suite() {
   echo "[test] build_dir=${build_dir}"
   local fileops_regex="${SLM_TEST_FILEOPS_REGEX:-^(fileoperationsmanager_test|fileoperationsservice_dbus_test|fileopctl_smoke_test|filemanagerapi_daemon_recovery_test)$}"
   local skip_ui_lint="${SLM_TEST_SKIP_UI_LINT:-0}"
+  local skip_animation_lint="${SLM_TEST_SKIP_ANIMATION_LINT:-0}"
   local skip_cap_matrix_lint="${SLM_TEST_SKIP_CAPABILITY_MATRIX_LINT:-0}"
   local exclude_labels="${SLM_TEST_FULL_EXCLUDE_LABELS:-baseline-flaky}"
 
   if [[ "${skip_ui_lint}" != "1" ]]; then
     echo "[test] running UI style lint"
     "${ROOT_DIR}/scripts/lint-ui-style.sh"
+  fi
+
+  if [[ "${skip_animation_lint}" != "1" ]]; then
+    echo "[test] running animation token lint"
+    "${ROOT_DIR}/scripts/check-animation-token-usage.sh"
   fi
 
   if [[ "${skip_cap_matrix_lint}" != "1" ]]; then

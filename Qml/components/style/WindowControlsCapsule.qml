@@ -1,4 +1,5 @@
 import QtQuick 2.15
+import Slm_Desktop
 
 Item {
     id: root
@@ -34,8 +35,8 @@ Item {
 
                 Behavior on scale {
                     NumberAnimation {
-                        duration: 90
-                        easing.type: Easing.OutCubic
+                        duration: Theme.durationMicro
+                        easing.type: Theme.easingDefault
                     }
                 }
 
@@ -51,8 +52,8 @@ Item {
 
                     Behavior on opacity {
                         NumberAnimation {
-                            duration: 80
-                            easing.type: Easing.OutCubic
+                            duration: Theme.durationMicro
+                            easing.type: Theme.easingDefault
                         }
                     }
                 }

@@ -48,6 +48,90 @@
 
 ## Backlog (Clipboard)
 
+## Program (UX Animation System: State-Driven, macOS-like, Non-Patent)
+- [ ] Tetapkan prinsip sistem animasi global:
+  - state-driven animation (bukan trigger manual dari event UI).
+  - setiap transisi harus jelas `origin -> transition -> destination`.
+  - animasi menjadi bagian dari state global desktop, bukan efek per-widget.
+- [ ] Bangun arsitektur berlapis:
+  - `Compositor Layer`: `WindowLifecycleManager`, `WorkspaceManager`, `GlobalAnimationScheduler`, `FrameTimingController`.
+  - `Animation Engine`: `StateMachine`, `TransitionResolver`, `PhysicsProfile`, `AnimationQueueInterruptManager`.
+  - `UI Layer (QML)`: declarative state binding + micro interaction only.
+- [ ] Definisikan state machine inti:
+  - `WindowState`: `Hidden`, `Opening`, `Active`, `Inactive`, `Minimizing`, `Minimized`, `Closing`.
+  - `WorkspaceState`: `Idle`, `Switching`, `Overview`.
+- [ ] Definisikan tabel transition rules wajib:
+  - `Hidden -> Opening -> Active`
+  - `Active -> Minimizing -> Minimized`
+  - `Minimized -> Opening -> Active`
+  - `Active -> Closing -> Hidden`
+  - `Active <-> Inactive`
+  - Semua perubahan state harus lewat transition resolver (tidak boleh langsung animasi dari event handler).
+- [ ] Implement event-to-state trigger pipeline:
+  - `onWindowCreated -> Opening`
+  - `onWindowFocused -> Active`
+  - `onWindowUnfocused -> Inactive`
+  - `onWindowMinimized -> Minimizing`
+  - `onWorkspaceChanged -> Switching`
+  - Larangan: `onClick/onEvent` langsung start animasi lifecycle.
+- [ ] Bangun `GlobalAnimationScheduler`:
+  - priority: `HIGH` (window open/close), `MEDIUM` (workspace switch), `LOW` (micro interaction).
+  - interrupt rule: `HIGH` interrupt `LOW`; `LOW` tidak boleh interrupt `HIGH`.
+  - workspace transition menunda/menahan micro interaction berat.
+  - coalescing/debounce untuk event beruntun.
+- [~] Standardisasi timing global (single source of truth):
+  - `Fast=120ms`, `Normal=220ms`, `Slow=320ms`, `Workspace=400ms`.
+  - implemented token baseline in `Qml/Theme.qml`: `durationFast/Normal/Slow/Workspace` (+ safe-mode off gate).
+  - notification stack migrated to global tokens/easing.
+  - desktop/workspace baseline migrated: `Qml/DesktopScene.qml`, `Qml/components/workspace/WorkspaceOverlay.qml`.
+  - overlay/topbar/indicators baseline migrated: `Qml/components/overlay/{DockWindow,ClipboardOverlay,ClipboardOverlayWindow}.qml`, `Qml/components/topbar/{TopBar,TopBarMainMenuControl,TopBarSearchButton}.qml`, `Qml/components/indicators/IndicatorManager.qml`.
+  - applet/compositor/shell baseline migrated: `Qml/components/applet/{ScreencastIndicator,SoundApplet,BluetoothApplet,ClipboardApplet,BatteryApplet,InputCaptureIndicator,NetworkApplet,BatchOperationIndicator,DatetimeApplet}.qml`, `Qml/components/compositor/CompositorSwitcherOverlay.qml`, `Qml/components/dock/DockReorderMarker.qml`, `Qml/components/shell/ShellShortcutTile.qml`, `Qml/components/{AppWindow}.qml`, `Qml/components/desktop/DesktopBackground.qml`.
+  - settings/filemanager/dock/polkit batch migrated: `Qml/apps/settings/{Main,Sidebar}.qml`, `Qml/apps/settings/components/{SettingToggle,SettingCard,FontPickerDialog}.qml`, `Qml/apps/filemanager/{FileManagerContentView,FileManagerHeaderBar,FileManagerToolbar,FileOperationsProgressOverlay,FileManagerShareSheet,FileManagerMenus}.qml`, `Qml/components/dock/{Dock,DockItem}.qml`, `Qml/polkit-agent/AuthDialog.qml`.
+  - greeter/launchpad/print/portalchooser batch migrated: `Qml/greeter/{Main,LoginPage}.qml`, `Qml/components/launchpad/Launchpad.qml`, `Qml/components/print/{PrintAdvancedPanel,PrinterFeatureSection}.qml`, `Qml/components/portalchooser/PortalChooserPathBar.qml`.
+  - final QML sweep complete: no remaining hardcoded `duration:<number>` / `easing.type: Easing.*` outside token definitions in `Qml/Theme.qml` (verified via `rg`).
+  - hapus hardcoded duration tersebar; migrasi ke `AnimationTokens`.
+- [ ] Standardisasi easing & physics:
+  - default `EaseOutCubic`.
+  - alternatif ringan `EaseOutQuad`.
+  - spring untuk transisi natural tertentu.
+  - larang `Linear` untuk lifecycle utama.
+- [ ] Definisikan profile animasi window (safe/non-patent):
+  - open: `scale 0.96->1.0`, `opacity 0->1`, `translateY kecil (8-16)`.
+  - minimize: scale down + translate ke arah dock + fade ringan (tanpa genie/curved warp).
+  - close: scale down + fade out cepat.
+- [ ] Definisikan profile animasi workspace:
+  - switch: slide horizontal antar workspace (+ optional parallax ringan).
+  - overview: scale-down window + grid sederhana.
+- [ ] Definisikan active/inactive visual response:
+  - trigger dari focus compositor.
+  - perubahan ringan shadow/opacity, tanpa animasi berat.
+- [ ] Implement kondisi disable/degrade animasi:
+  - CPU tinggi, GPU fallback, battery saver, dan accessibility `reduce motion`.
+  - [x] safe mode/recovery mode: paksa mode animasi `off` (tanpa transition dekoratif).
+    - implemented runtime gate: `SLM_SESSION_MODE in {safe,recovery}` -> `SafeModeActive=true`,
+      `Theme.duration* ~= 0`, `Theme.transitionDuration ~= 0`, `MotionController.reducedMotion=true`.
+  - sediakan mode `full`, `reduced`, `minimal`.
+- [ ] Integrasi frame sync:
+  - semua animasi lewat frame clock vsync.
+  - pastikan sinkron lintas window/workspace untuk hindari tearing/jitter.
+- [ ] Batasan micro interaction (UI-only/QML):
+  - hover, click feedback, toggle.
+  - durasi 100-150ms.
+  - tidak masuk scheduler lifecycle compositor.
+- [ ] Terapkan anti-patent guideline:
+  - hindari genie minimize, dock bounce khas Apple, dan mission-control layout identik.
+  - gunakan spatial movement sederhana + scale/fade + easing internal SLM.
+- [ ] Deliverables arsitektur:
+  - dokumen arsitektur `state machine + scheduler + transition rules`.
+  - kontrak event compositor -> state system.
+  - peta migrasi animasi existing ke global token/scheduler.
+  - checklist audit: tidak ada lifecycle animation yang dipicu langsung dari handler UI.
+  - CI guardrail lint animasi aktif: `scripts/check-animation-token-usage.sh` + target `lint_animation_tokens` + default run di `scripts/test.sh` + workflow CI nightly.
+  - local guardrail aktif: pre-commit hook (`.githooks/pre-commit`) + installer `scripts/install-git-hooks.sh`.
+  - local pre-push guardrail aktif: `.githooks/pre-push` (full animation lint + UI style lint).
+  - UI lint baseline guardrail aktif: `scripts/lint-ui-style.sh` support allowlist `config/lint/ui-style-allowlist.txt` (new violations fail, debt lama tetap terpantau).
+  - [x] baseline debt reduction complete: notification/applet/workspace/dock/system/overlay/print/style migrated; `ui-style-allowlist` now empty.
+
 ## Program (Notification System Refresh: macOS-like Notification Center)
 - [x] Define architecture boundary (3 layers, no tight coupling):
   - `Notification Service` (backend daemon, source of truth)

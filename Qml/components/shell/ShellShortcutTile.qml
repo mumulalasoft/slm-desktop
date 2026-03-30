@@ -40,10 +40,10 @@ Item {
             opacity: root.draggingThis ? 0.15 : (root.hasEntry ? 1.0 : 0.0)
 
             Behavior on opacity {
-                NumberAnimation { duration: 110; easing.type: Easing.OutCubic }
+                NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault }
             }
             Behavior on color {
-                ColorAnimation { duration: 110; easing.type: Easing.OutCubic }
+                ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault }
             }
         }
 

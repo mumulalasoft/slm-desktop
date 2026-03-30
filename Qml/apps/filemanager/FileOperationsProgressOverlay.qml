@@ -142,7 +142,7 @@ Item {
                                     : (model.done ? "#4caf50" : "#2196F3")
 
                                 Behavior on width {
-                                    NumberAnimation { duration: 150 }
+                                    NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault }
                                 }
                             }
                         }

@@ -32,6 +32,11 @@ Window {
     property color btnSecondaryPressedBg: Theme.color("controlBgPressed")
     property color okText: Theme.color("accentText")
     readonly property int formRowWidth: Math.max(250, root.width - 56)
+    readonly property int shakeDurA: Math.max(1, Math.round(Theme.durationMicro * 0.42))
+    readonly property int shakeDurB: Math.max(1, Math.round(Theme.durationMicro * 0.58))
+    readonly property int shakeDurC: Math.max(1, Math.round(Theme.durationMicro * 0.51))
+    readonly property int shakeDurD: Math.max(1, Math.round(Theme.durationMicro * 0.44))
+    readonly property int shakeDurE: Math.max(1, Math.round(Theme.durationMicro * 0.36))
 
     function applyThemePreferences() {
         if (typeof UIPreferences === "undefined" || !UIPreferences) {
@@ -119,8 +124,8 @@ Window {
             id: showAnim
             PropertyAction { target: root; property: "isClosing"; value: false }
             ParallelAnimation {
-                NumberAnimation { target: panel; property: "opacity"; from: 0.0; to: 1.0; duration: 140; easing.type: Easing.OutCubic }
-                NumberAnimation { target: panel; property: "scale"; from: 0.97; to: 1.0; duration: 180; easing.type: Easing.OutCubic }
+                NumberAnimation { target: panel; property: "opacity"; from: 0.0; to: 1.0; duration: Theme.durationSm; easing.type: Theme.easingDefault }
+                NumberAnimation { target: panel; property: "scale"; from: 0.97; to: 1.0; duration: Theme.durationMd; easing.type: Theme.easingDefault }
             }
         }
 
@@ -128,8 +133,8 @@ Window {
             id: hideAnim
             PropertyAction { target: root; property: "isClosing"; value: true }
             ParallelAnimation {
-                NumberAnimation { target: panel; property: "opacity"; from: panel.opacity; to: 0.0; duration: 120; easing.type: Easing.InCubic }
-                NumberAnimation { target: panel; property: "scale"; from: panel.scale; to: 0.98; duration: 120; easing.type: Easing.InCubic }
+                NumberAnimation { target: panel; property: "opacity"; from: panel.opacity; to: 0.0; duration: Theme.durationFast; easing.type: Theme.easingAccelerate }
+                NumberAnimation { target: panel; property: "scale"; from: panel.scale; to: 0.98; duration: Theme.durationFast; easing.type: Theme.easingAccelerate }
             }
             PropertyAction { target: root; property: "isClosing"; value: false }
         }
@@ -200,11 +205,11 @@ Window {
                 SequentialAnimation {
                     id: shakeAnim
                     running: false
-                    NumberAnimation { target: passwordShakeWrap; property: "x"; to: -10; duration: 38; easing.type: Easing.OutQuad }
-                    NumberAnimation { target: passwordShakeWrap; property: "x"; to: 8; duration: 52; easing.type: Easing.OutQuad }
-                    NumberAnimation { target: passwordShakeWrap; property: "x"; to: -6; duration: 46; easing.type: Easing.OutQuad }
-                    NumberAnimation { target: passwordShakeWrap; property: "x"; to: 4; duration: 40; easing.type: Easing.OutQuad }
-                    NumberAnimation { target: passwordShakeWrap; property: "x"; to: 0; duration: 32; easing.type: Easing.OutQuad }
+                    NumberAnimation { target: passwordShakeWrap; property: "x"; to: -10; duration: root.shakeDurA; easing.type: Theme.easingLight }
+                    NumberAnimation { target: passwordShakeWrap; property: "x"; to: 8; duration: root.shakeDurB; easing.type: Theme.easingLight }
+                    NumberAnimation { target: passwordShakeWrap; property: "x"; to: -6; duration: root.shakeDurC; easing.type: Theme.easingLight }
+                    NumberAnimation { target: passwordShakeWrap; property: "x"; to: 4; duration: root.shakeDurD; easing.type: Theme.easingLight }
+                    NumberAnimation { target: passwordShakeWrap; property: "x"; to: 0; duration: root.shakeDurE; easing.type: Theme.easingLight }
                 }
 
                 TextField {
@@ -264,7 +269,7 @@ Window {
                             from: 0
                             to: 360
                             loops: Animation.Infinite
-                            duration: 800
+                            duration: Theme.durationWorkspace * 2
                         }
 
                         Canvas {

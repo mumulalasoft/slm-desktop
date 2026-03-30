@@ -1,6 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Window 2.15
+import Slm_Desktop
 
 Window {
     id: root
@@ -13,8 +14,8 @@ Window {
     NumberAnimation on opacity {
         id: fadeIn
         from: 0; to: 1
-        duration: 600
-        easing.type: Easing.OutCubic
+        duration: Theme.durationWorkspace + Theme.durationMd
+        easing.type: Theme.easingDefault
         running: false
     }
 

@@ -1,6 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
+import Slm_Desktop
 
 Item {
     id: root
@@ -15,11 +16,11 @@ Item {
     property bool showPackageName: false
     property real scale: 1.0
 
-    property color cardColor: "#2c2c2c"
-    property color cardBorderColor: "#3b3b3b"
-    property color titleColor: "#ffffff"
-    property color detailColor: "#cccccc"
-    property color statusColor: "#ffcdd2"
+    property color cardColor: Theme.color("surface")
+    property color cardBorderColor: Theme.color("panelBorder")
+    property color titleColor: Theme.color("textPrimary")
+    property color detailColor: Theme.color("textSecondary")
+    property color statusColor: Theme.color("warning")
 
     signal installRequested(string componentId)
 
@@ -32,7 +33,7 @@ Item {
         anchors.right: parent.right
         color: root.cardColor
         border.color: root.cardBorderColor
-        border.width: 1
+        border.width: Theme.borderWidthThin
         radius: Math.round(8 * root.scale)
         implicitHeight: column.implicitHeight + Math.round(16 * root.scale)
 
@@ -56,9 +57,9 @@ Item {
                     required property var modelData
 
                     Layout.fillWidth: true
-                    color: Qt.rgba(1, 1, 1, 0.06)
-                    border.width: 1
-                    border.color: Qt.rgba(1, 1, 1, 0.18)
+                    color: Theme.color("controlBg")
+                    border.width: Theme.borderWidthThin
+                    border.color: Theme.color("panelBorder")
                     radius: Math.round(6 * root.scale)
                     implicitHeight: row.implicitHeight + Math.round(8 * root.scale)
 
@@ -80,7 +81,7 @@ Item {
                                              || root.unknownText)
                                 color: root.titleColor
                                 font.pixelSize: Math.round(12 * root.scale)
-                                font.bold: true
+                                font.weight: Theme.fontWeight("bold")
                                 wrapMode: Text.WordWrap
                             }
 

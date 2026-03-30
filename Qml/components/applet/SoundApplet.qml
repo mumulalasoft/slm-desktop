@@ -96,8 +96,8 @@ Item {
             color: indicatorButton.hovered ? Theme.color("accentSoft") : "transparent"
             border.width: Theme.borderWidthThin
             border.color: indicatorButton.hovered ? Theme.color("panelBorder") : "transparent"
-            Behavior on color { ColorAnimation { duration: Theme.durationSm; easing.type: Easing.OutCubic } }
-            Behavior on border.color { ColorAnimation { duration: Theme.durationSm; easing.type: Easing.OutCubic } }
+            Behavior on color { ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault } }
+            Behavior on border.color { ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault } }
         }
     }
 
@@ -235,15 +235,15 @@ Item {
                             SequentialAnimation on opacity {
                                 running: activeDot.visible
                                 loops: Animation.Infinite
-                                NumberAnimation { from: 0.45; to: 1.0; duration: 700; easing.type: Easing.InOutQuad }
-                                NumberAnimation { from: 1.0; to: 0.45; duration: 700; easing.type: Easing.InOutQuad }
+                                NumberAnimation { from: 0.45; to: 1.0; duration: Theme.durationWorkspace + Theme.durationSlow; easing.type: Theme.easingStandard }
+                                NumberAnimation { from: 1.0; to: 0.45; duration: Theme.durationWorkspace + Theme.durationSlow; easing.type: Theme.easingStandard }
                             }
 
                             SequentialAnimation on scale {
                                 running: activeDot.visible
                                 loops: Animation.Infinite
-                                NumberAnimation { from: 0.88; to: 1.0; duration: 700; easing.type: Easing.InOutQuad }
-                                NumberAnimation { from: 1.0; to: 0.88; duration: 700; easing.type: Easing.InOutQuad }
+                                NumberAnimation { from: 0.88; to: 1.0; duration: Theme.durationWorkspace + Theme.durationSlow; easing.type: Theme.easingStandard }
+                                NumberAnimation { from: 1.0; to: 0.88; duration: Theme.durationWorkspace + Theme.durationSlow; easing.type: Theme.easingStandard }
                             }
                         }
 

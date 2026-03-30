@@ -27,8 +27,8 @@ Rectangle {
     scale: opened ? 1.0 : 0.95
     focus: opened
 
-    Behavior on opacity { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
-    Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
+    Behavior on opacity { NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault } }
+    Behavior on scale { NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingSpring } }
 
     function reload() {
         if (!client) {

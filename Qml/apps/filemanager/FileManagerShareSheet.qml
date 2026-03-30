@@ -41,7 +41,7 @@ DSStyle.AppDialog {
                         radius: Theme.radiusControl
                         color: mouseArea.containsMouse ? Theme.color("accentSoft") : "transparent"
 
-                        Behavior on color { ColorAnimation { duration: 100 } }
+                        Behavior on color { ColorAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault } }
                     }
 
                     ColumnLayout {

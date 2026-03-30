@@ -137,19 +137,19 @@ Item {
             anchors.bottomMargin: 1 + root.iconLift
             width: showRunningDot ? (showMixedWorkspaceDot ? 13 : 7) : 0
             height: showRunningDot ? 7 : 0
-            radius: 3.5
+            radius: height * 0.5
             color: showMixedWorkspaceDot
                    ? "transparent"
                    : (focusedApp ? Theme.color("dockRunningDotActive")
                                  : Theme.color("dockRunningDotInactive"))
-            opacity: showRunningDot ? 0.92 : 0.0
+            opacity: showRunningDot ? Theme.opacityHint : 0.0
             visible: showRunningDot
 
             Rectangle {
                 visible: root.showMixedWorkspaceDot
                 width: 6.5
                 height: 6.5
-                radius: 3.25
+                radius: height * 0.5
                 anchors.left: parent.left
                 anchors.verticalCenter: parent.verticalCenter
                 color: root.focusedApp ? Theme.color("dockRunningDotActive") : Theme.color("dockRunningDotInactive")
@@ -159,31 +159,31 @@ Item {
                 visible: root.showMixedWorkspaceDot
                 width: 6.5
                 height: 6.5
-                radius: 3.25
+                radius: height * 0.5
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
                 color: Theme.color("accent")
-                opacity: 0.95
+                opacity: Theme.opacityGhost
             }
 
             Rectangle {
                 visible: !root.showMixedWorkspaceDot && root.hasOtherWorkspaceDot
                 anchors.fill: parent
-                radius: 3.5
+                radius: height * 0.5
                 color: Theme.color("accentSoft")
-                border.width: 1.25
+                border.width: Theme.borderWidthThin
                 border.color: Theme.color("accent")
-                opacity: 0.95
+                opacity: Theme.opacityGhost
             }
 
             Rectangle {
                 visible: !root.showMixedWorkspaceDot && root.hasOtherWorkspaceDot
                 width: 2.5
                 height: 2.5
-                radius: 1.25
+                radius: height * 0.5
                 anchors.centerIn: parent
                 color: Theme.color("accent")
-                opacity: 0.95
+                opacity: Theme.opacityGhost
             }
         }
 
@@ -402,16 +402,16 @@ Item {
             property: "scale"
             from: 0.4
             to: 1.5
-            duration: 300
-            easing.type: Easing.OutCubic
+            duration: Theme.durationSlow
+            easing.type: Theme.easingDefault
         }
         NumberAnimation {
             target: ripple
             property: "opacity"
             from: 0.18
             to: 0.0
-            duration: 300
-            easing.type: Easing.OutQuad
+            duration: Theme.durationSlow
+            easing.type: Theme.easingLight
         }
     }
 
@@ -436,22 +436,22 @@ Item {
             target: root
             property: "bounceOffset"
             to: -8
-            duration: 90
-            easing.type: Easing.OutCubic
+            duration: Theme.durationMicro
+            easing.type: Theme.easingDefault
         }
         NumberAnimation {
             target: root
             property: "bounceOffset"
             to: -2
-            duration: 95
-            easing.type: Easing.OutQuad
+            duration: Theme.durationMicro
+            easing.type: Theme.easingLight
         }
         NumberAnimation {
             target: root
             property: "bounceOffset"
             to: 0
-            duration: 120
-            easing.type: Easing.OutCubic
+            duration: Theme.durationFast
+            easing.type: Theme.easingDefault
         }
     }
 
@@ -461,29 +461,29 @@ Item {
             target: root
             property: "bounceOffset"
             to: -14
-            duration: 90
-            easing.type: Easing.OutCubic
+            duration: Theme.durationMicro
+            easing.type: Theme.easingDefault
         }
         NumberAnimation {
             target: root
             property: "bounceOffset"
             to: -6
-            duration: 82
-            easing.type: Easing.OutQuad
+            duration: Theme.durationMicro
+            easing.type: Theme.easingLight
         }
         NumberAnimation {
             target: root
             property: "bounceOffset"
             to: -2
-            duration: 96
-            easing.type: Easing.OutQuad
+            duration: Theme.durationMicro
+            easing.type: Theme.easingLight
         }
         NumberAnimation {
             target: root
             property: "bounceOffset"
             to: 0
-            duration: 150
-            easing.type: Easing.OutCubic
+            duration: Theme.durationSm
+            easing.type: Theme.easingDefault
         }
         ScriptAction {
             script: root.bounceCompleted()

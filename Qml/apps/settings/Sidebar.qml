@@ -119,7 +119,7 @@ Rectangle {
                                         border.color: Theme.color("panelBorder")
                                         border.width: 1
                                         Behavior on color {
-                                            ColorAnimation { duration: 120; easing.type: Easing.OutCubic }
+                                            ColorAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault }
                                         }
                                     }
 
@@ -157,7 +157,7 @@ Rectangle {
                                     // Subtle press scale
                                     scale: pressed ? 0.97 : 1.0
                                     Behavior on scale {
-                                        NumberAnimation { duration: 80; easing.type: Easing.OutCubic }
+                                        NumberAnimation { duration: Theme.durationMicro; easing.type: Theme.easingDefault }
                                     }
                                 }
                             }

@@ -16,7 +16,7 @@ Rectangle {
     height: iconButtonH
     radius: Theme.radiusControl
     color: searchMouse.containsMouse ? Theme.color("accentSoft") : "transparent"
-    Behavior on color { ColorAnimation { duration: Theme.durationSm; easing.type: Easing.OutCubic } }
+    Behavior on color { ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault } }
 
     IconImage {
         id: searchIcon
