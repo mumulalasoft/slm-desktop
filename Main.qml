@@ -314,7 +314,7 @@ ApplicationWindow {
         rootWindow: root
         fileManagerContent: root.fileManagerContent
         detachedFileManagerWindow: detachedFileManagerWindow
-        onRequestFocusTothespot: TothespotController.focusFromMenu(root, tothespotWindow)
+        onRequestFocusTothespot: TothespotController.focusFromMenu(root, tothespotWindowLoader ? tothespotWindowLoader.item : null)
         onRequestHelpMessage: function(message) {
             ScreenshotController.showResultNotification(root, true, "", String(message || ""))
         }
@@ -362,8 +362,9 @@ ApplicationWindow {
             }
             if (root.tothespotVisible) {
                 Qt.callLater(function() {
-                    if (tothespotWindow && tothespotWindow.focusSearchField) {
-                        tothespotWindow.focusSearchField()
+                    const tw = tothespotWindowLoader ? tothespotWindowLoader.item : null
+                    if (tw && tw.focusSearchField) {
+                        tw.focusSearchField()
                     }
                 })
             }
@@ -807,15 +808,35 @@ ApplicationWindow {
         globalMenuManager: GlobalMenuManager
     }
 
-    OverlayComp.LaunchpadWindow {
-        id: launchpadWindow
-        rootWindow: root
-        desktopScene: desktopScene
-        appsModel: AppModel
-        dockModel: DockModel
-        onAppChosen: LaunchpadActions.handleAppChosen(appData)
-        onAddToDockRequested: LaunchpadActions.handleAddToDock(appData)
-        onAddToDesktopRequested: LaunchpadActions.handleAddToDesktop(appData, desktopScene)
+    // LaunchpadWindow — deferred Loader with error boundary.
+    // If the component fails to load, ShellStateController and ShellLayerWatchdog
+    // are notified so the shell can recover without crashing Main.qml.
+    Loader {
+        id: launchpadWindowLoader
+        active: true
+        asynchronous: false
+        sourceComponent: Component {
+            OverlayComp.LaunchpadWindow {
+                rootWindow: root
+                desktopScene: desktopScene
+                appsModel: AppModel
+                dockModel: DockModel
+                onAppChosen: LaunchpadActions.handleAppChosen(appData)
+                onAddToDockRequested: LaunchpadActions.handleAddToDock(appData)
+                onAddToDesktopRequested: LaunchpadActions.handleAddToDesktop(appData, desktopScene)
+            }
+        }
+        onStatusChanged: {
+            if (status === Loader.Error) {
+                console.error("[shell] LaunchpadWindow failed to load:", errorString())
+                if (typeof ShellStateController !== "undefined" && ShellStateController) {
+                    ShellStateController.setLaunchpadVisible(false)
+                }
+                if (typeof ShellLayerWatchdog !== "undefined" && ShellLayerWatchdog) {
+                    ShellLayerWatchdog.reportOverlayLoadError("launchpad")
+                }
+            }
+        }
     }
 
     TothespotDismissWindow {
@@ -834,44 +855,81 @@ ApplicationWindow {
         onCloseRequested: root.clipboardOverlayVisible = false
     }
 
-    TothespotWindow {
-        id: tothespotWindow
-        rootWindow: root
-        panelHeight: desktopScene.panelHeight
-        overlayVisible: root.tothespotVisible && !root.lockScreenVisible
-        showDebugInfo: root.tothespotShowDebug
-        searchProfileMeta: root.tothespotProfileMeta
-        telemetryMeta: root.tothespotTelemetryMeta
-        telemetryLast: root.tothespotTelemetryLast
-        providerStats: root.tothespotProviderStats
-        previewData: root.tothespotPreviewData
-        queryText: root.tothespotQuery
-        resultsModel: tothespotResultsModel
-        selectedIndex: root.tothespotSelectedIndex
-        onGeometryEdited: ShellUtils.saveTothespotGeometry(root)
-        onOpeningRequested: ShellUtils.restoreTothespotGeometry(root)
-        onDismissRequested: root.tothespotVisible = false
-        onQueryTextChangedRequest: function(text) {
-            root.tothespotQuery = String(text || "")
-            root.tothespotQueryGeneration = Number(root.tothespotQueryGeneration || 0) + 1
-            tothespotDebounce.restart()
+    // TothespotWindow — deferred Loader with error boundary.
+    Loader {
+        id: tothespotWindowLoader
+        active: true
+        asynchronous: false
+        sourceComponent: Component {
+            TothespotWindow {
+                rootWindow: root
+                panelHeight: desktopScene.panelHeight
+                overlayVisible: root.tothespotVisible && !root.lockScreenVisible
+                showDebugInfo: root.tothespotShowDebug
+                searchProfileMeta: root.tothespotProfileMeta
+                telemetryMeta: root.tothespotTelemetryMeta
+                telemetryLast: root.tothespotTelemetryLast
+                providerStats: root.tothespotProviderStats
+                previewData: root.tothespotPreviewData
+                queryText: root.tothespotQuery
+                resultsModel: tothespotResultsModel
+                selectedIndex: root.tothespotSelectedIndex
+                onGeometryEdited: ShellUtils.saveTothespotGeometry(root)
+                onOpeningRequested: ShellUtils.restoreTothespotGeometry(root)
+                onDismissRequested: root.tothespotVisible = false
+                onQueryTextChangedRequest: function(text) {
+                    root.tothespotQuery = String(text || "")
+                    root.tothespotQueryGeneration = Number(root.tothespotQueryGeneration || 0) + 1
+                    tothespotDebounce.restart()
+                }
+                onSelectedIndexChangedByUser: function(indexValue) {
+                    root.tothespotSelectedIndex = indexValue
+                    TothespotController.refreshPreview(root, tothespotResultsModel)
+                }
+                onResultActivated: function(indexValue) {
+                    TothespotController.activateResult(root, tothespotResultsModel, indexValue)
+                }
+                onResultContextAction: function(indexValue, action) {
+                    TothespotController.activateContextAction(root, tothespotResultsModel, indexValue, action)
+                }
+            }
         }
-        onSelectedIndexChangedByUser: function(indexValue) {
-            root.tothespotSelectedIndex = indexValue
-            TothespotController.refreshPreview(root, tothespotResultsModel)
-        }
-        onResultActivated: function(indexValue) {
-            TothespotController.activateResult(root, tothespotResultsModel, indexValue)
-        }
-        onResultContextAction: function(indexValue, action) {
-            TothespotController.activateContextAction(root, tothespotResultsModel, indexValue, action)
+        onStatusChanged: {
+            if (status === Loader.Error) {
+                console.error("[shell] TothespotWindow failed to load:", errorString())
+                root.tothespotVisible = false
+                if (typeof ShellStateController !== "undefined" && ShellStateController) {
+                    ShellStateController.setToTheSpotVisible(false)
+                }
+                if (typeof ShellLayerWatchdog !== "undefined" && ShellLayerWatchdog) {
+                    ShellLayerWatchdog.reportOverlayLoadError("tothespot")
+                }
+            }
         }
     }
 
-    OverlayComp.WorkspaceWindow {
-        id: workspaceWindow
-        rootWindow: root
-        desktopScene: desktopScene
+    // WorkspaceWindow — deferred Loader with error boundary.
+    Loader {
+        id: workspaceWindowLoader
+        active: true
+        asynchronous: false
+        sourceComponent: Component {
+            OverlayComp.WorkspaceWindow {
+                rootWindow: root
+                desktopScene: desktopScene
+            }
+        }
+        onStatusChanged: {
+            if (status === Loader.Error) {
+                console.error("[shell] WorkspaceWindow failed to load:", errorString())
+                if (typeof ShellStateController !== "undefined" && ShellStateController) {
+                    ShellStateController.setWorkspaceOverviewVisible(false)
+                }
+                if (typeof ShellLayerWatchdog !== "undefined" && ShellLayerWatchdog) {
+                    ShellLayerWatchdog.reportOverlayLoadError("workspace")
+                }
+            }
+        }
     }
 
     OverlayComp.DockWindow {
@@ -879,6 +937,32 @@ ApplicationWindow {
         rootWindow: root
         desktopScene: desktopScene
         appsModel: DockModel
+    }
+
+    // Persistent-layer health check: if ShellLayerWatchdog reports that it has
+    // restored the shell (e.g. after force-dismissing a stuck overlay), re-assert
+    // that TopBar and Dock are visible. Their visibility is normally bound to
+    // rootWindow.visible; this guard catches any accidental override.
+    Connections {
+        target: (typeof ShellLayerWatchdog !== "undefined") ? ShellLayerWatchdog : null
+        ignoreUnknownSignals: true
+        function onPersistentLayerRestored() {
+            if (topBarWindow && !topBarWindow.visible) {
+                console.warn("[shell] persistent-layer restore: re-showing TopBar")
+                topBarWindow.visible = Qt.binding(function() { return !!root && root.visible })
+            }
+            if (dockWindow && !dockWindow.visible) {
+                console.warn("[shell] persistent-layer restore: re-showing Dock")
+                dockWindow.visible = Qt.binding(function() { return !!root && root.visible })
+            }
+        }
+        function onHealthCheckCompleted(healthy) {
+            if (healthy) {
+                return
+            }
+            // Log unhealthy state; auto-recovery fires after overlayStuckThresholdMs.
+            console.warn("[shell] health-check: shell layer unhealthy — stuck overlay detected")
+        }
     }
 
     Connections {

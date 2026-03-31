@@ -50,6 +50,7 @@ class MotionController;
 }
 class ShellStateController;
 class ShellInputRouter;
+class ShellLayerWatchdog;
 
 namespace AppStartupBridge {
 void registerTopBarIndicatorContext(QQmlContext *context,
@@ -96,7 +97,8 @@ void registerCoreContext(QQmlContext *context,
                          Slm::Clipboard::ClipboardServiceClient *clipboardServiceClient,
                          Slm::Motion::MotionController *motionController,
                          ShellStateController *shellStateController,
-                         ShellInputRouter *shellInputRouter);
+                         ShellInputRouter *shellInputRouter,
+                         ShellLayerWatchdog *shellLayerWatchdog);
 
 void setStartupWindowContext(QQmlContext *context,
                              bool appStartWindowed,

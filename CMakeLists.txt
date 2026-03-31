@@ -222,6 +222,7 @@ target_include_directories(slm-desktop PRIVATE
     ${CMAKE_SOURCE_DIR}
     ${CMAKE_SOURCE_DIR}/src/apps/filemanager/include
     ${CMAKE_SOURCE_DIR}/src/printing
+    ${CMAKE_SOURCE_DIR}/src/core/shell
     ${CMAKE_BINARY_DIR}
 )
 
@@ -1807,6 +1808,47 @@ target_link_libraries(shell_input_router_test
 target_include_directories(shell_input_router_test PRIVATE ${CMAKE_SOURCE_DIR})
 
 add_test(NAME shell_input_router_test COMMAND shell_input_router_test)
+
+qt_add_executable(shell_layer_watchdog_test
+    src/core/shell/shellstatecontroller.cpp
+    src/core/shell/shellstatecontroller.h
+    src/core/shell/shelllayerwatchdog.cpp
+    src/core/shell/shelllayerwatchdog.h
+    tests/shell_layer_watchdog_test.cpp
+)
+
+target_link_libraries(shell_layer_watchdog_test
+    PRIVATE
+        Qt6::Core
+        Qt6::Qml
+        Qt6::Test
+)
+
+target_include_directories(shell_layer_watchdog_test PRIVATE ${CMAKE_SOURCE_DIR})
+
+add_test(NAME shell_layer_watchdog_test COMMAND shell_layer_watchdog_test)
+
+qt_add_executable(shell_contract_test
+    src/core/shell/shellstatecontroller.cpp
+    src/core/shell/shellstatecontroller.h
+    src/core/shell/shelllayerwatchdog.cpp
+    src/core/shell/shelllayerwatchdog.h
+    tests/shell_contract_test.cpp
+)
+
+target_link_libraries(shell_contract_test
+    PRIVATE
+        Qt6::Core
+        Qt6::Qml
+        Qt6::Test
+)
+
+target_include_directories(shell_contract_test PRIVATE ${CMAKE_SOURCE_DIR})
+target_compile_definitions(shell_contract_test PRIVATE
+    SLM_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
+)
+
+add_test(NAME shell_contract_test COMMAND shell_contract_test)
 
 qt_add_executable(workspace_ui_smoke_test
     tests/workspace_ui_smoke_test.cpp
