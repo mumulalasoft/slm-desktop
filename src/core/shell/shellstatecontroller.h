@@ -1,18 +1,15 @@
 #pragma once
 
 #include <QObject>
-#include <QtQml/qqml.h>
 
 class ShellStateController : public QObject
 {
     Q_OBJECT
-    // QML_NAMED_ELEMENT avoids a naming conflict: the context property is also named
-    // "ShellStateController". If the QML type and the context property share the same
-    // name, QML singletons (pragma Singleton) resolve the identifier to the type
-    // meta-object instead of the context property instance, breaking all bindings.
-    // Using a prefixed name keeps type-system registration without the collision.
-    QML_NAMED_ELEMENT(SLMShellStateController)
-    QML_UNCREATABLE("ShellStateController is instantiated in C++ and exposed as a context property")
+    // No QML_ELEMENT: exposed via context property "ShellStateController".
+    // QML type registration causes the qmltyperegistrar to emit __has_include
+    // guards using bare filenames that fail unless src/core/shell is explicitly
+    // on the compiler search path — fragile across cmake invocations. Context
+    // properties work fully (bindings, signals, invokables) without registration.
 
     Q_PROPERTY(bool launchpadVisible READ launchpadVisible WRITE setLaunchpadVisible NOTIFY launchpadVisibleChanged)
     Q_PROPERTY(bool workspaceOverviewVisible READ workspaceOverviewVisible WRITE setWorkspaceOverviewVisible NOTIFY workspaceOverviewVisibleChanged)

@@ -2,7 +2,6 @@
 
 #include <QObject>
 #include <QTimer>
-#include <QtQml/qqml.h>
 
 class ShellStateController;
 
@@ -21,8 +20,7 @@ class ShellStateController;
 class ShellInputRouter : public QObject
 {
     Q_OBJECT
-    QML_NAMED_ELEMENT(SLMShellInputRouter)
-    QML_UNCREATABLE("ShellInputRouter is instantiated in C++ and exposed as a context property")
+    // No QML_ELEMENT: exposed via context property. See shellstatecontroller.h.
 
 public:
     // Layer priority — higher value = higher priority.

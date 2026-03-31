@@ -222,7 +222,6 @@ target_include_directories(slm-desktop PRIVATE
     ${CMAKE_SOURCE_DIR}
     ${CMAKE_SOURCE_DIR}/src/apps/filemanager/include
     ${CMAKE_SOURCE_DIR}/src/printing
-    ${CMAKE_SOURCE_DIR}/src/core/shell
     ${CMAKE_BINARY_DIR}
 )
 

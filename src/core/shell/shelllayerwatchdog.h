@@ -3,7 +3,6 @@
 #include <QObject>
 #include <QTimer>
 #include <QHash>
-#include <QtQml/qqml.h>
 
 class ShellStateController;
 
@@ -21,8 +20,7 @@ class ShellStateController;
 class ShellLayerWatchdog : public QObject
 {
     Q_OBJECT
-    QML_NAMED_ELEMENT(SLMShellLayerWatchdog)
-    QML_UNCREATABLE("ShellLayerWatchdog is instantiated in C++ and exposed as a context property")
+    // No QML_ELEMENT: exposed via context property. See shellstatecontroller.h.
 
     Q_PROPERTY(bool anyOverlayStuck READ anyOverlayStuck NOTIFY anyOverlayStuckChanged)
     Q_PROPERTY(int overlayStuckThresholdMs READ overlayStuckThresholdMs WRITE setOverlayStuckThresholdMs)
