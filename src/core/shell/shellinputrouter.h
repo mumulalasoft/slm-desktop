@@ -21,7 +21,7 @@ class ShellStateController;
 class ShellInputRouter : public QObject
 {
     Q_OBJECT
-    QML_ELEMENT
+    QML_NAMED_ELEMENT(SLMShellInputRouter)
     QML_UNCREATABLE("ShellInputRouter is instantiated in C++ and exposed as a context property")
 
 public:

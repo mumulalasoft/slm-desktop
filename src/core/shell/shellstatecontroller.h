@@ -6,7 +6,12 @@
 class ShellStateController : public QObject
 {
     Q_OBJECT
-    QML_ELEMENT
+    // QML_NAMED_ELEMENT avoids a naming conflict: the context property is also named
+    // "ShellStateController". If the QML type and the context property share the same
+    // name, QML singletons (pragma Singleton) resolve the identifier to the type
+    // meta-object instead of the context property instance, breaking all bindings.
+    // Using a prefixed name keeps type-system registration without the collision.
+    QML_NAMED_ELEMENT(SLMShellStateController)
     QML_UNCREATABLE("ShellStateController is instantiated in C++ and exposed as a context property")
 
     Q_PROPERTY(bool launchpadVisible READ launchpadVisible WRITE setLaunchpadVisible NOTIFY launchpadVisibleChanged)

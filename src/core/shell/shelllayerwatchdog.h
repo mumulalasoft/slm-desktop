@@ -21,7 +21,7 @@ class ShellStateController;
 class ShellLayerWatchdog : public QObject
 {
     Q_OBJECT
-    QML_ELEMENT
+    QML_NAMED_ELEMENT(SLMShellLayerWatchdog)
     QML_UNCREATABLE("ShellLayerWatchdog is instantiated in C++ and exposed as a context property")
 
     Q_PROPERTY(bool anyOverlayStuck READ anyOverlayStuck NOTIFY anyOverlayStuckChanged)
