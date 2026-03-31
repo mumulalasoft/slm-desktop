@@ -218,6 +218,7 @@ ApplicationWindow {
         ShellUtils.refreshMotionDebugRows(root)
     }
     onLockScreenVisibleChanged: {
+        if (typeof ShellStateController !== "undefined" && ShellStateController) ShellStateController.setLockScreenActive(lockScreenVisible)
         if (!lockScreenVisible) {
             return
         }
@@ -323,6 +324,7 @@ ApplicationWindow {
         sequence: "Alt+Shift+E"
         context: Qt.ApplicationShortcut
         onActivated: {
+            if (typeof ShellInputRouter !== "undefined" && !ShellInputRouter.canDispatch("shell.file_manager")) return
             root.openFileManagerFromShortcut("~")
         }
     }
@@ -331,6 +333,7 @@ ApplicationWindow {
         sequence: "Meta+E"
         context: Qt.ApplicationShortcut
         onActivated: {
+            if (typeof ShellInputRouter !== "undefined" && !ShellInputRouter.canDispatch("shell.file_manager")) return
             root.openFileManagerFromShortcut("~")
         }
     }
@@ -339,6 +342,7 @@ ApplicationWindow {
         sequence: "Alt+Shift+P"
         context: Qt.ApplicationShortcut
         onActivated: {
+            if (typeof ShellInputRouter !== "undefined" && !ShellInputRouter.canDispatch("shell.print")) return
             if (!root.printDocumentUri.length && root.screenshotSaveSourcePath.length) {
                 root.printDocumentUri = "file://" + root.screenshotSaveSourcePath
                 root.printDocumentTitle = "Captured Image"
@@ -351,9 +355,7 @@ ApplicationWindow {
     Shortcut {
         sequence: root.tothespotBind
         onActivated: {
-            if (root.lockScreenVisible) {
-                return
-            }
+            if (typeof ShellInputRouter !== "undefined" && !ShellInputRouter.canDispatch("shell.tothespot")) return
             root.tothespotVisible = !root.tothespotVisible
             if (root.tothespotVisible) {
                 root.clipboardOverlayVisible = false
@@ -372,9 +374,7 @@ ApplicationWindow {
         sequence: "Meta+V"
         context: Qt.ApplicationShortcut
         onActivated: {
-            if (root.lockScreenVisible) {
-                return
-            }
+            if (typeof ShellInputRouter !== "undefined" && !ShellInputRouter.canDispatch("shell.clipboard")) return
             root.clipboardOverlayVisible = !root.clipboardOverlayVisible
             if (root.clipboardOverlayVisible) {
                 root.tothespotVisible = false
@@ -386,9 +386,7 @@ ApplicationWindow {
         sequence: "Meta+,"
         context: Qt.ApplicationShortcut
         onActivated: {
-            if (root.lockScreenVisible) {
-                return
-            }
+            if (typeof ShellInputRouter !== "undefined" && !ShellInputRouter.canDispatch("shell.settings")) return
             if (typeof AppExecutionGate === "undefined" || !AppExecutionGate) {
                 return
             }
@@ -417,9 +415,7 @@ ApplicationWindow {
         sequence: "Meta+S"
         context: Qt.ApplicationShortcut
         onActivated: {
-            if (root.lockScreenVisible) {
-                return
-            }
+            if (typeof ShellInputRouter !== "undefined" && !ShellInputRouter.canDispatch("shell.workspace_overview")) return
             if (desktopScene && desktopScene.toggleWorkspaceOverview) {
                 desktopScene.toggleWorkspaceOverview()
             } else if (desktopScene) {
@@ -443,9 +439,7 @@ ApplicationWindow {
         sequence: "Meta+Left"
         context: Qt.ApplicationShortcut
         onActivated: {
-            if (root.lockScreenVisible) {
-                return
-            }
+            if (typeof ShellInputRouter !== "undefined" && !ShellInputRouter.canDispatch("workspace.prev")) return
             if (desktopScene && desktopScene.switchWorkspaceByDelta) {
                 desktopScene.switchWorkspaceByDelta(-1)
             }
@@ -456,9 +450,7 @@ ApplicationWindow {
         sequence: "Meta+Right"
         context: Qt.ApplicationShortcut
         onActivated: {
-            if (root.lockScreenVisible) {
-                return
-            }
+            if (typeof ShellInputRouter !== "undefined" && !ShellInputRouter.canDispatch("workspace.next")) return
             if (desktopScene && desktopScene.switchWorkspaceByDelta) {
                 desktopScene.switchWorkspaceByDelta(1)
             }
@@ -469,9 +461,7 @@ ApplicationWindow {
         sequence: "Ctrl+Meta+Left"
         context: Qt.ApplicationShortcut
         onActivated: {
-            if (root.lockScreenVisible) {
-                return
-            }
+            if (typeof ShellInputRouter !== "undefined" && !ShellInputRouter.canDispatch("window.move_workspace_prev")) return
             if (desktopScene && desktopScene.moveFocusedWindowByDelta) {
                 desktopScene.moveFocusedWindowByDelta(-1)
             }
@@ -482,9 +472,7 @@ ApplicationWindow {
         sequence: "Ctrl+Meta+Right"
         context: Qt.ApplicationShortcut
         onActivated: {
-            if (root.lockScreenVisible) {
-                return
-            }
+            if (typeof ShellInputRouter !== "undefined" && !ShellInputRouter.canDispatch("window.move_workspace_next")) return
             if (desktopScene && desktopScene.moveFocusedWindowByDelta) {
                 desktopScene.moveFocusedWindowByDelta(1)
             }
@@ -494,7 +482,8 @@ ApplicationWindow {
     Shortcut {
         sequence: "Escape"
         context: Qt.ApplicationShortcut
-        enabled: !!(desktopScene && desktopScene.workspaceVisible) && !root.lockScreenVisible
+        enabled: !!(desktopScene && desktopScene.workspaceVisible)
+                 && (typeof ShellInputRouter === "undefined" || ShellInputRouter.canDispatch("overlay.dismiss"))
         onActivated: {
             if (desktopScene && desktopScene.exitWorkspaceOverview) {
                 desktopScene.exitWorkspaceOverview()

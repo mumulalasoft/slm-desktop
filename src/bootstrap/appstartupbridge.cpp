@@ -46,6 +46,7 @@
 #include "../services/clipboard/ClipboardServiceClient.h"
 #include "../core/motion/slmmotioncontroller.h"
 #include "../core/shell/shellstatecontroller.h"
+#include "../core/shell/shellinputrouter.h"
 
 namespace {
 template <std::size_t N>
@@ -137,9 +138,10 @@ void registerCoreContext(QQmlContext *context,
                          MetadataIndexServer *metadataIndexServer,
                          Slm::Clipboard::ClipboardServiceClient *clipboardServiceClient,
                          Slm::Motion::MotionController *motionController,
-                         ShellStateController *shellStateController)
+                         ShellStateController *shellStateController,
+                         ShellInputRouter *shellInputRouter)
 {
-    const std::array<std::pair<const char *, QObject *>, 33> entries{{
+    const std::array<std::pair<const char *, QObject *>, 34> entries{{
         {"AppModel", appModel},
         {"AppManager", appModel},
         {"ShortcutModel", shortcutModel},
@@ -174,6 +176,7 @@ void registerCoreContext(QQmlContext *context,
         {"ClipboardServiceClient", clipboardServiceClient},
         {"MotionController", motionController},
         {"ShellStateController", shellStateController},
+        {"ShellInputRouter", shellInputRouter},
     }};
     setContextObjects(context, entries);
 }

@@ -14,6 +14,7 @@ class ShellStateController : public QObject
     Q_PROPERTY(bool toTheSpotVisible READ toTheSpotVisible WRITE setToTheSpotVisible NOTIFY toTheSpotVisibleChanged)
     Q_PROPERTY(bool styleGalleryVisible READ styleGalleryVisible WRITE setStyleGalleryVisible NOTIFY styleGalleryVisibleChanged)
     Q_PROPERTY(bool showDesktop READ showDesktop WRITE setShowDesktop NOTIFY showDesktopChanged)
+    Q_PROPERTY(bool lockScreenActive READ lockScreenActive WRITE setLockScreenActive NOTIFY lockScreenActiveChanged)
 
     // Derived state — read-only from QML
     Q_PROPERTY(qreal topBarOpacity READ topBarOpacity NOTIFY topBarOpacityChanged)
@@ -31,6 +32,7 @@ public:
     bool toTheSpotVisible() const;
     bool styleGalleryVisible() const;
     bool showDesktop() const;
+    bool lockScreenActive() const;
 
     qreal topBarOpacity() const;
     qreal dockOpacity() const;
@@ -44,6 +46,7 @@ public:
     Q_INVOKABLE void setToTheSpotVisible(bool visible);
     Q_INVOKABLE void setStyleGalleryVisible(bool visible);
     Q_INVOKABLE void setShowDesktop(bool active);
+    Q_INVOKABLE void setLockScreenActive(bool active);
 
     Q_INVOKABLE void toggleLaunchpad();
     Q_INVOKABLE void toggleWorkspaceOverview();
@@ -56,6 +59,7 @@ signals:
     void toTheSpotVisibleChanged(bool visible);
     void styleGalleryVisibleChanged(bool visible);
     void showDesktopChanged(bool active);
+    void lockScreenActiveChanged(bool active);
 
     void topBarOpacityChanged(qreal opacity);
     void dockOpacityChanged(qreal opacity);
@@ -72,6 +76,7 @@ private:
     bool m_toTheSpotVisible = false;
     bool m_styleGalleryVisible = false;
     bool m_showDesktop = false;
+    bool m_lockScreenActive = false;
 
     // Cached derived values
     qreal m_topBarOpacity = 1.0;

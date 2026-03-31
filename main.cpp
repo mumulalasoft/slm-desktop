@@ -75,6 +75,7 @@
 #include "src/filemanager/ThumbnailImageProvider.h"
 #include "src/core/motion/slmmotioncontroller.h"
 #include "src/core/shell/shellstatecontroller.h"
+#include "src/core/shell/shellinputrouter.h"
 #include "src/core/system/missingcomponentcontroller.h"
 #include "src/printing/core/PrinterManager.h"
 #include "src/printing/core/PrintSession.h"
@@ -258,6 +259,7 @@ int main(int argc, char *argv[])
     Slm::Session::SessionStateClient sessionStateClient;
     Slm::Motion::MotionController motionController;
     ShellStateController shellStateController;
+    ShellInputRouter shellInputRouter(&shellStateController);
     Slm::System::MissingComponentController missingComponentController;
     Slm::Print::PrinterManager printerManager;
     Slm::Print::PrintSession printSession;
@@ -389,7 +391,8 @@ int main(int argc, char *argv[])
                                           &metadataIndexServer,
                                           &clipboardServiceClient,
                                           &motionController,
-                                          &shellStateController);
+                                          &shellStateController,
+                                          &shellInputRouter);
     AppStartupBridge::setStartupWindowContext(engine.rootContext(),
                                               startupArgs.startWindowed,
                                               startupArgs.windowWidth,

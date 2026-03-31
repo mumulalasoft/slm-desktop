@@ -11,6 +11,7 @@ bool ShellStateController::workspaceOverviewVisible() const { return m_workspace
 bool ShellStateController::toTheSpotVisible() const        { return m_toTheSpotVisible; }
 bool ShellStateController::styleGalleryVisible() const     { return m_styleGalleryVisible; }
 bool ShellStateController::showDesktop() const             { return m_showDesktop; }
+bool ShellStateController::lockScreenActive() const        { return m_lockScreenActive; }
 
 qreal ShellStateController::topBarOpacity() const              { return m_topBarOpacity; }
 qreal ShellStateController::dockOpacity() const                { return m_dockOpacity; }
@@ -57,6 +58,15 @@ void ShellStateController::setShowDesktop(bool active)
     m_showDesktop = active;
     emit showDesktopChanged(active);
     recomputeDerivedState();
+}
+
+void ShellStateController::setLockScreenActive(bool active)
+{
+    if (m_lockScreenActive == active) return;
+    m_lockScreenActive = active;
+    emit lockScreenActiveChanged(active);
+    // Lock screen does not affect the derived opacity/blur state of the shell layers;
+    // the lock surface is drawn above everything by the compositor.
 }
 
 void ShellStateController::toggleLaunchpad()

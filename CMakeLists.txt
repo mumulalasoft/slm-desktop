@@ -1789,6 +1789,25 @@ target_include_directories(shell_state_controller_test PRIVATE ${CMAKE_SOURCE_DI
 
 add_test(NAME shell_state_controller_test COMMAND shell_state_controller_test)
 
+qt_add_executable(shell_input_router_test
+    src/core/shell/shellstatecontroller.cpp
+    src/core/shell/shellstatecontroller.h
+    src/core/shell/shellinputrouter.cpp
+    src/core/shell/shellinputrouter.h
+    tests/shell_input_router_test.cpp
+)
+
+target_link_libraries(shell_input_router_test
+    PRIVATE
+        Qt6::Core
+        Qt6::Qml
+        Qt6::Test
+)
+
+target_include_directories(shell_input_router_test PRIVATE ${CMAKE_SOURCE_DIR})
+
+add_test(NAME shell_input_router_test COMMAND shell_input_router_test)
+
 qt_add_executable(workspace_ui_smoke_test
     tests/workspace_ui_smoke_test.cpp
 )
