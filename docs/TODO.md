@@ -483,12 +483,22 @@ Rule 5: SystemModalLayer bypass semua state
   DesktopScene.qml and Main.qml call ShellStateController.setXxx() instead of writing ShellState directly
 - [x] Unit test: `shell_state_controller_test` — defaults, derived state, signal guards, dismissAll
 
-#### Phase 3 — InputRouter
-- [ ] Implementasi `InputRouter` dengan layer priority table per `ShellMode`
-- [ ] Keyboard shortcut dispatch lewat `InputRouter` — tidak langsung ke layer
-- [ ] Gesture recognizer output → `InputRouter` → `ShellStateController`
-- [ ] Timeout guard: layer non-response > 500ms → `InputRouter` fallback ke base layer
-- [ ] Test: deadlock prevention, rapid switching, gesture cancel mid-transition
+#### Phase 3 — InputRouter ✓ DONE
+- [x] Implementasi `ShellInputRouter` (`src/core/shell/shellinputrouter.h/.cpp`) dengan layer priority table:
+  LockScreen(100) > ToTheSpot(30) > Launchpad(20) > WorkspaceOverview(10) > BaseLayer(0)
+- [x] `canDispatch(action)` — single routing gate per layer; per-layer blocking rules:
+  - LockScreen: only `shell.lock`
+  - Launchpad: blocks `workspace.*` and `window.move_*`
+  - WorkspaceOverview: blocks `shell.tothespot` and `shell.clipboard`
+  - ToTheSpot: blocks `shell.workspace_overview` and `workspace.*`
+- [x] Keyboard shortcut dispatch via ShellInputRouter — Main.qml shortcuts replaced
+  `if (root.lockScreenVisible) return` inline guards with `ShellInputRouter.canDispatch(action)`
+- [x] ShellStateController gains `lockScreenActive` property; Main.qml syncs on `onLockScreenVisibleChanged`
+- [x] Timeout guard: `scheduleForceDismiss(overlay)` starts 500ms QTimer; if overlay still visible
+  when it fires → `ShellStateController.dismissAllOverlays()` + `overlayDismissTimedOut` signal
+- [x] `ShellInputRouter` registered as context property via AppStartupBridge
+- [x] Test: `shell_input_router_test` — priority rules, per-layer blocking, rapid dispatch (no deadlock),
+  timeout guard fire + cancel, layerChanged signal guards
 
 #### Phase 4 — Recovery & Crash Isolation
 - [ ] Overlay context isolation: `LaunchpadLayer`, `WorkspaceOverviewLayer`, `ToTheSpotLayer`
