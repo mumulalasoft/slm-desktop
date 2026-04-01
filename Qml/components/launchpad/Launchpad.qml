@@ -275,13 +275,10 @@ Item {
     Keys.onPressed: function(event) { root.handleNavigationKey(event) }
 
     // Wallpaper as base layer — same source as the desktop background.
-    // Stops at bottomSafeInset so the dock zone below is transparent, letting
-    // DockWindow show through the launchpad window without a duplicate render.
+    // Fills the full frame so the dock rendered by LaunchpadWindow's
+    // launchpadDockLayer appears seamlessly over the same wallpaper image.
     Image {
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.top: parent.top
-        height: parent.height - root.bottomSafeInset
+        anchors.fill: parent
         source: root.wallpaperSource
         fillMode: Image.PreserveAspectCrop
         smooth: true

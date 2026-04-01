@@ -12,6 +12,8 @@ bool ShellStateController::toTheSpotVisible() const        { return m_toTheSpotV
 bool ShellStateController::styleGalleryVisible() const     { return m_styleGalleryVisible; }
 bool ShellStateController::showDesktop() const             { return m_showDesktop; }
 bool ShellStateController::lockScreenActive() const        { return m_lockScreenActive; }
+bool ShellStateController::notificationsVisible() const    { return m_notificationsVisible; }
+bool ShellStateController::focusMode() const               { return m_focusMode; }
 
 qreal ShellStateController::topBarOpacity() const              { return m_topBarOpacity; }
 qreal ShellStateController::dockOpacity() const                { return m_dockOpacity; }
@@ -69,6 +71,20 @@ void ShellStateController::setLockScreenActive(bool active)
     // the lock surface is drawn above everything by the compositor.
 }
 
+void ShellStateController::setNotificationsVisible(bool visible)
+{
+    if (m_notificationsVisible == visible) return;
+    m_notificationsVisible = visible;
+    emit notificationsVisibleChanged(visible);
+}
+
+void ShellStateController::setFocusMode(bool active)
+{
+    if (m_focusMode == active) return;
+    m_focusMode = active;
+    emit focusModeChanged(active);
+}
+
 void ShellStateController::toggleLaunchpad()
 {
     setLaunchpadVisible(!m_launchpadVisible);
@@ -94,15 +110,15 @@ void ShellStateController::dismissAllOverlays()
 
 void ShellStateController::recomputeDerivedState()
 {
-    // topBarOpacity: dimmed during launchpad, full otherwise
-    const qreal newTopBarOpacity = m_launchpadVisible ? 0.72 : 1.0;
+    // topBarOpacity: hidden during launchpad, full otherwise
+    const qreal newTopBarOpacity = m_launchpadVisible ? 0.0 : 1.0;
     if (!qFuzzyCompare(m_topBarOpacity, newTopBarOpacity)) {
         m_topBarOpacity = newTopBarOpacity;
         emit topBarOpacityChanged(m_topBarOpacity);
     }
 
-    // dockOpacity: hidden during show-desktop or launchpad, full otherwise
-    const qreal newDockOpacity = (m_showDesktop || m_launchpadVisible) ? 0.0 : 1.0;
+    // dockOpacity: hidden during show-desktop only; dock remains visible during launchpad.
+    const qreal newDockOpacity = m_showDesktop ? 0.0 : 1.0;
     if (!qFuzzyCompare(m_dockOpacity, newDockOpacity)) {
         m_dockOpacity = newDockOpacity;
         emit dockOpacityChanged(m_dockOpacity);

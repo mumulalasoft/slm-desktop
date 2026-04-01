@@ -76,11 +76,14 @@ Item {
                                                 )
     readonly property bool dockSmartRevealAllowed: (!dockModeSmartHide || !dockSmartOccluded)
     readonly property bool dockRevealWanted: (
-                                                launchpadVisible ||
                                                 workspaceVisible ||
                                                 dockModeNoHide ||
                                                 (dockSmartRevealAllowed && dockUserRevealWanted)
                                             )
+    // Note: launchpadVisible is intentionally excluded. When the launchpad is
+    // open, LaunchpadWindow renders its own dock layer above the wallpaper.
+    // DockWindow must stay in its pre-launchpad state so no state change is
+    // visible when the launchpad opens or closes.
 
     ShellComp.Shell {
         id: shell

@@ -54,9 +54,8 @@ private slots:
             state.setStyleGalleryVisible(i % 7 == 0);
             state.setShowDesktop(i % 11 == 0);
 
-            // Contract: topBarOpacity always in [0, 1] and > 0
-            QVERIFY2(state.topBarOpacity() > 0.0,
-                     "topBarOpacity must never reach 0 — TopBar is always accessible");
+            // Contract: topBarOpacity always in [0, 1]
+            QVERIFY2(state.topBarOpacity() >= 0.0, "topBarOpacity must not be negative");
             QVERIFY2(state.topBarOpacity() <= 1.0, "topBarOpacity must not exceed 1.0");
 
             // Contract: dockOpacity in [0, 1]
@@ -72,18 +71,18 @@ private slots:
     void persistentLayer_topBarOpacity_neverZero_afterDismissAll()
     {
         ShellStateController state;
-        state.setLaunchpadVisible(true);  // dims topBar
+        state.setLaunchpadVisible(true);  // hides topBar
         state.dismissAllOverlays();
         QCOMPARE(state.topBarOpacity(), 1.0);
     }
 
-    void persistentLayer_dockOpacity_restoresAfterLaunchpadDismiss()
+    void persistentLayer_dockOpacity_remainsVisibleDuringLaunchpad()
     {
         ShellStateController state;
         state.setLaunchpadVisible(true);
-        QCOMPARE(state.dockOpacity(), 0.0);  // launchpad hides dock
+        QCOMPARE(state.dockOpacity(), 1.0);  // dock stays visible during launchpad
         state.setLaunchpadVisible(false);
-        QCOMPARE(state.dockOpacity(), 1.0);  // restored
+        QCOMPARE(state.dockOpacity(), 1.0);  // still visible after dismiss
     }
 
     void persistentLayer_showDesktop_hideDock_butNotTopBar()
@@ -105,7 +104,7 @@ private slots:
         ShellStateController state;
         ShellLayerWatchdog watchdog(&state);
 
-        // All overlays active — topBarOpacity is dimmed by launchpad
+        // All overlays active — topBarOpacity is hidden (0.0) by launchpad
         state.setLaunchpadVisible(true);
         state.setWorkspaceOverviewVisible(true);
         state.setToTheSpotVisible(true);
@@ -176,8 +175,8 @@ private slots:
         state.setLaunchpadVisible(true);
 
         QVERIFY(state.anyOverlayVisible());
-        QVERIFY(qFuzzyCompare(state.topBarOpacity(), 0.72)); // dimmed
-        QCOMPARE(state.dockOpacity(), 0.0);                   // hidden
+        QCOMPARE(state.topBarOpacity(), 0.0);   // hidden behind launchpad fullscreen
+        QCOMPARE(state.dockOpacity(), 1.0);     // dock stays visible (launchpad has its own dock row)
         QVERIFY(state.workspaceBlurred());
         QVERIFY(state.workspaceInteractionBlocked());
     }

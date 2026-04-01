@@ -824,6 +824,7 @@ ApplicationWindow {
                 rootWindow: root
                 desktopScene: launchpadWindowLoader.sceneRef
                 appsModel: AppModel
+                dockModel: DockModel
                 onAppChosen: function(appData) { LaunchpadActions.handleAppChosen(appData) }
                 onAddToDockRequested: function(appData) { LaunchpadActions.handleAddToDock(appData) }
                 onAddToDesktopRequested: function(appData) { LaunchpadActions.handleAddToDesktop(appData, launchpadWindowLoader.sceneRef) }

@@ -1,29 +1,25 @@
 import QtQuick 2.15
 import QtQuick.Window 2.15
+import "../dock" as DockComp
 import "../launchpad" as LaunchpadComp
 
 // LaunchpadWindow is a frameless transient Window so KWin (and any WM/compositor)
 // stacks it above all normal app windows.
 //
-// The bottom dock zone is left transparent so DockWindow (rendered in Main.qml
-// directly below this Window) shows through unchanged.  Because the compositor
-// alpha-blends the transparent region, DockWindow's dock remains the single dock
-// instance — no state discontinuity on launchpad open/close.
-// Tapping the transparent dock zone dismisses the launchpad.
+// The dock is rendered inside this Window (launchpadDockLayer) so it always
+// appears above the launchpad wallpaper with no visual seam.  DockWindow in
+// Main.qml is NOT forced to reveal during launchpad — its hide/show state is
+// preserved unchanged.  When the launchpad closes, the shell dock state is
+// exactly as it was before opening.
 Window {
     id: root
 
     required property var rootWindow
     required property var desktopScene
     required property var appsModel
+    required property var dockModel
 
     readonly property int panelHeight: desktopScene ? desktopScene.panelHeight : 34
-
-    // Height of the transparent dock passthrough zone at the bottom of the window.
-    // Sized to fully expose DockWindow's dock surface including its zoom headroom.
-    readonly property int dockAreaHeight: desktopScene
-        ? Math.ceil(desktopScene.dockHeight + desktopScene.dockBottomMargin + 20)
-        : 140
 
     signal appChosen(var appData)
     signal addToDockRequested(var appData)
@@ -107,26 +103,14 @@ Window {
             }
         }
 
-        // Dismiss tap area — excludes the top panel strip (TopBarWindow shows
-        // through above) and the bottom dock zone (DockWindow shows through below).
+        // Dismiss tap area — excludes the top panel strip so TopBarWindow stays
+        // interactive through the transparent top portion of this Window.
         MouseArea {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top
             anchors.topMargin: root.panelHeight
             anchors.bottom: parent.bottom
-            anchors.bottomMargin: root.dockAreaHeight
-            z: 0
-            onClicked: desktopScene.launchpadVisible = false
-        }
-
-        // Dismiss tap in the transparent dock zone — tapping here exits the
-        // launchpad so the user can then interact with the dock directly.
-        MouseArea {
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.bottom: parent.bottom
-            height: root.dockAreaHeight
             z: 0
             onClicked: desktopScene.launchpadVisible = false
         }
@@ -159,9 +143,7 @@ Window {
                 anchors.fill: parent
                 visible: parent.visible
                 appsModel: root.appsModel
-                // Reserve the dock zone at the bottom so the grid and search bar
-                // don't overlap the transparent area where DockWindow shows through.
-                bottomSafeInset: root.dockAreaHeight
+                bottomSafeInset: Math.max(120, launchpadDockLayer.height + 14)
                 onDismissRequested: desktopScene.launchpadVisible = false
                 onAppChosen: function(appData) {
                     desktopScene.launchpadVisible = false
@@ -169,6 +151,30 @@ Window {
                 }
                 onAddToDockRequested: function(appData) { root.addToDockRequested(appData) }
                 onAddToDesktopRequested: function(appData) { root.addToDesktopRequested(appData) }
+            }
+        }
+
+        // Dock rendered inside this Window so it appears above the launchpad
+        // wallpaper with no visual boundary.  Positioned identically to DockWindow.
+        Item {
+            id: launchpadDockLayer
+            z: 2
+            visible: launchpadFrame.visible
+            x: Math.round((parent.width - width) / 2)
+            y: Math.round(parent.height - height - (desktopScene ? desktopScene.dockBottomMargin : 0))
+            readonly property int zoomHeadroom: 76
+            readonly property bool headroomActive: launchpadDockSurface.hovered
+                                                   || (desktopScene ? desktopScene.pointerNearDock : false)
+            width: Math.max(1, Math.ceil(launchpadDockSurface.width))
+            height: Math.max(1, Math.ceil(launchpadDockSurface.height + (headroomActive ? zoomHeadroom : 0)))
+
+            DockComp.Dock {
+                id: launchpadDockSurface
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.bottom: parent.bottom
+                opacity: 1.0
+                appsModel: root.dockModel
+                onLaunchpadRequested: desktopScene.launchpadVisible = false
             }
         }
     }

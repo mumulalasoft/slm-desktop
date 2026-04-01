@@ -17,6 +17,8 @@ class ShellStateController : public QObject
     Q_PROPERTY(bool styleGalleryVisible READ styleGalleryVisible WRITE setStyleGalleryVisible NOTIFY styleGalleryVisibleChanged)
     Q_PROPERTY(bool showDesktop READ showDesktop WRITE setShowDesktop NOTIFY showDesktopChanged)
     Q_PROPERTY(bool lockScreenActive READ lockScreenActive WRITE setLockScreenActive NOTIFY lockScreenActiveChanged)
+    Q_PROPERTY(bool notificationsVisible READ notificationsVisible WRITE setNotificationsVisible NOTIFY notificationsVisibleChanged)
+    Q_PROPERTY(bool focusMode READ focusMode WRITE setFocusMode NOTIFY focusModeChanged)
 
     // Derived state — read-only from QML
     Q_PROPERTY(qreal topBarOpacity READ topBarOpacity NOTIFY topBarOpacityChanged)
@@ -35,6 +37,8 @@ public:
     bool styleGalleryVisible() const;
     bool showDesktop() const;
     bool lockScreenActive() const;
+    bool notificationsVisible() const;
+    bool focusMode() const;
 
     qreal topBarOpacity() const;
     qreal dockOpacity() const;
@@ -49,6 +53,8 @@ public:
     Q_INVOKABLE void setStyleGalleryVisible(bool visible);
     Q_INVOKABLE void setShowDesktop(bool active);
     Q_INVOKABLE void setLockScreenActive(bool active);
+    Q_INVOKABLE void setNotificationsVisible(bool visible);
+    Q_INVOKABLE void setFocusMode(bool active);
 
     Q_INVOKABLE void toggleLaunchpad();
     Q_INVOKABLE void toggleWorkspaceOverview();
@@ -62,6 +68,8 @@ signals:
     void styleGalleryVisibleChanged(bool visible);
     void showDesktopChanged(bool active);
     void lockScreenActiveChanged(bool active);
+    void notificationsVisibleChanged(bool visible);
+    void focusModeChanged(bool active);
 
     void topBarOpacityChanged(qreal opacity);
     void dockOpacityChanged(qreal opacity);
@@ -79,6 +87,8 @@ private:
     bool m_styleGalleryVisible = false;
     bool m_showDesktop = false;
     bool m_lockScreenActive = false;
+    bool m_notificationsVisible = false;
+    bool m_focusMode = false;
 
     // Cached derived values
     qreal m_topBarOpacity = 1.0;
