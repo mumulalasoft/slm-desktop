@@ -16,9 +16,8 @@ function contextDefaultOpenWithEntry(root) {
             return row
         }
     }
-    if (apps.length > 0) {
-        return apps[0] || ({})
-    }
+    // No defaultApp flag set means the system has no default for this MIME type.
+    // Do not fall back to apps[0] — that would mislabel a non-default app.
     return ({})
 }
 
@@ -40,7 +39,8 @@ function contextRecommendedOpenWithEntries(root) {
     for (var i = 0; i < apps.length; ++i) {
         var row = apps[i] || ({})
         var id = String((row && row.id) ? row.id : "")
-        if (id.length <= 0 || id === defId || seen[id] === true) {
+        // Exclude the default app both by flag (primary) and by ID match (fallback).
+        if (id.length <= 0 || !!row.defaultApp || id === defId || seen[id] === true) {
             continue
         }
         seen[id] = true
