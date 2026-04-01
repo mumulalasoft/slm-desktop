@@ -159,7 +159,7 @@ Window {
         Item {
             id: launchpadDockLayer
             z: 2
-            visible: launchpadFrame.visible
+            visible: !!desktopScene && desktopScene.launchpadVisible
             x: Math.round((parent.width - width) / 2)
             y: Math.round(parent.height - height - (desktopScene ? desktopScene.dockBottomMargin : 0))
             readonly property int zoomHeadroom: 76
