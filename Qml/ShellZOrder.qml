@@ -8,17 +8,16 @@ import QtQuick 2.15
 // Z-values govern their stacking order within that shared scene graph.
 //
 // Normal render order (low → high):
-//   wallpaper → desktop → workspaceSurfaces → launchpad → dock → topBar → debugOverlay
+//   wallpaper → desktop → workspaceSurfaces → dock → topBar → debugOverlay
 //
-// WorkspaceWindow and other standalone overlay Windows appear above this scene
-// automatically (separate native window surface).
+// LaunchpadWindow and other overlay Windows appear above this scene automatically
+// as separate native windows managed by the compositor.
 //
 QtObject {
     // Persistent item layers (inside main shell window)
     readonly property int wallpaper:          0
     readonly property int desktopIcons:       10
     readonly property int workspaceSurfaces:  20
-    readonly property int launchpad:          100  // LaunchpadWindow Item — above workspace, below dock
     readonly property int dock:               200  // DockWindow Item
     readonly property int topBar:             220  // TopBarWindow Item — above dock
 

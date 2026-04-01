@@ -817,7 +817,6 @@ ApplicationWindow {
         // that occurs when Component bindings resolve 'desktopScene' to
         // LaunchpadWindow's own required property instead of Main.qml's ID.
         readonly property var sceneRef: desktopScene
-        z: ShellZOrder.launchpad   // above workspace surfaces, below dock
         active: true
         asynchronous: false
         sourceComponent: Component {
@@ -825,6 +824,7 @@ ApplicationWindow {
                 rootWindow: root
                 desktopScene: launchpadWindowLoader.sceneRef
                 appsModel: AppModel
+                dockModel: DockModel
                 onAppChosen: function(appData) { LaunchpadActions.handleAppChosen(appData) }
                 onAddToDockRequested: function(appData) { LaunchpadActions.handleAddToDock(appData) }
                 onAddToDesktopRequested: function(appData) { LaunchpadActions.handleAddToDesktop(appData, launchpadWindowLoader.sceneRef) }
