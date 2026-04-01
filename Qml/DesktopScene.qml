@@ -80,10 +80,10 @@ Item {
                                                 dockModeNoHide ||
                                                 (dockSmartRevealAllowed && dockUserRevealWanted)
                                             )
-    // Note: launchpadVisible is intentionally excluded. When the launchpad is
-    // open, LaunchpadWindow renders its own dock layer above the wallpaper.
-    // DockWindow must stay in its pre-launchpad state so no state change is
-    // visible when the launchpad opens or closes.
+    // Note: launchpadVisible is intentionally excluded from dockRevealWanted.
+    // ShellDockHost is the single dock renderer and stays active when launchpad
+    // is open — LaunchpadWindow leaves the dock zone uncovered so the dock is
+    // interactive directly in ApplicationWindow.
 
     ShellComp.Shell {
         id: shell

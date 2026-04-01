@@ -10,15 +10,17 @@ import QtQuick 2.15
 // Normal render order (low → high):
 //   wallpaper → desktop → workspaceSurfaces → dock → topBar → debugOverlay
 //
-// LaunchpadWindow and other overlay Windows appear above this scene automatically
-// as separate native windows managed by the compositor.
+// Persistent layers (TopBarWindow, ShellDockHost) are Items inside the shell's
+// ApplicationWindow.  Overlay layers (LaunchpadWindow, etc.) are transient
+// Windows — KWin stacks them above the shell window automatically.
+// LaunchpadWindow leaves the dock zone uncovered — ShellDockHost handles it.
 //
 QtObject {
     // Persistent item layers (inside main shell window)
     readonly property int wallpaper:          0
     readonly property int desktopIcons:       10
     readonly property int workspaceSurfaces:  20
-    readonly property int dock:               200  // DockWindow Item
+    readonly property int dock:               200  // ShellDockHost Item (DockSystem)
     readonly property int topBar:             220  // TopBarWindow Item — above dock
 
     // Internal z values within DesktopScene for non-window Items

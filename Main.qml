@@ -284,6 +284,10 @@ ApplicationWindow {
 
     Component.onCompleted: {
         syncStyleThemeFromPreferences()
+        // 5-minute threshold — 30 s default is too short for normal launchpad browsing.
+        if (typeof ShellLayerWatchdog !== "undefined" && ShellLayerWatchdog) {
+            ShellLayerWatchdog.overlayStuckThresholdMs = 300000
+        }
         if (typeof AppModel !== "undefined" && AppModel) {
             appModelRef = AppModel
         }
@@ -570,7 +574,7 @@ ApplicationWindow {
     DesktopScene {
         id: desktopScene
         anchors.fill: parent
-        dockItem: dockWindow.dockItem
+        dockItem: shellDockHost.dockItem
     }
 
     Shortcut {
@@ -935,8 +939,8 @@ ApplicationWindow {
         }
     }
 
-    OverlayComp.DockWindow {
-        id: dockWindow
+    OverlayComp.ShellDockHost {
+        id: shellDockHost
         rootWindow: root
         desktopScene: desktopScene
         appsModel: DockModel
@@ -954,9 +958,9 @@ ApplicationWindow {
                 console.warn("[shell] persistent-layer restore: re-showing TopBar")
                 topBarWindow.visible = Qt.binding(function() { return !!root && root.visible })
             }
-            if (dockWindow && !dockWindow.visible) {
-                console.warn("[shell] persistent-layer restore: re-showing Dock")
-                dockWindow.visible = Qt.binding(function() { return !!root && root.visible })
+            if (shellDockHost && !shellDockHost.visible) {
+                console.warn("[shell] persistent-layer restore: re-showing ShellDockHost")
+                shellDockHost.visible = Qt.binding(function() { return !!root && root.visible })
             }
         }
         function onHealthCheckCompleted(healthy) {

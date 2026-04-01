@@ -730,6 +730,7 @@ set_source_files_properties(
 )
 set_source_files_properties(Qml/ShellState.qml  PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
 set_source_files_properties(Qml/ShellZOrder.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
+set_source_files_properties(Qml/DockSystem.qml  PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
 
 set(DESKTOP_SHELL_QML_FILES
     Main.qml
@@ -737,6 +738,7 @@ set(DESKTOP_SHELL_QML_FILES
     Qml/IndicatorRegistry.qml
     Qml/ShellState.qml
     Qml/ShellZOrder.qml
+    Qml/DockSystem.qml
     Qml/DesktopScene.qml
     Qml/apps/filemanager/FileManagerShareSheet.qml
     Qml/apps/filemanager/RecursiveMenu.qml
@@ -759,7 +761,7 @@ set(DESKTOP_SHELL_QML_FILES
     Qml/components/overlay/ShellSystemWindows.qml
     Qml/components/overlay/TopBarWindow.qml
     Qml/components/overlay/TopBarPopupStateController.qml
-    Qml/components/overlay/DockWindow.qml
+    Qml/components/overlay/ShellDockHost.qml
     Qml/components/overlay/LaunchpadWindow.qml
     Qml/components/overlay/DetachedFileManagerWindow.qml
     Qml/components/overlay/PortalFileChooserWindow.qml
