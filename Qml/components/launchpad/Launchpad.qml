@@ -11,12 +11,13 @@ Item {
     property int currentPage: 0
     property int maxColumns: 7
     property int maxRowsPerPage: 5
+    property int topSafeInset: 0
     property int bottomSafeInset: 144
     property int minColumns: 4
     property int minRowsPerPage: 3
     readonly property int effectiveColumns: Math.max(minColumns,
                                                      Math.min(maxColumns,
-                                                              Math.floor((appsGrid.width + gridSpacing)
+                                                              Math.floor((appsFlick.width + gridSpacing)
                                                                          / (minCellWidth + gridSpacing))))
     readonly property int effectiveRowsPerPage: Math.max(minRowsPerPage,
                                                          Math.min(maxRowsPerPage,
@@ -51,9 +52,10 @@ Item {
     readonly property real gridSpacing: 16
     readonly property real minCellWidth: 122
     readonly property real appLabelHeight: Math.ceil(Theme.fontSize("menu") * 1.8)
-    readonly property real appCellMinHeight: 114 + 10 + appLabelHeight + 8
+    readonly property real iconPlateSize: Math.min(86, Math.floor(gridCellWidth * 0.55))
+    readonly property real appCellMinHeight: iconPlateSize + 8 + appLabelHeight + 8
     readonly property real gridCellWidth: Math.max(minCellWidth,
-                                                   Math.floor((appsGrid.width - (gridSpacing * (effectiveColumns - 1)))
+                                                   Math.floor((appsFlick.width - (gridSpacing * (effectiveColumns - 1)))
                                                               / Math.max(1, effectiveColumns)))
     readonly property real gridCellHeight: Math.max(appCellMinHeight,
                                                     Math.floor((appsFlick.height
@@ -275,8 +277,8 @@ Item {
     Keys.onPressed: function(event) { root.handleNavigationKey(event) }
 
     // Wallpaper as base layer — same source as the desktop background.
-    // Fills the full frame so the dock rendered by LaunchpadWindow's
-    // launchpadDockLayer appears seamlessly over the same wallpaper image.
+    // Fills the full frame so the dock (visible below via ApplicationWindow)
+    // appears seamlessly over the same wallpaper image.
     Image {
         anchors.fill: parent
         source: root.wallpaperSource
@@ -349,43 +351,47 @@ Item {
     Item {
         id: contentLayer
         anchors.fill: parent
-        anchors.topMargin: Math.max(18, parent.height * 0.02)
-        anchors.bottomMargin: Math.max(Math.max(20, parent.height * 0.02), bottomSafeInset)
-        anchors.leftMargin: Math.max(36, parent.width * 0.035)
-        anchors.rightMargin: Math.max(36, parent.width * 0.035)
+        anchors.topMargin: Math.max(root.topSafeInset + 6, 14)
+        anchors.bottomMargin: Math.max(8, Math.max(parent.height * 0.01, bottomSafeInset))
+        anchors.leftMargin: Math.max(56, parent.width * 0.07)
+        anchors.rightMargin: Math.max(56, parent.width * 0.07)
 
         Column {
             anchors.fill: parent
-            spacing: 16
+            spacing: 8
 
             Rectangle {
                 id: searchShell
-                width: Math.min(640, parent.width * 0.58)
-                height: 56
+                width: Math.min(240, parent.width * 0.22)
+                height: 34
                 anchors.horizontalCenter: parent.horizontalCenter
-                radius: Theme.radiusXl
+                radius: height * 0.5
                 color: Theme.color("launchpadSearchBg")
-                opacity: root.compositorBlurActive ? Theme.opacityIconMuted : Theme.opacityGhost
+                opacity: root.compositorBlurActive ? Theme.opacityMuted : 0.22
                 border.width: Theme.borderWidthThin
-                border.color: Theme.color("launchpadSearchBorder")
+                border.color: Qt.rgba(1, 1, 1, 0.18)
                 transform: Translate { x: root.pageTransitionHeaderOffset }
 
-                Label {
-                    text: "\u2315"
+                Image {
                     anchors.verticalCenter: parent.verticalCenter
                     anchors.left: parent.left
-                    anchors.leftMargin: 16
-                    font.pixelSize: Theme.fontSize("title")
-                    color: Theme.color("textSecondary")
+                    anchors.leftMargin: 10
+                    width: 13
+                    height: 13
+                    source: "image://themeicon/edit-find-symbolic?v="
+                            + ((typeof ThemeIconController !== "undefined" && ThemeIconController)
+                               ? ThemeIconController.revision : 0)
+                    fillMode: Image.PreserveAspectFit
+                    opacity: Theme.opacitySeparator
                 }
 
                 TextInput {
                     id: searchField
                     anchors.fill: parent
-                    anchors.leftMargin: 44
-                    anchors.rightMargin: 16
+                    anchors.leftMargin: 28
+                    anchors.rightMargin: 8
                     verticalAlignment: TextInput.AlignVCenter
-                    font.pixelSize: Theme.fontSize("title")
+                    font.pixelSize: Theme.fontSize("small")
                     color: Theme.color("textPrimary")
                     selectionColor: Theme.color("accent")
                     selectedTextColor: Theme.color("accentText")
@@ -399,9 +405,9 @@ Item {
                     visible: searchField.text.length === 0
                     anchors.verticalCenter: parent.verticalCenter
                     anchors.left: parent.left
-                    anchors.leftMargin: 44
+                    anchors.leftMargin: 28
                     text: "Search"
-                    font.pixelSize: Theme.fontSize("title")
+                    font.pixelSize: Theme.fontSize("small")
                     color: Theme.color("textSecondary")
                     opacity: Theme.opacityMuted
                 }
@@ -438,9 +444,10 @@ Item {
 
                                 Rectangle {
                                     id: iconPlate
-                                    width: 114
-                                    height: 114
+                                    width: root.iconPlateSize
+                                    height: width
                                     anchors.horizontalCenter: parent.horizontalCenter
+                                    y: Math.max(0, Math.round((parent.height - root.iconPlateSize - 8 - root.appLabelHeight) * 0.5))
                                     radius: Theme.radiusMax
                                     readonly property bool selected: root.selectedIndex === index
                                     color: (selected || appMouse.containsMouse) ? Theme.color("launchpadSegmentActive") : "transparent"
@@ -458,8 +465,8 @@ Item {
                                     Image {
                                         id: appIcon
                                         anchors.centerIn: parent
-                                        width: 86
-                                        height: 86
+                                        width: Math.round(parent.width * 0.88)
+                                        height: width
                                         source: (appEntry.iconName && appEntry.iconName.length > 0)
                                                 ? ("image://themeicon/" + appEntry.iconName + "?v=" +
                                                    ((typeof ThemeIconController !== "undefined" && ThemeIconController)
@@ -483,7 +490,7 @@ Item {
 
                                 Label {
                                     anchors.top: iconPlate.bottom
-                                    anchors.topMargin: 10
+                                    anchors.topMargin: 8
                                     anchors.horizontalCenter: iconPlate.horizontalCenter
                                     width: parent.width
                                     height: root.appLabelHeight
