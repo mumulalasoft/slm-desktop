@@ -1,23 +1,17 @@
 import QtQuick 2.15
 import QtQuick.Window 2.15
-import "../dock" as DockComp
 import "../launchpad" as LaunchpadComp
 
-// LaunchpadWindow is a frameless transient Window so KWin (and any WM/compositor)
-// stacks it above all normal app windows.
-//
-// The dock is rendered inside this Window (launchpadDockLayer) so it always
-// appears above the launchpad wallpaper with no visual seam.  DockWindow in
-// Main.qml is NOT forced to reveal during launchpad — its hide/show state is
-// preserved unchanged.  When the launchpad closes, the shell dock state is
-// exactly as it was before opening.
+// LaunchpadWindow is a frameless transient Window so KWin stacks it above
+// all normal app windows.  The dock is NOT rendered here — DockWindow is its
+// own always-on-top Window (Qt.WindowStaysOnTopHint) and naturally appears
+// above this Window, giving a single dock instance with no state duplication.
 Window {
     id: root
 
     required property var rootWindow
     required property var desktopScene
     required property var appsModel
-    required property var dockModel
 
     readonly property int panelHeight: desktopScene ? desktopScene.panelHeight : 34
 
@@ -143,7 +137,6 @@ Window {
                 anchors.fill: parent
                 visible: parent.visible
                 appsModel: root.appsModel
-                bottomSafeInset: Math.max(120, launchpadDockLayer.height + 14)
                 onDismissRequested: desktopScene.launchpadVisible = false
                 onAppChosen: function(appData) {
                     desktopScene.launchpadVisible = false
@@ -151,30 +144,6 @@ Window {
                 }
                 onAddToDockRequested: function(appData) { root.addToDockRequested(appData) }
                 onAddToDesktopRequested: function(appData) { root.addToDesktopRequested(appData) }
-            }
-        }
-
-        // Dock rendered inside this Window so it appears above the launchpad
-        // wallpaper with no visual boundary.  Positioned identically to DockWindow.
-        Item {
-            id: launchpadDockLayer
-            z: 2
-            visible: !!desktopScene && desktopScene.launchpadVisible
-            x: Math.round((parent.width - width) / 2)
-            y: Math.round(parent.height - height - (desktopScene ? desktopScene.dockBottomMargin : 0))
-            readonly property int zoomHeadroom: 76
-            readonly property bool headroomActive: launchpadDockSurface.hovered
-                                                   || (desktopScene ? desktopScene.pointerNearDock : false)
-            width: Math.max(1, Math.ceil(launchpadDockSurface.width))
-            height: Math.max(1, Math.ceil(launchpadDockSurface.height + (headroomActive ? zoomHeadroom : 0)))
-
-            DockComp.Dock {
-                id: launchpadDockSurface
-                anchors.horizontalCenter: parent.horizontalCenter
-                anchors.bottom: parent.bottom
-                opacity: 1.0
-                appsModel: root.dockModel
-                onLaunchpadRequested: desktopScene.launchpadVisible = false
             }
         }
     }
