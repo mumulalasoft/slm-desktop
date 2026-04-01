@@ -42,6 +42,12 @@ Item {
     signal addToDockRequested(var appData)
     signal addToDesktopRequested(var appData)
 
+    readonly property string wallpaperSource: {
+        const uri = String((typeof UIPreferences !== "undefined" && UIPreferences)
+                           ? (UIPreferences.wallpaperUri || "") : "")
+        return uri.length > 0 ? uri : "qrc:/images/wallpaper.jpeg"
+    }
+
     readonly property real gridSpacing: 16
     readonly property real minCellWidth: 122
     readonly property real appLabelHeight: Math.ceil(Theme.fontSize("menu") * 1.8)
@@ -268,27 +274,15 @@ Item {
 
     Keys.onPressed: function(event) { root.handleNavigationKey(event) }
 
-    Rectangle {
+    // Wallpaper as base layer — same source as the desktop background.
+    Image {
         anchors.fill: parent
-        color: Theme.color("launchpadOrbTop")
-        opacity: root.compositorBlurActive ? Theme.opacityFaint : Theme.cardSurfaceOpacity
+        source: root.wallpaperSource
+        fillMode: Image.PreserveAspectCrop
+        smooth: true
+        mipmap: true
     }
 
-    Rectangle {
-        anchors.fill: parent
-        gradient: Gradient {
-            GradientStop { position: 0.0; color: Theme.color("launchpadSearchBg") }
-            GradientStop { position: 0.55; color: Theme.color("launchpadOrbTop") }
-            GradientStop { position: 1.0; color: Theme.color("launchpadOrbBottom") }
-        }
-        opacity: root.compositorBlurActive ? Theme.opacitySubtle : Theme.opacityMuted
-    }
-
-    Rectangle {
-        anchors.fill: parent
-        color: Theme.color("overlay")
-        opacity: root.compositorBlurActive ? Theme.opacitySubtle : Theme.opacityFaint
-    }
 
     MouseArea {
         anchors.fill: parent

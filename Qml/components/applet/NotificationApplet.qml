@@ -263,7 +263,7 @@ Item {
                 text: "Do Not Disturb"
                 rowSpacing: root.rowGap
                 Switch {
-                    checked: root.notificationManager ? root.notificationManager.doNotDisturb : false
+                    checked: !!(root.notificationManager && root.notificationManager.doNotDisturb)
                     onToggled: {
                         if (root.notificationManager && root.notificationManager.setDoNotDisturb) {
                             root.notificationManager.setDoNotDisturb(checked)

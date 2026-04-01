@@ -11,11 +11,12 @@ Item {
     readonly property alias dockItem: dockSurface
 
     // DockLayer is persistent — visibility never toggled by mode.
-    // Opacity is driven by ShellState: hidden when launchpad shows its own dock.
+    // Opacity driven by ShellState: hidden only during show-desktop.
     visible: !!rootWindow && rootWindow.visible
     z: ShellZOrder.dock
     readonly property int zoomHeadroom: 76
-    readonly property bool headroomActive: dockSurface.hovered || (desktopScene ? desktopScene.pointerNearDock : false)
+    readonly property bool headroomActive: dockSurface.hovered
+                                           || (desktopScene ? desktopScene.pointerNearDock : false)
     x: Math.round(((rootWindow ? rootWindow.width : width) - width) / 2)
     y: Math.round((rootWindow ? rootWindow.height : height) - height
                   - (desktopScene ? desktopScene.dockBottomMargin : 0))

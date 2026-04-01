@@ -813,17 +813,21 @@ ApplicationWindow {
     // are notified so the shell can recover without crashing Main.qml.
     Loader {
         id: launchpadWindowLoader
+        // Capture desktopScene here (Loader scope) to avoid the name-collision
+        // that occurs when Component bindings resolve 'desktopScene' to
+        // LaunchpadWindow's own required property instead of Main.qml's ID.
+        readonly property var sceneRef: desktopScene
+        z: ShellZOrder.launchpad   // above workspace surfaces, below dock
         active: true
         asynchronous: false
         sourceComponent: Component {
             OverlayComp.LaunchpadWindow {
                 rootWindow: root
-                desktopScene: desktopScene
+                desktopScene: launchpadWindowLoader.sceneRef
                 appsModel: AppModel
-                dockModel: DockModel
                 onAppChosen: LaunchpadActions.handleAppChosen(appData)
                 onAddToDockRequested: LaunchpadActions.handleAddToDock(appData)
-                onAddToDesktopRequested: LaunchpadActions.handleAddToDesktop(appData, desktopScene)
+                onAddToDesktopRequested: LaunchpadActions.handleAddToDesktop(appData, launchpadWindowLoader.sceneRef)
             }
         }
         onStatusChanged: {
