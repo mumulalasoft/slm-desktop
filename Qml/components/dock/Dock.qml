@@ -44,6 +44,7 @@ Rectangle {
                                            && UIPreferences
                                            && UIPreferences.dockDragThresholdTouchpad !== undefined)
                                           ? UIPreferences.dockDragThresholdTouchpad : 3
+    property var separatorAfterDesktopFiles: []
     readonly property bool livelyMotion: motionPreset === "macos-lively" || motionPreset === "expressive"
     readonly property real gapWidthExtra: livelyMotion ? 32 : 24
     readonly property real gapSpring: livelyMotion ? 3.6 : 4.8
@@ -597,6 +598,7 @@ Rectangle {
                 dragSourceOpacity: root.dragSourceOpacity
                 dragThresholdMousePx: root.dragThresholdMousePx
                 dragThresholdTouchpadPx: root.dragThresholdTouchpadPx
+                separatorAfter: root.separatorAfterDesktopFiles.indexOf(desktopFile || "") >= 0
                 hoverLift: root.hoverLift
                 influence: root.hovered
                            ? root.gaussianInfluence(dockRow.x + x + width * 0.5,

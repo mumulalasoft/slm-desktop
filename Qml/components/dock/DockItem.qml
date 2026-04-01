@@ -29,6 +29,10 @@ Item {
     property bool reorderArmed: false
     property bool hoverIndicatorEnabled: false
     property bool directHoverOverride: false
+    // Separator — shows a slim vertical divider to the right of this item.
+    // The delegate width grows by separatorSlotWidth to accommodate it.
+    property bool separatorAfter: false
+    readonly property real separatorSlotWidth: separatorAfter ? 16 : 0
     property bool hovered: iconHover.active || directHoverOverride
     property real hoverBlend: hovered ? 1.0 : 0.0
     property bool dragging: false
@@ -51,7 +55,7 @@ Item {
         return MotionController.allowMotionPriority(MotionController.LowPriority)
     }
 
-    width: baseSlotWidth + (gapTarget ? gapWidthExtra : 0)
+    width: baseSlotWidth + (gapTarget ? gapWidthExtra : 0) + separatorSlotWidth
     height: 76
     z: root.dragging ? 200 : 0
     Behavior on width {
@@ -238,6 +242,23 @@ Item {
             opacity: 0
             scale: 0.4
             visible: opacity > 0.001
+        }
+    }
+
+    Rectangle {
+        id: separatorLine
+        visible: root.separatorAfter
+        width: 1
+        height: 28
+        radius: Theme.borderWidthThin
+        color: Theme.color("dockBorder")
+        opacity: root.separatorAfter ? 0.55 : 0.0
+        anchors.right: parent.right
+        anchors.rightMargin: Math.floor(root.separatorSlotWidth / 2)
+        anchors.verticalCenter: parent.verticalCenter
+        Behavior on opacity {
+            enabled: root.microAnimationAllowed()
+            NumberAnimation { duration: Theme.durationMicro; easing.type: Theme.easingDecelerate }
         }
     }
 
