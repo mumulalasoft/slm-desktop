@@ -3,6 +3,7 @@
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
 #include <QDBusInterface>
+#include <QDBusServiceWatcher>
 #include <QDBusReply>
 
 namespace Slm::Clipboard {
@@ -162,12 +163,12 @@ void ClipboardServiceClient::bindSignals()
                 this,
                 SLOT(onClipboardChanged(QVariantMap)));
 
-    QDBusConnectionInterface *iface = bus.interface();
-    if (!iface) {
-        return;
-    }
-    connect(iface, SIGNAL(serviceOwnerChanged(QString,QString,QString)),
-            this, SLOT(onNameOwnerChanged(QString,QString,QString)));
+    auto *watcher = new QDBusServiceWatcher(QString::fromLatin1(kService),
+                                             bus,
+                                             QDBusServiceWatcher::WatchForOwnerChange,
+                                             this);
+    connect(watcher, &QDBusServiceWatcher::serviceOwnerChanged,
+            this, &ClipboardServiceClient::onNameOwnerChanged);
 }
 
 void ClipboardServiceClient::refreshServiceAvailability()
