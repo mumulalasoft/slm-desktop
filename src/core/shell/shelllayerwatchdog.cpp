@@ -53,6 +53,7 @@ void ShellLayerWatchdog::requestRecovery()
     for (auto &entry : m_trackers) {
         entry.visible = false;
         entry.visibleSinceMs = 0;
+        entry.stuckReported = false;
     }
     updateAnyOverlayStuck(false);
     emit persistentLayerRestored();
@@ -103,6 +104,8 @@ void ShellLayerWatchdog::trackVisible(const QString &overlayName, bool visible)
     }
     it->visible = visible;
     it->visibleSinceMs = visible ? QDateTime::currentMSecsSinceEpoch() : 0;
+    if (!visible)
+        it->stuckReported = false;
 }
 
 void ShellLayerWatchdog::onHealthTimerFired()
@@ -110,18 +113,21 @@ void ShellLayerWatchdog::onHealthTimerFired()
     bool anyStuck = false;
     const qint64 now = QDateTime::currentMSecsSinceEpoch();
 
-    for (auto it = m_trackers.constBegin(); it != m_trackers.constEnd(); ++it) {
-        const auto &entry = it.value();
+    for (auto it = m_trackers.begin(); it != m_trackers.end(); ++it) {
+        auto &entry = it.value();
         if (!entry.visible || entry.visibleSinceMs <= 0) {
             continue;
         }
         const int durationMs = static_cast<int>(now - entry.visibleSinceMs);
         if (durationMs >= m_overlayStuckThresholdMs) {
             anyStuck = true;
-            qWarning().noquote()
-                << "[watchdog] overlay stuck:" << it.key()
-                << "visible for" << durationMs << "ms";
-            emit overlayStuckDetected(it.key(), durationMs);
+            if (!entry.stuckReported) {
+                entry.stuckReported = true;
+                qWarning().noquote()
+                    << "[watchdog] overlay stuck:" << it.key()
+                    << "visible for" << durationMs << "ms";
+                emit overlayStuckDetected(it.key(), durationMs);
+            }
         }
     }
 

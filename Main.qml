@@ -963,12 +963,13 @@ ApplicationWindow {
                 shellDockHost.visible = Qt.binding(function() { return !!root && root.visible })
             }
         }
+        function onOverlayStuckDetected(overlayName, durationMs) {
+            // Fires exactly once per occurrence (C++ sets stuckReported after first emit).
+            console.warn("[shell] overlay stuck:", overlayName, "visible for", durationMs, "ms — recovery pending")
+        }
         function onHealthCheckCompleted(healthy) {
-            if (healthy) {
-                return
-            }
-            // Log unhealthy state; auto-recovery fires after overlayStuckThresholdMs.
-            console.warn("[shell] health-check: shell layer unhealthy — stuck overlay detected")
+            // Intentionally silent: onOverlayStuckDetected already logged the incident.
+            void healthy
         }
     }
 

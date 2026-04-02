@@ -65,7 +65,8 @@ private:
 
     struct OverlayEntry {
         bool visible = false;
-        qint64 visibleSinceMs = 0; // epoch ms when overlay became visible
+        qint64 visibleSinceMs = 0;   // epoch ms when overlay became visible
+        bool stuckReported = false;  // true after overlayStuckDetected was emitted; cleared on hide
     };
     QHash<QString, OverlayEntry> m_trackers;
 };

@@ -77,13 +77,37 @@ private slots:
         QSignalSpy anyStuckSpy(&watchdog, &ShellLayerWatchdog::anyOverlayStuckChanged);
 
         state.setLaunchpadVisible(true);
-        QTest::qWait(130); // long enough for health timer to fire and detect stuck
+        QTest::qWait(130); // long enough for multiple health ticks past the threshold
 
-        QVERIFY(stuckSpy.count() >= 1);
+        // Must fire exactly once per occurrence — not once per health tick.
+        QCOMPARE(stuckSpy.count(), 1);
         QCOMPARE(stuckSpy.first().first().toString(), QStringLiteral("launchpad"));
         QVERIFY(watchdog.anyOverlayStuck());
         QVERIFY(anyStuckSpy.count() >= 1);
         QCOMPARE(anyStuckSpy.first().first().toBool(), true);
+    }
+
+    void overlayStuckDetected_firesOncePerOccurrence()
+    {
+        // Regression guard: overlayStuckDetected must not re-fire on every health tick.
+        ShellStateController state;
+        ShellLayerWatchdog watchdog(&state);
+        watchdog.setOverlayStuckThresholdMs(50);
+        watchdog.setHealthCheckIntervalMs(20);
+
+        QSignalSpy stuckSpy(&watchdog, &ShellLayerWatchdog::overlayStuckDetected);
+
+        state.setLaunchpadVisible(true);
+        QTest::qWait(200); // ~10 health ticks past the threshold
+
+        QCOMPARE(stuckSpy.count(), 1); // exactly one, not ten
+
+        // Dismiss and re-open — a fresh occurrence must fire once more.
+        state.setLaunchpadVisible(false);
+        state.setLaunchpadVisible(true);
+        QTest::qWait(200);
+
+        QCOMPARE(stuckSpy.count(), 2); // second occurrence fires once
     }
 
     void overlayStuckDetected_notFired_beforeThreshold()
