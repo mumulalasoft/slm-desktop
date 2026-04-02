@@ -103,9 +103,37 @@ function notifyResult(notificationManager, title, resultValue) {
             return
         }
     }
-    var body = ok ? "Success" : String(
-                        (resultValue && resultValue.error)
-                        ? resultValue.error : "Operation failed")
+    function normalizedError(actionValue, payload) {
+        var actionName = String(actionValue || "")
+        var rawError = String((payload && payload.error) ? payload.error : "")
+        var code = String((payload && payload.errorCode) ? payload.errorCode : "")
+        var key = (code.length > 0 ? code : rawError).toLowerCase()
+
+        if (actionName === "Extract") {
+            if (key === "err_not_found" || key === "not-found") return "Archive file was not found."
+            if (key === "err_unsupported_or_corrupt") return "Archive is unsupported or corrupted."
+            if (key === "err_timeout" || key === "archive-job-timeout") return "Extraction timed out."
+            if (key === "err_cancelled") return "Extraction was cancelled."
+            if (key === "err_resource_limit") return "Extraction was blocked by safety limits."
+            if (key === "err_name_conflict") return "Destination folder already exists."
+            if (key === "extract-tool-unavailable" || key === "err_extract_tool_unavailable")
+                return "No archive extractor tool is installed."
+            if (key === "extract-failed" || key === "err_extract_failed" || key === "archive-job-failed")
+                return "Could not extract this archive."
+            if (key === "archive-service-unavailable" || key === "archive-api-unavailable") return "Archive service is unavailable."
+            if (key === "async-extract-api-unavailable") return "Extract API is unavailable."
+            if (key === "missing-destination") return "Destination folder is required."
+            if (rawError.length > 0) return "Extract failed: " + rawError
+            return "Extract failed."
+        }
+
+        if (rawError.length > 0) {
+            return rawError
+        }
+        return "Operation failed"
+    }
+
+    var body = ok ? "Success" : normalizedError(action, resultValue || ({}))
     notificationManager.Notify(
                 action, 0,
                 ok ? "dialog-information-symbolic" : "dialog-error-symbolic",
@@ -174,6 +202,23 @@ function openContextEntry(root, fileModel, appCommandRouter, fileManagerApi) {
     }
     root.selectedEntryIndex = root.contextEntryIndex
     var res = fileModel.activate(root.contextEntryIndex)
+    if (res && res.ok && res.type === "archive") {
+        if (!fileManagerApi || !fileManagerApi.startExtractArchive) {
+            root.notifyResult("Extract", {
+                                  "ok": false,
+                                  "error": "archive-api-unavailable"
+                              })
+            return
+        }
+        var extractRes = fileManagerApi.startExtractArchive(String(res.path || ""), "")
+        if (!extractRes || !extractRes.ok) {
+            root.notifyResult("Extract", extractRes || {
+                                  "ok": false,
+                                  "error": "extract-failed"
+                              })
+        }
+        return
+    }
     if (res && res.ok && res.type === "file") {
         var launchRes = openTargetViaExecutionGate(
                     root, appCommandRouter, fileManagerApi, String(res.path || ""),

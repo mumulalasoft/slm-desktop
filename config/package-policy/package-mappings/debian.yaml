@@ -1,0 +1,26 @@
+core.init:
+  - systemd
+
+core.libc:
+  - libc6
+
+core.network:
+  - network-manager
+
+core.audio:
+  - pipewire
+  - wireplumber
+
+core.graphics:
+  - mesa
+  - libgl1
+
+core.portal:
+  - xdg-desktop-portal
+
+core.session:
+  - greetd
+  - sddm
+
+core.shell:
+  - slm-shell

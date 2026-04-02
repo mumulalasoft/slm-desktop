@@ -44,6 +44,7 @@ Rectangle {
                                            && UIPreferences
                                            && UIPreferences.dockDragThresholdTouchpad !== undefined)
                                           ? UIPreferences.dockDragThresholdTouchpad : 3
+    property var separatorAfterDesktopFiles: []
     readonly property bool livelyMotion: motionPreset === "macos-lively" || motionPreset === "expressive"
     readonly property real gapWidthExtra: livelyMotion ? 32 : 24
     readonly property real gapSpring: livelyMotion ? 3.6 : 4.8
@@ -59,6 +60,16 @@ Rectangle {
     readonly property int dropPulseFadeDuration: livelyMotion ? 210 : 170
     signal appActivated(string appName)
     signal launchpadRequested()
+
+    function microAnimationAllowed() {
+        if (!Theme.animationsEnabled) {
+            return false
+        }
+        if (typeof MotionController === "undefined" || !MotionController || !MotionController.allowMotionPriority) {
+            return true
+        }
+        return MotionController.allowMotionPriority(MotionController.LowPriority)
+    }
 
     width: Math.max(baseWidth, dockRow.width + 12)
     height: baseHeight + amplitude + hoverLift + 8
@@ -329,6 +340,29 @@ Rectangle {
         return 1
     }
 
+    // Trigger a dock-item bounce animation when a window lifecycle event fires.
+    // Called by DesktopScene when the compositor reports window-opened / window-minimized.
+    function notifyWindowLifecycle(eventName, appId) {
+        if (!appId || appId.length === 0 || !Theme.animationsEnabled) {
+            return
+        }
+        var ev = String(eventName || "").toLowerCase()
+        var isOpen = (ev === "window-opened" || ev === "window-shown" ||
+                      ev === "window-unminimized" || ev === "window-created")
+        var isMinimize = (ev === "window-minimized")
+        if (!isOpen && !isMinimize) {
+            return
+        }
+        var mode = isOpen ? "launch" : "focus"
+        for (var i = 0; i < appsRepeater.count; ++i) {
+            var item = appsRepeater.itemAt(i)
+            if (item && item.matchesWindowAppId && item.matchesWindowAppId(appId)) {
+                item.playBounce(mode)
+                return
+            }
+        }
+    }
+
     function _focusOrLaunchEntry(state, entry) {
         var s = state || {}
         var focusedViewId = String(s.preferredViewId || "")
@@ -481,24 +515,28 @@ Rectangle {
     }
 
     Behavior on color {
+        enabled: root.microAnimationAllowed()
         ColorAnimation {
             duration: Theme.transitionDuration
-            easing.type: Easing.InOutQuad
+            easing.type: Theme.easingStandard
         }
     }
     Behavior on width {
+        enabled: root.microAnimationAllowed()
         NumberAnimation {
             duration: Theme.durationMd
             easing.type: Theme.easingDecelerate
         }
     }
     Behavior on height {
+        enabled: root.microAnimationAllowed()
         NumberAnimation {
             duration: Theme.durationMd
             easing.type: Theme.easingDecelerate
         }
     }
     Behavior on radius {
+        enabled: root.microAnimationAllowed()
         NumberAnimation {
             duration: Theme.durationMd
             easing.type: Theme.easingDecelerate
@@ -560,6 +598,7 @@ Rectangle {
                 dragSourceOpacity: root.dragSourceOpacity
                 dragThresholdMousePx: root.dragThresholdMousePx
                 dragThresholdTouchpadPx: root.dragThresholdTouchpadPx
+                separatorAfter: root.separatorAfterDesktopFiles.indexOf(desktopFile || "") >= 0
                 hoverLift: root.hoverLift
                 influence: root.hovered
                            ? root.gaussianInfluence(dockRow.x + x + width * 0.5,
@@ -582,8 +621,14 @@ Rectangle {
         color: Theme.darkMode ? "#46cfe8ff" : "#55cde8ff"
         opacity: root.hovered ? 0.48 : 0.0
 
-        Behavior on x { NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingDecelerate } }
-        Behavior on opacity { NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingDecelerate } }
+        Behavior on x {
+            enabled: root.microAnimationAllowed()
+            NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingDecelerate }
+        }
+        Behavior on opacity {
+            enabled: root.microAnimationAllowed()
+            NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingDecelerate }
+        }
     }
 
     DockReorderMarker {
@@ -610,7 +655,7 @@ Rectangle {
             from: 0
             to: root.dropPulsePeakOpacity
             duration: root.dropPulseInDuration
-            easing.type: Easing.OutCubic
+            easing.type: Theme.easingDefault
         }
         ParallelAnimation {
             NumberAnimation {
@@ -619,14 +664,14 @@ Rectangle {
                 from: root.dropPulseStartScale
                 to: root.dropPulseEndScale
                 duration: root.dropPulseOutDuration
-                easing.type: Easing.OutQuad
+                easing.type: Theme.easingLight
             }
             NumberAnimation {
                 target: dropPulse
                 property: "opacity"
                 to: 0
                 duration: root.dropPulseFadeDuration
-                easing.type: Easing.OutQuad
+                easing.type: Theme.easingLight
             }
         }
         ScriptAction {

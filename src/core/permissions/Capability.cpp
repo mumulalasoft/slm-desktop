@@ -85,6 +85,9 @@ const QList<Entry> &capabilityTable()
         {Capability::PortalNotificationSend, QStringLiteral("Portal.NotificationSend")},
         {Capability::PortalInhibit, QStringLiteral("Portal.Inhibit")},
         {Capability::PortalOpenWith, QStringLiteral("Portal.OpenWith")},
+        {Capability::SecretStore, QStringLiteral("Secret.Store")},
+        {Capability::SecretRead, QStringLiteral("Secret.Read")},
+        {Capability::SecretDelete, QStringLiteral("Secret.Delete")},
     };
     return table;
 }

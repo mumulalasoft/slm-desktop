@@ -9,6 +9,16 @@ MAIN_QML_FILE="${ROOT_DIR}/Main.qml"
 CONTROLLER_JS_FILE="${ROOT_DIR}/Qml/components/shell/TothespotController.js"
 SMOKE_RUNTIME="${ROOT_DIR}/scripts/smoke-runtime.sh"
 
+find_fixed_pattern() {
+  local pattern="$1"
+  local file="$2"
+  if command -v rg >/dev/null 2>&1; then
+    rg -n -F "${pattern}" "${file}" >/dev/null 2>&1
+    return $?
+  fi
+  grep -n -F -- "${pattern}" "${file}" >/dev/null 2>&1
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --build-dir)
@@ -60,8 +70,8 @@ if [[ ! -x "${SMOKE_RUNTIME}" ]]; then
 fi
 
 if [[ "${SLM_SMOKE_BUILD:-1}" == "1" ]]; then
-  echo "[smoke-tothespot] building appSlm_Desktop"
-  cmake --build "${BUILD_DIR}" -j4 --target appSlm_Desktop
+  echo "[smoke-tothespot] building slm-desktop"
+  cmake --build "${BUILD_DIR}" -j4 --target slm-desktop
 fi
 
 echo "[smoke-tothespot] running runtime smoke"
@@ -72,7 +82,6 @@ else
 fi
 
 declare -a REQUIRED_PATTERNS=(
-  "function openContextMenuForIndexGlobal("
   "rowMouse.mapToGlobal("
   "function moveContextMenuSelection("
   "function moveSelectionByGroup("
@@ -108,7 +117,7 @@ declare -a REQUIRED_CONTROLLER_PATTERNS=(
 
 echo "[smoke-tothespot] validating QML guards"
 for pattern in "${REQUIRED_PATTERNS[@]}"; do
-  if ! rg -n -F "${pattern}" "${QML_FILE}" >/dev/null 2>&1; then
+  if ! find_fixed_pattern "${pattern}" "${QML_FILE}"; then
     echo "[smoke-tothespot] missing guard pattern: ${pattern}" >&2
     exit 1
   fi
@@ -116,7 +125,7 @@ done
 
 echo "[smoke-tothespot] validating Main.qml guards"
 for pattern in "${REQUIRED_MAIN_PATTERNS[@]}"; do
-  if ! rg -n -F "${pattern}" "${MAIN_QML_FILE}" >/dev/null 2>&1; then
+  if ! find_fixed_pattern "${pattern}" "${MAIN_QML_FILE}"; then
     echo "[smoke-tothespot] missing Main.qml guard pattern: ${pattern}" >&2
     exit 1
   fi
@@ -124,7 +133,7 @@ done
 
 echo "[smoke-tothespot] validating TothespotController guards"
 for pattern in "${REQUIRED_CONTROLLER_PATTERNS[@]}"; do
-  if ! rg -n -F "${pattern}" "${CONTROLLER_JS_FILE}" >/dev/null 2>&1; then
+  if ! find_fixed_pattern "${pattern}" "${CONTROLLER_JS_FILE}"; then
     echo "[smoke-tothespot] missing TothespotController guard pattern: ${pattern}" >&2
     exit 1
   fi

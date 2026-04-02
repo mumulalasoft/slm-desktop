@@ -2,6 +2,7 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import Slm_Desktop
+import SlmStyle as DSStyle
 
 Item {
     id: root
@@ -45,7 +46,7 @@ Item {
                 }
             }
 
-            ProgressBar {
+            DSStyle.ProgressBar {
                 width: parent.width
                 height: 10
                 from: 0
@@ -62,7 +63,7 @@ Item {
                 width: parent.width
                 spacing: 8
 
-                Button {
+                DSStyle.Button {
                     text: (typeof GlobalProgressCenter !== "undefined" && GlobalProgressCenter && GlobalProgressCenter.paused)
                           ? "Resume"
                           : "Pause"
@@ -77,7 +78,7 @@ Item {
                     }
                 }
 
-                Button {
+                DSStyle.Button {
                     text: "Cancel"
                     enabled: (typeof GlobalProgressCenter !== "undefined" && GlobalProgressCenter)
                              ? !!GlobalProgressCenter.canCancel

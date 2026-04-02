@@ -64,7 +64,7 @@ Item {
             border.width: Theme.shadowMd.radius
             border.color: Qt.rgba(0, 0, 0, Theme.shadowMd.opacity * (Theme.darkMode ? 1.6 : 1.0))
             z: -1
-            opacity: 0.45
+            opacity: Theme.opacityMuted * 0.56
             scale: 1.0
         }
 

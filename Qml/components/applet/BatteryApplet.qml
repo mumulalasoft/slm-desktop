@@ -1,8 +1,9 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
+import QtQuick.Controls.impl 2.15
 import QtQuick.Layouts 1.15
 import Slm_Desktop
-import Style
+import SlmStyle
 
 Item {
     id: root
@@ -27,6 +28,16 @@ Item {
 
     implicitWidth: indicatorButton.implicitWidth
     implicitHeight: indicatorButton.implicitHeight
+
+    function microAnimationAllowed() {
+        if (!Theme.animationsEnabled) {
+            return false
+        }
+        if (typeof MotionController === "undefined" || !MotionController || !MotionController.allowMotionPriority) {
+            return true
+        }
+        return MotionController.allowMotionPriority(MotionController.LowPriority)
+    }
 
     function openMenuSafely() {
         if ((Date.now() - lastMenuCloseMs) < 180) {
@@ -84,7 +95,7 @@ Item {
             implicitHeight: Theme.metric("controlHeightRegular")
             implicitWidth: batteryIcon.width + (batteryText.visible ? (Theme.metric("spacingXs") + batteryText.implicitWidth) : 0)
 
-            Image {
+            IconImage {
                 id: batteryIcon
                 anchors.left: parent.left
                 anchors.verticalCenter: parent.verticalCenter
@@ -92,6 +103,7 @@ Item {
                 height: root.iconSize
                 fillMode: Image.PreserveAspectFit
                 source: root.iconSourceByName(root.batteryManager ? root.batteryManager.iconName : "battery-missing-symbolic")
+                color: Theme.color("textOnGlass")
             }
 
             Text {
@@ -115,6 +127,14 @@ Item {
             color: indicatorButton.hovered ? Theme.color("accentSoft") : "transparent"
             border.width: Theme.borderWidthThin
             border.color: indicatorButton.hovered ? Theme.color("panelBorder") : "transparent"
+            Behavior on color {
+                enabled: root.microAnimationAllowed()
+                ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault }
+            }
+            Behavior on border.color {
+                enabled: root.microAnimationAllowed()
+                ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault }
+            }
         }
     }
 

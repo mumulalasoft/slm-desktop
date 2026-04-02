@@ -34,9 +34,9 @@ DockItem {
     gapTarget: false
     gapPreviewIconPath: ""
     gapWidthExtra: 28
-    gapSpring: 4.8
-    gapDamping: 0.43
-    gapMass: 0.55
+    gapSpring: Theme.physicsSpringDefault
+    gapDamping: Theme.physicsDampingDefault
+    gapMass: Theme.physicsMassDefault
     dragSourceOpacity: 0.36
     dragThresholdMousePx: 6
     dragThresholdTouchpadPx: 3
@@ -99,6 +99,27 @@ DockItem {
             return
         }
         dockRoot.finishReorderDrag(deltaX)
+    }
+
+    // Returns true if the given compositor appId matches this dock entry.
+    // Uses the same identity tokens as Dock._hasIdToken so the logic is consistent.
+    function matchesWindowAppId(windowAppId) {
+        if (!dockRoot || !windowAppId || windowAppId.length === 0) {
+            return false
+        }
+        var desktopBase = dockRoot._desktopBase(String(desktopFile || ""))
+        var exec = String(executable || "").toLowerCase()
+        var n = String(name || "").toLowerCase()
+        if (desktopBase.length > 0) {
+            if (dockRoot._hasIdToken(windowAppId, desktopBase)) return true
+        }
+        if (exec.length > 0 && !dockRoot._isWeakIdentity(exec)) {
+            if (dockRoot._hasIdToken(windowAppId, exec)) return true
+        }
+        if (n.length > 0) {
+            if (dockRoot._hasIdToken(windowAppId, n)) return true
+        }
+        return false
     }
 
     TapHandler {

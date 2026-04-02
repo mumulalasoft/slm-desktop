@@ -12,10 +12,9 @@ Item {
 
     visible: false
 
-    NotificationComp.NotificationBubbleWindow {
-        id: notificationBubbleWindow
+    NotificationComp.NotificationManagerWindow {
+        id: notificationManagerWindow
         parentWindow: root.rootWindow
-        panelHeight: root.desktopScene ? root.desktopScene.panelHeight : 0
         notificationManager: (typeof NotificationManager !== "undefined") ? NotificationManager : null
     }
 

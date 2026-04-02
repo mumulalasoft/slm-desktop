@@ -13,6 +13,23 @@ constexpr auto kDragThresholdTouchpadKey = "dock/dragThresholdTouchpadPx";
 constexpr auto kVerboseLoggingKey = "debug/verboseLogging";
 constexpr auto kIconThemeLightKey = "iconTheme/light";
 constexpr auto kIconThemeDarkKey = "iconTheme/dark";
+constexpr auto kWallpaperUriKey = "wallpaper/uri";
+constexpr auto kThemeModeKey = "appearance/themeMode";
+constexpr auto kAccentColorKey = "appearance/accentColor";
+constexpr auto kFontScaleKey = "appearance/fontScale";
+constexpr auto kGtkThemeLightKey = "appearance/gtkThemeLight";
+constexpr auto kGtkThemeDarkKey = "appearance/gtkThemeDark";
+constexpr auto kKdeColorSchemeLightKey = "appearance/kdeColorSchemeLight";
+constexpr auto kKdeColorSchemeDarkKey = "appearance/kdeColorSchemeDark";
+constexpr auto kGtkIconThemeLightKey = "appearance/gtkIconThemeLight";
+constexpr auto kGtkIconThemeDarkKey = "appearance/gtkIconThemeDark";
+constexpr auto kKdeIconThemeLightKey = "appearance/kdeIconThemeLight";
+constexpr auto kKdeIconThemeDarkKey = "appearance/kdeIconThemeDark";
+constexpr auto kDefaultFontKey = "fonts/defaultFont";
+constexpr auto kDocumentFontKey = "fonts/documentFont";
+constexpr auto kMonospaceFontKey = "fonts/monospaceFont";
+constexpr auto kTitlebarFontKey = "fonts/titlebarFont";
+constexpr auto kDefaultAccentColor = "#0a84ff";
 constexpr auto kWindowBindMinimizeKey = "windowing/bindMinimize";
 constexpr auto kWindowBindRestoreKey = "windowing/bindRestore";
 constexpr auto kWindowBindSwitchNextKey = "windowing/bindSwitchNext";
@@ -34,6 +51,7 @@ constexpr auto kWindowRoundedEnabledKey = "windowing/roundedEnabled";
 constexpr auto kWindowRoundedRadiusKey = "windowing/roundedRadius";
 constexpr auto kWindowAnimationEnabledKey = "windowing/animationEnabled";
 constexpr auto kWindowAnimationSpeedKey = "windowing/animationSpeed";
+constexpr auto kWindowAnimationModeKey = "windowing/animationMode";
 constexpr auto kWindowSceneFxEnabledKey = "windowing/sceneFxEnabled";
 constexpr auto kWindowSceneFxDimAlphaKey = "windowing/sceneFxDimAlpha";
 constexpr auto kWindowSceneFxAnimBoostKey = "windowing/sceneFxAnimBoost";
@@ -62,6 +80,7 @@ constexpr auto kWindowRoundedEnabledDefault = false;
 constexpr auto kWindowRoundedRadiusDefault = 10;
 constexpr auto kWindowAnimationEnabledDefault = true;
 constexpr auto kWindowAnimationSpeedDefault = 100;
+constexpr auto kWindowAnimationModeDefault = "full";
 constexpr auto kWindowSceneFxEnabledDefault = false;
 constexpr auto kWindowSceneFxDimAlphaDefault = 0.38;
 constexpr auto kWindowSceneFxAnimBoostDefault = 115;
@@ -210,6 +229,10 @@ QString normalizePreferenceKey(const QString &key)
         k.compare(QStringLiteral("windowing.animation.speed"), Qt::CaseInsensitive) == 0) {
         return QString::fromLatin1(kWindowAnimationSpeedKey);
     }
+    if (k.compare(QStringLiteral("windowing.animationMode"), Qt::CaseInsensitive) == 0 ||
+        k.compare(QStringLiteral("windowing.animation.mode"), Qt::CaseInsensitive) == 0) {
+        return QString::fromLatin1(kWindowAnimationModeKey);
+    }
     if (k.compare(QStringLiteral("windowing.sceneFxEnabled"), Qt::CaseInsensitive) == 0 ||
         k.compare(QStringLiteral("windowing.scenefxenabled"), Qt::CaseInsensitive) == 0 ||
         k.compare(QStringLiteral("windowing.scenefx.enabled"), Qt::CaseInsensitive) == 0) {
@@ -273,7 +296,36 @@ UIPreferences::UIPreferences(QObject *parent)
     m_verboseLogging = m_settings.value(kVerboseLoggingKey, false).toBool();
     m_iconThemeLight = m_settings.value(kIconThemeLightKey).toString().trimmed();
     m_iconThemeDark = m_settings.value(kIconThemeDarkKey).toString().trimmed();
+    m_wallpaperUri = m_settings.value(kWallpaperUriKey).toString().trimmed();
+    {
+        const QString mode = m_settings.value(kThemeModeKey, QStringLiteral("auto")).toString().trimmed().toLower();
+        m_themeMode = (mode == QLatin1String("light") || mode == QLatin1String("dark")) ? mode : QStringLiteral("auto");
+    }
+    m_accentColor = m_settings.value(kAccentColorKey, QString::fromLatin1(kDefaultAccentColor)).toString().trimmed();
+    if (m_accentColor.isEmpty()) m_accentColor = QString::fromLatin1(kDefaultAccentColor);
+    m_fontScale = qBound(0.8, m_settings.value(kFontScaleKey, 1.0).toDouble(), 1.5);
+    {
+        const QString mode = m_settings.value(kWindowAnimationModeKey,
+                                              QString::fromLatin1(kWindowAnimationModeDefault))
+                                 .toString().trimmed().toLower();
+        m_animationMode = (mode == QLatin1String("reduced") || mode == QLatin1String("minimal"))
+                              ? mode
+                              : QStringLiteral("full");
+    }
+    m_gtkThemeLight = m_settings.value(kGtkThemeLightKey).toString().trimmed();
+    m_gtkThemeDark = m_settings.value(kGtkThemeDarkKey).toString().trimmed();
+    m_kdeColorSchemeLight = m_settings.value(kKdeColorSchemeLightKey).toString().trimmed();
+    m_kdeColorSchemeDark = m_settings.value(kKdeColorSchemeDarkKey).toString().trimmed();
+    m_gtkIconThemeLight = m_settings.value(kGtkIconThemeLightKey).toString().trimmed();
+    m_gtkIconThemeDark = m_settings.value(kGtkIconThemeDarkKey).toString().trimmed();
+    m_kdeIconThemeLight = m_settings.value(kKdeIconThemeLightKey).toString().trimmed();
+    m_kdeIconThemeDark = m_settings.value(kKdeIconThemeDarkKey).toString().trimmed();
+    m_defaultFont = m_settings.value(kDefaultFontKey).toString().trimmed();
+    m_documentFont = m_settings.value(kDocumentFontKey).toString().trimmed();
+    m_monospaceFont = m_settings.value(kMonospaceFontKey).toString().trimmed();
+    m_titlebarFont = m_settings.value(kTitlebarFontKey).toString().trimmed();
     syncSettings();
+    watchSettingsFile();
 }
 
 QString UIPreferences::dockMotionPreset() const
@@ -314,6 +366,405 @@ QString UIPreferences::iconThemeLight() const
 QString UIPreferences::iconThemeDark() const
 {
     return m_iconThemeDark;
+}
+
+QString UIPreferences::wallpaperUri() const
+{
+    return m_wallpaperUri;
+}
+
+void UIPreferences::setWallpaperUri(const QString &uri)
+{
+    const QString trimmed = uri.trimmed();
+    if (trimmed == m_wallpaperUri)
+        return;
+    m_wallpaperUri = trimmed;
+    if (m_wallpaperUri.isEmpty())
+        m_settings.remove(kWallpaperUriKey);
+    else
+        m_settings.setValue(kWallpaperUriKey, m_wallpaperUri);
+    emit wallpaperUriChanged();
+}
+
+QString UIPreferences::themeMode() const { return m_themeMode; }
+
+void UIPreferences::setThemeMode(const QString &mode)
+{
+    const QString v = mode.trimmed().toLower();
+    const QString normalized = (v == QLatin1String("light") || v == QLatin1String("dark")) ? v : QStringLiteral("auto");
+    if (normalized == m_themeMode) return;
+    m_themeMode = normalized;
+    m_settings.setValue(kThemeModeKey, m_themeMode);
+    emit themeModeChanged();
+    emit appearanceChanged();
+    emit preferenceChanged(QString::fromLatin1(kThemeModeKey), m_themeMode);
+}
+
+QString UIPreferences::accentColor() const { return m_accentColor; }
+
+void UIPreferences::setAccentColor(const QString &color)
+{
+    const QString v = color.trimmed();
+    if (v == m_accentColor || v.isEmpty()) return;
+    m_accentColor = v;
+    m_settings.setValue(kAccentColorKey, m_accentColor);
+    emit accentColorChanged();
+    emit appearanceChanged();
+    emit preferenceChanged(QString::fromLatin1(kAccentColorKey), m_accentColor);
+}
+
+qreal UIPreferences::fontScale() const { return m_fontScale; }
+
+void UIPreferences::setFontScale(qreal scale)
+{
+    const qreal clamped = qBound(0.8, scale, 1.5);
+    if (qFuzzyCompare(clamped, m_fontScale)) return;
+    m_fontScale = clamped;
+    m_settings.setValue(kFontScaleKey, m_fontScale);
+    emit fontScaleChanged();
+    emit appearanceChanged();
+    emit preferenceChanged(QString::fromLatin1(kFontScaleKey), m_fontScale);
+}
+
+QString UIPreferences::animationMode() const { return m_animationMode; }
+
+void UIPreferences::setAnimationMode(const QString &mode)
+{
+    const QString v = mode.trimmed().toLower();
+    const QString normalized = (v == QLatin1String("reduced") || v == QLatin1String("minimal"))
+                                   ? v
+                                   : QStringLiteral("full");
+    if (normalized == m_animationMode) return;
+    m_animationMode = normalized;
+    m_settings.setValue(kWindowAnimationModeKey, m_animationMode);
+    emit animationModeChanged();
+    emit preferenceChanged(QString::fromLatin1(kWindowAnimationModeKey), m_animationMode);
+}
+
+QString UIPreferences::gtkThemeLight() const { return m_gtkThemeLight; }
+
+void UIPreferences::setGtkThemeLight(const QString &theme)
+{
+    const QString v = theme.trimmed();
+    if (v == m_gtkThemeLight) return;
+    m_gtkThemeLight = v;
+    if (m_gtkThemeLight.isEmpty())
+        m_settings.remove(kGtkThemeLightKey);
+    else
+        m_settings.setValue(kGtkThemeLightKey, m_gtkThemeLight);
+    emit gtkThemeLightChanged();
+    emit appearanceChanged();
+    emit preferenceChanged(QString::fromLatin1(kGtkThemeLightKey), m_gtkThemeLight);
+}
+
+QString UIPreferences::gtkThemeDark() const { return m_gtkThemeDark; }
+
+void UIPreferences::setGtkThemeDark(const QString &theme)
+{
+    const QString v = theme.trimmed();
+    if (v == m_gtkThemeDark) return;
+    m_gtkThemeDark = v;
+    if (m_gtkThemeDark.isEmpty())
+        m_settings.remove(kGtkThemeDarkKey);
+    else
+        m_settings.setValue(kGtkThemeDarkKey, m_gtkThemeDark);
+    emit gtkThemeDarkChanged();
+    emit appearanceChanged();
+    emit preferenceChanged(QString::fromLatin1(kGtkThemeDarkKey), m_gtkThemeDark);
+}
+
+QString UIPreferences::kdeColorSchemeLight() const { return m_kdeColorSchemeLight; }
+
+void UIPreferences::setKdeColorSchemeLight(const QString &scheme)
+{
+    const QString v = scheme.trimmed();
+    if (v == m_kdeColorSchemeLight) return;
+    m_kdeColorSchemeLight = v;
+    if (m_kdeColorSchemeLight.isEmpty())
+        m_settings.remove(kKdeColorSchemeLightKey);
+    else
+        m_settings.setValue(kKdeColorSchemeLightKey, m_kdeColorSchemeLight);
+    emit kdeColorSchemeLightChanged();
+    emit appearanceChanged();
+    emit preferenceChanged(QString::fromLatin1(kKdeColorSchemeLightKey), m_kdeColorSchemeLight);
+}
+
+QString UIPreferences::kdeColorSchemeDark() const { return m_kdeColorSchemeDark; }
+
+void UIPreferences::setKdeColorSchemeDark(const QString &scheme)
+{
+    const QString v = scheme.trimmed();
+    if (v == m_kdeColorSchemeDark) return;
+    m_kdeColorSchemeDark = v;
+    if (m_kdeColorSchemeDark.isEmpty())
+        m_settings.remove(kKdeColorSchemeDarkKey);
+    else
+        m_settings.setValue(kKdeColorSchemeDarkKey, m_kdeColorSchemeDark);
+    emit kdeColorSchemeDarkChanged();
+    emit appearanceChanged();
+    emit preferenceChanged(QString::fromLatin1(kKdeColorSchemeDarkKey), m_kdeColorSchemeDark);
+}
+
+QString UIPreferences::gtkIconThemeLight() const { return m_gtkIconThemeLight; }
+
+void UIPreferences::setGtkIconThemeLight(const QString &theme)
+{
+    const QString v = theme.trimmed();
+    if (v == m_gtkIconThemeLight) return;
+    m_gtkIconThemeLight = v;
+    if (m_gtkIconThemeLight.isEmpty())
+        m_settings.remove(kGtkIconThemeLightKey);
+    else
+        m_settings.setValue(kGtkIconThemeLightKey, m_gtkIconThemeLight);
+    emit gtkIconThemeLightChanged();
+    emit appearanceChanged();
+    emit preferenceChanged(QString::fromLatin1(kGtkIconThemeLightKey), m_gtkIconThemeLight);
+}
+
+QString UIPreferences::gtkIconThemeDark() const { return m_gtkIconThemeDark; }
+
+void UIPreferences::setGtkIconThemeDark(const QString &theme)
+{
+    const QString v = theme.trimmed();
+    if (v == m_gtkIconThemeDark) return;
+    m_gtkIconThemeDark = v;
+    if (m_gtkIconThemeDark.isEmpty())
+        m_settings.remove(kGtkIconThemeDarkKey);
+    else
+        m_settings.setValue(kGtkIconThemeDarkKey, m_gtkIconThemeDark);
+    emit gtkIconThemeDarkChanged();
+    emit appearanceChanged();
+    emit preferenceChanged(QString::fromLatin1(kGtkIconThemeDarkKey), m_gtkIconThemeDark);
+}
+
+QString UIPreferences::kdeIconThemeLight() const { return m_kdeIconThemeLight; }
+
+void UIPreferences::setKdeIconThemeLight(const QString &theme)
+{
+    const QString v = theme.trimmed();
+    if (v == m_kdeIconThemeLight) return;
+    m_kdeIconThemeLight = v;
+    if (m_kdeIconThemeLight.isEmpty())
+        m_settings.remove(kKdeIconThemeLightKey);
+    else
+        m_settings.setValue(kKdeIconThemeLightKey, m_kdeIconThemeLight);
+    emit kdeIconThemeLightChanged();
+    emit appearanceChanged();
+    emit preferenceChanged(QString::fromLatin1(kKdeIconThemeLightKey), m_kdeIconThemeLight);
+}
+
+QString UIPreferences::kdeIconThemeDark() const { return m_kdeIconThemeDark; }
+
+void UIPreferences::setKdeIconThemeDark(const QString &theme)
+{
+    const QString v = theme.trimmed();
+    if (v == m_kdeIconThemeDark) return;
+    m_kdeIconThemeDark = v;
+    if (m_kdeIconThemeDark.isEmpty())
+        m_settings.remove(kKdeIconThemeDarkKey);
+    else
+        m_settings.setValue(kKdeIconThemeDarkKey, m_kdeIconThemeDark);
+    emit kdeIconThemeDarkChanged();
+    emit appearanceChanged();
+    emit preferenceChanged(QString::fromLatin1(kKdeIconThemeDarkKey), m_kdeIconThemeDark);
+}
+
+QString UIPreferences::defaultFont() const { return m_defaultFont; }
+
+void UIPreferences::setDefaultFont(const QString &spec)
+{
+    const QString v = spec.trimmed();
+    if (v == m_defaultFont) return;
+    m_defaultFont = v;
+    if (m_defaultFont.isEmpty()) m_settings.remove(kDefaultFontKey);
+    else m_settings.setValue(kDefaultFontKey, m_defaultFont);
+    emit defaultFontChanged();
+}
+
+QString UIPreferences::documentFont() const { return m_documentFont; }
+
+void UIPreferences::setDocumentFont(const QString &spec)
+{
+    const QString v = spec.trimmed();
+    if (v == m_documentFont) return;
+    m_documentFont = v;
+    if (m_documentFont.isEmpty()) m_settings.remove(kDocumentFontKey);
+    else m_settings.setValue(kDocumentFontKey, m_documentFont);
+    emit documentFontChanged();
+}
+
+QString UIPreferences::monospaceFont() const { return m_monospaceFont; }
+
+void UIPreferences::setMonospaceFont(const QString &spec)
+{
+    const QString v = spec.trimmed();
+    if (v == m_monospaceFont) return;
+    m_monospaceFont = v;
+    if (m_monospaceFont.isEmpty()) m_settings.remove(kMonospaceFontKey);
+    else m_settings.setValue(kMonospaceFontKey, m_monospaceFont);
+    emit monospaceFontChanged();
+}
+
+QString UIPreferences::titlebarFont() const { return m_titlebarFont; }
+
+void UIPreferences::setTitlebarFont(const QString &spec)
+{
+    const QString v = spec.trimmed();
+    if (v == m_titlebarFont) return;
+    m_titlebarFont = v;
+    if (m_titlebarFont.isEmpty()) m_settings.remove(kTitlebarFontKey);
+    else m_settings.setValue(kTitlebarFontKey, m_titlebarFont);
+    emit titlebarFontChanged();
+}
+
+void UIPreferences::watchSettingsFile()
+{
+    const QString path = m_settings.fileName();
+    if (path.isEmpty())
+        return;
+    if (!m_fileWatcher.files().contains(path))
+        m_fileWatcher.addPath(path);
+    connect(&m_fileWatcher, &QFileSystemWatcher::fileChanged,
+            this, &UIPreferences::onSettingsFileChanged,
+            Qt::UniqueConnection);
+}
+
+void UIPreferences::onSettingsFileChanged(const QString &path)
+{
+    // Re-watch: some editors/writers do atomic replace (delete + create).
+    if (!m_fileWatcher.files().contains(path))
+        m_fileWatcher.addPath(path);
+
+    m_settings.sync();
+
+    // Re-read each property and emit if changed.
+    {
+        const QString mode = m_settings.value(kThemeModeKey, QStringLiteral("auto")).toString().trimmed().toLower();
+        const QString normalized = (mode == QLatin1String("light") || mode == QLatin1String("dark")) ? mode : QStringLiteral("auto");
+        if (normalized != m_themeMode) {
+            m_themeMode = normalized;
+            emit themeModeChanged();
+        }
+    }
+    {
+        const QString color = m_settings.value(kAccentColorKey, QString::fromLatin1(kDefaultAccentColor)).toString().trimmed();
+        const QString val = color.isEmpty() ? QString::fromLatin1(kDefaultAccentColor) : color;
+        if (val != m_accentColor) {
+            m_accentColor = val;
+            emit accentColorChanged();
+        }
+    }
+    {
+        const qreal scale = qBound(0.8, m_settings.value(kFontScaleKey, 1.0).toDouble(), 1.5);
+        if (!qFuzzyCompare(scale, m_fontScale)) {
+            m_fontScale = scale;
+            emit fontScaleChanged();
+        }
+    }
+    {
+        const QString uri = m_settings.value(kWallpaperUriKey).toString().trimmed();
+        if (uri != m_wallpaperUri) {
+            m_wallpaperUri = uri;
+            emit wallpaperUriChanged();
+        }
+    }
+    {
+        const QString light = m_settings.value(kIconThemeLightKey).toString().trimmed();
+        if (light != m_iconThemeLight) {
+            m_iconThemeLight = light;
+            emit iconThemeLightChanged();
+        }
+    }
+    {
+        const QString dark = m_settings.value(kIconThemeDarkKey).toString().trimmed();
+        if (dark != m_iconThemeDark) {
+            m_iconThemeDark = dark;
+            emit iconThemeDarkChanged();
+        }
+    }
+    {
+        const QString v = m_settings.value(kGtkThemeLightKey).toString().trimmed();
+        if (v != m_gtkThemeLight) { m_gtkThemeLight = v; emit gtkThemeLightChanged(); }
+    }
+    {
+        const QString v = m_settings.value(kGtkThemeDarkKey).toString().trimmed();
+        if (v != m_gtkThemeDark) { m_gtkThemeDark = v; emit gtkThemeDarkChanged(); }
+    }
+    {
+        const QString v = m_settings.value(kKdeColorSchemeLightKey).toString().trimmed();
+        if (v != m_kdeColorSchemeLight) { m_kdeColorSchemeLight = v; emit kdeColorSchemeLightChanged(); }
+    }
+    {
+        const QString v = m_settings.value(kKdeColorSchemeDarkKey).toString().trimmed();
+        if (v != m_kdeColorSchemeDark) { m_kdeColorSchemeDark = v; emit kdeColorSchemeDarkChanged(); }
+    }
+    {
+        const QString v = m_settings.value(kGtkIconThemeLightKey).toString().trimmed();
+        if (v != m_gtkIconThemeLight) { m_gtkIconThemeLight = v; emit gtkIconThemeLightChanged(); }
+    }
+    {
+        const QString v = m_settings.value(kGtkIconThemeDarkKey).toString().trimmed();
+        if (v != m_gtkIconThemeDark) { m_gtkIconThemeDark = v; emit gtkIconThemeDarkChanged(); }
+    }
+    {
+        const QString v = m_settings.value(kKdeIconThemeLightKey).toString().trimmed();
+        if (v != m_kdeIconThemeLight) { m_kdeIconThemeLight = v; emit kdeIconThemeLightChanged(); }
+    }
+    {
+        const QString v = m_settings.value(kKdeIconThemeDarkKey).toString().trimmed();
+        if (v != m_kdeIconThemeDark) { m_kdeIconThemeDark = v; emit kdeIconThemeDarkChanged(); }
+    }
+    {
+        const QString v = m_settings.value(kDefaultFontKey).toString().trimmed();
+        if (v != m_defaultFont) { m_defaultFont = v; emit defaultFontChanged(); }
+    }
+    {
+        const QString v = m_settings.value(kDocumentFontKey).toString().trimmed();
+        if (v != m_documentFont) { m_documentFont = v; emit documentFontChanged(); }
+    }
+    {
+        const QString v = m_settings.value(kMonospaceFontKey).toString().trimmed();
+        if (v != m_monospaceFont) { m_monospaceFont = v; emit monospaceFontChanged(); }
+    }
+    {
+        const QString v = m_settings.value(kTitlebarFontKey).toString().trimmed();
+        if (v != m_titlebarFont) { m_titlebarFont = v; emit titlebarFontChanged(); }
+    }
+    {
+        const QString preset = sanitizePreset(m_settings.value(kMotionPresetKey, QStringLiteral("macos-lively")).toString());
+        if (preset != m_dockMotionPreset) {
+            m_dockMotionPreset = preset;
+            emit dockMotionPresetChanged();
+        }
+    }
+    {
+        const bool pulse = m_settings.value(kDropPulseEnabledKey, true).toBool();
+        if (pulse != m_dockDropPulseEnabled) {
+            m_dockDropPulseEnabled = pulse;
+            emit dockDropPulseEnabledChanged();
+        }
+    }
+    {
+        const bool autoHide = m_settings.value(kDockAutoHideEnabledKey, false).toBool();
+        if (autoHide != m_dockAutoHideEnabled) {
+            m_dockAutoHideEnabled = autoHide;
+            emit dockAutoHideEnabledChanged();
+        }
+    }
+    {
+        const int mouse = clampThreshold(m_settings.value(kDragThresholdMouseKey, 6).toInt());
+        if (mouse != m_dockDragThresholdMouse) {
+            m_dockDragThresholdMouse = mouse;
+            emit dockDragThresholdMouseChanged();
+        }
+    }
+    {
+        const int touchpad = clampThreshold(m_settings.value(kDragThresholdTouchpadKey, 3).toInt());
+        if (touchpad != m_dockDragThresholdTouchpad) {
+            m_dockDragThresholdTouchpad = touchpad;
+            emit dockDragThresholdTouchpadChanged();
+        }
+    }
 }
 
 void UIPreferences::setDockMotionPreset(const QString &preset)
@@ -399,6 +850,8 @@ void UIPreferences::setIconThemeLight(const QString &themeName)
     }
     m_settings.sync();
     emit iconThemeLightChanged();
+    emit appearanceChanged();
+    emit preferenceChanged(QString::fromLatin1(kIconThemeLightKey), m_iconThemeLight);
 }
 
 void UIPreferences::setIconThemeDark(const QString &themeName)
@@ -415,6 +868,8 @@ void UIPreferences::setIconThemeDark(const QString &themeName)
     }
     m_settings.sync();
     emit iconThemeDarkChanged();
+    emit appearanceChanged();
+    emit preferenceChanged(QString::fromLatin1(kIconThemeDarkKey), m_iconThemeDark);
 }
 
 void UIPreferences::setIconThemeMapping(const QString &lightThemeName, const QString &darkThemeName)

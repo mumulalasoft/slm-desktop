@@ -1,0 +1,37 @@
+{
+    "id": "power",
+    "name": "Power",
+    "icon": "battery-charging",
+    "group": "Hardware",
+    "description": "Battery, sleep, and performance profiles.",
+    "keywords": ["battery", "power", "energy", "sleep", "suspend", "performance"],
+    "main": "PowerPage.qml",
+    "settings": [
+        {
+            "id": "battery",
+            "label": "Battery Status",
+            "description": "Current battery level and health",
+            "keywords": ["battery", "charge"],
+            "type": "action",
+            "backend_binding": "dbus:org.freedesktop.UPower"
+        },
+        {
+            "id": "power-mode",
+            "label": "Power Mode",
+            "description": "Saver, balanced, or performance",
+            "keywords": ["performance", "balanced", "power saver"],
+            "type": "dropdown",
+            "backend_binding": "dbus:org.freedesktop.UPower.PowerProfiles/ActiveProfile",
+            "privileged_action": "org.slm.settings.power.modify"
+        },
+        {
+            "id": "suspend",
+            "label": "Automatic Suspend",
+            "description": "Suspend when inactive",
+            "keywords": ["sleep", "suspend", "idle"],
+            "type": "toggle",
+            "backend_binding": "gsettings:org.gnome.settings-daemon.plugins.power/sleep-inactive-ac-type",
+            "privileged_action": "org.slm.settings.power.modify"
+        }
+    ]
+}

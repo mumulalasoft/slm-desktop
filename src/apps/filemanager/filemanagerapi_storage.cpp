@@ -9,6 +9,7 @@
 #include <QMetaObject>
 #include <QMutexLocker>
 #include <QProcess>
+#include <QPointer>
 #include <QRegularExpression>
 #include <QSet>
 #include <QStorageInfo>
@@ -395,13 +396,36 @@ QVariantList FileManagerApi::storageLocations() const
 
 void FileManagerApi::refreshStorageLocationsAsync()
 {
-    QVariantList rows = queryStorageLocationsSync(800);
     {
         QMutexLocker locker(&m_storageCacheMutex);
-        m_storageLocationsCache = rows;
-        m_storageLocationsCacheMs = QDateTime::currentMSecsSinceEpoch();
+        if (m_storageRefreshPending) {
+            return;
+        }
+        m_storageRefreshPending = true;
     }
-    emit storageLocationsUpdated(rows);
+
+    QPointer<FileManagerApi> self(this);
+    std::thread([self]() {
+        if (!self) {
+            return;
+        }
+        const QVariantList rows = self->queryStorageLocationsSync(800);
+        if (!self) {
+            return;
+        }
+        QMetaObject::invokeMethod(self.data(), [self, rows]() {
+            if (!self) {
+                return;
+            }
+            {
+                QMutexLocker locker(&self->m_storageCacheMutex);
+                self->m_storageLocationsCache = rows;
+                self->m_storageLocationsCacheMs = QDateTime::currentMSecsSinceEpoch();
+                self->m_storageRefreshPending = false;
+            }
+            emit self->storageLocationsUpdated(rows);
+        }, Qt::QueuedConnection);
+    }).detach();
 }
 
 QVariantMap FileManagerApi::mountStorageDevice(const QString &devicePath) const

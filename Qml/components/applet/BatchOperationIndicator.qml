@@ -2,7 +2,7 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import Slm_Desktop
-import Style as DSStyle
+import SlmStyle as DSStyle
 
 Item {
     id: root
@@ -12,6 +12,7 @@ Item {
     property bool popupHint: false
     property bool popupOpen: popupHint || opMenu.opened
     property bool autoOpenWhenActive: true
+    property real tinyArchiveAutoPopupBytes: 2 * 1024 * 1024
     readonly property int compactH: Theme.metric("controlHeightCompact")
     readonly property int regularH: Theme.metric("controlHeightRegular")
     readonly property int largeH: Theme.metric("controlHeightLarge")
@@ -27,15 +28,15 @@ Item {
 
     Behavior on opacity {
         NumberAnimation {
-            duration: 180
-            easing.type: Easing.OutCubic
+            duration: Theme.durationMd
+            easing.type: Theme.easingDefault
         }
     }
 
     Behavior on scale {
         NumberAnimation {
-            duration: 180
-            easing.type: Easing.OutCubic
+            duration: Theme.durationMd
+            easing.type: Theme.easingDefault
         }
     }
 
@@ -149,6 +150,11 @@ Item {
         return String(root.lastOperationType || "")
     }
 
+    function supportsPause(op) {
+        var t = String(op || "").toLowerCase()
+        return t !== "extract" && t !== "compress"
+    }
+
     function captureProgressSnapshot(opOverride, currentOverride, totalOverride) {
         var op = (opOverride !== undefined && opOverride !== null)
                 ? String(opOverride || "")
@@ -163,6 +169,24 @@ Item {
         root.lastCurrentValue = current
         root.lastTotalValue = total
         root.lastProgressValue = total > 0 ? Math.max(0, Math.min(1, current / total)) : 0
+    }
+
+    function shouldAutoOpenPopupForActiveOperation() {
+        if (!root.fileManagerApi) {
+            return true
+        }
+        var op = String(root.fileManagerApi.batchOperationType || "").toLowerCase()
+        if (op !== "extract" && op !== "compress") {
+            return true
+        }
+        if (!root.fileManagerApi.batchOperationTotalIsBytes) {
+            return true
+        }
+        var total = Number(root.fileManagerApi.batchOperationTotal || 0)
+        if (!(total > 0)) {
+            return true
+        }
+        return total > Number(root.tinyArchiveAutoPopupBytes || 0)
     }
 
     function updateEta() {
@@ -372,7 +396,8 @@ Item {
             inactiveCloseDebounce.stop()
             root.holdVisible = true
             visibleHoldTimer.restart()
-            if (root.autoOpenWhenActive && !opMenu.opened) {
+            if (root.autoOpenWhenActive && !opMenu.opened
+                    && root.shouldAutoOpenPopupForActiveOperation()) {
                 root.popupHint = true
                 popupHintTimer.restart()
                 Qt.callLater(function() {
@@ -503,7 +528,6 @@ Item {
 
     Popup {
         id: opMenu
-        popupType: Popup.Item
         parent: Overlay.overlay
         modal: false
         focus: false
@@ -554,6 +578,8 @@ Item {
                     if (op === "delete") return "Delete in progress" + paused
                     if (op === "trash") return "Move to Trash in progress" + paused
                     if (op === "restore") return "Restore in progress" + paused
+                    if (op === "extract") return "Extract in progress" + paused
+                    if (op === "compress") return "Compress in progress" + paused
                     return "Operation in progress"
                 }
                 color: Theme.color("textPrimary")
@@ -623,8 +649,12 @@ Item {
 
                 Button {
                     text: (root.fileManagerApi && root.fileManagerApi.batchOperationPaused) ? "Resume" : "Pause"
+                    enabled: root.fileManagerApi && root.supportsPause(root.displayOperationType())
                     onClicked: {
                         if (!root.fileManagerApi) {
+                            return
+                        }
+                        if (!root.supportsPause(root.displayOperationType())) {
                             return
                         }
                         if (root.fileManagerApi.batchOperationPaused && root.fileManagerApi.resumeActiveBatchOperation) {

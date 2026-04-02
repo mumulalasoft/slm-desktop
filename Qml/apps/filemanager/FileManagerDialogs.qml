@@ -16,6 +16,7 @@ Item {
     property alias propertiesDialogRef: propertiesDialog
     property alias compressDialogRef: compressDialog
     property alias openWithDialogRef: openWithDialog
+    property alias folderShareDialogRef: folderShareDialog
     property var shareSheetRef: shareSheet
 
 
@@ -69,14 +70,21 @@ Item {
         hostRoot: root.hostRoot
     }
 
+    FileManagerFolderShareDialog {
+        id: folderShareDialog
+        hostRoot: root.hostRoot
+    }
+
     Loader {
         id: shareSheetLoader
         active: true
-        source: "FileManagerShareSheet.qml"
-        onLoaded: {
-            if (item) {
-                item.hostRoot = root.hostRoot
-            }
+        sourceComponent: shareSheetComponent
+    }
+
+    Component {
+        id: shareSheetComponent
+        FileManagerShareSheet {
+            hostRoot: root.hostRoot
         }
     }
 

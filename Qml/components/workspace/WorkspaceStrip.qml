@@ -107,7 +107,7 @@ Rectangle {
                     Rectangle {
                         width: 14
                         height: 14
-                        radius: 7
+                        radius: Theme.radiusMdPlus
                         color: selected
                                ? Theme.color("selectedItemText")
                                : Theme.color("workspaceWindowCountBadge")

@@ -2,7 +2,7 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import Slm_Desktop
-import Style as DSStyle
+import SlmStyle as DSStyle
 import "../applet"
 
 
@@ -170,9 +170,9 @@ RowLayout {
         property: "monthGridOffset"
         to: 0
         duration: Theme.durationMd
-        easing.type: Easing.OutCubic
+        easing.type: Theme.easingDefault
         onStarted: {
-            easing.type = root.monthTransitionDirection > 0 ? Easing.OutCubic : Easing.OutQuad
+            easing.type = root.monthTransitionDirection > 0 ? Theme.easingDefault : Theme.easingLight
             duration = root.monthTransitionDirection > 0 ? Theme.durationMd : Theme.durationLg
         }
         onStopped: root.monthGridOpacity = 1.0
@@ -184,7 +184,7 @@ RowLayout {
         property: "monthGridOpacity"
         to: 1.0
         duration: Theme.durationMd
-        easing.type: Easing.OutCubic
+        easing.type: Theme.easingDefault
     }
 
     Repeater {

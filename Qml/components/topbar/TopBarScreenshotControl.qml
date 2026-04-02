@@ -1,7 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import Slm_Desktop
-import Style as DSStyle
+import SlmStyle as DSStyle
 
 Item {
     id: root
@@ -22,6 +22,16 @@ Item {
     implicitHeight: iconButtonH
 
     property double lastCloseMs: 0
+
+    function microAnimationAllowed() {
+        if (!Theme.animationsEnabled) {
+            return false
+        }
+        if (typeof MotionController === "undefined" || !MotionController || !MotionController.allowMotionPriority) {
+            return true
+        }
+        return MotionController.allowMotionPriority(MotionController.LowPriority)
+    }
 
     function recentlyClosed(debounceMs) {
         var d = debounceMs === undefined ? 220 : debounceMs
@@ -71,6 +81,10 @@ Item {
         anchors.fill: parent
         radius: Theme.radiusControl
         color: screenshotMouse.containsMouse ? Theme.color("accentSoft") : "transparent"
+        Behavior on color {
+            enabled: root.microAnimationAllowed()
+            ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault }
+        }
 
         Image {
             id: screenshotIcon
@@ -116,7 +130,6 @@ Item {
 
         Popup {
             id: screenshotPopup
-            popupType: Popup.Window
             modal: false
             focus: false
             dim: false

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QDBusAbstractAdaptor>
+#include <QDBusUnixFileDescriptor>
 #include <QDBusVariant>
 #include <QVariantMap>
 
@@ -284,6 +285,43 @@ public slots:
                        const QString &parentWindow,
                        const QString &token,
                        const QVariantMap &options);
+
+private:
+    ImplPortalService *m_service = nullptr;
+};
+
+// org.freedesktop.impl.portal.Print
+//
+// PreparePrint: records the app-supplied print settings and returns a session
+//               token. A full implementation would show the OS print dialog here.
+// Print:        receives the document as a Unix FD, copies it to a temp file,
+//               maps GTK print settings to lp(1) arguments, and submits the job.
+class ImplPortalPrintAdaptor : public QDBusAbstractAdaptor
+{
+    Q_OBJECT
+    Q_CLASSINFO("D-Bus Interface", "org.freedesktop.impl.portal.Print")
+
+public:
+    explicit ImplPortalPrintAdaptor(ImplPortalService *service);
+
+public slots:
+    // Shows the print dialog (or records settings) before the actual print.
+    // Returns: { response: uint, results: a{sv} } encoded in a QVariantMap.
+    QVariantMap PreparePrint(const QString &handle,
+                             const QString &appId,
+                             const QString &parentWindow,
+                             const QString &title,
+                             const QVariantMap &settings,
+                             const QVariantMap &pageSetup,
+                             const QVariantMap &options);
+
+    // Submits a print job for the document provided via the Unix FD.
+    QVariantMap Print(const QString &handle,
+                      const QString &appId,
+                      const QString &parentWindow,
+                      const QString &title,
+                      const QDBusUnixFileDescriptor &fd,
+                      const QVariantMap &options);
 
 private:
     ImplPortalService *m_service = nullptr;

@@ -1,6 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
+import SlmStyle as DSStyle
 
 Rectangle {
     id: root
@@ -32,7 +33,7 @@ Rectangle {
         anchors.margins: 7
         spacing: 8
 
-        Label {
+        DSStyle.Label {
             text: "\uD83D\uDD12"
             font.pixelSize: 13
             color: "#6B7280"
@@ -49,7 +50,7 @@ Rectangle {
             wrapMode: Text.WordWrap
         }
 
-        Button {
+        DSStyle.Button {
             visible: root.requiresAuthorization && !root.authorized
             enabled: !root.pending
             text: root.pending ? qsTr("Authorizing...") : root.unlockText
@@ -61,7 +62,7 @@ Rectangle {
             }
         }
 
-        Button {
+        DSStyle.Button {
             visible: root.allowAlways || root.denyAlways
             enabled: !root.pending
             text: qsTr("Reset Decision")
@@ -69,17 +70,17 @@ Rectangle {
         }
     }
 
-    Menu {
+    DSStyle.Menu {
         id: decisionMenu
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: qsTr("Allow Once")
             onTriggered: {
                 root.authorizationDecision("allow-once")
                 root.unlockRequested()
             }
         }
-        MenuItem {
+        DSStyle.MenuItem {
             text: qsTr("Always Allow")
             onTriggered: {
                 root.authorizationDecision("allow-always")
@@ -87,14 +88,14 @@ Rectangle {
             }
         }
         MenuSeparator {}
-        MenuItem {
+        DSStyle.MenuItem {
             text: qsTr("Deny")
             onTriggered: {
                 root.authorizationDecision("deny")
                 root.unlockRequested()
             }
         }
-        MenuItem {
+        DSStyle.MenuItem {
             text: qsTr("Always Deny")
             onTriggered: {
                 root.authorizationDecision("deny-always")

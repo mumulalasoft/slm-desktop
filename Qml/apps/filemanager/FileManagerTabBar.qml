@@ -2,7 +2,7 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import Slm_Desktop
-import Style
+import SlmStyle
 
 Rectangle {
     id: root
@@ -51,7 +51,7 @@ Rectangle {
 
         Rectangle {
             Layout.fillWidth: true
-            Layout.preferredHeight: 22
+            Layout.preferredHeight: Theme.controlHeightCompact
             color: "transparent"
             clip: true
 
@@ -71,7 +71,7 @@ Rectangle {
                     readonly property real availableTabsWidth: Math.max(
                                                                    120, contentTabsView.width - Math.max(0, (tabCountValue - 1) * contentTabsView.spacing))
                     width: Math.max(96, Math.floor(availableTabsWidth / tabCountValue))
-                    height: 22
+                    height: Theme.controlHeightCompact
                     radius: Theme.radiusControl
                     color: hostRoot.activeTabIndex === index ? Theme.color("fileManagerTabActive") : "transparent"
                     border.width: Theme.borderWidthNone
@@ -92,6 +92,7 @@ Rectangle {
                         id: tabCloseButton
                         visible: (tabModel.count > 1)
                                  && (hostRoot.activeTabIndex === index)
+                        z: 3
                         width: 12
                         height: 12
                         radius: Theme.radiusMdPlus
@@ -122,6 +123,7 @@ Rectangle {
 
                     MouseArea {
                         anchors.fill: parent
+                        anchors.rightMargin: tabCloseButton.visible ? (tabCloseButton.width + 12) : 0
                         hoverEnabled: true
                         acceptedButtons: Qt.LeftButton | Qt.MiddleButton
                         onClicked: function(mouse) {

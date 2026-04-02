@@ -22,6 +22,7 @@ public:
 
     QVariantList getHistory(int limit = 200) const;
     QVariantList search(const QString &query, int limit = 200) const;
+    QString backendMode() const;
     bool pasteItem(qint64 id);
     bool deleteItem(qint64 id);
     bool pinItem(qint64 id, bool pinned = true);

@@ -1,0 +1,27 @@
+{
+    "id": "about",
+    "name": "About",
+    "icon": "user-info",
+    "group": "System",
+    "description": "Device and operating system information.",
+    "keywords": ["system", "info", "version", "os", "kernel", "hardware"],
+    "main": "AboutPage.qml",
+    "settings": [
+        {
+            "id": "os-version",
+            "label": "OS Version",
+            "description": "Desktop and build version details",
+            "keywords": ["os", "version", "build"],
+            "type": "action",
+            "backend_binding": "system:about/version"
+        },
+        {
+            "id": "hardware",
+            "label": "Hardware",
+            "description": "Processor, memory, and graphics",
+            "keywords": ["hardware", "cpu", "memory", "gpu"],
+            "type": "action",
+            "backend_binding": "system:about/hardware"
+        }
+    ]
+}

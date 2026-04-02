@@ -1,5 +1,6 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
+import QtQuick.Controls.impl 2.15
 import Slm_Desktop
 
 Rectangle {
@@ -11,12 +12,26 @@ Rectangle {
 
     signal clicked()
 
+    function microAnimationAllowed() {
+        if (!Theme.animationsEnabled) {
+            return false
+        }
+        if (typeof MotionController === "undefined" || !MotionController || !MotionController.allowMotionPriority) {
+            return true
+        }
+        return MotionController.allowMotionPriority(MotionController.LowPriority)
+    }
+
     width: iconButtonW
     height: iconButtonH
     radius: Theme.radiusControl
     color: searchMouse.containsMouse ? Theme.color("accentSoft") : "transparent"
+    Behavior on color {
+        enabled: root.microAnimationAllowed()
+        ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault }
+    }
 
-    Image {
+    IconImage {
         id: searchIcon
         anchors.centerIn: parent
         width: root.iconGlyph
@@ -27,6 +42,7 @@ Rectangle {
         source: "image://themeicon/system-search-symbolic?v=" +
                 ((typeof ThemeIconController !== "undefined" && ThemeIconController)
                  ? ThemeIconController.revision : 0)
+        color: Theme.color("textOnGlass")
     }
 
     Label {

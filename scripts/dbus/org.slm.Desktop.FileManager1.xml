@@ -1,0 +1,80 @@
+<!DOCTYPE node PUBLIC "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN"
+  "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
+<!--
+  org.slm.Desktop.FileManager1
+  ==============================
+  DBus interface untuk aktivasi dan navigasi filemanager SLM.
+
+  Service  : org.slm.Desktop.FileManager1
+  Object   : /org/slm/Desktop/FileManager1
+
+  Versioning policy:
+    - Method baru boleh ditambahkan tanpa bump versi.
+    - Ganti signature method yang ada → interface FileManager2 baru.
+    - Property InterfaceVersion dibaca shell untuk compatibility check.
+-->
+<node>
+  <interface name="org.slm.Desktop.FileManager1">
+
+    <!-- ── Navigasi ──────────────────────────────────────────── -->
+
+    <!-- Buka folder di jendela filemanager. Jika sudah running, fokus ke window. -->
+    <method name="OpenPath">
+      <arg name="path"         type="s" direction="in"/>
+      <!-- startup_id untuk XDG activation (boleh kosong "") -->
+      <arg name="startup_id"   type="s" direction="in"/>
+    </method>
+
+    <!-- Buka folder berisi item dan highlight item tersebut. -->
+    <method name="RevealItem">
+      <arg name="path"         type="s" direction="in"/>
+      <arg name="startup_id"   type="s" direction="in"/>
+    </method>
+
+    <!-- Buka jendela baru. path boleh kosong untuk home dir. -->
+    <method name="NewWindow">
+      <arg name="path"         type="s" direction="in"/>
+    </method>
+
+    <!-- ── Sidebar / Places ──────────────────────────────────── -->
+
+    <!--
+      Return: array of dict. Tiap entry:
+        label    (s)   : nama tampilan
+        path     (s)   : path filesystem (kosong untuk smb://, dll)
+        uri      (s)   : URI lengkap
+        icon     (s)   : nama icon freedesktop
+        section  (s)   : "bookmarks" | "devices" | "network"
+        ejectable (b)  : apakah bisa di-eject
+    -->
+    <method name="GetSidebarPlaces">
+      <arg name="places"       type="aa{sv}" direction="out"/>
+    </method>
+
+    <!-- ── Trash ─────────────────────────────────────────────── -->
+
+    <method name="GetTrashItemCount">
+      <arg name="count"        type="u" direction="out"/>
+    </method>
+
+    <!-- ── Signals ───────────────────────────────────────────── -->
+
+    <signal name="SidebarPlacesChanged"/>
+
+    <signal name="TrashCountChanged">
+      <arg name="count"        type="u"/>
+    </signal>
+
+    <!-- ── Properties ────────────────────────────────────────── -->
+
+    <!--
+      Versi integer interface ini. Shell membaca ini untuk compatibility check.
+      Nilai saat ini: 1. Bila interface berubah breaking → service baru FileManager2.
+    -->
+    <property name="InterfaceVersion"    type="u" access="read"/>
+
+    <!-- Versi string build filemanager, e.g. "0.1.3" -->
+    <property name="FileManagerVersion"  type="s" access="read"/>
+
+  </interface>
+</node>

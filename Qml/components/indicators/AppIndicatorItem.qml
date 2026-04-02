@@ -1,7 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import Slm_Desktop
-import Style as DSStyle
+import SlmStyle as DSStyle
 
 Item {
     id: root
@@ -20,6 +20,12 @@ Item {
     readonly property string itemMenuPath: String((modelData && modelData.menuPath) ? modelData.menuPath : "")
     property var trayMenuRows: []
     property int trayMenuCloseGuardMs: 0
+
+    function microAnimationAllowed() {
+        if (!Theme.animationsEnabled) return false
+        if (typeof MotionController === "undefined" || !MotionController || !MotionController.allowMotionPriority) return true
+        return MotionController.allowMotionPriority(MotionController.LowPriority)
+    }
 
     function canUseDbusMenu() {
         return (typeof GlobalMenuManager !== "undefined" && GlobalMenuManager &&
@@ -134,8 +140,8 @@ Item {
         color: trayMouse.pressed ? Theme.color("controlBgPressed") : (trayMouse.containsMouse ? Theme.color("controlBgHover") : "transparent")
         border.width: Theme.borderWidthThin
         border.color: trayMouse.containsMouse ? Theme.color("panelBorder") : "transparent"
-        Behavior on color { ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDecelerate } }
-        Behavior on border.color { ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDecelerate } }
+        Behavior on color { enabled: root.microAnimationAllowed(); ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDecelerate } }
+        Behavior on border.color { enabled: root.microAnimationAllowed(); ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDecelerate } }
 
         Image {
             id: icon
@@ -213,7 +219,6 @@ Item {
     Menu {
         id: trayMenuPopup
         property var quickRows: []
-        popupType: Popup.Window
         modal: false
         focus: false
         dim: false
@@ -325,7 +330,6 @@ Item {
             property int parentMenuId: -1
             property var rows: []
 
-            popupType: Popup.Window
             modal: false
             focus: false
             dim: false

@@ -27,6 +27,16 @@ Rectangle {
     signal rowClicked(int index, int modifiers)
     signal rowDoubleClicked(int index)
 
+    function microAnimationAllowed() {
+        if (!Theme.animationsEnabled) {
+            return false
+        }
+        if (typeof MotionController === "undefined" || !MotionController || !MotionController.allowMotionPriority) {
+            return true
+        }
+        return MotionController.allowMotionPriority(MotionController.LowPriority)
+    }
+
     function formatBytes(bytesValue) {
         var b = Number(bytesValue)
         if (!isFinite(b) || b < 0) {
@@ -51,6 +61,10 @@ Rectangle {
     color: selected
            ? Theme.color("accent")
            : (rowMouse.containsMouse ? Theme.color("accentSoft") : "transparent")
+    Behavior on color {
+        enabled: root.microAnimationAllowed()
+        ColorAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault }
+    }
 
     Row {
         anchors.fill: parent

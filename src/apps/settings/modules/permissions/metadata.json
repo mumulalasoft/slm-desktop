@@ -1,0 +1,35 @@
+{
+    "id": "permissions",
+    "name": "Permissions",
+    "icon": "dialog-password",
+    "group": "System",
+    "description": "Review and reset privileged settings decisions.",
+    "keywords": ["permissions", "authorization", "security", "policy", "allow", "deny"],
+    "main": "PermissionsPage.qml",
+    "settings": [
+        {
+            "id": "grants",
+            "label": "Stored Decisions",
+            "description": "Allow always / deny always setting decisions",
+            "keywords": ["grant", "allow always", "deny always", "reset"],
+            "type": "action",
+            "backend_binding": "settings:permissions/grants"
+        },
+        {
+            "id": "package-policy-check",
+            "label": "Package Policy Check",
+            "description": "Simulate apt/apt-get/dpkg transaction and show trust/risk/impact",
+            "keywords": ["package", "policy", "apt", "dpkg", "risk", "trust", "impact"],
+            "type": "action",
+            "backend_binding": "settings:permissions/package-policy-check"
+        },
+        {
+            "id": "app-secrets",
+            "label": "App Secrets",
+            "description": "Review per-app secret metadata and clear app secrets",
+            "keywords": ["secret", "token", "credential", "privacy", "security", "clear"],
+            "type": "action",
+            "backend_binding": "settings:permissions/app-secrets"
+        }
+    ]
+}

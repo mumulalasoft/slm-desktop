@@ -22,12 +22,14 @@ TrustResolver::TrustResolver()
     setOfficialAppIds({
         QStringLiteral("appdesktop_shell"),
         QStringLiteral("desktopd"),
+        QStringLiteral("slm-settings"),
         QStringLiteral("slm-fileopsd"),
         QStringLiteral("slm-devicesd"),
         QStringLiteral("slm-portald"),
     });
     setOfficialDesktopFileIds({
         QStringLiteral("appdesktop_shell.desktop"),
+        QStringLiteral("slm-settings.desktop"),
     });
     setPrivilegedServiceNames({
         QStringLiteral("org.slm.desktopd"),

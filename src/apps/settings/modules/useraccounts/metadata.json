@@ -1,0 +1,43 @@
+{
+    "id": "useraccounts",
+    "name": "User Accounts",
+    "icon": "system-users",
+    "group": "System",
+    "description": "Manage account identity, sign-in behavior, and guest access.",
+    "keywords": ["user", "account", "login", "password", "guest", "avatar", "identity"],
+    "main": "UserAccountsPage.qml",
+    "settings": [
+        {
+            "id": "profile",
+            "label": "Profile",
+            "description": "Name, username, and avatar",
+            "keywords": ["name", "username", "avatar", "identity"],
+            "type": "action",
+            "backend_binding": "settings:useraccounts/profile"
+        },
+        {
+            "id": "auto-login",
+            "label": "Log in automatically",
+            "description": "Skip password prompt on startup",
+            "keywords": ["auto login", "automatic", "signin", "password"],
+            "type": "toggle",
+            "backend_binding": "settings:useraccounts/auto-login"
+        },
+        {
+            "id": "guest-session",
+            "label": "Guest Session",
+            "description": "Allow temporary guest access",
+            "keywords": ["guest", "temporary user", "public"],
+            "type": "toggle",
+            "backend_binding": "settings:useraccounts/guest-session"
+        },
+        {
+            "id": "password-policy",
+            "label": "Password & Security",
+            "description": "Password prompt and lock behavior",
+            "keywords": ["password", "security", "lock", "authentication"],
+            "type": "action",
+            "backend_binding": "settings:useraccounts/security"
+        }
+    ]
+}

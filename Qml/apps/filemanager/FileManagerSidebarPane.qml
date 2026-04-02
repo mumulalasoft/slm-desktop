@@ -3,7 +3,8 @@ import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import QtQuick.Window 2.15
 import Slm_Desktop
-import Style
+import SlmStyle
+import "../../components/style" as StyleComp
 
 Rectangle {
     id: root
@@ -11,6 +12,8 @@ Rectangle {
     required property var hostRoot
     required property var sidebarModel
     property var sidebarContextMenuRef: null
+    readonly property int iconRevision: ((typeof ThemeIconController !== "undefined" && ThemeIconController)
+                                         ? ThemeIconController.revision : 0)
 
     function dropTargetAt(sceneX, sceneY) {
         if (!sidebarList || !sidebarList.contentItem) {
@@ -58,79 +61,16 @@ Rectangle {
             anchors.left: parent.left
             anchors.leftMargin: 14
             anchors.verticalCenter: parent.verticalCenter
-            spacing: 8
+            spacing: 0
 
-            Item {
-                width: 16
-                height: 16
-                scale: closeMacMouse.pressed ? 0.9 : (closeMacMouse.containsMouse ? 1.04 : 1.0)
-                Behavior on scale {
-                    NumberAnimation {
-                        duration: 90
-                        easing.type: Easing.OutCubic
-                    }
+            StyleComp.WindowControlsCapsule {
+                spacing: 0
+                iconProvider: function(kind, hovered, pressed) {
+                    return hostRoot.titleButtonIcon(kind, hovered, pressed)
                 }
-                Image {
-                    anchors.fill: parent
-                    fillMode: Image.PreserveAspectFit
-                    source: hostRoot.titleButtonIcon("close",
-                                                     closeMacMouse.containsMouse,
-                                                     closeMacMouse.pressed)
-                }
-                MouseArea {
-                    id: closeMacMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    onClicked: hostRoot.closeRequested()
-                }
-            }
-            Item {
-                width: 16
-                height: 16
-                scale: minimizeMacMouse.pressed ? 0.9 : (minimizeMacMouse.containsMouse ? 1.04 : 1.0)
-                Behavior on scale {
-                    NumberAnimation {
-                        duration: 90
-                        easing.type: Easing.OutCubic
-                    }
-                }
-                Image {
-                    anchors.fill: parent
-                    fillMode: Image.PreserveAspectFit
-                    source: hostRoot.titleButtonIcon("minimize",
-                                                     minimizeMacMouse.containsMouse,
-                                                     minimizeMacMouse.pressed)
-                }
-                MouseArea {
-                    id: minimizeMacMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    onClicked: hostRoot.minimizeWindow()
-                }
-            }
-            Item {
-                width: 16
-                height: 16
-                scale: maximizeMacMouse.pressed ? 0.9 : (maximizeMacMouse.containsMouse ? 1.04 : 1.0)
-                Behavior on scale {
-                    NumberAnimation {
-                        duration: 90
-                        easing.type: Easing.OutCubic
-                    }
-                }
-                Image {
-                    anchors.fill: parent
-                    fillMode: Image.PreserveAspectFit
-                    source: hostRoot.titleButtonIcon("maximize",
-                                                     maximizeMacMouse.containsMouse,
-                                                     maximizeMacMouse.pressed)
-                }
-                MouseArea {
-                    id: maximizeMacMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    onClicked: hostRoot.toggleMaximizeWindow()
-                }
+                onCloseRequested: hostRoot.closeRequested()
+                onMinimizeRequested: hostRoot.minimizeWindow()
+                onMaximizeRequested: hostRoot.toggleMaximizeWindow()
             }
         }
     }
@@ -197,6 +137,7 @@ Rectangle {
                         asynchronous: true
                         cache: true
                         source: "image://themeicon/" + (iconName && iconName.length > 0 ? iconName : "folder-symbolic")
+                                + "?v=" + root.iconRevision
                     }
 
                     Text {
@@ -266,6 +207,7 @@ Rectangle {
                         asynchronous: true
                         cache: true
                         source: "image://themeicon/" + (mounted ? "media-eject-symbolic" : "go-up-symbolic")
+                                + "?v=" + root.iconRevision
                     }
 
                     MouseArea {
@@ -353,7 +295,7 @@ Rectangle {
                 fillMode: Image.PreserveAspectFit
                 asynchronous: true
                 cache: true
-                source: "image://themeicon/network-workgroup-symbolic"
+                source: "image://themeicon/network-workgroup-symbolic?v=" + root.iconRevision
             }
 
             Text {

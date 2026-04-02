@@ -12,9 +12,9 @@ Item {
     property real influence: 0
     property real hoverLift: 5
     property real gapWidthExtra: 28
-    property real gapSpring: 4.8
-    property real gapDamping: 0.43
-    property real gapMass: 0.55
+    property real gapSpring: Theme.physicsSpringDefault
+    property real gapDamping: Theme.physicsDampingDefault
+    property real gapMass: Theme.physicsMassDefault
     property real dragSourceOpacity: 0.36
     property int dragThresholdMousePx: 6
     property int dragThresholdTouchpadPx: 3
@@ -29,6 +29,10 @@ Item {
     property bool reorderArmed: false
     property bool hoverIndicatorEnabled: false
     property bool directHoverOverride: false
+    // Separator — shows a slim vertical divider to the right of this item.
+    // The delegate width grows by separatorSlotWidth to accommodate it.
+    property bool separatorAfter: false
+    readonly property real separatorSlotWidth: separatorAfter ? 16 : 0
     property bool hovered: iconHover.active || directHoverOverride
     property real hoverBlend: hovered ? 1.0 : 0.0
     property bool dragging: false
@@ -41,7 +45,17 @@ Item {
     signal dragMoved(real deltaX)
     signal dragFinished(real deltaX)
 
-    width: baseSlotWidth + (gapTarget ? gapWidthExtra : 0)
+    function microAnimationAllowed() {
+        if (!Theme.animationsEnabled) {
+            return false
+        }
+        if (typeof MotionController === "undefined" || !MotionController || !MotionController.allowMotionPriority) {
+            return true
+        }
+        return MotionController.allowMotionPriority(MotionController.LowPriority)
+    }
+
+    width: baseSlotWidth + (gapTarget ? gapWidthExtra : 0) + separatorSlotWidth
     height: 76
     z: root.dragging ? 200 : 0
     Behavior on width {
@@ -52,18 +66,21 @@ Item {
         }
     }
     Behavior on hoverBlend {
+        enabled: root.microAnimationAllowed()
         NumberAnimation {
             duration: Theme.durationSm
             easing.type: Theme.easingDecelerate
         }
     }
     Behavior on itemScale {
+        enabled: root.microAnimationAllowed()
         NumberAnimation {
             duration: Theme.durationMicro
             easing.type: Theme.easingDecelerate
         }
     }
     Behavior on iconLift {
+        enabled: root.microAnimationAllowed()
         NumberAnimation {
             duration: Theme.durationSm
             easing.type: Theme.easingDecelerate
@@ -100,9 +117,11 @@ Item {
             }
 
             Behavior on width {
+                enabled: root.microAnimationAllowed()
                 NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingDecelerate }
             }
             Behavior on opacity {
+                enabled: root.microAnimationAllowed()
                 NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingDecelerate }
             }
         }
@@ -137,19 +156,19 @@ Item {
             anchors.bottomMargin: 1 + root.iconLift
             width: showRunningDot ? (showMixedWorkspaceDot ? 13 : 7) : 0
             height: showRunningDot ? 7 : 0
-            radius: 3.5
+            radius: height * 0.5
             color: showMixedWorkspaceDot
                    ? "transparent"
                    : (focusedApp ? Theme.color("dockRunningDotActive")
                                  : Theme.color("dockRunningDotInactive"))
-            opacity: showRunningDot ? 0.92 : 0.0
+            opacity: showRunningDot ? Theme.opacityHint : 0.0
             visible: showRunningDot
 
             Rectangle {
                 visible: root.showMixedWorkspaceDot
                 width: 6.5
                 height: 6.5
-                radius: 3.25
+                radius: height * 0.5
                 anchors.left: parent.left
                 anchors.verticalCenter: parent.verticalCenter
                 color: root.focusedApp ? Theme.color("dockRunningDotActive") : Theme.color("dockRunningDotInactive")
@@ -159,31 +178,31 @@ Item {
                 visible: root.showMixedWorkspaceDot
                 width: 6.5
                 height: 6.5
-                radius: 3.25
+                radius: height * 0.5
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
                 color: Theme.color("accent")
-                opacity: 0.95
+                opacity: Theme.opacityGhost
             }
 
             Rectangle {
                 visible: !root.showMixedWorkspaceDot && root.hasOtherWorkspaceDot
                 anchors.fill: parent
-                radius: 3.5
+                radius: height * 0.5
                 color: Theme.color("accentSoft")
-                border.width: 1.25
+                border.width: Theme.borderWidthThin
                 border.color: Theme.color("accent")
-                opacity: 0.95
+                opacity: Theme.opacityGhost
             }
 
             Rectangle {
                 visible: !root.showMixedWorkspaceDot && root.hasOtherWorkspaceDot
                 width: 2.5
                 height: 2.5
-                radius: 1.25
+                radius: height * 0.5
                 anchors.centerIn: parent
                 color: Theme.color("accent")
-                opacity: 0.95
+                opacity: Theme.opacityGhost
             }
         }
 
@@ -208,6 +227,7 @@ Item {
             }
 
             Behavior on opacity {
+                enabled: root.microAnimationAllowed()
                 NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingDecelerate }
             }
         }
@@ -222,6 +242,23 @@ Item {
             opacity: 0
             scale: 0.4
             visible: opacity > 0.001
+        }
+    }
+
+    Rectangle {
+        id: separatorLine
+        visible: root.separatorAfter
+        width: 1
+        height: 28
+        radius: Theme.borderWidthThin
+        color: Theme.color("dockBorder")
+        opacity: root.separatorAfter ? 0.55 : 0.0
+        anchors.right: parent.right
+        anchors.rightMargin: Math.floor(root.separatorSlotWidth / 2)
+        anchors.verticalCenter: parent.verticalCenter
+        Behavior on opacity {
+            enabled: root.microAnimationAllowed()
+            NumberAnimation { duration: Theme.durationMicro; easing.type: Theme.easingDecelerate }
         }
     }
 
@@ -402,16 +439,16 @@ Item {
             property: "scale"
             from: 0.4
             to: 1.5
-            duration: 300
-            easing.type: Easing.OutCubic
+            duration: Theme.durationSlow
+            easing.type: Theme.easingDefault
         }
         NumberAnimation {
             target: ripple
             property: "opacity"
             from: 0.18
             to: 0.0
-            duration: 300
-            easing.type: Easing.OutQuad
+            duration: Theme.durationSlow
+            easing.type: Theme.easingLight
         }
     }
 
@@ -436,22 +473,22 @@ Item {
             target: root
             property: "bounceOffset"
             to: -8
-            duration: 90
-            easing.type: Easing.OutCubic
+            duration: Theme.durationMicro
+            easing.type: Theme.easingDefault
         }
         NumberAnimation {
             target: root
             property: "bounceOffset"
             to: -2
-            duration: 95
-            easing.type: Easing.OutQuad
+            duration: Theme.durationMicro
+            easing.type: Theme.easingLight
         }
         NumberAnimation {
             target: root
             property: "bounceOffset"
             to: 0
-            duration: 120
-            easing.type: Easing.OutCubic
+            duration: Theme.durationFast
+            easing.type: Theme.easingDefault
         }
     }
 
@@ -461,29 +498,29 @@ Item {
             target: root
             property: "bounceOffset"
             to: -14
-            duration: 90
-            easing.type: Easing.OutCubic
+            duration: Theme.durationMicro
+            easing.type: Theme.easingDefault
         }
         NumberAnimation {
             target: root
             property: "bounceOffset"
             to: -6
-            duration: 82
-            easing.type: Easing.OutQuad
+            duration: Theme.durationMicro
+            easing.type: Theme.easingLight
         }
         NumberAnimation {
             target: root
             property: "bounceOffset"
             to: -2
-            duration: 96
-            easing.type: Easing.OutQuad
+            duration: Theme.durationMicro
+            easing.type: Theme.easingLight
         }
         NumberAnimation {
             target: root
             property: "bounceOffset"
             to: 0
-            duration: 150
-            easing.type: Easing.OutCubic
+            duration: Theme.durationSm
+            easing.type: Theme.easingDefault
         }
         ScriptAction {
             script: root.bounceCompleted()

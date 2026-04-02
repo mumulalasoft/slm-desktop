@@ -1,0 +1,35 @@
+{
+    "id": "appearance",
+    "name": "Appearance",
+    "icon": "preferences-desktop-theme",
+    "group": "Personal",
+    "description": "Theme, wallpaper, and visual style.",
+    "keywords": ["theme", "wallpaper", "dark mode", "light mode", "accent color"],
+    "main": "AppearancePage.qml",
+    "settings": [
+        {
+            "id": "theme",
+            "label": "Color Theme",
+            "description": "Light, dark, or auto mode",
+            "keywords": ["theme", "dark", "light", "auto"],
+            "type": "dropdown",
+            "backend_binding": "gsettings:org.gnome.desktop.interface/color-scheme"
+        },
+        {
+            "id": "wallpaper",
+            "label": "Wallpaper",
+            "description": "Choose desktop background",
+            "keywords": ["background", "wallpaper", "image"],
+            "type": "action",
+            "backend_binding": "portal:org.freedesktop.portal.Wallpaper"
+        },
+        {
+            "id": "accent",
+            "label": "Accent Color",
+            "description": "Change accent color",
+            "keywords": ["accent", "color"],
+            "type": "dropdown",
+            "backend_binding": "settings:appearance/accent"
+        }
+    ]
+}

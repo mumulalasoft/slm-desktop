@@ -51,7 +51,7 @@ Rectangle {
                 FileManagerHeaderBar {
                     id: headerBar
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 46
+                    Layout.preferredHeight: Theme.fileManagerToolbarHeight + 2
                     Layout.leftMargin: 10
                     Layout.rightMargin: 10
                     Layout.topMargin: 4

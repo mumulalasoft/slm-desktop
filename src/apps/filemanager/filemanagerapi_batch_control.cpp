@@ -86,6 +86,11 @@ qlonglong FileManagerApi::batchOperationTotal() const
     return m_batchTotal;
 }
 
+bool FileManagerApi::batchOperationTotalIsBytes() const
+{
+    return m_batchTotalIsBytes;
+}
+
 double FileManagerApi::batchOperationProgress() const
 {
     if (m_batchTotal <= 0) return 0.0;
@@ -117,6 +122,8 @@ QString FileManagerApi::batchKindToString(BatchKind kind) const
     if (kind == BatchKind::Delete) return QStringLiteral("delete");
     if (kind == BatchKind::Trash) return QStringLiteral("trash");
     if (kind == BatchKind::Restore) return QStringLiteral("restore");
+    if (kind == BatchKind::Extract) return QStringLiteral("extract");
+    if (kind == BatchKind::Compress) return QStringLiteral("compress");
     return QStringLiteral("unknown");
 }
 
@@ -147,4 +154,3 @@ void FileManagerApi::onBatchTaskProgress(qlonglong baseBytes, qlonglong currentB
         emit batchOperationStateChanged();
     }
 }
-

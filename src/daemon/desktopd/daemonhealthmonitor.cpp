@@ -10,14 +10,24 @@
 #include <QtGlobal>
 #include <QDebug>
 #include <QDateTime>
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QSaveFile>
+#include <QStandardPaths>
 
 namespace {
 constexpr int kBaseDelayMs = 2000;
 constexpr int kMaxDelayMs = 30000;
+constexpr int kDefaultTimelineLimit = 200;
 }
 
 struct DaemonHealthMonitor::Peer
 {
+    QString key;
     QString service;
     QString path;
     QString iface;
@@ -27,6 +37,7 @@ struct DaemonHealthMonitor::Peer
     qint64 lastOkMs = 0;
     QString lastError;
     bool registered = false;
+    QString lastTimelineCode;
 };
 
 DaemonHealthMonitor::DaemonHealthMonitor(QObject *parent)
@@ -36,15 +47,29 @@ DaemonHealthMonitor::DaemonHealthMonitor(QObject *parent)
     m_bus = busObj;
 
     m_fileOps = new Peer{
+        QStringLiteral("fileOperations"),
         QStringLiteral("org.slm.Desktop.FileOperations"),
         QStringLiteral("/org/slm/Desktop/FileOperations"),
         QStringLiteral("org.slm.Desktop.FileOperations"),
     };
     m_devices = new Peer{
+        QStringLiteral("devices"),
         QStringLiteral("org.slm.Desktop.Devices"),
         QStringLiteral("/org/slm/Desktop/Devices"),
         QStringLiteral("org.slm.Desktop.Devices"),
     };
+
+    m_timelineLimit = qMax(32, qEnvironmentVariableIntValue("SLM_DAEMON_HEALTH_TIMELINE_LIMIT"));
+    if (!qEnvironmentVariableIsSet("SLM_DAEMON_HEALTH_TIMELINE_LIMIT")) {
+        m_timelineLimit = kDefaultTimelineLimit;
+    }
+    m_timelineFilePath = resolveTimelineFilePath();
+    loadTimeline();
+    appendTimelineEvent(QStringLiteral("monitor"),
+                        nullptr,
+                        QStringLiteral("monitor-started"),
+                        QStringLiteral("info"),
+                        QStringLiteral("Desktop daemon health monitor started."));
 
     setupPeer(*m_fileOps);
     setupPeer(*m_devices);
@@ -91,6 +116,15 @@ void DaemonHealthMonitor::checkPeer(Peer &peer)
         peer.failures += 1;
         peer.registered = false;
         peer.lastError = QStringLiteral("session-bus-unavailable");
+        if (peer.lastTimelineCode != peer.lastError) {
+            appendTimelineEvent(peer.key,
+                                &peer,
+                                peer.lastError,
+                                QStringLiteral("critical"),
+                                QStringLiteral("Session bus unavailable while checking peer."),
+                                {{QStringLiteral("service"), peer.service}});
+            peer.lastTimelineCode = peer.lastError;
+        }
         schedule(peer, nextDelayMs(peer.failures));
         return;
     }
@@ -100,6 +134,15 @@ void DaemonHealthMonitor::checkPeer(Peer &peer)
         peer.failures += 1;
         peer.registered = false;
         peer.lastError = QStringLiteral("service-not-registered");
+        if (peer.lastTimelineCode != peer.lastError) {
+            appendTimelineEvent(peer.key,
+                                &peer,
+                                peer.lastError,
+                                QStringLiteral("error"),
+                                QStringLiteral("Service is not registered on session bus."),
+                                {{QStringLiteral("service"), peer.service}});
+            peer.lastTimelineCode = peer.lastError;
+        }
         qWarning().noquote() << "[desktopd][watchdog] missing service=" << peer.service
                              << "failures=" << peer.failures;
         schedule(peer, nextDelayMs(peer.failures));
@@ -113,6 +156,15 @@ void DaemonHealthMonitor::checkPeer(Peer &peer)
     if (!ok) {
         peer.failures += 1;
         peer.lastError = QStringLiteral("ping-failed");
+        if (peer.lastTimelineCode != peer.lastError) {
+            appendTimelineEvent(peer.key,
+                                &peer,
+                                peer.lastError,
+                                QStringLiteral("error"),
+                                QStringLiteral("Health ping failed."),
+                                {{QStringLiteral("service"), peer.service}});
+            peer.lastTimelineCode = peer.lastError;
+        }
         qWarning().noquote() << "[desktopd][watchdog] ping failed service=" << peer.service
                              << "failures=" << peer.failures;
         schedule(peer, nextDelayMs(peer.failures));
@@ -121,10 +173,17 @@ void DaemonHealthMonitor::checkPeer(Peer &peer)
 
     if (peer.failures > 0) {
         qInfo().noquote() << "[desktopd][watchdog] recovered service=" << peer.service;
+        appendTimelineEvent(peer.key,
+                            &peer,
+                            QStringLiteral("recovered"),
+                            QStringLiteral("info"),
+                            QStringLiteral("Peer service recovered."),
+                            {{QStringLiteral("service"), peer.service}});
     }
     peer.failures = 0;
     peer.lastOkMs = QDateTime::currentMSecsSinceEpoch();
     peer.lastError.clear();
+    peer.lastTimelineCode.clear();
     schedule(peer, kBaseDelayMs);
 }
 
@@ -175,5 +234,117 @@ QVariantMap DaemonHealthMonitor::snapshot() const
     out.insert(QStringLiteral("devices"), peerToMap(m_devices));
     out.insert(QStringLiteral("baseDelayMs"), kBaseDelayMs);
     out.insert(QStringLiteral("maxDelayMs"), kMaxDelayMs);
+    const bool degraded = (m_fileOps && m_fileOps->failures > 0)
+                       || (m_devices && m_devices->failures > 0);
+    out.insert(QStringLiteral("degraded"), degraded);
+    QVariantList reasonCodes;
+    if (m_fileOps && !m_fileOps->lastError.isEmpty()) {
+        reasonCodes.push_back(m_fileOps->lastError);
+    }
+    if (m_devices && !m_devices->lastError.isEmpty()) {
+        const QString code = m_devices->lastError;
+        if (!reasonCodes.contains(code)) {
+            reasonCodes.push_back(code);
+        }
+    }
+    out.insert(QStringLiteral("reasonCodes"), reasonCodes);
+    out.insert(QStringLiteral("timeline"), m_timeline);
+    out.insert(QStringLiteral("timelineSize"), m_timeline.size());
+    out.insert(QStringLiteral("timelineFile"), m_timelineFilePath);
     return out;
+}
+
+void DaemonHealthMonitor::appendTimelineEvent(const QString &peerKey,
+                                              const Peer *peer,
+                                              const QString &code,
+                                              const QString &severity,
+                                              const QString &message,
+                                              const QVariantMap &details)
+{
+    QVariantMap row;
+    row.insert(QStringLiteral("tsMs"), QDateTime::currentMSecsSinceEpoch());
+    row.insert(QStringLiteral("peer"), peerKey);
+    row.insert(QStringLiteral("code"), code.trimmed().toLower());
+    row.insert(QStringLiteral("severity"), severity.trimmed().isEmpty() ? QStringLiteral("info")
+                                                                        : severity.trimmed().toLower());
+    row.insert(QStringLiteral("message"), message);
+    if (peer) {
+        row.insert(QStringLiteral("service"), peer->service);
+        row.insert(QStringLiteral("failures"), peer->failures);
+        row.insert(QStringLiteral("registered"), peer->registered);
+    }
+    if (!details.isEmpty()) {
+        row.insert(QStringLiteral("details"), details);
+    }
+    m_timeline.push_back(row);
+    while (m_timeline.size() > m_timelineLimit) {
+        m_timeline.removeFirst();
+    }
+    saveTimeline();
+}
+
+QString DaemonHealthMonitor::resolveTimelineFilePath() const
+{
+    const QString overridePath = qEnvironmentVariable("SLM_DAEMON_HEALTH_TIMELINE_FILE").trimmed();
+    if (!overridePath.isEmpty()) {
+        return overridePath;
+    }
+
+    const QString stateRoot = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
+    if (stateRoot.isEmpty()) {
+        return QDir::temp().filePath(QStringLiteral("slm-daemon-health-timeline.json"));
+    }
+    return QDir(stateRoot).filePath(QStringLiteral("daemon-health-timeline.json"));
+}
+
+void DaemonHealthMonitor::loadTimeline()
+{
+    m_timeline.clear();
+    if (m_timelineFilePath.isEmpty()) {
+        return;
+    }
+    QFile file(m_timelineFilePath);
+    if (!file.exists()) {
+        return;
+    }
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        return;
+    }
+    const QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
+    if (!doc.isArray()) {
+        return;
+    }
+    const QJsonArray arr = doc.array();
+    for (const QJsonValue &item : arr) {
+        if (!item.isObject()) {
+            continue;
+        }
+        m_timeline.push_back(item.toObject().toVariantMap());
+    }
+    while (m_timeline.size() > m_timelineLimit) {
+        m_timeline.removeFirst();
+    }
+}
+
+void DaemonHealthMonitor::saveTimeline() const
+{
+    if (m_timelineFilePath.isEmpty()) {
+        return;
+    }
+    const QFileInfo info(m_timelineFilePath);
+    QDir dir(info.path());
+    if (!dir.exists() && !dir.mkpath(QStringLiteral("."))) {
+        return;
+    }
+
+    QJsonArray arr;
+    for (const QVariant &item : m_timeline) {
+        arr.push_back(QJsonObject::fromVariantMap(item.toMap()));
+    }
+    QSaveFile file(m_timelineFilePath);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
+        return;
+    }
+    file.write(QJsonDocument(arr).toJson(QJsonDocument::Compact));
+    file.commit();
 }

@@ -26,6 +26,10 @@ function batchOperationLabel(typeValue) {
         return "Moving to Trash"
     if (t === "restore")
         return "Restoring"
+    if (t === "extract")
+        return "Extracting"
+    if (t === "compress")
+        return "Compressing"
     return "Processing"
 }
 
@@ -39,6 +43,10 @@ function updateBatchOverlayFromApi(root, batchOverlayPopup) {
 
 function toggleBatchPauseResume(root, fileManagerApi) {
     if (!fileManagerApi || !fileManagerApi.batchOperationActive) {
+        return
+    }
+    var op = String(fileManagerApi.batchOperationType || "").toLowerCase()
+    if (op === "extract" || op === "compress") {
         return
     }
     if (!!fileManagerApi.batchOperationPaused) {

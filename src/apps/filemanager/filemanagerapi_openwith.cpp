@@ -4,6 +4,7 @@
 #include <QFileInfo>
 #include <QMimeDatabase>
 #include <QMetaObject>
+#include <QSet>
 #include <QUrl>
 #include <QtGlobal>
 
@@ -80,30 +81,80 @@ QVariantList FileManagerApi::openWithApplications(const QString &path, int limit
         return {};
     }
 
-    GAppInfo *defaultApp = g_app_info_get_default_for_type(contentType.toUtf8().constData(),
-                                                            false);
-    GList *apps = g_app_info_get_all_for_type(contentType.toUtf8().constData());
-    QVariantList out;
+    const QByteArray ctUtf8 = contentType.toUtf8();
+    GAppInfo *defaultApp = g_app_info_get_default_for_type(ctUtf8.constData(), false);
     const int hardLimit = limit <= 0 ? 256 : qMin(limit, 256);
-    int count = 0;
-    for (GList *it = apps; it != nullptr && count < hardLimit; it = it->next) {
+    QVariantList out;
+    QSet<QString> seen;
+
+    // Phase 1: apps registered in GIO's MIME database for this content type.
+    GList *apps = g_app_info_get_all_for_type(ctUtf8.constData());
+    for (GList *it = apps; it != nullptr && out.size() < hardLimit; it = it->next) {
         GAppInfo *info = G_APP_INFO(it->data);
         if (!info || !g_app_info_should_show(info)) {
             continue;
         }
+        const QString id = QString::fromUtf8(g_app_info_get_id(info));
+        if (id.isEmpty()) {
+            continue;
+        }
         QVariantMap row;
-        row.insert(QStringLiteral("id"), QString::fromUtf8(g_app_info_get_id(info)));
+        row.insert(QStringLiteral("id"), id);
         row.insert(QStringLiteral("name"), QString::fromUtf8(g_app_info_get_display_name(info)));
         row.insert(QStringLiteral("defaultApp"),
                    defaultApp != nullptr && g_app_info_equal(defaultApp, info));
         row.insert(QStringLiteral("iconName"), iconNameFromGIconLocal(g_app_info_get_icon(info)));
         out.push_back(row);
-        ++count;
+        seen.insert(id);
     }
+    g_list_free_full(apps, g_object_unref);
+
+    // Phase 2: supplement with sandbox (Flatpak) apps not in GIO's per-process
+    // MIME cache.  g_app_info_get_all() enumerates every installed app including
+    // those whose .desktop files live under Flatpak's export dirs.  We check
+    // g_app_info_get_supported_types() directly so we don't rely on the MIME
+    // database being populated for this process.
+    GList *allApps = g_app_info_get_all();
+    for (GList *it = allApps; it != nullptr && out.size() < hardLimit; it = it->next) {
+        GAppInfo *info = G_APP_INFO(it->data);
+        if (!info || !g_app_info_should_show(info)) {
+            continue;
+        }
+        const QString id = QString::fromUtf8(g_app_info_get_id(info));
+        if (id.isEmpty() || seen.contains(id)) {
+            continue;
+        }
+        const char * const *types = g_app_info_get_supported_types(info);
+        if (!types) {
+            continue;
+        }
+        bool supports = false;
+        for (int j = 0; types[j] != nullptr && !supports; ++j) {
+            // Exact match or content-type hierarchy (e.g. app declares "image/*"
+            // and file is "image/png").
+            if (qstrcmp(types[j], ctUtf8.constData()) == 0
+                    || g_content_type_is_a(ctUtf8.constData(), types[j])) {
+                supports = true;
+            }
+        }
+        if (!supports) {
+            continue;
+        }
+        QVariantMap row;
+        row.insert(QStringLiteral("id"), id);
+        row.insert(QStringLiteral("name"), QString::fromUtf8(g_app_info_get_display_name(info)));
+        row.insert(QStringLiteral("defaultApp"),
+                   defaultApp != nullptr && g_app_info_equal(defaultApp, info));
+        row.insert(QStringLiteral("iconName"), iconNameFromGIconLocal(g_app_info_get_icon(info)));
+        row.insert(QStringLiteral("sandbox"), true);
+        out.push_back(row);
+        seen.insert(id);
+    }
+    g_list_free_full(allApps, g_object_unref);
+
     if (defaultApp != nullptr) {
         g_object_unref(defaultApp);
     }
-    g_list_free_full(apps, g_object_unref);
     return out;
 }
 

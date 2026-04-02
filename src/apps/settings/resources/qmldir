@@ -1,0 +1,3 @@
+module Slm_Desktop
+singleton Theme 1.0 Theme.qml
+depends QtQuick

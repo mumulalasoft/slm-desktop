@@ -217,6 +217,27 @@ bool PermissionStore::savePermission(const QString &appId,
     return insert.exec();
 }
 
+bool PermissionStore::removePermission(const QString &appId,
+                                       Capability capability,
+                                       const QString &resourceType,
+                                       const QString &resourceId)
+{
+    if (!ensureConnection()) {
+        return false;
+    }
+    QSqlQuery q(m_db);
+    q.prepare(QStringLiteral(
+        "DELETE FROM permissions "
+        "WHERE app_id=:app_id AND capability=:capability "
+        "AND COALESCE(resource_type,'')=COALESCE(:resource_type,'') "
+        "AND COALESCE(resource_id,'')=COALESCE(:resource_id,'')"));
+    q.bindValue(QStringLiteral(":app_id"), appId.trimmed());
+    q.bindValue(QStringLiteral(":capability"), capabilityToString(capability));
+    q.bindValue(QStringLiteral(":resource_type"), resourceType.trimmed());
+    q.bindValue(QStringLiteral(":resource_id"), resourceId.trimmed());
+    return q.exec();
+}
+
 bool PermissionStore::appendAudit(const QString &appId,
                                   Capability capability,
                                   DecisionType decision,

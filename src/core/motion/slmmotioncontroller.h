@@ -13,6 +13,8 @@ namespace Slm::Motion {
 class MotionController : public QObject
 {
     Q_OBJECT
+    Q_PROPERTY(bool microInteractionSuppressed READ microInteractionSuppressed NOTIFY microInteractionSuppressedChanged)
+    Q_PROPERTY(int activeLifecyclePriority READ activeLifecyclePriority NOTIFY activeLifecyclePriorityChanged)
     Q_PROPERTY(double value READ value NOTIFY valueChanged)
     Q_PROPERTY(double velocity READ velocity NOTIFY velocityChanged)
     Q_PROPERTY(double lastFrameDt READ lastFrameDt NOTIFY lastFrameDtChanged)
@@ -23,6 +25,13 @@ class MotionController : public QObject
     Q_PROPERTY(QString preset READ preset WRITE setPreset NOTIFY presetChanged)
 
 public:
+    enum MotionPriority {
+        LowPriority = 0,
+        MediumPriority = 1,
+        HighPriority = 2
+    };
+    Q_ENUM(MotionPriority)
+
     explicit MotionController(QObject *parent = nullptr);
 
     double value() const;
@@ -31,6 +40,8 @@ public:
     double timeScale() const;
     qulonglong droppedFrameCount() const;
     bool reducedMotion() const;
+    bool microInteractionSuppressed() const;
+    int activeLifecyclePriority() const;
     QString channel() const;
     QString preset() const;
 
@@ -40,11 +51,17 @@ public:
     void setReducedMotion(bool enabled);
 
     Q_INVOKABLE void ensureRunning();
+    Q_INVOKABLE void enableVsyncDriving();
+    Q_INVOKABLE void windowFrame();
     Q_INVOKABLE void startFromCurrent(double target);
     Q_INVOKABLE void retarget(double target);
     Q_INVOKABLE void adoptVelocity(double velocity);
     Q_INVOKABLE void cancelAndSettle(double target);
     Q_INVOKABLE QVariantList channelsSnapshot() const;
+    Q_INVOKABLE void beginLifecycleTransition(const QString &owner, int priority);
+    Q_INVOKABLE void endLifecycleTransition(const QString &owner);
+    Q_INVOKABLE bool allowMotionPriority(int priority) const;
+    Q_INVOKABLE bool shouldCoalesceEvent(const QString &eventKey, int windowMs = 80);
 
     Q_INVOKABLE void gestureBegin(double initialProgress = 0.0);
     Q_INVOKABLE void gestureUpdate(double distance, double range);
@@ -60,6 +77,8 @@ signals:
     void timeScaleChanged();
     void droppedFrameCountChanged();
     void reducedMotionChanged();
+    void microInteractionSuppressedChanged();
+    void activeLifecyclePriorityChanged();
     void channelChanged();
     void presetChanged();
 

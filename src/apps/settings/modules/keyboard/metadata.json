@@ -1,0 +1,27 @@
+{
+    "id": "keyboard",
+    "name": "Keyboard",
+    "icon": "input-keyboard",
+    "group": "Hardware",
+    "description": "Keyboard layout, repeat, and shortcuts.",
+    "keywords": ["keyboard", "layout", "repeat", "shortcut"],
+    "main": "KeyboardPage.qml",
+    "settings": [
+        {
+            "id": "layout",
+            "label": "Input Source",
+            "description": "Keyboard language layout",
+            "keywords": ["layout", "language", "input"],
+            "type": "dropdown",
+            "backend_binding": "gsettings:org.gnome.desktop.input-sources/sources"
+        },
+        {
+            "id": "repeat",
+            "label": "Key Repeat",
+            "description": "Enable key repeat behavior",
+            "keywords": ["repeat", "typing"],
+            "type": "toggle",
+            "backend_binding": "gsettings:org.gnome.desktop.peripherals.keyboard/repeat"
+        }
+    ]
+}

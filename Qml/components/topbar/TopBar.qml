@@ -2,7 +2,7 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import Slm_Desktop
-import Style as DSStyle
+import SlmStyle as DSStyle
 import "." as TB
 
 Rectangle {
@@ -51,7 +51,7 @@ Rectangle {
     Behavior on color {
         ColorAnimation {
             duration: Theme.transitionDuration
-            easing.type: Easing.InOutQuad
+            easing.type: Theme.easingStandard
         }
     }
 
@@ -163,6 +163,12 @@ Rectangle {
             name: "sound",
             source: "../applet/SoundApplet.qml",
             order: 400,
+            properties: { popupHost: root.popupHost }
+        })
+        IndicatorRegistry.registerIndicator({
+            name: "print",
+            source: "../applet/PrintJobApplet.qml",
+            order: 450,
             properties: { popupHost: root.popupHost }
         })
         IndicatorRegistry.registerIndicator({

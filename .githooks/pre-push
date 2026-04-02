@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(git rev-parse --show-toplevel)"
+cd "${ROOT_DIR}"
+
+if [[ "${SLM_SKIP_PREPUSH:-0}" == "1" ]]; then
+  echo "[pre-push] skipped (SLM_SKIP_PREPUSH=1)"
+  exit 0
+fi
+
+echo "[pre-push] full animation token lint"
+scripts/check-animation-token-usage.sh all
+
+echo "[pre-push] UI style lint"
+scripts/lint-ui-style.sh all
+
+echo "[pre-push] OK"

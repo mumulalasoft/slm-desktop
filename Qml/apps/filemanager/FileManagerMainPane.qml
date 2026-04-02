@@ -2,7 +2,8 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import Slm_Desktop
-import Style
+import SlmStyle
+import "../../components/system"
 import "FileManagerContentHandlers.js" as FileManagerContentHandlers
 
 Rectangle {
@@ -22,9 +23,27 @@ Rectangle {
 
         FileManagerTabBar {
             Layout.fillWidth: true
-            Layout.preferredHeight: 28
+            Layout.preferredHeight: Theme.controlHeightRegular
             hostRoot: root.hostRoot
             tabModel: root.tabModel
+        }
+
+        MissingComponentsCard {
+            Layout.fillWidth: true
+            Layout.leftMargin: 10
+            Layout.rightMargin: 10
+            Layout.topMargin: 6
+            Layout.bottomMargin: 6
+            issues: root.hostRoot ? (root.hostRoot.archiveMissingIssues || []) : []
+            summaryText: "Archive features need additional components."
+            showPackageName: true
+            busy: root.hostRoot ? !!root.hostRoot.archiveMissingInstallBusy : false
+            statusText: root.hostRoot ? String(root.hostRoot.archiveMissingStatusText || "") : ""
+            onInstallRequested: function(componentId) {
+                if (root.hostRoot && root.hostRoot.installArchiveMissingComponent) {
+                    root.hostRoot.installArchiveMissingComponent(componentId)
+                }
+            }
         }
 
         Rectangle {
@@ -108,7 +127,7 @@ Rectangle {
 
         FileManagerFooterBar {
             Layout.fillWidth: true
-            Layout.preferredHeight: 30
+            Layout.preferredHeight: Theme.fileManagerStatusBarHeight
             Layout.bottomMargin: 4
             hostRoot: root.hostRoot
         }

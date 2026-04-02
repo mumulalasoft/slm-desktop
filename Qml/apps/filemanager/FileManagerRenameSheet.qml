@@ -2,6 +2,7 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import Slm_Desktop
+import SlmStyle as DSStyle
 
 Item {
     id: sheet
@@ -42,12 +43,12 @@ Item {
             anchors.margins: 12
             spacing: 10
 
-            Label {
+            DSStyle.Label {
                 text: "Rename"
                 color: Theme.color("textPrimary")
                 font.weight: Theme.fontWeight("bold")
             }
-            TextField {
+            DSStyle.TextField {
                 id: renameField
                 Layout.fillWidth: true
                 text: sheet.targetName
@@ -57,11 +58,11 @@ Item {
             RowLayout {
                 Layout.alignment: Qt.AlignRight
                 spacing: 8
-                Button {
+                DSStyle.Button {
                     text: "Cancel"
                     onClicked: sheet.cancelRequested()
                 }
-                Button {
+                DSStyle.Button {
                     text: "Apply"
                     onClicked: sheet.applyRequested()
                 }

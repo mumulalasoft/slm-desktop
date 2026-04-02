@@ -1,7 +1,23 @@
 .pragma library
 
+function fallbackPathFromSidebarLabel(root) {
+    var label = String(root.sidebarContextLabel || "").trim().toLowerCase()
+    if (label === "home") return "~"
+    if (label === "documents") return "~/Documents"
+    if (label === "music") return "~/Music"
+    if (label === "pictures") return "~/Pictures"
+    if (label === "videos") return "~/Videos"
+    if (label === "downloads") return "~/Downloads"
+    if (label === "desktop") return "~/Desktop"
+    if (label === "trash") return root.trashFilesPath
+    return ""
+}
+
 function openSidebarContextPath(root, pathValue) {
     var p = String(pathValue || root.sidebarContextPath || "")
+    if (p.length <= 0) {
+        p = fallbackPathFromSidebarLabel(root)
+    }
     if (p.length <= 0) {
         return
     }
@@ -11,6 +27,9 @@ function openSidebarContextPath(root, pathValue) {
 function openSidebarContextPathInNewTab(root, pathValue) {
     var p = String(pathValue || root.sidebarContextPath || "")
     if (p.length <= 0) {
+        p = fallbackPathFromSidebarLabel(root)
+    }
+    if (p.length <= 0) {
         return
     }
     root.openPathInNewTab(p)
@@ -18,6 +37,9 @@ function openSidebarContextPathInNewTab(root, pathValue) {
 
 function openSidebarContextPathInNewWindow(root, pathValue) {
     var p = String(pathValue || root.sidebarContextPath || "")
+    if (p.length <= 0) {
+        p = fallbackPathFromSidebarLabel(root)
+    }
     if (p.length <= 0) {
         return
     }

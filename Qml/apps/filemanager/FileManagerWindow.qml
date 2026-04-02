@@ -2,7 +2,7 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Window 2.15
 import Slm_Desktop
-import Style
+import SlmStyle
 import "." as FM
 import "./FileManagerOps.js" as FileManagerOps
 import "./FileManagerKeys.js" as FileManagerKeys
@@ -31,6 +31,13 @@ Rectangle {
     property string contextEntryPath: ""
     property string contextEntryName: ""
     property bool contextEntryIsDir: false
+    property string contextEntryMimeType: ""
+    property string contextEntrySuffix: ""
+    readonly property bool contextEntryIsArchive: FileManagerOps.isArchiveEntryPath(
+                                                      contextEntryPath,
+                                                      contextEntryName,
+                                                      contextEntryMimeType,
+                                                      contextEntrySuffix)
     readonly property bool contextEntryProtected: isProtectedEntryPath(
                                                       contextEntryPath)
     property string renameDialogError: ""
@@ -130,6 +137,11 @@ Rectangle {
     property string quickPreviewMetaText: ""
     property string quickPreviewImageSource: ""
     property string quickPreviewFallbackIconSource: ""
+    property bool quickPreviewArchiveMode: false
+    property var quickPreviewArchiveEntries: []
+    property int quickPreviewArchiveEntryCount: 0
+    property bool quickPreviewArchiveTruncated: false
+    property string quickPreviewArchiveLayout: ""
     property var propertiesEntry: ({})
     property var propertiesStat: ({})
     property int propertiesTabIndex: 0
@@ -138,10 +150,16 @@ Rectangle {
     property int propertiesOpenWithCurrentIndex: -1
     property string propertiesOpenWithRequestId: ""
     property string propertiesOpenWithPath: ""
+    property var folderShareInfoCache: ({})
+    property string propertiesSharePath: ""
     property string quickTypeBuffer: ""
     property string pendingPortalChooserRequestId: ""
     property string pendingPortalChooserAction: ""
     property var pendingPortalChooserSources: []
+    property string pendingPortalChooserArchive: ""
+    property var archiveMissingIssues: []
+    property string archiveMissingStatusText: ""
+    property bool archiveMissingInstallBusy: false
     readonly property bool propertiesShowDeviceUsage: !!(propertiesStat
                                                          && propertiesStat.isDir)
                                                       && Number(
@@ -155,6 +173,7 @@ Rectangle {
     readonly property var fileManagerApiRef: (typeof FileManagerApi !== "undefined") ? FileManagerApi : null
     readonly property var modelFactoryRef: (typeof FileManagerModelFactory !== "undefined") ? FileManagerModelFactory : null
     readonly property var uiPreferencesRef: (typeof UIPreferences !== "undefined") ? UIPreferences : null
+    readonly property var tabModelRef: tabModel
     readonly property var appCommandRouterRef: (typeof AppCommandRouter !== "undefined") ? AppCommandRouter : null
     readonly property var notificationManagerRef: (typeof NotificationManager !== "undefined") ? NotificationManager : null
     readonly property var cursorControllerRef: (typeof CursorController !== "undefined") ? CursorController : null
@@ -169,6 +188,7 @@ Rectangle {
     readonly property var propertiesDialogRef: dialogsRef ? dialogsRef.propertiesDialogRef : null
     readonly property var compressDialogRef: dialogsRef ? dialogsRef.compressDialogRef : null
     readonly property var openWithDialogRef: dialogsRef ? dialogsRef.openWithDialogRef : null
+    readonly property var folderShareDialogRef: dialogsRef ? dialogsRef.folderShareDialogRef : null
     readonly property var shareSheetRef: dialogsRef ? dialogsRef.shareSheetRef : null
 
     function isRecentPath(pathValue) {
@@ -232,7 +252,7 @@ Rectangle {
     function switchToTab(indexValue) { FileManagerTabs.switchToTab(root, indexValue) }
     function closeTab(indexValue) { FileManagerTabs.closeTab(root, modelFactoryRef, uiPreferencesRef, indexValue) }
     function saveTabState() { FileManagerTabs.saveTabState(root, uiPreferencesRef) }
-    function restoreTabState(defaultPath) { FileManagerTabs.restoreTabState(root, defaultPath) }
+    function restoreTabState(defaultPath) { FileManagerTabs.restoreTabState(root, uiPreferencesRef, defaultPath) }
     function openContextEntryInNewTab() { FileManagerTabs.openContextEntryInNewTab(root, modelFactoryRef, uiPreferencesRef) }
     function openSidebarContextPath(pathValue) { FileManagerSidebarContextOps.openSidebarContextPath(root, pathValue) }
     function openSidebarContextPathInNewTab(pathValue) { FileManagerSidebarContextOps.openSidebarContextPathInNewTab(root, pathValue) }
@@ -551,6 +571,189 @@ Rectangle {
     }
     function refreshPropertiesOpenWithApps(pathValue) { FileManagerOpenWith.refreshPropertiesOpenWithApps(root, fileManagerApiRef, pathValue) }
     function applyPropertiesOpenWithSelection(indexValue) { FileManagerOpenWith.applyPropertiesOpenWithSelection(root, fileManagerApiRef, indexValue) }
+    function folderShareInfoForPath(pathValue) {
+        var p = String(pathValue || "")
+        if (p.length <= 0 || !fileManagerApiRef || !fileManagerApiRef.folderShareInfo) {
+            return ({
+                        "ok": false,
+                        "enabled": false
+                    })
+        }
+        var res = fileManagerApiRef.folderShareInfo(p)
+        if (!!res && !!res.ok) {
+            var next = {}
+            var keys = Object.keys(folderShareInfoCache || ({}))
+            for (var i = 0; i < keys.length; ++i) {
+                next[keys[i]] = folderShareInfoCache[keys[i]]
+            }
+            next[String(res.path || p)] = res
+            folderShareInfoCache = next
+        }
+        return res || ({
+                           "ok": false,
+                           "enabled": false
+                       })
+    }
+    function prepareFolderShareDialog(pathValue) {
+        var info = folderShareInfoForPath(pathValue)
+        if (folderShareDialogRef && folderShareDialogRef.applyFromInfo) {
+            folderShareDialogRef.applyFromInfo(info)
+        }
+    }
+    function openFolderShareDialog(pathValue) {
+        var p = String(pathValue || "")
+        if (p.length <= 0) {
+            p = String(contextEntryPath || "")
+        }
+        if (p.length <= 0 || !folderShareDialogRef || !folderShareDialogRef.openForPath) {
+            return
+        }
+        folderShareDialogRef.openForPath(p)
+    }
+    function applyFolderShareConfig(pathValue, options) {
+        if (!fileManagerApiRef || !fileManagerApiRef.configureFolderShare) {
+            return ({
+                        "ok": false,
+                        "error": "api-unavailable"
+                    })
+        }
+        var res = fileManagerApiRef.configureFolderShare(String(pathValue || ""),
+                                                         options || ({}))
+        if (!!res && !!res.ok) {
+            var cp = String(res.path || pathValue || "")
+            if (cp.length > 0) {
+                var next = {}
+                var keys = Object.keys(folderShareInfoCache || ({}))
+                for (var i = 0; i < keys.length; ++i) {
+                    next[keys[i]] = folderShareInfoCache[keys[i]]
+                }
+                next[cp] = res
+                folderShareInfoCache = next
+                propertiesSharePath = cp
+            }
+            refreshCurrent()
+            notifyResult("Bagikan Folder", {
+                             "ok": true,
+                             "message": "Folder sekarang dibagikan di jaringan"
+                         })
+        }
+        return res
+    }
+    function disableFolderShare(pathValue) {
+        if (!fileManagerApiRef || !fileManagerApiRef.disableFolderShare) {
+            return ({
+                        "ok": false,
+                        "error": "api-unavailable"
+                    })
+        }
+        var res = fileManagerApiRef.disableFolderShare(String(pathValue || ""))
+        if (!!res && !!res.ok) {
+            var cp = String(res.path || pathValue || "")
+            if (cp.length > 0) {
+                var next = {}
+                var keys = Object.keys(folderShareInfoCache || ({}))
+                for (var i = 0; i < keys.length; ++i) {
+                    next[keys[i]] = folderShareInfoCache[keys[i]]
+                }
+                next[cp] = res
+                folderShareInfoCache = next
+                propertiesSharePath = cp
+            }
+            refreshCurrent()
+            notifyResult("Bagikan Folder", {
+                             "ok": true,
+                             "message": "Berbagi folder dihentikan"
+                         })
+        }
+        return res
+    }
+    function copyFolderShareAddress(pathValue) {
+        if (!fileManagerApiRef || !fileManagerApiRef.copyFolderShareAddress) {
+            return ({
+                        "ok": false,
+                        "error": "api-unavailable"
+                    })
+        }
+        var res = fileManagerApiRef.copyFolderShareAddress(String(pathValue || ""))
+        notifyResult("Bagikan Folder", res)
+        return res
+    }
+    function folderSharingEnvironment() {
+        if (!fileManagerApiRef || !fileManagerApiRef.folderSharingEnvironment) {
+            return ({
+                        "ok": false,
+                        "ready": false,
+                        "error": "api-unavailable",
+                        "issues": []
+                    })
+        }
+        return fileManagerApiRef.folderSharingEnvironment()
+    }
+    function repairFolderSharingEnvironment() {
+        if (!fileManagerApiRef || !fileManagerApiRef.repairFolderSharingEnvironment) {
+            return ({
+                        "ok": false,
+                        "ready": false,
+                        "error": "api-unavailable",
+                        "issues": [],
+                        "actions": []
+                    })
+        }
+        return fileManagerApiRef.repairFolderSharingEnvironment()
+    }
+    function installMissingComponent(componentIdValue) {
+        if (!fileManagerApiRef || !fileManagerApiRef.installMissingComponent) {
+            return ({
+                        "ok": false,
+                        "error": "api-unavailable"
+                    })
+        }
+        return fileManagerApiRef.installMissingComponent(String(componentIdValue || ""))
+    }
+    function refreshArchiveMissingComponents() {
+        archiveMissingStatusText = ""
+        if (!fileManagerApiRef || !fileManagerApiRef.missingComponentsForDomain) {
+            archiveMissingIssues = []
+            return []
+        }
+        var list = fileManagerApiRef.missingComponentsForDomain("archive")
+        archiveMissingIssues = list || []
+        return archiveMissingIssues
+    }
+    function installArchiveMissingComponent(componentIdValue) {
+        var componentId = String(componentIdValue || "").trim()
+        if (componentId.length <= 0) {
+            return ({
+                        "ok": false,
+                        "error": "invalid-component"
+                    })
+        }
+        if (!fileManagerApiRef || !fileManagerApiRef.installMissingComponentForDomain) {
+            return ({
+                        "ok": false,
+                        "error": "api-unavailable"
+                    })
+        }
+        archiveMissingInstallBusy = true
+        var res = fileManagerApiRef.installMissingComponentForDomain("archive",
+                                                                     componentId)
+        archiveMissingInstallBusy = false
+        if (!!res && !!res.ok) {
+            archiveMissingStatusText = "Archive component installed. Rechecking..."
+            refreshArchiveMissingComponents()
+            notifyResult("Archive", {
+                             "ok": true,
+                             "message": "Archive component installed."
+                         })
+        } else {
+            archiveMissingStatusText = "Install failed: " + String((res && res.error) ? res.error : "unknown")
+            notifyResult("Archive", {
+                             "ok": false,
+                             "error": String((res && res.error) ? res.error : "install-failed")
+                         })
+        }
+        return res
+    }
     function openContextEntryInApp(appIdValue) { FileManagerOpenWith.openContextEntryInApp(root, fileManagerApiRef, appIdValue) }
     function setDefaultContextEntryApp(appIdValue) { FileManagerOpenWith.setDefaultContextEntryApp(root, fileManagerApiRef, appIdValue) }
     function openWithOtherApplication() { FileManagerOpenWith.openWithOtherApplication(root, openWithDialogRef) }
@@ -592,6 +795,9 @@ Rectangle {
     function sendSelectionViaBluetooth() { FileManagerOps.sendSelectionViaBluetooth(root, appCommandRouterRef) }
     function compressSelection() { FileManagerOps.compressSelection(root, fileManagerApiRef, compressDialogRef) }
     function applyCompressSelection() { FileManagerOps.applyCompressSelection(root, fileManagerApiRef, compressDialogRef) }
+    function extractContextArchive(destinationDir) { FileManagerOps.extractContextArchive(root, fileManagerApiRef, destinationDir) }
+    function chooseExtractDestinationForContextArchive() { FileManagerOps.chooseExtractDestinationForContextArchive(root, fileManagerApiRef) }
+    function selectEntryByPath(pathValue) { return FileManagerOps.selectEntryByPath(root, pathValue) }
     function showPropertiesForSelection() { FileManagerOps.showPropertiesForSelection(root, fileManagerApiRef, propertiesDialogRef) }
     function showPropertiesForPath(pathValue) { FileManagerOps.showPropertiesForPath(root, fileManagerApiRef, pathValue, propertiesDialogRef) }
     function isImageSuffix(nameValue) { return FileManagerOps.isImageSuffix(nameValue) }
@@ -610,6 +816,8 @@ Rectangle {
         root.contextEntryName = String(entry.name || basename(
                                            root.contextEntryPath))
         root.contextEntryIsDir = !!entry.isDir
+        root.contextEntryMimeType = String(entry.mimeType || "")
+        root.contextEntrySuffix = String(entry.suffix || "")
         requestRenameContextEntry()
     }
 

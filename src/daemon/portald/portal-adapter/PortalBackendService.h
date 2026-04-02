@@ -5,6 +5,7 @@
 #include "PortalDialogBridge.h"
 #include "PortalPermissionStoreAdapter.h"
 #include "PortalRequestManager.h"
+#include "PortalSecretBridge.h"
 #include "PortalSessionManager.h"
 
 #include <QDBusConnection>
@@ -60,8 +61,22 @@ public slots:
     QVariantMap closeSession(const QString &sessionPath);
     QVariantMap revokeSession(const QString &sessionPath, const QString &reason);
     QVariantMap getSessionMetadata(const QString &sessionPath) const;
+    QVariantMap handleSecretRequest(const QString &portalMethod,
+                                    const QDBusMessage &message,
+                                    const QVariantMap &parameters);
+    QVariantMap handleSecretDirect(const QString &portalMethod,
+                                   const QDBusMessage &message,
+                                   const QVariantMap &parameters);
 
 private:
+    static Slm::Permissions::DecisionType decisionFromConsent(UserDecision decision);
+    static bool isSecretRequestMethod(const QString &portalMethod);
+    static bool isSecretDirectMethod(const QString &portalMethod);
+    static QVariantMap successWithHandle(const QString &requestPath,
+                                         const QVariantMap &extra = {});
+    static QString resolvePortalSecretAppId(const Slm::Permissions::CallerIdentity &caller,
+                                            const QVariantMap &parameters);
+
     QDBusConnection m_bus = QDBusConnection::sessionBus();
     PortalRequestManager m_requestManager;
     PortalSessionManager m_sessionManager;
@@ -69,6 +84,11 @@ private:
     PortalPermissionStoreAdapter m_storeAdapter;
     PortalDialogBridge m_dialogBridge;
     PortalAccessMediator m_accessMediator;
+    PortalSecretBridge m_secretBridge;
+    Slm::Permissions::TrustResolver *m_trustResolver = nullptr;
+    Slm::Permissions::PermissionBroker *m_permissionBroker = nullptr;
+    Slm::Permissions::AuditLogger *m_auditLogger = nullptr;
+    Slm::Permissions::PermissionStore *m_permissionStore = nullptr;
 };
 
 } // namespace Slm::PortalAdapter

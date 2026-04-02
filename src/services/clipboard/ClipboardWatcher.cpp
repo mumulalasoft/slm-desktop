@@ -22,7 +22,10 @@ ClipboardWatcher::ClipboardWatcher(QObject *parent)
     , m_clipboard(QGuiApplication::clipboard())
 {
     const QString platform = QGuiApplication::platformName();
-    if (platform.contains(QLatin1String("wayland"))) {
+    const bool forceQtFallback = qEnvironmentVariableIntValue("SLM_CLIPBOARD_FORCE_QT_FALLBACK") == 1;
+    m_backendMode = selectBackendMode(platform, forceQtFallback);
+
+    if (m_backendMode == BackendMode::NativeWayland) {
         m_wlWatcher = new WaylandClipboardWatcher(this);
         connect(m_wlWatcher, &WaylandClipboardWatcher::itemCaptured,
                 this, &ClipboardWatcher::itemCaptured);
@@ -30,6 +33,7 @@ ClipboardWatcher::ClipboardWatcher(QObject *parent)
             qWarning() << "[ClipboardWatcher] Failed to initialize Wayland clipboard watcher";
             delete m_wlWatcher;
             m_wlWatcher = nullptr;
+            m_backendMode = BackendMode::QtFallback;
         } else {
             qInfo() << "[ClipboardWatcher] Using native Wayland clipboard watcher";
         }
@@ -40,6 +44,18 @@ ClipboardWatcher::ClipboardWatcher(QObject *parent)
                 this, &ClipboardWatcher::onClipboardChanged);
         qInfo() << "[ClipboardWatcher] Using standard QClipboard watcher";
     }
+}
+
+ClipboardWatcher::BackendMode ClipboardWatcher::backendMode() const
+{
+    return m_backendMode;
+}
+
+QString ClipboardWatcher::backendModeString() const
+{
+    return m_backendMode == BackendMode::NativeWayland
+               ? QStringLiteral("native-wayland")
+               : QStringLiteral("qt-fallback");
 }
 
 void ClipboardWatcher::setSuppressed(bool suppressed)

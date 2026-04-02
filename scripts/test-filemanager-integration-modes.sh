@@ -93,8 +93,8 @@ configure_external_shell() {
 log "configure shell build using external SlmFileManager package (local staging)"
 configure_external_shell "$INSTALL_PREFIX" "$EXTERNAL_BUILD_DIR"
 
-log "build appSlm_Desktop in external package mode (local staging)"
-cmake --build "$EXTERNAL_BUILD_DIR" --target appSlm_Desktop -j"$(nproc)"
+log "build slm-desktop in external package mode (local staging)"
+cmake --build "$EXTERNAL_BUILD_DIR" --target slm-desktop -j"$(nproc)"
 
 if [[ -n "$REMOTE_EXTERNAL_REPO" ]]; then
   log "prepare remote external FileManager package"
@@ -108,8 +108,8 @@ if [[ -n "$REMOTE_EXTERNAL_REPO" ]]; then
   log "configure shell build using external SlmFileManager package (remote repo)"
   configure_external_shell "$REMOTE_PREFIX" "$REMOTE_EXTERNAL_BUILD_DIR"
 
-  log "build appSlm_Desktop in external package mode (remote repo)"
-  cmake --build "$REMOTE_EXTERNAL_BUILD_DIR" --target appSlm_Desktop -j"$(nproc)"
+  log "build slm-desktop in external package mode (remote repo)"
+  cmake --build "$REMOTE_EXTERNAL_BUILD_DIR" --target slm-desktop -j"$(nproc)"
 fi
 
 log "integration mode checks passed"

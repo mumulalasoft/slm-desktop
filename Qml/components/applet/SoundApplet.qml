@@ -1,8 +1,9 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
+import QtQuick.Controls.impl 2.15
 import QtQuick.Layouts 1.15
 import Slm_Desktop
-import Style
+import SlmStyle
 
 Item {
     id: root
@@ -27,6 +28,16 @@ Item {
 
     implicitWidth: indicatorButton.implicitWidth
     implicitHeight: indicatorButton.implicitHeight
+
+    function microAnimationAllowed() {
+        if (!Theme.animationsEnabled) {
+            return false
+        }
+        if (typeof MotionController === "undefined" || !MotionController || !MotionController.allowMotionPriority) {
+            return true
+        }
+        return MotionController.allowMotionPriority(MotionController.LowPriority)
+    }
 
     function openMenuSafely() {
         if ((Date.now() - lastMenuCloseMs) < 180) {
@@ -79,12 +90,13 @@ Item {
             implicitWidth: root.iconSize
             implicitHeight: root.iconSize
 
-            Image {
+            IconImage {
                 anchors.centerIn: parent
                 width: root.iconSize
                 height: root.iconSize
                 fillMode: Image.PreserveAspectFit
                 source: root.iconSourceByName(root.soundManager ? root.soundManager.iconName : "audio-volume-muted-symbolic")
+                color: Theme.color("textOnGlass")
                 opacity: (root.soundManager && root.soundManager.available) ? 1.0 : 0.6
             }
         }
@@ -94,6 +106,14 @@ Item {
             color: indicatorButton.hovered ? Theme.color("accentSoft") : "transparent"
             border.width: Theme.borderWidthThin
             border.color: indicatorButton.hovered ? Theme.color("panelBorder") : "transparent"
+            Behavior on color {
+                enabled: root.microAnimationAllowed()
+                ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault }
+            }
+            Behavior on border.color {
+                enabled: root.microAnimationAllowed()
+                ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault }
+            }
         }
     }
 
@@ -229,17 +249,17 @@ Item {
                             scale: visible ? 1.0 : 0.85
 
                             SequentialAnimation on opacity {
-                                running: activeDot.visible
+                                running: activeDot.visible && root.microAnimationAllowed()
                                 loops: Animation.Infinite
-                                NumberAnimation { from: 0.45; to: 1.0; duration: 700; easing.type: Easing.InOutQuad }
-                                NumberAnimation { from: 1.0; to: 0.45; duration: 700; easing.type: Easing.InOutQuad }
+                                NumberAnimation { from: 0.45; to: 1.0; duration: Theme.durationWorkspace + Theme.durationSlow; easing.type: Theme.easingStandard }
+                                NumberAnimation { from: 1.0; to: 0.45; duration: Theme.durationWorkspace + Theme.durationSlow; easing.type: Theme.easingStandard }
                             }
 
                             SequentialAnimation on scale {
-                                running: activeDot.visible
+                                running: activeDot.visible && root.microAnimationAllowed()
                                 loops: Animation.Infinite
-                                NumberAnimation { from: 0.88; to: 1.0; duration: 700; easing.type: Easing.InOutQuad }
-                                NumberAnimation { from: 1.0; to: 0.88; duration: 700; easing.type: Easing.InOutQuad }
+                                NumberAnimation { from: 0.88; to: 1.0; duration: Theme.durationWorkspace + Theme.durationSlow; easing.type: Theme.easingStandard }
+                                NumberAnimation { from: 1.0; to: 0.88; duration: Theme.durationWorkspace + Theme.durationSlow; easing.type: Theme.easingStandard }
                             }
                         }
 

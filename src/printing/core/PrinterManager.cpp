@@ -14,6 +14,23 @@ PrinterManager::PrinterManager(QObject *parent)
 
 void PrinterManager::reload()
 {
+    // Detect CUPS availability before querying printers.
+    const bool cupsNowAvailable = probeScheduler();
+    if (cupsNowAvailable != m_cupsAvailable) {
+        m_cupsAvailable = cupsNowAvailable;
+        emit printingAvailableChanged();
+    }
+
+    if (!m_cupsAvailable) {
+        // Clear printer list while CUPS is down.
+        if (!m_printers.isEmpty() || !m_defaultPrinterId.isEmpty()) {
+            m_printers.clear();
+            m_defaultPrinterId.clear();
+            emit printersChanged();
+        }
+        return;
+    }
+
     const QString defaultRaw = runCommand(QStringLiteral("lpstat"), { QStringLiteral("-d") });
     const QString printersRaw = runCommand(QStringLiteral("lpstat"), { QStringLiteral("-e") });
     const QString statusesRaw = runCommand(QStringLiteral("lpstat"), { QStringLiteral("-p") });
@@ -114,6 +131,21 @@ QVariantList PrinterManager::parsePrinterList(const QString &lpstatEOutput,
         printers.append(item);
     }
     return printers;
+}
+
+bool PrinterManager::probeScheduler()
+{
+    // `lpstat -r` exits 0 with "scheduler is running" when CUPS is up,
+    // exits 1 (or fails to start) when the scheduler is stopped/absent.
+    QProcess process;
+    process.setProgram(QStringLiteral("lpstat"));
+    process.setArguments({ QStringLiteral("-r") });
+    process.setProcessChannelMode(QProcess::MergedChannels);
+    process.start();
+    if (!process.waitForFinished(2000) || process.exitStatus() != QProcess::NormalExit) {
+        return false;
+    }
+    return process.exitCode() == 0;
 }
 
 QString PrinterManager::runCommand(const QString &program, const QStringList &arguments)

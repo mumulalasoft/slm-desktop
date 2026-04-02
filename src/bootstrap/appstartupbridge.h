@@ -48,6 +48,9 @@ class ClipboardServiceClient;
 namespace Slm::Motion {
 class MotionController;
 }
+class ShellStateController;
+class ShellInputRouter;
+class ShellLayerWatchdog;
 
 namespace AppStartupBridge {
 void registerTopBarIndicatorContext(QQmlContext *context,
@@ -92,7 +95,10 @@ void registerCoreContext(QQmlContext *context,
                          TothespotTextHighlighter *tothespotTextHighlighter,
                          MetadataIndexServer *metadataIndexServer,
                          Slm::Clipboard::ClipboardServiceClient *clipboardServiceClient,
-                         Slm::Motion::MotionController *motionController);
+                         Slm::Motion::MotionController *motionController,
+                         ShellStateController *shellStateController,
+                         ShellInputRouter *shellInputRouter,
+                         ShellLayerWatchdog *shellLayerWatchdog);
 
 void setStartupWindowContext(QQmlContext *context,
                              bool appStartWindowed,

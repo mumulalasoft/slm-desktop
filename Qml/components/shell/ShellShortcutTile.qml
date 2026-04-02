@@ -21,6 +21,16 @@ Item {
     property int tileWidth: 96
     property int tileHeight: 108
 
+    function microAnimationAllowed() {
+        if (!Theme.animationsEnabled) {
+            return false
+        }
+        if (typeof MotionController === "undefined" || !MotionController || !MotionController.allowMotionPriority) {
+            return true
+        }
+        return MotionController.allowMotionPriority(MotionController.LowPriority)
+    }
+
     width: cellWidth
     height: cellHeight
 
@@ -40,10 +50,12 @@ Item {
             opacity: root.draggingThis ? 0.15 : (root.hasEntry ? 1.0 : 0.0)
 
             Behavior on opacity {
-                NumberAnimation { duration: 110; easing.type: Easing.OutCubic }
+                enabled: root.microAnimationAllowed()
+                NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault }
             }
             Behavior on color {
-                ColorAnimation { duration: 110; easing.type: Easing.OutCubic }
+                enabled: root.microAnimationAllowed()
+                ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault }
             }
         }
 

@@ -108,8 +108,8 @@ Item {
 
     Behavior on opacity {
         NumberAnimation {
-            duration: 120
-            easing.type: Easing.OutCubic
+            duration: Theme.durationFast
+            easing.type: Theme.easingDefault
         }
     }
 
@@ -185,7 +185,7 @@ Item {
                 x: (slotsViewport.width - root.cardWidth) / 2 - (root.selectedIndex * root.cardPitch)
 
                 Behavior on x {
-                    NumberAnimation { duration: 120; easing.type: Easing.OutCubic }
+                    NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault }
                 }
 
                 Repeater {
@@ -206,13 +206,13 @@ Item {
                                                                   : (distance === 2 ? 0.68 : 0.5))
 
                         Behavior on scale {
-                            NumberAnimation { duration: 110; easing.type: Easing.OutCubic }
+                            NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault }
                         }
                         Behavior on y {
-                            NumberAnimation { duration: 110; easing.type: Easing.OutCubic }
+                            NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault }
                         }
                         Behavior on opacity {
-                            NumberAnimation { duration: 110; easing.type: Easing.OutCubic }
+                            NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault }
                         }
 
                         Rectangle {

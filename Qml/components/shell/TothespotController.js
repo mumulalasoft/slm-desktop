@@ -65,6 +65,63 @@ function refreshTelemetryLast(shell) {
     }
 }
 
+function _seedFallbackEmptyQuery(shell, resultsModel, maxSeed) {
+    var limit = Number(maxSeed || 24)
+    if (limit <= 0) {
+        limit = 24
+    }
+    var fallbackSeed = [
+        {
+            "name": "Settings",
+            "desktopId": "slm-settings.desktop",
+            "executable": "slm-settings",
+            "iconName": "preferences-system-symbolic"
+        },
+        {
+            "name": "Files",
+            "desktopId": "org.gnome.Nautilus.desktop",
+            "executable": "nautilus",
+            "iconName": "system-file-manager-symbolic"
+        },
+        {
+            "name": "Terminal",
+            "desktopId": "org.kde.konsole.desktop",
+            "executable": "konsole",
+            "iconName": "utilities-terminal-symbolic"
+        }
+    ]
+    for (var fs = 0; fs < fallbackSeed.length && resultsModel.count < limit; ++fs) {
+        var f = fallbackSeed[fs]
+        resultsModel.append({
+                                "resultId": "",
+                                "provider": "apps",
+                                "type": "app",
+                                "isApp": true,
+                                "isAction": false,
+                                "resultKind": "app",
+                                "sectionTitle": "Top Apps",
+                                "name": String(f.name || "Application"),
+                                "path": String(f.desktopId || f.executable || ""),
+                                "absolutePath": "",
+                                "iconName": String(f.iconName || "application-x-executable-symbolic"),
+                                "isDir": false,
+                                "desktopId": String(f.desktopId || ""),
+                                "desktopFile": "",
+                                "executable": String(f.executable || ""),
+                                "iconSource": ""
+                            })
+    }
+    if (resultsModel.count > 0) {
+        shell.tothespotSelectedIndex = 0
+        shell.tothespotProviderStats = ({
+                                            "apps": Number(resultsModel.count || 0),
+                                            "recent": 0,
+                                            "seedSource": "fallback-static"
+                                        })
+        refreshPreview(shell, resultsModel)
+    }
+}
+
 function refreshResults(shell, resultsModel, forceReload) {
     var force = !!forceReload
     var appModel = _appModel(shell)
@@ -117,141 +174,153 @@ function refreshResults(shell, resultsModel, forceReload) {
         var appSeedCount = 0
         var recentSeedCount = 0
 
-        if (appModel && appModel.frequentApps) {
-            var top = appModel.frequentApps(8)
-            for (var ai = 0; ai < top.length; ++ai) {
-                var app = top[ai]
-                if (!app) {
-                    continue
-                }
-                var did = String(app.desktopId || "")
-                var dfile = String(app.desktopFile || "")
-                var exe = String(app.executable || "")
-                var appKey = "app:" + appEntryKey(did, dfile, exe, String(app.name || ""))
-                if (appKey === "app:" || seen[appKey]) {
-                    continue
-                }
-                seen[appKey] = true
-                resultsModel.append({
-                                        "resultId": "",
-                                        "provider": "apps",
-                                        "type": "app",
-                                        "isApp": true,
-                                        "isAction": false,
-                                        "resultKind": "app",
-                                        "sectionTitle": "Top Apps",
-                                        "name": String(app.name || "Application"),
-                                        "path": did.length > 0 ? did : exe,
-                                        "absolutePath": "",
-                                        "iconName": String(app.iconName || "application-x-executable-symbolic"),
-                                        "isDir": false,
-                                        "desktopId": did,
-                                        "desktopFile": dfile,
-                                        "executable": exe,
-                                        "iconSource": String(app.iconSource || "")
-                                    })
-                appSeedCount++
-                if (resultsModel.count >= maxSeed) {
-                    break
+        try {
+            if (appModel && appModel.frequentApps) {
+                var top = appModel.frequentApps(8)
+                for (var ai = 0; ai < top.length; ++ai) {
+                    var app = top[ai]
+                    if (!app) {
+                        continue
+                    }
+                    var did = String(app.desktopId || "")
+                    var dfile = String(app.desktopFile || "")
+                    var exe = String(app.executable || "")
+                    var appKey = "app:" + appEntryKey(did, dfile, exe, String(app.name || ""))
+                    if (appKey === "app:" || seen[appKey]) {
+                        continue
+                    }
+                    seen[appKey] = true
+                    resultsModel.append({
+                                            "resultId": "",
+                                            "provider": "apps",
+                                            "type": "app",
+                                            "isApp": true,
+                                            "isAction": false,
+                                            "resultKind": "app",
+                                            "sectionTitle": "Top Apps",
+                                            "name": String(app.name || "Application"),
+                                            "path": did.length > 0 ? did : exe,
+                                            "absolutePath": "",
+                                            "iconName": String(app.iconName || "application-x-executable-symbolic"),
+                                            "isDir": false,
+                                            "desktopId": did,
+                                            "desktopFile": dfile,
+                                            "executable": exe,
+                                            "iconSource": String(app.iconSource || "")
+                                        })
+                    appSeedCount++
+                    if (resultsModel.count >= maxSeed) {
+                        break
+                    }
                 }
             }
+        } catch (eTopApps) {
+            console.log("[slm-tothespot] empty-query top-apps seed failed:", String(eTopApps))
         }
 
         // Fallback when frequent app telemetry is still empty: seed from normal app page.
-        if (appSeedCount <= 0
-                && resultsModel.count < maxSeed
-                && appModel
-                && appModel.page) {
-            var pageRows = appModel.page(0, Math.max(8, maxSeed), "")
-            for (var pi = 0; pi < pageRows.length; ++pi) {
-                var prow = pageRows[pi]
-                if (!prow) {
-                    continue
-                }
-                var pdid = String(prow.desktopId || "")
-                var pdfile = String(prow.desktopFile || "")
-                var pexe = String(prow.executable || "")
-                var pkey = "app:" + appEntryKey(pdid, pdfile, pexe, String(prow.name || ""))
-                if (pkey === "app:" || seen[pkey]) {
-                    continue
-                }
-                seen[pkey] = true
-                resultsModel.append({
-                                        "resultId": "",
-                                        "provider": "apps",
-                                        "type": "app",
-                                        "isApp": true,
-                                        "isAction": false,
-                                        "resultKind": "app",
-                                        "sectionTitle": "Top Apps",
-                                        "name": String(prow.name || "Application"),
-                                        "path": pdid.length > 0 ? pdid : pexe,
-                                        "absolutePath": "",
-                                        "iconName": String(prow.iconName || "application-x-executable-symbolic"),
-                                        "isDir": false,
-                                        "desktopId": pdid,
-                                        "desktopFile": pdfile,
-                                        "executable": pexe,
-                                        "iconSource": String(prow.iconSource || "")
-                                    })
-                appSeedCount++
-                if (resultsModel.count >= maxSeed) {
-                    break
+        try {
+            if (appSeedCount <= 0
+                    && resultsModel.count < maxSeed
+                    && appModel
+                    && appModel.page) {
+                var pageRows = appModel.page(0, Math.max(8, maxSeed), "")
+                for (var pi = 0; pi < pageRows.length; ++pi) {
+                    var prow = pageRows[pi]
+                    if (!prow) {
+                        continue
+                    }
+                    var pdid = String(prow.desktopId || "")
+                    var pdfile = String(prow.desktopFile || "")
+                    var pexe = String(prow.executable || "")
+                    var pkey = "app:" + appEntryKey(pdid, pdfile, pexe, String(prow.name || ""))
+                    if (pkey === "app:" || seen[pkey]) {
+                        continue
+                    }
+                    seen[pkey] = true
+                    resultsModel.append({
+                                            "resultId": "",
+                                            "provider": "apps",
+                                            "type": "app",
+                                            "isApp": true,
+                                            "isAction": false,
+                                            "resultKind": "app",
+                                            "sectionTitle": "Top Apps",
+                                            "name": String(prow.name || "Application"),
+                                            "path": pdid.length > 0 ? pdid : pexe,
+                                            "absolutePath": "",
+                                            "iconName": String(prow.iconName || "application-x-executable-symbolic"),
+                                            "isDir": false,
+                                            "desktopId": pdid,
+                                            "desktopFile": pdfile,
+                                            "executable": pexe,
+                                            "iconSource": String(prow.iconSource || "")
+                                        })
+                    appSeedCount++
+                    if (resultsModel.count >= maxSeed) {
+                        break
+                    }
                 }
             }
+        } catch (eAppPage) {
+            console.log("[slm-tothespot] empty-query app-page seed failed:", String(eAppPage))
         }
 
-        if (resultsModel.count < maxSeed
-                && fileApi
-                && fileApi.recentFiles) {
-            var left = Math.max(0, maxSeed - resultsModel.count)
-            var recents = fileApi.recentFiles(Math.max(10, left))
-            for (var ri = 0; ri < recents.length; ++ri) {
-                var rec = recents[ri]
-                if (!rec) {
-                    continue
-                }
-                var rp = String(rec.path || "")
-                if (rp.length === 0) {
-                    continue
-                }
-                var fkey = "file:" + rp.toLowerCase()
-                if (seen[fkey]) {
-                    continue
-                }
-                seen[fkey] = true
-                var fileName = rp
-                var slashPos = Math.max(fileName.lastIndexOf("/"), fileName.lastIndexOf("\\"))
-                if (slashPos >= 0 && slashPos + 1 < fileName.length) {
-                    fileName = fileName.substring(slashPos + 1)
-                }
-                var stat = cachedStat(rp)
-                var rowIsDir = !!(stat && stat.ok && stat.isDir)
-                var rowMime = (stat && stat.ok) ? String(stat.mimeType || "") : ""
-                var rowFallbackIcon = (stat && stat.ok) ? String(stat.iconName || "") : ""
-                resultsModel.append({
-                                        "resultId": "",
-                                        "provider": "recent",
-                                        "type": "path",
-                                        "isApp": false,
-                                        "isAction": false,
-                                        "resultKind": rowIsDir ? "folder" : "file",
-                                        "sectionTitle": "Recent Files",
-                                        "name": fileName,
-                                        "path": rp,
-                                        "absolutePath": rp,
-                                        "iconName": ShellUtils.tothespotIconForMime(rowMime, rowIsDir, rowFallbackIcon),
-                                        "isDir": rowIsDir,
-                                        "desktopId": "",
-                                        "desktopFile": "",
-                                        "executable": "",
-                                        "iconSource": ""
-                                    })
-                recentSeedCount++
-                if (resultsModel.count >= maxSeed) {
-                    break
+        try {
+            if (resultsModel.count < maxSeed
+                    && fileApi
+                    && fileApi.recentFiles) {
+                var left = Math.max(0, maxSeed - resultsModel.count)
+                var recents = fileApi.recentFiles(Math.max(10, left))
+                for (var ri = 0; ri < recents.length; ++ri) {
+                    var rec = recents[ri]
+                    if (!rec) {
+                        continue
+                    }
+                    var rp = String(rec.path || "")
+                    if (rp.length === 0) {
+                        continue
+                    }
+                    var fkey = "file:" + rp.toLowerCase()
+                    if (seen[fkey]) {
+                        continue
+                    }
+                    seen[fkey] = true
+                    var fileName = rp
+                    var slashPos = Math.max(fileName.lastIndexOf("/"), fileName.lastIndexOf("\\"))
+                    if (slashPos >= 0 && slashPos + 1 < fileName.length) {
+                        fileName = fileName.substring(slashPos + 1)
+                    }
+                    var stat = cachedStat(rp)
+                    var rowIsDir = !!(stat && stat.ok && stat.isDir)
+                    var rowMime = (stat && stat.ok) ? String(stat.mimeType || "") : ""
+                    var rowFallbackIcon = (stat && stat.ok) ? String(stat.iconName || "") : ""
+                    resultsModel.append({
+                                            "resultId": "",
+                                            "provider": "recent",
+                                            "type": "path",
+                                            "isApp": false,
+                                            "isAction": false,
+                                            "resultKind": rowIsDir ? "folder" : "file",
+                                            "sectionTitle": "Recent Files",
+                                            "name": fileName,
+                                            "path": rp,
+                                            "absolutePath": rp,
+                                            "iconName": ShellUtils.tothespotIconForMime(rowMime, rowIsDir, rowFallbackIcon),
+                                            "isDir": rowIsDir,
+                                            "desktopId": "",
+                                            "desktopFile": "",
+                                            "executable": "",
+                                            "iconSource": ""
+                                        })
+                    recentSeedCount++
+                    if (resultsModel.count >= maxSeed) {
+                        break
+                    }
                 }
             }
+        } catch (eRecent) {
+            console.log("[slm-tothespot] empty-query recents seed failed:", String(eRecent))
         }
 
         if (resultsModel.count > 0) {
@@ -260,63 +329,18 @@ function refreshResults(shell, resultsModel, forceReload) {
             shell.tothespotSelectedIndex = 0
             shell.tothespotProviderStats = ({
                                                 "apps": Number(appSeedCount || 0),
-                                                "recent": Number(recentSeedCount || 0)
+                                                "recent": Number(recentSeedCount || 0),
+                                                "seedSource": "local-cache"
                                             })
             refreshPreview(shell, resultsModel)
             return
         }
         // Guaranteed non-empty fallback so empty-query UI never looks broken even
         // before telemetry/recent providers warm up.
-        var fallbackSeed = [
-            {
-                "name": "Settings",
-                "desktopId": "slm-settings.desktop",
-                "executable": "slm-settings",
-                "iconName": "preferences-system-symbolic"
-            },
-            {
-                "name": "Files",
-                "desktopId": "org.gnome.Nautilus.desktop",
-                "executable": "nautilus",
-                "iconName": "system-file-manager-symbolic"
-            },
-            {
-                "name": "Terminal",
-                "desktopId": "org.kde.konsole.desktop",
-                "executable": "konsole",
-                "iconName": "utilities-terminal-symbolic"
-            }
-        ]
-        for (var fs = 0; fs < fallbackSeed.length && resultsModel.count < maxSeed; ++fs) {
-            var f = fallbackSeed[fs]
-            resultsModel.append({
-                                    "resultId": "",
-                                    "provider": "apps",
-                                    "type": "app",
-                                    "isApp": true,
-                                    "isAction": false,
-                                    "resultKind": "app",
-                                    "sectionTitle": "Top Apps",
-                                    "name": String(f.name || "Application"),
-                                    "path": String(f.desktopId || f.executable || ""),
-                                    "absolutePath": "",
-                                    "iconName": String(f.iconName || "application-x-executable-symbolic"),
-                                    "isDir": false,
-                                    "desktopId": String(f.desktopId || ""),
-                                    "desktopFile": "",
-                                    "executable": String(f.executable || ""),
-                                    "iconSource": ""
-                                })
-        }
+        _seedFallbackEmptyQuery(shell, resultsModel, maxSeed)
         if (resultsModel.count > 0) {
             console.log("[slm-tothespot] seed-fallback rows=", resultsModel.count,
                         "appModel=", !!appModel, "fileApi=", !!fileApi, "service=", !!svc)
-            shell.tothespotSelectedIndex = 0
-            shell.tothespotProviderStats = ({
-                                                "apps": Number(resultsModel.count || 0),
-                                                "recent": 0
-                                            })
-            refreshPreview(shell, resultsModel)
             return
         }
         console.log("[slm-tothespot] seed-empty-query-none appModel=", !!appModel,
@@ -610,6 +634,7 @@ function refreshResults(shell, resultsModel, forceReload) {
             resultsModel.append(skippedByCap[si3])
         }
     }
+    providerCounts["seedSource"] = "provider-query"
     shell.tothespotProviderStats = providerCounts
     if (resultsModel.count > 0) {
         shell.tothespotSelectedIndex = 0

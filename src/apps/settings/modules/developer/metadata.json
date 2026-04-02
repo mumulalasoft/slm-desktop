@@ -1,0 +1,59 @@
+{
+    "id": "developer",
+    "name": "Developer",
+    "icon": "utilities-terminal",
+    "group": "System",
+    "description": "Developer tools, environment management, service diagnostics, and advanced system configuration.",
+    "keywords": ["developer", "debug", "environment", "variables", "env", "terminal", "advanced", "logs", "services", "portals", "sandbox", "dbus"],
+    "main": "DeveloperPage.qml",
+    "settings": [
+        {
+            "id": "env-variables",
+            "label": "Environment Variables",
+            "description": "Manage session, user, and system environment variables",
+            "keywords": ["env", "environment", "variables", "PATH", "shell", "terminal"],
+            "type": "action",
+            "backend_binding": ""
+        },
+        {
+            "id": "per-app-overrides",
+            "label": "Per-App Environment Overrides",
+            "description": "Override environment variables for specific applications",
+            "keywords": ["per-app", "override", "app", "environment"],
+            "type": "action",
+            "backend_binding": ""
+        },
+        {
+            "id": "logs",
+            "label": "Logs & Events",
+            "description": "Aggregated log stream from shell components",
+            "keywords": ["logs", "events", "debug", "journal", "errors"],
+            "type": "action",
+            "backend_binding": ""
+        },
+        {
+            "id": "services",
+            "label": "Process & Services",
+            "description": "Monitor and control shell service components",
+            "keywords": ["services", "process", "systemd", "restart", "daemon"],
+            "type": "action",
+            "backend_binding": ""
+        },
+        {
+            "id": "build-info",
+            "label": "Build & Runtime Info",
+            "description": "Qt version, compiler, session type, and system information",
+            "keywords": ["build", "qt", "version", "compiler", "runtime", "system"],
+            "type": "action",
+            "backend_binding": ""
+        },
+        {
+            "id": "reset",
+            "label": "Reset & Recovery",
+            "description": "Reset session environment, restart components, and recover from bad state",
+            "keywords": ["reset", "recovery", "restart", "clear", "session"],
+            "type": "action",
+            "backend_binding": ""
+        }
+    ]
+}

@@ -21,6 +21,8 @@ function handleContextMenuRequested(root, index, x, y) {
     root.contextEntryPath = String(row.path || "")
     root.contextEntryName = String(row.name || "")
     root.contextEntryIsDir = !!row.isDir
+    root.contextEntryMimeType = String(row.mimeType || "")
+    root.contextEntrySuffix = String(row.suffix || "")
     if (!root.selectedEntryIndexes || root.selectedEntryIndexes.length <= 1) {
         root.refreshContextOpenWithApps()
     }
@@ -34,6 +36,24 @@ function handleActivateRequested(root, index) {
         return
     }
     var res = root.fileModel.activate(index)
+    if (res && res.ok && res.type === "archive") {
+        var api = root.fileManagerApiRef ? root.fileManagerApiRef : null
+        if (!api || !api.startExtractArchive) {
+            root.notifyResult("Extract", {
+                                  "ok": false,
+                                  "error": "archive-api-unavailable"
+                              })
+            return
+        }
+        var extractRes = api.startExtractArchive(String(res.path || ""), "")
+        if (!extractRes || !extractRes.ok) {
+            root.notifyResult("Extract", extractRes || {
+                                  "ok": false,
+                                  "error": "extract-failed"
+                              })
+        }
+        return
+    }
     if (res && res.ok && res.type === "file") {
         var launchRes = root.openTargetViaExecutionGate(String(res.path || ""),
                                                         "filemanager-activate")
@@ -56,6 +76,8 @@ function handleRenameRequested(root, index) {
     root.contextEntryPath = String(row.path || "")
     root.contextEntryName = String(row.name || root.basename(root.contextEntryPath))
     root.contextEntryIsDir = !!row.isDir
+    root.contextEntryMimeType = String(row.mimeType || "")
+    root.contextEntrySuffix = String(row.suffix || "")
     root.requestRenameContextEntry()
 }
 
@@ -70,6 +92,8 @@ function handleBackgroundContextRequested(root, menusRef, x, y) {
     root.contextEntryPath = currentDir
     root.contextEntryName = root.basename(currentDir)
     root.contextEntryIsDir = true
+    root.contextEntryMimeType = "inode/directory"
+    root.contextEntrySuffix = ""
     root.refreshContextOpenWithApps()
     if (menusRef && menusRef.openFolderMenu) {
         menusRef.openFolderMenu(x, y)

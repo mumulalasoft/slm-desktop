@@ -1,0 +1,5 @@
+id: community
+kind: community
+risk: high
+can_replace_core: false
+advanced_only: true

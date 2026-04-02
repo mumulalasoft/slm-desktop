@@ -1,6 +1,7 @@
 #include "slmanimationscheduler.h"
 
 #include "slmanimationengine.h"
+#include <QDateTime>
 #include <QtMath>
 
 namespace Slm::Motion {
@@ -26,7 +27,9 @@ void AnimationScheduler::start()
     m_running = true;
     m_timer.restart();
     m_lastMs = 0;
-    m_tick.start();
+    if (!m_externalDriving) {
+        m_tick.start();
+    }
     emit runningChanged();
 }
 
@@ -38,6 +41,35 @@ void AnimationScheduler::stop()
     m_running = false;
     m_tick.stop();
     emit runningChanged();
+}
+
+void AnimationScheduler::setExternalDriving(bool enabled)
+{
+    if (m_externalDriving == enabled) {
+        return;
+    }
+    m_externalDriving = enabled;
+    if (m_running) {
+        if (enabled) {
+            m_tick.stop();
+        } else {
+            m_lastMs = m_timer.elapsed();
+            m_tick.start();
+        }
+    }
+}
+
+bool AnimationScheduler::externalDriving() const
+{
+    return m_externalDriving;
+}
+
+void AnimationScheduler::windowFrame()
+{
+    if (!m_running || !m_externalDriving) {
+        return;
+    }
+    onFrame();
 }
 
 double AnimationScheduler::timeScale() const
@@ -60,9 +92,86 @@ qulonglong AnimationScheduler::droppedFrameCount() const
     return m_droppedFrameCount;
 }
 
+bool AnimationScheduler::microInteractionSuppressed() const
+{
+    return m_microInteractionSuppressed;
+}
+
+int AnimationScheduler::activeLifecyclePriority() const
+{
+    return m_activeLifecyclePriority;
+}
+
 bool AnimationScheduler::running() const
 {
     return m_running;
+}
+
+void AnimationScheduler::beginLifecycle(const QString &owner, int priority)
+{
+    const QString key = owner.trimmed().isEmpty() ? QStringLiteral("__anonymous__") : owner.trimmed();
+    const int normalized = qBound(0, priority, 2);
+    m_lifecycleOwners.insert(key, normalized);
+
+    int nextPriority = 0;
+    for (auto it = m_lifecycleOwners.cbegin(); it != m_lifecycleOwners.cend(); ++it) {
+        nextPriority = qMax(nextPriority, it.value());
+    }
+
+    if (nextPriority != m_activeLifecyclePriority) {
+        m_activeLifecyclePriority = nextPriority;
+        emit activeLifecyclePriorityChanged();
+    }
+
+    const bool nextSuppressed = m_activeLifecyclePriority >= 1;
+    if (nextSuppressed != m_microInteractionSuppressed) {
+        m_microInteractionSuppressed = nextSuppressed;
+        emit microInteractionSuppressedChanged();
+    }
+}
+
+void AnimationScheduler::endLifecycle(const QString &owner)
+{
+    const QString key = owner.trimmed().isEmpty() ? QStringLiteral("__anonymous__") : owner.trimmed();
+    m_lifecycleOwners.remove(key);
+
+    int nextPriority = 0;
+    for (auto it = m_lifecycleOwners.cbegin(); it != m_lifecycleOwners.cend(); ++it) {
+        nextPriority = qMax(nextPriority, it.value());
+    }
+
+    if (nextPriority != m_activeLifecyclePriority) {
+        m_activeLifecyclePriority = nextPriority;
+        emit activeLifecyclePriorityChanged();
+    }
+
+    const bool nextSuppressed = m_activeLifecyclePriority >= 1;
+    if (nextSuppressed != m_microInteractionSuppressed) {
+        m_microInteractionSuppressed = nextSuppressed;
+        emit microInteractionSuppressedChanged();
+    }
+}
+
+bool AnimationScheduler::canRunPriority(int priority) const
+{
+    const int normalized = qBound(0, priority, 2);
+    if (m_activeLifecyclePriority <= 0) {
+        return true;
+    }
+    return normalized >= m_activeLifecyclePriority;
+}
+
+bool AnimationScheduler::shouldCoalesce(const QString &eventKey, int windowMs)
+{
+    const QString key = eventKey.trimmed();
+    if (key.isEmpty()) {
+        return false;
+    }
+    const int normalizedWindowMs = qMax(1, windowMs);
+    const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
+    const qint64 lastMs = m_lastEventByKeyMs.value(key, 0);
+    m_lastEventByKeyMs.insert(key, nowMs);
+    return lastMs > 0 && (nowMs - lastMs) < normalizedWindowMs;
 }
 
 void AnimationScheduler::onFrame()
