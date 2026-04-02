@@ -105,6 +105,28 @@ Item {
         return rows
     }
 
+    function _mimeIconForPath(filePath) {
+        var ext = String(filePath || "").split(".").pop().toLowerCase()
+        switch (ext) {
+        case "pdf":  return "application-pdf"
+        case "doc": case "docx": case "odt": case "rtf": return "x-office-document"
+        case "xls": case "xlsx": case "ods": case "csv": return "x-office-spreadsheet"
+        case "ppt": case "pptx": case "odp":             return "x-office-presentation"
+        case "png": case "jpg": case "jpeg": case "gif":
+        case "svg": case "webp": case "bmp": case "tiff": return "image-x-generic"
+        case "mp3": case "flac": case "wav": case "ogg":
+        case "m4a": case "aac": case "opus":             return "audio-x-generic"
+        case "mp4": case "mkv": case "avi": case "mov":
+        case "webm": case "flv": case "wmv":             return "video-x-generic"
+        case "zip": case "tar": case "gz": case "bz2":
+        case "xz":  case "7z":  case "rar": case "zst":  return "package-x-generic"
+        case "html": case "htm":                          return "text-html"
+        case "md":  case "markdown":                      return "text-x-markdown"
+        case "txt":                                        return "text-x-generic"
+        default:                                           return "text-x-generic"
+        }
+    }
+
     function _buildRecentFiles() {
         var rows = []
         if (typeof FileManagerApi === "undefined" || !FileManagerApi
@@ -118,7 +140,7 @@ Item {
             var uri = String(f.uri || f.url || f.path || "")
             var name = String(f.name || f.displayName || uri.split("/").pop() || "")
             if (name.length === 0) continue
-            rows.push({label: name, uri: uri})
+            rows.push({label: name, uri: uri, mimeIconName: root._mimeIconForPath(uri)})
         }
         return rows
     }
@@ -224,6 +246,8 @@ Item {
                     property var entry: modelData || ({})
                     text: String(entry.label || "")
                     enabled: text.length > 0
+                    iconSource: String(entry.iconSource || "")
+                    icon.name: iconSource.length === 0 ? String(entry.iconName || "") : ""
                     onTriggered: {
                         mainMenu.close()
                         if (typeof AppCommandRouter === "undefined" || !AppCommandRouter) return
@@ -263,6 +287,7 @@ Item {
                     property var entry: modelData || ({})
                     text: String(entry.label || "")
                     enabled: text.length > 0
+                    icon.name: String(entry.mimeIconName || "text-x-generic")
                     onTriggered: {
                         mainMenu.close()
                         var uri = String(entry.uri || "")
