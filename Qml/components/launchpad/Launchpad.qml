@@ -30,6 +30,10 @@ Item {
     property real pageTransitionDotsOffset: 0
     property int pageTransitionDirection: 1
     property bool pageTransitionPending: false
+    // Reveal progress (0..1) driven by MotionController for stagger-in animation.
+    // 0 = fully hidden, 1 = fully visible. Set externally by LaunchpadWindow.
+    property real revealProgress: 1.0
+    readonly property real staggerDelayPerRow: 0.07
     property int filteredCount: 0
     property int totalPages: 1
     property var pagedApps: []
@@ -441,6 +445,16 @@ Item {
                                 width: root.gridCellWidth
                                 height: root.gridCellHeight
                                 readonly property var appEntry: modelData
+                                // Per-row stagger: row N starts revealing after row (N-1) is underway.
+                                readonly property int rowIndex: Math.floor(index / Math.max(1, root.effectiveColumns))
+                                readonly property real rowDelay: rowIndex * root.staggerDelayPerRow
+                                readonly property real rowProgress: rowDelay >= 1.0 ? 0.0
+                                    : Math.max(0.0, Math.min(1.0,
+                                          (root.revealProgress - rowDelay) / (1.0 - rowDelay)))
+                                opacity: rowProgress
+                                transform: Translate {
+                                    y: (1.0 - rowProgress) * 18
+                                }
 
                                 Rectangle {
                                     id: iconPlate

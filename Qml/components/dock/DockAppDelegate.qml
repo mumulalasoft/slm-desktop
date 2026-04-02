@@ -24,6 +24,15 @@ DockItem {
     readonly property bool hasWindowsInMultipleWorkspaces: compositorState && compositorState.hasWindowsInMultipleWorkspaces === true
     readonly property bool effectiveRunning: compositorRunning || isRunning
 
+    // Bind badge count from BadgeService using the desktop ID or name as the key.
+    badgeCount: {
+        var _sink = (typeof BadgeService !== "undefined" && BadgeService) ? BadgeService._counts : null
+        if (typeof BadgeService === "undefined" || !BadgeService) return 0
+        var key = String(desktopId || desktopFile || name || "")
+        if (key.length === 0) return 0
+        return BadgeService.getBadge(key)
+    }
+
     label: name
     showRunningDot: effectiveRunning
     focusedApp: compositorFocused
@@ -132,6 +141,8 @@ DockItem {
     Menu {
         id: appContextMenu
         property var quickRows: []
+        // Window list: [{viewId, label, focused}] for open windows of this app.
+        property var windowRows: []
         onAboutToShow: {
             if (typeof AppModel !== "undefined" && AppModel
                     && AppModel.slmQuickActionsForEntry) {
@@ -147,6 +158,27 @@ DockItem {
             } else {
                 quickRows = []
             }
+
+            // Collect open windows for this app from CompositorStateModel.
+            var wins = []
+            if (typeof CompositorStateModel !== "undefined" && CompositorStateModel
+                    && CompositorStateModel.windowCount && CompositorStateModel.windowAt) {
+                var count = CompositorStateModel.windowCount()
+                var winIndex = 0
+                for (var i = 0; i < count; ++i) {
+                    var w = CompositorStateModel.windowAt(i)
+                    if (!w) continue
+                    if (appItem.matchesWindowAppId(String(w.appId || ""))) {
+                        winIndex += 1
+                        wins.push({
+                            viewId: String(w.viewId || ""),
+                            label: "Window " + winIndex,
+                            focused: w.focused === true
+                        })
+                    }
+                }
+            }
+            windowRows = wins
         }
 
         Instantiator {
@@ -177,6 +209,35 @@ DockItem {
             onObjectRemoved: function(index, object) {
                 appContextMenu.removeItem(object)
             }
+        }
+
+        // Window list — only shown when the app has ≥2 open windows.
+        Instantiator {
+            model: appContextMenu.windowRows.length >= 2 ? appContextMenu.windowRows : []
+            delegate: MenuItem {
+                property var winData: (typeof modelData !== "undefined") ? modelData : ({})
+                text: String(winData.label || "")
+                font.weight: winData.focused === true ? Theme.fontWeight("semibold") : Theme.fontWeight("medium")
+                enabled: text.length > 0 && String(winData.viewId || "").length > 0
+                onTriggered: {
+                    var vid = String(winData.viewId || "")
+                    if (vid.length === 0) return
+                    if (typeof WorkspaceManager !== "undefined" && WorkspaceManager
+                            && WorkspaceManager.PresentView) {
+                        WorkspaceManager.PresentView(vid)
+                    }
+                }
+            }
+            onObjectAdded: function(index, object) {
+                appContextMenu.insertItem(index, object)
+            }
+            onObjectRemoved: function(index, object) {
+                appContextMenu.removeItem(object)
+            }
+        }
+
+        MenuSeparator {
+            visible: appContextMenu.windowRows.length >= 2
         }
 
         MenuSeparator {

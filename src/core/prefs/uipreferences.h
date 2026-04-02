@@ -12,6 +12,9 @@ class UIPreferences : public QObject {
     Q_PROPERTY(bool dockAutoHideEnabled READ dockAutoHideEnabled NOTIFY dockAutoHideEnabledChanged)
     Q_PROPERTY(int dockDragThresholdMouse READ dockDragThresholdMouse NOTIFY dockDragThresholdMouseChanged)
     Q_PROPERTY(int dockDragThresholdTouchpad READ dockDragThresholdTouchpad NOTIFY dockDragThresholdTouchpadChanged)
+    // Icon size: "small" | "medium" (default) | "large"
+    Q_PROPERTY(QString dockIconSize READ dockIconSize NOTIFY dockIconSizeChanged)
+    Q_PROPERTY(bool dockMagnificationEnabled READ dockMagnificationEnabled NOTIFY dockMagnificationEnabledChanged)
     Q_PROPERTY(bool verboseLogging READ verboseLogging NOTIFY verboseLoggingChanged)
     Q_PROPERTY(QString iconThemeLight READ iconThemeLight NOTIFY iconThemeLightChanged)
     Q_PROPERTY(QString iconThemeDark READ iconThemeDark NOTIFY iconThemeDarkChanged)
@@ -43,6 +46,8 @@ public:
     bool dockAutoHideEnabled() const;
     int dockDragThresholdMouse() const;
     int dockDragThresholdTouchpad() const;
+    QString dockIconSize() const;
+    bool dockMagnificationEnabled() const;
     bool verboseLogging() const;
     QString iconThemeLight() const;
     QString iconThemeDark() const;
@@ -69,6 +74,8 @@ public:
     Q_INVOKABLE void setDockAutoHideEnabled(bool enabled);
     Q_INVOKABLE void setDockDragThresholdMouse(int thresholdPx);
     Q_INVOKABLE void setDockDragThresholdTouchpad(int thresholdPx);
+    Q_INVOKABLE void setDockIconSize(const QString &size);
+    Q_INVOKABLE void setDockMagnificationEnabled(bool enabled);
     Q_INVOKABLE void setVerboseLogging(bool enabled);
     Q_INVOKABLE void setIconThemeLight(const QString &themeName);
     Q_INVOKABLE void setIconThemeDark(const QString &themeName);
@@ -102,6 +109,8 @@ signals:
     void dockAutoHideEnabledChanged();
     void dockDragThresholdMouseChanged();
     void dockDragThresholdTouchpadChanged();
+    void dockIconSizeChanged();
+    void dockMagnificationEnabledChanged();
     void verboseLoggingChanged();
     void iconThemeLightChanged();
     void iconThemeDarkChanged();
@@ -139,6 +148,8 @@ private:
     bool m_dockAutoHideEnabled = false;
     int m_dockDragThresholdMouse = 6;
     int m_dockDragThresholdTouchpad = 3;
+    QString m_dockIconSize;
+    bool m_dockMagnificationEnabled = true;
     bool m_verboseLogging = false;
     QString m_iconThemeLight;
     QString m_iconThemeDark;

@@ -29,6 +29,8 @@ Item {
     property bool reorderArmed: false
     property bool hoverIndicatorEnabled: false
     property bool directHoverOverride: false
+    // Notification badge count. 0 = hidden; >0 = show red bubble with count.
+    property int badgeCount: 0
     // Separator — shows a slim vertical divider to the right of this item.
     // The delegate width grows by separatorSlotWidth to accommodate it.
     property bool separatorAfter: false
@@ -123,6 +125,43 @@ Item {
             Behavior on opacity {
                 enabled: root.microAnimationAllowed()
                 NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingDecelerate }
+            }
+
+            // Notification badge bubble — anchored to top-right of iconPlate
+            Rectangle {
+                id: badgeBubble
+                visible: root.badgeCount > 0
+                width: Math.max(height, badgeLabel.contentWidth + 8)
+                height: Math.round(Theme.fontSize("tiny") * 1.6)
+                radius: height * 0.5
+                color: Theme.color("error")
+                border.width: Theme.borderWidthThick
+                border.color: Theme.color("dockBg")
+                anchors.top: parent.top
+                anchors.right: parent.right
+                anchors.topMargin: -4
+                anchors.rightMargin: -4
+                z: 10
+                scale: root.badgeCount > 0 ? 1.0 : 0.4
+                opacity: root.badgeCount > 0 ? 1.0 : 0.0
+
+                Behavior on scale {
+                    enabled: root.microAnimationAllowed()
+                    NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingLight }
+                }
+                Behavior on opacity {
+                    enabled: root.microAnimationAllowed()
+                    NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingDecelerate }
+                }
+
+                Label {
+                    id: badgeLabel
+                    anchors.centerIn: parent
+                    text: root.badgeCount > 99 ? "99+" : String(root.badgeCount)
+                    color: Theme.color("accentText")
+                    font.pixelSize: Theme.fontSize("tiny")
+                    font.weight: Theme.fontWeight("bold")
+                }
             }
         }
 

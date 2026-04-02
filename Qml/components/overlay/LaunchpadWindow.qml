@@ -171,6 +171,7 @@ Window {
                 visible: parent.visible
                 appsModel: root.appsModel
                 topSafeInset: root.panelHeight
+                revealProgress: launchpadMotion.progress
                 // Window height already excludes the dock zone, so only a
                 // small bottom padding is needed here.
                 bottomSafeInset: 8

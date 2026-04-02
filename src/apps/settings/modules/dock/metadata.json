@@ -1,0 +1,25 @@
+{
+    "id": "dock",
+    "name": "Dock",
+    "icon": "preferences-desktop",
+    "group": "Desktop",
+    "description": "Customize the dock appearance and behavior.",
+    "keywords": ["dock", "icon", "magnification", "launcher", "taskbar"],
+    "main": "DockPage.qml",
+    "settings": [
+        {
+            "id": "icon-size",
+            "label": "Icon Size",
+            "description": "Set the size of dock icons",
+            "keywords": ["icon", "size", "small", "large"],
+            "type": "select"
+        },
+        {
+            "id": "magnification",
+            "label": "Magnification",
+            "description": "Enlarge icons when hovering",
+            "keywords": ["magnification", "hover", "zoom"],
+            "type": "toggle"
+        }
+    ]
+}

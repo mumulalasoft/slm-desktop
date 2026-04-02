@@ -10,7 +10,20 @@ Rectangle {
     property real hoverX: width * 0.5
     property bool dockHovered: false
     readonly property bool hovered: dockHovered
-    property real amplitude: 10
+    // Icon slot width driven by UIPreferences.dockIconSize: small=48, medium=58, large=72
+    readonly property real iconSlotWidth: {
+        const sz = (typeof UIPreferences !== "undefined" && UIPreferences
+                    && UIPreferences.dockIconSize !== undefined)
+                   ? UIPreferences.dockIconSize : "medium"
+        if (sz === "small") return 48
+        if (sz === "large") return 72
+        return 58
+    }
+    readonly property bool magnificationEnabled: (typeof UIPreferences !== "undefined"
+                                                  && UIPreferences
+                                                  && UIPreferences.dockMagnificationEnabled !== undefined)
+                                                 ? UIPreferences.dockMagnificationEnabled : true
+    property real amplitude: magnificationEnabled ? 10 : 0
     property real sigma: 148
     property real hoverLift: 6
     property real glowWidth: 170
@@ -555,6 +568,7 @@ Rectangle {
             id: launchpadItem
             label: "Launchpad"
             iconPath: "qrc:/icons/launchpad.svg"
+            baseSlotWidth: root.iconSlotWidth
             hoverIndicatorEnabled: true
             directHoverOverride: root.hovered
                                  && root.hoverX >= (dockRow.x + x)
@@ -581,6 +595,7 @@ Rectangle {
             delegate: DockAppDelegate {
                 dockRoot: root
                 modelCount: appsRepeater.count
+                baseSlotWidth: root.iconSlotWidth
                 hoverIndicatorEnabled: true
                 directHoverOverride: root.hovered
                                      && root.hoverX >= (dockRow.x + x)

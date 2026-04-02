@@ -10,6 +10,8 @@ constexpr auto kDockHideModeKey = "dock/hideMode";
 constexpr auto kDockHideDurationMsKey = "dock/hideDurationMs";
 constexpr auto kDragThresholdMouseKey = "dock/dragThresholdMousePx";
 constexpr auto kDragThresholdTouchpadKey = "dock/dragThresholdTouchpadPx";
+constexpr auto kDockIconSizeKey = "dock/iconSize";
+constexpr auto kDockMagnificationEnabledKey = "dock/magnificationEnabled";
 constexpr auto kVerboseLoggingKey = "debug/verboseLogging";
 constexpr auto kIconThemeLightKey = "iconTheme/light";
 constexpr auto kIconThemeDarkKey = "iconTheme/dark";
@@ -293,6 +295,11 @@ UIPreferences::UIPreferences(QObject *parent)
     m_dockAutoHideEnabled = m_settings.value(kDockAutoHideEnabledKey, false).toBool();
     m_dockDragThresholdMouse = clampThreshold(m_settings.value(kDragThresholdMouseKey, 6).toInt());
     m_dockDragThresholdTouchpad = clampThreshold(m_settings.value(kDragThresholdTouchpadKey, 3).toInt());
+    {
+        const QString sz = m_settings.value(kDockIconSizeKey, QStringLiteral("medium")).toString().trimmed().toLower();
+        m_dockIconSize = (sz == QLatin1String("small") || sz == QLatin1String("large")) ? sz : QStringLiteral("medium");
+    }
+    m_dockMagnificationEnabled = m_settings.value(kDockMagnificationEnabledKey, true).toBool();
     m_verboseLogging = m_settings.value(kVerboseLoggingKey, false).toBool();
     m_iconThemeLight = m_settings.value(kIconThemeLightKey).toString().trimmed();
     m_iconThemeDark = m_settings.value(kIconThemeDarkKey).toString().trimmed();
@@ -351,6 +358,16 @@ int UIPreferences::dockDragThresholdMouse() const
 int UIPreferences::dockDragThresholdTouchpad() const
 {
     return m_dockDragThresholdTouchpad;
+}
+
+QString UIPreferences::dockIconSize() const
+{
+    return m_dockIconSize;
+}
+
+bool UIPreferences::dockMagnificationEnabled() const
+{
+    return m_dockMagnificationEnabled;
 }
 
 bool UIPreferences::verboseLogging() const
@@ -823,6 +840,31 @@ void UIPreferences::setDockDragThresholdTouchpad(int thresholdPx)
     m_settings.setValue(kDragThresholdTouchpadKey, m_dockDragThresholdTouchpad);
     m_settings.sync();
     emit dockDragThresholdTouchpadChanged();
+}
+
+void UIPreferences::setDockIconSize(const QString &size)
+{
+    const QString s = size.trimmed().toLower();
+    const QString normalized = (s == QLatin1String("small") || s == QLatin1String("large"))
+                                   ? s : QStringLiteral("medium");
+    if (normalized == m_dockIconSize) {
+        return;
+    }
+    m_dockIconSize = normalized;
+    m_settings.setValue(kDockIconSizeKey, m_dockIconSize);
+    m_settings.sync();
+    emit dockIconSizeChanged();
+}
+
+void UIPreferences::setDockMagnificationEnabled(bool enabled)
+{
+    if (enabled == m_dockMagnificationEnabled) {
+        return;
+    }
+    m_dockMagnificationEnabled = enabled;
+    m_settings.setValue(kDockMagnificationEnabledKey, m_dockMagnificationEnabled);
+    m_settings.sync();
+    emit dockMagnificationEnabledChanged();
 }
 
 void UIPreferences::setVerboseLogging(bool enabled)

@@ -234,6 +234,7 @@ void ModuleLoader::addBuiltinModuleOrder()
 {
     static const QStringList preferred = {
         QStringLiteral("appearance"),
+        QStringLiteral("dock"),
         QStringLiteral("network"),
         QStringLiteral("bluetooth"),
         QStringLiteral("sound"),
