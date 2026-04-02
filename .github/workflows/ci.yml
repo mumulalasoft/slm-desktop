@@ -185,7 +185,9 @@ jobs:
             pkg-config \
             meson \
             libxkbcommon-dev \
-            libglib2.0-dev
+            libglib2.0-dev \
+            libwayland-dev \
+            wayland-protocols
 
       - name: Install Qt 6.10
         uses: jurplel/install-qt-action@v4
@@ -273,7 +275,9 @@ jobs:
             ninja-build \
             pkg-config \
             meson \
-            libglib2.0-dev
+            libglib2.0-dev \
+            libwayland-dev \
+            wayland-protocols
 
       - name: Install Qt 6.10
         uses: jurplel/install-qt-action@v4
@@ -331,7 +335,9 @@ jobs:
             pkg-config \
             meson \
             libxkbcommon-dev \
-            libglib2.0-dev
+            libglib2.0-dev \
+            libwayland-dev \
+            wayland-protocols
 
       - name: Install Qt 6.10
         uses: jurplel/install-qt-action@v4
@@ -370,7 +376,9 @@ jobs:
             pkg-config \
             meson \
             libxkbcommon-dev \
-            libglib2.0-dev
+            libglib2.0-dev \
+            libwayland-dev \
+            wayland-protocols
 
       - name: Install Qt 6.10
         uses: jurplel/install-qt-action@v4
@@ -404,7 +412,9 @@ jobs:
             pkg-config \
             meson \
             libxkbcommon-dev \
-            libglib2.0-dev
+            libglib2.0-dev \
+            libwayland-dev \
+            wayland-protocols
 
       - name: Install Qt 6.10
         uses: jurplel/install-qt-action@v4
@@ -466,7 +476,9 @@ jobs:
             pkg-config \
             meson \
             libxkbcommon-dev \
-            libglib2.0-dev
+            libglib2.0-dev \
+            libwayland-dev \
+            wayland-protocols
 
       - name: Install Qt 6.10
         uses: jurplel/install-qt-action@v4
@@ -527,7 +539,9 @@ jobs:
             pkg-config \
             meson \
             libxkbcommon-dev \
-            libglib2.0-dev
+            libglib2.0-dev \
+            libwayland-dev \
+            wayland-protocols
 
       - name: Install Qt 6.10
         uses: jurplel/install-qt-action@v4
@@ -568,7 +582,9 @@ jobs:
             pkg-config \
             meson \
             libxkbcommon-dev \
-            libglib2.0-dev
+            libglib2.0-dev \
+            libwayland-dev \
+            wayland-protocols
 
       - name: Install Qt 6.10
         uses: jurplel/install-qt-action@v4
