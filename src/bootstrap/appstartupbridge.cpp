@@ -1,4 +1,5 @@
 #include "appstartupbridge.h"
+#include "../services/power/powerbridge.h"
 
 #include <QQmlContext>
 #include <QTimer>
@@ -141,9 +142,10 @@ void registerCoreContext(QQmlContext *context,
                          Slm::Motion::MotionController *motionController,
                          ShellStateController *shellStateController,
                          ShellInputRouter *shellInputRouter,
-                         ShellLayerWatchdog *shellLayerWatchdog)
+                         ShellLayerWatchdog *shellLayerWatchdog,
+                         PowerBridge *powerBridge)
 {
-    const std::array<std::pair<const char *, QObject *>, 35> entries{{
+    const std::array<std::pair<const char *, QObject *>, 36> entries{{
         {"AppModel", appModel},
         {"AppManager", appModel},
         {"ShortcutModel", shortcutModel},
@@ -180,6 +182,7 @@ void registerCoreContext(QQmlContext *context,
         {"ShellStateController", shellStateController},
         {"ShellInputRouter", shellInputRouter},
         {"ShellLayerWatchdog", shellLayerWatchdog},
+        {"PowerBridge", powerBridge},
     }};
     setContextObjects(context, entries);
 }

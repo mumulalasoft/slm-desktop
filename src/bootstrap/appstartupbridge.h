@@ -51,6 +51,7 @@ class MotionController;
 class ShellStateController;
 class ShellInputRouter;
 class ShellLayerWatchdog;
+class PowerBridge;
 
 namespace AppStartupBridge {
 void registerTopBarIndicatorContext(QQmlContext *context,
@@ -98,7 +99,8 @@ void registerCoreContext(QQmlContext *context,
                          Slm::Motion::MotionController *motionController,
                          ShellStateController *shellStateController,
                          ShellInputRouter *shellInputRouter,
-                         ShellLayerWatchdog *shellLayerWatchdog);
+                         ShellLayerWatchdog *shellLayerWatchdog,
+                         PowerBridge *powerBridge);
 
 void setStartupWindowContext(QQmlContext *context,
                              bool appStartWindowed,

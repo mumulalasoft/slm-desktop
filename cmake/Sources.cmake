@@ -166,6 +166,8 @@ set(DESKTOP_SHELL_SERVICES
     src/services/network/networkmanager.h
     src/services/power/batterymanager.cpp
     src/services/power/batterymanager.h
+    src/services/power/powerbridge.cpp
+    src/services/power/powerbridge.h
     src/services/bluetooth/bluetoothmanager.cpp
     src/services/bluetooth/bluetoothmanager.h
     src/services/notifications/notificationmanager.cpp

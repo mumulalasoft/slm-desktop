@@ -31,6 +31,7 @@
 #include "src/bootstrap/daemonservicebootstraprunner.h"
 #include "src/core/execution/appexecutiongate.h"
 #include "src/services/power/batterymanager.h"
+#include "src/services/power/powerbridge.h"
 #include "src/services/bluetooth/bluetoothmanager.h"
 #include "dockmodel.h"
 #include "src/services/media/mediasessionmanager.h"
@@ -262,6 +263,7 @@ int main(int argc, char *argv[])
     ShellStateController shellStateController;
     ShellInputRouter shellInputRouter(&shellStateController);
     ShellLayerWatchdog shellLayerWatchdog(&shellStateController);
+    PowerBridge powerBridge;
     Slm::System::MissingComponentController missingComponentController;
     Slm::Print::PrinterManager printerManager;
     Slm::Print::PrintSession printSession;
@@ -395,7 +397,8 @@ int main(int argc, char *argv[])
                                           &motionController,
                                           &shellStateController,
                                           &shellInputRouter,
-                                          &shellLayerWatchdog);
+                                          &shellLayerWatchdog,
+                                          &powerBridge);
     AppStartupBridge::setStartupWindowContext(engine.rootContext(),
                                               startupArgs.startWindowed,
                                               startupArgs.windowWidth,

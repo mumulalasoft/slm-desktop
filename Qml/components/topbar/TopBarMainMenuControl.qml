@@ -10,13 +10,10 @@ Item {
     property int iconButtonH: Theme.metric("controlHeightCompact")
     property int iconGlyph: 18
     property var searchProfilesModel: []
-    property string activeSearchProfileId: "balanced"
     readonly property bool popupOpen: mainMenu.opened
 
     signal popupHintRequested()
     signal popupHintCleared()
-    signal styleGalleryRequested()
-    signal setFontScaleRequested(real scaleValue)
     signal searchProfileSetRequested(string profileId)
     signal searchProfileResetRequested()
     signal refreshSearchProfilesRequested()
@@ -59,6 +56,74 @@ Item {
             mainMenu.open()
         })
     }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    function _openSettings(moduleId) {
+        mainMenu.close()
+        if (typeof AppCommandRouter !== "undefined" && AppCommandRouter
+                && AppCommandRouter.route) {
+            AppCommandRouter.route("app.desktopid",
+                                   {desktopId: "slm-settings.desktop",
+                                    moduleHint: String(moduleId || "")},
+                                   "main-menu")
+        } else if (typeof AppExecutionGate !== "undefined" && AppExecutionGate
+                   && AppExecutionGate.launchDesktopId) {
+            AppExecutionGate.launchDesktopId("slm-settings.desktop", "main-menu")
+        }
+    }
+
+    function _lockScreen() {
+        mainMenu.close()
+        if (typeof ShellStateController !== "undefined" && ShellStateController)
+            ShellStateController.setLockScreenActive(true)
+    }
+
+    function _buildRecentApps() {
+        var rows = []
+        if (typeof AppCommandRouter === "undefined" || !AppCommandRouter
+                || !AppCommandRouter.recentEvents) {
+            return rows
+        }
+        var events = AppCommandRouter.recentEvents() || []
+        var seen = {}
+        for (var i = events.length - 1; i >= 0 && rows.length < 8; --i) {
+            var e = events[i]
+            if (!e || e.ok === false) continue
+            var label = String(e.name || e.desktopId || e.desktopFile || "")
+            if (label.length === 0 || seen[label]) continue
+            seen[label] = true
+            rows.push({
+                label: label,
+                desktopId: String(e.desktopId || ""),
+                desktopFile: String(e.desktopFile || ""),
+                executable: String(e.executable || ""),
+                iconName: String(e.iconName || ""),
+                iconSource: String(e.iconSource || "")
+            })
+        }
+        return rows
+    }
+
+    function _buildRecentFiles() {
+        var rows = []
+        if (typeof FileManagerApi === "undefined" || !FileManagerApi
+                || !FileManagerApi.recentFiles) {
+            return rows
+        }
+        var files = FileManagerApi.recentFiles(8) || []
+        for (var i = 0; i < files.length && rows.length < 8; ++i) {
+            var f = files[i]
+            if (!f) continue
+            var uri = String(f.uri || f.url || f.path || "")
+            var name = String(f.name || f.displayName || uri.split("/").pop() || "")
+            if (name.length === 0) continue
+            rows.push({label: name, uri: uri})
+        }
+        return rows
+    }
+
+    // ── Button ────────────────────────────────────────────────────────────────
 
     Rectangle {
         id: mainButton
@@ -106,6 +171,8 @@ Item {
         }
     }
 
+    // ── Menu ──────────────────────────────────────────────────────────────────
+
     Menu {
         id: mainMenu
         modal: false
@@ -114,7 +181,11 @@ Item {
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
         x: Math.round(mainButton.mapToGlobal(0, 0).x)
         y: Math.round(mainButton.mapToGlobal(0, 0).y + mainButton.height + Theme.metric("spacingSm"))
-        onAboutToShow: root.popupHintCleared()
+        onAboutToShow: {
+            root.popupHintCleared()
+            recentAppsModel.rows = root._buildRecentApps()
+            recentFilesModel.rows = root._buildRecentFiles()
+        }
         onAboutToHide: {
             root.popupHintCleared()
             root.lastCloseMs = Date.now()
@@ -125,265 +196,150 @@ Item {
             popupOpacity: Theme.popupSurfaceOpacityStrong
         }
 
+        // ── System info & settings ────────────────────────────────────────────
+
         MenuItem {
-            text: "About this computer"
+            text: qsTr("About This Computer")
+            onTriggered: root._openSettings("about")
         }
+
         MenuItem {
-            text: "Style Gallery"
-            font.pixelSize: Theme.fontSize("menu")
-            font.weight: Theme.fontWeight("normal")
-            onTriggered: root.styleGalleryRequested()
+            text: qsTr("System Settings\u2026")
+            onTriggered: root._openSettings("")
         }
 
         MenuSeparator {}
 
+        // ── Recent Applications ───────────────────────────────────────────────
+
+        QtObject {
+            id: recentAppsModel
+            property var rows: []
+        }
+
         MenuItem {
-            text: Theme.darkMode ? "Switch to Light" : "Switch to dark"
+            text: qsTr("Recent Applications")
+            enabled: false
+            font.weight: Theme.fontWeight("semibold")
+            visible: recentAppsModel.rows.length > 0
+            height: visible ? implicitHeight : 0
+        }
+
+        Instantiator {
+            model: recentAppsModel.rows
+            delegate: MenuItem {
+                property var entry: modelData || ({})
+                text: String(entry.label || "")
+                enabled: text.length > 0
+                onTriggered: {
+                    mainMenu.close()
+                    if (typeof AppCommandRouter === "undefined" || !AppCommandRouter) return
+                    var hasDesktopId = String(entry.desktopId || "").length > 0
+                    var hasDesktopFile = String(entry.desktopFile || "").length > 0
+                    if (hasDesktopId) {
+                        AppCommandRouter.route("app.desktopid",
+                                               {desktopId: entry.desktopId}, "main-menu")
+                    } else if (hasDesktopFile) {
+                        AppCommandRouter.route("app.desktopentry",
+                                               {desktopFile: entry.desktopFile,
+                                                executable: entry.executable || "",
+                                                name: entry.label || "",
+                                                iconName: entry.iconName || "",
+                                                iconSource: entry.iconSource || ""},
+                                               "main-menu")
+                    }
+                }
+            }
+            onObjectAdded: function(index, object) { mainMenu.insertItem(index + 3, object) }
+            onObjectRemoved: function(index, object) { mainMenu.removeItem(object) }
+        }
+
+        // ── Recent Files ──────────────────────────────────────────────────────
+
+        QtObject {
+            id: recentFilesModel
+            property var rows: []
+        }
+
+        MenuSeparator {
+            visible: recentAppsModel.rows.length > 0 && recentFilesModel.rows.length > 0
+            height: visible ? implicitHeight : 0
+        }
+
+        MenuItem {
+            text: qsTr("Recent Files")
+            enabled: false
+            font.weight: Theme.fontWeight("semibold")
+            visible: recentFilesModel.rows.length > 0
+            height: visible ? implicitHeight : 0
+        }
+
+        Instantiator {
+            model: recentFilesModel.rows
+            delegate: MenuItem {
+                property var entry: modelData || ({})
+                text: String(entry.label || "")
+                enabled: text.length > 0
+                onTriggered: {
+                    mainMenu.close()
+                    var uri = String(entry.uri || "")
+                    if (uri.length === 0) return
+                    if (typeof AppCommandRouter !== "undefined" && AppCommandRouter
+                            && AppCommandRouter.route) {
+                        AppCommandRouter.route("filemanager.open", {target: uri}, "main-menu")
+                    }
+                }
+            }
+            onObjectAdded: function(index, object) { mainMenu.addItem(object) }
+            onObjectRemoved: function(index, object) { mainMenu.removeItem(object) }
+        }
+
+        MenuSeparator {}
+
+        // ── Power actions ─────────────────────────────────────────────────────
+
+        MenuItem {
+            text: qsTr("Sleep")
+            enabled: typeof PowerBridge !== "undefined" && PowerBridge && PowerBridge.canSuspend
             onTriggered: {
-                if (Theme.darkMode) {
-                    Theme.useLightMode()
-                } else {
-                    Theme.useDarkMode()
-                }
-            }
-        }
-
-        MenuSeparator {}
-
-        Menu {
-            id: textSizeMenu
-            title: "Text Size"
-
-            MenuItem {
-                text: "Compact (90%)"
-                checkable: true
-                checked: Math.abs(Theme.userFontScale - 0.9) < 0.001
-                onTriggered: root.setFontScaleRequested(0.9)
-            }
-            MenuItem {
-                text: "Default (100%)"
-                checkable: true
-                checked: Math.abs(Theme.userFontScale - 1.0) < 0.001
-                onTriggered: root.setFontScaleRequested(1.0)
-            }
-            MenuItem {
-                text: "Comfortable (110%)"
-                checkable: true
-                checked: Math.abs(Theme.userFontScale - 1.1) < 0.001
-                onTriggered: root.setFontScaleRequested(1.1)
-            }
-            MenuItem {
-                text: "Large (125%)"
-                checkable: true
-                checked: Math.abs(Theme.userFontScale - 1.25) < 0.001
-                onTriggered: root.setFontScaleRequested(1.25)
-            }
-        }
-
-        MenuSeparator {}
-
-        MenuItem {
-            text: "Reduced Motion"
-            checkable: true
-            checked: (typeof UIPreferences !== "undefined"
-                      && UIPreferences
-                      && UIPreferences.getPreference)
-                     ? !!UIPreferences.getPreference("motion.reduced", false) : false
-            onToggled: {
-                if (typeof UIPreferences !== "undefined" && UIPreferences && UIPreferences.setPreference) {
-                    UIPreferences.setPreference("motion.reduced", checked)
-                }
+                mainMenu.close()
+                if (typeof PowerBridge !== "undefined" && PowerBridge) PowerBridge.sleep()
             }
         }
 
         MenuItem {
-            text: "Motion Debug Overlay"
-            checkable: true
-            checked: (typeof UIPreferences !== "undefined"
-                      && UIPreferences
-                      && UIPreferences.getPreference)
-                     ? !!UIPreferences.getPreference("motion.debugOverlay", false) : false
-            onToggled: {
-                if (typeof UIPreferences !== "undefined" && UIPreferences && UIPreferences.setPreference) {
-                    UIPreferences.setPreference("motion.debugOverlay", checked)
-                }
-            }
-        }
-
-        Menu {
-            id: motionSpeedMenu
-            title: "Motion Speed"
-
-            MenuItem {
-                text: "Very Slow (0.25x)"
-                checkable: true
-                checked: (typeof UIPreferences !== "undefined"
-                          && UIPreferences
-                          && UIPreferences.getPreference)
-                         ? Math.abs(Number(UIPreferences.getPreference("motion.timeScale", 1.0)) - 0.25) < 0.001
-                         : false
-                onTriggered: {
-                    if (typeof UIPreferences !== "undefined" && UIPreferences && UIPreferences.setPreference) {
-                        UIPreferences.setPreference("motion.timeScale", 0.25)
-                    }
-                }
-            }
-
-            MenuItem {
-                text: "Slow (0.50x)"
-                checkable: true
-                checked: (typeof UIPreferences !== "undefined"
-                          && UIPreferences
-                          && UIPreferences.getPreference)
-                         ? Math.abs(Number(UIPreferences.getPreference("motion.timeScale", 1.0)) - 0.5) < 0.001
-                         : false
-                onTriggered: {
-                    if (typeof UIPreferences !== "undefined" && UIPreferences && UIPreferences.setPreference) {
-                        UIPreferences.setPreference("motion.timeScale", 0.5)
-                    }
-                }
-            }
-
-            MenuItem {
-                text: "Normal (1.00x)"
-                checkable: true
-                checked: (typeof UIPreferences !== "undefined"
-                          && UIPreferences
-                          && UIPreferences.getPreference)
-                         ? Math.abs(Number(UIPreferences.getPreference("motion.timeScale", 1.0)) - 1.0) < 0.001
-                         : true
-                onTriggered: {
-                    if (typeof UIPreferences !== "undefined" && UIPreferences && UIPreferences.setPreference) {
-                        UIPreferences.setPreference("motion.timeScale", 1.0)
-                    }
-                }
-            }
-
-            MenuItem {
-                text: "Fast (1.25x)"
-                checkable: true
-                checked: (typeof UIPreferences !== "undefined"
-                          && UIPreferences
-                          && UIPreferences.getPreference)
-                         ? Math.abs(Number(UIPreferences.getPreference("motion.timeScale", 1.0)) - 1.25) < 0.001
-                         : false
-                onTriggered: {
-                    if (typeof UIPreferences !== "undefined" && UIPreferences && UIPreferences.setPreference) {
-                        UIPreferences.setPreference("motion.timeScale", 1.25)
-                    }
-                }
-            }
-        }
-
-        MenuSeparator {}
-
-        MenuItem {
-            text: "Dock Motion: Subtle"
-            checkable: true
-            checked: (typeof UIPreferences !== "undefined"
-                      && UIPreferences
-                      && UIPreferences.dockMotionPreset !== undefined)
-                     ? UIPreferences.dockMotionPreset === "subtle" : true
+            text: qsTr("Restart\u2026")
+            enabled: typeof PowerBridge !== "undefined" && PowerBridge && PowerBridge.canReboot
             onTriggered: {
-                if (UIPreferences) {
-                    UIPreferences.setDockMotionPreset("subtle")
-                }
+                mainMenu.close()
+                if (typeof PowerBridge !== "undefined" && PowerBridge) PowerBridge.reboot()
             }
         }
 
         MenuItem {
-            text: "Dock Motion: macOS Lively"
-            checkable: true
-            checked: (typeof UIPreferences !== "undefined"
-                      && UIPreferences
-                      && UIPreferences.dockMotionPreset !== undefined)
-                     ? (UIPreferences.dockMotionPreset === "macos-lively"
-                        || UIPreferences.dockMotionPreset === "expressive") : false
+            text: qsTr("Shut Down\u2026")
+            enabled: typeof PowerBridge !== "undefined" && PowerBridge && PowerBridge.canPowerOff
             onTriggered: {
-                if (UIPreferences) {
-                    UIPreferences.setDockMotionPreset("macos-lively")
-                }
-            }
-        }
-
-        MenuItem {
-            text: "Dock Drop Pulse"
-            checkable: true
-            checked: (typeof UIPreferences !== "undefined"
-                      && UIPreferences
-                      && UIPreferences.dockDropPulseEnabled !== undefined)
-                     ? UIPreferences.dockDropPulseEnabled : true
-            onToggled: {
-                if (UIPreferences) {
-                    UIPreferences.setDockDropPulseEnabled(checked)
-                }
-            }
-        }
-
-        MenuItem {
-            text: "Dock Auto Hide"
-            checkable: true
-            checked: (typeof UIPreferences !== "undefined"
-                      && UIPreferences
-                      && UIPreferences.dockAutoHideEnabled !== undefined)
-                     ? UIPreferences.dockAutoHideEnabled : false
-            onToggled: {
-                if (UIPreferences) {
-                    UIPreferences.setDockAutoHideEnabled(checked)
-                }
+                mainMenu.close()
+                if (typeof PowerBridge !== "undefined" && PowerBridge) PowerBridge.shutdown()
             }
         }
 
         MenuSeparator {}
 
-        Menu {
-            id: searchRankingMenu
-            title: "Search Ranking"
+        // ── Session actions ───────────────────────────────────────────────────
 
-            Instantiator {
-                model: root.searchProfilesModel
-                delegate: MenuItem {
-                    required property var modelData
-                    readonly property string profileId: root.normalizeProfileId(modelData.id)
-                    text: String(modelData.label || profileId)
-                    checkable: true
-                    checked: root.activeSearchProfileId === profileId
-                    onTriggered: root.searchProfileSetRequested(profileId)
-                }
-                onObjectAdded: function(index, object) {
-                    searchRankingMenu.insertItem(index, object)
-                }
-                onObjectRemoved: function(index, object) {
-                    searchRankingMenu.removeItem(object)
-                }
-            }
-
-            MenuSeparator {}
-
-            MenuItem {
-                text: "Reset to Balanced"
-                onTriggered: root.searchProfileResetRequested()
+        MenuItem {
+            text: qsTr("Log Out\u2026")
+            onTriggered: {
+                mainMenu.close()
+                if (typeof PowerBridge !== "undefined" && PowerBridge) PowerBridge.logout()
             }
         }
 
-        MenuSeparator {}
         MenuItem {
-            id: sleepAction
-            text: "Sleep"
-        }
-
-        MenuSeparator {}
-
-        MenuItem {
-            id: rebootAction
-            text: "Reboot"
-        }
-
-        MenuSeparator {}
-
-        MenuItem {
-            id: shutdownAction
-            text: "Shutdown"
+            text: qsTr("Lock Screen")
+            onTriggered: root._lockScreen()
         }
     }
 }
