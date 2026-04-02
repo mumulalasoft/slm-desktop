@@ -24,11 +24,11 @@ DockItem {
     readonly property bool hasWindowsInMultipleWorkspaces: compositorState && compositorState.hasWindowsInMultipleWorkspaces === true
     readonly property bool effectiveRunning: compositorRunning || isRunning
 
-    // Bind badge count from BadgeService using the desktop ID or name as the key.
+    // Bind badge count from BadgeService using desktopFile or name as the key.
     badgeCount: {
         var _sink = (typeof BadgeService !== "undefined" && BadgeService) ? BadgeService._counts : null
         if (typeof BadgeService === "undefined" || !BadgeService) return 0
-        var key = String(desktopId || desktopFile || name || "")
+        var key = String(desktopFile || name || "")
         if (key.length === 0) return 0
         return BadgeService.getBadge(key)
     }
