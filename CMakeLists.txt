@@ -975,6 +975,7 @@ set(DESKTOP_SHELL_RESOURCE_FILES
     assets/icons/titlebuttons/titlebutton-menu-backdrop-active.svg
     assets/icons/titlebuttons/titlebutton-unmaximize-backdrop-active.svg
     assets/icons/titlebuttons/titlebutton-unmaximize-backdrop.svg
+    assets/icons/titlebuttons/titlebutton-unmaximize.svg
     assets/icons/titlebuttons/titlebutton-minimize-backdrop.svg
     assets/icons/titlebuttons/titlebutton-unmaximize-hover.svg
     assets/icons/titlebuttons/titlebutton-shade.svg
@@ -1093,6 +1094,7 @@ qt_add_resources(slm-settings "slm_settings_titlebuttons"
         assets/icons/titlebuttons/titlebutton-unmaximize-active.svg
         assets/icons/titlebuttons/titlebutton-unmaximize-backdrop.svg
         assets/icons/titlebuttons/titlebutton-unmaximize-backdrop-active.svg
+        assets/icons/titlebuttons/titlebutton-unmaximize.svg
 )
 target_include_directories(slm-settings PRIVATE
     ${CMAKE_SOURCE_DIR}/src/apps/settings
