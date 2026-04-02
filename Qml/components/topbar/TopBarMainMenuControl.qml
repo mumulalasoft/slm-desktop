@@ -81,25 +81,25 @@ Item {
 
     function _buildRecentApps() {
         var rows = []
-        if (typeof AppCommandRouter === "undefined" || !AppCommandRouter
-                || !AppCommandRouter.recentEvents) {
+        if (typeof AppModel === "undefined" || !AppModel || !AppModel.frequentApps) {
             return rows
         }
-        var events = AppCommandRouter.recentEvents() || []
-        var seen = {}
-        for (var i = events.length - 1; i >= 0 && rows.length < 8; --i) {
-            var e = events[i]
-            if (!e || e.ok === false) continue
-            var label = String(e.name || e.desktopId || e.desktopFile || "")
-            if (label.length === 0 || seen[label]) continue
-            seen[label] = true
+        var apps = AppModel.frequentApps(8) || []
+        for (var i = 0; i < apps.length && rows.length < 8; ++i) {
+            var a = apps[i]
+            if (!a) continue
+            var label = String(a.name || a.desktopId || a.desktopFile || "")
+            if (label.length === 0) continue
+            var iconSrc = String(a.iconSource || "")
+            if (iconSrc.length === 0 && String(a.iconName || "").length > 0) {
+                iconSrc = "image://themeicon/" + String(a.iconName)
+            }
             rows.push({
                 label: label,
-                desktopId: String(e.desktopId || ""),
-                desktopFile: String(e.desktopFile || ""),
-                executable: String(e.executable || ""),
-                iconName: String(e.iconName || ""),
-                iconSource: String(e.iconSource || "")
+                desktopId: String(a.desktopId || ""),
+                desktopFile: String(a.desktopFile || ""),
+                executable: String(a.executable || ""),
+                iconSource: iconSrc
             })
         }
         return rows
@@ -140,7 +140,8 @@ Item {
             var uri = String(f.uri || f.url || f.path || "")
             var name = String(f.name || f.displayName || uri.split("/").pop() || "")
             if (name.length === 0) continue
-            rows.push({label: name, uri: uri, mimeIconName: root._mimeIconForPath(uri)})
+            rows.push({label: name, uri: uri,
+                       iconSource: "image://themeicon/" + root._mimeIconForPath(uri)})
         }
         return rows
     }
@@ -247,7 +248,6 @@ Item {
                     text: String(entry.label || "")
                     enabled: text.length > 0
                     iconSource: String(entry.iconSource || "")
-                    icon.name: iconSource.length === 0 ? String(entry.iconName || "") : ""
                     onTriggered: {
                         mainMenu.close()
                         if (typeof AppCommandRouter === "undefined" || !AppCommandRouter) return
@@ -287,7 +287,7 @@ Item {
                     property var entry: modelData || ({})
                     text: String(entry.label || "")
                     enabled: text.length > 0
-                    icon.name: String(entry.mimeIconName || "text-x-generic")
+                    iconSource: String(entry.iconSource || "")
                     onTriggered: {
                         mainMenu.close()
                         var uri = String(entry.uri || "")
