@@ -183,8 +183,8 @@ Item {
         y: Math.round(mainButton.mapToGlobal(0, 0).y + mainButton.height + Theme.metric("spacingSm"))
         onAboutToShow: {
             root.popupHintCleared()
-            recentAppsModel.rows = root._buildRecentApps()
-            recentFilesModel.rows = root._buildRecentFiles()
+            recentAppsMenu._rows = root._buildRecentApps()
+            recentFilesMenu._rows = root._buildRecentFiles()
         }
         onAboutToHide: {
             root.popupHintCleared()
@@ -210,88 +210,75 @@ Item {
 
         MenuSeparator {}
 
-        // ── Recent Applications ───────────────────────────────────────────────
+        // ── Recent Applications submenu ───────────────────────────────────────
 
-        QtObject {
-            id: recentAppsModel
-            property var rows: []
-        }
+        Menu {
+            id: recentAppsMenu
+            title: qsTr("Recent Applications")
+            enabled: recentAppsInstantiator.count > 0
 
-        MenuItem {
-            text: qsTr("Recent Applications")
-            enabled: false
-            font.weight: Theme.fontWeight("semibold")
-            visible: recentAppsModel.rows.length > 0
-            height: visible ? implicitHeight : 0
-        }
-
-        Instantiator {
-            model: recentAppsModel.rows
-            delegate: MenuItem {
-                property var entry: modelData || ({})
-                text: String(entry.label || "")
-                enabled: text.length > 0
-                onTriggered: {
-                    mainMenu.close()
-                    if (typeof AppCommandRouter === "undefined" || !AppCommandRouter) return
-                    var hasDesktopId = String(entry.desktopId || "").length > 0
-                    var hasDesktopFile = String(entry.desktopFile || "").length > 0
-                    if (hasDesktopId) {
-                        AppCommandRouter.route("app.desktopid",
-                                               {desktopId: entry.desktopId}, "main-menu")
-                    } else if (hasDesktopFile) {
-                        AppCommandRouter.route("app.desktopentry",
-                                               {desktopFile: entry.desktopFile,
-                                                executable: entry.executable || "",
-                                                name: entry.label || "",
-                                                iconName: entry.iconName || "",
-                                                iconSource: entry.iconSource || ""},
-                                               "main-menu")
+            Instantiator {
+                id: recentAppsInstantiator
+                model: recentAppsMenu._rows
+                delegate: MenuItem {
+                    property var entry: modelData || ({})
+                    text: String(entry.label || "")
+                    enabled: text.length > 0
+                    onTriggered: {
+                        mainMenu.close()
+                        if (typeof AppCommandRouter === "undefined" || !AppCommandRouter) return
+                        if (String(entry.desktopId || "").length > 0) {
+                            AppCommandRouter.route("app.desktopid",
+                                                   {desktopId: entry.desktopId}, "main-menu")
+                        } else if (String(entry.desktopFile || "").length > 0) {
+                            AppCommandRouter.route("app.desktopentry",
+                                                   {desktopFile: entry.desktopFile,
+                                                    executable: entry.executable || "",
+                                                    name: entry.label || "",
+                                                    iconName: entry.iconName || "",
+                                                    iconSource: entry.iconSource || ""},
+                                                   "main-menu")
+                        }
                     }
                 }
+                onObjectAdded: function(index, object) { recentAppsMenu.insertItem(index, object) }
+                onObjectRemoved: function(index, object) { recentAppsMenu.removeItem(object) }
             }
-            onObjectAdded: function(index, object) { mainMenu.insertItem(index + 3, object) }
-            onObjectRemoved: function(index, object) { mainMenu.removeItem(object) }
+
+            // Populated in mainMenu.onAboutToShow
+            property var _rows: []
         }
 
-        // ── Recent Files ──────────────────────────────────────────────────────
+        // ── Recent Files submenu ──────────────────────────────────────────────
 
-        QtObject {
-            id: recentFilesModel
-            property var rows: []
-        }
+        Menu {
+            id: recentFilesMenu
+            title: qsTr("Recent Files")
+            enabled: recentFilesInstantiator.count > 0
 
-        MenuSeparator {
-            visible: recentAppsModel.rows.length > 0 && recentFilesModel.rows.length > 0
-            height: visible ? implicitHeight : 0
-        }
-
-        MenuItem {
-            text: qsTr("Recent Files")
-            enabled: false
-            font.weight: Theme.fontWeight("semibold")
-            visible: recentFilesModel.rows.length > 0
-            height: visible ? implicitHeight : 0
-        }
-
-        Instantiator {
-            model: recentFilesModel.rows
-            delegate: MenuItem {
-                property var entry: modelData || ({})
-                text: String(entry.label || "")
-                enabled: text.length > 0
-                onTriggered: {
-                    mainMenu.close()
-                    var uri = String(entry.uri || "")
-                    if (uri.length === 0) return
-                    if (typeof AppCommandRouter !== "undefined" && AppCommandRouter
-                            && AppCommandRouter.route) {
-                        AppCommandRouter.route("filemanager.open", {target: uri}, "main-menu")
+            Instantiator {
+                id: recentFilesInstantiator
+                model: recentFilesMenu._rows
+                delegate: MenuItem {
+                    property var entry: modelData || ({})
+                    text: String(entry.label || "")
+                    enabled: text.length > 0
+                    onTriggered: {
+                        mainMenu.close()
+                        var uri = String(entry.uri || "")
+                        if (uri.length === 0) return
+                        if (typeof AppCommandRouter !== "undefined" && AppCommandRouter
+                                && AppCommandRouter.route) {
+                            AppCommandRouter.route("filemanager.open", {target: uri}, "main-menu")
+                        }
                     }
                 }
+                onObjectAdded: function(index, object) { recentFilesMenu.insertItem(index, object) }
+                onObjectRemoved: function(index, object) { recentFilesMenu.removeItem(object) }
             }
-            onObjectAdded: function(index, object) { mainMenu.addItem(object) }
-            onObjectRemoved: function(index, object) { mainMenu.removeItem(object) }
+
+            // Populated in mainMenu.onAboutToShow
+            property var _rows: []
         }
 
         MenuSeparator {}
