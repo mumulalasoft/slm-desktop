@@ -1809,6 +1809,23 @@ target_link_libraries(topbar_mainmenu_recent_icons_guard_test
 
 add_test(NAME topbar_mainmenu_recent_icons_guard_test COMMAND topbar_mainmenu_recent_icons_guard_test)
 
+qt_add_executable(notification_animation_contract_test
+    tests/notification_animation_contract_test.cpp
+)
+
+target_compile_definitions(notification_animation_contract_test
+    PRIVATE
+        DESKTOP_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\"
+)
+
+target_link_libraries(notification_animation_contract_test
+    PRIVATE
+        Qt6::Core
+        Qt6::Test
+)
+
+add_test(NAME notification_animation_contract_test COMMAND notification_animation_contract_test)
+
 qt_add_executable(docksystem_render_contract_test
     tests/docksystem_render_contract_test.cpp
 )
@@ -4338,6 +4355,7 @@ add_custom_target(test_headless
         workspace_overlay_guard_test
         motion_scheduler_ui_guard_test
         topbar_mainmenu_recent_icons_guard_test
+        notification_animation_contract_test
         docksystem_render_contract_test
         daemonhealthmonitor_test
         dbussecurityguard_test
