@@ -2,6 +2,7 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Window 2.15
 import Slm_Desktop
+import SlmStyle as DSStyle
 import "Qml/components" as Components
 import "Qml/components/globalmenu" as GlobalMenuComp
 import "Qml/components/overlay" as OverlayComp
@@ -42,6 +43,22 @@ ApplicationWindow {
     property var appModelRef: null
     property var fileManagerApiRef: null
     property var tothespotServiceRef: null
+    function openFileManagerFromShortcut(pathValue) {
+        var targetPath = String(pathValue && String(pathValue).length > 0 ? pathValue : "~")
+        ShellUtils.openDetachedFileManager(root, targetPath)
+        Qt.callLater(function() {
+            var detachedUnavailable = !detachedFileManagerWindow
+                                     || root.detachedFileManagerLoadFailed
+                                     || detachedFileManagerWindow.loaderStatus === Loader.Error
+            if (!detachedUnavailable) {
+                return
+            }
+            if (root.fileManagerApiRef && root.fileManagerApiRef.startOpenPathInFileManager) {
+                root.fileManagerApiRef.startOpenPathInFileManager(targetPath,
+                                                                  "shortcut-open-filemanager")
+            }
+        })
+    }
     onDetachedFileManagerVisibleChanged: {
         if (!detachedFileManagerVisible) {
             detachedFileManagerLoadFailed = false
@@ -181,6 +198,7 @@ ApplicationWindow {
                                        ? Number(UIPreferences.getPreference("tothespot.windowHeight", -1)) : -1
     property bool tothespotRestoringGeometry: false
     onTothespotVisibleChanged: {
+        if (typeof ShellStateController !== "undefined" && ShellStateController) ShellStateController.setToTheSpotVisible(tothespotVisible)
         if (lockScreenVisible && tothespotVisible) {
             tothespotVisible = false
             return
@@ -200,6 +218,7 @@ ApplicationWindow {
         ShellUtils.refreshMotionDebugRows(root)
     }
     onLockScreenVisibleChanged: {
+        if (typeof ShellStateController !== "undefined" && ShellStateController) ShellStateController.setLockScreenActive(lockScreenVisible)
         if (!lockScreenVisible) {
             return
         }
@@ -245,6 +264,18 @@ ApplicationWindow {
         }
     }
 
+    function syncStyleThemeFromPreferences() {
+        if (typeof UIPreferences === "undefined" || !UIPreferences) {
+            return
+        }
+        Theme.applyModeString(UIPreferences.themeMode)
+        Theme.userAccentColor = UIPreferences.accentColor
+        Theme.userFontScale = UIPreferences.fontScale
+        DSStyle.Theme.applyModeString(UIPreferences.themeMode)
+        DSStyle.Theme.userAccentColor = UIPreferences.accentColor
+        DSStyle.Theme.userFontScale = UIPreferences.fontScale
+    }
+
     onPortalChooserSelectedPathsChanged: {
         if (portalChooserApi) {
             portalChooserApi.portalChooserUpdatePreviewPath()
@@ -252,6 +283,11 @@ ApplicationWindow {
     }
 
     Component.onCompleted: {
+        syncStyleThemeFromPreferences()
+        // 5-minute threshold — 30 s default is too short for normal launchpad browsing.
+        if (typeof ShellLayerWatchdog !== "undefined" && ShellLayerWatchdog) {
+            ShellLayerWatchdog.overlayStuckThresholdMs = 300000
+        }
         if (typeof AppModel !== "undefined" && AppModel) {
             appModelRef = AppModel
         }
@@ -270,12 +306,19 @@ ApplicationWindow {
         }
     }
 
+    Connections {
+        target: typeof UIPreferences !== "undefined" ? UIPreferences : null
+        function onThemeModeChanged() { root.syncStyleThemeFromPreferences() }
+        function onAccentColorChanged() { root.syncStyleThemeFromPreferences() }
+        function onFontScaleChanged() { root.syncStyleThemeFromPreferences() }
+    }
+
     GlobalMenuComp.GlobalMenuActionRouter {
         id: globalMenuActionRouter
         rootWindow: root
         fileManagerContent: root.fileManagerContent
         detachedFileManagerWindow: detachedFileManagerWindow
-        onRequestFocusTothespot: TothespotController.focusFromMenu(root, tothespotWindow)
+        onRequestFocusTothespot: TothespotController.focusFromMenu(root, tothespotWindowLoader ? tothespotWindowLoader.item : null)
         onRequestHelpMessage: function(message) {
             ScreenshotController.showResultNotification(root, true, "", String(message || ""))
         }
@@ -285,7 +328,17 @@ ApplicationWindow {
         sequence: "Alt+Shift+E"
         context: Qt.ApplicationShortcut
         onActivated: {
-            ShellUtils.openDetachedFileManager(root, "~")
+            if (typeof ShellInputRouter !== "undefined" && !ShellInputRouter.canDispatch("shell.file_manager")) return
+            root.openFileManagerFromShortcut("~")
+        }
+    }
+
+    Shortcut {
+        sequence: "Meta+E"
+        context: Qt.ApplicationShortcut
+        onActivated: {
+            if (typeof ShellInputRouter !== "undefined" && !ShellInputRouter.canDispatch("shell.file_manager")) return
+            root.openFileManagerFromShortcut("~")
         }
     }
 
@@ -293,6 +346,7 @@ ApplicationWindow {
         sequence: "Alt+Shift+P"
         context: Qt.ApplicationShortcut
         onActivated: {
+            if (typeof ShellInputRouter !== "undefined" && !ShellInputRouter.canDispatch("shell.print")) return
             if (!root.printDocumentUri.length && root.screenshotSaveSourcePath.length) {
                 root.printDocumentUri = "file://" + root.screenshotSaveSourcePath
                 root.printDocumentTitle = "Captured Image"
@@ -305,17 +359,16 @@ ApplicationWindow {
     Shortcut {
         sequence: root.tothespotBind
         onActivated: {
-            if (root.lockScreenVisible) {
-                return
-            }
+            if (typeof ShellInputRouter !== "undefined" && !ShellInputRouter.canDispatch("shell.tothespot")) return
             root.tothespotVisible = !root.tothespotVisible
             if (root.tothespotVisible) {
                 root.clipboardOverlayVisible = false
             }
             if (root.tothespotVisible) {
                 Qt.callLater(function() {
-                    if (tothespotWindow && tothespotWindow.focusSearchField) {
-                        tothespotWindow.focusSearchField()
+                    const tw = tothespotWindowLoader ? tothespotWindowLoader.item : null
+                    if (tw && tw.focusSearchField) {
+                        tw.focusSearchField()
                     }
                 })
             }
@@ -326,9 +379,7 @@ ApplicationWindow {
         sequence: "Meta+V"
         context: Qt.ApplicationShortcut
         onActivated: {
-            if (root.lockScreenVisible) {
-                return
-            }
+            if (typeof ShellInputRouter !== "undefined" && !ShellInputRouter.canDispatch("shell.clipboard")) return
             root.clipboardOverlayVisible = !root.clipboardOverlayVisible
             if (root.clipboardOverlayVisible) {
                 root.tothespotVisible = false
@@ -340,9 +391,7 @@ ApplicationWindow {
         sequence: "Meta+,"
         context: Qt.ApplicationShortcut
         onActivated: {
-            if (root.lockScreenVisible) {
-                return
-            }
+            if (typeof ShellInputRouter !== "undefined" && !ShellInputRouter.canDispatch("shell.settings")) return
             if (typeof AppExecutionGate === "undefined" || !AppExecutionGate) {
                 return
             }
@@ -371,9 +420,7 @@ ApplicationWindow {
         sequence: "Meta+S"
         context: Qt.ApplicationShortcut
         onActivated: {
-            if (root.lockScreenVisible) {
-                return
-            }
+            if (typeof ShellInputRouter !== "undefined" && !ShellInputRouter.canDispatch("shell.workspace_overview")) return
             if (desktopScene && desktopScene.toggleWorkspaceOverview) {
                 desktopScene.toggleWorkspaceOverview()
             } else if (desktopScene) {
@@ -397,9 +444,7 @@ ApplicationWindow {
         sequence: "Meta+Left"
         context: Qt.ApplicationShortcut
         onActivated: {
-            if (root.lockScreenVisible) {
-                return
-            }
+            if (typeof ShellInputRouter !== "undefined" && !ShellInputRouter.canDispatch("workspace.prev")) return
             if (desktopScene && desktopScene.switchWorkspaceByDelta) {
                 desktopScene.switchWorkspaceByDelta(-1)
             }
@@ -410,9 +455,7 @@ ApplicationWindow {
         sequence: "Meta+Right"
         context: Qt.ApplicationShortcut
         onActivated: {
-            if (root.lockScreenVisible) {
-                return
-            }
+            if (typeof ShellInputRouter !== "undefined" && !ShellInputRouter.canDispatch("workspace.next")) return
             if (desktopScene && desktopScene.switchWorkspaceByDelta) {
                 desktopScene.switchWorkspaceByDelta(1)
             }
@@ -423,9 +466,7 @@ ApplicationWindow {
         sequence: "Ctrl+Meta+Left"
         context: Qt.ApplicationShortcut
         onActivated: {
-            if (root.lockScreenVisible) {
-                return
-            }
+            if (typeof ShellInputRouter !== "undefined" && !ShellInputRouter.canDispatch("window.move_workspace_prev")) return
             if (desktopScene && desktopScene.moveFocusedWindowByDelta) {
                 desktopScene.moveFocusedWindowByDelta(-1)
             }
@@ -436,9 +477,7 @@ ApplicationWindow {
         sequence: "Ctrl+Meta+Right"
         context: Qt.ApplicationShortcut
         onActivated: {
-            if (root.lockScreenVisible) {
-                return
-            }
+            if (typeof ShellInputRouter !== "undefined" && !ShellInputRouter.canDispatch("window.move_workspace_next")) return
             if (desktopScene && desktopScene.moveFocusedWindowByDelta) {
                 desktopScene.moveFocusedWindowByDelta(1)
             }
@@ -448,7 +487,8 @@ ApplicationWindow {
     Shortcut {
         sequence: "Escape"
         context: Qt.ApplicationShortcut
-        enabled: !!(desktopScene && desktopScene.workspaceVisible) && !root.lockScreenVisible
+        enabled: !!(desktopScene && desktopScene.workspaceVisible)
+                 && (typeof ShellInputRouter === "undefined" || ShellInputRouter.canDispatch("overlay.dismiss"))
         onActivated: {
             if (desktopScene && desktopScene.exitWorkspaceOverview) {
                 desktopScene.exitWorkspaceOverview()
@@ -534,7 +574,7 @@ ApplicationWindow {
     DesktopScene {
         id: desktopScene
         anchors.fill: parent
-        dockItem: dockWindow.dockItem
+        dockItem: shellDockHost.dockItem
     }
 
     Shortcut {
@@ -711,6 +751,7 @@ ApplicationWindow {
         onAllowAlwaysRequested: shellServiceBridge.acceptConsentAlways()
         onDenyRequested: shellServiceBridge.denyConsent()
         onCancelRequested: shellServiceBridge.cancelConsent()
+        onOpenSettingsRequested: shellServiceBridge.openConsentSettings()
     }
 
     OverlayComp.DetachedFileManagerWindow {
@@ -771,15 +812,38 @@ ApplicationWindow {
         globalMenuManager: GlobalMenuManager
     }
 
-    OverlayComp.LaunchpadWindow {
-        id: launchpadWindow
-        rootWindow: root
-        desktopScene: desktopScene
-        appsModel: AppModel
-        dockModel: DockModel
-        onAppChosen: LaunchpadActions.handleAppChosen(appData)
-        onAddToDockRequested: LaunchpadActions.handleAddToDock(appData)
-        onAddToDesktopRequested: LaunchpadActions.handleAddToDesktop(appData, desktopScene)
+    // LaunchpadWindow — deferred Loader with error boundary.
+    // If the component fails to load, ShellStateController and ShellLayerWatchdog
+    // are notified so the shell can recover without crashing Main.qml.
+    Loader {
+        id: launchpadWindowLoader
+        // Capture desktopScene here (Loader scope) to avoid the name-collision
+        // that occurs when Component bindings resolve 'desktopScene' to
+        // LaunchpadWindow's own required property instead of Main.qml's ID.
+        readonly property var sceneRef: desktopScene
+        active: true
+        asynchronous: false
+        sourceComponent: Component {
+            OverlayComp.LaunchpadWindow {
+                rootWindow: root
+                desktopScene: launchpadWindowLoader.sceneRef
+                appsModel: AppModel
+                onAppChosen: function(appData) { LaunchpadActions.handleAppChosen(appData) }
+                onAddToDockRequested: function(appData) { LaunchpadActions.handleAddToDock(appData) }
+                onAddToDesktopRequested: function(appData) { LaunchpadActions.handleAddToDesktop(appData, launchpadWindowLoader.sceneRef) }
+            }
+        }
+        onStatusChanged: {
+            if (status === Loader.Error) {
+                console.error("[shell] LaunchpadWindow failed to load:", errorString())
+                if (typeof ShellStateController !== "undefined" && ShellStateController) {
+                    ShellStateController.setLaunchpadVisible(false)
+                }
+                if (typeof ShellLayerWatchdog !== "undefined" && ShellLayerWatchdog) {
+                    ShellLayerWatchdog.reportOverlayLoadError("launchpad")
+                }
+            }
+        }
     }
 
     TothespotDismissWindow {
@@ -798,51 +862,115 @@ ApplicationWindow {
         onCloseRequested: root.clipboardOverlayVisible = false
     }
 
-    TothespotWindow {
-        id: tothespotWindow
-        rootWindow: root
-        panelHeight: desktopScene.panelHeight
-        overlayVisible: root.tothespotVisible && !root.lockScreenVisible
-        showDebugInfo: root.tothespotShowDebug
-        searchProfileMeta: root.tothespotProfileMeta
-        telemetryMeta: root.tothespotTelemetryMeta
-        telemetryLast: root.tothespotTelemetryLast
-        providerStats: root.tothespotProviderStats
-        previewData: root.tothespotPreviewData
-        queryText: root.tothespotQuery
-        resultsModel: tothespotResultsModel
-        selectedIndex: root.tothespotSelectedIndex
-        onGeometryEdited: ShellUtils.saveTothespotGeometry(root)
-        onOpeningRequested: ShellUtils.restoreTothespotGeometry(root)
-        onDismissRequested: root.tothespotVisible = false
-        onQueryTextChangedRequest: function(text) {
-            root.tothespotQuery = String(text || "")
-            root.tothespotQueryGeneration = Number(root.tothespotQueryGeneration || 0) + 1
-            tothespotDebounce.restart()
+    // TothespotWindow — deferred Loader with error boundary.
+    Loader {
+        id: tothespotWindowLoader
+        active: true
+        asynchronous: false
+        sourceComponent: Component {
+            TothespotWindow {
+                rootWindow: root
+                panelHeight: desktopScene.panelHeight
+                overlayVisible: root.tothespotVisible && !root.lockScreenVisible
+                showDebugInfo: root.tothespotShowDebug
+                searchProfileMeta: root.tothespotProfileMeta
+                telemetryMeta: root.tothespotTelemetryMeta
+                telemetryLast: root.tothespotTelemetryLast
+                providerStats: root.tothespotProviderStats
+                previewData: root.tothespotPreviewData
+                queryText: root.tothespotQuery
+                resultsModel: tothespotResultsModel
+                selectedIndex: root.tothespotSelectedIndex
+                onGeometryEdited: ShellUtils.saveTothespotGeometry(root)
+                onOpeningRequested: ShellUtils.restoreTothespotGeometry(root)
+                onDismissRequested: root.tothespotVisible = false
+                onQueryTextChangedRequest: function(text) {
+                    root.tothespotQuery = String(text || "")
+                    root.tothespotQueryGeneration = Number(root.tothespotQueryGeneration || 0) + 1
+                    tothespotDebounce.restart()
+                }
+                onSelectedIndexChangedByUser: function(indexValue) {
+                    root.tothespotSelectedIndex = indexValue
+                    TothespotController.refreshPreview(root, tothespotResultsModel)
+                }
+                onResultActivated: function(indexValue) {
+                    TothespotController.activateResult(root, tothespotResultsModel, indexValue)
+                }
+                onResultContextAction: function(indexValue, action) {
+                    TothespotController.activateContextAction(root, tothespotResultsModel, indexValue, action)
+                }
+            }
         }
-        onSelectedIndexChangedByUser: function(indexValue) {
-            root.tothespotSelectedIndex = indexValue
-            TothespotController.refreshPreview(root, tothespotResultsModel)
-        }
-        onResultActivated: function(indexValue) {
-            TothespotController.activateResult(root, tothespotResultsModel, indexValue)
-        }
-        onResultContextAction: function(indexValue, action) {
-            TothespotController.activateContextAction(root, tothespotResultsModel, indexValue, action)
+        onStatusChanged: {
+            if (status === Loader.Error) {
+                console.error("[shell] TothespotWindow failed to load:", errorString())
+                root.tothespotVisible = false
+                if (typeof ShellStateController !== "undefined" && ShellStateController) {
+                    ShellStateController.setToTheSpotVisible(false)
+                }
+                if (typeof ShellLayerWatchdog !== "undefined" && ShellLayerWatchdog) {
+                    ShellLayerWatchdog.reportOverlayLoadError("tothespot")
+                }
+            }
         }
     }
 
-    OverlayComp.WorkspaceWindow {
-        id: workspaceWindow
-        rootWindow: root
-        desktopScene: desktopScene
+    // WorkspaceWindow — deferred Loader with error boundary.
+    Loader {
+        id: workspaceWindowLoader
+        active: true
+        asynchronous: false
+        sourceComponent: Component {
+            OverlayComp.WorkspaceWindow {
+                rootWindow: root
+                desktopScene: desktopScene
+            }
+        }
+        onStatusChanged: {
+            if (status === Loader.Error) {
+                console.error("[shell] WorkspaceWindow failed to load:", errorString())
+                if (typeof ShellStateController !== "undefined" && ShellStateController) {
+                    ShellStateController.setWorkspaceOverviewVisible(false)
+                }
+                if (typeof ShellLayerWatchdog !== "undefined" && ShellLayerWatchdog) {
+                    ShellLayerWatchdog.reportOverlayLoadError("workspace")
+                }
+            }
+        }
     }
 
-    OverlayComp.DockWindow {
-        id: dockWindow
+    OverlayComp.ShellDockHost {
+        id: shellDockHost
         rootWindow: root
         desktopScene: desktopScene
         appsModel: DockModel
+    }
+
+    // Persistent-layer health check: if ShellLayerWatchdog reports that it has
+    // restored the shell (e.g. after force-dismissing a stuck overlay), re-assert
+    // that TopBar and Dock are visible. Their visibility is normally bound to
+    // rootWindow.visible; this guard catches any accidental override.
+    Connections {
+        target: (typeof ShellLayerWatchdog !== "undefined") ? ShellLayerWatchdog : null
+        ignoreUnknownSignals: true
+        function onPersistentLayerRestored() {
+            if (topBarWindow && !topBarWindow.visible) {
+                console.warn("[shell] persistent-layer restore: re-showing TopBar")
+                topBarWindow.visible = Qt.binding(function() { return !!root && root.visible })
+            }
+            if (shellDockHost && !shellDockHost.visible) {
+                console.warn("[shell] persistent-layer restore: re-showing ShellDockHost")
+                shellDockHost.visible = Qt.binding(function() { return !!root && root.visible })
+            }
+        }
+        function onOverlayStuckDetected(overlayName, durationMs) {
+            // Fires exactly once per occurrence (C++ sets stuckReported after first emit).
+            console.warn("[shell] overlay stuck:", overlayName, "visible for", durationMs, "ms — recovery pending")
+        }
+        function onHealthCheckCompleted(healthy) {
+            // Intentionally silent: onOverlayStuckDetected already logged the incident.
+            void healthy
+        }
     }
 
     Connections {

@@ -2,12 +2,14 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import Slm_Desktop
-import Style as DSStyle
+import SlmStyle as DSStyle
 
 DSStyle.AppDialog {
     id: shareSheet
 
     required property var hostRoot
+    readonly property int iconRevision: ((typeof ThemeIconController !== "undefined" && ThemeIconController)
+                                         ? ThemeIconController.revision : 0)
 
     title: "Share"
     dialogWidth: 440
@@ -39,7 +41,7 @@ DSStyle.AppDialog {
                         radius: Theme.radiusControl
                         color: mouseArea.containsMouse ? Theme.color("accentSoft") : "transparent"
 
-                        Behavior on color { ColorAnimation { duration: 100 } }
+                        Behavior on color { ColorAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault } }
                     }
 
                     ColumnLayout {
@@ -56,7 +58,7 @@ DSStyle.AppDialog {
                                 var iconSource = String(modelData.iconSource || "")
                                 if (iconSource.length > 0) return iconSource
                                 var iconName = String(modelData.iconName || (modelData.icon || ""))
-                                if (iconName.length > 0) return "image://themeicon/" + iconName
+                                if (iconName.length > 0) return "image://themeicon/" + iconName + "?v=" + shareSheet.iconRevision
                                 return ""
                             }
                             visible: source.toString().length > 0

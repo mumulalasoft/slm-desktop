@@ -9,9 +9,16 @@
 #include <QDBusConnection>
 #include <QDir>
 #include <QDirIterator>
+#include <QFile>
 #include <QFileInfo>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QStandardPaths>
 #include <QSet>
 #include <QtGlobal>
+#include <QProcessEnvironment>
+#include <QProcess>
 
 #include "src/core/actions/slmactionregistry.h"
 #include "src/core/actions/framework/slmactionframework.h"
@@ -21,6 +28,7 @@
 #define DESKTOP_SHELL_RESTORE_QT_SIGNALS_MACRO
 #endif
 extern "C" {
+#include <gio/gdesktopappinfo.h>
 #include <gio/gio.h>
 }
 #ifdef DESKTOP_SHELL_RESTORE_QT_SIGNALS_MACRO
@@ -36,6 +44,19 @@ constexpr const char kCapabilityService[] = "org.freedesktop.SLMCapabilities";
 constexpr const char kCapabilityPath[] = "/org/freedesktop/SLMCapabilities";
 constexpr const char kCapabilityIface[] = "org.freedesktop.SLMCapabilities";
 constexpr int kSearchTimeoutMs = 1200;
+constexpr qint64 kEmptyQueryCacheTtlMs = 5 * 60 * 1000;
+constexpr int kEmptyQueryCacheMaxRows = 24;
+
+QString emptyQueryCachePath()
+{
+    QString base = QStandardPaths::writableLocation(QStandardPaths::CacheLocation);
+    if (base.trimmed().isEmpty()) {
+        base = QDir::homePath() + QStringLiteral("/.cache/slm-desktop");
+    }
+    QDir dir(base);
+    dir.mkpath(QStringLiteral("tothespot"));
+    return dir.filePath(QStringLiteral("tothespot/empty_query_cache.json"));
+}
 
 QStringList splitSemicolonList(const QString &value)
 {
@@ -138,6 +159,47 @@ QVariantList localSearchActionsFromDesktopEntries(const QString &needle, int lim
     }
     return rows;
 }
+
+bool launchDesktopIdBestEffort(const QString &desktopId)
+{
+    const QString normalized = desktopId.trimmed();
+    if (normalized.isEmpty()) {
+        return false;
+    }
+
+    const QByteArray candidateA = normalized.endsWith(QStringLiteral(".desktop"), Qt::CaseInsensitive)
+                                      ? normalized.toUtf8()
+                                      : (normalized + QStringLiteral(".desktop")).toUtf8();
+    const QByteArray candidateB = normalized.toUtf8();
+
+    GDesktopAppInfo *info = g_desktop_app_info_new(candidateA.constData());
+    if (!info) {
+        info = g_desktop_app_info_new(candidateB.constData());
+    }
+    if (!info) {
+        return false;
+    }
+
+    GAppLaunchContext *ctx = g_app_launch_context_new();
+    const QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+    const QStringList keys = env.keys();
+    for (const QString &key : keys) {
+        const QByteArray k = key.toUtf8();
+        const QByteArray v = env.value(key).toUtf8();
+        g_app_launch_context_setenv(ctx, k.constData(), v.constData());
+    }
+
+    GError *error = nullptr;
+    const bool ok = g_app_info_launch(G_APP_INFO(info), nullptr, ctx, &error);
+    if (error) {
+        qWarning() << "[slm-search] launch desktop id failed:" << normalized << error->message;
+        g_error_free(error);
+    }
+
+    g_object_unref(ctx);
+    g_object_unref(info);
+    return ok;
+}
 }
 
 TothespotService::TothespotService(QObject *parent)
@@ -149,6 +211,14 @@ TothespotService::TothespotService(QObject *parent)
     qRegisterMetaType<SearchResultList>("SearchResultList");
     qDBusRegisterMetaType<SearchResultEntry>();
     qDBusRegisterMetaType<SearchResultList>();
+
+    m_providerHealth = {
+        {QStringLiteral("globalReachable"), false},
+        {QStringLiteral("lastSource"), QStringLiteral("none")},
+        {QStringLiteral("lastUsedFallback"), false},
+        {QStringLiteral("lastQueryMs"), 0},
+        {QStringLiteral("lastError"), QString()},
+    };
 
     QDBusConnection::sessionBus().connect(QString::fromLatin1(kSearchService),
                                           QString::fromLatin1(kSearchPath),
@@ -169,6 +239,20 @@ QVariantList TothespotService::query(const QString &text, const QVariantMap &opt
         return {};
     }
     const QString needle = text.trimmed();
+    const int boundedLimit = qBound(1, limit, 256);
+    const bool isEmptyQuery = needle.isEmpty();
+    m_providerHealth.insert(QStringLiteral("lastQueryMs"), QDateTime::currentMSecsSinceEpoch());
+    m_providerHealth.insert(QStringLiteral("lastUsedFallback"), false);
+    m_providerHealth.insert(QStringLiteral("lastError"), QString());
+
+    if (isEmptyQuery) {
+        const QVariantList warm = loadEmptyQueryCache();
+        if (!warm.isEmpty()) {
+            m_providerHealth.insert(QStringLiteral("lastSource"), QStringLiteral("cache"));
+            m_providerHealth.insert(QStringLiteral("lastUsedFallback"), true);
+            return warm.mid(0, qMin(boundedLimit, warm.size()));
+        }
+    }
 
     // Primary source: global search service.
     QDBusInterface iface(QString::fromLatin1(kSearchService),
@@ -176,9 +260,10 @@ QVariantList TothespotService::query(const QString &text, const QVariantMap &opt
                          QString::fromLatin1(kSearchIface),
                          QDBusConnection::sessionBus());
     if (iface.isValid()) {
+        m_providerHealth.insert(QStringLiteral("globalReachable"), true);
         iface.setTimeout(kSearchTimeoutMs);
         QVariantMap queryOpts = options;
-        queryOpts.insert(QStringLiteral("limit"), qBound(1, limit, 256));
+        queryOpts.insert(QStringLiteral("limit"), boundedLimit);
         queryOpts.insert(QStringLiteral("includeApps"), true);
         queryOpts.insert(QStringLiteral("includeRecent"), true);
         queryOpts.insert(QStringLiteral("includeTracker"), true);
@@ -243,11 +328,18 @@ QVariantList TothespotService::query(const QString &text, const QVariantMap &opt
                 out.push_back(row);
             }
             if (!out.isEmpty()) {
+                m_providerHealth.insert(QStringLiteral("lastSource"), QStringLiteral("global-search"));
+                if (isEmptyQuery) {
+                    storeEmptyQueryCache(out.mid(0, qMin(kEmptyQueryCacheMaxRows, out.size())));
+                }
                 return out;
             }
             qInfo().noquote() << "[slm-search] global-query-empty query=" << needle
                               << "fallback=enabled";
         }
+    } else {
+        m_providerHealth.insert(QStringLiteral("globalReachable"), false);
+        m_providerHealth.insert(QStringLiteral("lastError"), QStringLiteral("service-unavailable"));
     }
 
     const auto materializeActionRows = [&](const QVariantList &rows, const QString &tag) -> QVariantList {
@@ -296,7 +388,7 @@ QVariantList TothespotService::query(const QString &text, const QVariantMap &opt
         return out;
     };
 
-    QVariantList actionRows = queryCapabilitySearchActions(needle, qBound(1, limit, 256));
+    QVariantList actionRows = queryCapabilitySearchActions(needle, boundedLimit);
     if (!actionRows.isEmpty()) {
         qInfo().noquote() << "[slm-search] tothespot-fallback query=" << needle
                           << "source=capability-service"
@@ -304,17 +396,43 @@ QVariantList TothespotService::query(const QString &text, const QVariantMap &opt
     }
     QVariantList out = materializeActionRows(actionRows, QStringLiteral("capability-service"));
     if (out.isEmpty()) {
-        actionRows = localSearchActionsFromDesktopEntries(needle, qBound(1, limit, 256));
+        actionRows = localSearchActionsFromDesktopEntries(needle, boundedLimit);
         if (!actionRows.isEmpty()) {
             qInfo().noquote() << "[slm-search] tothespot-fallback query=" << needle
                               << "source=local-desktop-scan"
                               << "count=" << actionRows.size();
         }
         out = materializeActionRows(actionRows, QStringLiteral("local-desktop-scan"));
+    } else {
+        m_providerHealth.insert(QStringLiteral("lastSource"), QStringLiteral("capability-service"));
+        m_providerHealth.insert(QStringLiteral("lastUsedFallback"), true);
     }
     if (!out.isEmpty()) {
+        if (m_providerHealth.value(QStringLiteral("lastSource")).toString().isEmpty()
+            || m_providerHealth.value(QStringLiteral("lastSource")).toString()
+                   == QStringLiteral("none")) {
+            m_providerHealth.insert(QStringLiteral("lastSource"), QStringLiteral("local-desktop-scan"));
+        }
+        m_providerHealth.insert(QStringLiteral("lastUsedFallback"), true);
+        if (isEmptyQuery) {
+            storeEmptyQueryCache(out.mid(0, qMin(kEmptyQueryCacheMaxRows, out.size())));
+        }
         return out;
     }
+
+    if (isEmptyQuery) {
+        const QVariantList localFallback = localPopularAppFallback(boundedLimit);
+        if (!localFallback.isEmpty()) {
+            storeEmptyQueryCache(localFallback.mid(0, qMin(kEmptyQueryCacheMaxRows, localFallback.size())));
+            qInfo().noquote() << "[slm-search] tothespot-empty-local-fallback count=" << localFallback.size();
+            m_providerHealth.insert(QStringLiteral("lastSource"), QStringLiteral("local-popular-apps"));
+            m_providerHealth.insert(QStringLiteral("lastUsedFallback"), true);
+            return localFallback;
+        }
+    }
+
+    m_providerHealth.insert(QStringLiteral("lastSource"), QStringLiteral("none"));
+    m_providerHealth.insert(QStringLiteral("lastError"), QStringLiteral("no-results"));
 
     return {};
 }
@@ -360,8 +478,139 @@ bool TothespotService::activateResult(const QString &id, const QVariantMap &acti
         qWarning().noquote() << "[slm-search] tothespot-fallback-invoke action=" << actionId << "failed" 
                              << reply.value(QStringLiteral("error")).toString();
     }
+
+    if (rid.startsWith(QStringLiteral("app:"))) {
+        const QString desktopId = activateData.value(QStringLiteral("desktopId")).toString().trimmed();
+        if (!desktopId.isEmpty() && launchDesktopIdBestEffort(desktopId)) {
+            return true;
+        }
+        const QString exec = activateData.value(QStringLiteral("executable")).toString().trimmed();
+        if (!exec.isEmpty()) {
+            return QProcess::startDetached(QStringLiteral("/bin/bash"),
+                                           {QStringLiteral("-lc"), exec});
+        }
+    }
     
     return false;
+}
+
+QVariantList TothespotService::loadEmptyQueryCache() const
+{
+    const qint64 now = QDateTime::currentMSecsSinceEpoch();
+    if (!m_emptyQueryMemoryCache.isEmpty()
+        && (now - m_emptyQueryMemoryCacheMs) <= kEmptyQueryCacheTtlMs) {
+        return m_emptyQueryMemoryCache;
+    }
+
+    QFile f(emptyQueryCachePath());
+    if (!f.exists() || !f.open(QIODevice::ReadOnly)) {
+        return {};
+    }
+    const QJsonDocument doc = QJsonDocument::fromJson(f.readAll());
+    if (!doc.isObject()) {
+        return {};
+    }
+    const QJsonObject root = doc.object();
+    const qint64 ts = static_cast<qint64>(root.value(QStringLiteral("ts")).toDouble(0));
+    if (ts <= 0 || (now - ts) > kEmptyQueryCacheTtlMs) {
+        return {};
+    }
+
+    QVariantList rows;
+    const QJsonArray arr = root.value(QStringLiteral("rows")).toArray();
+    rows.reserve(arr.size());
+    for (const QJsonValue &v : arr) {
+        if (!v.isObject()) {
+            continue;
+        }
+        const QVariantMap row = v.toObject().toVariantMap();
+        if (!row.isEmpty()) {
+            rows.push_back(row);
+        }
+    }
+    m_emptyQueryMemoryCache = rows;
+    m_emptyQueryMemoryCacheMs = ts;
+    return rows;
+}
+
+void TothespotService::storeEmptyQueryCache(const QVariantList &rows)
+{
+    if (rows.isEmpty()) {
+        return;
+    }
+    const qint64 now = QDateTime::currentMSecsSinceEpoch();
+    m_emptyQueryMemoryCache = rows;
+    m_emptyQueryMemoryCacheMs = now;
+
+    QJsonArray arr;
+    for (const QVariant &v : rows) {
+        const QVariantMap row = v.toMap();
+        if (!row.isEmpty()) {
+            arr.push_back(QJsonObject::fromVariantMap(row));
+        }
+    }
+    QJsonObject root{
+        {QStringLiteral("ts"), static_cast<double>(now)},
+        {QStringLiteral("rows"), arr},
+    };
+    QFile f(emptyQueryCachePath());
+    if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        return;
+    }
+    f.write(QJsonDocument(root).toJson(QJsonDocument::Compact));
+}
+
+QVariantList TothespotService::localPopularAppFallback(int limit) const
+{
+    QVariantList out;
+    if (limit <= 0) {
+        return out;
+    }
+
+    GList *apps = g_app_info_get_all();
+    if (!apps) {
+        return out;
+    }
+
+    int added = 0;
+    for (GList *it = apps; it && added < limit; it = it->next) {
+        GAppInfo *app = G_APP_INFO(it->data);
+        if (!app || !g_app_info_should_show(app)) {
+            continue;
+        }
+        const QString desktopId = QString::fromUtf8(g_app_info_get_id(app));
+        const QString name = QString::fromUtf8(g_app_info_get_display_name(app));
+        const QString exec = QString::fromUtf8(g_app_info_get_executable(app));
+        if (desktopId.trimmed().isEmpty() || name.trimmed().isEmpty()) {
+            continue;
+        }
+        QVariantMap row;
+        row.insert(QStringLiteral("resultId"), QStringLiteral("app:") + desktopId);
+        row.insert(QStringLiteral("provider"), QStringLiteral("apps"));
+        row.insert(QStringLiteral("type"), QStringLiteral("app"));
+        row.insert(QStringLiteral("resultKind"), QStringLiteral("app"));
+        row.insert(QStringLiteral("name"), name);
+        row.insert(QStringLiteral("path"), desktopId);
+        row.insert(QStringLiteral("absolutePath"), QString());
+        row.insert(QStringLiteral("desktopId"), desktopId);
+        row.insert(QStringLiteral("desktopFile"), QString());
+        row.insert(QStringLiteral("executable"), exec);
+        QString iconName;
+        if (GIcon *icon = g_app_info_get_icon(app)) {
+            gchar *iconRaw = g_icon_to_string(icon);
+            if (iconRaw) {
+                iconName = QString::fromUtf8(iconRaw);
+                g_free(iconRaw);
+            }
+        }
+        row.insert(QStringLiteral("iconName"), iconName);
+        row.insert(QStringLiteral("iconSource"), QString());
+        row.insert(QStringLiteral("score"), 200 - added);
+        out.push_back(row);
+        ++added;
+    }
+    g_list_free_full(apps, g_object_unref);
+    return out;
 }
 
 QVariantMap TothespotService::previewResult(const QString &id)
@@ -574,10 +823,17 @@ QVariantMap TothespotService::telemetryMeta()
     }
     iface.setTimeout(kSearchTimeoutMs);
     QDBusReply<QVariantMap> reply = iface.call(QStringLiteral("GetTelemetryMeta"));
-    return reply.isValid() ? reply.value() : QVariantMap{
+    if (!reply.isValid()) {
+        QVariantMap fallback{
         {QStringLiteral("ok"), false},
         {QStringLiteral("error"), QStringLiteral("dbus-error")}
-    };
+        };
+        fallback.insert(QStringLiteral("providerHealth"), m_providerHealth);
+        return fallback;
+    }
+    QVariantMap out = reply.value();
+    out.insert(QStringLiteral("providerHealth"), m_providerHealth);
+    return out;
 }
 
 QVariantList TothespotService::activationTelemetry(int limit)

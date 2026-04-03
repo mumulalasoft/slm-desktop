@@ -1,0 +1,35 @@
+{
+    "id": "sound",
+    "name": "Sound",
+    "icon": "audio-speakers",
+    "group": "Hardware",
+    "description": "Output and input audio configuration.",
+    "keywords": ["volume", "speaker", "microphone", "audio", "output", "input"],
+    "main": "SoundPage.qml",
+    "settings": [
+        {
+            "id": "output-volume",
+            "label": "Main Volume",
+            "description": "Set output volume level",
+            "keywords": ["volume", "speaker", "output"],
+            "type": "slider",
+            "backend_binding": "dbus:org.PulseAudio.Core1/PlaybackVolume"
+        },
+        {
+            "id": "output-device",
+            "label": "Output Device",
+            "description": "Choose speaker or headset",
+            "keywords": ["output", "device", "speaker", "headset"],
+            "type": "dropdown",
+            "backend_binding": "dbus:org.PulseAudio.Core1/FallbackSink"
+        },
+        {
+            "id": "input-volume",
+            "label": "Input Volume",
+            "description": "Set microphone gain",
+            "keywords": ["microphone", "input", "gain"],
+            "type": "slider",
+            "backend_binding": "dbus:org.PulseAudio.Core1/CaptureVolume"
+        }
+    ]
+}

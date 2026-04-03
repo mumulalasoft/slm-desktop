@@ -11,10 +11,12 @@ Item {
     property real itemScale: 1.0
     property real influence: 0
     property real hoverLift: 5
+    property real liftOffset: 0
+    property int animationDuration: 150
     property real gapWidthExtra: 28
-    property real gapSpring: 4.8
-    property real gapDamping: 0.43
-    property real gapMass: 0.55
+    property real gapSpring: Theme.physicsSpringDefault
+    property real gapDamping: Theme.physicsDampingDefault
+    property real gapMass: Theme.physicsMassDefault
     property real dragSourceOpacity: 0.36
     property int dragThresholdMousePx: 6
     property int dragThresholdTouchpadPx: 3
@@ -29,19 +31,35 @@ Item {
     property bool reorderArmed: false
     property bool hoverIndicatorEnabled: false
     property bool directHoverOverride: false
-    property bool hovered: iconHover.active || directHoverOverride
+    // Notification badge count. 0 = hidden; >0 = show red bubble with count.
+    property int badgeCount: 0
+    // Separator — shows a slim vertical divider to the right of this item.
+    // The delegate width grows by separatorSlotWidth to accommodate it.
+    property bool separatorAfter: false
+    readonly property real separatorSlotWidth: separatorAfter ? 16 : 0
+    property bool hovered: mouseArea.containsMouse || directHoverOverride
     property real hoverBlend: hovered ? 1.0 : 0.0
     property bool dragging: false
     property real dragOffsetX: 0
     property real bounceOffset: 0
-    property real iconLift: Math.max(0, influence) + (hoverLift * hoverBlend)
+    property real iconLift: hovered ? Math.max(0, hoverLift) : 0
     signal clicked()
     signal bounceCompleted()
     signal dragStarted()
     signal dragMoved(real deltaX)
     signal dragFinished(real deltaX)
 
-    width: baseSlotWidth + (gapTarget ? gapWidthExtra : 0)
+    function microAnimationAllowed() {
+        if (!Theme.animationsEnabled) {
+            return false
+        }
+        if (typeof MotionController === "undefined" || !MotionController || !MotionController.allowMotionPriority) {
+            return true
+        }
+        return MotionController.allowMotionPriority(MotionController.LowPriority)
+    }
+
+    width: baseSlotWidth + (gapTarget ? gapWidthExtra : 0) + separatorSlotWidth
     height: 76
     z: root.dragging ? 200 : 0
     Behavior on width {
@@ -52,20 +70,16 @@ Item {
         }
     }
     Behavior on hoverBlend {
+        enabled: root.microAnimationAllowed()
         NumberAnimation {
             duration: Theme.durationSm
             easing.type: Theme.easingDecelerate
         }
     }
     Behavior on itemScale {
+        enabled: root.microAnimationAllowed()
         NumberAnimation {
             duration: Theme.durationMicro
-            easing.type: Theme.easingDecelerate
-        }
-    }
-    Behavior on iconLift {
-        NumberAnimation {
-            duration: Theme.durationSm
             easing.type: Theme.easingDecelerate
         }
     }
@@ -79,17 +93,29 @@ Item {
 
     Item {
         id: visualContainer
-        anchors.fill: parent
+        width: parent.width
+        height: parent.height
         x: root.dragOffsetX
+        y: -root.iconLift
+
+        Behavior on y {
+            NumberAnimation {
+                duration: root.animationDuration
+                easing.type: Theme.easingDecelerate
+            }
+        }
 
         Item {
             id: iconPlate
-            width: Math.round(52 * (root.itemScale + (0.02 * root.hoverBlend)))
+            width: Math.round(52 * root.itemScale)
             height: width
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottom: parent.bottom
-            anchors.bottomMargin: 7 + root.bounceOffset + root.iconLift - (mouseArea.pressed ? 1 : 0)
-            opacity: root.gapTarget && !root.dragSource ? 0.0 : (root.dragSource && root.dragging ? root.dragSourceOpacity : 1.0)
+            anchors.bottomMargin: 7 + root.bounceOffset - (mouseArea.pressed ? 1 : 0)
+            opacity: root.gapTarget && !root.dragSource ? 0.0
+                    : (root.dragSource && root.dragging ? root.dragSourceOpacity
+                                                        : (root.hovered ? 1.0 : 0.92))
+            scale: root.hovered ? 1.02 : 1.0
 
             Image {
                 anchors.centerIn: parent
@@ -100,10 +126,53 @@ Item {
             }
 
             Behavior on width {
+                enabled: root.microAnimationAllowed()
                 NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingDecelerate }
             }
+            Behavior on scale {
+                enabled: root.microAnimationAllowed()
+                NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingDecelerate }
+            }
             Behavior on opacity {
+                enabled: root.microAnimationAllowed()
                 NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingDecelerate }
+            }
+
+            // Notification badge bubble — anchored to top-right of iconPlate
+            Rectangle {
+                id: badgeBubble
+                visible: root.badgeCount > 0
+                width: Math.max(height, badgeLabel.contentWidth + 8)
+                height: Math.round(Theme.fontSize("tiny") * 1.6)
+                radius: height * 0.5
+                color: Theme.color("error")
+                border.width: Theme.borderWidthThick
+                border.color: Theme.color("dockBg")
+                anchors.top: parent.top
+                anchors.right: parent.right
+                anchors.topMargin: -4
+                anchors.rightMargin: -4
+                z: 10
+                scale: root.badgeCount > 0 ? 1.0 : 0.4
+                opacity: root.badgeCount > 0 ? 1.0 : 0.0
+
+                Behavior on scale {
+                    enabled: root.microAnimationAllowed()
+                    NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingLight }
+                }
+                Behavior on opacity {
+                    enabled: root.microAnimationAllowed()
+                    NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingDecelerate }
+                }
+
+                Label {
+                    id: badgeLabel
+                    anchors.centerIn: parent
+                    text: root.badgeCount > 99 ? "99+" : String(root.badgeCount)
+                    color: Theme.color("accentText")
+                    font.pixelSize: Theme.fontSize("tiny")
+                    font.weight: Theme.fontWeight("bold")
+                }
             }
         }
 
@@ -134,22 +203,22 @@ Item {
         Rectangle {
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottom: parent.bottom
-            anchors.bottomMargin: 1 + root.iconLift
+            anchors.bottomMargin: 1
             width: showRunningDot ? (showMixedWorkspaceDot ? 13 : 7) : 0
             height: showRunningDot ? 7 : 0
-            radius: 3.5
+            radius: height * 0.5
             color: showMixedWorkspaceDot
                    ? "transparent"
                    : (focusedApp ? Theme.color("dockRunningDotActive")
                                  : Theme.color("dockRunningDotInactive"))
-            opacity: showRunningDot ? 0.92 : 0.0
+            opacity: showRunningDot ? Theme.opacityHint : 0.0
             visible: showRunningDot
 
             Rectangle {
                 visible: root.showMixedWorkspaceDot
                 width: 6.5
                 height: 6.5
-                radius: 3.25
+                radius: height * 0.5
                 anchors.left: parent.left
                 anchors.verticalCenter: parent.verticalCenter
                 color: root.focusedApp ? Theme.color("dockRunningDotActive") : Theme.color("dockRunningDotInactive")
@@ -159,31 +228,31 @@ Item {
                 visible: root.showMixedWorkspaceDot
                 width: 6.5
                 height: 6.5
-                radius: 3.25
+                radius: height * 0.5
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
                 color: Theme.color("accent")
-                opacity: 0.95
+                opacity: Theme.opacityGhost
             }
 
             Rectangle {
                 visible: !root.showMixedWorkspaceDot && root.hasOtherWorkspaceDot
                 anchors.fill: parent
-                radius: 3.5
+                radius: height * 0.5
                 color: Theme.color("accentSoft")
-                border.width: 1.25
+                border.width: Theme.borderWidthThin
                 border.color: Theme.color("accent")
-                opacity: 0.95
+                opacity: Theme.opacityGhost
             }
 
             Rectangle {
                 visible: !root.showMixedWorkspaceDot && root.hasOtherWorkspaceDot
                 width: 2.5
                 height: 2.5
-                radius: 1.25
+                radius: height * 0.5
                 anchors.centerIn: parent
                 color: Theme.color("accent")
-                opacity: 0.95
+                opacity: Theme.opacityGhost
             }
         }
 
@@ -208,6 +277,7 @@ Item {
             }
 
             Behavior on opacity {
+                enabled: root.microAnimationAllowed()
                 NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingDecelerate }
             }
         }
@@ -225,10 +295,27 @@ Item {
         }
     }
 
+    Rectangle {
+        id: separatorLine
+        visible: root.separatorAfter
+        width: 1
+        height: 28
+        radius: Theme.borderWidthThin
+        color: Theme.color("dockBorder")
+        opacity: root.separatorAfter ? 0.55 : 0.0
+        anchors.right: parent.right
+        anchors.rightMargin: Math.floor(root.separatorSlotWidth / 2)
+        anchors.verticalCenter: parent.verticalCenter
+        Behavior on opacity {
+            enabled: root.microAnimationAllowed()
+            NumberAnimation { duration: Theme.durationMicro; easing.type: Theme.easingDecelerate }
+        }
+    }
+
     MouseArea {
         id: mouseArea
         anchors.fill: parent
-        hoverEnabled: false
+        hoverEnabled: true
         acceptedButtons: Qt.LeftButton
         preventStealing: true
         property real pressX: 0
@@ -384,6 +471,7 @@ Item {
     HoverHandler {
         id: iconHover
         acceptedDevices: PointerDevice.Mouse
+        enabled: false
     }
 
     function playBounce(mode) {
@@ -402,16 +490,16 @@ Item {
             property: "scale"
             from: 0.4
             to: 1.5
-            duration: 300
-            easing.type: Easing.OutCubic
+            duration: Theme.durationSlow
+            easing.type: Theme.easingDefault
         }
         NumberAnimation {
             target: ripple
             property: "opacity"
             from: 0.18
             to: 0.0
-            duration: 300
-            easing.type: Easing.OutQuad
+            duration: Theme.durationSlow
+            easing.type: Theme.easingLight
         }
     }
 
@@ -436,22 +524,22 @@ Item {
             target: root
             property: "bounceOffset"
             to: -8
-            duration: 90
-            easing.type: Easing.OutCubic
+            duration: Theme.durationMicro
+            easing.type: Theme.easingDefault
         }
         NumberAnimation {
             target: root
             property: "bounceOffset"
             to: -2
-            duration: 95
-            easing.type: Easing.OutQuad
+            duration: Theme.durationMicro
+            easing.type: Theme.easingLight
         }
         NumberAnimation {
             target: root
             property: "bounceOffset"
             to: 0
-            duration: 120
-            easing.type: Easing.OutCubic
+            duration: Theme.durationFast
+            easing.type: Theme.easingDefault
         }
     }
 
@@ -461,29 +549,29 @@ Item {
             target: root
             property: "bounceOffset"
             to: -14
-            duration: 90
-            easing.type: Easing.OutCubic
+            duration: Theme.durationMicro
+            easing.type: Theme.easingDefault
         }
         NumberAnimation {
             target: root
             property: "bounceOffset"
             to: -6
-            duration: 82
-            easing.type: Easing.OutQuad
+            duration: Theme.durationMicro
+            easing.type: Theme.easingLight
         }
         NumberAnimation {
             target: root
             property: "bounceOffset"
             to: -2
-            duration: 96
-            easing.type: Easing.OutQuad
+            duration: Theme.durationMicro
+            easing.type: Theme.easingLight
         }
         NumberAnimation {
             target: root
             property: "bounceOffset"
             to: 0
-            duration: 150
-            easing.type: Easing.OutCubic
+            duration: Theme.durationSm
+            easing.type: Theme.easingDefault
         }
         ScriptAction {
             script: root.bounceCompleted()

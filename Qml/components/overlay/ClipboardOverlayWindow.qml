@@ -1,5 +1,6 @@
 import QtQuick 2.15
 import QtQuick.Window 2.15
+import Slm_Desktop
 import "." as OverlayComp
 
 Window {
@@ -43,10 +44,10 @@ Window {
         transformOrigin: Item.Top
 
         Behavior on opacity {
-            NumberAnimation { duration: 150; easing.type: Easing.OutCubic }
+            NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault }
         }
         Behavior on scale {
-            NumberAnimation { duration: 150; easing.type: Easing.OutBack }
+            NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingSpring }
         }
 
         OverlayComp.ClipboardOverlay {
@@ -57,4 +58,3 @@ Window {
         }
     }
 }
-

@@ -47,6 +47,7 @@ void PortalDialogBridge::requestConsent(const QString &requestPath,
                                         const Slm::Permissions::CallerIdentity &caller,
                                         Slm::Permissions::Capability capability,
                                         const Slm::Permissions::AccessContext &context,
+                                        bool persistentEligible,
                                         const ConsentCallback &callback)
 {
     m_pending.insert(requestPath, callback);
@@ -60,6 +61,7 @@ void PortalDialogBridge::requestConsent(const QString &requestPath,
         {QStringLiteral("resourceId"), context.resourceId},
         {QStringLiteral("sensitivityLevel"), Slm::Permissions::sensitivityToString(context.sensitivityLevel)},
         {QStringLiteral("initiatedByUserGesture"), context.initiatedByUserGesture},
+        {QStringLiteral("persistentEligible"), persistentEligible},
     };
     const bool hasInProcessUiListener =
         isSignalConnected(QMetaMethod::fromSignal(&PortalDialogBridge::consentRequested));

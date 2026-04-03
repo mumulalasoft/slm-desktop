@@ -1,0 +1,27 @@
+{
+    "id": "print",
+    "name": "Print",
+    "icon": "printer",
+    "group": "Hardware",
+    "description": "Printer defaults and PDF fallback behavior.",
+    "keywords": ["print", "printer", "pdf", "cups", "fallback"],
+    "main": "PrintPage.qml",
+    "settings": [
+        {
+            "id": "pdf-fallback-printer",
+            "label": "PDF Fallback Printer",
+            "description": "Preferred virtual PDF printer used by Print dialog fallback.",
+            "keywords": ["pdf", "fallback", "printer", "cups-pdf"],
+            "type": "text",
+            "backend_binding": "uipreferences:print.pdfFallbackPrinterId"
+        },
+        {
+            "id": "pdf-fallback-reset",
+            "label": "Reset PDF Fallback",
+            "description": "Clear saved fallback printer selection.",
+            "keywords": ["reset", "print", "pdf", "fallback"],
+            "type": "action",
+            "backend_binding": "uipreferences:print.pdfFallbackPrinterId"
+        }
+    ]
+}

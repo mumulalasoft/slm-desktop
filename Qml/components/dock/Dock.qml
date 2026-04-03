@@ -6,17 +6,49 @@ import "."
 Rectangle {
     id: root
 
+    property string hostName: "shell"
+    property bool acceptsInput: true
+    property bool rendererActive: true
+    property real layoutIconSlotWidth: -1
+    property real layoutItemSpacing: -1
+    property real layoutEdgePadding: -1
+    property real layoutHoverLift: -1
+    property real layoutGlowWidth: -1
+    property real layoutMagnificationAmplitude: -1
+    property real layoutMagnificationSigma: -1
+    property real liftMax: 10
+    property real influenceRadius: 140
+    property int animationDuration: 150
     property var appsModel: []
     property real hoverX: width * 0.5
     property bool dockHovered: false
     readonly property bool hovered: dockHovered
-    property real amplitude: 10
-    property real sigma: 148
-    property real hoverLift: 6
-    property real glowWidth: 170
+    // Icon slot width driven by UIPreferences.dockIconSize: small=48, medium=58, large=72
+    readonly property real iconSlotWidth: {
+        if (layoutIconSlotWidth > 0) {
+            return layoutIconSlotWidth
+        }
+        const sz = (typeof UIPreferences !== "undefined" && UIPreferences
+                    && UIPreferences.dockIconSize !== undefined)
+                   ? UIPreferences.dockIconSize : "medium"
+        if (sz === "small") return 48
+        if (sz === "large") return 72
+        return 58
+    }
+    readonly property bool magnificationEnabled: (typeof UIPreferences !== "undefined"
+                                                  && UIPreferences
+                                                  && UIPreferences.dockMagnificationEnabled !== undefined)
+                                                 ? UIPreferences.dockMagnificationEnabled : true
+    readonly property real amplitude: layoutMagnificationAmplitude >= 0
+                                     ? layoutMagnificationAmplitude
+                                     : (magnificationEnabled ? 10 : 0)
+    readonly property real sigma: layoutMagnificationSigma >= 0 ? layoutMagnificationSigma : 148
+    readonly property real hoverLift: layoutHoverLift >= 0 ? layoutHoverLift : 6
+    readonly property real glowWidth: layoutGlowWidth >= 0 ? layoutGlowWidth : 170
     readonly property real baseWidth: Math.max(392, (appsRepeater.count + 1) * 64 + 8)
     readonly property real contentVPadding: 3
     readonly property real baseHeight: 72 + (contentVPadding * 2)
+    readonly property real rowX: dockRow.x
     property string activeAppName: ""
     property alias draggingFromIndex: reorderState.draggingFromIndex
     property alias draggingToIndex: reorderState.draggingToIndex
@@ -44,6 +76,7 @@ Rectangle {
                                            && UIPreferences
                                            && UIPreferences.dockDragThresholdTouchpad !== undefined)
                                           ? UIPreferences.dockDragThresholdTouchpad : 3
+    property var separatorAfterDesktopFiles: []
     readonly property bool livelyMotion: motionPreset === "macos-lively" || motionPreset === "expressive"
     readonly property real gapWidthExtra: livelyMotion ? 32 : 24
     readonly property real gapSpring: livelyMotion ? 3.6 : 4.8
@@ -57,11 +90,23 @@ Rectangle {
     readonly property int dropPulseInDuration: livelyMotion ? 90 : 80
     readonly property int dropPulseOutDuration: livelyMotion ? 230 : 190
     readonly property int dropPulseFadeDuration: livelyMotion ? 210 : 170
+    readonly property real edgePadding: layoutEdgePadding >= 0 ? layoutEdgePadding : 6
     signal appActivated(string appName)
     signal launchpadRequested()
+    signal iconRectsChanged(var rects)
 
-    width: Math.max(baseWidth, dockRow.width + 12)
-    height: baseHeight + amplitude + hoverLift + 8
+    function microAnimationAllowed() {
+        if (!Theme.animationsEnabled) {
+            return false
+        }
+        if (typeof MotionController === "undefined" || !MotionController || !MotionController.allowMotionPriority) {
+            return true
+        }
+        return MotionController.allowMotionPriority(MotionController.LowPriority)
+    }
+
+    width: Math.max(baseWidth, dockRow.width + (edgePadding * 2))
+    height: baseHeight + Math.max(0, Number(liftMax || 10)) + 8
     radius: Theme.radiusWindow
     color: "transparent"
     border.width: Theme.borderWidthNone
@@ -72,31 +117,12 @@ Rectangle {
         id: reorderState
     }
 
-    function gaussianInfluence(iconCenterX, mouseX, amplitude, sigma) {
-        var d = iconCenterX - mouseX
-        return amplitude * Math.exp(-(d * d) / (2 * sigma * sigma))
-    }
-
     function nearestPinnedIndex(globalX) {
         var localX = Number(globalX || 0)
         if (root.window) {
             localX -= Number(root.window.x || 0)
         }
-        var nearest = -1
-        var nearestDist = Number.MAX_VALUE
-        for (var i = 0; i < appsRepeater.count; ++i) {
-            var item = appsRepeater.itemAt(i)
-            if (!item || !item.dragEnabled) {
-                continue
-            }
-            var center = dockRow.x + item.x + item.width * 0.5
-            var dist = Math.abs(center - localX)
-            if (dist < nearestDist) {
-                nearestDist = dist
-                nearest = i
-            }
-        }
-        return nearest
+        return DockSystem.resolveNearestPinnedModelIndex(root.hostName, localX)
     }
 
     function maxPinnedModelIndex() {
@@ -141,15 +167,7 @@ Rectangle {
         if (root.window) {
             localX -= Number(root.window.x || 0)
         }
-        var centers = []
-        for (var i = 0; i < appsRepeater.count; ++i) {
-            var item = appsRepeater.itemAt(i)
-            if (!item || !item.dragEnabled) {
-                continue
-            }
-            centers.push(dockRow.x + item.x + item.width * 0.5)
-        }
-        return reorderState.insertionPinnedPosFromLocalX(localX, centers)
+        return DockSystem.resolveInsertionPinnedPos(root.hostName, localX)
     }
 
     function clearExternalDrop() {
@@ -254,6 +272,68 @@ Rectangle {
         return reorderState.markerXFromCenter(centerX, reorderMarker.width)
     }
 
+    function collectIconRects() {
+        var rects = []
+        rects.push({
+            "id": "launchpad",
+            "x": dockRow.x + launchpadItem.x,
+            "y": dockRow.y + launchpadItem.y,
+            "width": launchpadItem.width,
+            "height": launchpadItem.height,
+            "pinned": false,
+            "modelIndex": -1
+        })
+        for (var i = 0; i < appsRepeater.count; ++i) {
+            var item = appsRepeater.itemAt(i)
+            if (!item) {
+                continue
+            }
+            rects.push({
+                "id": String(item.desktopFile || item.name || i),
+                "x": dockRow.x + item.x,
+                "y": dockRow.y + item.y,
+                "width": item.width,
+                "height": item.height,
+                "pinned": item.dragEnabled === true,
+                "modelIndex": i
+            })
+        }
+        return rects
+    }
+
+    function scheduleIconRectsEmit() {
+        iconRectEmitDebounce.restart()
+    }
+
+    function syncHoverFromController() {
+        if (!rendererActive || !acceptsInput) {
+            dockHovered = false
+            return
+        }
+        if (DockController.inputOwnerHost !== root.hostName) {
+            return
+        }
+        if (String(DockController.hoveredItemId || "").length > 0) {
+            dockHovered = true
+            var nextX = Number(DockSystem.resolveItemCenterX(root.hostName,
+                                                             DockController.hoveredItemId))
+            if (nextX < 0) {
+                nextX = Number(DockController.lastHoverPosition || (width * 0.5))
+            }
+            hoverX = Math.max(0, Math.min(width, nextX))
+        } else if (!dockHoverHandler.hovered) {
+            dockHovered = false
+        }
+    }
+
+    function clearOwnedHover() {
+        dockHovered = false
+        if (DockController.inputOwnerHost === root.hostName
+                && String(DockController.hoveredItemId || "").length > 0) {
+            DockController.onHover("", root.hoverX, root.hostName)
+        }
+    }
+
     function pulseCenterX() {
         if (dropPulseIndex < 0) {
             return -1000
@@ -263,6 +343,20 @@ Rectangle {
             return -1000
         }
         return dockRow.x + item.x + item.width * 0.5
+    }
+
+    function computeLiftForCenterX(centerX) {
+        if (!hovered) {
+            return 0
+        }
+        var cx = Number(centerX || 0)
+        var distance = Math.abs(cx - Number(hoverX || 0))
+        var radius = Math.max(1, Number(influenceRadius || 140))
+        if (distance >= radius) {
+            return 0
+        }
+        var normalized = 1.0 - (distance / radius)
+        return Math.max(0, Number(liftMax || 10) * normalized)
     }
 
     function _norm(s) {
@@ -327,6 +421,29 @@ Rectangle {
             return Math.max(1, Number(CompositorStateModel.activeSpace || 1))
         }
         return 1
+    }
+
+    // Trigger a dock-item bounce animation when a window lifecycle event fires.
+    // Called by DesktopScene when the compositor reports window-opened / window-minimized.
+    function notifyWindowLifecycle(eventName, appId) {
+        if (!appId || appId.length === 0 || !Theme.animationsEnabled) {
+            return
+        }
+        var ev = String(eventName || "").toLowerCase()
+        var isOpen = (ev === "window-opened" || ev === "window-shown" ||
+                      ev === "window-unminimized" || ev === "window-created")
+        var isMinimize = (ev === "window-minimized")
+        if (!isOpen && !isMinimize) {
+            return
+        }
+        var mode = isOpen ? "launch" : "focus"
+        for (var i = 0; i < appsRepeater.count; ++i) {
+            var item = appsRepeater.itemAt(i)
+            if (item && item.matchesWindowAppId && item.matchesWindowAppId(appId)) {
+                item.playBounce(mode)
+                return
+            }
+        }
     }
 
     function _focusOrLaunchEntry(state, entry) {
@@ -481,24 +598,28 @@ Rectangle {
     }
 
     Behavior on color {
+        enabled: root.microAnimationAllowed()
         ColorAnimation {
             duration: Theme.transitionDuration
-            easing.type: Easing.InOutQuad
+            easing.type: Theme.easingStandard
         }
     }
     Behavior on width {
+        enabled: root.microAnimationAllowed()
         NumberAnimation {
             duration: Theme.durationMd
             easing.type: Theme.easingDecelerate
         }
     }
     Behavior on height {
+        enabled: root.microAnimationAllowed()
         NumberAnimation {
             duration: Theme.durationMd
             easing.type: Theme.easingDecelerate
         }
     }
     Behavior on radius {
+        enabled: root.microAnimationAllowed()
         NumberAnimation {
             duration: Theme.durationMd
             easing.type: Theme.easingDecelerate
@@ -511,26 +632,26 @@ Rectangle {
         anchors.bottom: parent.bottom
         anchors.bottomMargin: root.contentVPadding + 1
 
-        spacing: 0
+        spacing: layoutItemSpacing >= 0 ? layoutItemSpacing : 0
 
-        DockItem {
-            id: launchpadItem
+    DockItem {
+        id: launchpadItem
             label: "Launchpad"
             iconPath: "qrc:/icons/launchpad.svg"
+            baseSlotWidth: root.iconSlotWidth
             hoverIndicatorEnabled: true
-            directHoverOverride: root.hovered
-                                 && root.hoverX >= (dockRow.x + x)
-                                 && root.hoverX <= (dockRow.x + x + width)
+            directHoverOverride: DockController.inputOwnerHost === root.hostName
+                                 && DockController.hoveredItemId === "launchpad"
             showRunningDot: false
-            hoverLift: root.hoverLift
-            influence: root.hovered
-                       ? root.gaussianInfluence(dockRow.x + x + width * 0.5,
-                                                root.hoverX,
-                                                root.amplitude,
-                                                root.sigma)
-                       : 0
+            hoverLift: root.liftMax
+            influence: 0
+            liftOffset: (DockController.inputOwnerHost === root.hostName
+                         && DockController.hoveredItemId === "launchpad")
+                        ? root.liftMax : 0
+            animationDuration: root.animationDuration
             itemScale: 1.0
             onClicked: {
+                DockController.onActivate("launchpad", root.hostName)
                 launchpadItem.playBounce("focus")
                 root.launchpadRequested()
             }
@@ -539,14 +660,15 @@ Rectangle {
         Repeater {
             id: appsRepeater
             model: root.appsModel
+            onCountChanged: root.scheduleIconRectsEmit()
 
             delegate: DockAppDelegate {
                 dockRoot: root
                 modelCount: appsRepeater.count
+                baseSlotWidth: root.iconSlotWidth
                 hoverIndicatorEnabled: true
-                directHoverOverride: root.hovered
-                                     && root.hoverX >= (dockRow.x + x)
-                                     && root.hoverX <= (dockRow.x + x + width)
+                directHoverOverride: DockController.inputOwnerHost === root.hostName
+                                     && DockController.hoveredItemId === String(desktopFile || name || "")
                 compositorState: root.compositorStateForEntry(name, desktopFile, executable)
                 gapTarget: (root.draggingFromIndex >= 0
                             && root.draggingToIndex === index
@@ -560,13 +682,13 @@ Rectangle {
                 dragSourceOpacity: root.dragSourceOpacity
                 dragThresholdMousePx: root.dragThresholdMousePx
                 dragThresholdTouchpadPx: root.dragThresholdTouchpadPx
-                hoverLift: root.hoverLift
-                influence: root.hovered
-                           ? root.gaussianInfluence(dockRow.x + x + width * 0.5,
-                                                    root.hoverX,
-                                                    root.amplitude,
-                                                    root.sigma)
-                           : 0
+                separatorAfter: root.separatorAfterDesktopFiles.indexOf(desktopFile || "") >= 0
+                hoverLift: root.liftMax
+                influence: 0
+                liftOffset: (DockController.inputOwnerHost === root.hostName
+                             && DockController.hoveredItemId === String(desktopFile || name || ""))
+                            ? root.liftMax : 0
+                animationDuration: root.animationDuration
                 itemScale: 1.0
             }
         }
@@ -582,8 +704,14 @@ Rectangle {
         color: Theme.darkMode ? "#46cfe8ff" : "#55cde8ff"
         opacity: root.hovered ? 0.48 : 0.0
 
-        Behavior on x { NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingDecelerate } }
-        Behavior on opacity { NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingDecelerate } }
+        Behavior on x {
+            enabled: root.microAnimationAllowed()
+            NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingDecelerate }
+        }
+        Behavior on opacity {
+            enabled: root.microAnimationAllowed()
+            NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingDecelerate }
+        }
     }
 
     DockReorderMarker {
@@ -610,7 +738,7 @@ Rectangle {
             from: 0
             to: root.dropPulsePeakOpacity
             duration: root.dropPulseInDuration
-            easing.type: Easing.OutCubic
+            easing.type: Theme.easingDefault
         }
         ParallelAnimation {
             NumberAnimation {
@@ -619,14 +747,14 @@ Rectangle {
                 from: root.dropPulseStartScale
                 to: root.dropPulseEndScale
                 duration: root.dropPulseOutDuration
-                easing.type: Easing.OutQuad
+                easing.type: Theme.easingLight
             }
             NumberAnimation {
                 target: dropPulse
                 property: "opacity"
                 to: 0
                 duration: root.dropPulseFadeDuration
-                easing.type: Easing.OutQuad
+                easing.type: Theme.easingLight
             }
         }
         ScriptAction {
@@ -640,25 +768,67 @@ Rectangle {
     HoverHandler {
         id: dockHoverHandler
         acceptedDevices: PointerDevice.Mouse
+        enabled: root.acceptsInput
+        onHoveredChanged: {
+            root.dockHovered = hovered
+            if (DockController.inputOwnerHost === root.hostName) {
+                if (!hovered) {
+                    DockController.onHover("", root.hoverX, root.hostName)
+                } else {
+                    var nearestId = String(DockSystem.resolveNearestItemId(root.hostName, root.hoverX) || "")
+                    DockController.onHover(nearestId, root.hoverX, root.hostName)
+                }
+            }
+        }
+        onPointChanged: {
+            if (hovered) {
+                root.hoverX = Number(point.position.x || root.hoverX)
+                if (DockController.inputOwnerHost === root.hostName) {
+                    var nearestId = String(DockSystem.resolveNearestItemId(root.hostName, root.hoverX) || "")
+                    DockController.onHover(nearestId, root.hoverX, root.hostName)
+                }
+            }
+        }
     }
 
-    MouseArea {
-        anchors.fill: parent
-        hoverEnabled: true
-        acceptedButtons: Qt.NoButton
-        propagateComposedEvents: true
-        onEntered: function(mouse) {
-            root.dockHovered = true
-            root.hoverX = mouse ? mouse.x : (width * 0.5)
+    Component.onCompleted: scheduleIconRectsEmit()
+    onRendererActiveChanged: {
+        if (rendererActive) {
+            syncHoverFromController()
+        } else {
+            clearOwnedHover()
         }
-        onPositionChanged: function(mouse) {
-            if (!mouse) {
-                return
-            }
-            root.hoverX = mouse.x
+        scheduleIconRectsEmit()
+    }
+    onAcceptsInputChanged: {
+        if (acceptsInput) {
+            syncHoverFromController()
+        } else {
+            clearOwnedHover()
         }
-        onExited: {
-            root.dockHovered = false
+    }
+    onDockHoveredChanged: {
+        if (!dockHovered) {
+            clearOwnedHover()
         }
+    }
+    onWidthChanged: scheduleIconRectsEmit()
+    onHeightChanged: scheduleIconRectsEmit()
+    onXChanged: scheduleIconRectsEmit()
+    onYChanged: scheduleIconRectsEmit()
+
+    Timer {
+        id: iconRectEmitDebounce
+        interval: 0
+        repeat: false
+        onTriggered: root.iconRectsChanged(root.collectIconRects())
+    }
+
+    Connections {
+        target: DockController
+        ignoreUnknownSignals: true
+        function onInputOwnerHostChanged() { root.syncHoverFromController() }
+        function onHoveredItemIdChanged() { root.syncHoverFromController() }
+        function onLastHoverPositionChanged() { root.syncHoverFromController() }
     }
 }

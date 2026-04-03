@@ -38,6 +38,62 @@ PortalMethodSpec PortalCapabilityMapper::mapMethod(const QString &portalMethod) 
         spec.requestKind = PortalRequestKind::OneShot;
         return spec;
     }
+    if (m.compare(QStringLiteral("StoreSecret"), Qt::CaseInsensitive) == 0) {
+        spec.valid = true;
+        spec.capability = Slm::Permissions::Capability::SecretStore;
+        spec.sensitivity = Slm::Permissions::SensitivityLevel::High;
+        spec.requestKind = PortalRequestKind::OneShot;
+        spec.persistenceAllowed = true;
+        return spec;
+    }
+    if (m.compare(QStringLiteral("GetSecret"), Qt::CaseInsensitive) == 0) {
+        spec.valid = true;
+        spec.capability = Slm::Permissions::Capability::SecretRead;
+        spec.sensitivity = Slm::Permissions::SensitivityLevel::High;
+        spec.requestKind = PortalRequestKind::OneShot;
+        spec.persistenceAllowed = true;
+        return spec;
+    }
+    if (m.compare(QStringLiteral("DeleteSecret"), Qt::CaseInsensitive) == 0) {
+        spec.valid = true;
+        spec.capability = Slm::Permissions::Capability::SecretDelete;
+        spec.sensitivity = Slm::Permissions::SensitivityLevel::Medium;
+        spec.requestKind = PortalRequestKind::OneShot;
+        spec.persistenceAllowed = true;
+        return spec;
+    }
+    if (m.compare(QStringLiteral("ClearAppSecrets"), Qt::CaseInsensitive) == 0) {
+        spec.valid = true;
+        spec.capability = Slm::Permissions::Capability::SecretDelete;
+        spec.sensitivity = Slm::Permissions::SensitivityLevel::High;
+        spec.requestKind = PortalRequestKind::OneShot;
+        spec.persistenceAllowed = true;
+        return spec;
+    }
+    if (m.compare(QStringLiteral("DescribeSecret"), Qt::CaseInsensitive) == 0) {
+        spec.valid = true;
+        spec.capability = Slm::Permissions::Capability::SecretRead;
+        spec.sensitivity = Slm::Permissions::SensitivityLevel::Medium;
+        spec.requestKind = PortalRequestKind::OneShot;
+        spec.directResponse = true;
+        return spec;
+    }
+    if (m.compare(QStringLiteral("ListOwnSecretMetadata"), Qt::CaseInsensitive) == 0) {
+        spec.valid = true;
+        spec.capability = Slm::Permissions::Capability::SecretRead;
+        spec.sensitivity = Slm::Permissions::SensitivityLevel::Medium;
+        spec.requestKind = PortalRequestKind::OneShot;
+        spec.directResponse = true;
+        return spec;
+    }
+    if (m.compare(QStringLiteral("ListSecretAppIds"), Qt::CaseInsensitive) == 0) {
+        spec.valid = true;
+        spec.capability = Slm::Permissions::Capability::SecretRead;
+        spec.sensitivity = Slm::Permissions::SensitivityLevel::Medium;
+        spec.requestKind = PortalRequestKind::OneShot;
+        spec.directResponse = true;
+        return spec;
+    }
     if (m.compare(QStringLiteral("QueryNotificationHistoryPreview"), Qt::CaseInsensitive) == 0) {
         spec.valid = true;
         spec.capability = Slm::Permissions::Capability::NotificationsReadHistory;

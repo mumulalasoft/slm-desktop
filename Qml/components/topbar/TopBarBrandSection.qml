@@ -1,12 +1,22 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import Slm_Desktop
-import Style as DSStyle
+import SlmStyle as DSStyle
 
 Row {
     id: root
     spacing: 6
     property var fileManagerContent: null
+
+    function microAnimationAllowed() {
+        if (!Theme.animationsEnabled) {
+            return false
+        }
+        if (typeof MotionController === "undefined" || !MotionController || !MotionController.allowMotionPriority) {
+            return true
+        }
+        return MotionController.allowMotionPriority(MotionController.LowPriority)
+    }
 
     function printMenuEnabled() {
         var content = root.fileManagerContent
@@ -81,11 +91,14 @@ Row {
                 background: Rectangle {
                     radius: Theme.radiusMd
                     color: parent.hovered ? Theme.color("accentSoft") : "transparent"
+                    Behavior on color {
+                        enabled: root.microAnimationAllowed()
+                        ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault }
+                    }
                 }
 
                 Menu {
                     id: sectionMenu
-                    popupType: Popup.Window
                     modal: false
                     focus: false
                     dim: false

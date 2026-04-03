@@ -29,6 +29,9 @@ Item {
         }
         hostRoot.syncDeepSearchBusyCursor()
         hostRoot.updateBatchOverlayFromApi()
+        if (hostRoot.refreshArchiveMissingComponents) {
+            hostRoot.refreshArchiveMissingComponents()
+        }
     }
 
     Component.onDestruction: {

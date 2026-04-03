@@ -470,3 +470,39 @@ QVariantMap ImplPortalTrashAdaptor::EmptyTrash(const QString &handle,
                      : QVariantMap{{QStringLiteral("ok"), false},
                                    {QStringLiteral("error"), QStringLiteral("BackendUnavailable")}};
 }
+
+// ── Print ──────────────────────────────────────────────────────────────────
+
+ImplPortalPrintAdaptor::ImplPortalPrintAdaptor(ImplPortalService *service)
+    : QDBusAbstractAdaptor(service)
+    , m_service(service)
+{
+}
+
+QVariantMap ImplPortalPrintAdaptor::PreparePrint(const QString &handle,
+                                                  const QString &appId,
+                                                  const QString &parentWindow,
+                                                  const QString &title,
+                                                  const QVariantMap &settings,
+                                                  const QVariantMap &pageSetup,
+                                                  const QVariantMap &options)
+{
+    return m_service
+        ? m_service->BridgePrintPreparePrint(handle, appId, parentWindow,
+                                             title, settings, pageSetup, options)
+        : QVariantMap{{QStringLiteral("response"), 2u},
+                      {QStringLiteral("error"), QStringLiteral("BackendUnavailable")}};
+}
+
+QVariantMap ImplPortalPrintAdaptor::Print(const QString &handle,
+                                           const QString &appId,
+                                           const QString &parentWindow,
+                                           const QString &title,
+                                           const QDBusUnixFileDescriptor &fd,
+                                           const QVariantMap &options)
+{
+    return m_service
+        ? m_service->BridgePrintPrint(handle, appId, parentWindow, title, fd, options)
+        : QVariantMap{{QStringLiteral("response"), 2u},
+                      {QStringLiteral("error"), QStringLiteral("BackendUnavailable")}};
+}

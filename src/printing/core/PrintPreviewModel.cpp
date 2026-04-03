@@ -1,15 +1,28 @@
 #include "PrintPreviewModel.h"
 
+#include "../preview/FallbackPdfRenderer.h"
+#include "../preview/IPdfRenderer.h"
+#include "../preview/PrintPreviewCache.h"
+
+#include <QBuffer>
+#include <QByteArray>
 #include <QCryptographicHash>
+#include <QImage>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QMetaObject>
+#include <QPointer>
+#include <QThreadPool>
 
 namespace Slm::Print {
 
 PrintPreviewModel::PrintPreviewModel(QObject *parent)
     : QObject(parent)
+    , m_cache(std::make_unique<PrintPreviewCache>(24))
 {
 }
+
+PrintPreviewModel::~PrintPreviewModel() = default;
 
 QString PrintPreviewModel::previewCacheKey() const
 {
@@ -159,6 +172,113 @@ double PrintPreviewModel::clampZoomFactor(double value)
         return 5.0;
     }
     return value;
+}
+
+// ── Render pipeline ──────────────────────────────────────────────────────────
+
+void PrintPreviewModel::setRenderer(IPdfRenderer *renderer)
+{
+    m_renderer = renderer;
+}
+
+void PrintPreviewModel::requestRender(int dpi, int viewportWidth, int viewportHeight)
+{
+    if (m_documentUri.isEmpty()) {
+        return;
+    }
+
+    // Increment serial — any in-flight worker with an older serial is discarded.
+    const int serial = m_renderSerial.fetchAndAddRelaxed(1) + 1;
+    setRendering(true);
+
+    const QString uri = m_documentUri;
+    const int pageIndex = m_currentPage - 1; // 0-indexed for renderer
+    const QString cacheKey = previewCacheKey();
+    const QSize viewport(viewportWidth, viewportHeight);
+    const int effectiveDpi = (dpi > 0) ? dpi : 150;
+
+    // Fast path: cache hit — no thread needed.
+    {
+        const QImage cached = m_cache->get(cacheKey);
+        if (!cached.isNull()) {
+            onRenderDone(serial, -1 /*page count unknown from cache*/, cached, cacheKey);
+            return;
+        }
+    }
+
+    // Choose renderer: injected one if available, fallback otherwise.
+    IPdfRenderer *renderer = (m_renderer && m_renderer->isAvailable()) ? m_renderer : nullptr;
+    PrintPreviewCache *cache = m_cache.get();
+    QPointer<PrintPreviewModel> self(this);
+
+    QThreadPool::globalInstance()->start([=]() {
+        // --- Worker thread ---
+        FallbackPdfRenderer fallback;
+        IPdfRenderer *active = renderer ? renderer : &fallback;
+
+        const int pageCount = active->queryPageCount(uri);
+        const QImage image = active->renderPage(uri, pageIndex, effectiveDpi, viewport);
+
+        // Return to main thread.
+        QMetaObject::invokeMethod(self, [self, serial, pageCount, image, cacheKey, cache]() {
+            if (!self) {
+                return;
+            }
+            // Discard stale renders.
+            if (self->m_renderSerial.loadRelaxed() != serial) {
+                return;
+            }
+            cache->put(cacheKey, image);
+            self->onRenderDone(serial, pageCount, image, cacheKey);
+        }, Qt::QueuedConnection);
+    });
+}
+
+void PrintPreviewModel::onRenderDone(int serial, int pageCount, const QImage &image,
+                                     const QString & /*cacheKey*/)
+{
+    // Guard against races (invokeMethod can queue after another requestRender).
+    if (serial >= 0 && m_renderSerial.loadRelaxed() != serial) {
+        return;
+    }
+
+    // Update page count if the renderer returned a real value.
+    if (pageCount > 0) {
+        setTotalPages(pageCount);
+    }
+
+    // Encode image → data URI.
+    if (image.isNull()) {
+        setCurrentPageDataUrl(QString());
+    } else {
+        QByteArray buf;
+        QBuffer buffer(&buf);
+        buffer.open(QIODevice::WriteOnly);
+        image.save(&buffer, "PNG");
+        const QString dataUrl = QStringLiteral("data:image/png;base64,")
+                                + QString::fromLatin1(buf.toBase64());
+        setCurrentPageDataUrl(dataUrl);
+    }
+
+    setRendering(false);
+}
+
+void PrintPreviewModel::setRendering(bool r)
+{
+    if (m_rendering == r) {
+        return;
+    }
+    m_rendering = r;
+    emit renderingChanged();
+}
+
+void PrintPreviewModel::setCurrentPageDataUrl(const QString &url)
+{
+    if (m_currentPageDataUrl == url) {
+        return;
+    }
+    m_currentPageDataUrl = url;
+    emit currentPageDataUrlChanged();
 }
 
 } // namespace Slm::Print

@@ -28,6 +28,7 @@ public:
     bool serviceRegistered() const;
 
 public slots:
+    QString BackendMode() const;
     QVariantList GetHistory(int limit = 200);
     QVariantList Search(const QString &query, int limit = 200);
     bool PasteItem(qlonglong id);

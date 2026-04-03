@@ -13,10 +13,16 @@
 #include <QtMath>
 #include <QFile>
 #include <QLibraryInfo>
+#include <QPalette>
 #include <QRegion>
 #include <QProcess>
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
+#include <csignal>
+#if defined(__linux__)
+#include <execinfo.h>
+#include <unistd.h>
+#endif
 
 #include "appmodel.h"
 #include "src/core/execution/appcommandrouter.h"
@@ -25,6 +31,7 @@
 #include "src/bootstrap/daemonservicebootstraprunner.h"
 #include "src/core/execution/appexecutiongate.h"
 #include "src/services/power/batterymanager.h"
+#include "src/services/power/powerbridge.h"
 #include "src/services/bluetooth/bluetoothmanager.h"
 #include "dockmodel.h"
 #include "src/services/media/mediasessionmanager.h"
@@ -61,18 +68,51 @@
 #include "tothespottexthighlighter.h"
 #include "src/services/clipboard/ClipboardServiceClient.h"
 #include "src/services/session/SessionStateClient.h"
-#include "filemanagerapi.h"
-#include "filemanagermodel.h"
-#include "filemanagermodelfactory.h"
+#include "src/apps/filemanager/include/filemanagerapi.h"
+#include "src/apps/filemanager/include/filemanagermodel.h"
+#include "src/apps/filemanager/include/filemanagermodelfactory.h"
 #include "src/filemanager/ops/globalprogresscenter.h"
+#include "src/filemanager/FileManagerShellBridge.h"
+#include "src/filemanager/ThumbnailImageProvider.h"
 #include "src/core/motion/slmmotioncontroller.h"
+#include "src/core/shell/shellstatecontroller.h"
+#include "src/core/shell/shellinputrouter.h"
+#include "src/core/shell/shelllayerwatchdog.h"
+#include "src/core/system/missingcomponentcontroller.h"
 #include "src/printing/core/PrinterManager.h"
 #include "src/printing/core/PrintSession.h"
 #include "src/printing/core/PrintPreviewModel.h"
 #include "src/printing/core/JobSubmitter.h"
 
+#if defined(__linux__)
+namespace {
+void slmCrashSignalHandler(int sig)
+{
+    const char msg[] = "\n[crash] fatal signal received, dumping stack trace...\n";
+    ::write(STDERR_FILENO, msg, sizeof(msg) - 1);
+    void *frames[128];
+    const int n = ::backtrace(frames, 128);
+    ::backtrace_symbols_fd(frames, n, STDERR_FILENO);
+    ::signal(sig, SIG_DFL);
+    ::raise(sig);
+}
+
+void installCrashSignalHandlers()
+{
+    ::signal(SIGSEGV, slmCrashSignalHandler);
+    ::signal(SIGABRT, slmCrashSignalHandler);
+    ::signal(SIGBUS, slmCrashSignalHandler);
+    ::signal(SIGILL, slmCrashSignalHandler);
+    ::signal(SIGFPE, slmCrashSignalHandler);
+}
+} // namespace
+#endif
+
 int main(int argc, char *argv[])
 {
+#if defined(__linux__)
+    installCrashSignalHandlers();
+#endif
     const auto roundedRegionForRect = [](const QRect &rect, int radius) -> QRegion {
         if (rect.isEmpty() || radius <= 0) {
             return QRegion(rect);
@@ -95,21 +135,11 @@ int main(int argc, char *argv[])
         QSurfaceFormat::setDefaultFormat(fmt);
     }
     QQuickWindow::setDefaultAlphaBuffer(true);
-    // Force a project-level Controls style so menus are unified app-wide.
+    // Force project-level Controls style so all unqualified QtQuick.Controls
+    // widgets follow slm-style consistently across shell surfaces.
     qputenv("QT_QUICK_CONTROLS_FALLBACK_STYLE", "Basic");
     const QString appDir = QFileInfo(QString::fromLocal8Bit(argv[0])).absolutePath();
-    const QString currentStylePath = QDir::current().filePath("Style");
-    const QString appStylePath = QDir(appDir).filePath("Style");
-    const QString selectedStylePath =
-        QFileInfo::exists(currentStylePath) ? currentStylePath : appStylePath;
-
-    QString styleImportRoot;
-    if (QFileInfo::exists(selectedStylePath)) {
-        qputenv("QT_QUICK_CONTROLS_STYLE", "Style");
-        styleImportRoot = QFileInfo(selectedStylePath).absolutePath();
-    } else {
-        qputenv("QT_QUICK_CONTROLS_STYLE", "Basic");
-    }
+    qputenv("QT_QUICK_CONTROLS_STYLE", "SlmStyle");
 
     QGuiApplication app(argc, argv);
     qInfo().noquote() << "[startup] QGuiApplication ready"
@@ -190,9 +220,8 @@ int main(int argc, char *argv[])
     if (!qtQmlImportsPath.isEmpty()) {
         engine.addImportPath(qtQmlImportsPath);
     }
-    if (!styleImportRoot.isEmpty()) {
-        engine.addImportPath(styleImportRoot);
-    }
+    // Ensure qrc QML modules (including SlmStyle) are always resolvable.
+    engine.addImportPath(QStringLiteral("qrc:/qt/qml"));
     engine.addImageProvider(QStringLiteral("themeicon"), new ThemeIconProvider);
     ThemeIconController themeIconController;
     ExternalIndicatorRegistry externalIndicatorRegistry;
@@ -217,6 +246,10 @@ int main(int argc, char *argv[])
     ScreenshotSaveHelper screenshotSaveHelper;
     PortalUiBridge portalUiBridge;
     FileManagerApi fileManagerApi;
+    FileManagerShellBridge fileManagerShellBridge(&fileManagerApi);
+    // ThumbnailImageProvider: QML Image { source: "image://thumbnail/256/" + filePath }
+    engine.addImageProvider(QStringLiteral("thumbnail"),
+                            new ThumbnailImageProvider(&fileManagerApi));
     MetadataIndexServer metadataIndexServer(&fileManagerApi);
     FileManagerModel fileManagerModel(&fileManagerApi, &metadataIndexServer);
     FileManagerModelFactory fileManagerModelFactory(&fileManagerApi, &metadataIndexServer);
@@ -227,6 +260,11 @@ int main(int argc, char *argv[])
     Slm::Clipboard::ClipboardServiceClient clipboardServiceClient;
     Slm::Session::SessionStateClient sessionStateClient;
     Slm::Motion::MotionController motionController;
+    ShellStateController shellStateController;
+    ShellInputRouter shellInputRouter(&shellStateController);
+    ShellLayerWatchdog shellLayerWatchdog(&shellStateController);
+    PowerBridge powerBridge;
+    Slm::System::MissingComponentController missingComponentController;
     Slm::Print::PrinterManager printerManager;
     Slm::Print::PrintSession printSession;
     Slm::Print::PrintPreviewModel printPreviewModel;
@@ -249,8 +287,32 @@ int main(int argc, char *argv[])
         } else {
             themeIconController.useAutoDetectedMapping();
         }
+        const QString mode = uiPreferences.themeMode().trimmed().toLower();
+        const bool darkMode = (mode == QStringLiteral("dark"))
+                || (mode != QStringLiteral("light")
+                    && app.palette().color(QPalette::Window).lightness() < 128);
+        themeIconController.applyForDarkMode(darkMode);
     };
     applyIconThemePref();
+
+    const QString sessionMode = qEnvironmentVariable("SLM_SESSION_MODE").trimmed().toLower();
+    const bool safeModeActive = (sessionMode == QStringLiteral("safe")
+                                 || sessionMode == QStringLiteral("recovery"));
+    const bool userAnimationEnabled =
+        uiPreferences.getPreference(QStringLiteral("windowing.animationEnabled"), true).toBool();
+    const bool runtimeAnimationsEnabled = userAnimationEnabled && !safeModeActive;
+    const auto applyAnimationMode = [&]() {
+        const QString amode = uiPreferences.animationMode();
+        const bool needsReduced = !runtimeAnimationsEnabled
+                                  || amode == QLatin1String("reduced")
+                                  || amode == QLatin1String("minimal");
+        motionController.setReducedMotion(needsReduced);
+    };
+    applyAnimationMode();
+    QObject::connect(&uiPreferences, &UIPreferences::animationModeChanged, &app, [&]() {
+        applyAnimationMode();
+    });
+
     QObject::connect(&uiPreferences, &UIPreferences::iconThemeLightChanged, &app, [&]() {
         applyIconThemePref();
     });
@@ -332,20 +394,32 @@ int main(int argc, char *argv[])
                                           &tothespotTextHighlighter,
                                           &metadataIndexServer,
                                           &clipboardServiceClient,
-                                          &motionController);
+                                          &motionController,
+                                          &shellStateController,
+                                          &shellInputRouter,
+                                          &shellLayerWatchdog,
+                                          &powerBridge);
     AppStartupBridge::setStartupWindowContext(engine.rootContext(),
                                               startupArgs.startWindowed,
                                               startupArgs.windowWidth,
                                               startupArgs.windowHeight);
+    engine.rootContext()->setContextProperty(QStringLiteral("FileManagerShellBridge"),
+                                             &fileManagerShellBridge);
+    // Recent files tersedia via FileManagerApi.recentFiles(limit) dari QML.
+    // Tidak perlu model terpisah — QML memanggil langsung saat sidebar dibuka.
     engine.rootContext()->setContextProperty(QStringLiteral("slmActionTreeDebug"),
                                              slmActionTreeDebug);
     engine.rootContext()->setContextProperty(QStringLiteral("SessionStateClient"), &sessionStateClient);
+    engine.rootContext()->setContextProperty(QStringLiteral("MissingComponents"), &missingComponentController);
     engine.rootContext()->setContextProperty(QStringLiteral("PrintManager"), &printerManager);
     engine.rootContext()->setContextProperty(QStringLiteral("PrintSession"), &printSession);
     engine.rootContext()->setContextProperty(QStringLiteral("PrintPreviewModel"), &printPreviewModel);
     engine.rootContext()->setContextProperty(QStringLiteral("PrintJobSubmitter"), &printJobSubmitter);
     engine.rootContext()->setContextProperty(QStringLiteral("AppBinaryDir"),
                                              QCoreApplication::applicationDirPath());
+    engine.rootContext()->setContextProperty(QStringLiteral("SessionStartupMode"), sessionMode);
+    engine.rootContext()->setContextProperty(QStringLiteral("SafeModeActive"), safeModeActive);
+    engine.rootContext()->setContextProperty(QStringLiteral("AnimationsEnabled"), runtimeAnimationsEnabled);
     AppStartupBridge::wireGlobalBatchProgress(&app,
                                               &fileManagerApi,
                                               &windowingBackendManager,
@@ -375,6 +449,18 @@ int main(int argc, char *argv[])
     qInfo().noquote() << "[startup] qml loaded"
                       << (QDateTime::currentMSecsSinceEpoch() - t0) << "ms"
                       << "rootObjects=" << engine.rootObjects().size();
+
+    // Wire the motion scheduler to the display vsync via QQuickWindow::afterAnimating.
+    // This replaces the internal 16ms QTimer with a vsync-synchronised tick so that
+    // gesture-driven spring physics stays aligned with the render frame budget.
+    if (!engine.rootObjects().isEmpty()) {
+        auto *shellWindow = qobject_cast<QQuickWindow *>(engine.rootObjects().first());
+        if (shellWindow) {
+            motionController.enableVsyncDriving();
+            QObject::connect(shellWindow, &QQuickWindow::afterAnimating,
+                             &motionController, &Slm::Motion::MotionController::windowFrame);
+        }
+    }
 
     QTimer detachedWindowMaskTimer;
     detachedWindowMaskTimer.setInterval(250);

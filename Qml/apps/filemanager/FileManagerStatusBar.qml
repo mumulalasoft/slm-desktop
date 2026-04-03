@@ -2,6 +2,7 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import Slm_Desktop
+import SlmStyle as DSStyle
 
 Rectangle {
     id: statusBar
@@ -39,7 +40,7 @@ Rectangle {
         anchors.rightMargin: 16
         spacing: 10
 
-        Label {
+        DSStyle.Label {
             text: statusBar.indexing
                   ? ("Indexing: " + String(statusBar.indexingCurrent)
                      + (statusBar.indexingTotal > 0 ? ("/" + String(statusBar.indexingTotal)) : "")
@@ -54,13 +55,13 @@ Rectangle {
             Layout.fillWidth: true
         }
 
-        Label {
+        DSStyle.Label {
             text: "Scale"
             color: Theme.color("textSecondary")
             font.pixelSize: Theme.fontSize("small")
         }
 
-        Slider {
+        DSStyle.Slider {
             id: scaleSlider
             Layout.preferredWidth: 170
             from: 0
@@ -84,7 +85,7 @@ Rectangle {
             }
         }
 
-        Label {
+        DSStyle.Label {
             text: String(statusBar.contentScalePercent) + "%"
             color: Theme.color("textSecondary")
             font.pixelSize: Theme.fontSize("small")

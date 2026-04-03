@@ -1,10 +1,11 @@
 import QtQuick 2.15
 import QtQuick.Layouts 1.15
+import Slm_Desktop
 
 ColumnLayout {
     id: root
     spacing: 8
-    
+
     property alias title: titleText.text
     default property alias content: cardsLayout.data
 
@@ -12,15 +13,26 @@ ColumnLayout {
         id: titleText
         Layout.fillWidth: true
         Layout.leftMargin: 4
-        font.pixelSize: 13
+        font.pixelSize: Theme.fontSize("small")
         font.weight: Font.DemiBold
-        color: "#8E8E93"
+        color: Theme.color("textSecondary")
         visible: text !== ""
     }
 
-    ColumnLayout {
-        id: cardsLayout
+    // Single outer card wrapping all child SettingCards
+    Rectangle {
         Layout.fillWidth: true
-        spacing: 0
+        implicitHeight: cardsLayout.implicitHeight
+        color: Theme.color("surface")
+        border.color: Theme.color("panelBorder")
+        border.width: 1
+        radius: Theme.radiusCard
+        clip: true
+
+        ColumnLayout {
+            id: cardsLayout
+            anchors.fill: parent
+            spacing: 0
+        }
     }
 }

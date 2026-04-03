@@ -65,8 +65,8 @@ if [[ ${CONFIGURE_RC} -ne 0 ]]; then
   exit ${CONFIGURE_RC}
 fi
 
-log "build Slm_Desktop app target"
-cmake --build "${SHELL_BUILD_DIR}" --target appSlm_Desktop -j"$(nproc)"
+log "build Slm_Desktop app target (slm-desktop)"
+cmake --build "${SHELL_BUILD_DIR}" --target slm-desktop -j"$(nproc)"
 
 log "done"
 log "package prefix: ${PKG_INSTALL_DIR}"

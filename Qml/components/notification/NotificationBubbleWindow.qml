@@ -12,18 +12,32 @@ Window {
     readonly property int bubbleRightMargin: 16
     readonly property int bubbleTopMargin: 18
     readonly property bool bubbleActive: (notificationBubbleItem.showing || notificationBubbleItem.opacity > 0.01)
+    readonly property var anchorScreen: (parentWindow && parentWindow.screen) ? parentWindow.screen : screen
 
     visible: !!parentWindow && parentWindow.visible && bubbleActive
     color: "transparent"
-    flags: Qt.FramelessWindowHint
-           | Qt.WindowStaysOnTopHint
+    flags: Qt.ToolTip
+           | Qt.FramelessWindowHint
            | Qt.WindowDoesNotAcceptFocus
            | Qt.WindowTransparentForInput
+    transientParent: parentWindow
     title: "Desktop Notification Bubble"
     width: 360
     height: Math.max(1, Math.ceil(notificationBubbleItem.height))
-    x: parentWindow ? parentWindow.x + parentWindow.width - width - bubbleRightMargin : 0
-    y: parentWindow ? parentWindow.y + (panelHeight * 2) + bubbleTopMargin : 0
+    x: {
+        if (anchorScreen && anchorScreen.availableGeometry) {
+            var g = anchorScreen.availableGeometry
+            return Math.round(g.x + g.width - width - bubbleRightMargin)
+        }
+        return parentWindow ? Math.round(parentWindow.x + parentWindow.width - width - bubbleRightMargin) : bubbleRightMargin
+    }
+    y: {
+        if (anchorScreen && anchorScreen.availableGeometry) {
+            var g = anchorScreen.availableGeometry
+            return Math.round(g.y + bubbleTopMargin)
+        }
+        return parentWindow ? Math.round(parentWindow.y + bubbleTopMargin) : bubbleTopMargin
+    }
 
     Item {
         anchors.fill: parent

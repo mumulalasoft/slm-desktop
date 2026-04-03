@@ -33,6 +33,14 @@ Item {
     property bool shellPointerBlocked: false
     property bool workspaceSwipeActive: MultitaskingController.workspaceSwipeActive
     property bool workspaceSwipeSettling: MultitaskingController.workspaceSwipeSettling
+    property bool workspaceLifecycleActive: false
+    property bool workspaceSwitchLifecycleActive: false
+    property bool windowLifecycleActive: false
+    property bool windowFocusLifecycleActive: false
+    property bool windowLifecycleProfilePinned: false
+    property string windowLifecyclePrevChannel: ""
+    property string windowLifecyclePrevPreset: ""
+    property int windowLifecycleReleaseMs: Theme.durationNormal
     property real workspaceSwipeOffset: MultitaskingController.workspaceSwipeOffset
     property int workspaceSwipeStartSpace: MultitaskingController.workspaceSwipeStartSpace
     property int workspaceSwipeTargetSpace: MultitaskingController.workspaceSwipeTargetSpace
@@ -68,11 +76,14 @@ Item {
                                                 )
     readonly property bool dockSmartRevealAllowed: (!dockModeSmartHide || !dockSmartOccluded)
     readonly property bool dockRevealWanted: (
-                                                launchpadVisible ||
                                                 workspaceVisible ||
                                                 dockModeNoHide ||
                                                 (dockSmartRevealAllowed && dockUserRevealWanted)
                                             )
+    // Note: launchpadVisible is intentionally excluded from dockRevealWanted.
+    // ShellDockHost is the single dock renderer and stays active when launchpad
+    // is open — LaunchpadWindow leaves the dock zone uncovered so the dock is
+    // interactive directly in ApplicationWindow.
 
     ShellComp.Shell {
         id: shell
@@ -232,10 +243,34 @@ Item {
         }
         root.pushSpaceToCompositor()
         root.pushWorkspaceVisibilityToCompositor()
+        root.syncWorkspaceLifecycleState()
         root.pushLaunchpadToCompositor()
         root.lastKnownActiveSpace = Number(SpacesManager && SpacesManager.activeSpace ? SpacesManager.activeSpace : 1)
     }
+    Component.onDestruction: {
+        if (root.workspaceLifecycleActive &&
+                typeof MotionController !== "undefined" && MotionController &&
+                MotionController.endLifecycleTransition) {
+            MotionController.endLifecycleTransition("workspace.overview")
+        }
+        if (root.workspaceSwitchLifecycleActive &&
+                typeof MotionController !== "undefined" && MotionController &&
+                MotionController.endLifecycleTransition) {
+            MotionController.endLifecycleTransition("workspace.switch")
+        }
+        if (root.windowLifecycleActive &&
+                typeof MotionController !== "undefined" && MotionController &&
+                MotionController.endLifecycleTransition) {
+            MotionController.endLifecycleTransition("window.lifecycle")
+        }
+        if (root.windowFocusLifecycleActive &&
+                typeof MotionController !== "undefined" && MotionController &&
+                MotionController.endLifecycleTransition) {
+            MotionController.endLifecycleTransition("window.focus")
+        }
+    }
     onStyleGalleryVisibleChanged: {
+        if (ShellStateController) ShellStateController.setStyleGalleryVisible(styleGalleryVisible)
         if (!styleGalleryVisible) {
             syncDockHidePrefs()
         }
@@ -267,8 +302,8 @@ Item {
 
         Behavior on opacity {
             NumberAnimation {
-                duration: 140
-                easing.type: Easing.OutQuad
+                duration: Theme.durationFast
+                easing.type: Theme.easingLight
             }
         }
     }
@@ -334,8 +369,8 @@ Item {
 
         Behavior on opacity {
             NumberAnimation {
-                duration: 150
-                easing.type: Easing.OutCubic
+                duration: Theme.durationNormal
+                easing.type: Theme.easingDefault
             }
         }
     }
@@ -348,15 +383,15 @@ Item {
             property: "opacity"
             from: 1.0
             to: 0.90
-            duration: 75
-            easing.type: Easing.OutQuad
+            duration: Theme.durationMicro
+            easing.type: Theme.easingLight
         }
         NumberAnimation {
             target: shell
             property: "opacity"
             to: 1.0
-            duration: 140
-            easing.type: Easing.OutCubic
+            duration: Theme.durationFast
+            easing.type: Theme.easingDefault
         }
     }
 
@@ -392,15 +427,15 @@ Item {
             property: "opacity"
             from: 0.0
             to: 0.20
-            duration: Math.round(Theme.transitionDuration * 0.35)
-            easing.type: Easing.OutCubic
+            duration: Theme.durationFast
+            easing.type: Theme.easingDefault
         }
         NumberAnimation {
             target: themeTransition
             property: "opacity"
             to: 0.0
-            duration: Theme.transitionDuration
-            easing.type: Easing.OutCubic
+            duration: Theme.durationNormal
+            easing.type: Theme.easingDefault
         }
     }
 
@@ -463,6 +498,9 @@ Item {
         function onLastEventChanged() {
             root.refreshDockSmartOcclusion()
             root.refreshShellPointerBlock()
+            if (CompositorStateModel && CompositorStateModel.lastEvent) {
+                root.processCompositorLifecycleEvent(CompositorStateModel.lastEvent)
+            }
         }
         function onConnectedChanged() {
             root.refreshShellPointerBlock()
@@ -499,11 +537,27 @@ Item {
                 root.spaceHudBootstrapped = true
             }
             root.lastKnownActiveSpace = nextSpace
+            if (nextSpace !== prevSpace &&
+                    typeof MotionController !== "undefined" && MotionController &&
+                    MotionController.beginLifecycleTransition) {
+                MotionController.beginLifecycleTransition("workspace.switch", MotionController.MediumPriority)
+                root.workspaceSwitchLifecycleActive = true
+                workspaceSwitchLifecycleReleaseTimer.restart()
+            }
         }
     }
 
-    onLaunchpadVisibleChanged: pushLaunchpadToCompositor()
-    onWorkspaceVisibleChanged: pushWorkspaceVisibilityToCompositor()
+    onLaunchpadVisibleChanged: {
+        if (ShellStateController) ShellStateController.setLaunchpadVisible(launchpadVisible)
+        pushLaunchpadToCompositor()
+    }
+    onWorkspaceVisibleChanged: {
+        if (ShellStateController) ShellStateController.setWorkspaceOverviewVisible(workspaceVisible)
+        syncWorkspaceLifecycleState()
+        pushWorkspaceVisibilityToCompositor()
+    }
+    onWorkspaceSwipeActiveChanged: syncWorkspaceLifecycleState()
+    onWorkspaceSwipeSettlingChanged: syncWorkspaceLifecycleState()
 
     Timer {
         id: shellPointerBlockPoll
@@ -511,6 +565,50 @@ Item {
         repeat: true
         running: true
         onTriggered: root.refreshShellPointerBlock()
+    }
+
+    Timer {
+        id: windowLifecycleReleaseTimer
+        interval: Math.max(1, Number(root.windowLifecycleReleaseMs || Theme.durationNormal))
+        repeat: false
+        onTriggered: {
+            if (root.windowLifecycleActive &&
+                    typeof MotionController !== "undefined" && MotionController &&
+                    MotionController.endLifecycleTransition) {
+                MotionController.endLifecycleTransition("window.lifecycle")
+                root.windowLifecycleActive = false
+            }
+            root.releaseWindowLifecycleProfile()
+        }
+    }
+
+    Timer {
+        id: windowFocusLifecycleReleaseTimer
+        interval: Theme.durationFast
+        repeat: false
+        onTriggered: {
+        if (root.windowFocusLifecycleActive &&
+                typeof MotionController !== "undefined" && MotionController &&
+                MotionController.endLifecycleTransition) {
+            MotionController.endLifecycleTransition("window.focus")
+            root.windowFocusLifecycleActive = false
+        }
+        root.releaseWindowLifecycleProfile()
+    }
+    }
+
+    Timer {
+        id: workspaceSwitchLifecycleReleaseTimer
+        interval: Theme.durationWorkspace
+        repeat: false
+        onTriggered: {
+            if (root.workspaceSwitchLifecycleActive &&
+                    typeof MotionController !== "undefined" && MotionController &&
+                    MotionController.endLifecycleTransition) {
+                MotionController.endLifecycleTransition("workspace.switch")
+                root.workspaceSwitchLifecycleActive = false
+            }
+        }
     }
 
     Connections {
@@ -598,6 +696,153 @@ Item {
         if (MotionController.preset !== "responsive") {
             MotionController.preset = "responsive"
         }
+    }
+
+    function syncWorkspaceLifecycleState() {
+        if (typeof MotionController === "undefined" || !MotionController ||
+                !MotionController.beginLifecycleTransition || !MotionController.endLifecycleTransition) {
+            return
+        }
+        var shouldBeActive = !!root.workspaceVisible || !!root.workspaceSwipeActive || !!root.workspaceSwipeSettling
+        if (shouldBeActive && !root.workspaceLifecycleActive) {
+            MotionController.beginLifecycleTransition("workspace.overview", MotionController.MediumPriority)
+            root.workspaceLifecycleActive = true
+        } else if (!shouldBeActive && root.workspaceLifecycleActive) {
+            MotionController.endLifecycleTransition("workspace.overview")
+            root.workspaceLifecycleActive = false
+        }
+    }
+
+    function processCompositorLifecycleEvent(payload) {
+        if (!payload || typeof MotionController === "undefined" || !MotionController) {
+            return
+        }
+        if (!MotionController.beginLifecycleTransition || !MotionController.endLifecycleTransition) {
+            return
+        }
+        var eventName = String(payload.event || payload.eventName || payload.type || payload.action || "")
+        eventName = eventName.toLowerCase().replace(/_/g, "-")
+        if (eventName.length <= 0) {
+            return
+        }
+        var focusMatch = (eventName === "window-focused" ||
+                          eventName === "window-unfocused" ||
+                          eventName === "window-activated" ||
+                          eventName === "window-deactivated" ||
+                          eventName === "focus-changed")
+        if (focusMatch) {
+            var focusKey = "window-focus:" + eventName + ":" + String(payload.viewId || payload.windowId || "")
+            if (MotionController.shouldCoalesceEvent && MotionController.shouldCoalesceEvent(focusKey, 90)) {
+                return
+            }
+            MotionController.beginLifecycleTransition("window.focus", MotionController.LowPriority)
+            root.windowFocusLifecycleActive = true
+            windowFocusLifecycleReleaseTimer.restart()
+            return
+        }
+        var lifecycleMatch = (eventName === "window-created" ||
+                              eventName === "window-opened" ||
+                              eventName === "window-shown" ||
+                              eventName === "window-closing" ||
+                              eventName === "window-closed" ||
+                              eventName === "window-minimized" ||
+                              eventName === "window-unminimized")
+        if (!lifecycleMatch) {
+            return
+        }
+        var viewId = String(payload.viewId || payload.viewid || payload.windowId || payload.windowid || "")
+        var coalesceKey = "window-lifecycle:" + eventName + ":" + viewId
+        if (MotionController.shouldCoalesceEvent && MotionController.shouldCoalesceEvent(coalesceKey, 120)) {
+            return
+        }
+        root.applyWindowLifecycleProfile(eventName)
+        MotionController.beginLifecycleTransition("window.lifecycle", MotionController.HighPriority)
+        root.windowLifecycleActive = true
+        windowLifecycleReleaseTimer.restart()
+
+        // Dock visual feedback: bounce the matching icon on open/minimize.
+        var appId = String(payload.appId || payload.app_id || payload.appid || "")
+        if (appId.length > 0 && root.dockItem && root.dockItem.notifyWindowLifecycle) {
+            root.dockItem.notifyWindowLifecycle(eventName, appId)
+        }
+    }
+
+    function windowLifecycleProfileForEvent(eventName) {
+        var event = String(eventName || "").toLowerCase()
+        if (event === "window-minimized") {
+            // Minimize: quick settle (no genie-like distortion).
+            return {
+                "channel": "window.minimize",
+                "preset": "snappy",
+                "releaseMs": Theme.durationFast
+            }
+        }
+        if (event === "window-closing" || event === "window-closed") {
+            // Close: fast decay with crisp response.
+            return {
+                "channel": "window.close",
+                "preset": "snappy",
+                "releaseMs": Theme.durationFast
+            }
+        }
+        if (event === "window-created" || event === "window-opened" ||
+                event === "window-shown" || event === "window-unminimized") {
+            // Open/restore: smooth scale+fade style profile.
+            return {
+                "channel": "window.open",
+                "preset": "smooth",
+                "releaseMs": Theme.durationNormal
+            }
+        }
+        return {
+            "channel": "window.lifecycle",
+            "preset": "smooth",
+            "releaseMs": Theme.durationNormal
+        }
+    }
+
+    function applyWindowLifecycleProfile(eventName) {
+        if (typeof MotionController === "undefined" || !MotionController) {
+            return
+        }
+        var profile = root.windowLifecycleProfileForEvent(eventName)
+        var nextChannel = String(profile.channel || "window.lifecycle")
+        var nextPreset = String(profile.preset || "smooth")
+        var releaseMs = Number(profile.releaseMs || Theme.durationNormal)
+        if (isNaN(releaseMs) || releaseMs < 1) {
+            releaseMs = Theme.durationNormal
+        }
+        root.windowLifecycleReleaseMs = Math.max(1, Math.round(releaseMs))
+        if (!root.windowLifecycleProfilePinned) {
+            root.windowLifecyclePrevChannel = String(MotionController.channel || "")
+            root.windowLifecyclePrevPreset = String(MotionController.preset || "")
+            root.windowLifecycleProfilePinned = true
+        }
+        if (MotionController.channel !== nextChannel) {
+            MotionController.channel = nextChannel
+        }
+        if (MotionController.preset !== nextPreset) {
+            MotionController.preset = nextPreset
+        }
+    }
+
+    function releaseWindowLifecycleProfile() {
+        if (!root.windowLifecycleProfilePinned ||
+                typeof MotionController === "undefined" || !MotionController) {
+            return
+        }
+        if (root.windowLifecyclePrevChannel.length > 0 &&
+                MotionController.channel !== root.windowLifecyclePrevChannel) {
+            MotionController.channel = root.windowLifecyclePrevChannel
+        }
+        if (root.windowLifecyclePrevPreset.length > 0 &&
+                MotionController.preset !== root.windowLifecyclePrevPreset) {
+            MotionController.preset = root.windowLifecyclePrevPreset
+        }
+        root.windowLifecycleProfilePinned = false
+        root.windowLifecyclePrevChannel = ""
+        root.windowLifecyclePrevPreset = ""
+        root.windowLifecycleReleaseMs = Theme.durationNormal
     }
 
 
@@ -902,6 +1147,16 @@ Item {
             if (typeof WorkspaceManager !== "undefined" && WorkspaceManager &&
                     WorkspaceManager.MoveFocusedWindowByDelta) {
                 WorkspaceManager.MoveFocusedWindowByDelta(1)
+            }
+        }
+    }
+
+    Shortcut {
+        sequence: "Meta+N"
+        onActivated: {
+            if (typeof NotificationManager !== "undefined" && NotificationManager &&
+                    NotificationManager.toggleCenter) {
+                NotificationManager.toggleCenter()
             }
         }
     }

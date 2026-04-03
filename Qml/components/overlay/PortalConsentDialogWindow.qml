@@ -2,6 +2,7 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import Slm_Desktop
+import SlmStyle as DSStyle
 
 AppDialog {
     id: root
@@ -16,6 +17,7 @@ AppDialog {
     signal allowAlwaysRequested()
     signal denyRequested()
     signal cancelRequested()
+    signal openSettingsRequested()
 
     readonly property var mediation: payload && payload.mediation ? payload.mediation : ({})
     readonly property string appLabel: {
@@ -26,6 +28,16 @@ AppDialog {
         return String(payload && payload.desktopFileId ? payload.desktopFileId : "Unknown application")
     }
     readonly property string capabilityLabel: String(payload && payload.capability ? payload.capability : "Capability")
+    readonly property bool isSecretCapability: capabilityLabel.indexOf("Secret.") === 0
+    readonly property bool isSecretReadCapability: capabilityLabel === "Secret.Read"
+    readonly property bool isSecretWriteCapability: capabilityLabel === "Secret.Store"
+    readonly property bool isSecretDeleteCapability: capabilityLabel === "Secret.Delete"
+    readonly property bool persistentEligible: {
+        if (!payload || payload.persistentEligible === undefined) {
+            return true
+        }
+        return !!payload.persistentEligible
+    }
     readonly property string mediationScope: String(mediation && mediation.scope ? mediation.scope : "session")
     readonly property string mediationReason: {
         var reason = String(mediation && mediation.reason ? mediation.reason : "")
@@ -34,8 +46,45 @@ AppDialog {
         }
         return String(payload && payload.reason ? payload.reason : "Permission required")
     }
+    readonly property string consentTitleText: {
+        if (isSecretReadCapability) {
+            return "Allow Access to Saved Sign-in Data?"
+        }
+        if (isSecretWriteCapability) {
+            return "Allow This App to Save Sign-in Data?"
+        }
+        if (isSecretDeleteCapability) {
+            return "Allow This App to Remove Saved Sign-in Data?"
+        }
+        if (isSecretCapability) {
+            return "Allow Access to Sensitive Data?"
+        }
+        return "Permission Request"
+    }
+    readonly property string consentBodyText: {
+        if (isSecretReadCapability) {
+            return "This app wants to read saved tokens, passwords, or session keys."
+        }
+        if (isSecretWriteCapability) {
+            return "This app wants to store sensitive data for faster sign-in."
+        }
+        if (isSecretDeleteCapability) {
+            return "This app wants to remove previously saved sensitive data."
+        }
+        if (isSecretCapability) {
+            return "This app wants to access sensitive app secrets."
+        }
+        return "Requests " + capabilityLabel
+    }
+    readonly property string consentHintText: {
+        if (isSecretCapability) {
+            return "You can change this later in Settings > Permissions."
+        }
+        return mediationReason
+    }
+    property bool deleteAlwaysConfirm: false
 
-    title: "Permission Request"
+    title: consentTitleText
     standardButtons: Dialog.NoButton
     dialogWidth: 560
     bodyPadding: 14
@@ -50,6 +99,7 @@ AppDialog {
         if (!visible) {
             return
         }
+        deleteAlwaysConfirm = false
         forceActiveFocus()
     }
 
@@ -59,12 +109,24 @@ AppDialog {
         onActivated: root.cancelRequested()
     }
 
+    Shortcut {
+        sequence: "Return"
+        enabled: root.visible
+        onActivated: root.allowOnceRequested()
+    }
+
+    Shortcut {
+        sequence: "Enter"
+        enabled: root.visible
+        onActivated: root.allowOnceRequested()
+    }
+
     bodyComponent: Component {
         ColumnLayout {
             spacing: 8
             implicitHeight: 180
 
-            Label {
+            DSStyle.Label {
                 Layout.fillWidth: true
                 text: root.appLabel
                 color: Theme.color("textPrimary")
@@ -73,9 +135,9 @@ AppDialog {
                 elide: Text.ElideRight
             }
 
-            Label {
+            DSStyle.Label {
                 Layout.fillWidth: true
-                text: "Requests " + root.capabilityLabel
+                text: root.consentBodyText
                 color: Theme.color("textSecondary")
                 font.pixelSize: Theme.fontSize("small")
                 wrapMode: Text.WordWrap
@@ -95,21 +157,23 @@ AppDialog {
                     anchors.margins: 8
                     spacing: 4
 
-                    Label {
+                    DSStyle.Label {
                         Layout.fillWidth: true
+                        visible: !root.isSecretCapability
                         text: "Action: " + String(mediation && mediation.action ? mediation.action : "consent")
                         color: Theme.color("textPrimary")
                         font.pixelSize: Theme.fontSize("small")
                         elide: Text.ElideRight
                     }
-                    Label {
+                    DSStyle.Label {
                         Layout.fillWidth: true
+                        visible: !root.isSecretCapability
                         text: "Scope: " + root.mediationScope
                         color: Theme.color("textSecondary")
                         font.pixelSize: Theme.fontSize("small")
                         elide: Text.ElideRight
                     }
-                    Label {
+                    DSStyle.Label {
                         Layout.fillWidth: true
                         visible: String(mediation && mediation.conflict_session ? mediation.conflict_session : "").length > 0
                         text: "Conflict session: " + String(mediation && mediation.conflict_session ? mediation.conflict_session : "")
@@ -120,12 +184,21 @@ AppDialog {
                 }
             }
 
-            Label {
+            DSStyle.Label {
                 Layout.fillWidth: true
-                text: root.mediationReason
-                color: Theme.color("warning")
+                text: root.consentHintText
+                color: root.isSecretCapability ? Theme.color("textSecondary") : Theme.color("warning")
                 font.pixelSize: Theme.fontSize("small")
                 wrapMode: Text.WordWrap
+            }
+
+            DSStyle.CheckBox {
+                objectName: "secretDeleteConfirmCheckBox"
+                Layout.fillWidth: true
+                visible: root.isSecretDeleteCapability && root.persistentEligible
+                text: "I understand this can remove saved sign-in data for this app."
+                checked: root.deleteAlwaysConfirm
+                onToggled: root.deleteAlwaysConfirm = checked
             }
         }
     }
@@ -139,20 +212,29 @@ AppDialog {
                 Layout.fillWidth: true
             }
 
-            Button {
-                text: "Deny"
+            DSStyle.Button {
+                visible: root.isSecretCapability
+                text: "Open Security Settings"
+                onClicked: root.openSettingsRequested()
+            }
+
+            DSStyle.Button {
+                text: root.isSecretCapability ? "Don't Allow" : "Deny"
                 onClicked: root.denyRequested()
             }
 
-            Button {
+            DSStyle.Button {
+                id: allowOnceButton
                 text: "Allow Once"
-                highlighted: true
                 defaultAction: true
                 onClicked: root.allowOnceRequested()
             }
 
-            Button {
+            DSStyle.Button {
+                objectName: "consentAlwaysAllowButton"
                 text: "Always Allow"
+                visible: root.persistentEligible
+                enabled: !root.isSecretDeleteCapability || root.deleteAlwaysConfirm
                 onClicked: root.allowAlwaysRequested()
             }
         }

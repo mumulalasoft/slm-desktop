@@ -2,6 +2,7 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import Slm_Desktop
+import SlmStyle as DSStyle
 
 AppDialog {
     id: root
@@ -29,35 +30,24 @@ AppDialog {
         anchors.fill: parent
         anchors.margins: 14
 
-        Label {
+        DSStyle.Label {
             text: "Archive name"
             color: Theme.color("textPrimary")
         }
 
-        TextField {
+        DSStyle.TextField {
             id: compressArchiveNameField
             Layout.fillWidth: true
             placeholderText: "Archive.tar"
-            color: Theme.color("textPrimary")
-            selectionColor: Theme.color("selectedItem")
-            selectedTextColor: Theme.color("selectedItemText")
-            background: Rectangle {
-                radius: Theme.radiusControl
-                color: Theme.color("fileManagerSearchBg")
-                border.width: Theme.borderWidthThin
-                border.color: compressArchiveNameField.activeFocus
-                              ? Theme.color("accent")
-                              : Theme.color("fileManagerControlBorder")
-            }
             onAccepted: hostRoot.applyCompressSelection()
         }
 
-        Label {
+        DSStyle.Label {
             text: "Format"
             color: Theme.color("textPrimary")
         }
 
-        ComboBox {
+        DSStyle.ComboBox {
             Layout.fillWidth: true
             model: ["tar", "zip"]
             currentIndex: hostRoot.compressFormat === "zip" ? 1 : 0
@@ -84,13 +74,13 @@ AppDialog {
             Layout.fillWidth: true
             spacing: 8
 
-            Button {
+            DSStyle.Button {
                 Layout.fillWidth: true
                 text: "Cancel"
                 onClicked: root.close()
             }
 
-            Button {
+            DSStyle.Button {
                 Layout.fillWidth: true
                 text: "Create"
                 enabled: String(compressArchiveNameField.text || "").trim().length > 0

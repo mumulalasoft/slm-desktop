@@ -2,6 +2,7 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import Slm_Desktop
+import SlmStyle as DSStyle
 
 Column {
     id: root
@@ -14,7 +15,7 @@ Column {
 
     spacing: 2
 
-    Label {
+    DSStyle.Label {
         text: root.headerText
         color: Theme.color("textSecondary")
         font.pixelSize: Theme.fontSize("xs")
@@ -34,19 +35,19 @@ Column {
             anchors.leftMargin: 12
             spacing: 8
 
-            Label {
+            DSStyle.Label {
                 text: "\u2022"
                 color: Theme.color("textSecondary")
             }
 
-            Label {
+            DSStyle.Label {
                 text: root.name
                 color: Theme.color("textPrimary")
                 width: 140
                 elide: Text.ElideRight
             }
 
-            Label {
+            DSStyle.Label {
                 text: root.badgeText
                 color: Theme.color("textSecondary")
                 font.pixelSize: Theme.fontSize("xs")

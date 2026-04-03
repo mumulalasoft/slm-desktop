@@ -1,0 +1,11 @@
+@PACKAGE_INIT@
+
+include("${CMAKE_CURRENT_LIST_DIR}/SlmFileManagerTargets.cmake")
+
+# Compatibility alias expected by shell bridge.
+if(TARGET SlmFileManager::slm-filemanager-core AND NOT TARGET SlmFileManager::Core)
+    add_library(SlmFileManager::Core INTERFACE IMPORTED)
+    set_property(TARGET SlmFileManager::Core PROPERTY
+        INTERFACE_LINK_LIBRARIES SlmFileManager::slm-filemanager-core
+    )
+endif()

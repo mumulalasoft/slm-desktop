@@ -1,0 +1,5 @@
+id: local
+kind: local
+risk: high
+can_replace_core: false
+advanced_only: true

@@ -2,6 +2,7 @@
 
 #include <QObject>
 #include <QElapsedTimer>
+#include <QHash>
 #include <QTimer>
 
 namespace Slm::Motion {
@@ -14,6 +15,8 @@ class AnimationScheduler : public QObject
     Q_PROPERTY(bool running READ running NOTIFY runningChanged)
     Q_PROPERTY(double timeScale READ timeScale WRITE setTimeScale NOTIFY timeScaleChanged)
     Q_PROPERTY(qulonglong droppedFrameCount READ droppedFrameCount NOTIFY droppedFrameCountChanged)
+    Q_PROPERTY(bool microInteractionSuppressed READ microInteractionSuppressed NOTIFY microInteractionSuppressedChanged)
+    Q_PROPERTY(int activeLifecyclePriority READ activeLifecyclePriority NOTIFY activeLifecyclePriorityChanged)
 
 public:
     explicit AnimationScheduler(QObject *parent = nullptr);
@@ -25,13 +28,29 @@ public:
     double timeScale() const;
     void setTimeScale(double scale);
     qulonglong droppedFrameCount() const;
+    bool microInteractionSuppressed() const;
+    int activeLifecyclePriority() const;
 
     bool running() const;
+
+    // External (vsync-driven) stepping — when enabled the internal QTimer is suspended and
+    // the caller is responsible for calling windowFrame() on each display frame
+    // (e.g. by connecting QQuickWindow::afterAnimating to MotionController::windowFrame).
+    void setExternalDriving(bool enabled);
+    bool externalDriving() const;
+    void windowFrame();  // same dt logic as onFrame() but triggered externally
+
+    Q_INVOKABLE void beginLifecycle(const QString &owner, int priority);
+    Q_INVOKABLE void endLifecycle(const QString &owner);
+    Q_INVOKABLE bool canRunPriority(int priority) const;
+    Q_INVOKABLE bool shouldCoalesce(const QString &eventKey, int windowMs = 80);
 
 signals:
     void runningChanged();
     void timeScaleChanged();
     void droppedFrameCountChanged();
+    void microInteractionSuppressedChanged();
+    void activeLifecyclePriorityChanged();
     void frameStepped(double dtSeconds);
 
 private:
@@ -44,6 +63,11 @@ private:
     double m_timeScale = 1.0;
     qulonglong m_droppedFrameCount = 0;
     bool m_running = false;
+    bool m_externalDriving = false;
+    bool m_microInteractionSuppressed = false;
+    int m_activeLifecyclePriority = 0;
+    QHash<QString, int> m_lifecycleOwners;
+    QHash<QString, qint64> m_lastEventByKeyMs;
 };
 
 } // namespace Slm::Motion

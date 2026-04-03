@@ -2,6 +2,7 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import Slm_Desktop
+import SlmStyle as DSStyle
 
 AppDialog {
     id: root
@@ -19,7 +20,7 @@ AppDialog {
             spacing: 10
             implicitHeight: 108
 
-            Label {
+            DSStyle.Label {
                 Layout.fillWidth: true
                 text: "This will remove all entries from Recent Files."
                 wrapMode: Text.Wrap
@@ -29,7 +30,7 @@ AppDialog {
                 lineHeight: Theme.lineHeight("normal")
             }
 
-            Label {
+            DSStyle.Label {
                 Layout.fillWidth: true
                 text: "Files are not deleted from disk."
                 color: Theme.color("textSecondary")
@@ -48,12 +49,12 @@ AppDialog {
                 Layout.fillWidth: true
             }
 
-            Button {
+            DSStyle.Button {
                 text: "Cancel"
                 onClicked: root.close()
             }
 
-            Button {
+            DSStyle.Button {
                 text: "Clear"
                 onClicked: {
                     root.close()

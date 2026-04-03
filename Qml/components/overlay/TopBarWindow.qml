@@ -1,4 +1,5 @@
 import QtQuick 2.15
+import Slm_Desktop
 import "../topbar" as TopBarComp
 
 Item {
@@ -16,8 +17,14 @@ Item {
     signal tothespotRequested()
     signal screenshotCaptureRequested(string mode, int delaySec, bool grabPointer, bool concealText)
 
-    visible: !!rootWindow && !!desktopScene && rootWindow.visible && !desktopScene.launchpadVisible
-    z: 220
+    // TopBar is a persistent layer — never hidden by overlay state.
+    // Opacity dims when launchpad is open so it blends with the frosted backdrop.
+    visible: !!rootWindow && rootWindow.visible
+    opacity: ShellState.topBarOpacity
+    z: ShellZOrder.topBar
+    Behavior on opacity {
+        NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault }
+    }
     x: 0
     y: 0
     width: rootWindow ? rootWindow.width : 0

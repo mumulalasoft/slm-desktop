@@ -1,5 +1,5 @@
 import QtQuick
-import Style as Style
+import SlmStyle as Style
 
 Style.AppDialog {
 }

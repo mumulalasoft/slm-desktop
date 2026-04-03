@@ -1,4 +1,5 @@
 #include "appstartupbridge.h"
+#include "../services/power/powerbridge.h"
 
 #include <QQmlContext>
 #include <QTimer>
@@ -45,6 +46,9 @@
 #include "../../metadataindexserver.h"
 #include "../services/clipboard/ClipboardServiceClient.h"
 #include "../core/motion/slmmotioncontroller.h"
+#include "../core/shell/shellstatecontroller.h"
+#include "../core/shell/shellinputrouter.h"
+#include "../core/shell/shelllayerwatchdog.h"
 
 namespace {
 template <std::size_t N>
@@ -135,9 +139,13 @@ void registerCoreContext(QQmlContext *context,
                          TothespotTextHighlighter *tothespotTextHighlighter,
                          MetadataIndexServer *metadataIndexServer,
                          Slm::Clipboard::ClipboardServiceClient *clipboardServiceClient,
-                         Slm::Motion::MotionController *motionController)
+                         Slm::Motion::MotionController *motionController,
+                         ShellStateController *shellStateController,
+                         ShellInputRouter *shellInputRouter,
+                         ShellLayerWatchdog *shellLayerWatchdog,
+                         PowerBridge *powerBridge)
 {
-    const std::array<std::pair<const char *, QObject *>, 32> entries{{
+    const std::array<std::pair<const char *, QObject *>, 36> entries{{
         {"AppModel", appModel},
         {"AppManager", appModel},
         {"ShortcutModel", shortcutModel},
@@ -171,6 +179,10 @@ void registerCoreContext(QQmlContext *context,
         {"MetadataIndexServer", metadataIndexServer},
         {"ClipboardServiceClient", clipboardServiceClient},
         {"MotionController", motionController},
+        {"ShellStateController", shellStateController},
+        {"ShellInputRouter", shellInputRouter},
+        {"ShellLayerWatchdog", shellLayerWatchdog},
+        {"PowerBridge", powerBridge},
     }};
     setContextObjects(context, entries);
 }

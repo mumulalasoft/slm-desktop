@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="19.980576mm"
+   height="13.320374mm"
+   viewBox="0 0 19.980576 13.320374"
+   version="1.1"
+   id="svg1"
+   inkscape:version="1.4.3 (0d15f75, 2025-12-25)"
+   sodipodi:docname="button-full-rounded.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="mm"
+     showguides="true"
+     inkscape:zoom="2"
+     inkscape:cx="288.75"
+     inkscape:cy="384.75"
+     inkscape:window-width="1366"
+     inkscape:window-height="697"
+     inkscape:window-x="-8"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer1"
+     inkscape:export-bgcolor="#ffffff00"
+     showgrid="false">
+    <sodipodi:guide
+       position="-117.24998,-44.976861"
+       orientation="1,0"
+       id="guide15"
+       inkscape:locked="false" />
+    <sodipodi:guide
+       position="-92.817332,69.267389"
+       orientation="0,-1"
+       id="guide16"
+       inkscape:locked="false" />
+    <sodipodi:guide
+       position="-72.174981,38.520018"
+       orientation="0,-1"
+       id="guide17"
+       inkscape:locked="false" />
+    <sodipodi:guide
+       position="-135.43934,-24.413614"
+       orientation="0,-1"
+       id="guide42"
+       inkscape:locked="false" />
+    <sodipodi:guide
+       position="-133.37228,-44.464074"
+       orientation="0,-1"
+       id="guide43"
+       inkscape:locked="false" />
+    <sodipodi:guide
+       position="-101.80642,-9.2214731"
+       orientation="0,-1"
+       id="guide105"
+       inkscape:locked="false" />
+    <sodipodi:guide
+       position="60.083613,17.717148"
+       orientation="0,-1"
+       id="guide106"
+       inkscape:locked="false" />
+    <sodipodi:guide
+       position="57.125402,85.35186"
+       orientation="0,-1"
+       id="guide124"
+       inkscape:locked="false" />
+    <sodipodi:guide
+       position="55.535142,121.92769"
+       orientation="0,-1"
+       id="guide127"
+       inkscape:locked="false" />
+    <sodipodi:guide
+       position="-74.291647,35.874178"
+       orientation="0,-1"
+       id="guide138"
+       inkscape:locked="false" />
+  </sodipodi:namedview>
+  <defs
+     id="defs1">
+    <inkscape:path-effect
+       effect="fillet_chamfer"
+       id="path-effect373"
+       is_visible="true"
+       lpeversion="1"
+       nodesatellites_param="F,0,0,1,0,0,0,1 @ F,0,0,1,0,20.195707,0,1 @ F,0,0,1,0,19.804293,0,1 @ F,0,0,1,0,0,0,1"
+       radius="0"
+       unit="px"
+       method="auto"
+       mode="F"
+       chamfer_steps="1"
+       flexible="false"
+       use_knot_distance="true"
+       apply_no_radius="true"
+       apply_with_radius="true"
+       only_selected="false"
+       hide_knots="false" />
+    <inkscape:path-effect
+       effect="fillet_chamfer"
+       id="path-effect369"
+       is_visible="true"
+       lpeversion="1"
+       nodesatellites_param="F,0,0,1,0,0,0,1 @ F,0,0,1,0,20.339024,0,1 @ F,0,0,1,0,19.655892,0,1 @ F,0,0,1,0,0,0,1"
+       radius="0"
+       unit="px"
+       method="auto"
+       mode="F"
+       chamfer_steps="1"
+       flexible="false"
+       use_knot_distance="true"
+       apply_no_radius="true"
+       apply_with_radius="true"
+       only_selected="false"
+       hide_knots="false" />
+  </defs>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(-138.84998,-139.10276)">
+    <g
+       id="g365"
+       transform="translate(30.738175,-0.08113203)"
+       inkscape:export-filename="../Development/Qt/Desktop_Shell/assets/icons/titlebuttons/titlebutton-unmaximize.svg"
+       inkscape:export-xdpi="96"
+       inkscape:export-ydpi="96">
+      <g
+         id="g363"
+         transform="translate(-39.623056,0.72513936)"
+         inkscape:export-filename="ButtonRounded\titlebutton-maximize.svg"
+         inkscape:export-xdpi="25.400002"
+         inkscape:export-ydpi="25.400002">
+        <path
+           style="fill:#20a932;fill-opacity:1;stroke-width:0.264583"
+           id="path359"
+           width="60"
+           height="40"
+           x="129.95419"
+           y="72.300003"
+           inkscape:path-effect="#path-effect369"
+           sodipodi:type="rect"
+           d="m 129.95419,72.300003 h 39.66098 a 20.339024,20.339024 45 0 1 20.33902,20.339024 v 0.0051 A 19.655892,19.655892 135 0 1 170.2983,112.3 l -40.34411,0 z"
+           transform="matrix(0.33300958,0,0,0.33300958,104.45888,114.38216)" />
+        <path
+           style="fill:#28d33f;fill-opacity:1;stroke-width:0.264583"
+           id="path361"
+           width="60"
+           height="40"
+           x="129.95419"
+           y="72.300003"
+           sodipodi:type="rect"
+           transform="matrix(0.32190926,0,0,0.29970862,105.90141,117.45583)"
+           inkscape:path-effect="#path-effect373"
+           d="m 129.95419,72.300003 h 39.8043 A 20.195707,20.195707 45 0 1 189.95419,92.49571 19.804293,19.804293 135 0 1 170.1499,112.3 h -40.19571 z" />
+      </g>
+    </g>
+  </g>
+</svg>

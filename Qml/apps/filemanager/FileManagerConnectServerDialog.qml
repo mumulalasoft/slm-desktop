@@ -2,6 +2,7 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import Slm_Desktop
+import SlmStyle as DSStyle
 
 Popup {
     id: root
@@ -51,7 +52,7 @@ Popup {
             opacity: Theme.opacityMuted
         }
 
-        Label {
+        DSStyle.Label {
             Layout.fillWidth: true
             text: "Server Details"
             color: Theme.color("textSecondary")
@@ -61,14 +62,14 @@ Popup {
         RowLayout {
             Layout.fillWidth: true
             spacing: 10
-            Label {
+            DSStyle.Label {
                 text: "Type:"
                 color: Theme.color("textPrimary")
                 font.pixelSize: Theme.fontSize("body")
                 Layout.preferredWidth: 70
                 horizontalAlignment: Text.AlignRight
             }
-            ComboBox {
+            DSStyle.ComboBox {
                 id: connectProtocolCombo
                 Layout.fillWidth: true
                 enabled: !hostRoot.connectServerBusy
@@ -87,14 +88,14 @@ Popup {
             Layout.fillWidth: true
             spacing: 10
 
-            Label {
+            DSStyle.Label {
                 text: "Server:"
                 color: Theme.color("textPrimary")
                 font.pixelSize: Theme.fontSize("body")
                 Layout.preferredWidth: 70
                 horizontalAlignment: Text.AlignRight
             }
-            TextField {
+            DSStyle.TextField {
                 id: connectServerField
                 Layout.fillWidth: true
                 enabled: !hostRoot.connectServerBusy
@@ -111,7 +112,7 @@ Popup {
                 Keys.onEnterPressed: hostRoot.submitConnectServer()
             }
 
-            Label {
+            DSStyle.Label {
                 text: "Port:"
                 color: Theme.color("textPrimary")
                 font.pixelSize: Theme.fontSize("body")
@@ -119,7 +120,7 @@ Popup {
                 horizontalAlignment: Text.AlignRight
             }
 
-            SpinBox {
+            DSStyle.SpinBox {
                 id: connectServerPortSpin
                 enabled: !hostRoot.connectServerBusy
                 from: 1
@@ -137,7 +138,7 @@ Popup {
             Layout.fillWidth: true
             spacing: 10
 
-            Label {
+            DSStyle.Label {
                 text: "Folder:"
                 color: Theme.color("textPrimary")
                 font.pixelSize: Theme.fontSize("body")
@@ -145,7 +146,7 @@ Popup {
                 horizontalAlignment: Text.AlignRight
             }
 
-            TextField {
+            DSStyle.TextField {
                 Layout.fillWidth: true
                 enabled: !hostRoot.connectServerBusy
                 placeholderText: "/"
@@ -168,20 +169,20 @@ Popup {
 
             Item { Layout.fillWidth: true }
 
-            Button {
+            DSStyle.Button {
                 text: "Cancel"
                 enabled: !hostRoot.connectServerBusy
                 onClicked: root.close()
             }
 
-            Button {
+            DSStyle.Button {
                 text: hostRoot.connectServerBusy ? "Connecting..." : "Connect"
                 enabled: !hostRoot.connectServerBusy && String(hostRoot.connectServerHost || "").trim().length > 0
                 onClicked: hostRoot.submitConnectServer()
             }
         }
 
-        Label {
+        DSStyle.Label {
             Layout.fillWidth: true
             visible: hostRoot.connectServerError.length > 0
             text: hostRoot.connectServerError

@@ -4,6 +4,11 @@
 #include "kwinwaylandstatemodel.h"
 
 namespace {
+QString normalizedEventToken(const QString &value)
+{
+    return value.trimmed().toLower().replace(QLatin1Char('_'), QLatin1Char('-'));
+}
+
 QString normalizeBackendKey(const QString &value)
 {
     const QString raw = value.trimmed().toLower();
@@ -44,7 +49,7 @@ QVariantMap kwinWaylandCapabilities()
 
 QString mappedWorkspaceEventFromCommand(const QString &event, const QVariantMap &payload)
 {
-    if (event.trimmed().toLower() != QStringLiteral("command")) {
+    if (normalizedEventToken(event) != QStringLiteral("command")) {
         return QString();
     }
     if (!payload.value(QStringLiteral("ok")).toBool()) {
@@ -60,6 +65,49 @@ QString mappedWorkspaceEventFromCommand(const QString &event, const QVariantMap 
     }
     if (command == QStringLiteral("workspace toggle") || command == QStringLiteral("overview toggle")) {
         return QStringLiteral("workspace-toggle");
+    }
+    return QString();
+}
+
+QString canonicalLifecycleEvent(const QString &event, const QVariantMap &payload)
+{
+    const QString eventFromPayload = normalizedEventToken(payload.value(QStringLiteral("event")).toString());
+    const QString base = eventFromPayload.isEmpty() ? normalizedEventToken(event) : eventFromPayload;
+    if (base.isEmpty()) {
+        return QString();
+    }
+
+    if (base == QStringLiteral("window-activated")
+            || base == QStringLiteral("focus-changed")
+            || base == QStringLiteral("active-window-changed")) {
+        return QStringLiteral("window-focused");
+    }
+    if (base == QStringLiteral("window-deactivated")) {
+        return QStringLiteral("window-unfocused");
+    }
+    if (base == QStringLiteral("window-opened")
+            || base == QStringLiteral("window-added")
+            || base == QStringLiteral("window-shown")) {
+        return QStringLiteral("window-created");
+    }
+    if (base == QStringLiteral("window-removed")
+            || base == QStringLiteral("window-destroyed")
+            || base == QStringLiteral("window-closing")) {
+        return QStringLiteral("window-closed");
+    }
+    if (base == QStringLiteral("window-restored")) {
+        return QStringLiteral("window-unminimized");
+    }
+    if (base == QStringLiteral("workspace-open")
+            || base == QStringLiteral("workspace-close")
+            || base == QStringLiteral("workspace-toggle")
+            || base == QStringLiteral("window-created")
+            || base == QStringLiteral("window-closed")
+            || base == QStringLiteral("window-minimized")
+            || base == QStringLiteral("window-unminimized")
+            || base == QStringLiteral("window-focused")
+            || base == QStringLiteral("window-unfocused")) {
+        return base;
     }
     return QString();
 }
@@ -215,17 +263,30 @@ void WindowingBackendManager::wireSignals()
             [this](const QString &event, const QVariantMap &payload) {
         emit eventReceived(event, payload);
         const QString mapped = mappedWorkspaceEventFromCommand(event, payload);
-        if (mapped.isEmpty()) {
+        if (!mapped.isEmpty()) {
+            QVariantMap mappedPayload = payload;
+            mappedPayload.insert(QStringLiteral("event"), mapped);
+            mappedPayload.insert(QStringLiteral("legacy_event_alias"),
+                                 mapped == QStringLiteral("workspace-open")
+                                     ? QStringLiteral("overview-open")
+                                     : (mapped == QStringLiteral("workspace-close")
+                                            ? QStringLiteral("overview-close")
+                                            : QStringLiteral("overview-toggle")));
+            emit eventReceived(mapped, mappedPayload);
+        }
+
+        const QString canonical = canonicalLifecycleEvent(event, payload);
+        if (canonical.isEmpty()) {
             return;
         }
-        QVariantMap mappedPayload = payload;
-        mappedPayload.insert(QStringLiteral("event"), mapped);
-        mappedPayload.insert(QStringLiteral("legacy_event_alias"),
-                             mapped == QStringLiteral("workspace-open")
-                                 ? QStringLiteral("overview-open")
-                                 : (mapped == QStringLiteral("workspace-close")
-                                        ? QStringLiteral("overview-close")
-                                        : QStringLiteral("overview-toggle")));
-        emit eventReceived(mapped, mappedPayload);
+        const QString payloadEvent = normalizedEventToken(payload.value(QStringLiteral("event")).toString());
+        const QString sourceEvent = normalizedEventToken(event);
+        if (canonical == payloadEvent && canonical == sourceEvent) {
+            return;
+        }
+        QVariantMap canonicalPayload = payload;
+        canonicalPayload.insert(QStringLiteral("event"), canonical);
+        canonicalPayload.insert(QStringLiteral("canonicalized"), true);
+        emit eventReceived(canonical, canonicalPayload);
     });
 }

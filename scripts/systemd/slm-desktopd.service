@@ -1,0 +1,16 @@
+[Unit]
+Description=SLM Desktop Daemon
+Documentation=man:systemd.service(5)
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/Development/Qt/Slm_Desktop/build/desktopd
+Restart=on-failure
+RestartSec=1
+Environment=DS_WINDOWING_BACKEND=kwin-wayland
+
+[Install]
+WantedBy=default.target
+

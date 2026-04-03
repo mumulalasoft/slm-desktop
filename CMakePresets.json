@@ -1,0 +1,74 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": { "major": 3, "minor": 21, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "dev-intree",
+      "displayName": "Development — in-tree filemanager (default)",
+      "description": "Build dengan filemanager in-tree. Tidak memerlukan checkout lokal filemanager.",
+      "binaryDir": "${sourceDir}/build/dev",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "SLM_USE_EXTERNAL_FILEMANAGER_PACKAGE": "OFF",
+        "SLM_USE_LOCAL_FILEMANAGER": "OFF"
+      }
+    },
+    {
+      "name": "dev-local-fm",
+      "displayName": "Development — local filemanager checkout (workspace mode)",
+      "description": "Build dengan SlmFileManager::Core dari checkout lokal di ../filemanager.",
+      "binaryDir": "${sourceDir}/build/dev-local-fm",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "SLM_USE_EXTERNAL_FILEMANAGER_PACKAGE": "ON",
+        "SLM_USE_LOCAL_FILEMANAGER": "ON",
+        "SLM_FILEMANAGER_SOURCE_DIR": "${sourceDir}/../filemanager",
+        "SLM_FILEMANAGER_BUILD_DIR": "${sourceDir}/../filemanager/build/dev"
+      }
+    },
+    {
+      "name": "release-installed-fm",
+      "displayName": "Release — installed SlmFileManager package",
+      "description": "Build dengan SlmFileManager dari system package (distro install).",
+      "binaryDir": "${sourceDir}/build/release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "SLM_USE_EXTERNAL_FILEMANAGER_PACKAGE": "ON",
+        "SLM_USE_LOCAL_FILEMANAGER": "OFF"
+      }
+    },
+    {
+      "name": "ci",
+      "displayName": "CI — release build dengan installed package",
+      "description": "Preset untuk CI pipeline. Menggunakan package yang sudah diinstall.",
+      "binaryDir": "${sourceDir}/build/ci",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "SLM_USE_EXTERNAL_FILEMANAGER_PACKAGE": "OFF",
+        "SLM_USE_LOCAL_FILEMANAGER": "OFF"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "dev-intree",
+      "configurePreset": "dev-intree",
+      "jobs": 0
+    },
+    {
+      "name": "dev-local-fm",
+      "configurePreset": "dev-local-fm",
+      "jobs": 0
+    },
+    {
+      "name": "release-installed-fm",
+      "configurePreset": "release-installed-fm",
+      "jobs": 0
+    },
+    {
+      "name": "ci",
+      "configurePreset": "ci",
+      "jobs": 0
+    }
+  ]
+}

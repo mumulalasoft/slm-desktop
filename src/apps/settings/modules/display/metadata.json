@@ -1,0 +1,35 @@
+{
+    "id": "display",
+    "name": "Display",
+    "icon": "video-display",
+    "group": "Hardware",
+    "description": "Resolution, scaling, and monitor arrangement.",
+    "keywords": ["resolution", "scaling", "hidpi", "night light", "monitor"],
+    "main": "DisplayPage.qml",
+    "settings": [
+        {
+            "id": "resolution",
+            "label": "Resolution",
+            "description": "Choose display resolution",
+            "keywords": ["resolution", "pixels"],
+            "type": "dropdown",
+            "backend_binding": "dbus:org.slm.Display/Resolution"
+        },
+        {
+            "id": "scaling",
+            "label": "Scaling",
+            "description": "Adjust UI scale for HiDPI",
+            "keywords": ["scaling", "hidpi", "dpi"],
+            "type": "dropdown",
+            "backend_binding": "settings:display/scaling"
+        },
+        {
+            "id": "night-light",
+            "label": "Night Light",
+            "description": "Reduce blue light at night",
+            "keywords": ["night", "warm", "blue light"],
+            "type": "toggle",
+            "backend_binding": "gsettings:org.gnome.settings-daemon.plugins.color/night-light-enabled"
+        }
+    ]
+}

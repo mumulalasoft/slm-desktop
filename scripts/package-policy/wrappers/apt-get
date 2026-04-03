@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+TOOL="apt-get"
+SERVICE_BIN="${SLM_PACKAGE_POLICY_SERVICE_BIN:-/usr/bin/slm-package-policy-service}"
+REAL_BIN="${SLM_PACKAGE_POLICY_REAL_APT_GET:-/usr/bin/apt-get}"
+WRAPPER_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SNAPSHOT_SCRIPT="${SLM_PACKAGE_POLICY_SNAPSHOT_SCRIPT:-$WRAPPER_ROOT/pre-transaction-snapshot.sh}"
+HEALTH_SCRIPT="${SLM_PACKAGE_POLICY_HEALTH_SCRIPT:-$WRAPPER_ROOT/post-transaction-health-check.sh}"
+
+if [[ "${SLM_PACKAGE_POLICY_BYPASS:-0}" == "1" ]]; then
+  exec "$REAL_BIN" "$@"
+fi
+
+if [[ ! -x "$SERVICE_BIN" ]]; then
+  echo "slm-package-policy: policy service binary not found: $SERVICE_BIN" >&2
+  exit 101
+fi
+
+if ! "$SERVICE_BIN" --check --json --tool "$TOOL" -- "$@"; then
+  echo "slm-package-policy: blocked by policy" >&2
+  exit 100
+fi
+
+first_nonopt=""
+for arg in "$@"; do
+  if [[ "$arg" != -* ]]; then
+    first_nonopt="$arg"
+    break
+  fi
+done
+
+is_mutating=0
+case "$first_nonopt" in
+  install|remove|purge|upgrade|full-upgrade|dist-upgrade|autoremove)
+    is_mutating=1
+    ;;
+esac
+
+snapshot_id=""
+if [[ "$is_mutating" -eq 1 && -x "$SNAPSHOT_SCRIPT" ]]; then
+  snapshot_id="$("$SNAPSHOT_SCRIPT" "$TOOL" "$@" || true)"
+fi
+
+set +e
+"$REAL_BIN" "$@"
+exit_code=$?
+set -e
+if [[ "$exit_code" -ne 0 ]]; then
+  exit "$exit_code"
+fi
+
+if [[ "$is_mutating" -eq 1 && -x "$HEALTH_SCRIPT" ]]; then
+  if ! "$HEALTH_SCRIPT" --snapshot-id "$snapshot_id"; then
+    echo "slm-package-policy: transaction succeeded but health gate failed." >&2
+    exit 120
+  fi
+fi
+
+exit 0

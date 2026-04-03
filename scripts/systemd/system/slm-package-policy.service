@@ -1,0 +1,12 @@
+[Unit]
+Description=SLM Package Policy Service
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/slm-package-policy-service --daemon
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
