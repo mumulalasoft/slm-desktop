@@ -29,6 +29,11 @@ Checklist ini dipakai sebelum merge perubahan UI/windowing/filemanager.
 ## Topbar/Popup
 
 - Popup topbar toggle stabil (klik kedua menutup, bukan reopen).
+- Contract lint popup topbar lulus (`scripts/check-topbar-popup-contract.sh`).
+- Main menu:
+  - submenu `Recent Applications` dan `Recent Files` muncul saat ada data.
+  - entry submenu menampilkan icon (recent app icon berwarna; recent files lewat fallback `iconName -> mimeType -> extension`).
+  - guard test lulus: `topbar_mainmenu_recent_icons_guard_test`.
 - Screenshot dialog tampil, tidak freeze input.
 - Save screenshot dialog -> choose folder -> select folder berjalan.
 - Global menu diagnostics valid (`dump` dan `healthcheck`) di sesi runtime aktif.
@@ -61,6 +66,8 @@ Checklist ini dipakai sebelum merge perubahan UI/windowing/filemanager.
 
 ```bash
 scripts/test.sh
+scripts/check-topbar-popup-contract.sh
+ctest --test-dir build/Desktop_Qt_6_10_2-Debug -R topbar_mainmenu_recent_icons_guard_test --output-on-failure
 scripts/test.sh secret-consent build/toppanel-Debug
 scripts/smoke-runtime.sh
 scripts/test-globalmenu.sh

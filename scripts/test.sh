@@ -36,6 +36,9 @@ run_default_suite() {
   local skip_ui_lint="${SLM_TEST_SKIP_UI_LINT:-0}"
   local skip_animation_lint="${SLM_TEST_SKIP_ANIMATION_LINT:-0}"
   local skip_cap_matrix_lint="${SLM_TEST_SKIP_CAPABILITY_MATRIX_LINT:-0}"
+  local skip_topbar_popup_lint="${SLM_TEST_SKIP_TOPBAR_POPUP_LINT:-0}"
+  local skip_topbar_recent_menu_guard="${SLM_TEST_SKIP_TOPBAR_RECENT_MENU_GUARD:-0}"
+  local topbar_recent_menu_guard_regex="${SLM_TEST_TOPBAR_RECENT_MENU_GUARD_REGEX:-^topbar_mainmenu_recent_icons_guard_test$}"
   local exclude_labels="${SLM_TEST_FULL_EXCLUDE_LABELS:-baseline-flaky}"
 
   if [[ "${skip_ui_lint}" != "1" ]]; then
@@ -53,9 +56,20 @@ run_default_suite() {
     "${ROOT_DIR}/scripts/check-capability-matrix.sh"
   fi
 
+  if [[ "${skip_topbar_popup_lint}" != "1" ]]; then
+    echo "[test] running topbar popup contract lint"
+    "${ROOT_DIR}/scripts/check-topbar-popup-contract.sh"
+  fi
+
   echo "[test] running file operations contract suite: ${fileops_regex}"
   QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-offscreen}" \
   ctest --test-dir "${build_dir}" --output-on-failure -R "${fileops_regex}"
+
+  if [[ "${skip_topbar_recent_menu_guard}" != "1" ]]; then
+    echo "[test] running topbar recent menu guard suite: ${topbar_recent_menu_guard_regex}"
+    QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-offscreen}" \
+    ctest --test-dir "${build_dir}" --output-on-failure -R "${topbar_recent_menu_guard_regex}"
+  fi
 
   echo "[test] running full suite"
   if [[ -n "${exclude_labels}" ]]; then

@@ -723,6 +723,12 @@ add_custom_target(lint_capability_matrix
     COMMENT "Checking SLM capability matrix sync"
 )
 
+add_custom_target(lint_topbar_popup_contract
+    COMMAND ${CMAKE_SOURCE_DIR}/scripts/check-topbar-popup-contract.sh
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    COMMENT "Checking topbar popup contract"
+)
+
 set_source_files_properties(Qml/IndicatorRegistry.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
 set_source_files_properties(
     third_party/slm-style/qml/SlmStyle/Theme.qml
@@ -731,7 +737,9 @@ set_source_files_properties(
 set_source_files_properties(Qml/ShellState.qml  PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
 set_source_files_properties(Qml/ShellZOrder.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
 set_source_files_properties(Qml/DockSystem.qml  PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
+set_source_files_properties(Qml/DockController.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
 set_source_files_properties(Qml/BadgeService.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
+set_source_files_properties(Qml/TopBarPopupController.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
 
 set(DESKTOP_SHELL_QML_FILES
     Main.qml
@@ -740,7 +748,9 @@ set(DESKTOP_SHELL_QML_FILES
     Qml/ShellState.qml
     Qml/ShellZOrder.qml
     Qml/DockSystem.qml
+    Qml/DockController.qml
     Qml/BadgeService.qml
+    Qml/TopBarPopupController.qml
     Qml/DesktopScene.qml
     Qml/apps/filemanager/FileManagerShareSheet.qml
     Qml/apps/filemanager/RecursiveMenu.qml
@@ -762,8 +772,10 @@ set(DESKTOP_SHELL_QML_FILES
     Qml/components/overlay/ShellEventBridge.qml
     Qml/components/overlay/ShellSystemWindows.qml
     Qml/components/overlay/TopBarWindow.qml
+    Qml/components/overlay/PopupHostLayer.qml
     Qml/components/overlay/TopBarPopupStateController.qml
     Qml/components/overlay/ShellDockHost.qml
+    Qml/components/overlay/LaunchpadDockHost.qml
     Qml/components/overlay/LaunchpadWindow.qml
     Qml/components/overlay/DetachedFileManagerWindow.qml
     Qml/components/overlay/PortalFileChooserWindow.qml
@@ -797,7 +809,7 @@ set(DESKTOP_SHELL_QML_FILES
     Qml/components/indicators/IndicatorManager.qml
     Qml/components/indicators/AppIndicatorItem.qml
     Qml/components/indicators/IndicatorMenu.qml
-    Qml/components/style/StyleGallery.qml
+
     Qml/components/style/WindowControlsCapsule.qml
     Qml/components/shell/Shell.qml
     Qml/components/screenshot/ScreenshotSaveDialog.qml
@@ -826,6 +838,8 @@ set(DESKTOP_SHELL_QML_FILES
     Qml/components/shell/ShellContextWindow.qml
     Qml/components/globalmenu/GlobalMenuActionRouter.qml
     Qml/components/topbar/TopBarBrandSection.qml
+    Qml/components/topbar/TopBarAnchoredMenu.qml
+    Qml/components/topbar/TopBarAnchoredPopup.qml
     Qml/components/topbar/TopBarMainMenuControl.qml
     Qml/components/topbar/TopBarSearchButton.qml
     Qml/components/topbar/TopBarScreenshotControl.qml
@@ -1777,6 +1791,40 @@ target_link_libraries(motion_scheduler_ui_guard_test
 )
 
 add_test(NAME motion_scheduler_ui_guard_test COMMAND motion_scheduler_ui_guard_test)
+
+qt_add_executable(topbar_mainmenu_recent_icons_guard_test
+    tests/topbar_mainmenu_recent_icons_guard_test.cpp
+)
+
+target_compile_definitions(topbar_mainmenu_recent_icons_guard_test
+    PRIVATE
+        DESKTOP_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\"
+)
+
+target_link_libraries(topbar_mainmenu_recent_icons_guard_test
+    PRIVATE
+        Qt6::Core
+        Qt6::Test
+)
+
+add_test(NAME topbar_mainmenu_recent_icons_guard_test COMMAND topbar_mainmenu_recent_icons_guard_test)
+
+qt_add_executable(docksystem_render_contract_test
+    tests/docksystem_render_contract_test.cpp
+)
+
+target_compile_definitions(docksystem_render_contract_test
+    PRIVATE
+        DESKTOP_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\"
+)
+
+target_link_libraries(docksystem_render_contract_test
+    PRIVATE
+        Qt6::Core
+        Qt6::Test
+)
+
+add_test(NAME docksystem_render_contract_test COMMAND docksystem_render_contract_test)
 
 qt_add_executable(shell_state_controller_test
     src/core/shell/shellstatecontroller.cpp
@@ -4289,6 +4337,8 @@ add_custom_target(test_headless
         workspace_shortcuts_guard_test
         workspace_overlay_guard_test
         motion_scheduler_ui_guard_test
+        topbar_mainmenu_recent_icons_guard_test
+        docksystem_render_contract_test
         daemonhealthmonitor_test
         dbussecurityguard_test
         policyengine_test
