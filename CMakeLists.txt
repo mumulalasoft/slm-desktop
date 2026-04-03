@@ -791,6 +791,7 @@ set(DESKTOP_SHELL_QML_FILES
     Qml/components/applet/InputCaptureIndicator.qml
     Qml/components/applet/BatteryApplet.qml
     Qml/components/applet/ClipboardApplet.qml
+    Qml/components/applet/ControlCenterApplet.qml
     Qml/components/applet/NetworkApplet.qml
     Qml/components/applet/BluetoothApplet.qml
     Qml/components/applet/NotificationApplet.qml

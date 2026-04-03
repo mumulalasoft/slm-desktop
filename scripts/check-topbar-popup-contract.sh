@@ -45,6 +45,7 @@ require_pattern "third_party/slm-style/qml/SlmStyle/IndicatorMenu.qml" "when:\\s
 
 echo "[lint-topbar-popup] checking applet trigger contract"
 forbid_pattern "Qml/components/applet/NetworkApplet.qml" "networkMenu\\.open\\(" "Network applet must not call networkMenu.open() directly"
+forbid_pattern "Qml/components/applet/ControlCenterApplet.qml" "\\bmenu\\.open\\(" "Control Center applet must not call menu.open() directly"
 forbid_pattern "Qml/components/applet/SoundApplet.qml" "\\bmenu\\.open\\(" "Sound applet must not call menu.open() directly"
 forbid_pattern "Qml/components/applet/BatteryApplet.qml" "batteryMenu\\.open\\(" "Battery applet must not call batteryMenu.open() directly"
 forbid_pattern "Qml/components/applet/BluetoothApplet.qml" "bluetoothMenu\\.open\\(" "Bluetooth applet must not call bluetoothMenu.open() directly"

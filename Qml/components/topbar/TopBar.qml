@@ -8,8 +8,7 @@ import "." as TB
 Rectangle {
     id: root
     property var fileManagerContent: null
-    readonly property var popupHost: (root.Window.window && root.Window.window.overlay)
-                                     ? root.Window.window.overlay : null
+    readonly property var popupHost: (parent && parent.height > 0) ? parent : root
     readonly property int panelInset: Theme.metric("spacingLg")
     readonly property int panelGap: Theme.metric("spacingLg")
     readonly property int iconButtonW: Theme.metric("controlHeightRegular")
@@ -22,7 +21,7 @@ Rectangle {
     readonly property int popupHintMs: 320
 
     signal launcherRequested()
-    signal styleGalleryRequested()
+    // signal styleGalleryRequested()
     signal tothespotRequested()
     signal screenshotCaptureRequested(string mode, int delaySec, bool grabPointer, bool concealText)
     property string timeText: ""
@@ -148,6 +147,12 @@ Rectangle {
             visible: true
         })
         IndicatorRegistry.registerIndicator({
+            name: "controlcenter",
+            source: "../applet/ControlCenterApplet.qml",
+            order: 180,
+            properties: { popupHost: root.popupHost }
+        })
+        IndicatorRegistry.registerIndicator({
             name: "network",
             source: "../applet/NetworkApplet.qml",
             order: 200,
@@ -244,8 +249,10 @@ Rectangle {
             iconButtonW: root.iconButtonW
             iconButtonH: root.iconButtonH
             iconGlyph: root.iconGlyph
+            popupHost: root.popupHost
+            popupGap: root.popupGap
             searchProfilesModel: root.searchProfilesModel
-            activeSearchProfileId: root.activeSearchProfileId
+            // activeSearchProfileId: root.activeSearchProfileId
             onPopupHintRequested: {
                 root.popupOpenHint = true
                 popupHintTimer.restart()
@@ -254,10 +261,10 @@ Rectangle {
                 root.popupOpenHint = false
                 root.mainMenuLastCloseMs = Date.now()
             }
-            onStyleGalleryRequested: root.styleGalleryRequested()
-            onSetFontScaleRequested: function(scaleValue) {
-                root.setFontScale(scaleValue)
-            }
+            // onStyleGalleryRequested: root.styleGalleryRequested()
+            // onSetFontScaleRequested: function(scaleValue) {
+            //     root.setFontScale(scaleValue)
+            // }
             onSearchProfileSetRequested: function(profileId) {
                 root.activeSearchProfileId = profileId
                 var handled = false
@@ -302,6 +309,7 @@ Rectangle {
         popupInset: root.popupInset
         popupGap: root.popupGap
         popupControlH: root.popupControlH
+        popupHost: root.popupHost
         onPopupHintRequested: {
             root.popupOpenHint = true
             popupHintTimer.restart()
