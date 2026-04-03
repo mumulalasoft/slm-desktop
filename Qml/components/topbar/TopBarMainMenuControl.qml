@@ -2,6 +2,7 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import Slm_Desktop
 import SlmStyle as DSStyle
+import "." as TB
 
 Item {
     id: root
@@ -9,6 +10,8 @@ Item {
     property int iconButtonW: Theme.metric("controlHeightRegular")
     property int iconButtonH: Theme.metric("controlHeightCompact")
     property int iconGlyph: 18
+    property var popupHost: null
+    property int popupGap: Theme.metric("spacingSm")
     property var searchProfilesModel: []
     readonly property bool popupOpen: mainMenu.opened
 
@@ -91,8 +94,10 @@ Item {
             var label = String(a.name || a.desktopId || a.desktopFile || "")
             if (label.length === 0) continue
             var iconSrc = String(a.iconSource || "")
-            if (iconSrc.length === 0 && String(a.iconName || "").length > 0) {
-                iconSrc = "image://themeicon/" + String(a.iconName)
+            var iconName = String(a.iconName || "")
+            if (iconSrc.length === 0 && iconName.length > 0) {
+                var preferredName = root._stripSymbolicSuffix(iconName)
+                iconSrc = root._themeIconSource(preferredName.length > 0 ? preferredName : iconName)
             }
             rows.push({
                 label: label,
@@ -127,6 +132,43 @@ Item {
         }
     }
 
+    function _mimeIconForMimeType(mimeType) {
+        var mime = String(mimeType || "").trim().toLowerCase()
+        if (mime.length <= 0) {
+            return ""
+        }
+        if (mime === "application/pdf") return "application-pdf"
+        if (mime.indexOf("application/msword") === 0
+                || mime.indexOf("application/vnd.openxmlformats-officedocument.wordprocessingml") === 0
+                || mime.indexOf("application/vnd.oasis.opendocument.text") === 0
+                || mime === "application/rtf") return "x-office-document"
+        if (mime.indexOf("application/vnd.ms-excel") === 0
+                || mime.indexOf("application/vnd.openxmlformats-officedocument.spreadsheetml") === 0
+                || mime.indexOf("application/vnd.oasis.opendocument.spreadsheet") === 0
+                || mime === "text/csv") return "x-office-spreadsheet"
+        if (mime.indexOf("application/vnd.ms-powerpoint") === 0
+                || mime.indexOf("application/vnd.openxmlformats-officedocument.presentationml") === 0
+                || mime.indexOf("application/vnd.oasis.opendocument.presentation") === 0) return "x-office-presentation"
+        if (mime.indexOf("image/") === 0) return "image-x-generic"
+        if (mime.indexOf("audio/") === 0) return "audio-x-generic"
+        if (mime.indexOf("video/") === 0) return "video-x-generic"
+        if (mime.indexOf("inode/directory") === 0) return "folder"
+        if (mime.indexOf("zip") >= 0 || mime.indexOf("tar") >= 0
+                || mime.indexOf("gzip") >= 0 || mime.indexOf("bzip") >= 0
+                || mime.indexOf("xz") >= 0 || mime.indexOf("7z") >= 0
+                || mime.indexOf("rar") >= 0 || mime.indexOf("archive") >= 0) return "package-x-generic"
+        if (mime.indexOf("text/") === 0) return "text-x-generic"
+        return ""
+    }
+
+    function _stripSymbolicSuffix(iconNameValue) {
+        var value = String(iconNameValue || "").trim()
+        if (value.length > 9 && value.slice(value.length - 9) === "-symbolic") {
+            return value.slice(0, value.length - 9)
+        }
+        return value
+    }
+
     function _buildRecentFiles() {
         var rows = []
         if (typeof FileManagerApi === "undefined" || !FileManagerApi
@@ -140,10 +182,35 @@ Item {
             var uri = String(f.uri || f.url || f.path || "")
             var name = String(f.name || f.displayName || uri.split("/").pop() || "")
             if (name.length === 0) continue
-            rows.push({label: name, uri: uri,
-                       iconSource: "image://themeicon/" + root._mimeIconForPath(uri)})
+            var iconName = String(f.iconName || "").trim()
+            var mimeType = String(f.mimeType || "").trim()
+            var iconSource = ""
+            if (iconName.length > 0) {
+                var preferredIconName = root._stripSymbolicSuffix(iconName)
+                iconSource = root._themeIconSource(preferredIconName.length > 0 ? preferredIconName : iconName)
+            }
+            if (iconSource.length === 0 && mimeType.length > 0) {
+                var mimeIconName = root._mimeIconForMimeType(mimeType)
+                if (mimeIconName.length > 0) {
+                    iconSource = root._themeIconSource(mimeIconName)
+                }
+            }
+            if (iconSource.length === 0) {
+                iconSource = root._themeIconSource(root._mimeIconForPath(uri))
+            }
+            rows.push({label: name, uri: uri, iconSource: iconSource})
         }
         return rows
+    }
+
+    function _themeIconSource(iconName) {
+        var name = String(iconName || "").trim()
+        if (name.length === 0) {
+            return ""
+        }
+        var rev = ((typeof ThemeIconController !== "undefined" && ThemeIconController)
+                   ? ThemeIconController.revision : 0)
+        return "image://themeicon/" + name + "?v=" + rev
     }
 
     // ── Button ────────────────────────────────────────────────────────────────
@@ -196,14 +263,13 @@ Item {
 
     // ── Menu ──────────────────────────────────────────────────────────────────
 
-    Menu {
+    TB.TopBarAnchoredMenu {
         id: mainMenu
-        modal: false
-        focus: false
-        dim: false
-        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-        x: Math.round(mainButton.mapToGlobal(0, 0).x)
-        y: Math.round(mainButton.mapToGlobal(0, 0).y + mainButton.height + Theme.metric("spacingSm"))
+        appletId: "topbar.mainmenu"
+        anchorItem: mainButton
+        popupHost: root.popupHost
+        popupGap: root.popupGap
+        alignRightToAnchor: false
         onAboutToShow: {
             root.popupHintCleared()
             recentAppsMenu._rows = root._buildRecentApps()
@@ -238,16 +304,21 @@ Item {
         Menu {
             id: recentAppsMenu
             title: qsTr("Recent Applications")
+            property string entryIconSource: "qrc:/icons/launchpad.svg"
+            property string entryIconName: "application-x-executable-symbolic"
+            icon.name: "application-x-executable-symbolic"
+            icon.source: root._themeIconSource("application-x-executable-symbolic")
             enabled: recentAppsInstantiator.count > 0
 
             Instantiator {
                 id: recentAppsInstantiator
                 model: recentAppsMenu._rows
-                delegate: MenuItem {
+                delegate: DSStyle.MenuItem {
                     property var entry: modelData || ({})
                     text: String(entry.label || "")
                     enabled: text.length > 0
                     iconSource: String(entry.iconSource || "")
+                    fallbackIconSource: "qrc:/icons/launchpad.svg"
                     onTriggered: {
                         mainMenu.close()
                         if (typeof AppCommandRouter === "undefined" || !AppCommandRouter) return
@@ -278,16 +349,21 @@ Item {
         Menu {
             id: recentFilesMenu
             title: qsTr("Recent Files")
+            property string entryIconSource: "qrc:/icons/logo.svg"
+            property string entryIconName: "document-open-symbolic"
+            icon.name: "document-open-symbolic"
+            icon.source: root._themeIconSource("document-open-symbolic")
             enabled: recentFilesInstantiator.count > 0
 
             Instantiator {
                 id: recentFilesInstantiator
                 model: recentFilesMenu._rows
-                delegate: MenuItem {
+                delegate: DSStyle.MenuItem {
                     property var entry: modelData || ({})
                     text: String(entry.label || "")
                     enabled: text.length > 0
                     iconSource: String(entry.iconSource || "")
+                    fallbackIconSource: root._themeIconSource("text-x-generic")
                     onTriggered: {
                         mainMenu.close()
                         var uri = String(entry.uri || "")

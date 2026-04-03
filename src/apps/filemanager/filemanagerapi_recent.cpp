@@ -4,6 +4,7 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QMimeDatabase>
 #include <QStandardPaths>
 #include <QVector>
 #include <algorithm>
@@ -92,6 +93,24 @@ static QVariantList readFreedesktopRecents(int limit)
 
         QVariantMap row;
         row.insert(QStringLiteral("path"), localPath);
+        row.insert(QStringLiteral("name"), QFileInfo(localPath).fileName());
+
+        const QFileInfo fi(localPath);
+        if (fi.isDir()) {
+            row.insert(QStringLiteral("mimeType"), QStringLiteral("inode/directory"));
+            row.insert(QStringLiteral("iconName"), QStringLiteral("folder"));
+        } else {
+            const QMimeType mime = QMimeDatabase().mimeTypeForFile(fi.absoluteFilePath(),
+                                                                   QMimeDatabase::MatchDefault);
+            const QString mimeName = mime.name();
+            const QString iconName = !mime.iconName().isEmpty()
+                    ? mime.iconName()
+                    : (!mime.genericIconName().isEmpty()
+                       ? mime.genericIconName()
+                       : QStringLiteral("text-x-generic"));
+            row.insert(QStringLiteral("mimeType"), mimeName);
+            row.insert(QStringLiteral("iconName"), iconName);
+        }
 
         GError *fieldErr = nullptr;
         GDateTime *modified = g_bookmark_file_get_modified_date_time(bookmark, uris[i], &fieldErr);
