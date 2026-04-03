@@ -58,6 +58,18 @@ private slots:
         QVERIFY(text.contains(QStringLiteral("duration: Theme.notificationCenterSlideDuration")));
         QVERIFY(text.contains(QStringLiteral("easing.type: Theme.easingDecelerate")));
     }
+
+    void manager_wiresBannerAutoDismissToBackendDuration()
+    {
+        const QString path = QStringLiteral(DESKTOP_SOURCE_DIR)
+                + QStringLiteral("/Qml/components/notification/NotificationManager.qml");
+        const QString text = readTextFile(path);
+        QVERIFY2(!text.isEmpty(), qPrintable(QStringLiteral("failed to read %1").arg(path)));
+
+        QVERIFY(text.contains(QStringLiteral("autoDismissMs: {")));
+        QVERIFY(text.contains(QStringLiteral("root.notificationManager.bubbleDurationMs")));
+        QVERIFY(text.contains(QStringLiteral("return v > 0 ? v : 6200")));
+    }
 };
 
 QTEST_MAIN(NotificationAnimationContractTest)

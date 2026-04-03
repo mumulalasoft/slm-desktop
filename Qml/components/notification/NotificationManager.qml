@@ -43,6 +43,10 @@ Item {
         z: 20
         width: 380
         notificationManager: root.notificationManager
+        autoDismissMs: {
+            var v = root.notificationManager ? Number(root.notificationManager.bubbleDurationMs || 0) : 0
+            return v > 0 ? v : 6200
+        }
         anchors.top: parent.top
         anchors.right: parent.right
         anchors.topMargin: root.bannerTopMargin
