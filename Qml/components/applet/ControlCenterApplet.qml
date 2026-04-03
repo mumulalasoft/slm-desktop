@@ -151,7 +151,7 @@ Item {
 
                     Rectangle {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: Theme.metric("controlHeightLarge") * 3 + Theme.metric("spacingXs")
+                        Layout.preferredHeight: 136
                         radius: Theme.radiusCard
                         color: Theme.color("surfaceRaised")
                         border.width: Theme.borderWidthThin
@@ -162,28 +162,91 @@ Item {
                             anchors.margins: Theme.metric("spacingSm")
                             spacing: Theme.metric("spacingXs")
 
-                            Button {
+                            Rectangle {
                                 Layout.fillWidth: true
-                                text: "Wi-Fi\n" + (root.networkManager && root.networkManager.online ? "Connected" : "Not Connected")
-                                icon.source: root.iconSourceByName("network-wireless-signal-good-symbolic")
-                                horizontalPadding: Theme.metric("spacingSm")
-                                onClicked: root.openSettings("network")
+                                Layout.preferredHeight: Theme.metric("controlHeightLarge")
+                                radius: Theme.radiusControl
+                                color: wifiArea.containsMouse ? Theme.color("controlBgHover") : Theme.color("controlBg")
+                                border.width: Theme.borderWidthThin
+                                border.color: Theme.color("panelBorder")
+                                RowLayout {
+                                    anchors.fill: parent
+                                    anchors.leftMargin: Theme.metric("spacingSm")
+                                    anchors.rightMargin: Theme.metric("spacingSm")
+                                    spacing: Theme.metric("spacingXs")
+                                    IconImage {
+                                        Layout.preferredWidth: 16
+                                        Layout.preferredHeight: 16
+                                        source: root.iconSourceByName("network-wireless-signal-good-symbolic")
+                                        color: Theme.color("textPrimary")
+                                    }
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 0
+                                        Label { text: "Wi-Fi"; color: Theme.color("textPrimary"); font.family: Theme.fontFamilyUi; font.pixelSize: Theme.fontSize("body") }
+                                        Label { text: root.networkManager && root.networkManager.online ? "Connected" : "Not Connected"; color: Theme.color("textSecondary"); font.family: Theme.fontFamilyUi; font.pixelSize: Theme.fontSize("small") }
+                                    }
+                                }
+                                HoverHandler { id: wifiArea }
+                                TapHandler { onTapped: root.openSettings("network") }
                             }
 
-                            Button {
+                            Rectangle {
                                 Layout.fillWidth: true
-                                text: "Bluetooth\n" + (root.bluetoothManager && root.bluetoothManager.powered ? "On" : "Off")
-                                icon.source: root.iconSourceByName("bluetooth-active-symbolic")
-                                horizontalPadding: Theme.metric("spacingSm")
-                                onClicked: root.openSettings("bluetooth")
+                                Layout.preferredHeight: Theme.metric("controlHeightLarge")
+                                radius: Theme.radiusControl
+                                color: btArea.containsMouse ? Theme.color("controlBgHover") : Theme.color("controlBg")
+                                border.width: Theme.borderWidthThin
+                                border.color: Theme.color("panelBorder")
+                                RowLayout {
+                                    anchors.fill: parent
+                                    anchors.leftMargin: Theme.metric("spacingSm")
+                                    anchors.rightMargin: Theme.metric("spacingSm")
+                                    spacing: Theme.metric("spacingXs")
+                                    IconImage {
+                                        Layout.preferredWidth: 16
+                                        Layout.preferredHeight: 16
+                                        source: root.iconSourceByName("bluetooth-active-symbolic")
+                                        color: Theme.color("textPrimary")
+                                    }
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 0
+                                        Label { text: "Bluetooth"; color: Theme.color("textPrimary"); font.family: Theme.fontFamilyUi; font.pixelSize: Theme.fontSize("body") }
+                                        Label { text: root.bluetoothManager && root.bluetoothManager.powered ? "On" : "Off"; color: Theme.color("textSecondary"); font.family: Theme.fontFamilyUi; font.pixelSize: Theme.fontSize("small") }
+                                    }
+                                }
+                                HoverHandler { id: btArea }
+                                TapHandler { onTapped: root.openSettings("bluetooth") }
                             }
 
-                            Button {
+                            Rectangle {
                                 Layout.fillWidth: true
-                                text: "Slare\nOff"
-                                icon.source: root.iconSourceByName("folder-remote-symbolic")
-                                horizontalPadding: Theme.metric("spacingSm")
-                                onClicked: root.openSettings("sharing")
+                                Layout.preferredHeight: Theme.metric("controlHeightLarge")
+                                radius: Theme.radiusControl
+                                color: slareArea.containsMouse ? Theme.color("controlBgHover") : Theme.color("controlBg")
+                                border.width: Theme.borderWidthThin
+                                border.color: Theme.color("panelBorder")
+                                RowLayout {
+                                    anchors.fill: parent
+                                    anchors.leftMargin: Theme.metric("spacingSm")
+                                    anchors.rightMargin: Theme.metric("spacingSm")
+                                    spacing: Theme.metric("spacingXs")
+                                    IconImage {
+                                        Layout.preferredWidth: 16
+                                        Layout.preferredHeight: 16
+                                        source: root.iconSourceByName("folder-remote-symbolic")
+                                        color: Theme.color("textPrimary")
+                                    }
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 0
+                                        Label { text: "Slare"; color: Theme.color("textPrimary"); font.family: Theme.fontFamilyUi; font.pixelSize: Theme.fontSize("body") }
+                                        Label { text: "Off"; color: Theme.color("textSecondary"); font.family: Theme.fontFamilyUi; font.pixelSize: Theme.fontSize("small") }
+                                    }
+                                }
+                                HoverHandler { id: slareArea }
+                                TapHandler { onTapped: root.openSettings("sharing") }
                             }
                         }
                     }
@@ -194,19 +257,33 @@ Item {
 
                         Rectangle {
                             Layout.fillWidth: true
-                            Layout.preferredHeight: Theme.metric("controlHeightLarge") * 2
+                            Layout.preferredHeight: 66
                             radius: Theme.radiusCard
-                            color: Theme.color("surfaceRaised")
+                            color: dndArea.containsMouse ? Theme.color("controlBgHover") : Theme.color("surfaceRaised")
                             border.width: Theme.borderWidthThin
                             border.color: Theme.color("panelBorder")
-
-                            Button {
+                            RowLayout {
                                 anchors.fill: parent
                                 anchors.margins: Theme.metric("spacingSm")
-                                text: "Do Not\nDisturb"
-                                icon.source: root.iconSourceByName("weather-clear-night-symbolic")
-                                horizontalPadding: Theme.metric("spacingSm")
-                                onClicked: {
+                                spacing: Theme.metric("spacingXs")
+                                IconImage {
+                                    Layout.preferredWidth: 18
+                                    Layout.preferredHeight: 18
+                                    source: root.iconSourceByName("weather-clear-night-symbolic")
+                                    color: Theme.color("textPrimary")
+                                }
+                                Label {
+                                    Layout.fillWidth: true
+                                    text: "Do Not\nDisturb"
+                                    color: Theme.color("textPrimary")
+                                    font.family: Theme.fontFamilyUi
+                                    font.pixelSize: Theme.fontSize("body")
+                                    wrapMode: Text.WordWrap
+                                }
+                            }
+                            HoverHandler { id: dndArea }
+                            TapHandler {
+                                onTapped: {
                                     if (root.notificationManager && root.notificationManager.setDoNotDisturb) {
                                         root.notificationManager.setDoNotDisturb(!root.notificationManager.doNotDisturb)
                                     }
@@ -217,20 +294,32 @@ Item {
 
                         Rectangle {
                             Layout.fillWidth: true
-                            Layout.preferredHeight: Theme.metric("controlHeightLarge") * 2
+                            Layout.preferredHeight: 66
                             radius: Theme.radiusCard
-                            color: Theme.color("surfaceRaised")
+                            color: mirrorArea.containsMouse ? Theme.color("controlBgHover") : Theme.color("surfaceRaised")
                             border.width: Theme.borderWidthThin
                             border.color: Theme.color("panelBorder")
-
-                            Button {
+                            RowLayout {
                                 anchors.fill: parent
                                 anchors.margins: Theme.metric("spacingSm")
-                                text: "Screen\nMirroring"
-                                icon.source: root.iconSourceByName("video-display-symbolic")
-                                horizontalPadding: Theme.metric("spacingSm")
-                                onClicked: root.openSettings("display")
+                                spacing: Theme.metric("spacingXs")
+                                IconImage {
+                                    Layout.preferredWidth: 18
+                                    Layout.preferredHeight: 18
+                                    source: root.iconSourceByName("video-display-symbolic")
+                                    color: Theme.color("textPrimary")
+                                }
+                                Label {
+                                    Layout.fillWidth: true
+                                    text: "Screen\nMirroring"
+                                    color: Theme.color("textPrimary")
+                                    font.family: Theme.fontFamilyUi
+                                    font.pixelSize: Theme.fontSize("body")
+                                    wrapMode: Text.WordWrap
+                                }
                             }
+                            HoverHandler { id: mirrorArea }
+                            TapHandler { onTapped: root.openSettings("display") }
                         }
                     }
                 }
@@ -247,25 +336,28 @@ Item {
                         anchors.fill: parent
                         anchors.margins: Theme.metric("spacingSm")
                         spacing: Theme.metric("spacingXs")
-
-                        Label {
-                            text: "Display"
-                            color: Theme.color("textPrimary")
-                            font.pixelSize: Theme.fontSize("body")
-                            font.family: Theme.fontFamilyUi
+                        RowLayout {
+                            spacing: Theme.metric("spacingXs")
+                            IconImage {
+                                Layout.preferredWidth: 16
+                                Layout.preferredHeight: 16
+                                source: root.iconSourceByName("video-display-symbolic")
+                                color: Theme.color("textPrimary")
+                            }
+                            Label {
+                                text: "Display"
+                                color: Theme.color("textPrimary")
+                                font.pixelSize: Theme.fontSize("body")
+                                font.family: Theme.fontFamilyUi
+                            }
                         }
-
                         Slider {
                             Layout.fillWidth: true
                             from: 0
                             to: 100
                             value: root.brightnessValue
                             onMoved: root.brightnessValue = value
-                            onPressedChanged: {
-                                if (!pressed) {
-                                    root.openSettings("display")
-                                }
-                            }
+                            onPressedChanged: if (!pressed) root.openSettings("display")
                         }
                     }
                 }
@@ -282,29 +374,28 @@ Item {
                         anchors.fill: parent
                         anchors.margins: Theme.metric("spacingSm")
                         spacing: Theme.metric("spacingXs")
-
-                        Label {
-                            text: "Sound"
-                            color: Theme.color("textPrimary")
-                            font.pixelSize: Theme.fontSize("body")
-                            font.family: Theme.fontFamilyUi
+                        RowLayout {
+                            spacing: Theme.metric("spacingXs")
+                            IconImage {
+                                Layout.preferredWidth: 16
+                                Layout.preferredHeight: 16
+                                source: root.iconSourceByName("audio-volume-medium-symbolic")
+                                color: Theme.color("textPrimary")
+                            }
+                            Label {
+                                text: "Sound"
+                                color: Theme.color("textPrimary")
+                                font.pixelSize: Theme.fontSize("body")
+                                font.family: Theme.fontFamilyUi
+                            }
                         }
-
                         Slider {
                             Layout.fillWidth: true
                             from: 0
                             to: 150
                             value: root.soundManager ? root.soundManager.volume : 0
-                            onMoved: {
-                                if (root.soundManager && root.soundManager.setVolume) {
-                                    root.soundManager.setVolume(Math.round(value))
-                                }
-                            }
-                            onPressedChanged: {
-                                if (!pressed) {
-                                    root.openSettings("sound")
-                                }
-                            }
+                            onMoved: if (root.soundManager && root.soundManager.setVolume) root.soundManager.setVolume(Math.round(value))
+                            onPressedChanged: if (!pressed) root.openSettings("sound")
                         }
                     }
                 }
@@ -329,7 +420,6 @@ Item {
                             color: Theme.color("controlBg")
                             border.width: Theme.borderWidthThin
                             border.color: Theme.color("panelBorder")
-
                             IconImage {
                                 anchors.centerIn: parent
                                 width: Theme.metric("controlHeightRegular")

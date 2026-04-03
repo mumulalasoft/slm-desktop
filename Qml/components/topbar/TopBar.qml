@@ -149,7 +149,7 @@ Rectangle {
         IndicatorRegistry.registerIndicator({
             name: "controlcenter",
             source: "../applet/ControlCenterApplet.qml",
-            order: 180,
+            order: 890,
             properties: { popupHost: root.popupHost }
         })
         IndicatorRegistry.registerIndicator({
