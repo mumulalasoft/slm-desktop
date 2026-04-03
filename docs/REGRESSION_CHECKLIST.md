@@ -44,6 +44,7 @@ Checklist ini dipakai sebelum merge perubahan UI/windowing/filemanager.
 - Notification Center dim + slide mengikuti token durasi.
 - Guard test lulus: `notification_animation_contract_test`.
 - Visual token contract notifikasi lulus: radius/padding/rhythm/background (`notification_visual_contract_test`).
+- Priority routing contract lulus: `low=center only`, `normal=banner`, `high + DND=no banner` (`notificationmanager_priority_routing_test`).
 
 ## Workspace (Mission Control Hybrid)
 
@@ -77,6 +78,7 @@ scripts/check-topbar-popup-contract.sh
 ctest --test-dir build/Desktop_Qt_6_10_2-Debug -R topbar_mainmenu_recent_icons_guard_test --output-on-failure
 ctest --test-dir build/Desktop_Qt_6_10_2-Debug -R notification_animation_contract_test --output-on-failure
 ctest --test-dir build/Desktop_Qt_6_10_2-Debug -R notification_visual_contract_test --output-on-failure
+ctest --test-dir build/Desktop_Qt_6_10_2-Debug -R notificationmanager_priority_routing_test --output-on-failure
 scripts/test.sh secret-consent build/toppanel-Debug
 scripts/smoke-runtime.sh
 scripts/test-globalmenu.sh

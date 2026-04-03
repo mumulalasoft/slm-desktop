@@ -1843,6 +1843,27 @@ target_link_libraries(notification_visual_contract_test
 
 add_test(NAME notification_visual_contract_test COMMAND notification_visual_contract_test)
 
+qt_add_executable(notificationmanager_priority_routing_test
+    src/services/notifications/notificationmanager.cpp
+    src/services/notifications/notificationmanager.h
+    src/services/notifications/desktopnotificationadaptor.cpp
+    src/services/notifications/desktopnotificationadaptor.h
+    tests/notificationmanager_priority_routing_test.cpp
+)
+
+target_include_directories(notificationmanager_priority_routing_test PRIVATE
+    ${CMAKE_SOURCE_DIR}
+)
+
+target_link_libraries(notificationmanager_priority_routing_test
+    PRIVATE
+        Qt6::Core
+        Qt6::DBus
+        Qt6::Test
+)
+
+add_test(NAME notificationmanager_priority_routing_test COMMAND notificationmanager_priority_routing_test)
+
 qt_add_executable(docksystem_render_contract_test
     tests/docksystem_render_contract_test.cpp
 )
@@ -4374,6 +4395,7 @@ add_custom_target(test_headless
         topbar_mainmenu_recent_icons_guard_test
         notification_animation_contract_test
         notification_visual_contract_test
+        notificationmanager_priority_routing_test
         docksystem_render_contract_test
         daemonhealthmonitor_test
         dbussecurityguard_test

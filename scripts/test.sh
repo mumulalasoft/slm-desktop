@@ -43,6 +43,8 @@ run_default_suite() {
   local notification_animation_guard_regex="${SLM_TEST_NOTIFICATION_ANIMATION_GUARD_REGEX:-^notification_animation_contract_test$}"
   local skip_notification_visual_guard="${SLM_TEST_SKIP_NOTIFICATION_VISUAL_GUARD:-0}"
   local notification_visual_guard_regex="${SLM_TEST_NOTIFICATION_VISUAL_GUARD_REGEX:-^notification_visual_contract_test$}"
+  local skip_notification_priority_guard="${SLM_TEST_SKIP_NOTIFICATION_PRIORITY_GUARD:-0}"
+  local notification_priority_guard_regex="${SLM_TEST_NOTIFICATION_PRIORITY_GUARD_REGEX:-^notificationmanager_priority_routing_test$}"
   local exclude_labels="${SLM_TEST_FULL_EXCLUDE_LABELS:-baseline-flaky}"
 
   if [[ "${skip_ui_lint}" != "1" ]]; then
@@ -85,6 +87,12 @@ run_default_suite() {
     echo "[test] running notification visual guard suite: ${notification_visual_guard_regex}"
     QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-offscreen}" \
     ctest --test-dir "${build_dir}" --output-on-failure -R "${notification_visual_guard_regex}"
+  fi
+
+  if [[ "${skip_notification_priority_guard}" != "1" ]]; then
+    echo "[test] running notification priority guard suite: ${notification_priority_guard_regex}"
+    QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-offscreen}" \
+    ctest --test-dir "${build_dir}" --output-on-failure -R "${notification_priority_guard_regex}"
   fi
 
   echo "[test] running full suite"
