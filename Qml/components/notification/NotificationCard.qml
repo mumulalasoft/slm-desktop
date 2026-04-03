@@ -40,7 +40,7 @@ Rectangle {
             return 0
         }
         var total = _hasPairedActions ? Math.floor(actionsModel.length / 2) : actionsModel.length
-        return Math.min(total, 2)
+        return Math.min(total, 3)
     }
     readonly property string _timestampLabel: {
         if (!timestamp || String(timestamp).length <= 0) {

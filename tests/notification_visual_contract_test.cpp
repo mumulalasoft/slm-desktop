@@ -45,6 +45,7 @@ private slots:
         QVERIFY(text.contains(QStringLiteral("color: Theme.notificationCardBackground")));
         QVERIFY(text.contains(QStringLiteral("anchors.margins: Theme.notificationCardPadding")));
         QVERIFY(text.contains(QStringLiteral("spacing: Theme.notificationVerticalRhythm")));
+        QVERIFY(text.contains(QStringLiteral("return Math.min(total, 3)")));
     }
 
     void notificationCenter_usesVisualTokens()

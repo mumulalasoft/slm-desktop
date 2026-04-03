@@ -543,9 +543,9 @@ Rule 5: SystemModalLayer bypass semua state
   - mouse: hover pause, click default action, drag/swipe dismiss
   - keyboard: `Super+N` toggle center, arrows navigate, `Enter` open, `Delete` dismiss
   - optional edge gesture to open center
-- [ ] Implement inline action system:
+- [~] Implement inline action system:
   - compact action buttons
-  - max 2–3 actions per card
+  - max 2–3 actions per card (`NotificationCard` now capped at 3)
   - support reply/open/accept/decline patterns
 - [~] Add advanced policy features:
   - Do Not Disturb (suppress banner, keep center)
