@@ -134,6 +134,64 @@ private slots:
         QCOMPARE(all->data(idx, NotificationListModel::PriorityRole).toString(), QStringLiteral("normal"));
         QCOMPARE(all->data(idx, NotificationListModel::UrgencyRole).toInt(), 1);
     }
+
+    void freedesktopUrgencyLow_mapsToLowWithoutBanner()
+    {
+        NotificationManager manager;
+        auto *all = qobject_cast<NotificationListModel *>(manager.notifications());
+        auto *banners = qobject_cast<NotificationListModel *>(manager.bannerNotifications());
+        QVERIFY(all);
+        QVERIFY(banners);
+
+        QVariantMap hints;
+        hints.insert(QStringLiteral("urgency"), 0);
+        const uint id = manager.Notify(QStringLiteral("LegacyApp"),
+                                       0,
+                                       QString(),
+                                       QStringLiteral("Low urgency"),
+                                       QStringLiteral("Body"),
+                                       {},
+                                       hints,
+                                       -1);
+        QVERIFY(id > 0);
+        QCOMPARE(all->rowCount(), 1);
+        QCOMPARE(banners->rowCount(), 0);
+        const QModelIndex idx = all->index(0, 0);
+        QVERIFY(idx.isValid());
+        QCOMPARE(all->data(idx, NotificationListModel::PriorityRole).toString(), QStringLiteral("low"));
+        QCOMPARE(all->data(idx, NotificationListModel::UrgencyRole).toInt(), 0);
+        QCOMPARE(all->data(idx, NotificationListModel::BannerRole).toBool(), false);
+        QVERIFY(manager.latestNotification().isEmpty());
+    }
+
+    void freedesktopUrgencyHigh_mapsToHighWithBanner()
+    {
+        NotificationManager manager;
+        auto *all = qobject_cast<NotificationListModel *>(manager.notifications());
+        auto *banners = qobject_cast<NotificationListModel *>(manager.bannerNotifications());
+        QVERIFY(all);
+        QVERIFY(banners);
+
+        QVariantMap hints;
+        hints.insert(QStringLiteral("urgency"), 2);
+        const uint id = manager.Notify(QStringLiteral("LegacyApp"),
+                                       0,
+                                       QString(),
+                                       QStringLiteral("High urgency"),
+                                       QStringLiteral("Body"),
+                                       {},
+                                       hints,
+                                       -1);
+        QVERIFY(id > 0);
+        QCOMPARE(all->rowCount(), 1);
+        QCOMPARE(banners->rowCount(), 1);
+        const QModelIndex idx = all->index(0, 0);
+        QVERIFY(idx.isValid());
+        QCOMPARE(all->data(idx, NotificationListModel::PriorityRole).toString(), QStringLiteral("high"));
+        QCOMPARE(all->data(idx, NotificationListModel::UrgencyRole).toInt(), 2);
+        QCOMPARE(all->data(idx, NotificationListModel::BannerRole).toBool(), true);
+        QCOMPARE(manager.latestNotification().value(QStringLiteral("id")).toUInt(), id);
+    }
 };
 
 QTEST_MAIN(NotificationManagerPriorityRoutingTest)
