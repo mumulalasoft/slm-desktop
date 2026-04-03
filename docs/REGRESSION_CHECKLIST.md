@@ -38,6 +38,12 @@ Checklist ini dipakai sebelum merge perubahan UI/windowing/filemanager.
 - Save screenshot dialog -> choose folder -> select folder berjalan.
 - Global menu diagnostics valid (`dump` dan `healthcheck`) di sesi runtime aktif.
 
+## Notification
+
+- Banner entry/exit sesuai contract (slide+fade masuk, fade+slight-shrink keluar).
+- Notification Center dim + slide mengikuti token durasi.
+- Guard test lulus: `notification_animation_contract_test`.
+
 ## Workspace (Mission Control Hybrid)
 
 - `Super+S` toggle Workspace Overlay stabil (open/close tanpa flicker).
@@ -68,6 +74,7 @@ Checklist ini dipakai sebelum merge perubahan UI/windowing/filemanager.
 scripts/test.sh
 scripts/check-topbar-popup-contract.sh
 ctest --test-dir build/Desktop_Qt_6_10_2-Debug -R topbar_mainmenu_recent_icons_guard_test --output-on-failure
+ctest --test-dir build/Desktop_Qt_6_10_2-Debug -R notification_animation_contract_test --output-on-failure
 scripts/test.sh secret-consent build/toppanel-Debug
 scripts/smoke-runtime.sh
 scripts/test-globalmenu.sh
