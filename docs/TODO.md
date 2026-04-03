@@ -592,7 +592,7 @@ Rule 5: SystemModalLayer bypass semua state
   - persistent history (JSON/DB) with retention policy
 - [~] Security & abuse control:
   - [x] per-app anti-spam baseline: active banner cap per app (`max 3`) in `NotificationManager`.
-  - [ ] add sliding-window rate limiter (time-based burst control) per app
+  - [x] add sliding-window rate limiter (time-based burst control) per app
   - app identity validation
   - optional sandbox/portal permission gating
 - [ ] Developer API wrapper:

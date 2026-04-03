@@ -316,6 +316,7 @@ void NotificationManager::clearAll()
     if (m_bannerModel) {
         m_bannerModel->clear();
     }
+    m_bannerAttemptHistoryByApp.clear();
     emitCountIfChanged(before);
     emitUnreadCountIfChanged(beforeUnread);
 }
@@ -692,10 +693,35 @@ void NotificationManager::updateLatestNotification(const NotificationEntry &entr
     emit latestNotificationChanged();
 }
 
-bool NotificationManager::shouldSuppressBannerForSpam(const NotificationEntry &entry) const
+bool NotificationManager::shouldSuppressBannerForSpam(const NotificationEntry &entry)
 {
-    if (!m_bannerModel || m_maxActiveBannersPerApp <= 0) {
+    if (!m_bannerModel) {
         return false;
     }
-    return m_bannerModel->countForAppId(entry.appId, entry.id) >= m_maxActiveBannersPerApp;
+
+    const QString appKey = entry.appId.trimmed().isEmpty()
+            ? QStringLiteral("unknown.app")
+            : entry.appId.trimmed();
+    const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
+
+    // Sliding-window limiter: suppress banner bursts for the same app.
+    if (m_bannerRateLimitWindowMs > 0 && m_maxBannerAttemptsPerWindow > 0) {
+        QVector<qint64> &history = m_bannerAttemptHistoryByApp[appKey];
+        const qint64 minAllowed = nowMs - static_cast<qint64>(m_bannerRateLimitWindowMs);
+        while (!history.isEmpty() && history.front() < minAllowed) {
+            history.removeFirst();
+        }
+        history.push_back(nowMs);
+        if (history.size() > m_maxBannerAttemptsPerWindow) {
+            return true;
+        }
+    }
+
+    // Active banner cap: keep at most N banners visible per app.
+    if (m_maxActiveBannersPerApp > 0
+        && m_bannerModel->countForAppId(entry.appId, entry.id) >= m_maxActiveBannersPerApp) {
+        return true;
+    }
+
+    return false;
 }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QAbstractListModel>
+#include <QHash>
 #include <QDateTime>
 #include <QObject>
 #include <QStringList>
@@ -157,7 +158,7 @@ private:
     uint upsertNotification(const NotificationEntry &entry, bool suppressBanner = false);
     QVariantMap toVariantMap(const NotificationEntry &entry) const;
     void updateLatestNotification(const NotificationEntry &entry);
-    bool shouldSuppressBannerForSpam(const NotificationEntry &entry) const;
+    bool shouldSuppressBannerForSpam(const NotificationEntry &entry);
 
     bool m_serviceRegistered = false;
     bool m_desktopServiceRegistered = false;
@@ -167,6 +168,9 @@ private:
     QVariantMap m_latestNotification;
     int m_bubbleDurationMs = 5000;
     int m_maxActiveBannersPerApp = 3;
+    int m_bannerRateLimitWindowMs = 10000;
+    int m_maxBannerAttemptsPerWindow = 6;
+    QHash<QString, QVector<qint64>> m_bannerAttemptHistoryByApp;
     NotificationListModel *m_model = nullptr;
     NotificationListModel *m_bannerModel = nullptr;
 };

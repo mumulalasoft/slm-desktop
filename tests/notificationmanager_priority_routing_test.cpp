@@ -250,6 +250,43 @@ private slots:
         QCOMPARE(all->data(newestIdx, NotificationListModel::AppIdRole).toString(), QStringLiteral("org.test.spam"));
         QCOMPARE(all->data(newestIdx, NotificationListModel::BannerRole).toBool(), false);
     }
+
+    void perAppSlidingWindowLimiter_suppressesBurstEvenWithLowActiveBanners()
+    {
+        NotificationManager manager;
+        auto *all = qobject_cast<NotificationListModel *>(manager.notifications());
+        QVERIFY(all);
+
+        constexpr int burstCount = 7; // limiter default allows 6 attempts / 10s window
+        for (int i = 0; i < burstCount; ++i) {
+            const uint id = manager.NotifyModern(QStringLiteral("org.test.burst"),
+                                                 QStringLiteral("Burst %1").arg(i + 1),
+                                                 QStringLiteral("Body"),
+                                                 QString(),
+                                                 {},
+                                                 QStringLiteral("normal"));
+            QVERIFY(id > 0);
+            // Keep active banner count low so this test validates time-window limiter,
+            // not the active-banner cap.
+            manager.dismissBanner(id);
+        }
+
+        QCOMPARE(all->rowCount(), burstCount);
+        int bannerTrueCount = 0;
+        for (int row = 0; row < all->rowCount(); ++row) {
+            const QModelIndex idx = all->index(row, 0);
+            QVERIFY(idx.isValid());
+            if (all->data(idx, NotificationListModel::BannerRole).toBool()) {
+                ++bannerTrueCount;
+            }
+        }
+
+        QCOMPARE(bannerTrueCount, 6);
+        const QModelIndex newestIdx = all->index(0, 0);
+        QVERIFY(newestIdx.isValid());
+        QCOMPARE(all->data(newestIdx, NotificationListModel::AppIdRole).toString(), QStringLiteral("org.test.burst"));
+        QCOMPARE(all->data(newestIdx, NotificationListModel::BannerRole).toBool(), false);
+    }
 };
 
 QTEST_MAIN(NotificationManagerPriorityRoutingTest)
