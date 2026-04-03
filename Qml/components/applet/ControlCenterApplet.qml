@@ -153,7 +153,7 @@ Item {
                         Layout.fillWidth: true
                         Layout.preferredHeight: 136
                         radius: Theme.radiusCard
-                        color: Theme.color("surfaceRaised")
+                        color: Theme.color("surface")
                         border.width: Theme.borderWidthThin
                         border.color: Theme.color("panelBorder")
 
@@ -259,7 +259,7 @@ Item {
                             Layout.fillWidth: true
                             Layout.preferredHeight: 66
                             radius: Theme.radiusCard
-                            color: dndArea.containsMouse ? Theme.color("controlBgHover") : Theme.color("surfaceRaised")
+                            color: dndArea.containsMouse ? Theme.color("controlBgHover") : Theme.color("surface")
                             border.width: Theme.borderWidthThin
                             border.color: Theme.color("panelBorder")
                             RowLayout {
@@ -296,7 +296,7 @@ Item {
                             Layout.fillWidth: true
                             Layout.preferredHeight: 66
                             radius: Theme.radiusCard
-                            color: mirrorArea.containsMouse ? Theme.color("controlBgHover") : Theme.color("surfaceRaised")
+                            color: mirrorArea.containsMouse ? Theme.color("controlBgHover") : Theme.color("surface")
                             border.width: Theme.borderWidthThin
                             border.color: Theme.color("panelBorder")
                             RowLayout {
@@ -327,7 +327,7 @@ Item {
                 Rectangle {
                     Layout.fillWidth: true
                     radius: Theme.radiusCard
-                    color: Theme.color("surfaceRaised")
+                    color: Theme.color("surface")
                     border.width: Theme.borderWidthThin
                     border.color: Theme.color("panelBorder")
                     implicitHeight: Theme.metric("controlHeightLarge") + Theme.metric("spacingLg")
@@ -365,7 +365,7 @@ Item {
                 Rectangle {
                     Layout.fillWidth: true
                     radius: Theme.radiusCard
-                    color: Theme.color("surfaceRaised")
+                    color: Theme.color("surface")
                     border.width: Theme.borderWidthThin
                     border.color: Theme.color("panelBorder")
                     implicitHeight: Theme.metric("controlHeightLarge") + Theme.metric("spacingLg")
@@ -403,7 +403,7 @@ Item {
                 Rectangle {
                     Layout.fillWidth: true
                     radius: Theme.radiusCard
-                    color: Theme.color("surfaceRaised")
+                    color: Theme.color("surface")
                     border.width: Theme.borderWidthThin
                     border.color: Theme.color("panelBorder")
                     implicitHeight: Theme.metric("controlHeightLarge") + Theme.metric("spacingLg")
