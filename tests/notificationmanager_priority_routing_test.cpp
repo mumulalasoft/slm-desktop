@@ -223,6 +223,33 @@ private slots:
         QVERIFY(idx.isValid());
         QCOMPARE(all->data(idx, NotificationListModel::ReadRole).toBool(), true);
     }
+
+    void perAppBannerCap_limitsSpamWithoutDroppingCenterHistory()
+    {
+        NotificationManager manager;
+        auto *all = qobject_cast<NotificationListModel *>(manager.notifications());
+        auto *banners = qobject_cast<NotificationListModel *>(manager.bannerNotifications());
+        QVERIFY(all);
+        QVERIFY(banners);
+
+        for (int i = 0; i < 4; ++i) {
+            const uint id = manager.NotifyModern(QStringLiteral("org.test.spam"),
+                                                 QStringLiteral("Burst %1").arg(i + 1),
+                                                 QStringLiteral("Body"),
+                                                 QString(),
+                                                 {},
+                                                 QStringLiteral("normal"));
+            QVERIFY(id > 0);
+        }
+
+        QCOMPARE(all->rowCount(), 4);
+        QCOMPARE(banners->rowCount(), 3);
+
+        const QModelIndex newestIdx = all->index(0, 0);
+        QVERIFY(newestIdx.isValid());
+        QCOMPARE(all->data(newestIdx, NotificationListModel::AppIdRole).toString(), QStringLiteral("org.test.spam"));
+        QCOMPARE(all->data(newestIdx, NotificationListModel::BannerRole).toBool(), false);
+    }
 };
 
 QTEST_MAIN(NotificationManagerPriorityRoutingTest)

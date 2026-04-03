@@ -590,8 +590,9 @@ Rule 5: SystemModalLayer bypass semua state
 - [ ] Storage strategy:
   - in-memory active queue
   - persistent history (JSON/DB) with retention policy
-- [ ] Security & abuse control:
-  - per-app rate limit
+- [~] Security & abuse control:
+  - [x] per-app anti-spam baseline: active banner cap per app (`max 3`) in `NotificationManager`.
+  - [ ] add sliding-window rate limiter (time-based burst control) per app
   - app identity validation
   - optional sandbox/portal permission gating
 - [ ] Developer API wrapper:

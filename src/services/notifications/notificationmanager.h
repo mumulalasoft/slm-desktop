@@ -57,6 +57,7 @@ public:
     int count() const;
     int unreadCount() const;
     int unreadCountForApp(const QString &appName) const;
+    int countForAppId(const QString &appId, uint excludeId = 0) const;
 
 private:
     QVector<NotificationEntry> m_items;
@@ -156,6 +157,7 @@ private:
     uint upsertNotification(const NotificationEntry &entry, bool suppressBanner = false);
     QVariantMap toVariantMap(const NotificationEntry &entry) const;
     void updateLatestNotification(const NotificationEntry &entry);
+    bool shouldSuppressBannerForSpam(const NotificationEntry &entry) const;
 
     bool m_serviceRegistered = false;
     bool m_desktopServiceRegistered = false;
@@ -164,6 +166,7 @@ private:
     bool m_centerVisible = false;
     QVariantMap m_latestNotification;
     int m_bubbleDurationMs = 5000;
+    int m_maxActiveBannersPerApp = 3;
     NotificationListModel *m_model = nullptr;
     NotificationListModel *m_bannerModel = nullptr;
 };

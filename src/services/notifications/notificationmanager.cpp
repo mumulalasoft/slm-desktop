@@ -189,6 +189,24 @@ int NotificationListModel::unreadCountForApp(const QString &appName) const
     return unread;
 }
 
+int NotificationListModel::countForAppId(const QString &appId, uint excludeId) const
+{
+    const QString wanted = appId.trimmed();
+    if (wanted.isEmpty()) {
+        return 0;
+    }
+    int count = 0;
+    for (const NotificationEntry &entry : m_items) {
+        if (excludeId > 0 && entry.id == excludeId) {
+            continue;
+        }
+        if (entry.appId == wanted) {
+            ++count;
+        }
+    }
+    return count;
+}
+
 NotificationManager::NotificationManager(QObject *parent)
     : QObject(parent)
 {
@@ -612,26 +630,32 @@ QString NotificationManager::normalizePriority(const QString &priority) const
 
 uint NotificationManager::upsertNotification(const NotificationEntry &entry, bool suppressBanner)
 {
+    NotificationEntry effectiveEntry = entry;
+    if (effectiveEntry.banner && shouldSuppressBannerForSpam(effectiveEntry)) {
+        effectiveEntry.banner = false;
+        suppressBanner = true;
+    }
+
     const int before = count();
     const int beforeUnread = unreadCount();
     if (m_model) {
-        m_model->upsert(entry);
+        m_model->upsert(effectiveEntry);
     }
     if (m_bannerModel) {
-        if (entry.banner) {
-            m_bannerModel->upsert(entry);
+        if (effectiveEntry.banner) {
+            m_bannerModel->upsert(effectiveEntry);
         } else {
-            m_bannerModel->removeById(entry.id);
+            m_bannerModel->removeById(effectiveEntry.id);
         }
     }
     emitCountIfChanged(before);
     emitUnreadCountIfChanged(beforeUnread);
-    emit NotificationAdded(entry.id);
+    emit NotificationAdded(effectiveEntry.id);
 
     if (!suppressBanner) {
-        updateLatestNotification(entry);
+        updateLatestNotification(effectiveEntry);
     }
-    return entry.id;
+    return effectiveEntry.id;
 }
 
 QVariantMap NotificationManager::toVariantMap(const NotificationEntry &entry) const
@@ -666,4 +690,12 @@ void NotificationManager::updateLatestNotification(const NotificationEntry &entr
         {QStringLiteral("timestamp"), entry.timestamp.toString(Qt::ISODate)}
     };
     emit latestNotificationChanged();
+}
+
+bool NotificationManager::shouldSuppressBannerForSpam(const NotificationEntry &entry) const
+{
+    if (!m_bannerModel || m_maxActiveBannersPerApp <= 0) {
+        return false;
+    }
+    return m_bannerModel->countForAppId(entry.appId, entry.id) >= m_maxActiveBannersPerApp;
 }
