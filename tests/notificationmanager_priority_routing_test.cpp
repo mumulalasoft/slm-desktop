@@ -192,6 +192,37 @@ private slots:
         QCOMPARE(all->data(idx, NotificationListModel::BannerRole).toBool(), true);
         QCOMPARE(manager.latestNotification().value(QStringLiteral("id")).toUInt(), id);
     }
+
+    void openingCenter_marksReadAndClearsTransientBanners()
+    {
+        NotificationManager manager;
+        auto *all = qobject_cast<NotificationListModel *>(manager.notifications());
+        auto *banners = qobject_cast<NotificationListModel *>(manager.bannerNotifications());
+        QVERIFY(all);
+        QVERIFY(banners);
+
+        const uint id = manager.NotifyModern(QStringLiteral("org.test.center"),
+                                             QStringLiteral("Center"),
+                                             QStringLiteral("Body"),
+                                             QString(),
+                                             {},
+                                             QStringLiteral("normal"));
+        QVERIFY(id > 0);
+        QCOMPARE(all->rowCount(), 1);
+        QCOMPARE(banners->rowCount(), 1);
+        QCOMPARE(manager.unreadCount(), 1);
+        QVERIFY(!manager.centerVisible());
+
+        manager.toggleCenter();
+
+        QVERIFY(manager.centerVisible());
+        QCOMPARE(manager.unreadCount(), 0);
+        QCOMPARE(all->rowCount(), 1);
+        QCOMPARE(banners->rowCount(), 0);
+        const QModelIndex idx = all->index(0, 0);
+        QVERIFY(idx.isValid());
+        QCOMPARE(all->data(idx, NotificationListModel::ReadRole).toBool(), true);
+    }
 };
 
 QTEST_MAIN(NotificationManagerPriorityRoutingTest)

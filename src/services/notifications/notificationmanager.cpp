@@ -324,6 +324,9 @@ void NotificationManager::toggleCenter()
     m_centerVisible = !m_centerVisible;
     if (m_centerVisible) {
         markAllRead();
+        if (m_bannerModel) {
+            m_bannerModel->clear();
+        }
     }
     emit centerVisibleChanged();
 }
