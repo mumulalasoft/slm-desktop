@@ -20,7 +20,8 @@ Item {
     readonly property int popupGap: Theme.metric("spacingXs")
     readonly property int sectionGap: Theme.metric("spacingSm")
     readonly property int itemGap: Theme.metric("spacingXs")
-    readonly property int popupWidth: 300
+    readonly property int popupWidth: 336
+    readonly property int cardPadding: Theme.metric("spacingSm")
     readonly property bool popupOpen: popupHint || menu.opened
 
     Timer {
@@ -151,7 +152,7 @@ Item {
 
                     Rectangle {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: 136
+                        Layout.preferredHeight: Theme.metric("controlHeightLarge") * 3 + Theme.metric("spacingSm")
                         radius: Theme.radiusCard
                         color: Theme.color("surface")
                         border.width: Theme.borderWidthThin
@@ -159,7 +160,7 @@ Item {
 
                         ColumnLayout {
                             anchors.fill: parent
-                            anchors.margins: Theme.metric("spacingSm")
+                            anchors.margins: root.cardPadding
                             spacing: Theme.metric("spacingXs")
 
                             Rectangle {
@@ -257,14 +258,14 @@ Item {
 
                         Rectangle {
                             Layout.fillWidth: true
-                            Layout.preferredHeight: 66
+                            Layout.preferredHeight: Theme.metric("controlHeightLarge") * 2
                             radius: Theme.radiusCard
                             color: dndArea.containsMouse ? Theme.color("controlBgHover") : Theme.color("surface")
                             border.width: Theme.borderWidthThin
                             border.color: Theme.color("panelBorder")
                             RowLayout {
                                 anchors.fill: parent
-                                anchors.margins: Theme.metric("spacingSm")
+                                anchors.margins: root.cardPadding
                                 spacing: Theme.metric("spacingXs")
                                 IconImage {
                                     Layout.preferredWidth: 18
@@ -272,13 +273,25 @@ Item {
                                     source: root.iconSourceByName("weather-clear-night-symbolic")
                                     color: Theme.color("textPrimary")
                                 }
-                                Label {
+                                ColumnLayout {
                                     Layout.fillWidth: true
-                                    text: "Do Not\nDisturb"
-                                    color: Theme.color("textPrimary")
-                                    font.family: Theme.fontFamilyUi
-                                    font.pixelSize: Theme.fontSize("body")
-                                    wrapMode: Text.WordWrap
+                                    spacing: 0
+                                    Label {
+                                        Layout.fillWidth: true
+                                        text: "Do Not Disturb"
+                                        color: Theme.color("textPrimary")
+                                        font.family: Theme.fontFamilyUi
+                                        font.pixelSize: Theme.fontSize("body")
+                                        elide: Text.ElideRight
+                                    }
+                                    Label {
+                                        Layout.fillWidth: true
+                                        text: root.notificationManager && root.notificationManager.doNotDisturb ? "On" : "Off"
+                                        color: Theme.color("textSecondary")
+                                        font.family: Theme.fontFamilyUi
+                                        font.pixelSize: Theme.fontSize("small")
+                                        elide: Text.ElideRight
+                                    }
                                 }
                             }
                             HoverHandler { id: dndArea }
@@ -294,14 +307,14 @@ Item {
 
                         Rectangle {
                             Layout.fillWidth: true
-                            Layout.preferredHeight: 66
+                            Layout.preferredHeight: Theme.metric("controlHeightLarge") * 2
                             radius: Theme.radiusCard
                             color: mirrorArea.containsMouse ? Theme.color("controlBgHover") : Theme.color("surface")
                             border.width: Theme.borderWidthThin
                             border.color: Theme.color("panelBorder")
                             RowLayout {
                                 anchors.fill: parent
-                                anchors.margins: Theme.metric("spacingSm")
+                                anchors.margins: root.cardPadding
                                 spacing: Theme.metric("spacingXs")
                                 IconImage {
                                     Layout.preferredWidth: 18
@@ -309,13 +322,25 @@ Item {
                                     source: root.iconSourceByName("video-display-symbolic")
                                     color: Theme.color("textPrimary")
                                 }
-                                Label {
+                                ColumnLayout {
                                     Layout.fillWidth: true
-                                    text: "Screen\nMirroring"
-                                    color: Theme.color("textPrimary")
-                                    font.family: Theme.fontFamilyUi
-                                    font.pixelSize: Theme.fontSize("body")
-                                    wrapMode: Text.WordWrap
+                                    spacing: 0
+                                    Label {
+                                        Layout.fillWidth: true
+                                        text: "Screen Mirroring"
+                                        color: Theme.color("textPrimary")
+                                        font.family: Theme.fontFamilyUi
+                                        font.pixelSize: Theme.fontSize("body")
+                                        elide: Text.ElideRight
+                                    }
+                                    Label {
+                                        Layout.fillWidth: true
+                                        text: "Off"
+                                        color: Theme.color("textSecondary")
+                                        font.family: Theme.fontFamilyUi
+                                        font.pixelSize: Theme.fontSize("small")
+                                        elide: Text.ElideRight
+                                    }
                                 }
                             }
                             HoverHandler { id: mirrorArea }
@@ -334,9 +359,10 @@ Item {
 
                     ColumnLayout {
                         anchors.fill: parent
-                        anchors.margins: Theme.metric("spacingSm")
+                        anchors.margins: root.cardPadding
                         spacing: Theme.metric("spacingXs")
                         RowLayout {
+                            Layout.fillWidth: true
                             spacing: Theme.metric("spacingXs")
                             IconImage {
                                 Layout.preferredWidth: 16
@@ -345,9 +371,16 @@ Item {
                                 color: Theme.color("textPrimary")
                             }
                             Label {
+                                Layout.fillWidth: true
                                 text: "Display"
                                 color: Theme.color("textPrimary")
                                 font.pixelSize: Theme.fontSize("body")
+                                font.family: Theme.fontFamilyUi
+                            }
+                            Label {
+                                text: Math.round(root.brightnessValue) + "%"
+                                color: Theme.color("textSecondary")
+                                font.pixelSize: Theme.fontSize("small")
                                 font.family: Theme.fontFamilyUi
                             }
                         }
@@ -372,9 +405,10 @@ Item {
 
                     ColumnLayout {
                         anchors.fill: parent
-                        anchors.margins: Theme.metric("spacingSm")
+                        anchors.margins: root.cardPadding
                         spacing: Theme.metric("spacingXs")
                         RowLayout {
+                            Layout.fillWidth: true
                             spacing: Theme.metric("spacingXs")
                             IconImage {
                                 Layout.preferredWidth: 16
@@ -383,9 +417,16 @@ Item {
                                 color: Theme.color("textPrimary")
                             }
                             Label {
+                                Layout.fillWidth: true
                                 text: "Sound"
                                 color: Theme.color("textPrimary")
                                 font.pixelSize: Theme.fontSize("body")
+                                font.family: Theme.fontFamilyUi
+                            }
+                            Label {
+                                text: root.soundManager ? (Math.round(root.soundManager.volume) + "%") : "--%"
+                                color: Theme.color("textSecondary")
+                                font.pixelSize: Theme.fontSize("small")
                                 font.family: Theme.fontFamilyUi
                             }
                         }
@@ -410,7 +451,7 @@ Item {
 
                     RowLayout {
                         anchors.fill: parent
-                        anchors.margins: Theme.metric("spacingSm")
+                        anchors.margins: root.cardPadding
                         spacing: Theme.metric("spacingSm")
 
                         Rectangle {
@@ -439,7 +480,15 @@ Item {
                         }
 
                         ToolButton {
+                            Layout.preferredWidth: Theme.metric("controlHeightLarge")
+                            Layout.preferredHeight: Theme.metric("controlHeightLarge")
                             icon.source: root.iconSourceByName("media-playback-start-symbolic")
+                            background: Rectangle {
+                                radius: Theme.radiusControl
+                                color: parent.hovered ? Theme.color("controlBgHover") : Theme.color("controlBg")
+                                border.width: Theme.borderWidthThin
+                                border.color: Theme.color("panelBorder")
+                            }
                             onClicked: root.openSettings("sound")
                         }
                     }
