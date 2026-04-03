@@ -527,7 +527,7 @@ Rule 5: SystemModalLayer bypass semua state
 - [~] Finalize notification types:
   - Banner (transient, top-right, max 3 visible, auto-dismiss 5–8s, hover pause, swipe dismiss)
   - Notification Center (persistent, slide-in right panel, grouped history, virtualized list)
-- [ ] Lock visual spec tokens:
+- [x] Lock visual spec tokens:
   - card radius `14`
   - padding `12–16`
   - vertical rhythm `8`
@@ -1259,3 +1259,77 @@ Preferensi keputusan arsitektur:
 - [ ] Jangka panjang boleh menuju secret backend milik desktop sendiri.
 - [ ] Secret subsystem tidak boleh jadi single point of failure untuk boot sesi grafis.
 - [ ] Selaras penuh dengan permission architecture desktop (policy sentral, auditable, recoverable).
+
+DockSystem single-pipeline refactor (KWin-safe dual host compromise):
+- [x] Satu `DockSystem` untuk mode/policy/layout/presentation dasar (`dockLayoutState`, `dockAnimationState`, `dockResolvedPresentation`).
+- [x] Dua host renderer tipis: `ShellDockHost` + `LaunchpadDockHost` (tanpa model dock terpisah).
+- [x] Ownership input tunggal via `DockController.inputOwnerHost` (mode-driven).
+- [x] Event interaksi host-divalidasi (`hover/press/activate/drag/context`) agar host non-owner tidak bisa mutate state.
+- [x] Parameter layout visual inti (`iconSlotWidth`, `itemSpacing`, `hoverLift`, magnification params, `dockBottomMargin`) dipusatkan di `DockSystem` dan diinjeksikan ke renderer.
+- [x] Resolver magnification influence dipusatkan di `DockSystem` (`resolveMagnificationInfluence`) agar pipeline visual tidak host-driven.
+- [x] Guard regresi arsitektur ditambahkan: `tests/docksystem_render_contract_test.cpp` (phase contract + global resolver usage + host rect publishing contract).
+- [ ] Lanjutan: hilangkan fallback kalkulasi lokal di `Dock.qml` (nearest/insertion), sehingga resolver `DockSystem` menjadi satu-satunya jalur hit-test/reorder target.
+
+Roadmap arsitektur: Single Dock Renderer persisten di atas Shell + Launchpad
+
+Target akhir:
+- [ ] Satu instance visual dock saja: `PersistentDockWindow` (renderer tunggal, lifecycle tunggal, input pipeline tunggal).
+- [ ] `PersistentDockWindow` selalu hidup dan berada di layer/window global yang persisten di atas `ShellWindow` dan `LaunchpadWindow`.
+- [ ] `Launchpad` tidak pernah membuat host dock baru; hanya mengubah mode/presentasi di `DockSystem`.
+
+Kontrak arsitektur (wajib):
+- [ ] `DockSystem` tetap satu-satunya source of truth (`core/layout/animation/policy/controller`).
+- [ ] `PersistentDockWindow` hanya renderer + forwarding input ke `DockController`.
+- [ ] `ShellWindow` dan `LaunchpadWindow` dilarang mengandung instance `DockComp.Dock` terpisah.
+- [ ] Satu `DockInputOwner` global; tidak ada handoff input antar host karena host tinggal satu.
+
+Fase implementasi:
+- [ ] Phase 0 — Baseline & observability
+  - Tambah trace event terstruktur: `dock.window.created`, `dock.window.mapped`, `dock.input.owner`, `launchpad.state.changed`.
+  - Tambah counter continuity: jumlah frame dock invisible saat transisi launchpad.
+- [ ] Phase 1 — PersistentDockWindow foundation
+  - Buat `Qml/components/overlay/PersistentDockWindow.qml`.
+  - Window policy: frameless, translucent, always-on-layer sesuai policy shell, tidak bergantung `WindowStaysOnTopHint` rapuh.
+  - Dock geometry binding ke `DockLayoutState` global (screen-aware, DPI-aware, safe-area aware).
+- [ ] Phase 2 — Render unification
+  - Pindahkan render dock dari `ShellDockHost`/`LaunchpadDockHost` ke `PersistentDockWindow`.
+  - `ShellDockHost` dan `LaunchpadDockHost` dijadikan shim kosong sementara lalu dihapus.
+  - Pastikan hover/magnification/drag berasal dari timeline tunggal tanpa reset saat mode launchpad berubah.
+- [ ] Phase 3 — Launchpad integration
+  - `shellMode = launchpad` hanya memicu perubahan `DockResolvedPresentation` (opacity/blur/offset/policy), bukan re-parent/recreate renderer.
+  - Launchpad open/close toggle wajib idempotent (spam toggle aman, tanpa flicker).
+  - Tambah guard: launchpad tidak boleh menulis properti visibility dock secara langsung.
+- [ ] Phase 4 — Input, focus, and hit-test hardening
+  - Hit-test pipeline tunggal di `DockController` + resolver global; hapus fallback lokal di `Dock.qml`.
+  - Pointer capture/drag reorder tetap stabil saat ada overlay lain (notification/topbar popup/search).
+  - Context menu, badge, progress, lifecycle pulse tetap berfungsi saat launchpad aktif.
+- [ ] Phase 5 — Z-order and compositor reliability
+  - Definisikan policy z-order final lintas backend (`KWin` utama, fallback generic Wayland).
+  - Tambah health check: jika dock window unmap/hidden tak sengaja, auto-recover map tanpa reset state.
+  - Tambah safe-mode policy: animasi dock bisa dimatikan total, tetapi renderer tetap persisten.
+- [ ] Phase 6 — Cleanup & enforcement
+  - Hapus semua kode dual-host docking lama.
+  - Tambah lint/contract test yang fail jika ada instance dock kedua di Shell/Launchpad.
+  - Dokumentasikan sebagai arsitektur final di `docs/SESSION_STATE.md` + kontrak test.
+
+Test plan wajib (gate):
+- [ ] Continuity test: transisi normal <-> launchpad 1000x, tidak ada frame “dock hilang”.
+- [ ] Flicker test: first-open launchpad tidak ada blink (0 transient hide/unmap event).
+- [ ] Input test: hover/pin/magnify/drag state tidak reset antar mode.
+- [ ] Z-order test: dock tetap di atas shell+launchpad, tetapi di bawah system modal kritikal.
+- [ ] Multi-monitor test: dock konsisten pada monitor aktif sesuai policy.
+- [ ] Crash recovery test: jika launchpad crash/restart, dock tetap hidup dan interaktif.
+
+Risiko & mitigasi:
+- [ ] Risiko race map/unmap window pada compositor.
+  - Mitigasi: lifecycle gate + delayed unmap guard + atomic visibility commit.
+- [ ] Risiko regressi input akibat perubahan owner model.
+  - Mitigasi: contract test input owner + synthetic pointer tests.
+- [ ] Risiko backend-specific stacking behavior.
+  - Mitigasi: abstraction `DockWindowPolicyResolver` per backend + fallback policy table.
+
+Definisi selesai (DoD):
+- [ ] Tidak ada lagi dua renderer dock aktif di codebase/runtime.
+- [ ] Dock continuity mulus saat launchpad open/close tanpa putus visual.
+- [ ] State hover/pressed/magnification/drag tidak ter-reset oleh transisi launchpad.
+- [ ] Semua gate test di atas hijau di CI dan runtime smoke lokal.

@@ -67,8 +67,8 @@ Item {
 
         ColumnLayout {
             anchors.fill: parent
-            anchors.margins: 12
-            spacing: 10
+            anchors.margins: Theme.notificationCardPadding
+            spacing: Theme.notificationVerticalRhythm
 
             RowLayout {
                 Layout.fillWidth: true
@@ -110,7 +110,7 @@ Item {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 clip: true
-                spacing: 10
+                spacing: Theme.notificationVerticalRhythm
                 model: root.notificationManager ? root.notificationManager.notifications : null
                 focus: root.open
                 keyNavigationWraps: true

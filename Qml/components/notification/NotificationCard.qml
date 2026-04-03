@@ -60,20 +60,19 @@ Rectangle {
         return Qt.formatDateTime(d, "dd MMM hh:mm")
     }
 
-    radius: Theme.radiusWindow
-    color: Theme.darkMode ? Qt.rgba(30 / 255, 30 / 255, 30 / 255, 0.82)
-                          : Qt.rgba(1, 1, 1, 0.82)
+    radius: Theme.notificationCardRadius
+    color: Theme.notificationCardBackground
     border.width: _isHigh ? Theme.borderWidthThick : Theme.borderWidthThin
     border.color: _isHigh ? Theme.color("accent") : Theme.color("panelBorder")
     opacity: root.read ? 0.72 : 1.0
 
     implicitWidth: compact ? 340 : 380
-    implicitHeight: contentRow.implicitHeight + 24
+    implicitHeight: contentRow.implicitHeight + (Theme.notificationCardPadding * 2)
 
     layer.enabled: !compact
     layer.effect: MultiEffect {
         shadowEnabled: true
-        shadowColor: Qt.rgba(0, 0, 0, Theme.darkMode ? 0.30 : 0.14)
+        shadowColor: Qt.rgba(0, 0, 0, Theme.darkMode ? 0.22 : Theme.elevationMedium.opacity)
         shadowBlur: 0.45
         shadowVerticalOffset: 3
         shadowHorizontalOffset: 0
@@ -82,8 +81,8 @@ Rectangle {
     RowLayout {
         id: contentRow
         anchors.fill: parent
-        anchors.margins: 12
-        spacing: 12
+        anchors.margins: Theme.notificationCardPadding
+        spacing: Theme.notificationVerticalRhythm
 
         // App icon
         Rectangle {
@@ -109,7 +108,7 @@ Rectangle {
         // Content column
         ColumnLayout {
             Layout.fillWidth: true
-            spacing: 6
+            spacing: Theme.notificationVerticalRhythm
 
             // Title row with inline timestamp + dismiss
             RowLayout {
@@ -175,7 +174,7 @@ Rectangle {
             // Compact action chips (max 3)
             RowLayout {
                 Layout.fillWidth: true
-                spacing: 6
+                spacing: Theme.notificationVerticalRhythm
                 visible: root._visibleActionCount > 0
 
                 Repeater {
