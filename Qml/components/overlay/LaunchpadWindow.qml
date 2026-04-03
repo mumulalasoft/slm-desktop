@@ -6,28 +6,27 @@ import "../launchpad" as LaunchpadComp
 // LaunchpadWindow is a frameless transient Window so KWin stacks it above
 // all normal app windows.
 //
-// The dock is NOT rendered inside this Window.  Instead, the window height is
-// shortened to leave the dock zone uncovered: mouse events in the dock zone
-// fall through to the ApplicationWindow where ShellDockHost (the single dock
-// renderer) lives.  This gives one dock instance with no state duplication.
-//
-// Height = desktopScene.dockShownY - DockSystem.zoomHeadroom
-//   → covers screen from top to just above the dock interaction zone
-//   → dock is always visible and interactive at the bottom while launchpad is open
+// Dock host here is renderer-only. All dock state/logic stays global in
+// DockSystem.
 Window {
     id: root
 
     required property var rootWindow
     required property var desktopScene
     required property var appsModel
+    property var dockAppsModel: (typeof DockModel !== "undefined" && DockModel) ? DockModel : appsModel
 
     readonly property int panelHeight: desktopScene ? desktopScene.panelHeight : 34
-
-    // Dock zone height excluded from the bottom of this window so events
-    // there reach ShellDockHost in ApplicationWindow directly.
-    readonly property real dockExcludeHeight: desktopScene
-        ? (desktopScene.dockShownY - DockSystem.zoomHeadroom)
-        : (rootWindow ? rootWindow.height : 0)
+    readonly property int dockSafeInset: Math.max(
+                                             24,
+                                             Math.round(
+                                                 (desktopScene ? Number(desktopScene.dockHeight || 120) : 120)
+                                                 + (desktopScene ? Number(desktopScene.dockBottomMargin || 0) : 0)
+                                                 + 20
+                                             )
+                                         )
+    property bool dismissArmed: false
+    property real revealProgress: 1.0
 
     signal appChosen(var appData)
     signal addToDockRequested(var appData)
@@ -35,7 +34,7 @@ Window {
 
     visible: !!rootWindow && !!desktopScene
              && rootWindow.visible
-             && (desktopScene.launchpadVisible || launchpadFrame.opacity > 0.01)
+             && desktopScene.launchpadVisible
     color: "transparent"
     flags: Qt.FramelessWindowHint
     transientParent: rootWindow
@@ -43,14 +42,10 @@ Window {
     x: rootWindow ? rootWindow.x : 0
     y: rootWindow ? rootWindow.y : 0
     width:  rootWindow ? rootWindow.width : 0
-    // Height stops above the dock interaction zone; dock zone stays in
-    // ApplicationWindow and is handled by ShellDockHost.
-    height: rootWindow
-            ? Math.max(rootWindow.height * 0.4, dockExcludeHeight)
-            : 0
+    height: rootWindow ? rootWindow.height : 0
 
     onVisibleChanged: {
-        if (visible) {
+        if (visible && desktopScene && desktopScene.launchpadVisible) {
             requestActivate()
         }
     }
@@ -80,71 +75,33 @@ Window {
 
         QtObject {
             id: launchpadMotion
-            property bool ready: false
-            property real progress: 0.0
-
-            function ensureChannel() {
-                if (typeof MotionController === "undefined" || !MotionController) {
-                    return false
-                }
-                if (MotionController.channel !== "launchpad.reveal") {
-                    MotionController.channel = "launchpad.reveal"
-                }
-                if (MotionController.preset !== "launcher") {
-                    MotionController.preset = "launcher"
-                }
-                return true
-            }
-
-            function snapTo(stateValue) {
-                if (!ensureChannel()) {
-                    progress = stateValue
-                    return
-                }
-                MotionController.cancelAndSettle(stateValue)
-                progress = MotionController.value
-            }
-
-            function animateTo(stateValue) {
-                if (!ensureChannel()) {
-                    progress = stateValue
-                    return
-                }
-                MotionController.startFromCurrent(stateValue)
-            }
-        }
-
-        Connections {
-            target: (typeof MotionController !== "undefined" && MotionController) ? MotionController : null
-            ignoreUnknownSignals: true
-            function onValueChanged() {
-                if (!launchpadMotion.ready) return
-                if (MotionController.channel === "launchpad.reveal") {
-                    launchpadMotion.progress = Math.max(0, Math.min(1, Number(MotionController.value || 0)))
-                }
-            }
         }
 
         Connections {
             target: desktopScene
             ignoreUnknownSignals: true
             function onLaunchpadVisibleChanged() {
-                if (!launchpadMotion.ready) return
-                launchpadMotion.animateTo(desktopScene.launchpadVisible ? 1.0 : 0.0)
+                if (desktopScene.launchpadVisible) {
+                    root.dismissArmed = false
+                    dismissArmTimer.restart()
+                } else {
+                    root.dismissArmed = false
+                    dismissArmTimer.stop()
+                }
             }
         }
 
-        // Dismiss tap area — excludes the top panel strip so TopBarWindow stays
-        // interactive through the transparent top portion of this Window.
-        // The dock zone at the bottom is excluded from this Window's surface
-        // entirely, so no explicit bottom exclusion is needed here.
+        // Dismiss tap area — excludes the top panel strip so topbar keeps its
+        // own interactions.
         MouseArea {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top
             anchors.topMargin: root.panelHeight
             anchors.bottom: parent.bottom
+            anchors.bottomMargin: 0
             z: 0
+            enabled: root.dismissArmed
             onClicked: desktopScene.launchpadVisible = false
         }
 
@@ -158,12 +115,8 @@ Window {
             radius: 0
             clip: false
             color: "transparent"
-            visible: desktopScene.launchpadVisible || opacity > 0.01
-            opacity: launchpadMotion.progress
-            onVisibleChanged: {
-                if (!launchpadMotion.ready) return
-                launchpadMotion.animateTo(desktopScene.launchpadVisible ? 1.0 : 0.0)
-            }
+            visible: root.visible
+            opacity: 1.0
 
             LaunchpadComp.Launchpad {
                 id: launchpadContent
@@ -171,10 +124,8 @@ Window {
                 visible: parent.visible
                 appsModel: root.appsModel
                 topSafeInset: root.panelHeight
-                revealProgress: launchpadMotion.progress
-                // Window height already excludes the dock zone, so only a
-                // small bottom padding is needed here.
-                bottomSafeInset: 8
+                revealProgress: 1.0
+                bottomSafeInset: root.dockSafeInset
                 onDismissRequested: desktopScene.launchpadVisible = false
                 onAppChosen: function(appData) {
                     desktopScene.launchpadVisible = false
@@ -184,10 +135,35 @@ Window {
                 onAddToDesktopRequested: function(appData) { root.addToDesktopRequested(appData) }
             }
         }
+
+        LaunchpadDockHost {
+            id: launchpadDockHost
+            z: 2
+            launchpadWindow: root
+            desktopScene: root.desktopScene
+            appsModel: root.dockAppsModel
+        }
+
     }
 
     Component.onCompleted: {
-        launchpadMotion.ready = true
-        launchpadMotion.snapTo(desktopScene.launchpadVisible ? 1.0 : 0.0)
+        if (desktopScene.launchpadVisible) {
+            dismissArmTimer.restart()
+        }
+    }
+
+    Behavior on revealProgress {
+        enabled: false
+        NumberAnimation {
+            duration: Theme.durationWorkspace
+            easing.type: Theme.easingDefault
+        }
+    }
+
+    Timer {
+        id: dismissArmTimer
+        interval: 180
+        repeat: false
+        onTriggered: root.dismissArmed = true
     }
 }

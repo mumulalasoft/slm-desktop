@@ -23,6 +23,9 @@ DockItem {
     readonly property bool hasOtherWorkspaceWindows: compositorState && compositorState.hasOtherWorkspaceWindows === true
     readonly property bool hasWindowsInMultipleWorkspaces: compositorState && compositorState.hasWindowsInMultipleWorkspaces === true
     readonly property bool effectiveRunning: compositorRunning || isRunning
+    readonly property bool pinnedEntry: (typeof isPinned !== "undefined")
+                                        ? (isPinned === true)
+                                        : ((typeof pinned !== "undefined") ? (pinned === true) : false)
 
     // Bind badge count from BadgeService using desktopFile or name as the key.
     badgeCount: {
@@ -38,7 +41,7 @@ DockItem {
     focusedApp: compositorFocused
     hasOtherWorkspaceDot: !hasActiveWorkspaceWindows && hasOtherWorkspaceWindows
     showMixedWorkspaceDot: hasWindowsInMultipleWorkspaces
-    dragEnabled: isPinned
+    dragEnabled: pinnedEntry
     dragSource: dockRoot && dockRoot.draggingFromIndex === index
     gapTarget: false
     gapPreviewIconPath: ""
@@ -57,6 +60,8 @@ DockItem {
     itemScale: 1.0
 
     onClicked: {
+        var itemId = String(desktopFile || name || "")
+        DockController.onActivate(itemId, dockRoot ? dockRoot.hostName : "")
         if (typeof CursorController !== "undefined" && CursorController && CursorController.startBusy) {
             CursorController.startBusy(1300)
         }
@@ -89,10 +94,12 @@ DockItem {
     }
 
     onDragStarted: function() {
-        if (!isPinned || !dockRoot) {
+        if (!pinnedEntry || !dockRoot) {
             return
         }
-        dockRoot.beginReorderDrag(index, dockRoot.dockRow.x + appItem.x + appItem.width * 0.5,
+        DockController.onDragStart(String(desktopFile || name || index),
+                                   dockRoot ? dockRoot.hostName : "")
+        dockRoot.beginReorderDrag(index, dockRoot.rowX + appItem.x + appItem.width * 0.5,
                                   appItem.iconPath)
     }
 
@@ -100,6 +107,7 @@ DockItem {
         if (!dockRoot || dockRoot.draggingFromIndex < 0) {
             return
         }
+        DockController.onDragMove(deltaX, dockRoot ? dockRoot.hostName : "")
         dockRoot.moveReorderDrag(deltaX)
     }
 
@@ -107,6 +115,7 @@ DockItem {
         if (!dockRoot || dockRoot.draggingFromIndex < 0) {
             return
         }
+        DockController.onDragEnd(dockRoot ? dockRoot.hostName : "")
         dockRoot.finishReorderDrag(deltaX)
     }
 
@@ -134,6 +143,8 @@ DockItem {
     TapHandler {
         acceptedButtons: Qt.RightButton
         onTapped: {
+            DockController.onContextMenu(String(desktopFile || name || ""),
+                                         dockRoot ? dockRoot.hostName : "")
             appContextMenu.popup()
         }
     }
@@ -246,7 +257,7 @@ DockItem {
 
         MenuItem {
             text: "Pin to Dock"
-            visible: !isPinned
+            visible: !pinnedEntry
             enabled: desktopFile && desktopFile.length > 0
             onTriggered: {
                 if (desktopFile && desktopFile.length > 0) {
@@ -256,7 +267,7 @@ DockItem {
         }
         MenuItem {
             text: "Unpin"
-            visible: isPinned
+            visible: pinnedEntry
             enabled: desktopFile && desktopFile.length > 0
             onTriggered: {
                 if (desktopFile && desktopFile.length > 0) {
@@ -266,14 +277,14 @@ DockItem {
         }
         MenuItem {
             text: "Move Left"
-            visible: !!isPinned
-            enabled: !!isPinned && index >= 0 && index > 0
+            visible: pinnedEntry
+            enabled: pinnedEntry && index >= 0 && index > 0
             onTriggered: DockModel.movePinnedEntry(index, index - 1)
         }
         MenuItem {
             text: "Move Right"
-            visible: !!isPinned
-            enabled: !!isPinned && index >= 0 && index < (modelCount - 1)
+            visible: pinnedEntry
+            enabled: pinnedEntry && index >= 0 && index < (modelCount - 1)
             onTriggered: DockModel.movePinnedEntry(index, index + 1)
         }
     }

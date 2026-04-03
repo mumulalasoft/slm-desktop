@@ -11,6 +11,8 @@ Item {
     property real itemScale: 1.0
     property real influence: 0
     property real hoverLift: 5
+    property real liftOffset: 0
+    property int animationDuration: 150
     property real gapWidthExtra: 28
     property real gapSpring: Theme.physicsSpringDefault
     property real gapDamping: Theme.physicsDampingDefault
@@ -35,12 +37,12 @@ Item {
     // The delegate width grows by separatorSlotWidth to accommodate it.
     property bool separatorAfter: false
     readonly property real separatorSlotWidth: separatorAfter ? 16 : 0
-    property bool hovered: iconHover.active || directHoverOverride
+    property bool hovered: mouseArea.containsMouse || directHoverOverride
     property real hoverBlend: hovered ? 1.0 : 0.0
     property bool dragging: false
     property real dragOffsetX: 0
     property real bounceOffset: 0
-    property real iconLift: Math.max(0, influence) + (hoverLift * hoverBlend)
+    property real iconLift: hovered ? Math.max(0, hoverLift) : 0
     signal clicked()
     signal bounceCompleted()
     signal dragStarted()
@@ -81,13 +83,6 @@ Item {
             easing.type: Theme.easingDecelerate
         }
     }
-    Behavior on iconLift {
-        enabled: root.microAnimationAllowed()
-        NumberAnimation {
-            duration: Theme.durationSm
-            easing.type: Theme.easingDecelerate
-        }
-    }
     Behavior on dragOffsetX {
         enabled: !root.dragging
         NumberAnimation {
@@ -98,17 +93,29 @@ Item {
 
     Item {
         id: visualContainer
-        anchors.fill: parent
+        width: parent.width
+        height: parent.height
         x: root.dragOffsetX
+        y: -root.iconLift
+
+        Behavior on y {
+            NumberAnimation {
+                duration: root.animationDuration
+                easing.type: Theme.easingDecelerate
+            }
+        }
 
         Item {
             id: iconPlate
-            width: Math.round(52 * (root.itemScale + (0.02 * root.hoverBlend)))
+            width: Math.round(52 * root.itemScale)
             height: width
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottom: parent.bottom
-            anchors.bottomMargin: 7 + root.bounceOffset + root.iconLift - (mouseArea.pressed ? 1 : 0)
-            opacity: root.gapTarget && !root.dragSource ? 0.0 : (root.dragSource && root.dragging ? root.dragSourceOpacity : 1.0)
+            anchors.bottomMargin: 7 + root.bounceOffset - (mouseArea.pressed ? 1 : 0)
+            opacity: root.gapTarget && !root.dragSource ? 0.0
+                    : (root.dragSource && root.dragging ? root.dragSourceOpacity
+                                                        : (root.hovered ? 1.0 : 0.92))
+            scale: root.hovered ? 1.02 : 1.0
 
             Image {
                 anchors.centerIn: parent
@@ -121,6 +128,10 @@ Item {
             Behavior on width {
                 enabled: root.microAnimationAllowed()
                 NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingDecelerate }
+            }
+            Behavior on scale {
+                enabled: root.microAnimationAllowed()
+                NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingDecelerate }
             }
             Behavior on opacity {
                 enabled: root.microAnimationAllowed()
@@ -192,7 +203,7 @@ Item {
         Rectangle {
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottom: parent.bottom
-            anchors.bottomMargin: 1 + root.iconLift
+            anchors.bottomMargin: 1
             width: showRunningDot ? (showMixedWorkspaceDot ? 13 : 7) : 0
             height: showRunningDot ? 7 : 0
             radius: height * 0.5
@@ -304,7 +315,7 @@ Item {
     MouseArea {
         id: mouseArea
         anchors.fill: parent
-        hoverEnabled: false
+        hoverEnabled: true
         acceptedButtons: Qt.LeftButton
         preventStealing: true
         property real pressX: 0
@@ -460,6 +471,7 @@ Item {
     HoverHandler {
         id: iconHover
         acceptedDevices: PointerDevice.Mouse
+        enabled: false
     }
 
     function playBounce(mode) {
