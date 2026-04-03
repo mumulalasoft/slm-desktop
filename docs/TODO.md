@@ -534,11 +534,11 @@ Rule 5: SystemModalLayer bypass semua state
   - light bg `rgba(255,255,255,0.7)`
   - dark bg `rgba(30,30,30,0.7)`
   - blur + subtle shadow + elevation layering
-- [ ] Lock animation spec:
+- [x] Lock animation spec:
   - banner entry: slide-right-to-left + fade
   - banner exit: fade + slight shrink
   - center panel: slide-in right `300ms` + dim overlay
-  - motion uses spring curves (no linear feel)
+  - motion uses non-linear easing curves (no linear feel)
 - [x] Implement interaction model:
   - mouse: hover pause, click default action, drag/swipe dismiss
   - keyboard: `Super+N` toggle center, arrows navigate, `Enter` open, `Delete` dismiss

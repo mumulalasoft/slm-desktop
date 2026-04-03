@@ -35,7 +35,7 @@ Item {
         opacity: root.open ? 1 : 0
         Behavior on opacity {
             enabled: Theme.animationsEnabled
-            NumberAnimation { duration: Theme.durationNormal; easing.type: Theme.easingDefault }
+            NumberAnimation { duration: Theme.notificationCenterDimDuration; easing.type: Theme.easingDefault }
         }
 
         MouseArea {
@@ -57,12 +57,7 @@ Item {
 
         Behavior on x {
             enabled: Theme.animationsEnabled
-            SpringAnimation {
-                spring: Theme.physicsSpringGentle
-                damping: Theme.physicsDampingGentle
-                mass: Theme.physicsMassGentle
-                epsilon: Theme.physicsEpsilon
-            }
+            NumberAnimation { duration: Theme.notificationCenterSlideDuration; easing.type: Theme.easingDecelerate }
         }
 
         ColumnLayout {

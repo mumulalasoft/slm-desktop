@@ -40,15 +40,35 @@ Item {
                     property: "opacity"
                     from: 0
                     to: 1
-                    duration: Theme.durationNormal
+                    duration: Theme.notificationBannerEnterDuration
                     easing.type: Theme.easingDefault
                 }
                 NumberAnimation {
                     property: "x"
-                    from: 56
+                    from: Theme.notificationBannerEntryOffset
                     to: 0
-                    duration: Theme.durationSlow
+                    duration: Theme.notificationBannerEnterDuration
                     easing.type: Theme.easingDecelerate
+                }
+            }
+        }
+
+        remove: Transition {
+            enabled: root.microAnimationAllowed()
+            ParallelAnimation {
+                NumberAnimation {
+                    property: "opacity"
+                    from: 1
+                    to: 0
+                    duration: Theme.notificationBannerExitDuration
+                    easing.type: Theme.easingDefault
+                }
+                NumberAnimation {
+                    property: "scale"
+                    from: 1
+                    to: Theme.notificationBannerExitScale
+                    duration: Theme.notificationBannerExitDuration
+                    easing.type: Theme.easingDefault
                 }
             }
         }
@@ -74,20 +94,15 @@ Item {
             visible: index < root.maxVisible && !!banner && !pendingDismiss
                      && (!root.doNotDisturb || sticky)
             opacity: pendingDismiss ? 0 : 1
-            scale: pendingDismiss ? 0.96 : 1.0
-            x: pendingDismiss ? width : 0
+            scale: pendingDismiss ? Theme.notificationBannerExitScale : 1.0
 
             Behavior on opacity {
                 enabled: root.microAnimationAllowed()
-                NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault }
+                NumberAnimation { duration: Theme.notificationBannerExitDuration; easing.type: Theme.easingDefault }
             }
             Behavior on scale {
                 enabled: root.microAnimationAllowed()
-                NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault }
-            }
-            Behavior on x {
-                enabled: root.microAnimationAllowed()
-                NumberAnimation { duration: Theme.durationNormal; easing.type: Theme.easingDefault }
+                NumberAnimation { duration: Theme.notificationBannerExitDuration; easing.type: Theme.easingDefault }
             }
 
             Timer {
@@ -108,7 +123,7 @@ Item {
 
             Timer {
                 id: dismissFinalize
-                interval: root.microAnimationAllowed() ? Theme.durationNormal : 1
+                interval: root.microAnimationAllowed() ? Theme.notificationBannerExitDuration : 1
                 repeat: false
                 onTriggered: root.dismissRequested(rowItem.notificationId)
             }
