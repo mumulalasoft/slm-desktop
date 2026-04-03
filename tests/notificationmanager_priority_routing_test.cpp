@@ -87,6 +87,30 @@ private slots:
         QVERIFY(manager.latestNotification().isEmpty());
     }
 
+    void enablingDnd_clearsActiveBannersButKeepsCenterHistory()
+    {
+        NotificationManager manager;
+        auto *all = qobject_cast<NotificationListModel *>(manager.notifications());
+        auto *banners = qobject_cast<NotificationListModel *>(manager.bannerNotifications());
+        QVERIFY(all);
+        QVERIFY(banners);
+
+        const uint normalId = manager.NotifyModern(QStringLiteral("org.test.normal"),
+                                                   QStringLiteral("Normal"),
+                                                   QStringLiteral("Body"),
+                                                   QString(),
+                                                   {},
+                                                   QStringLiteral("normal"));
+        QVERIFY(normalId > 0);
+        QCOMPARE(all->rowCount(), 1);
+        QCOMPARE(banners->rowCount(), 1);
+
+        manager.setDoNotDisturb(true);
+        QVERIFY(manager.doNotDisturb());
+        QCOMPARE(all->rowCount(), 1);
+        QCOMPARE(banners->rowCount(), 0);
+    }
+
     void invalidPriority_normalizedToNormal()
     {
         NotificationManager manager;

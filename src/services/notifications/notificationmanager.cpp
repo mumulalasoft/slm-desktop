@@ -257,6 +257,9 @@ void NotificationManager::setDoNotDisturb(bool enabled)
         return;
     }
     m_doNotDisturb = enabled;
+    if (m_doNotDisturb && m_bannerModel) {
+        m_bannerModel->clear();
+    }
     emit doNotDisturbChanged();
 }
 
