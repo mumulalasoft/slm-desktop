@@ -48,7 +48,7 @@ Item {
             Layout.fillHeight: true
             color: Theme.color("surface")
             border.color: Theme.color("panelBorder")
-            border.width: 1
+            border.width: Theme.borderWidthThin
 
             ListView {
                 id: navList
@@ -65,7 +65,7 @@ Item {
                     highlighted: root.currentIndex === index
 
                     background: Rectangle {
-                        radius: 6
+                        radius: Theme.radiusMd
                         color: highlighted
                             ? Theme.color("accent")
                             : (parent.hovered ? Theme.color("controlBgHover") : "transparent")
@@ -137,8 +137,8 @@ Item {
                                     delegate: Button {
                                         required property var modelData
                                         text: modelData.label
-                                        highlighted: UIPreferences.themeMode === modelData.key
-                                        onClicked: UIPreferences.setThemeMode(modelData.key)
+                                        highlighted: DesktopSettings.themeMode === modelData.key
+                                        onClicked: DesktopSettings.setThemeMode(modelData.key)
                                     }
                                 }
                             }
@@ -154,15 +154,150 @@ Item {
                                     model: root.accentPresets
                                     delegate: Rectangle {
                                         required property string modelData
-                                        width: 26; height: 26; radius: 13
+                                        width: 26; height: 26; radius: width / 2
                                         color: modelData
-                                        border.color: UIPreferences.accentColor === modelData
+                                        border.color: DesktopSettings.accentColor === modelData
                                             ? Theme.color("textPrimary") : "transparent"
-                                        border.width: 2
+                                        border.width: Theme.borderWidthThick
                                         MouseArea {
                                             anchors.fill: parent
-                                            onClicked: UIPreferences.setAccentColor(modelData)
+                                            onClicked: DesktopSettings.setAccentColor(modelData)
                                         }
+                                    }
+                                }
+                            }
+                        }
+
+                        SettingCard {
+                            label: qsTr("Adaptive UI Automation")
+                            description: qsTr("Allow context-aware performance tuning based on power and system load.")
+                            Layout.fillWidth: true
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 8
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 10
+                                    Label {
+                                        Layout.fillWidth: true
+                                        text: qsTr("Auto reduce animations")
+                                        color: Theme.color("textPrimary")
+                                        font.pixelSize: Theme.fontSize("small")
+                                    }
+                                    SettingToggle {
+                                        checked: DesktopSettings.contextAutoReduceAnimation
+                                        onToggled: DesktopSettings.setContextAutoReduceAnimation(checked)
+                                    }
+                                }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 10
+                                    Label {
+                                        Layout.fillWidth: true
+                                        text: qsTr("Auto disable blur")
+                                        color: Theme.color("textPrimary")
+                                        font.pixelSize: Theme.fontSize("small")
+                                    }
+                                    SettingToggle {
+                                        checked: DesktopSettings.contextAutoDisableBlur
+                                        onToggled: DesktopSettings.setContextAutoDisableBlur(checked)
+                                    }
+                                }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 10
+                                    Label {
+                                        Layout.fillWidth: true
+                                        text: qsTr("Auto disable heavy effects")
+                                        color: Theme.color("textPrimary")
+                                        font.pixelSize: Theme.fontSize("small")
+                                    }
+                                    SettingToggle {
+                                        checked: DesktopSettings.contextAutoDisableHeavyEffects
+                                        onToggled: DesktopSettings.setContextAutoDisableHeavyEffects(checked)
+                                    }
+                                }
+
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    Layout.topMargin: 2
+                                    height: Theme.borderWidthThin
+                                    color: Theme.color("panelBorder")
+                                }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 10
+                                    Label {
+                                        Layout.fillWidth: true
+                                        text: qsTr("Time period source")
+                                        color: Theme.color("textPrimary")
+                                        font.pixelSize: Theme.fontSize("small")
+                                    }
+                                    ComboBox {
+                                        id: contextTimeModeCombo
+                                        Layout.preferredWidth: 160
+                                        textRole: "label"
+                                        model: [
+                                            { key: "local", label: qsTr("Local Time") },
+                                            { key: "sun", label: qsTr("Sunrise/Sunset") }
+                                        ]
+                                        currentIndex: DesktopSettings.contextTimeMode === "sun" ? 1 : 0
+                                        onActivated: {
+                                            const entry = model[currentIndex]
+                                            if (entry && entry.key) {
+                                                DesktopSettings.setContextTimeMode(entry.key)
+                                            }
+                                        }
+                                    }
+                                }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 10
+                                    enabled: DesktopSettings.contextTimeMode === "sun"
+                                    opacity: enabled ? 1.0 : Theme.opacityHint
+
+                                    Label {
+                                        Layout.fillWidth: true
+                                        text: qsTr("Sunrise hour")
+                                        color: Theme.color("textPrimary")
+                                        font.pixelSize: Theme.fontSize("small")
+                                    }
+                                    SpinBox {
+                                        id: sunriseHourSpin
+                                        from: 0
+                                        to: 23
+                                        editable: true
+                                        value: DesktopSettings.contextTimeSunriseHour
+                                        Layout.preferredWidth: 100
+                                        onValueModified: DesktopSettings.setContextTimeSunriseHour(value)
+                                    }
+                                }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 10
+                                    enabled: DesktopSettings.contextTimeMode === "sun"
+                                    opacity: enabled ? 1.0 : Theme.opacityHint
+
+                                    Label {
+                                        Layout.fillWidth: true
+                                        text: qsTr("Sunset hour")
+                                        color: Theme.color("textPrimary")
+                                        font.pixelSize: Theme.fontSize("small")
+                                    }
+                                    SpinBox {
+                                        id: sunsetHourSpin
+                                        from: 0
+                                        to: 23
+                                        editable: true
+                                        value: DesktopSettings.contextTimeSunsetHour
+                                        Layout.preferredWidth: 100
+                                        onValueModified: DesktopSettings.setContextTimeSunsetHour(value)
                                     }
                                 }
                             }
@@ -284,12 +419,12 @@ Item {
                                 spacing: 12
                                 Slider {
                                     from: 0.8; to: 1.5; stepSize: 0.05
-                                    value: UIPreferences.fontScale
+                                    value: DesktopSettings.fontScale
                                     Layout.preferredWidth: 180
-                                    onMoved: UIPreferences.setFontScale(value)
+                                    onMoved: DesktopSettings.setFontScale(value)
                                 }
                                 Text {
-                                    text: Math.round(UIPreferences.fontScale * 100) + "%"
+                                    text: Math.round(DesktopSettings.fontScale * 100) + "%"
                                     font.pixelSize: Theme.fontSize("small")
                                     color: Theme.color("textSecondary")
                                     Layout.preferredWidth: 40
@@ -332,11 +467,11 @@ Item {
                             Layout.fillWidth: true
                             ComboBox {
                                 model: root.themeModel(ThemeManager.gtkThemes)
-                                currentIndex: root.themeIndex(ThemeManager.gtkThemes, ThemeManager.gtkThemeLight)
+                                currentIndex: root.themeIndex(ThemeManager.gtkThemes, DesktopSettings.gtkThemeLight)
                                 Layout.preferredWidth: 220
                                 onActivated: {
                                     const name = currentIndex === 0 ? "" : ThemeManager.gtkThemes[currentIndex - 1]
-                                    ThemeManager.setGtkThemeLight(name)
+                                    DesktopSettings.setGtkThemeLight(name)
                                 }
                             }
                         }
@@ -347,11 +482,11 @@ Item {
                             Layout.fillWidth: true
                             ComboBox {
                                 model: root.themeModel(ThemeManager.gtkThemes)
-                                currentIndex: root.themeIndex(ThemeManager.gtkThemes, ThemeManager.gtkThemeDark)
+                                currentIndex: root.themeIndex(ThemeManager.gtkThemes, DesktopSettings.gtkThemeDark)
                                 Layout.preferredWidth: 220
                                 onActivated: {
                                     const name = currentIndex === 0 ? "" : ThemeManager.gtkThemes[currentIndex - 1]
-                                    ThemeManager.setGtkThemeDark(name)
+                                    DesktopSettings.setGtkThemeDark(name)
                                 }
                             }
                         }
@@ -362,11 +497,11 @@ Item {
                             Layout.fillWidth: true
                             ComboBox {
                                 model: root.themeModel(ThemeManager.kdeColorSchemes)
-                                currentIndex: root.themeIndex(ThemeManager.kdeColorSchemes, ThemeManager.kdeColorSchemeLight)
+                                currentIndex: root.themeIndex(ThemeManager.kdeColorSchemes, DesktopSettings.kdeColorSchemeLight)
                                 Layout.preferredWidth: 220
                                 onActivated: {
                                     const name = currentIndex === 0 ? "" : ThemeManager.kdeColorSchemes[currentIndex - 1]
-                                    ThemeManager.setKdeColorSchemeLight(name)
+                                    DesktopSettings.setKdeColorSchemeLight(name)
                                 }
                             }
                         }
@@ -377,11 +512,11 @@ Item {
                             Layout.fillWidth: true
                             ComboBox {
                                 model: root.themeModel(ThemeManager.kdeColorSchemes)
-                                currentIndex: root.themeIndex(ThemeManager.kdeColorSchemes, ThemeManager.kdeColorSchemeDark)
+                                currentIndex: root.themeIndex(ThemeManager.kdeColorSchemes, DesktopSettings.kdeColorSchemeDark)
                                 Layout.preferredWidth: 220
                                 onActivated: {
                                     const name = currentIndex === 0 ? "" : ThemeManager.kdeColorSchemes[currentIndex - 1]
-                                    ThemeManager.setKdeColorSchemeDark(name)
+                                    DesktopSettings.setKdeColorSchemeDark(name)
                                 }
                             }
                         }
@@ -420,11 +555,11 @@ Item {
                             Layout.fillWidth: true
                             ComboBox {
                                 model: root.themeModel(ThemeManager.iconThemes)
-                                currentIndex: root.themeIndex(ThemeManager.iconThemes, ThemeManager.gtkIconThemeLight)
+                                currentIndex: root.themeIndex(ThemeManager.iconThemes, DesktopSettings.gtkIconThemeLight)
                                 Layout.preferredWidth: 220
                                 onActivated: {
                                     const name = currentIndex === 0 ? "" : ThemeManager.iconThemes[currentIndex - 1]
-                                    ThemeManager.setGtkIconThemeLight(name)
+                                    DesktopSettings.setGtkIconThemeLight(name)
                                 }
                             }
                         }
@@ -435,11 +570,11 @@ Item {
                             Layout.fillWidth: true
                             ComboBox {
                                 model: root.themeModel(ThemeManager.iconThemes)
-                                currentIndex: root.themeIndex(ThemeManager.iconThemes, ThemeManager.gtkIconThemeDark)
+                                currentIndex: root.themeIndex(ThemeManager.iconThemes, DesktopSettings.gtkIconThemeDark)
                                 Layout.preferredWidth: 220
                                 onActivated: {
                                     const name = currentIndex === 0 ? "" : ThemeManager.iconThemes[currentIndex - 1]
-                                    ThemeManager.setGtkIconThemeDark(name)
+                                    DesktopSettings.setGtkIconThemeDark(name)
                                 }
                             }
                         }
@@ -450,11 +585,11 @@ Item {
                             Layout.fillWidth: true
                             ComboBox {
                                 model: root.themeModel(ThemeManager.iconThemes)
-                                currentIndex: root.themeIndex(ThemeManager.iconThemes, ThemeManager.kdeIconThemeLight)
+                                currentIndex: root.themeIndex(ThemeManager.iconThemes, DesktopSettings.kdeIconThemeLight)
                                 Layout.preferredWidth: 220
                                 onActivated: {
                                     const name = currentIndex === 0 ? "" : ThemeManager.iconThemes[currentIndex - 1]
-                                    ThemeManager.setKdeIconThemeLight(name)
+                                    DesktopSettings.setKdeIconThemeLight(name)
                                 }
                             }
                         }
@@ -465,11 +600,11 @@ Item {
                             Layout.fillWidth: true
                             ComboBox {
                                 model: root.themeModel(ThemeManager.iconThemes)
-                                currentIndex: root.themeIndex(ThemeManager.iconThemes, ThemeManager.kdeIconThemeDark)
+                                currentIndex: root.themeIndex(ThemeManager.iconThemes, DesktopSettings.kdeIconThemeDark)
                                 Layout.preferredWidth: 220
                                 onActivated: {
                                     const name = currentIndex === 0 ? "" : ThemeManager.iconThemes[currentIndex - 1]
-                                    ThemeManager.setKdeIconThemeDark(name)
+                                    DesktopSettings.setKdeIconThemeDark(name)
                                 }
                             }
                         }

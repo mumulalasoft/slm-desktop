@@ -1942,7 +1942,12 @@ Progress implementasi (awal):
   - DBus service: `org.desktop.Context`
   - methods: `GetContext`, `Subscribe`, `Ping`
   - signals: `ContextChanged`, `PowerStateChanged`, `TimePeriodChanged`, `ActivityChanged`, `PerformanceChanged`
+  - compatibility alias signal ditambahkan: `PowerChanged` (canonical baru) tetap berdampingan dengan `PowerStateChanged` (legacy)
   - normalized context baseline termasuk `time/power/device/display/activity/system/network/attention`
+  - `time` sensor kini dukung policy SSOT `contextTime`:
+    - `mode=local|sun`
+    - `sunriseHour` / `sunsetHour`
+    - fallback aman ke local-hour jika konfigurasi tidak valid
   - periodic refresh + diff-based emit (anti-spam dasar)
 - [~] Basic rule engine Phase 1 sudah ditambahkan:
   - `src/services/context/ruleengine.{h,cpp}`
@@ -1962,6 +1967,13 @@ Progress implementasi (awal):
   - `tests/contextservice_dbus_test.cpp` ditambahkan untuk kontrak `Ping/GetContext/Subscribe` + guard `auto/manual`.
   - Target `contextservice_dbus_test` sudah terintegrasi ke `CMakeLists.txt`.
   - Verifikasi: `ctest -R contextservice_dbus_test` pass.
+  - Guard `contextAutomation.*` tervalidasi untuk state disabled dan enabled (kontrak `rules.guard`).
+  - Signal granularity power tervalidasi via `QSignalSpy`:
+    - power diff emit `PowerChanged` + `PowerStateChanged`
+    - context semantik identik tidak emit ulang.
+  - `tests/contextclient_test.cpp` ditambahkan untuk kompatibilitas consumer:
+    - `ContextClient` menerima `PowerChanged` (baru) dan `PowerStateChanged` (legacy).
+    - stale-guard tervalidasi (payload power identik tidak memicu refresh ganda).
   - Catatan: di environment headless tanpa session bus test dapat `SKIP` (expected).
 - [~] Fullscreen context sensor baseline:
   - `display.fullscreen` kini membaca state aktif via DBus KWin (`org.kde.KWin` -> `activeWindow` -> `org.kde.KWin.Window.fullScreen`).
@@ -1997,6 +2009,7 @@ Progress implementasi (awal):
 - [~] Shell runtime adapter baseline (context -> motion):
   - Refactor ke event-driven:
     - tambahkan `src/services/context/contextclient.{h,cpp}` (subscribe `org.desktop.Context.ContextChanged` + owner watch).
+    - compatibility update: `ContextClient` juga subscribe `PowerChanged` + `PowerStateChanged` (legacy) dengan stale-check refresh guard.
     - `main.cpp` kini konsumsi `ContextClient.reduceAnimation` langsung (tanpa polling timer periodik).
   - Rule `ui.reduceAnimation` terintegrasi ke `MotionController.setReducedMotion(...)`.
   - Guardrail dipertahankan: preferensi user tetap prioritas (`animationMode=full` tidak dipaksa reduce oleh context).
@@ -2011,6 +2024,20 @@ Progress implementasi (awal):
     - `ui.disableBlur`
     - `ui.disableHeavyEffects`
   - `DesktopSettingsClient` + `AppearancePage` sudah expose toggle runtime untuk ketiga gate.
+  - `DesktopSettingsClient` kini expose `contextTime` binding:
+    - `contextTimeMode`
+    - `contextTimeSunriseHour`
+    - `contextTimeSunsetHour`
+  - `AppearancePage` sudah menampilkan kontrol `contextTime`:
+    - source mode `Local Time` / `Sunrise-Sunset`
+    - editor jam `sunriseHour` / `sunsetHour` (aktif saat mode `sun`)
+  - `tests/desktopsettingsclient_test.cpp` ditambahkan:
+    - verifikasi load initial `contextTime`
+    - verifikasi setter `contextTime` lewat DBus
+    - verifikasi live update `SettingChanged` ke binding client
+  - `tests/appearance_contexttime_ui_contract_test.cpp` ditambahkan:
+    - kontrak UI `AppearancePage` untuk kontrol source `Local/Sunrise-Sunset`
+    - kontrak enable/disable editor sunrise/sunset berdasarkan `contextTimeMode`
 - [~] Shell adaptive effects integration baseline:
   - `ContextClient` expose `disableBlur`, `disableHeavyEffects`, dan `context` snapshot map.
   - Runtime integration aktif pada:

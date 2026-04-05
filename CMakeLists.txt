@@ -2626,6 +2626,7 @@ qt_add_executable(contextservice_dbus_test
 )
 
 target_include_directories(contextservice_dbus_test PRIVATE ${CMAKE_SOURCE_DIR})
+target_compile_definitions(contextservice_dbus_test PRIVATE SLM_CONTEXT_TEST_HOOKS)
 
 target_link_libraries(contextservice_dbus_test
     PRIVATE
@@ -2635,6 +2636,57 @@ target_link_libraries(contextservice_dbus_test
 )
 
 add_test(NAME contextservice_dbus_test COMMAND $<TARGET_FILE:contextservice_dbus_test>)
+
+qt_add_executable(contextclient_test
+    src/services/context/contextclient.cpp
+    src/services/context/contextclient.h
+    tests/contextclient_test.cpp
+)
+
+target_include_directories(contextclient_test PRIVATE ${CMAKE_SOURCE_DIR})
+
+target_link_libraries(contextclient_test
+    PRIVATE
+        Qt6::Core
+        Qt6::DBus
+        Qt6::Test
+)
+
+add_test(NAME contextclient_test COMMAND $<TARGET_FILE:contextclient_test>)
+
+qt_add_executable(desktopsettingsclient_test
+    src/apps/settings/desktopsettingsclient.cpp
+    src/apps/settings/desktopsettingsclient.h
+    src/core/prefs/uipreferences.cpp
+    src/core/prefs/uipreferences.h
+    tests/desktopsettingsclient_test.cpp
+)
+
+target_include_directories(desktopsettingsclient_test PRIVATE ${CMAKE_SOURCE_DIR})
+
+target_link_libraries(desktopsettingsclient_test
+    PRIVATE
+        Qt6::Core
+        Qt6::DBus
+        Qt6::Test
+        Qt6::Gui
+)
+
+add_test(NAME desktopsettingsclient_test COMMAND $<TARGET_FILE:desktopsettingsclient_test>)
+
+qt_add_executable(appearance_contexttime_ui_contract_test
+    tests/appearance_contexttime_ui_contract_test.cpp
+)
+
+target_include_directories(appearance_contexttime_ui_contract_test PRIVATE ${CMAKE_SOURCE_DIR})
+
+target_link_libraries(appearance_contexttime_ui_contract_test
+    PRIVATE
+        Qt6::Core
+        Qt6::Test
+)
+
+add_test(NAME appearance_contexttime_ui_contract_test COMMAND appearance_contexttime_ui_contract_test)
 
 qt_add_executable(appthemeclassifier_test
     src/services/theme-policy/appthemeclassifier.cpp
