@@ -296,6 +296,8 @@ qt_add_executable(slm-settings
     src/apps/settings/modules/applications/startupappscontroller.h
     src/apps/settings/thememanager.cpp
     src/apps/settings/thememanager.h
+    src/apps/settings/desktopsettingsclient.cpp
+    src/apps/settings/desktopsettingsclient.h
     src/apps/settings/fontmanager.cpp
     src/apps/settings/fontmanager.h
     src/apps/settings/modules/useraccounts/useraccountscontroller.cpp
@@ -364,6 +366,10 @@ qt_add_executable(slm-settings
     src/apps/settings/modules/developer/portalbridgeservice.h
     src/apps/settings/modules/developer/xdgportalscontroller.cpp
     src/apps/settings/modules/developer/xdgportalscontroller.h
+    src/apps/settings/modules/developer/pathmanagercontroller.cpp
+    src/apps/settings/modules/developer/pathmanagercontroller.h
+    src/services/context/contextclient.cpp
+    src/services/context/contextclient.h
     src/apps/settings/modules/developer/componenthealthcontroller.cpp
     src/apps/settings/modules/developer/componenthealthcontroller.h
     src/apps/settings/modules/developer/daemonhealthclient.cpp
@@ -524,6 +530,14 @@ qt_add_executable(slm-envd-helper
     src/apps/settings/modules/developer/localenvstore.h
 )
 
+qt_add_executable(slm-settingsd
+    ${SLM_SETTINGSD_SOURCES}
+)
+
+qt_add_executable(desktop-contextd
+    ${SLM_CONTEXTD_SOURCES}
+)
+
 qt_add_executable(slm-secretd
     src/daemon/secretd/secretd_main.cpp
     src/services/secret/secretservice.cpp
@@ -623,6 +637,7 @@ target_link_libraries(slm-devicesd
         Qt6::Core
         Qt6::DBus
         Qt6::Sql
+        PkgConfig::GIO
 )
 target_include_directories(slm-devicesd PRIVATE ${CMAKE_SOURCE_DIR})
 
@@ -659,6 +674,13 @@ target_link_libraries(slm-envd-helper
         Qt6::DBus
 )
 target_include_directories(slm-envd-helper PRIVATE ${CMAKE_SOURCE_DIR})
+
+target_link_libraries(slm-settingsd
+    PRIVATE
+        Qt6::Core
+        Qt6::DBus
+)
+target_include_directories(slm-settingsd PRIVATE ${CMAKE_SOURCE_DIR})
 
 target_link_libraries(slm-secretd
     PRIVATE
@@ -812,6 +834,7 @@ set(DESKTOP_SHELL_QML_FILES
     Qml/components/indicators/IndicatorMenu.qml
 
     Qml/components/style/WindowControlsCapsule.qml
+    Qml/components/style/StyleGallery.qml
     Qml/components/shell/Shell.qml
     Qml/components/screenshot/ScreenshotSaveDialog.qml
     Qml/components/screenshot/ScreenshotOverwriteDialog.qml
@@ -860,6 +883,7 @@ set(DESKTOP_SHELL_QML_FILES
     Qml/components/shell/ShellShortcutTile.qml
     Qml/components/shell/ShellSelectionRect.qml
     Qml/components/shell/ShellDragGhost.qml
+    Qml/components/shell/GlobalShortcutManager.qml
     Qml/apps/filemanager/FileManagerSidebar.qml
     Qml/apps/filemanager/FileManagerSidebarPane.qml
     Qml/apps/filemanager/FileManagerTabBar.qml
@@ -881,6 +905,7 @@ set(DESKTOP_SHELL_QML_FILES
     Qml/apps/filemanager/FileManagerPropertiesDialogContent.qml
     Qml/apps/filemanager/FileManagerCompressDialog.qml
     Qml/apps/filemanager/FileManagerOpenWithDialog.qml
+    Qml/apps/filemanager/FileManagerStorageVolumeSelectorDialog.qml
     Qml/apps/filemanager/FileManagerFolderShareDialog.qml
     Qml/apps/filemanager/FileManagerRenameSheet.qml
     Qml/apps/filemanager/FileManagerDragGhost.qml
@@ -1055,6 +1080,7 @@ add_custom_command(TARGET slm-desktop POST_BUILD
 target_link_libraries(uipreference
     PRIVATE
         Qt6::Core
+        Qt6::DBus
 )
 
 target_link_libraries(indicatorctl
@@ -1073,6 +1099,11 @@ target_link_libraries(slm-settings
         Qt6::QuickLayouts
         Qt6::DBus
         PkgConfig::GIO
+)
+target_link_libraries(desktop-contextd
+    PRIVATE
+        Qt6::Core
+        Qt6::DBus
 )
 target_compile_definitions(slm-settings PRIVATE
     SLM_SHELL_VERSION="0.1.0-dev"
@@ -1182,6 +1213,10 @@ install(TARGETS slm-portald
 )
 
 install(TARGETS slm-envd
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
+install(TARGETS slm-settingsd
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
@@ -2013,10 +2048,16 @@ target_include_directories(workspace_e2e_smoke_test PRIVATE ${CMAKE_SOURCE_DIR})
 add_test(NAME workspace_e2e_smoke_test COMMAND workspace_e2e_smoke_test)
 
 qt_add_executable(devicectl_smoke_test
+    src/services/storage/storagemanager.cpp
+    src/services/storage/storagemanager.h
+    src/services/storage/storagepolicystore.cpp
+    src/services/storage/storagepolicystore.h
     src/daemon/devicesd/devicesmanager.cpp
     src/daemon/devicesd/devicesmanager.h
     src/daemon/devicesd/devicesservice.cpp
     src/daemon/devicesd/devicesservice.h
+    src/daemon/devicesd/storageservice.cpp
+    src/daemon/devicesd/storageservice.h
     ${SLM_PERMISSION_TEST_SOURCES}
     tests/devicectl_smoke_test.cpp
 )
@@ -2029,6 +2070,7 @@ target_link_libraries(devicectl_smoke_test
         Qt6::DBus
         Qt6::Sql
         Qt6::Test
+        PkgConfig::GIO
 )
 
 add_dependencies(devicectl_smoke_test devicectl)
@@ -2120,6 +2162,10 @@ set_tests_properties(statusnotifierhost_test PROPERTIES
 )
 
 qt_add_executable(filemanagerapi_daemon_recovery_test
+    src/services/storage/storagemanager.cpp
+    src/services/storage/storagemanager.h
+    src/services/storage/storagepolicystore.cpp
+    src/services/storage/storagepolicystore.h
     src/apps/filemanager/filemanagerapi.cpp
     src/apps/filemanager/filemanagerapi_open.cpp
     src/apps/filemanager/filemanagerapi_archive.cpp
@@ -2241,6 +2287,10 @@ set_tests_properties(filemanagerapi_daemon_recovery_strict_test PROPERTIES
 )
 
 qt_add_executable(filemanagerapi_fileops_contract_test
+    src/services/storage/storagemanager.cpp
+    src/services/storage/storagemanager.h
+    src/services/storage/storagepolicystore.cpp
+    src/services/storage/storagepolicystore.h
     src/apps/filemanager/filemanagerapi.cpp
     src/apps/filemanager/filemanagerapi_open.cpp
     src/apps/filemanager/filemanagerapi_archive.cpp
@@ -2473,10 +2523,16 @@ target_link_libraries(sessionunlockthrottle_test
 add_test(NAME sessionunlockthrottle_test COMMAND sessionunlockthrottle_test)
 
 qt_add_executable(devicesservice_dbus_test
+    src/services/storage/storagemanager.cpp
+    src/services/storage/storagemanager.h
+    src/services/storage/storagepolicystore.cpp
+    src/services/storage/storagepolicystore.h
     src/daemon/devicesd/devicesmanager.cpp
     src/daemon/devicesd/devicesmanager.h
     src/daemon/devicesd/devicesservice.cpp
     src/daemon/devicesd/devicesservice.h
+    src/daemon/devicesd/storageservice.cpp
+    src/daemon/devicesd/storageservice.h
     ${SLM_PERMISSION_TEST_SOURCES}
     tests/devicesservice_dbus_test.cpp
 )
@@ -2489,9 +2545,130 @@ target_link_libraries(devicesservice_dbus_test
         Qt6::DBus
         Qt6::Sql
         Qt6::Test
+        PkgConfig::GIO
 )
 
 add_test(NAME devicesservice_dbus_test COMMAND devicesservice_dbus_test)
+
+qt_add_executable(storageservice_dbus_test
+    src/services/storage/storagemanager.cpp
+    src/services/storage/storagemanager.h
+    src/services/storage/storagepolicystore.cpp
+    src/services/storage/storagepolicystore.h
+    src/daemon/devicesd/devicesmanager.cpp
+    src/daemon/devicesd/devicesmanager.h
+    src/daemon/devicesd/storageservice.cpp
+    src/daemon/devicesd/storageservice.h
+    ${SLM_PERMISSION_TEST_SOURCES}
+    tests/storageservice_dbus_test.cpp
+)
+
+target_include_directories(storageservice_dbus_test PRIVATE ${CMAKE_SOURCE_DIR})
+
+target_link_libraries(storageservice_dbus_test
+    PRIVATE
+        Qt6::Core
+        Qt6::DBus
+        Qt6::Sql
+        Qt6::Test
+        PkgConfig::GIO
+)
+
+add_test(NAME storageservice_dbus_test COMMAND storageservice_dbus_test)
+
+qt_add_executable(settingsservice_dbus_test
+    src/services/settingsd/settingsstore.cpp
+    src/services/settingsd/settingsstore.h
+    src/services/settingsd/settingsservice.cpp
+    src/services/settingsd/settingsservice.h
+    src/services/theme-policy/appthemeclassifier.cpp
+    src/services/theme-policy/appthemeclassifier.h
+    src/services/theme-policy/themepolicyengine.cpp
+    src/services/theme-policy/themepolicyengine.h
+    tests/settingsservice_dbus_test.cpp
+)
+
+target_include_directories(settingsservice_dbus_test PRIVATE ${CMAKE_SOURCE_DIR})
+
+target_link_libraries(settingsservice_dbus_test
+    PRIVATE
+        Qt6::Core
+        Qt6::DBus
+        Qt6::Test
+)
+
+add_test(NAME settingsservice_dbus_test COMMAND settingsservice_dbus_test)
+
+qt_add_executable(settings_searchengine_context_ranking_test
+    src/apps/settings/moduleloader.cpp
+    src/apps/settings/moduleloader.h
+    src/apps/settings/searchengine.cpp
+    src/apps/settings/searchengine.h
+    tests/settings_searchengine_context_ranking_test.cpp
+)
+
+target_include_directories(settings_searchengine_context_ranking_test PRIVATE ${CMAKE_SOURCE_DIR})
+
+target_link_libraries(settings_searchengine_context_ranking_test
+    PRIVATE
+        Qt6::Core
+        Qt6::Test
+)
+
+add_test(NAME settings_searchengine_context_ranking_test COMMAND settings_searchengine_context_ranking_test)
+
+qt_add_executable(contextservice_dbus_test
+    src/services/context/contextservice.cpp
+    src/services/context/contextservice.h
+    src/services/context/ruleengine.cpp
+    src/services/context/ruleengine.h
+    tests/contextservice_dbus_test.cpp
+)
+
+target_include_directories(contextservice_dbus_test PRIVATE ${CMAKE_SOURCE_DIR})
+
+target_link_libraries(contextservice_dbus_test
+    PRIVATE
+        Qt6::Core
+        Qt6::DBus
+        Qt6::Test
+)
+
+add_test(NAME contextservice_dbus_test COMMAND $<TARGET_FILE:contextservice_dbus_test>)
+
+qt_add_executable(appthemeclassifier_test
+    src/services/theme-policy/appthemeclassifier.cpp
+    src/services/theme-policy/appthemeclassifier.h
+    tests/appthemeclassifier_test.cpp
+)
+
+target_include_directories(appthemeclassifier_test PRIVATE ${CMAKE_SOURCE_DIR})
+
+target_link_libraries(appthemeclassifier_test
+    PRIVATE
+        Qt6::Core
+        Qt6::Test
+)
+
+add_test(NAME appthemeclassifier_test COMMAND appthemeclassifier_test)
+
+qt_add_executable(themepolicyengine_test
+    src/services/theme-policy/appthemeclassifier.cpp
+    src/services/theme-policy/appthemeclassifier.h
+    src/services/theme-policy/themepolicyengine.cpp
+    src/services/theme-policy/themepolicyengine.h
+    tests/themepolicyengine_test.cpp
+)
+
+target_include_directories(themepolicyengine_test PRIVATE ${CMAKE_SOURCE_DIR})
+
+target_link_libraries(themepolicyengine_test
+    PRIVATE
+        Qt6::Core
+        Qt6::Test
+)
+
+add_test(NAME themepolicyengine_test COMMAND themepolicyengine_test)
 
 qt_add_executable(foldersharingservice_dbus_test
     src/daemon/desktopd/foldersharingservice.cpp

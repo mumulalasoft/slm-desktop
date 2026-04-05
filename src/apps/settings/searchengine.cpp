@@ -15,6 +15,72 @@ QString groupForModule(const QVariantMap &module)
     }
     return QStringLiteral("General");
 }
+
+int rawScoreMatch(const QString &query, const QString &text)
+{
+    const QString q = query.toLower().simplified();
+    const QString t = text.toLower().simplified();
+    if (q.isEmpty() || t.isEmpty()) {
+        return 0;
+    }
+    if (t == q) {
+        return 150;
+    }
+    if (t.startsWith(q)) {
+        return 110;
+    }
+    if (t.contains(q)) {
+        return 80;
+    }
+
+    int qi = 0;
+    int chain = 0;
+    int bonus = 0;
+    for (int i = 0; i < t.size() && qi < q.size(); ++i) {
+        if (t.at(i) == q.at(qi)) {
+            ++qi;
+            ++chain;
+            bonus += 3 + chain;
+        } else {
+            chain = 0;
+        }
+    }
+    if (qi == q.size()) {
+        return 35 + bonus;
+    }
+    return 0;
+}
+
+QStringList queryTerms(const QString &query)
+{
+    return query.simplified().split(QLatin1Char(' '), Qt::SkipEmptyParts);
+}
+
+int scoreFieldTokens(const QStringList &terms, const QString &text)
+{
+    if (terms.isEmpty() || text.isEmpty()) {
+        return 0;
+    }
+
+    int total = 0;
+    for (const QString &term : terms) {
+        total += rawScoreMatch(term, text);
+    }
+    return total;
+}
+
+int scoreKeywordList(const QStringList &terms, const QStringList &keywords)
+{
+    if (terms.isEmpty() || keywords.isEmpty()) {
+        return 0;
+    }
+
+    int best = 0;
+    for (const QString &kw : keywords) {
+        best = std::max(best, scoreFieldTokens(terms, kw));
+    }
+    return best;
+}
 }
 
 SearchEngine::SearchEngine(ModuleLoader *loader, QObject *parent)
@@ -46,6 +112,7 @@ QVariantList SearchEngine::queryInternal(const QString &text, int limit) const
     if (query.isEmpty()) {
         return out;
     }
+    const QStringList terms = queryTerms(query);
 
     const QVariantList modules = m_loader->modules();
     for (const QVariant &modVar : modules) {
@@ -56,10 +123,11 @@ QVariantList SearchEngine::queryInternal(const QString &text, int limit) const
         const QString icon = mod.value("icon").toString();
         const QStringList keywords = mod.value("keywords").toStringList();
 
-        int moduleScore = scoreMatch(query, moduleName) + scoreMatch(query, group) / 2;
-        for (const QString &kw : keywords) {
-            moduleScore += scoreMatch(query, kw) / 2;
-        }
+        int moduleScore = 0;
+        moduleScore += scoreMatch(query, moduleName);
+        moduleScore += scoreFieldTokens(terms, moduleName) * 2;
+        moduleScore += scoreFieldTokens(terms, group);
+        moduleScore += scoreKeywordList(terms, keywords);
 
         if (moduleScore > 0) {
             QVariantMap entry;
@@ -85,10 +153,12 @@ QVariantList SearchEngine::queryInternal(const QString &text, int limit) const
 
             int settingScore = 0;
             settingScore += scoreMatch(query, label) * 2;
+            settingScore += scoreFieldTokens(terms, label) * 3;
+            settingScore += scoreFieldTokens(terms, description);
+            settingScore += scoreKeywordList(terms, settingKeywords) * 2;
+            settingScore += scoreFieldTokens(terms, settingId) * 2;
+            settingScore += scoreFieldTokens(terms, moduleName);
             settingScore += scoreMatch(query, description);
-            for (const QString &kw : settingKeywords) {
-                settingScore += scoreMatch(query, kw);
-            }
             settingScore += scoreMatch(query, moduleName) / 2;
 
             if (settingScore <= 0) {
@@ -119,37 +189,7 @@ QVariantList SearchEngine::queryInternal(const QString &text, int limit) const
 
 int SearchEngine::scoreMatch(const QString &query, const QString &text)
 {
-    const QString q = norm(query);
-    const QString t = norm(text);
-    if (q.isEmpty() || t.isEmpty()) {
-        return 0;
-    }
-    if (t == q) {
-        return 150;
-    }
-    if (t.startsWith(q)) {
-        return 110;
-    }
-    if (t.contains(q)) {
-        return 80;
-    }
-    // Subsequence fuzzy score.
-    int qi = 0;
-    int chain = 0;
-    int bonus = 0;
-    for (int i = 0; i < t.size() && qi < q.size(); ++i) {
-        if (t.at(i) == q.at(qi)) {
-            ++qi;
-            ++chain;
-            bonus += 3 + chain;
-        } else {
-            chain = 0;
-        }
-    }
-    if (qi == q.size()) {
-        return 35 + bonus;
-    }
-    return 0;
+    return rawScoreMatch(query, text);
 }
 
 QString SearchEngine::norm(const QString &v)

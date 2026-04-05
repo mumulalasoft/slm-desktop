@@ -8,10 +8,42 @@
     "main": "DeveloperPage.qml",
     "settings": [
         {
+            "id": "context-debug",
+            "label": "Context Debug",
+            "description": "Inspect live normalized context, sensor source, and resolved adaptive actions",
+            "keywords": ["context", "adaptive", "automation", "power", "fullscreen", "performance", "sensor source", "adaptive actions", "normalized context"],
+            "type": "action",
+            "backend_binding": ""
+        },
+        {
+            "id": "context-debug-runtime",
+            "label": "Context Runtime State",
+            "description": "Inspect context service status, sensor source summary, and resolved runtime actions",
+            "keywords": ["context", "runtime", "sensor", "actions", "adaptive", "service status", "sensor source", "resolved actions"],
+            "type": "action",
+            "backend_binding": ""
+        },
+        {
+            "id": "context-debug-raw",
+            "label": "Context Raw JSON",
+            "description": "Inspect full normalized context payload for debugging and integration checks",
+            "keywords": ["context", "json", "raw", "debug", "dbus", "raw context json", "payload", "integration checks"],
+            "type": "action",
+            "backend_binding": ""
+        },
+        {
             "id": "env-variables",
             "label": "Environment Variables",
             "description": "Manage session, user, and system environment variables",
             "keywords": ["env", "environment", "variables", "PATH", "shell", "terminal"],
+            "type": "action",
+            "backend_binding": ""
+        },
+        {
+            "id": "path-manager",
+            "label": "PATH Manager",
+            "description": "Manage executable search paths with validation, preview, and command resolution",
+            "keywords": ["path", "environment", "developer", "executable", "flutter", "sdk"],
             "type": "action",
             "backend_binding": ""
         },
