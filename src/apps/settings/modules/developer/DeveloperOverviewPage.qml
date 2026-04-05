@@ -42,7 +42,7 @@ Flickable {
         Text {
             text: qsTr("Developer Overview")
             font.pixelSize: Theme.fontSize("h2")
-            font.weight: Font.DemiBold
+            font.weight: Theme.fontWeight("semibold")
             color: Theme.color("textPrimary")
         }
 
@@ -57,7 +57,7 @@ Flickable {
         // ── Service status grid ──────────────────────────────────────────
         SettingGroup {
             Layout.fillWidth: true
-            label: qsTr("Shell Components")
+            title: qsTr("Shell Components")
 
             Column {
                 width: parent.width
@@ -75,7 +75,7 @@ Flickable {
 
                             Rectangle {
                                 width: 8; height: 8
-                                radius: 4
+                                radius: Theme.radiusSm
                                 color: {
                                     switch (modelData.status) {
                                     case "active":      return Theme.color("success") || "#22c55e"
@@ -115,7 +115,7 @@ Flickable {
         // ── Environment service status ────────────────────────────────────
         SettingGroup {
             Layout.fillWidth: true
-            label: qsTr("Environment")
+            title: qsTr("Environment")
 
             SettingCard {
                 width: parent.width
@@ -125,7 +125,7 @@ Flickable {
                 control: Row {
                     spacing: 6
                     Rectangle {
-                        width: 8; height: 8; radius: 4
+                        width: 8; height: 8; radius: Theme.radiusSm
                         anchors.verticalCenter: parent.verticalCenter
                         color: EnvServiceClient && EnvServiceClient.serviceAvailable
                                ? (Theme.color("success") || "#22c55e")
@@ -149,7 +149,7 @@ Flickable {
                 control: Row {
                     spacing: 6
                     Rectangle {
-                        width: 8; height: 8; radius: 4
+                        width: 8; height: 8; radius: Theme.radiusSm
                         anchors.verticalCenter: parent.verticalCenter
                         color: LogsController && LogsController.serviceAvailable
                                ? (Theme.color("success") || "#22c55e")
@@ -168,7 +168,7 @@ Flickable {
 
         SettingGroup {
             Layout.fillWidth: true
-            label: qsTr("Animation Runtime")
+            title: qsTr("Animation Runtime")
 
             SettingCard {
                 width: parent.width
@@ -184,7 +184,7 @@ Flickable {
                 control: Row {
                     spacing: 6
                     Rectangle {
-                        width: 8; height: 8; radius: 4
+                        width: 8; height: 8; radius: Theme.radiusSm
                         anchors.verticalCenter: parent.verticalCenter
                         color: root.safeModeActive
                                ? (Theme.color("warning") || "#f59e0b")
@@ -213,7 +213,7 @@ Flickable {
                 control: Row {
                     spacing: 6
                     Rectangle {
-                        width: 8; height: 8; radius: 4
+                        width: 8; height: 8; radius: Theme.radiusSm
                         anchors.verticalCenter: parent.verticalCenter
                         color: root.runtimeAnimationsEnabled
                                ? (Theme.color("success") || "#22c55e")
@@ -258,7 +258,121 @@ Flickable {
 
         SettingGroup {
             Layout.fillWidth: true
-            label: qsTr("Daemon Health")
+            title: qsTr("Context Automation Live")
+
+            SettingCard {
+                width: parent.width
+                label: qsTr("Context Service")
+                description: qsTr("org.desktop.Context")
+                control: Row {
+                    spacing: 6
+                    Rectangle {
+                        width: 8; height: 8; radius: Theme.radiusSm
+                        anchors.verticalCenter: parent.verticalCenter
+                        color: (typeof ContextClient !== "undefined" && ContextClient && ContextClient.serviceAvailable)
+                               ? (Theme.color("success") || "#22c55e")
+                               : Theme.color("textDisabled")
+                    }
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        font.pixelSize: Theme.fontSize("xs")
+                        color: Theme.color("textSecondary")
+                        text: (typeof ContextClient !== "undefined" && ContextClient && ContextClient.serviceAvailable)
+                              ? qsTr("online") : qsTr("offline")
+                    }
+                }
+            }
+
+            SettingCard {
+                width: parent.width
+                label: qsTr("Power / Performance")
+                description: {
+                    if (typeof ContextClient === "undefined" || !ContextClient || !ContextClient.context)
+                        return "-"
+                    const ctx = ContextClient.context || {}
+                    const power = ctx.power || {}
+                    const system = ctx.system || {}
+                    const powerMode = String(power.mode || "unknown")
+                    const lowPower = !!power.lowPower
+                    const perf = String(system.performance || "unknown")
+                    return powerMode + (lowPower ? " • low-power" : "") + " • perf: " + perf
+                }
+                control: Item { width: 1; height: 1 }
+            }
+
+            SettingCard {
+                width: parent.width
+                label: qsTr("Resolved UI Actions")
+                description: {
+                    if (typeof ContextClient === "undefined" || !ContextClient || !ContextClient.context)
+                        return "-"
+                    const ctx = ContextClient.context || {}
+                    const rules = ctx.rules || {}
+                    const actions = rules.actions || {}
+                    return "reduceAnimation=" + (!!actions["ui.reduceAnimation"])
+                            + " • disableBlur=" + (!!actions["ui.disableBlur"])
+                            + " • disableHeavyEffects=" + (!!actions["ui.disableHeavyEffects"])
+                }
+                control: Item { width: 1; height: 1 }
+            }
+
+            SettingCard {
+                width: parent.width
+                label: qsTr("Automation Gates")
+                description: {
+                    return "reduceAnimation=" + (!!DesktopSettings.contextAutoReduceAnimation)
+                            + " • disableBlur=" + (!!DesktopSettings.contextAutoDisableBlur)
+                            + " • disableHeavyEffects=" + (!!DesktopSettings.contextAutoDisableHeavyEffects)
+                }
+                control: Item { width: 1; height: 1 }
+            }
+
+            SettingCard {
+                width: parent.width
+                label: qsTr("Quick Action")
+                description: qsTr("Open Appearance to adjust context automation gates.")
+                control: RowLayout {
+                    spacing: 8
+                    Button {
+                        text: qsTr("Open Appearance")
+                        onClicked: {
+                            var opened = false
+                            if (typeof SettingsApp !== "undefined" && SettingsApp && SettingsApp.openDeepLink) {
+                                opened = !!SettingsApp.openDeepLink("settings://appearance")
+                            }
+                            if (!opened && typeof SettingsApp !== "undefined" && SettingsApp && SettingsApp.openModule) {
+                                SettingsApp.openModule("appearance")
+                            }
+                        }
+                    }
+                    Button {
+                        text: qsTr("Open Context Debug")
+                        onClicked: {
+                            var opened = false
+                            if (typeof SettingsApp !== "undefined" && SettingsApp && SettingsApp.openModuleSetting) {
+                                SettingsApp.openModuleSetting("developer", "context-debug")
+                                opened = true
+                            }
+                            if (!opened && typeof SettingsApp !== "undefined" && SettingsApp && SettingsApp.openModule) {
+                                SettingsApp.openModule("developer")
+                            }
+                        }
+                    }
+                    Button {
+                        text: qsTr("Refresh Context")
+                        onClicked: {
+                            if (typeof ContextClient !== "undefined" && ContextClient && ContextClient.refresh) {
+                                ContextClient.refresh()
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        SettingGroup {
+            Layout.fillWidth: true
+            title: qsTr("Daemon Health")
 
             SettingCard {
                 width: parent.width
@@ -271,7 +385,7 @@ Flickable {
                     Rectangle {
                         width: 8
                         height: 8
-                        radius: 4
+                        radius: Theme.radiusSm
                         anchors.verticalCenter: parent.verticalCenter
                         color: {
                             if (!DaemonHealthClient || !DaemonHealthClient.serviceAvailable)
@@ -347,7 +461,7 @@ Flickable {
         // ── Quick actions ─────────────────────────────────────────────────
         SettingGroup {
             Layout.fillWidth: true
-            label: qsTr("Quick Actions")
+            title: qsTr("Quick Actions")
 
             Row {
                 spacing: 8

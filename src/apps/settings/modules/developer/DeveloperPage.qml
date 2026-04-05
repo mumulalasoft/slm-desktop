@@ -13,11 +13,13 @@ import Slm_Desktop
 Item {
     id: root
     anchors.fill: parent
+    property string highlightSettingId: ""
 
     // ── Sub-page model ────────────────────────────────────────────────────────
 
     readonly property var corePages: [
         { id: "overview",          label: "Overview",              icon: "view-grid-symbolic",        group: "" },
+        { id: "context-debug",     label: "Context Debug",         icon: "view-list-details-symbolic", group: "" },
         { id: "env-variables",     label: "Environment Variables", icon: "preferences-system-symbolic", group: "Environment" },
         { id: "per-app-overrides", label: "Per-App Overrides",     icon: "application-x-executable",  group: "Environment" },
         { id: "xdg-portals",       label: "XDG Portals",           icon: "security-high-symbolic",    group: "Runtime" },
@@ -35,6 +37,52 @@ Item {
     ]
 
     property string currentPageId: "overview"
+
+    function pageForSetting(settingId) {
+        var sid = String(settingId || "")
+        if (sid === "env-variables" || sid === "path-manager")
+            return "env-variables"
+        if (sid === "context-debug" || sid === "context-debug-runtime" || sid === "context-debug-raw")
+            return "context-debug"
+        if (sid === "per-app-overrides")
+            return "per-app-overrides"
+        if (sid === "logs")
+            return "logs"
+        if (sid === "services")
+            return "services"
+        if (sid === "build-info")
+            return "build-info"
+        if (sid === "reset")
+            return "reset"
+        if (sid === "xdg-portals")
+            return "xdg-portals"
+        if (sid === "app-sandbox")
+            return "app-sandbox"
+        if (sid === "dbus-inspector")
+            return "dbus-inspector"
+        return "overview"
+    }
+
+    function focusSetting(settingId) {
+        highlightSettingId = String(settingId || "")
+        currentPageId = pageForSetting(highlightSettingId)
+        if (pageLoader.item && pageLoader.item.highlightSettingId !== undefined) {
+            pageLoader.item.highlightSettingId = highlightSettingId
+        }
+        if (pageLoader.item && pageLoader.item.focusSetting) {
+            pageLoader.item.focusSetting(highlightSettingId)
+        }
+    }
+
+    onHighlightSettingIdChanged: {
+        if (highlightSettingId.length === 0) {
+            return
+        }
+        currentPageId = pageForSetting(highlightSettingId)
+        if (pageLoader.item && pageLoader.item.highlightSettingId !== undefined) {
+            pageLoader.item.highlightSettingId = highlightSettingId
+        }
+    }
 
     // Advanced pages require experimental mode; core pages always shown.
     readonly property var visiblePages: {
@@ -65,6 +113,14 @@ Item {
                 anchors.fill: parent
                 source: root.pageSource(root.currentPageId)
                 asynchronous: true
+                onLoaded: {
+                    if (item && item.highlightSettingId !== undefined) {
+                        item.highlightSettingId = root.highlightSettingId
+                    }
+                    if (item && root.highlightSettingId.length > 0 && item.focusSetting) {
+                        item.focusSetting(root.highlightSettingId)
+                    }
+                }
             }
         }
     }
@@ -74,6 +130,7 @@ Item {
     function pageSource(pageId) {
         switch (pageId) {
         case "overview":          return "DeveloperOverviewPage.qml"
+        case "context-debug":     return "ContextDebugPage.qml"
         case "env-variables":     return "EnvVariablesPage.qml"
         case "per-app-overrides": return "PerAppOverridesView.qml"
         case "logs":              return "LogsPage.qml"

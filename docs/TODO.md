@@ -3,6 +3,7 @@
 > Canonical session summary: `docs/SESSION_STATE.md`
 
 ## Release Execution Queue (v1.0)
+- References:
   - `docs/RELEASE_PLAN.md`
   - `docs/REPO_SPLIT_PLAN.md`
   - `docs/contracts/README.md`
@@ -22,23 +23,17 @@
 - [ ] Add optional preview pane for non-compact popup mode.
 
 ## Backlog (Theme)
-- [x] Elevation/shadow tokens:
   - `elevationLow/Medium/High` semantic aliases added to `third_party/slm-style/qml/SlmStyle/Theme.qml`.
-- [x] Motion tokens:
   - all duration tokens (`durationFast/Normal/Slow/Workspace/Micro/Sm/Md/Lg/Xl`) in `Theme.qml`, scaled by `_modeScale`.
   - physics tokens (`physicsSpring/Damping/Mass` × 3 presets + `physicsEpsilon`) in `Theme.qml`.
   - easing aliases (`easingDefault`, `easingLight`) added.
-- [x] Semantic control states:
   - `controlBgHover`, `controlBgPressed`, `controlDisabledBg`, `controlDisabledBorder`, `textDisabled`, `focusRing` present in `Theme.qml` light/dark palettes.
 - [ ] FileManager density pass:
   - align toolbar/search/tab/status heights to compact token grid.
 - [ ] Add high-contrast mode toggle in `UIPreferences` + runtime Theme switch.
-- [x] Add reduced-motion mode toggle:
   - `UIPreferences.animationMode` (`full`/`reduced`/`minimal`) + `Theme._modeScale` + `MotionController.reducedMotion` wired in `main.cpp`.
 - [ ] Add optional dynamic wallpaper sampling tint with contrast guardrail.
 - [~] SlmStyle migration guardrail:
-  - [x] Runtime default Qt Quick Controls style switched to `SlmStyle` (`main.cpp`, `src/apps/settings/main.cpp`, `src/login/greeter/main.cpp`).
-  - [x] Add audit script `scripts/check-slm-style-usage.sh` + build target `lint_slm_style_usage`.
   - [ ] Migrate remaining flagged files (current baseline: 49 files from style-usage checker).
 
 ## Backlog (FileManager)
@@ -48,7 +43,133 @@
 - [ ] Runtime integration check global menu end-to-end on active GTK/Qt/KDE apps (verify active binding/top-level changes by focus switching).
   - helper available: `scripts/smoke-globalmenu-focus.sh` (`--strict --min-unique 2`).
 
-## Backlog (Clipboard)
+## Program (Storage & Automount UX: Per-Partition, GIO/GVfs, Modern Linux Desktop)
+
+### Guardrails Wajib
+- [ ] Jangan gunakan `mount/umount` command langsung di semua path runtime.
+- [ ] Semua operasi mount/unmount harus lewat GIO/GVfs (`GVolumeMonitor`, `GVolume`, `GMount`).
+- [ ] Semua policy berbasis partisi (`UUID`/fallback `PARTUUID`), bukan disk global.
+- [ ] System partitions (EFI/MSR/swap/recovery/LVM raw) tidak tampil di UI user biasa.
+- [ ] Notifikasi wajib satu per device attach event (tidak boleh spam per partition).
+
+### Phase 1 — Device Detection Layer (GIO/GVfs)
+- [~] Buat `StorageManager` core service (desktopd/fileopsd integration point) untuk event storage.
+  - [ ] Promote ke service-layer terpisah (`StorageManager`) agar reusable lintas FileManager/desktop notifications.
+- [~] Wire `GVolumeMonitor` signals:
+  - `volume-added`
+  - `volume-removed`
+  - `mount-added`
+  - `mount-removed`
+  - [~] Coalescer per device baseline aktif (debounce 4s, grouped by `deviceGroupKey`), lanjut refinement multi-monitor/session edge cases.
+- [ ] Tambahkan aggregator event per physical device untuk grouping partitions.
+- [ ] Tambahkan loading/settling state agar scan partisi tidak menghasilkan UI jitter.
+
+### Phase 2 — Policy Engine (UUID-Based, Per Partition)
+- [ ] Definisikan model input policy:
+  - `uuid`, `partuuid`, `fstype`, `is_removable`, `is_system`, `is_encrypted`.
+- [ ] Definisikan model output policy:
+  - `action` (`mount|ignore|ask`), `auto_open`, `visible`, `read_only`, `exec`.
+- [ ] Implement default policy:
+  - EFI/MSR/recovery -> `hidden + ignore`
+  - swap/LVM raw -> `hidden`
+  - internal data -> `automount`, no auto-open
+  - USB removable -> `automount`, no auto-open
+  - SD card -> `automount`, optional auto-open
+  - encrypted -> wait unlock
+  - unknown fs -> no automount
+- [ ] Tambahkan override resolution order:
+  - `uuid` -> `partuuid` -> `device-serial + partition-index`.
+
+### Phase 3 — Mount Executor (No Shell Mount)
+  - `src/apps/filemanager/filemanagerapi_storage.cpp`
+  - `src/daemon/devicesd/devicesmanager.cpp` (Mount/Eject path)
+- [ ] Tambahkan error mapping non-teknis untuk state:
+  - locked, busy, unsupported, permission denied.
+- [ ] Tambahkan timeout + cancellation path untuk operasi mount/unmount panjang.
+
+### Phase 4 — Notification & Volume Selector UX
+- [~] Implement notification coalescer per device attach.
+  - [ ] UI polish + localization microcopy + selector keyboard navigation.
+- [ ] Format notifikasi multi-partition:
+  - `"External Drive connected"`
+  - `"X volume tersedia"`
+  - actions: `[ Open ] [ Eject ]`
+- [ ] Action `Open`:
+  - jika 1 volume: buka langsung (single window)
+  - jika >1 volume: tampilkan volume selector, jangan auto-open multiple windows.
+- [ ] Pastikan tidak pernah ada multiple notification per partition attach.
+
+### Phase 5 — Sidebar Device UI
+- [ ] Render struktur:
+  - `Devices`
+  - `Drive Name`
+  - child entries `Volume A/B/...`
+- [ ] Sembunyikan semua system partitions dari mode user biasa.
+- [ ] Gunakan microcopy non-teknis:
+  - Mount -> `Open Drive`
+  - Unmount -> `Eject`
+  - Volume -> `Drive`
+- [ ] Tambahkan loading skeleton/state saat mount scan berjalan.
+
+### Phase 6 — Properties Panel (Mount Behavior)
+- [~] Tambahkan panel `Mount Behavior` per partition:
+  - Mount otomatis
+  - Mount otomatis + buka
+  - Tanya setiap kali
+  - Jangan pernah mount otomatis
+  - `storagePolicyForPath(path)` load on open
+  - `setStoragePolicyForPath(path, patch)` save realtime
+  - control baseline: automount/ask, auto-open, visible, read-only, allow-exec
+- [~] Tambahkan section `Visibility`:
+  - tampilkan/simpan di sidebar
+- [~] Tambahkan section `Access`:
+  - read-write/read-only/allow exec
+- [ ] Tambahkan section `Scope`:
+  - partisi ini saja / semua partisi pada device ini.
+
+### Phase 7 — Policy Storage & Persistence
+- [~] Simpan policy JSON per partition:
+  - `uuid`, `automount`, `auto_open`, `visible`, `read_only`, `exec`.
+    - `storagePolicyForPath(path)`
+    - `setStoragePolicyForPath(path, policy)`
+    - JSON store: `${AppConfigLocation}/storage-policies.json`
+  - [~] Extracted persistence/migration into shared module `src/services/storage/StoragePolicyStore` (consumed by FileManagerApi).
+  - [~] Dedicated runtime `StorageManager` kini aktif untuk monitor storage event + snapshot query/policy resolve shared.
+  - [~] Baseline DBus façade tersedia via `org.slm.Desktop.Devices.GetStorageLocations` (powered by shared `StorageManager`).
+  - [~] Endpoint façade dedicated `org.slm.Desktop.Storage` sudah ada:
+    - `Ping`, `GetCapabilities`, `GetStorageLocations`, `Mount`, `Eject`, `ConnectServer`
+    - signal `StorageLocationsChanged` tersedia dari `devicesd`
+  - [ ] Lengkapi adopsi lintas shell/settings/filemanager + kontrak event real-time penuh dari façade dedicated.
+- [ ] Implement migration + fallback key chain (`uuid` -> `partuuid` -> serial+index).
+  - `uuid` -> `partuuid` -> `device` -> `group`
+- [~] Tambahkan schema versioning + safe recovery untuk file policy corrupt.
+  - [ ] Tambahkan migrator bertahap untuk schema > 2.
+
+### Phase 8 — Special States UX
+- [ ] Locked state:
+  - `"Drive terkunci"` + action `[ Unlock ]`.
+- [ ] Busy state:
+  - `"Drive sedang digunakan"` + actions `[ Force Eject ] [ Cancel ]`.
+- [ ] Unsupported state:
+  - `"Drive tidak dikenali"` + actions `[ Mount Read-only ] [ Ignore ]`.
+- [ ] Pastikan messaging tanpa `/dev/sdX`, UUID, atau istilah teknis mentah.
+
+### Phase 9 — Integration & Hardening
+- [ ] Integrasi penuh ke FileManager sidebar + notification system + device properties panel.
+- [ ] Tambahkan contract test:
+  - no shell mount usage
+  - no per-partition notification spam
+  - system partition hidden by default
+  - single-open behavior for multi-volume device.
+- [ ] Tambahkan smoke test runtime untuk USB multi-partition dan encrypted media.
+- [ ] Tambahkan observability log ringkas (debug mode only) tanpa leak info sensitif.
+
+### Acceptance Criteria
+- [ ] Satu device attach menghasilkan satu notification.
+- [ ] Multi-partition tidak auto-open multi-window.
+- [ ] Semua mount/unmount lewat GIO/GVfs API.
+- [ ] Policy per partition berjalan konsisten lintas reboot/session.
+- [ ] UI tetap non-teknis, responsif, dan aman untuk user umum.
 
 ## Program (UX Animation System: State-Driven, macOS-like, Non-Patent)
 - [ ] Tetapkan prinsip sistem animasi global:
@@ -81,21 +202,12 @@
   - interrupt rule: `HIGH` interrupt `LOW`; `LOW` tidak boleh interrupt `HIGH`.
   - workspace transition menunda/menahan micro interaction berat.
   - coalescing/debounce untuk event beruntun.
-  - [x] Foundation implemented in `src/core/motion/{slmanimationscheduler,slmmotioncontroller}`:
     - lifecycle ownership + active priority tracking (`Low/Medium/High`)
     - micro-interaction suppression when lifecycle priority is active
     - scheduler coalescing helper (`shouldCoalesce*`)
-  - [x] Added core regression test for scheduler priority/suppression contract in `tests/slmmotioncore_test.cpp`
     (covers `allow/canRunPriority`, suppression state, and coalescing behavior).
-  - [x] Workspace lifecycle integration baseline in `Qml/DesktopScene.qml`:
     - `workspaceVisible/swipeActive/swipeSettling` drive lifecycle begin/end through `MotionController`
   - [~] Extend lifecycle hooks to window lifecycle transitions (open/minimize/close/focus) from compositor events.
-    - [x] Baseline `DesktopScene` hook from `CompositorStateModel.lastEvent` for open/close/minimize transitions (HIGH priority lifecycle + timed release).
-    - [x] Add explicit focus active/inactive lifecycle mapping from normalized compositor events (LOW priority lifecycle + coalescing).
-    - [x] Ensure `CompositorStateModel.lastEvent.event` always populated via fallback normalization in `KWinWaylandStateModel`.
-    - [x] Add canonical event contract in backend adapter (`WindowingBackendManager`) so event names stay stable lint/tested.
-      - [x] Baseline canonical lifecycle normalization added (focus/open/close/minimize aliases -> canonical event names).
-      - [x] Added contract test coverage (`windowingbackendmanager_test`) for workspace command mapping + lifecycle canonicalization.
 - [~] Standardisasi timing global (single source of truth):
   - `Fast=120ms`, `Normal=220ms`, `Slow=320ms`, `Workspace=400ms`.
   - implemented token baseline in `third_party/slm-style/qml/SlmStyle/Theme.qml`: `durationFast/Normal/Slow/Workspace` (+ safe-mode off gate).
@@ -112,47 +224,35 @@
   - alternatif ringan `EaseOutQuad`.
   - spring untuk transisi natural tertentu.
   - larang `Linear` untuk lifecycle utama.
-  - [x] Physics token global (`spring/damping/mass/epsilon`) sebagai single source + migrasi komponen yang masih literal.
       - implemented in `third_party/slm-style/qml/SlmStyle/Theme.qml`: `physicsSpringGentle/Default/Snappy`, `physicsDamping*/physicsMass*`, `physicsEpsilon`.
       - migrated: `DockReorderMarker.qml`, `DockItem.qml`, `NotificationApplet.qml`, `NotificationCenter.qml`.
 - [~] Definisikan profile animasi window (safe/non-patent):
   - open: `scale 0.96->1.0`, `opacity 0->1` — implemented in `WorkspaceOverviewScene` thumbnail entrance.
   - minimize: dock icon focus-bounce on minimize (spatial cue without genie effect).
   - close: scale down + fade out — future compositor extension (shell cannot animate window surfaces directly).
-  - [x] Baseline state-driven profile mapping diterapkan di `Qml/DesktopScene.qml`:
     - event `window-opened/window-shown/window-unminimized` -> profile `window.open` (`preset=smooth`, release `Theme.durationNormal`)
     - event `window-minimized` -> profile `window.minimize` (`preset=snappy`, release `Theme.durationFast`)
     - event `window-closing/window-closed` -> profile `window.close` (`preset=snappy`, release `Theme.durationFast`)
     - profile push/pop aman (restore channel+preset `MotionController` setelah lifecycle selesai/destruction)
-  - [x] Shell-side visual feedback:
     - `WorkspaceOverviewScene` thumbnail entrance: `scale 0.96→1.0`, `opacity 0→1` (`durationNormal`, `easingDecelerate`) on new window while overview is open.
     - `Dock.notifyWindowLifecycle()` → `DockAppDelegate.matchesWindowAppId()` → launch-bounce on window-opened, focus-bounce on window-minimized.
     - `DesktopScene.processCompositorLifecycleEvent()` routes `appId` to dock after setting MotionController profile.
-- [x] Definisikan profile animasi workspace:
   - switch: slide horizontal antar workspace (+ optional parallax ringan).
-    - [x] `workspace.switch` lifecycle wired in `DesktopScene.qml` (`MediumPriority`, timed release `durationWorkspace`).
-    - [x] `WorkspaceOverlay` switch Behavior easing fixed to `easingDecelerate` (OutCubic).
   - overview: scale-down window + grid sederhana.
-    - [x] `workspace.overview` lifecycle already active via `syncWorkspaceLifecycleState`.
-    - [x] `WindowThumbnail` grid layout animation upgraded to `durationNormal` + `easingDecelerate`.
 - [~] Definisikan active/inactive visual response:
   - trigger dari focus compositor.
   - perubahan ringan shadow/opacity, tanpa animasi berat.
-  - [x] Baseline diterapkan pada `Qml/components/workspace/WindowThumbnail.qml`:
     - focus compositor (`windowData.focused`) memicu `focusBlend` state.
     - perubahan ringan border/opacity/glow dengan `Theme.durationFast` + `Theme.easingLight`.
     - tanpa animasi berat; hanya emphasis visual halus untuk active vs inactive.
 - [~] Implement kondisi disable/degrade animasi:
   - CPU tinggi, GPU fallback, battery saver, dan accessibility `reduce motion`. (triggers — future work)
-  - [x] safe mode/recovery mode: paksa mode animasi `off` (tanpa transition dekoratif).
     - implemented runtime gate: `SLM_SESSION_MODE in {safe,recovery}` -> `SafeModeActive=true`,
       `Theme.duration* ~= 0`, `Theme.transitionDuration ~= 0`, `MotionController.reducedMotion=true`.
-  - [x] sediakan mode `full`, `reduced`, `minimal`.
     - `UIPreferences.animationMode` property + `setAnimationMode` + stored in `windowing/animationMode`.
     - `Theme.animationMode` reads `UIPreferences.animationMode` reactively.
     - `Theme._modeScale`: `full=1.0`, `reduced=0.60`, `minimal=0.25` — all duration tokens scaled.
     - `MotionController.reducedMotion` set true for reduced/minimal at startup + runtime in `main.cpp`.
-- [x] Integrasi frame sync:
   - semua animasi lewat frame clock vsync.
   - pastikan sinkron lintas window/workspace untuk hindari tearing/jitter.
   - implemented: `AnimationScheduler::setExternalDriving(true)` suspends internal `QTimer`;
@@ -177,8 +277,6 @@
       `Qml/components/notification/NotificationCard.qml`,
       `Qml/components/notification/BannerContainer.qml`,
       `Qml/components/applet/{NetworkApplet,SoundApplet,BluetoothApplet,BatteryApplet,ClipboardApplet,NotificationApplet,PrintJobApplet,DatetimeApplet,ScreencastIndicator,InputCaptureIndicator}.qml`.
-    - [x] Add UI guard regression test: `tests/motion_scheduler_ui_guard_test.cpp` (critical micro-interaction files must keep `allowMotionPriority`).
-    - [x] Rollout guard ke komponen hover-heavy lain:
       `AppIndicatorItem.qml` (tray hover color/border),
       `WindowControlsCapsule.qml` (title-button scale/opacity),
       `SettingToggle.qml` (toggle bg color + thumb x),
@@ -198,7 +296,241 @@
   - local guardrail aktif: pre-commit hook (`.githooks/pre-commit`) + installer `scripts/install-git-hooks.sh`.
   - local pre-push guardrail aktif: `.githooks/pre-push` (full animation lint + UI style lint).
   - UI lint baseline guardrail aktif: `scripts/lint-ui-style.sh` support allowlist `config/lint/ui-style-allowlist.txt` (new violations fail, debt lama tetap terpantau).
-  - [x] baseline debt reduction complete: notification/applet/workspace/dock/system/overlay/print/style migrated; `ui-style-allowlist` now empty.
+
+## Program (desktop-appd: App Lifecycle Manager + Running App Registry)
+
+> Service tunggal sebagai **otoritas status aplikasi** untuk Dock, App Switcher, Launchpad, Global Search, Notification Routing, dan System Monitor.
+
+### Prinsip Wajib
+- `desktop-appd` adalah **UX-aware process registry**, bukan process manager OS.
+- **App-centric**, bukan PID-centric — satu app bisa punya banyak process dan banyak window.
+- Event-driven via DBus; tidak boleh polling berat.
+- Tidak semua process ditampilkan ke UI — UI exposure policy yang menentukan.
+- Tahan error: satu app bermasalah tidak boleh crash service.
+
+### Guardrails Wajib
+- [ ] Jangan tampilkan semua process ke dock — hanya yang lolos UI exposure policy.
+- [ ] Jangan treat CLI sebagai GUI app.
+- [ ] Jangan bergantung hanya pada PID — gunakan appId sebagai primary key.
+- [ ] Jangan polling berat — semua state change harus event-driven.
+- [ ] Jangan hardcode app mapping tanpa override system.
+- [ ] Debounce event burst agar tidak banjiri UI thread.
+- [ ] Fallback graceful jika metadata `.desktop` tidak ditemukan.
+- [ ] Gunakan cache untuk mapping PID ↔ appId ↔ window.
+
+---
+
+### Arsitektur Modul
+
+```text
+desktop-appd/
+ ├── lifecycle-engine/        # state machine CREATED→LAUNCHING→RUNNING→…→TERMINATED
+ ├── app-registry/            # AppEntry store, PID↔appId↔window mapping
+ ├── classification/          # ClassificationEngine: tentukan kategori UX
+ ├── exposure-policy/         # UIExposurePolicy: dock/switcher/tray/hidden
+ ├── event-bus/               # internal fan-out ke subscriber
+ ├── dbus-api/                # org.desktop.Apps interface
+ ├── launcher-integration/    # intercept launch, capture appId+PID+timestamp
+ └── compositor-integration/  # Wayland/compositor window events
+```
+
+---
+
+### Model Data — AppEntry
+
+```json
+{
+  "appId": "org.kde.dolphin",
+  "category": "kde",
+  "state": "running",
+  "isFocused": false,
+  "isVisible": true,
+  "isMinimized": false,
+  "windowCount": 2,
+  "pids": [1234],
+  "windows": [
+    { "windowId": "win-1", "workspace": 1, "title": "Home" }
+  ],
+  "lastActiveTs": 0,
+  "uiExposure": {
+    "dock": true,
+    "appSwitcher": true,
+    "launchpad": false,
+    "systemMonitor": true,
+    "tray": false
+  }
+}
+```
+
+---
+
+### Lifecycle Engine
+
+State machine:
+
+```text
+CREATED → LAUNCHING → RUNNING → IDLE → BACKGROUND
+        → UNRESPONSIVE → CRASHED → TERMINATED
+```
+
+Trigger:
+- `launch`: via launcher interception — masuk state `LAUNCHING`
+- `window created`: via compositor — transisi ke `RUNNING`
+- `no response > threshold`: state `UNRESPONSIVE`
+- `abnormal exit`: state `CRASHED`
+- `all pids exited`: `TERMINATED` → hapus AppEntry → emit `AppRemoved`
+
+---
+
+### Classification Engine
+
+Kategori:
+
+```text
+shell | gui-app | gtk | kde | qt-generic | qt-desktop-fallback
+cli-app | background-agent | system-ignore | unknown
+```
+
+Strategi resolusi (urutan prioritas):
+1. Override/whitelist config eksplisit
+2. `.desktop` metadata (`X-KDE-*`, `Categories`)
+3. Toolkit detection (env var / linked libs)
+4. Parent process (terminal → CLI app)
+5. Window existence (ada window = GUI)
+6. Fallback rule (`unknown`)
+
+Harus extensible: override via config file per-app.
+
+---
+
+### UI Exposure Policy Matrix
+
+| Category            | Dock | Switcher | Tray | System Monitor |
+| ------------------- | ---- | -------- | ---- | -------------- |
+| shell               | no   | no       | no   | optional       |
+| gui-app             | yes  | yes      | no   | yes            |
+| gtk                 | yes  | yes      | no   | yes            |
+| kde                 | yes  | yes      | no   | yes            |
+| qt-generic          | yes  | yes      | no   | yes            |
+| qt-desktop-fallback | yes  | yes      | no   | yes            |
+| cli-app             | no   | no       | no   | yes            |
+| background-agent    | no   | no       | yes  | yes            |
+| system-ignore       | no   | no       | no   | no             |
+| unknown             | no   | optional | no   | yes            |
+
+---
+
+### DBus Interface — `org.desktop.Apps`
+
+**Methods:**
+- `ListRunningApps()` → `AppEntry[]`
+- `GetApp(appId)` → `AppEntry`
+- `GetAppWindows(appId)` → `WindowInfo[]`
+- `GetAppState(appId)` → `string`
+- `LaunchApp(appId)`
+- `ActivateApp(appId)`
+- `MinimizeApp(appId)`
+- `CloseApp(appId)`
+- `RestartApp(appId)`
+
+**Signals:**
+- `AppAdded(appId)`
+- `AppRemoved(appId)`
+- `AppStateChanged(appId, state)`
+- `AppWindowsChanged(appId)`
+- `AppFocusChanged(appId, focused)`
+- `AppUpdated(appId)`
+
+Semua signal harus granular — tidak boleh satu event global "sesuatu berubah".
+
+---
+
+### Event Flow
+
+```text
+onLaunch(appId):
+  pid = spawn(exec)
+  create AppEntry { state=LAUNCHING }
+  monitor(pid)
+
+onWindowCreated(window):
+  appId = resolve(window.pid | window.appId)
+  attach window ke AppEntry
+  state → RUNNING
+  emit AppStateChanged, AppWindowsChanged
+
+onNoResponse(appId, duration > threshold):
+  state → UNRESPONSIVE
+  emit AppStateChanged(appId, "unresponsive")
+
+onProcessExit(pid, exitCode):
+  if exitCode != 0 → state = CRASHED
+  if all pids gone → remove AppEntry, emit AppRemoved
+  else → emit AppStateChanged
+
+onFocusChanged(windowId, focused):
+  appId = resolveWindow(windowId)
+  update AppEntry.isFocused
+  emit AppFocusChanged(appId, focused)
+```
+
+---
+
+### Dock Integration
+
+Dock wajib:
+1. On init: call `ListRunningApps()` → populate running indicators
+2. Subscribe signals: `AppAdded`, `AppRemoved`, `AppStateChanged`, `AppFocusChanged`
+3. Render state indicator:
+
+| State        | UX                        |
+| ------------ | ------------------------- |
+| launching    | animasi pulse             |
+| running      | dot                       |
+| active       | dot terang / highlight    |
+| background   | dot redup                 |
+| unresponsive | warning badge             |
+
+4. Klik behavior:
+   - not running → `LaunchApp(appId)`
+   - running, single window → `ActivateApp(appId)`
+   - minimized → restore via `ActivateApp`
+   - multi-window → tampilkan window list / cycle
+
+---
+
+### Phase 1 — Launch Tracking + Basic Registry + Dock Integration
+- [ ] Buat service skeleton `desktop-appd` (D-Bus activatable, systemd user unit).
+- [ ] Implement `AppEntry` model + in-memory registry.
+- [ ] Implement launcher interception: capture `appId`, `exec`, `timestamp`, `PID`.
+- [ ] Implement PID monitor: detect exit (normal vs abnormal).
+- [ ] Expose `ListRunningApps`, `GetApp`, `AppAdded`, `AppRemoved`, `AppStateChanged` via `org.desktop.Apps`.
+- [ ] Wire Dock ke `desktop-appd`: subscribe signals, render launching/running/active indicators.
+- [ ] Implement klik behavior Dock: launch / activate / restore / window list.
+
+### Phase 2 — Classification Engine + UI Exposure Policy
+- [ ] Implement `ClassificationEngine`: resolusi kategori via `.desktop`, toolkit, parent PID, window existence, whitelist, fallback.
+- [ ] Implement `UIExposurePolicy`: hitung `uiExposure` per AppEntry dari kategori.
+- [ ] Wire policy ke Dock, App Switcher, Launchpad — filter berdasarkan `uiExposure`.
+- [ ] Buat format config override per-app (YAML/JSON, path `~/.config/desktop-appd/overrides.json`).
+- [ ] Implement `AppFocusChanged` signal dari compositor window focus events.
+
+### Phase 3 — Lifecycle Lengkap + Context Integration
+- [ ] Implement hang detection: timeout / no-redraw / no-input-response → `UNRESPONSIVE`.
+- [ ] Implement multi-window support: `AppEntry.windows[]`, `AppWindowsChanged` signal.
+- [ ] Implement `IDLE` / `BACKGROUND` state tracking.
+- [ ] Integrasi dengan SSOT: `policy restart`, `timeout hang`, `visibility rules`, per-app override.
+- [ ] Context awareness hook: `power.lowPower == true` → suspend background apps.
+- [ ] App Action API lengkap: `MinimizeApp`, `CloseApp`, `RestartApp`.
+- [ ] Observability: debug log ringkas (mode debug only, tidak leak info sensitif).
+
+### Acceptance Criteria
+- [ ] Dock hanya menampilkan app yang lolos `uiExposure.dock == true`.
+- [ ] CLI app tidak pernah muncul di Dock atau App Switcher.
+- [ ] Launch tracking mencatat semua app yang dijalankan via launcher.
+- [ ] Semua state change dikirim sebagai DBus signal granular.
+- [ ] Service tidak crash jika satu app bermasalah.
+- [ ] Tidak ada polling berat — semua update berbasis event.
 
 ## Program (Fondasi Arsitektur Shell: Layer System & State Machine)
 
@@ -452,94 +784,65 @@ Rule 5: SystemModalLayer bypass semua state
 ### Implementation Phases
 
 #### Phase 1 — Audit & Baseline (refactor, no new feature)
-- [x] Audit `Qml/DesktopScene.qml`: identifikasi semua "page switch" pattern, ganti ke state binding
   - Findings: boolean state machine (launchpadVisible, workspaceVisible, styleGalleryVisible),
     direct assignments in signal handlers — no formal state machine.
   - Anti-pattern: `TopBarWindow.qml:19` hidden `!desktopScene.launchpadVisible` → **fixed**.
-- [x] Audit semua z-order assignment di overlay windows — buat konstanta di `ShellConst`
   - Created `Qml/ShellZOrder.qml` singleton with named constants.
   - DockWindow and TopBarWindow updated to use `ShellZOrder.dock` / `ShellZOrder.topBar`.
   - Remaining: internal DesktopScene z-values (different coordinate space, future phase).
-- [x] Definisikan `ShellState` sebagai QML singleton
   - Created `Qml/ShellState.qml`: overlay flags + derived per-layer opacity/blur state.
   - DesktopScene syncs `launchpadVisible`, `workspaceOverviewVisible`, `styleGalleryVisible`.
   - Main.qml syncs `toTheSpotVisible`.
   - WorkspaceWindow, TopBarWindow, DockWindow now bind to `ShellState` values.
-- [x] Pastikan `DockLayer` dan `TopBarLayer` tidak pernah di-`visible: false` saat overlay aktif
   - TopBar: removed `!desktopScene.launchpadVisible` guard — now always visible, opacity-dimmed.
   - LaunchpadWindow: offset `launchpadFrame` to `y: panelHeight` so TopBar panel shows through.
   - DockWindow: opacity driven by `ShellState.dockOpacity` (0.0 while launchpad shows own dock).
-- [x] Verifikasi `WorkspaceLayer` tidak di-reset pada setiap mode change
   - Audit confirmed: no `workspaceState = {}` or full reset on mode change — state preserved. ✓
 
 #### Phase 2 — ShellStateController ✓ DONE
-- [x] Semua overlay bind ke `ShellState` (Dock, TopBar, Workspace, LaunchpadWindow)
-- [x] Implementasi `ShellStateController` (`src/core/shell/shellstatecontroller.h/.cpp`):
   - Q_PROPERTY writable: launchpadVisible, workspaceOverviewVisible, toTheSpotVisible, styleGalleryVisible, showDesktop
   - Q_PROPERTY readonly (derived): topBarOpacity, dockOpacity, workspaceBlurred, workspaceBlurAlpha, workspaceInteractionBlocked, anyOverlayVisible
   - Q_INVOKABLE: setXxx(), toggleXxx(), dismissAllOverlays()
   - Registered as context property "ShellStateController" via AppStartupBridge
-- [x] Invert write direction: ShellState.qml reads from ShellStateController (thin reactive view);
   DesktopScene.qml and Main.qml call ShellStateController.setXxx() instead of writing ShellState directly
-- [x] Unit test: `shell_state_controller_test` — defaults, derived state, signal guards, dismissAll
 
 #### Phase 3 — InputRouter ✓ DONE
-- [x] Implementasi `ShellInputRouter` (`src/core/shell/shellinputrouter.h/.cpp`) dengan layer priority table:
   LockScreen(100) > ToTheSpot(30) > Launchpad(20) > WorkspaceOverview(10) > BaseLayer(0)
-- [x] `canDispatch(action)` — single routing gate per layer; per-layer blocking rules:
   - LockScreen: only `shell.lock`
   - Launchpad: blocks `workspace.*` and `window.move_*`
   - WorkspaceOverview: blocks `shell.tothespot` and `shell.clipboard`
   - ToTheSpot: blocks `shell.workspace_overview` and `workspace.*`
-- [x] Keyboard shortcut dispatch via ShellInputRouter — Main.qml shortcuts replaced
   `if (root.lockScreenVisible) return` inline guards with `ShellInputRouter.canDispatch(action)`
-- [x] ShellStateController gains `lockScreenActive` property; Main.qml syncs on `onLockScreenVisibleChanged`
-- [x] Timeout guard: `scheduleForceDismiss(overlay)` starts 500ms QTimer; if overlay still visible
   when it fires → `ShellStateController.dismissAllOverlays()` + `overlayDismissTimedOut` signal
-- [x] `ShellInputRouter` registered as context property via AppStartupBridge
-- [x] Test: `shell_input_router_test` — priority rules, per-layer blocking, rapid dispatch (no deadlock),
   timeout guard fire + cancel, layerChanged signal guards
 
 #### Phase 4 — Recovery & Crash Isolation
-- [x] Overlay context isolation: `LaunchpadLayer`, `WorkspaceOverviewLayer`, `ToTheSpotLayer`
   dipindah ke sub-window atau deferred Loader dengan error boundary
-- [x] `ShellStateController` mendeteksi overlay timeout → auto-dismiss + state reset
   (`ShellLayerWatchdog` — stuck-overlay timer, `requestRecovery()` → `dismissAllOverlays()`)
 - [ ] `WorkspaceLayer` state recovery dari `CompositorStateModel` setelah overlay crash
-- [x] Persistent layer health check timer (1s interval): jika Dock/TopBar tidak visible → re-show
   (`ShellLayerWatchdog` 1s timer + `persistentLayerRestored` Connections in Main.qml)
-- [x] Test: simulasi `Loader` error, null ref, timing crash → base shell always accessible
   (`shell_layer_watchdog_test` — 24 cases: stuck detection, recovery, load-error isolation, rapid-toggle stress)
 
 #### Phase 5 — Hardening & Contract Tests
-- [x] Kontrak test: `persistent_layer_stability_test` — toggle overlay 1000x, assert Dock+TopBar intact
-- [x] Kontrak test: `overlay_isolation_test` — overlay crash tidak propagate ke persistent layer
-- [x] Kontrak test: `state_machine_transition_test` — semua mode transition valid, tidak ada invalid state
-- [x] Kontrak test: `z_order_policy_test` — ShellZOrder.qml parsed; ordering contracts verified (dock>surfaces, topBar>dock, pointerCapture>topBar, debugOverlay highest)
-- [x] Performance test: mode switch latency < 16ms — avg ~0µs per iteration in practice
   (all 5 above in `shell_contract_test` — 27 cases total)
 
 ## Program (Notification System Refresh: macOS-like Notification Center)
-- [x] Define architecture boundary (3 layers, no tight coupling):
   - `Notification Service` (backend daemon, source of truth)
   - `Notification UI` (QML only, model-driven rendering)
   - `Integration Layer` (D-Bus + portal + shell hooks)
 - [~] Finalize notification types:
   - Banner (transient, top-right, max 3 visible, auto-dismiss 5–8s, hover pause, swipe dismiss)
   - Notification Center (persistent, slide-in right panel, grouped history, virtualized list)
-- [x] Lock visual spec tokens:
   - card radius `14`
   - padding `12–16`
   - vertical rhythm `8`
   - light bg `rgba(255,255,255,0.7)`
   - dark bg `rgba(30,30,30,0.7)`
   - blur + subtle shadow + elevation layering
-- [x] Lock animation spec:
   - banner entry: slide-right-to-left + fade
   - banner exit: fade + slight shrink
   - center panel: slide-in right `300ms` + dim overlay
   - motion uses non-linear easing curves (no linear feel)
-- [x] Implement interaction model:
   - mouse: hover pause, click default action, drag/swipe dismiss
   - keyboard: `Super+N` toggle center, arrows navigate, `Enter` open, `Delete` dismiss
   - optional edge gesture to open center
@@ -552,17 +855,13 @@ Rule 5: SystemModalLayer bypass semua state
   - priority routing (`low=center`, `normal=banner`, `high=sticky banner`)
   - smart grouping by app/thread
   - rich payload support (image preview, progress, media controls)
-- [x] Implement backend D-Bus service skeleton:
   - Service: `org.example.Desktop.Notification`
   - Methods: `Notify`, `Dismiss`, `GetAll`, `ClearAll`, `ToggleCenter`
   - Signals: `NotificationAdded`, `NotificationRemoved`
   - Add internal mapping plan to SLM naming convention when stabilized
-- [x] Add freedesktop compatibility adapter:
   - consume `org.freedesktop.Notifications`
   - translate to internal notification model + priority/group semantics
-- [x] Finalize data model contract:
   - `id`, `app_id`, `title`, `body`, `icon`, `timestamp`, `actions[]`, `priority`, `group_id`, `read/unread`
-- [x] Implement QML component structure:
   - `NotificationManager.qml`
   - `BannerContainer.qml`
   - `NotificationCard.qml`
@@ -591,8 +890,6 @@ Rule 5: SystemModalLayer bypass semua state
   - in-memory active queue
   - persistent history (JSON/DB) with retention policy
 - [~] Security & abuse control:
-  - [x] per-app anti-spam baseline: active banner cap per app (`max 3`) in `NotificationManager`.
-  - [x] add sliding-window rate limiter (time-based burst control) per app
   - app identity validation
   - optional sandbox/portal permission gating
 - [ ] Developer API wrapper:
@@ -604,12 +901,6 @@ Rule 5: SystemModalLayer bypass semua state
   - timeline view
 
 ### Deliverables (Notification Program)
-- [x] QML component structure document + ownership map
-- [x] D-Bus interface definition (`org.example.Desktop.Notification`)
-- [x] backend service skeleton (daemon + model + dispatcher)
-- [x] UI mock structure (banner + center grouping states)
-- [x] animation spec sheet (durations, springs, transitions)
-- [x] end-to-end data flow diagram (source -> service -> ui -> action callback)
 
 ## Program (Solid & Unbreakable)
   - `MissingComponents.blockingMissingComponentsForDomain(domain)`
@@ -1070,22 +1361,6 @@ scripts/
 
 ---
 
-### Roadmap implementasi
-
-#### Fase 1 — MVP
-
-
-#### Fase 2 — Stabilisasi
-
-
-#### Fase 3 — Recovery hardening
-
-
-#### Fase 4 — UX polish
-
-
----
-
 ## Roadmap: SLM Unbreakable Package System (`slm-package-policy-service`)
 
 Tujuan:
@@ -1097,9 +1372,6 @@ Tujuan:
 
 Arsitektur target:
 - [~] `User/GUI/Terminal -> Wrapper(apt/apt-get/dpkg) -> slm-package-policy-service -> Simulator -> Rule Engine -> Backend Executor -> Audit + Recovery`
-
-### Phase 1 - Core Protection (Wajib)
-
 
 ### Phase 2 - Trust & Source Control
 
@@ -1118,9 +1390,6 @@ Arsitektur target:
 ### Phase 4 - Recovery System
 
 - [ ] Recovery mode package incident
-
-### Phase 5 - Software Center Integration
-
 
 ### Phase 6 - Hardening
 
@@ -1146,20 +1415,14 @@ Prinsip UX:
 - [~] Arsip diperlakukan sebagai file biasa
 - [~] Opsi advanced disembunyikan dari alur utama
 
-Arsitektur:
-
-Phase A - Foundation
-
-Phase B - Finder-like UX defaults
+### Phase B - Finder-like UX defaults
 - [ ] Heuristik post-extract:
 - [ ] Context menu minimal:
 
-Phase C - Preview & Performance
-
-Phase D - Security hardening
+### Phase D - Security hardening
 - [ ] Overwrite strategy aman + conflict resolution sederhana
 
-Phase E - Integration polish
+### Phase E - Integration polish
 - [ ] Drag-and-drop archive behavior konsisten
 - [ ] Smart progress UX:
 - [ ] Telemetry internal (success/fail/latency) untuk tuning
@@ -1261,14 +1524,249 @@ Preferensi keputusan arsitektur:
 - [ ] Secret subsystem tidak boleh jadi single point of failure untuk boot sesi grafis.
 - [ ] Selaras penuh dengan permission architecture desktop (policy sentral, auditable, recoverable).
 
+## Program: SSOT Settings System (Shell Theme Identity + App Theme Routing)
+
+Tujuan utama:
+- [ ] Bangun `desktop-settingsd` sebagai SSOT tunggal untuk appearance, shell theme, app theme routing, icon routing, fallback policy.
+- [ ] Pisahkan tegas domain tema: shell desktop vs aplikasi (GTK/KDE/Qt generic).
+- [ ] Event-driven live update lintas shell + adapter tanpa restart sesi (sebisa mungkin).
+- [ ] Recovery-safe: invalid setting tidak boleh membuat shell gagal start.
+
+### Scope arsitektur (wajib)
+- [ ] Satu SSOT mencakup: storage, schema, policy, event notification, adapter output, live update, app classification, fallback, recovery.
+- [ ] Satu policy engine terpusat: `desktop-theme-policy`.
+- [ ] Output multi-domain:
+  - shell adapter
+  - GTK adapter
+  - KDE adapter
+  - Qt desktop fallback adapter
+- [ ] Larang model "satu literal theme untuk semua app".
+
+### Phase 1 — Settings Core Service (`desktop-settingsd`)
+- [~] Implement daemon service dengan API:
+  - `GetSettings()`
+  - `SetSetting(path, value)`
+  - `SetSettingsPatch(patch)`
+  - `SubscribeChanges()`
+  - `ClassifyApp(appDescriptor)`
+  - `ResolveThemeForApp(appDescriptor, options)`
+- [~] Emit signal:
+  - `SettingChanged`
+  - `AppearanceModeChanged`
+  - `ThemePolicyChanged`
+  - `IconPolicyChanged`
+- [~] SSOT keyspace minimum:
+  - global appearance
+  - shell theme
+  - GTK routing
+  - KDE routing
+  - app theme policy
+  - fallback policy
+  - optional per-app override
+  - implemented:
+    - `src/daemon/settingsd/settingsd_main.cpp`
+    - `src/services/settingsd/settingsservice.{h,cpp}`
+    - `src/services/settingsd/settingsstore.{h,cpp}`
+    - `tests/settingsservice_dbus_test.cpp`
+    - compatibility bridge awal di `src/core/prefs/uipreferences.cpp`:
+      - mapped read (`getPreference`) ke `org.slm.Desktop.Settings` untuk key tema utama
+      - mapped write dari setter `UIPreferences` ke SSOT daemon
+      - fallback ke QSettings lokal saat daemon belum tersedia
+      - subscribe signal D-Bus `SettingChanged` + `AppearanceModeChanged` untuk live cache sync ke QML runtime
+      - policy API bridge:
+        - `ClassifyApp` + `ResolveThemeForApp` exposed from `desktop-settingsd`
+        - integrated with `AppThemeClassifier` + `ThemePolicyEngine`
+
+### Phase 2 — Schema settings (versioned + migratable)
+- [~] Definisikan schema versioned (JSON) dengan default value + migrator:
+  - `schemaVersion`
+  - `globalAppearance`
+  - `shellTheme`
+  - `gtkThemeRouting`
+  - `kdeThemeRouting`
+  - `appThemePolicy`
+  - `fallbackPolicy`
+  - `perAppOverride`
+- [~] Tambahkan `lastKnownGood` + recovery path bila schema/value invalid.
+- [ ] Validasi ketat pada write (enum, range, nullable, compatibility checks).
+  - implemented:
+    - schema normalization + migration hook (`schemaVersion`) in `src/services/settingsd/settingsstore.cpp`
+    - startup recovery from corrupt/invalid settings via `*.last-good.json`
+    - rollback-on-failed-save path + atomic save (`QSaveFile`)
+    - env override path for testability: `SLM_SETTINGSD_STORE_PATH`
+
+### Phase 3 — App Theme Category System
+- [~] Kategori app minimum:
+  - `shell`, `gtk`, `kde`, `qt-generic`, `qt-desktop-fallback`, `unknown`
+- [~] Modular classifier pipeline:
+  - desktop file metadata
+  - `Categories` / `X-KDE-*`
+  - executable fingerprint
+  - manual override map
+- [ ] Rules:
+  - shell selalu shell theme
+  - gtk -> GTK routing
+  - kde -> KDE routing
+  - qt-generic -> evaluasi kompatibilitas
+  - incompatible qt -> desktop fallback
+  - unknown -> safe fallback
+  - implemented baseline:
+    - `src/services/theme-policy/appthemeclassifier.{h,cpp}`
+    - manual override map (`appId`/`desktopFileId`/`executable`)
+    - heuristik awal: shell/kde/gtk/qt-generic/unknown
+    - tests: `tests/appthemeclassifier_test.cpp`
+
+### Phase 4 — Theme Policy Engine (`desktop-theme-policy`)
+- [~] Resolve final keputusan berdasarkan mode aktif (`dark`/`light`/`auto`):
+  - `themeSource`
+  - `iconSource`
+  - `fallbackApplied`
+- [~] Hasil kebijakan minimum:
+  - shell -> shell theme mode aktif
+  - gtk -> gtk theme + gtk icon
+  - kde -> kde theme + kde icon
+  - qt incompatible -> desktop fallback theme/icon
+  - implemented baseline:
+    - `src/services/theme-policy/themepolicyengine.{h,cpp}`
+    - routing shell/gtk/kde/qt-generic/qt-desktop-fallback/unknown
+    - compat switch `qtKdeCompatible`
+    - tests: `tests/themepolicyengine_test.cpp`
+- [ ] Policy matrix terdokumentasi dan ditest.
+
+### Phase 5 — Adapter / Output Layer
+- [ ] Shell adapter:
+  - update token/theme runtime Qt/QML shell
+  - shell tidak pernah di-drive langsung oleh tema KDE/GTK
+- [ ] GTK adapter:
+  - sinkron theme + icon theme aktif sesuai mode
+- [ ] KDE adapter:
+  - sinkron theme + icon theme aktif sesuai mode
+- [ ] Qt desktop fallback adapter:
+  - apply fallback style untuk Qt non-KDE incompatible
+- [~] Runtime launch env routing baseline:
+  - `AppExecutionGate` now sends app descriptor (`appId`, `desktopFileId`, `executable`, `categories`) to resolver.
+  - `AppExecutionGate` now routes desktop launch through `AppLauncher` when resolver exists, even with `DockModel` attached (dock keeps focus/note responsibilities, launch env no longer bypassed by dock launch path).
+  - descriptor enriched with `desktopKeys`; options include heuristic `qtKdeCompatible`.
+  - `LaunchEnvResolver` now calls `ResolveThemeForApp` and overlays launch env hints:
+    - common: `SLM_THEME_MODE`, `SLM_THEME_SOURCE`, `SLM_ICON_THEME_SOURCE`, `SLM_THEME_CATEGORY`
+    - gtk: `GTK_THEME`, `ICON_THEME`
+    - kde: `KDE_COLOR_SCHEME`, `KDE_ICON_THEME`
+    - qt-fallback: `SLM_QT_FALLBACK_THEME`
+  - Added conflict cleanup in resolver overlay:
+    - gtk route clears KDE + qt-fallback env leftovers
+    - kde route clears GTK + qt-fallback env leftovers
+    - qt-fallback route clears GTK + KDE env leftovers
+  - Added resolver overlay contract tests in `tests/launchenvresolver_test.cpp`:
+    - category env mapping (`gtk`, `kde`, `qt-desktop-fallback`)
+    - note-driven routing for `qt-generic` (`kde-compatible` and `desktop-fallback`)
+    - unknown policy routing (`unknown-safe-fallback`, `unknown-kde-default`)
+    - conflict env cleanup assertions
+    - DBus-availability-safe behavior (auto-skip when session bus unavailable in headless environments)
+  - Added end-to-end launch trace (gated by `SLM_THEME_POLICY_TRACE`) in:
+    - `LaunchEnvResolver`: resolve stage + error stage logs
+    - `AppLauncher`: emitted policy/env snapshot just before `GAppLaunchContext` execution
+  - next: move from hint-only to dedicated adapter-backed apply paths (GTK/KDE/Qt fallback) with stricter compatibility checks.
+
+### Phase 6 — Event flow & live update
+- [ ] Alur standar perubahan mode:
+  - user ubah mode -> `desktop-settingsd` commit -> policy recompute -> adapters apply -> UI refresh
+- [ ] Pastikan propagation atomik dan konsisten lintas output.
+- [ ] Tambah debounce/coalescing agar tidak spam apply saat burst update.
+
+### Phase 7 — Settings UI contract
+- [ ] Contract Settings pages:
+  - `Appearance` (mode/accent/font/scale/cursor/icons)
+  - `Desktop` (shell theme/panel/blur/radius/animation)
+  - `Applications` (GTK/KDE themes, GTK/KDE icons, Qt fallback, per-app override)
+- [ ] UI write harus lewat API SSOT; larang write langsung ke backend adapter.
+- [ ] Jelaskan microcopy agar shell theme vs app theme tidak ambigu.
+  - [~] Partial cutover implemented:
+    - added `src/apps/settings/desktopsettingsclient.{h,cpp}` (DBus client to `org.slm.Desktop.Settings`)
+    - exposed to QML as `DesktopSettings` from `src/apps/settings/main.cpp`
+    - migrated `AppearancePage.qml` controls to SSOT-first read/write via `DesktopSettings`:
+      - Color Theme
+      - Accent Color
+      - Font Scale
+      - GTK Theme (light/dark)
+      - KDE Color Scheme (light/dark)
+      - GTK Icon Theme (light/dark)
+      - KDE Icon Theme (light/dark)
+    - fallback path retained via `UIPreferences` if settings daemon unavailable
+    - `ApplicationsPage.qml` added "Theme" section (SSOT-backed):
+      - `appThemePolicy.qtGenericAllowKdeCompat`
+      - `appThemePolicy.qtIncompatibleUseDesktopFallback`
+      - `fallbackPolicy.unknownUsesSafeFallback`
+      - basic per-app override editor (`perAppOverride.<appId|desktopId>`)
+      - policy preview panel (`ClassifyApp` + `ResolveThemeForApp`) for live routing verification
+      - policy preview can auto-fill descriptor from selected app in sidebar ("Use Selected App")
+      - "Use Selected App" now auto-runs classify + resolve preview (one-click verification)
+      - Apply/Clear per-app override now auto-refreshes policy preview for immediate verification
+    - `DesktopSettingsClient` extended with:
+      - policy properties + setters
+      - DBus helpers `ClassifyApp` and `ResolveThemeForApp` for preview/integration
+
+### Phase 8 — Persistence, safety, recovery
+- [ ] Storage:
+  - JSON versioned + migration path
+  - atomic write (`tmp -> fsync -> rename`)
+- [ ] Safety:
+  - input validation
+  - rollback ke `lastKnownGood`
+  - fallback ke defaults jika corrupt
+- [ ] Recovery:
+  - startup self-check
+  - invalid schema/value tidak memblok shell startup
+
+### Deliverables implementasi (dokumen + kontrak)
+- [ ] Dokumen arsitektur end-to-end: SSOT -> policy -> adapters -> app domains.
+- [ ] Schema final lengkap + contoh payload.
+- [ ] Theme policy matrix untuk kategori:
+  - shell
+  - gtk
+  - kde
+  - qt-generic
+  - qt-desktop-fallback
+  - unknown
+- [ ] Event flow mode change terdokumentasi.
+- [ ] Pseudocode baseline:
+  - read/write setting
+  - classify app
+  - resolve theme/icon
+  - emit signal
+  - apply adapters
+- [ ] Struktur modul/file implementasi disepakati.
+
+### Usulan struktur modul/file
+- [ ] `src/daemon/settingsd/`:
+  - `settingsservice.*`
+  - `settingstore.*`
+  - `settingsschema.*`
+  - `settingsmigrator.*`
+- [ ] `src/services/theme-policy/`:
+  - `appthemeclassifier.*`
+  - `themepolicyengine.*`
+  - `themeresolution.*`
+- [ ] `src/services/theme-adapters/`:
+  - `shellthemeadapter.*`
+  - `gtkthemeadapter.*`
+  - `kdethemeadapter.*`
+  - `qtfallbackadapter.*`
+- [ ] `src/apps/settings/modules/appearance/`:
+  - UI bridge ke `desktop-settingsd`
+  - per-app override editor
+- [ ] `docs/contracts/`:
+  - settings API contract
+  - event contract
+  - policy matrix contract
+
+### Guardrails (tidak boleh dilanggar)
+- [ ] Shell tidak boleh ikut tema KDE/GTK secara langsung.
+- [ ] App KDE tidak boleh dipaksa pakai shell theme.
+- [ ] App Qt incompatible wajib fallback ke desktop policy.
+- [ ] Satu perubahan mode harus sinkron ke semua output domain.
+- [ ] SSOT tetap pusat tunggal; tidak ada sumber kebenaran kedua.
+
 DockSystem single-pipeline refactor (KWin-safe dual host compromise):
-- [x] Satu `DockSystem` untuk mode/policy/layout/presentation dasar (`dockLayoutState`, `dockAnimationState`, `dockResolvedPresentation`).
-- [x] Dua host renderer tipis: `ShellDockHost` + `LaunchpadDockHost` (tanpa model dock terpisah).
-- [x] Ownership input tunggal via `DockController.inputOwnerHost` (mode-driven).
-- [x] Event interaksi host-divalidasi (`hover/press/activate/drag/context`) agar host non-owner tidak bisa mutate state.
-- [x] Parameter layout visual inti (`iconSlotWidth`, `itemSpacing`, `hoverLift`, magnification params, `dockBottomMargin`) dipusatkan di `DockSystem` dan diinjeksikan ke renderer.
-- [x] Resolver magnification influence dipusatkan di `DockSystem` (`resolveMagnificationInfluence`) agar pipeline visual tidak host-driven.
-- [x] Guard regresi arsitektur ditambahkan: `tests/docksystem_render_contract_test.cpp` (phase contract + global resolver usage + host rect publishing contract).
 - [ ] Lanjutan: hilangkan fallback kalkulasi lokal di `Dock.qml` (nearest/insertion), sehingga resolver `DockSystem` menjadi satu-satunya jalur hit-test/reorder target.
 
 Roadmap arsitektur: Single Dock Renderer persisten di atas Shell + Launchpad
@@ -1297,6 +1795,236 @@ Fase implementasi:
   - `ShellDockHost` dan `LaunchpadDockHost` dijadikan shim kosong sementara lalu dihapus.
   - Pastikan hover/magnification/drag berasal dari timeline tunggal tanpa reset saat mode launchpad berubah.
 - [ ] Phase 3 — Launchpad integration
+
+## Program: Context Awareness (Adaptive UI) — `desktop-contextd`
+
+Tujuan:
+- [ ] Bangun daemon `desktop-contextd` untuk context-aware adaptive UI terintegrasi SSOT.
+- [ ] Kumpulkan context sistem realtime, normalisasi ke model standar, emit event granular.
+- [ ] Integrasikan ke Theme Policy Engine dan UI Behavior System tanpa melanggar preferensi user.
+
+Prinsip wajib:
+- [ ] Context ≠ setting (context dinamis, setting preferensi user).
+- [ ] SSOT tetap source of truth; context hanya sinyal kondisi + input policy.
+- [ ] Konflik policy wajib: `user_setting > context_automation`.
+- [ ] Adaptasi harus smooth, predictable, non-intrusive.
+
+### Arsitektur (Production-ready)
+- [ ] Layer 1 — Sensors:
+  - [ ] time/sunrise-sunset
+  - [ ] power (AC/battery/level/low power via UPower/system source)
+  - [ ] device profile (laptop/desktop/tablet/touch/input capability)
+  - [ ] display/compositor (monitor count, fullscreen, DPI/scale, refresh rate)
+  - [ ] activity (active app, workspace, focus/presentation mode)
+  - [ ] system resources (CPU/RAM; GPU optional)
+  - [ ] network (online/offline, metered, quality class)
+  - [ ] attention (idle/active, DND, fullscreen suppression signal)
+- [ ] Layer 2 — Context Normalization:
+  - [ ] Raw sensor data diubah ke `ContextModel` terstandarisasi (tanpa expose raw schema).
+- [ ] Layer 3 — Context Engine:
+  - [ ] Merge context + diff vs previous state + debounce/coalesce + state publish.
+- [ ] Layer 4 — Policy Integration:
+  - [ ] Context consumed by theme/animation/notification/layout/control-center adapters.
+
+### Context Model Final (canonical contract)
+- [ ] Definisikan schema final (versioned) contoh:
+  - `time.period`: `day|night`
+  - `power.mode`: `ac|battery`, `power.level`, `power.lowPower`
+  - `device.type`: `laptop|desktop|tablet`, `device.touchCapable`
+  - `display.multiMonitor`, `display.fullscreen`, `display.scaleClass`, `display.refreshClass`
+  - `activity.type`: `normal|focus|presentation|gaming`, `activity.appId`, `activity.workspaceId`
+  - `system.performance`: `high|normal|low`
+  - `network.state`: `online|offline`, `network.metered`, `network.quality`
+  - `attention.idle`, `attention.dnd`, `attention.fullscreenSuppression`
+
+### Event System (granular, event-driven)
+- [ ] DBus/event bus events:
+  - `ContextChanged(context)`
+  - `PowerStateChanged(payload)`
+  - `TimePeriodChanged(period)`
+  - `ActivityChanged(payload)`
+  - `PerformanceChanged(payload)`
+- [ ] Anti-spam:
+  - [ ] debounce burst updates
+  - [ ] only emit changed fields
+  - [ ] publish throttling for high-frequency sensors
+
+### Rule Engine Design (WAJIB)
+- [ ] Rule format declarative:
+  - condition + action + priority + cooldown + override guard
+- [ ] Baseline rules:
+  - [ ] Low power: disable blur, reduce animation, limit background refresh
+  - [ ] Night period + auto theme: set appearance mode dark
+  - [ ] Fullscreen: suppress non-critical notifications
+  - [ ] High load/low performance: disable heavy effects
+  - [ ] Presentation: disable notifications + prevent dimming
+- [ ] Rule constraints:
+  - [ ] no direct hardcode behavior outside rule engine
+  - [ ] user manual mode blocks context override
+
+### SSOT Integration Strategy
+- [ ] SSOT stores:
+  - [ ] user preferences (manual/auto mode)
+  - [ ] theme/policy configs
+  - [ ] context automation policy toggles
+- [ ] `desktop-contextd` only publishes context + recommendations.
+- [ ] Apply pipeline:
+  - [ ] ContextChanged -> RuleEngine -> PolicyAdapter -> SSOT-aware update request.
+- [ ] Conflict resolver:
+  - [ ] enforce `manual mode` as hard guardrail.
+
+### DBus API Contract (`org.desktop.Context`)
+- [ ] Service: `org.desktop.Context`
+- [ ] Object: `/org/desktop/Context`
+- [ ] Interface: `org.desktop.Context`
+- [ ] Methods:
+  - [ ] `GetContext() -> a{sv}`
+  - [ ] `Subscribe() -> a{sv}` (or ack payload)
+- [ ] Signals:
+  - [ ] `ContextChanged(a{sv})`
+  - [ ] `PowerChanged(a{sv})`
+  - [ ] `ActivityChanged(a{sv})`
+  - [ ] `TimePeriodChanged(s)`
+  - [ ] `PerformanceChanged(a{sv})`
+
+### Pseudocode baseline
+- [ ] Update context loop:
+  - [ ] read sensors -> normalize -> diff -> emit changed events.
+- [ ] Apply rule flow:
+  - [ ] on context changed -> evaluate rules -> apply adapters with SSOT guard.
+
+### Struktur project
+- [ ] `src/daemon/contextd/`
+  - [ ] `main.cpp`
+  - [ ] `dbus/contextservice.*`
+  - [ ] `engine/contextengine.*`
+  - [ ] `model/contextmodel.*`
+  - [ ] `rules/ruleengine.*`
+  - [ ] `eventbus/contextbus.*`
+  - [ ] `sensors/{time,power,device,display,activity,system,network,attention}sensor.*`
+  - [ ] `integration/{theme,animation,notification,layout}adapter.*`
+
+### Safety & Reliability
+- [ ] fallback saat sensor gagal (degrade gracefully, no crash)
+- [ ] never block UI thread
+- [ ] timeout + retry policy per sensor source
+- [ ] health metric + watchdog hook
+- [ ] startup-safe default context when sensors unavailable
+
+### Dampak UI (controlled adaptation)
+- [ ] Theme: auto dark/light with smooth transition
+- [ ] Animation: full/reduced/minimal by context
+- [ ] Notification: focus/fullscreen-aware suppression
+- [ ] Layout: compact vs touch-friendly mode profile
+- [ ] Control Center: context-relevant cards only
+
+### Prioritas Implementasi
+- [ ] Phase 1:
+  - [ ] time + power + fullscreen
+  - [ ] basic rule engine + DBus + SSOT integration guard
+- [ ] Phase 2:
+  - [ ] activity + system resource monitoring
+  - [ ] performance-aware UI degradation policies
+- [ ] Phase 3:
+  - [ ] network context + predictive refinements
+  - [ ] expanded adaptive behavior matrix
+
+### Larangan
+- [ ] jangan override setting user tanpa izin/mode auto
+- [ ] jangan lakukan perubahan UI drastis mendadak
+- [ ] jangan coupling langsung behavior ke GTK/KDE implementation details
+- [ ] jangan hardcode behavior di luar rule engine
+
+Progress implementasi (awal):
+- [~] Skeleton daemon + DBus contract Phase 1 sudah dibuat:
+  - `src/daemon/contextd/contextd_main.cpp`
+  - `src/services/context/contextservice.{h,cpp}`
+  - DBus service: `org.desktop.Context`
+  - methods: `GetContext`, `Subscribe`, `Ping`
+  - signals: `ContextChanged`, `PowerStateChanged`, `TimePeriodChanged`, `ActivityChanged`, `PerformanceChanged`
+  - normalized context baseline termasuk `time/power/device/display/activity/system/network/attention`
+  - periodic refresh + diff-based emit (anti-spam dasar)
+- [~] Basic rule engine Phase 1 sudah ditambahkan:
+  - `src/services/context/ruleengine.{h,cpp}`
+  - evaluasi rule baseline:
+    - low power -> disable blur + reduce animation + limit background refresh
+    - night/day + SSOT guard (`globalAppearance.colorMode == auto`) -> appearance mode suggestion
+    - fullscreen -> notification suppression
+    - low performance -> disable heavy effects
+  - hasil rule dipublish pada `context.rules` (non-destructive, tidak force override setting user)
+- [~] SSOT integration guard baseline:
+  - `ContextService` membaca snapshot settings dari `org.slm.Desktop.Settings.GetSettings`
+  - automation dikunci oleh mode user (`auto` vs manual) sesuai prinsip `user_setting > context_automation`
+- [~] CMake integration:
+  - `cmake/Sources.cmake` -> `SLM_CONTEXTD_SOURCES`
+  - `CMakeLists.txt` -> executable target `desktop-contextd` + link `Qt6::Core Qt6::DBus`
+- [~] DBus contract test baseline:
+  - `tests/contextservice_dbus_test.cpp` ditambahkan untuk kontrak `Ping/GetContext/Subscribe` + guard `auto/manual`.
+  - Target `contextservice_dbus_test` sudah terintegrasi ke `CMakeLists.txt`.
+  - Verifikasi: `ctest -R contextservice_dbus_test` pass.
+  - Catatan: di environment headless tanpa session bus test dapat `SKIP` (expected).
+- [~] Fullscreen context sensor baseline:
+  - `display.fullscreen` kini membaca state aktif via DBus KWin (`org.kde.KWin` -> `activeWindow` -> `org.kde.KWin.Window.fullScreen`).
+  - Fallback aman ke `false` jika backend tidak tersedia; exposed `display.fullscreenSource = kwin|fallback`.
+- [~] Notification integration baseline:
+  - `NotificationManager` subscribe `org.desktop.Context.ContextChanged`.
+  - Rule `notifications.suppress=true` kini menahan banner non-kritis (priority `normal/low`) dan tetap mengizinkan `high`.
+  - Regression test ditambah di `notificationmanager_priority_routing_test` (context suppression contract).
+- [~] System resource context baseline:
+  - `system.performance` tidak lagi hardcoded; kini dihitung dari sensor runtime:
+    - CPU load class via `/proc/loadavg` (`cpuLoadPercent`, `cpuSource`)
+    - Memory pressure via `/proc/meminfo` (`memoryUsedPercent`, `memorySource`)
+  - Klasifikasi awal:
+    - `low` jika CPU/memory tinggi
+    - `high` jika CPU ringan dan memory longgar
+    - selain itu `normal`
+  - Contract test `contextservice_dbus_test` diperluas untuk memvalidasi shape `system` context.
+- [~] Network + attention + activity sensor baseline:
+  - `network` kini membaca `org.freedesktop.NetworkManager` (`State`, `Connectivity`, `Metered`) dengan output ter-normalisasi:
+    - `state: online|offline`
+    - `quality: normal|limited|offline`
+    - `metered: bool`
+    - `source: networkmanager|fallback`
+  - `attention.idle` kini membaca `org.freedesktop.ScreenSaver` (`GetActive` + `GetSessionIdleTime`) dengan fallback aman.
+  - `activity.appId` baseline kini membaca active window KWin (desktopFileName/resourceClass/resourceName) jika tersedia.
+  - Contract test `contextservice_dbus_test` diperluas untuk validasi shape `network/attention/activity`.
+- [~] Context event throttling baseline:
+  - `ContextService` kini memakai semantic compare (`normalizedForSemanticCompare`) untuk menahan spam emit akibat fluktuasi minor:
+    - bucketize `cpuLoadPercent` / `memoryUsedPercent`
+    - coarse bucket `attention.idleTimeSec`
+    - abaikan field noisy `network.connectivityRaw`
+  - `GetContext` tetap menyajikan snapshot terbaru, tetapi signal emit hanya saat perubahan semantik.
+- [~] Shell runtime adapter baseline (context -> motion):
+  - Refactor ke event-driven:
+    - tambahkan `src/services/context/contextclient.{h,cpp}` (subscribe `org.desktop.Context.ContextChanged` + owner watch).
+    - `main.cpp` kini konsumsi `ContextClient.reduceAnimation` langsung (tanpa polling timer periodik).
+  - Rule `ui.reduceAnimation` terintegrasi ke `MotionController.setReducedMotion(...)`.
+  - Guardrail dipertahankan: preferensi user tetap prioritas (`animationMode=full` tidak dipaksa reduce oleh context).
+- [~] SSOT automation gates + settings integration baseline:
+  - `settingsd` menambah root `contextAutomation`:
+    - `autoReduceAnimation`
+    - `autoDisableBlur`
+    - `autoDisableHeavyEffects`
+  - Validasi tipe bool ditambahkan untuk semua key gate di atas.
+  - `RuleEngine` kini hormati gate tersebut saat menghitung:
+    - `ui.reduceAnimation`
+    - `ui.disableBlur`
+    - `ui.disableHeavyEffects`
+  - `DesktopSettingsClient` + `AppearancePage` sudah expose toggle runtime untuk ketiga gate.
+- [~] Shell adaptive effects integration baseline:
+  - `ContextClient` expose `disableBlur`, `disableHeavyEffects`, dan `context` snapshot map.
+  - Runtime integration aktif pada:
+    - Launchpad (blur/anim gate)
+    - Notification stack/cards/bubble (heavy effects gate)
+    - Compositor switcher overlay (effects/animation gate)
+    - `SlmStyle.PopupSurface` (shadow gate)
+- [~] Developer diagnostics integration baseline:
+  - `ContextClient` di-expose ke app `slm-settings`.
+  - `DeveloperOverviewPage` menampilkan ringkas:
+    - service status
+    - resolved action dari `context.rules.actions`
+    - gate status dari SSOT (`contextAutomation.*`)
+  - `ContextDebugPage.qml` tersedia untuk raw context JSON + sensor source summary.
   - `shellMode = launchpad` hanya memicu perubahan `DockResolvedPresentation` (opacity/blur/offset/policy), bukan re-parent/recreate renderer.
   - Launchpad open/close toggle wajib idempotent (spam toggle aman, tanpa flicker).
   - Tambah guard: launchpad tidak boleh menulis properti visibility dock secara langsung.
