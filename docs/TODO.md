@@ -1766,35 +1766,10 @@ Tujuan utama:
 - [ ] Satu perubahan mode harus sinkron ke semua output domain.
 - [ ] SSOT tetap pusat tunggal; tidak ada sumber kebenaran kedua.
 
-DockSystem single-pipeline refactor (KWin-safe dual host compromise):
-- [ ] Lanjutan: hilangkan fallback kalkulasi lokal di `Dock.qml` (nearest/insertion), sehingga resolver `DockSystem` menjadi satu-satunya jalur hit-test/reorder target.
-
-Roadmap arsitektur: Single Dock Renderer persisten di atas Shell + Launchpad
-
-Target akhir:
-- [ ] Satu instance visual dock saja: `PersistentDockWindow` (renderer tunggal, lifecycle tunggal, input pipeline tunggal).
-- [ ] `PersistentDockWindow` selalu hidup dan berada di layer/window global yang persisten di atas `ShellWindow` dan `LaunchpadWindow`.
-- [ ] `Launchpad` tidak pernah membuat host dock baru; hanya mengubah mode/presentasi di `DockSystem`.
-
-Kontrak arsitektur (wajib):
-- [ ] `DockSystem` tetap satu-satunya source of truth (`core/layout/animation/policy/controller`).
-- [ ] `PersistentDockWindow` hanya renderer + forwarding input ke `DockController`.
-- [ ] `ShellWindow` dan `LaunchpadWindow` dilarang mengandung instance `DockComp.Dock` terpisah.
-- [ ] Satu `DockInputOwner` global; tidak ada handoff input antar host karena host tinggal satu.
-
-Fase implementasi:
-- [ ] Phase 0 — Baseline & observability
-  - Tambah trace event terstruktur: `dock.window.created`, `dock.window.mapped`, `dock.input.owner`, `launchpad.state.changed`.
-  - Tambah counter continuity: jumlah frame dock invisible saat transisi launchpad.
-- [ ] Phase 1 — PersistentDockWindow foundation
-  - Buat `Qml/components/overlay/PersistentDockWindow.qml`.
-  - Window policy: frameless, translucent, always-on-layer sesuai policy shell, tidak bergantung `WindowStaysOnTopHint` rapuh.
-  - Dock geometry binding ke `DockLayoutState` global (screen-aware, DPI-aware, safe-area aware).
-- [ ] Phase 2 — Render unification
-  - Pindahkan render dock dari `ShellDockHost`/`LaunchpadDockHost` ke `PersistentDockWindow`.
-  - `ShellDockHost` dan `LaunchpadDockHost` dijadikan shim kosong sementara lalu dihapus.
-  - Pastikan hover/magnification/drag berasal dari timeline tunggal tanpa reset saat mode launchpad berubah.
-- [ ] Phase 3 — Launchpad integration
+Dock status:
+- [x] Dock state saat ini ditandai sebagai **last good**.
+- [x] Instruksi tugas/roadmap Dock lama dibersihkan dari TODO aktif.
+- [ ] Lanjut validasi Dock hanya di environment uji final (QEMU/target compositor), bukan dari host test yang tidak stabil.
 
 ## Program: Context Awareness (Adaptive UI) — `desktop-contextd`
 
@@ -2052,40 +2027,3 @@ Progress implementasi (awal):
     - resolved action dari `context.rules.actions`
     - gate status dari SSOT (`contextAutomation.*`)
   - `ContextDebugPage.qml` tersedia untuk raw context JSON + sensor source summary.
-  - `shellMode = launchpad` hanya memicu perubahan `DockResolvedPresentation` (opacity/blur/offset/policy), bukan re-parent/recreate renderer.
-  - Launchpad open/close toggle wajib idempotent (spam toggle aman, tanpa flicker).
-  - Tambah guard: launchpad tidak boleh menulis properti visibility dock secara langsung.
-- [ ] Phase 4 — Input, focus, and hit-test hardening
-  - Hit-test pipeline tunggal di `DockController` + resolver global; hapus fallback lokal di `Dock.qml`.
-  - Pointer capture/drag reorder tetap stabil saat ada overlay lain (notification/topbar popup/search).
-  - Context menu, badge, progress, lifecycle pulse tetap berfungsi saat launchpad aktif.
-- [ ] Phase 5 — Z-order and compositor reliability
-  - Definisikan policy z-order final lintas backend (`KWin` utama, fallback generic Wayland).
-  - Tambah health check: jika dock window unmap/hidden tak sengaja, auto-recover map tanpa reset state.
-  - Tambah safe-mode policy: animasi dock bisa dimatikan total, tetapi renderer tetap persisten.
-- [ ] Phase 6 — Cleanup & enforcement
-  - Hapus semua kode dual-host docking lama.
-  - Tambah lint/contract test yang fail jika ada instance dock kedua di Shell/Launchpad.
-  - Dokumentasikan sebagai arsitektur final di `docs/SESSION_STATE.md` + kontrak test.
-
-Test plan wajib (gate):
-- [ ] Continuity test: transisi normal <-> launchpad 1000x, tidak ada frame “dock hilang”.
-- [ ] Flicker test: first-open launchpad tidak ada blink (0 transient hide/unmap event).
-- [ ] Input test: hover/pin/magnify/drag state tidak reset antar mode.
-- [ ] Z-order test: dock tetap di atas shell+launchpad, tetapi di bawah system modal kritikal.
-- [ ] Multi-monitor test: dock konsisten pada monitor aktif sesuai policy.
-- [ ] Crash recovery test: jika launchpad crash/restart, dock tetap hidup dan interaktif.
-
-Risiko & mitigasi:
-- [ ] Risiko race map/unmap window pada compositor.
-  - Mitigasi: lifecycle gate + delayed unmap guard + atomic visibility commit.
-- [ ] Risiko regressi input akibat perubahan owner model.
-  - Mitigasi: contract test input owner + synthetic pointer tests.
-- [ ] Risiko backend-specific stacking behavior.
-  - Mitigasi: abstraction `DockWindowPolicyResolver` per backend + fallback policy table.
-
-Definisi selesai (DoD):
-- [ ] Tidak ada lagi dua renderer dock aktif di codebase/runtime.
-- [ ] Dock continuity mulus saat launchpad open/close tanpa putus visual.
-- [ ] State hover/pressed/magnification/drag tidak ter-reset oleh transisi launchpad.
-- [ ] Semua gate test di atas hijau di CI dan runtime smoke lokal.
