@@ -10,11 +10,11 @@ Item {
     property string searchText: ""
     property int currentPage: 0
     property int maxColumns: 7
-    property int maxRowsPerPage: 5
+    property int maxRowsPerPage: 4
     property int topSafeInset: 0
     property int bottomSafeInset: 144
-    property int minColumns: 4
-    property int minRowsPerPage: 3
+    property int minColumns: 7
+    property int minRowsPerPage: 4
     readonly property int effectiveColumns: Math.max(minColumns,
                                                      Math.min(maxColumns,
                                                               Math.floor((appsFlick.width + gridSpacing)
@@ -243,7 +243,26 @@ Item {
         if (currentPage < 0) {
             currentPage = 0
         }
-        pagedApps = appsModel.page(currentPage, pageSize, searchText)
+        var rawPage = appsModel.page(currentPage, pageSize, searchText)
+        var normalized = []
+        if (rawPage && rawPage.length !== undefined) {
+            for (var i = 0; i < rawPage.length; ++i) {
+                var entry = rawPage[i] || {}
+                normalized.push({
+                    "name": String(entry.name || ""),
+                    "iconSource": String(entry.iconSource || ""),
+                    "iconName": String(entry.iconName || ""),
+                    "desktopId": String(entry.desktopId || ""),
+                    "desktopFile": String(entry.desktopFile || ""),
+                    "executable": String(entry.executable || ""),
+                    "score": Number(entry.score || 0),
+                    "launchCount7d": Number(entry.launchCount7d || 0),
+                    "fileOpenCount7d": Number(entry.fileOpenCount7d || 0),
+                    "lastLaunch": String(entry.lastLaunch || "")
+                })
+            }
+        }
+        pagedApps = normalized
         clampSelectedIndex()
     }
 
@@ -268,9 +287,6 @@ Item {
     }
 
     onVisibleChanged: {
-        if (visible && appsModel && appsModel.refresh) {
-            appsModel.refresh()
-        }
         refreshCompositorBlurPrefs()
         if (visible) {
             recomputePaging()
@@ -356,7 +372,12 @@ Item {
         id: contentLayer
         anchors.fill: parent
         anchors.topMargin: Math.max(root.topSafeInset + 6, 14)
-        anchors.bottomMargin: Math.max(8, Math.max(parent.height * 0.01, bottomSafeInset))
+        anchors.bottomMargin: Math.max(
+                                  8,
+                                  Math.min(Math.round(parent.height * 0.28),
+                                           Math.max(Math.round(parent.height * 0.01),
+                                                    bottomSafeInset))
+                              )
         anchors.leftMargin: Math.max(56, parent.width * 0.07)
         anchors.rightMargin: Math.max(56, parent.width * 0.07)
 
@@ -419,7 +440,7 @@ Item {
 
             Item {
                 width: parent.width
-                height: parent.height - searchShell.height - pageDots.height - 16
+                height: Math.max(160, parent.height - searchShell.height - pageDots.height - 16)
 
                 Flickable {
                     id: appsFlick
@@ -638,6 +659,7 @@ Item {
         function onRowsRemoved() { root.recomputePaging() }
         function onAppScoresChanged() { root.recomputePaging() }
     }
+
 
     Connections {
         target: (typeof UIPreferences !== "undefined" && UIPreferences) ? UIPreferences : null

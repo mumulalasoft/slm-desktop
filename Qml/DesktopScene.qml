@@ -59,6 +59,13 @@ Item {
     readonly property real dockX: Math.round((width - dockWidth) / 2)
     readonly property real dockY: dockShownY
     readonly property bool dockHovered: !!(dockItem && dockItem.hovered)
+    readonly property bool layerShellAvailable: (typeof WlrLayerShell !== "undefined") && !!WlrLayerShell
+    readonly property bool layerShellSupported: layerShellAvailable && !!WlrLayerShell.isSupported()
+    readonly property bool dockLayerReady: !layerShellAvailable
+                                           || !layerShellSupported
+                                           || ((typeof DockBootstrapState !== "undefined" && DockBootstrapState)
+                                               ? !!DockBootstrapState.readyToRender
+                                               : true)
     property real dockShownY: height - dockHeight - dockBottomMargin
     property real dockHiddenY: height - 10
     readonly property bool pointerNearDock: (
@@ -81,9 +88,8 @@ Item {
                                                 (dockSmartRevealAllowed && dockUserRevealWanted)
                                             )
     // Note: launchpadVisible is intentionally excluded from dockRevealWanted.
-    // ShellDockHost is the single dock renderer and stays active when launchpad
-    // is open — LaunchpadWindow leaves the dock zone uncovered so the dock is
-    // interactive directly in ApplicationWindow.
+    // DockWindow (z=200) is above LaunchpadWindow (z=190) in the scene graph —
+    // the dock renders on top of the launchpad without any exclusion zone.
 
     ShellComp.Shell {
         id: shell
@@ -548,6 +554,15 @@ Item {
     }
 
     onLaunchpadVisibleChanged: {
+        if (launchpadVisible) {
+            console.info("LAUNCHPAD show requested")
+            if (!dockLayerReady) {
+                console.info("LAUNCHPAD show allowed dockReady=false")
+                launchpadVisible = false
+                return
+            }
+            console.info("LAUNCHPAD show allowed dockReady=true")
+        }
         if (ShellStateController) ShellStateController.setLaunchpadVisible(launchpadVisible)
         pushLaunchpadToCompositor()
     }

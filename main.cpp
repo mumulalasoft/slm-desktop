@@ -78,6 +78,10 @@
 #include "src/core/shell/shellstatecontroller.h"
 #include "src/core/shell/shellinputrouter.h"
 #include "src/core/shell/shelllayerwatchdog.h"
+#ifdef SLM_HAVE_WAYLANDCLIENT
+#include "src/core/wayland/layershell/dockbootstrapstate.h"
+#include "src/core/wayland/layershell/wlrlayershell.h"
+#endif
 #include "src/core/system/missingcomponentcontroller.h"
 #include "src/printing/core/PrinterManager.h"
 #include "src/printing/core/PrintSession.h"
@@ -265,6 +269,15 @@ int main(int argc, char *argv[])
     ShellLayerWatchdog shellLayerWatchdog(&shellStateController);
     PowerBridge powerBridge;
     Slm::System::MissingComponentController missingComponentController;
+#ifdef SLM_HAVE_WAYLANDCLIENT
+    DockBootstrapState dockBootstrapState;
+    WlrLayerShell wlrLayerShell;
+    wlrLayerShell.setDockBootstrapState(&dockBootstrapState);
+    QObject::connect(&wlrLayerShell, &WlrLayerShell::activeChanged, &app, [&]() {
+        dockBootstrapState.setIntegrationEnabled(wlrLayerShell.isActive());
+    });
+    dockBootstrapState.setIntegrationEnabled(wlrLayerShell.isActive());
+#endif
     Slm::Print::PrinterManager printerManager;
     Slm::Print::PrintSession printSession;
     Slm::Print::PrintPreviewModel printPreviewModel;
@@ -409,6 +422,10 @@ int main(int argc, char *argv[])
     // Tidak perlu model terpisah — QML memanggil langsung saat sidebar dibuka.
     engine.rootContext()->setContextProperty(QStringLiteral("slmActionTreeDebug"),
                                              slmActionTreeDebug);
+#ifdef SLM_HAVE_WAYLANDCLIENT
+    engine.rootContext()->setContextProperty(QStringLiteral("WlrLayerShell"), &wlrLayerShell);
+    engine.rootContext()->setContextProperty(QStringLiteral("DockBootstrapState"), &dockBootstrapState);
+#endif
     engine.rootContext()->setContextProperty(QStringLiteral("SessionStateClient"), &sessionStateClient);
     engine.rootContext()->setContextProperty(QStringLiteral("MissingComponents"), &missingComponentController);
     engine.rootContext()->setContextProperty(QStringLiteral("PrintManager"), &printerManager);

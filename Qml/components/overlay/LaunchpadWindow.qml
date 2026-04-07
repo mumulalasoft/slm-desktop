@@ -3,50 +3,75 @@ import QtQuick.Window 2.15
 import Slm_Desktop
 import "../launchpad" as LaunchpadComp
 
-// LaunchpadWindow is a frameless transient Window so KWin stacks it above
-// all normal app windows.
+// LaunchpadWindow — transient frameless Window for the app launcher overlay.
 //
-// Dock host here is renderer-only. All dock state/logic stays global in
-// DockSystem.
+// As a compositor-managed transient Window it appears above all application
+// windows. The DockWindow (wlr-layer-shell LayerTop) is placed above this
+// window by the compositor — no exclusion zones or height trimming needed.
+//
+// Performance: the Window stays mapped to the compositor at all times so there
+// is no wl_surface creation / XDG configure roundtrip on each open. When the
+// launchpad is closed, Qt.WindowTransparentForInput empties the input region so
+// pointer events pass through to the desktop below. Content is hidden via
+// opacity so the scene graph is not traversed, but the surface itself is ready.
+//
+// bottomSafeInset is a layout inset so the app grid does not extend into the
+// dock area that DockWindow renders on top of.
 Window {
     id: root
 
     required property var rootWindow
     required property var desktopScene
     required property var appsModel
-    property var dockAppsModel: (typeof DockModel !== "undefined" && DockModel) ? DockModel : appsModel
 
     readonly property int panelHeight: desktopScene ? desktopScene.panelHeight : 34
-    readonly property int dockSafeInset: Math.max(
-                                             24,
-                                             Math.round(
-                                                 (desktopScene ? Number(desktopScene.dockHeight || 120) : 120)
-                                                 + (desktopScene ? Number(desktopScene.dockBottomMargin || 0) : 0)
-                                                 + 20
-                                             )
-                                         )
+    readonly property bool layerShellAvailable: (typeof WlrLayerShell !== "undefined") && !!WlrLayerShell
+    readonly property bool layerShellSupported: layerShellAvailable && !!WlrLayerShell.isSupported()
+    readonly property bool dockLayerReady: !layerShellAvailable
+                                           || !layerShellSupported
+                                           || ((typeof DockBootstrapState !== "undefined" && DockBootstrapState)
+                                               ? !!DockBootstrapState.readyToRender
+                                               : true)
+
+    // Layout inset so the Launchpad grid content is not obscured by the dock
+    // that DockWindow renders on top of this window.
+    readonly property int bottomSafeInset: Math.max(
+        24,
+        Math.round(
+            (desktopScene ? Number(desktopScene.dockHeight || 120) : 120)
+            + (desktopScene ? Number(desktopScene.dockBottomMargin || 0) : 0)
+            + 20
+        )
+    )
+
+    // True while the launchpad is the active overlay.
+    readonly property bool isActive: !!desktopScene && desktopScene.launchpadVisible === true
+
     property bool dismissArmed: false
-    property real revealProgress: 1.0
 
     signal appChosen(var appData)
     signal addToDockRequested(var appData)
     signal addToDesktopRequested(var appData)
 
-    visible: !!rootWindow && !!desktopScene
-             && rootWindow.visible
-             && desktopScene.launchpadVisible
-    color: "transparent"
-    flags: Qt.FramelessWindowHint
+    // Keep behavior deterministic across compositors: map only when active.
+    visible: !!rootWindow && !!desktopScene && rootWindow.visible && dockLayerReady && root.isActive
+    flags:   Qt.FramelessWindowHint
+    color:   "transparent"
     transientParent: rootWindow
-    title: "Desktop Launchpad"
-    x: rootWindow ? rootWindow.x : 0
-    y: rootWindow ? rootWindow.y : 0
-    width:  rootWindow ? rootWindow.width : 0
+    title:   "Desktop Launchpad"
+    x:      rootWindow ? rootWindow.x : 0
+    y:      rootWindow ? rootWindow.y : 0
+    width:  rootWindow ? rootWindow.width  : 0
     height: rootWindow ? rootWindow.height : 0
 
-    onVisibleChanged: {
-        if (visible && desktopScene && desktopScene.launchpadVisible) {
+    onIsActiveChanged: {
+        if (isActive) {
             requestActivate()
+            root.dismissArmed = false
+            dismissArmTimer.restart()
+        } else {
+            root.dismissArmed = false
+            dismissArmTimer.stop()
         }
     }
 
@@ -60,9 +85,10 @@ Window {
         id: launchpadOverlay
         anchors.fill: parent
 
+        visible: true
+
         // Wallpaper base — always opaque so ApplicationWindow never shows through
-        // launchpadFrame while it animates. z:-1 keeps it below dismiss MouseArea
-        // and launchpadFrame. enabled:false ensures no mouse event interception.
+        // launchpadFrame while it animates.
         Image {
             anchors.fill: parent
             z: -1
@@ -73,90 +99,42 @@ Window {
             mipmap: true
         }
 
-        QtObject {
-            id: launchpadMotion
-        }
-
-        Connections {
-            target: desktopScene
-            ignoreUnknownSignals: true
-            function onLaunchpadVisibleChanged() {
-                if (desktopScene.launchpadVisible) {
-                    root.dismissArmed = false
-                    dismissArmTimer.restart()
-                } else {
-                    root.dismissArmed = false
-                    dismissArmTimer.stop()
-                }
-            }
-        }
-
         // Dismiss tap area — excludes the top panel strip so topbar keeps its
-        // own interactions.
+        // own interactions. The dock zone is not excluded because DockWindow
+        // (LayerTop) sits above this window and handles its own input.
         MouseArea {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top
             anchors.topMargin: root.panelHeight
             anchors.bottom: parent.bottom
-            anchors.bottomMargin: 0
             z: 0
             enabled: root.dismissArmed
             onClicked: desktopScene.launchpadVisible = false
         }
 
-        Rectangle {
-            id: launchpadFrame
+        LaunchpadComp.Launchpad {
+            id: launchpadContent
             z: 1
-            x: 0
-            y: 0
-            width: parent.width
-            height: parent.height
-            radius: 0
-            clip: false
-            color: "transparent"
-            visible: root.visible
-            opacity: 1.0
-
-            LaunchpadComp.Launchpad {
-                id: launchpadContent
-                anchors.fill: parent
-                visible: parent.visible
-                appsModel: root.appsModel
-                topSafeInset: root.panelHeight
-                revealProgress: 1.0
-                bottomSafeInset: root.dockSafeInset
-                onDismissRequested: desktopScene.launchpadVisible = false
-                onAppChosen: function(appData) {
-                    desktopScene.launchpadVisible = false
-                    root.appChosen(appData)
-                }
-                onAddToDockRequested: function(appData) { root.addToDockRequested(appData) }
-                onAddToDesktopRequested: function(appData) { root.addToDesktopRequested(appData) }
+            anchors.fill: parent
+            visible: root.isActive
+            appsModel: root.appsModel
+            topSafeInset: root.panelHeight
+            revealProgress: 1.0
+            bottomSafeInset: root.bottomSafeInset
+            onDismissRequested: desktopScene.launchpadVisible = false
+            onAppChosen: function(appData) {
+                desktopScene.launchpadVisible = false
+                root.appChosen(appData)
             }
+            onAddToDockRequested: function(appData) { root.addToDockRequested(appData) }
+            onAddToDesktopRequested: function(appData) { root.addToDesktopRequested(appData) }
         }
-
-        LaunchpadDockHost {
-            id: launchpadDockHost
-            z: 2
-            launchpadWindow: root
-            desktopScene: root.desktopScene
-            appsModel: root.dockAppsModel
-        }
-
     }
 
     Component.onCompleted: {
-        if (desktopScene.launchpadVisible) {
+        if (isActive) {
             dismissArmTimer.restart()
-        }
-    }
-
-    Behavior on revealProgress {
-        enabled: false
-        NumberAnimation {
-            duration: Theme.durationWorkspace
-            easing.type: Theme.easingDefault
         }
     }
 

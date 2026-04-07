@@ -235,6 +235,9 @@ ApplicationWindow {
         ShellUtils.applyMotionTimeScale(root)
     }
     visible: true
+    onVisibleChanged: {
+        if (visible) console.warn("[STARTUP-ORDER] shell visible t=" + Date.now())
+    }
     width: startWindowed
            ? Math.max(minimumWidth,
                       Math.min(Screen.width,
@@ -547,7 +550,6 @@ ApplicationWindow {
 
     ListModel {
         id: tothespotResultsModel
-        dynamicRoles: true
     }
 
     ListModel {
@@ -574,7 +576,7 @@ ApplicationWindow {
     DesktopScene {
         id: desktopScene
         anchors.fill: parent
-        dockItem: shellDockHost.dockItem
+        dockItem: DockSystem.activeDockItem
     }
 
     Shortcut {
@@ -774,7 +776,6 @@ ApplicationWindow {
         desktopScene: desktopScene
         shellApi: root
         onLauncherRequested: desktopScene.launchpadVisible = !desktopScene.launchpadVisible
-        onStyleGalleryRequested: desktopScene.styleGalleryVisible = !desktopScene.styleGalleryVisible
         onTothespotRequested: {
             if (root.tothespotVisible) {
                 root.tothespotVisible = false
@@ -812,9 +813,18 @@ ApplicationWindow {
         globalMenuManager: GlobalMenuManager
     }
 
-    // LaunchpadWindow — deferred Loader with error boundary.
-    // If the component fails to load, ShellStateController and ShellLayerWatchdog
-    // are notified so the shell can recover without crashing Main.qml.
+    // DockWindow — single persistent Dock surface (wlr-layer-shell).
+    // Created once at shell start. Never destroyed. No duplicate in Launchpad.
+    OverlayComp.DockWindow {
+        id: dockWindow
+        rootWindow: root
+        desktopScene: desktopScene
+        appsModel: DockModel
+    }
+
+    // LaunchpadWindow — transient frameless Window above application windows.
+    // DockWindow (wlr-layer-shell LayerTop) sits above it at the compositor level.
+    // Deferred Loader with error boundary so load failures don't crash Main.qml.
     Loader {
         id: launchpadWindowLoader
         // Capture desktopScene here (Loader scope) to avoid the name-collision
@@ -939,17 +949,7 @@ ApplicationWindow {
         }
     }
 
-    OverlayComp.ShellDockHost {
-        id: shellDockHost
-        rootWindow: root
-        desktopScene: desktopScene
-        appsModel: DockModel
-    }
-
-    // Persistent-layer health check: if ShellLayerWatchdog reports that it has
-    // restored the shell (e.g. after force-dismissing a stuck overlay), re-assert
-    // that TopBar and Dock are visible. Their visibility is normally bound to
-    // rootWindow.visible; this guard catches any accidental override.
+    // Persistent-layer health check.
     Connections {
         target: (typeof ShellLayerWatchdog !== "undefined") ? ShellLayerWatchdog : null
         ignoreUnknownSignals: true
@@ -957,10 +957,6 @@ ApplicationWindow {
             if (topBarWindow && !topBarWindow.visible) {
                 console.warn("[shell] persistent-layer restore: re-showing TopBar")
                 topBarWindow.visible = Qt.binding(function() { return !!root && root.visible })
-            }
-            if (shellDockHost && !shellDockHost.visible) {
-                console.warn("[shell] persistent-layer restore: re-showing ShellDockHost")
-                shellDockHost.visible = Qt.binding(function() { return !!root && root.visible })
             }
         }
         function onOverlayStuckDetected(overlayName, durationMs) {

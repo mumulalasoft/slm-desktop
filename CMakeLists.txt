@@ -4,7 +4,8 @@ project(Slm_Desktop VERSION 0.1 LANGUAGES CXX C)
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(Qt6 6.10 REQUIRED COMPONENTS Quick QuickControls2 QuickLayouts Network DBus Test Sql Concurrent ShaderTools)
+find_package(Qt6 6.10 REQUIRED COMPONENTS Gui Quick QuickControls2 QuickLayouts Network DBus Test Sql Concurrent ShaderTools)
+find_package(Qt6 QUIET OPTIONAL_COMPONENTS WaylandClient GuiPrivate)
 find_package(PkgConfig REQUIRED)
 find_package(Poppler QUIET OPTIONAL_COMPONENTS Qt6)
 pkg_check_modules(POPPLER_QT6 QUIET IMPORTED_TARGET poppler-qt6)
@@ -796,8 +797,7 @@ set(DESKTOP_SHELL_QML_FILES
     Qml/components/overlay/TopBarWindow.qml
     Qml/components/overlay/PopupHostLayer.qml
     Qml/components/overlay/TopBarPopupStateController.qml
-    Qml/components/overlay/ShellDockHost.qml
-    Qml/components/overlay/LaunchpadDockHost.qml
+    Qml/components/overlay/DockWindow.qml
     Qml/components/overlay/LaunchpadWindow.qml
     Qml/components/overlay/DetachedFileManagerWindow.qml
     Qml/components/overlay/PortalFileChooserWindow.qml
@@ -1066,6 +1066,22 @@ target_link_libraries(slm-desktop
         PkgConfig::WAYLAND_CLIENT
         ${SLM_FILEMANAGER_CORE_TARGET}
 )
+if(TARGET Qt6::WaylandClient)
+    target_sources(slm-desktop PRIVATE
+        src/core/wayland/layershell/dockbootstrapstate.cpp
+        src/core/wayland/layershell/dockbootstrapstate.h
+        src/core/wayland/layershell/wlrlayershell.cpp
+        src/core/wayland/layershell/wlrlayershell.h
+        src/core/wayland/layershell/docklayerwindow.cpp
+        src/core/wayland/layershell/docklayerwindow.h
+        src/core/wayland/layershell/qwayland-wlr-layer-shell-unstable-v1.cpp
+        src/core/wayland/layershell/qwayland-wlr-layer-shell-unstable-v1.h
+        src/core/wayland/layershell/wlr-layer-shell-protocol.c
+    )
+    target_include_directories(slm-desktop PRIVATE src/core/wayland/layershell)
+    target_link_libraries(slm-desktop PRIVATE Qt6::WaylandClient Qt6::GuiPrivate)
+    target_compile_definitions(slm-desktop PRIVATE SLM_HAVE_WAYLANDCLIENT)
+endif()
 if(TARGET Poppler::Qt6)
     target_link_libraries(slm-desktop PRIVATE Poppler::Qt6)
     target_compile_definitions(slm-desktop PRIVATE SLM_HAVE_POPPLER_QT6)
