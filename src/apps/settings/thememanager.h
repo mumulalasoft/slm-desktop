@@ -3,7 +3,7 @@
 #include <QObject>
 #include <QStringList>
 
-class UIPreferences;
+class DesktopSettingsClient;
 
 // ThemeManager discovers GTK themes and KDE color schemes installed on the
 // system via XDG data directories, exposes the available lists to QML, and
@@ -19,7 +19,7 @@ class ThemeManager : public QObject
     Q_PROPERTY(QStringList kdeColorSchemes READ kdeColorSchemes NOTIFY kdeColorSchemesChanged)
     Q_PROPERTY(QStringList iconThemes READ iconThemes NOTIFY iconThemesChanged)
 
-    // Active selections — delegated to UIPreferences for persistent storage.
+    // Active selections — delegated to DesktopSettings for persistent storage.
     Q_PROPERTY(QString gtkThemeLight READ gtkThemeLight NOTIFY gtkThemeLightChanged)
     Q_PROPERTY(QString gtkThemeDark READ gtkThemeDark NOTIFY gtkThemeDarkChanged)
     Q_PROPERTY(QString kdeColorSchemeLight READ kdeColorSchemeLight NOTIFY kdeColorSchemeLightChanged)
@@ -31,7 +31,8 @@ class ThemeManager : public QObject
     Q_PROPERTY(QString windowControlsSide READ windowControlsSide NOTIFY windowControlsSideChanged)
 
 public:
-    explicit ThemeManager(UIPreferences *prefs, QObject *parent = nullptr);
+    explicit ThemeManager(DesktopSettingsClient *desktopSettings,
+                          QObject *parent = nullptr);
 
     QStringList gtkThemes() const;
     QStringList kdeColorSchemes() const;
@@ -93,9 +94,19 @@ private:
     static void applyKdeIconTheme(const QString &themeName);
     static void applyWindowControlsLayout(const QString &side);
 
-    void connectPrefs();
+    void connectSources();
+    QString activeThemeMode() const;
+    QString resolveWindowControlsSide() const;
+    QString currentGtkThemeLight() const;
+    QString currentGtkThemeDark() const;
+    QString currentKdeColorSchemeLight() const;
+    QString currentKdeColorSchemeDark() const;
+    QString currentGtkIconThemeLight() const;
+    QString currentGtkIconThemeDark() const;
+    QString currentKdeIconThemeLight() const;
+    QString currentKdeIconThemeDark() const;
 
-    UIPreferences *m_prefs;
+    DesktopSettingsClient *m_desktopSettings;
     QStringList m_gtkThemes;
     QStringList m_kdeColorSchemes;
     QStringList m_iconThemes;

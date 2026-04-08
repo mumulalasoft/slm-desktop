@@ -24,20 +24,20 @@ ApplicationWindow {
     property int navTabIndex: 1
 
     function applyThemeMode(mode) {
-        if (!UIPreferences) {
+        if (!DesktopSettings || !DesktopSettings.setThemeMode) {
             return
         }
-        UIPreferences.setThemeMode(mode)
+        DesktopSettings.setThemeMode(mode)
         syncThemePreferences()
     }
 
     function syncThemePreferences() {
-        Theme.applyModeString(UIPreferences.themeMode)
-        Theme.userAccentColor = UIPreferences.accentColor
-        Theme.userFontScale = UIPreferences.fontScale
-        DSStyle.Theme.applyModeString(UIPreferences.themeMode)
-        DSStyle.Theme.userAccentColor = UIPreferences.accentColor
-        DSStyle.Theme.userFontScale = UIPreferences.fontScale
+        Theme.applyModeString(DesktopSettings.themeMode)
+        Theme.userAccentColor = DesktopSettings.accentColor
+        Theme.userFontScale = DesktopSettings.fontScale
+        DSStyle.Theme.applyModeString(DesktopSettings.themeMode)
+        DSStyle.Theme.userAccentColor = DesktopSettings.accentColor
+        DSStyle.Theme.userFontScale = DesktopSettings.fontScale
     }
 
     Component.onCompleted: {
@@ -45,7 +45,7 @@ ApplicationWindow {
     }
 
     Connections {
-        target: UIPreferences
+        target: DesktopSettings
         function onThemeModeChanged() { window.syncThemePreferences() }
         function onAccentColorChanged() { window.syncThemePreferences() }
         function onFontScaleChanged() { window.syncThemePreferences() }
@@ -76,17 +76,17 @@ ApplicationWindow {
 
             DSStyle.Button {
                 text: qsTr("Light")
-                defaultAction: UIPreferences.themeMode === "light"
+                defaultAction: DesktopSettings.themeMode === "light"
                 onClicked: window.applyThemeMode("light")
             }
             DSStyle.Button {
                 text: qsTr("Dark")
-                defaultAction: UIPreferences.themeMode === "dark"
+                defaultAction: DesktopSettings.themeMode === "dark"
                 onClicked: window.applyThemeMode("dark")
             }
             DSStyle.Button {
                 text: qsTr("Auto")
-                defaultAction: UIPreferences.themeMode !== "light" && UIPreferences.themeMode !== "dark"
+                defaultAction: DesktopSettings.themeMode !== "light" && DesktopSettings.themeMode !== "dark"
                 onClicked: window.applyThemeMode("auto")
             }
         }
@@ -123,7 +123,7 @@ ApplicationWindow {
 
                     DSStyle.Label {
                         text: qsTr("Mode: %1 | Dark active: %2")
-                                .arg(UIPreferences.themeMode)
+                                .arg(DesktopSettings.themeMode)
                                 .arg(Theme.darkMode ? "yes" : "no")
                         color: Theme.color("textSecondary")
                     }

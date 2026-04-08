@@ -1,5 +1,5 @@
 #include "fontmanager.h"
-#include "../../core/prefs/uipreferences.h"
+#include "desktopsettingsclient.h"
 
 #include <QDir>
 #include <QFontDatabase>
@@ -168,51 +168,56 @@ void FontManager::writeKdeFontSettings(const QString &defaultSpec,
 
 void FontManager::applyFonts()
 {
-    writeGtkFontSettings(m_prefs->defaultFont());
-    writeKdeFontSettings(m_prefs->defaultFont(),
-                         m_prefs->documentFont(),
-                         m_prefs->monospaceFont(),
-                         m_prefs->titlebarFont());
+    writeGtkFontSettings(currentDefaultFont());
+    writeKdeFontSettings(currentDefaultFont(),
+                         currentDocumentFont(),
+                         currentMonospaceFont(),
+                         currentTitlebarFont());
 }
 
 // ── Constructor ───────────────────────────────────────────────────────────────
 
-FontManager::FontManager(UIPreferences *prefs, QObject *parent)
+FontManager::FontManager(DesktopSettingsClient *desktopSettings,
+                         QObject *parent)
     : QObject(parent)
-    , m_prefs(prefs)
+    , m_desktopSettings(desktopSettings)
 {
-    connectPrefs();
+    connectSources();
     applyFonts();
 }
 
-void FontManager::connectPrefs()
+void FontManager::connectSources()
 {
-    connect(m_prefs, &UIPreferences::defaultFontChanged,
+    auto apply = [this]() { applyFonts(); };
+
+    if (!m_desktopSettings) {
+        return;
+    }
+    connect(m_desktopSettings, &DesktopSettingsClient::defaultFontChanged,
             this, &FontManager::defaultFontChanged);
-    connect(m_prefs, &UIPreferences::documentFontChanged,
+    connect(m_desktopSettings, &DesktopSettingsClient::documentFontChanged,
             this, &FontManager::documentFontChanged);
-    connect(m_prefs, &UIPreferences::monospaceFontChanged,
+    connect(m_desktopSettings, &DesktopSettingsClient::monospaceFontChanged,
             this, &FontManager::monospaceFontChanged);
-    connect(m_prefs, &UIPreferences::titlebarFontChanged,
+    connect(m_desktopSettings, &DesktopSettingsClient::titlebarFontChanged,
             this, &FontManager::titlebarFontChanged);
 
-    auto apply = [this]() { applyFonts(); };
-    connect(m_prefs, &UIPreferences::defaultFontChanged,   this, apply);
-    connect(m_prefs, &UIPreferences::documentFontChanged,  this, apply);
-    connect(m_prefs, &UIPreferences::monospaceFontChanged, this, apply);
-    connect(m_prefs, &UIPreferences::titlebarFontChanged,  this, apply);
+    connect(m_desktopSettings, &DesktopSettingsClient::defaultFontChanged,   this, apply);
+    connect(m_desktopSettings, &DesktopSettingsClient::documentFontChanged,  this, apply);
+    connect(m_desktopSettings, &DesktopSettingsClient::monospaceFontChanged, this, apply);
+    connect(m_desktopSettings, &DesktopSettingsClient::titlebarFontChanged,  this, apply);
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
-QString FontManager::defaultFont()   const { return m_prefs->defaultFont(); }
-QString FontManager::documentFont()  const { return m_prefs->documentFont(); }
-QString FontManager::monospaceFont() const { return m_prefs->monospaceFont(); }
-QString FontManager::titlebarFont()  const { return m_prefs->titlebarFont(); }
-int FontManager::defaultFontSize() const { return specSizeOrDefault(m_prefs->defaultFont(), 11); }
-int FontManager::documentFontSize() const { return specSizeOrDefault(m_prefs->documentFont(), 11); }
-int FontManager::monospaceFontSize() const { return specSizeOrDefault(m_prefs->monospaceFont(), 11); }
-int FontManager::titlebarFontSize() const { return specSizeOrDefault(m_prefs->titlebarFont(), 11); }
+QString FontManager::defaultFont()   const { return currentDefaultFont(); }
+QString FontManager::documentFont()  const { return currentDocumentFont(); }
+QString FontManager::monospaceFont() const { return currentMonospaceFont(); }
+QString FontManager::titlebarFont()  const { return currentTitlebarFont(); }
+int FontManager::defaultFontSize() const { return specSizeOrDefault(currentDefaultFont(), 11); }
+int FontManager::documentFontSize() const { return specSizeOrDefault(currentDocumentFont(), 11); }
+int FontManager::monospaceFontSize() const { return specSizeOrDefault(currentMonospaceFont(), 11); }
+int FontManager::titlebarFontSize() const { return specSizeOrDefault(currentTitlebarFont(), 11); }
 
 QVariantList FontManager::allFontEntries() const
 {
@@ -259,48 +264,92 @@ QString FontManager::displayLabel(const QString &spec) const
 
 void FontManager::setDefaultFont(const QString &spec)
 {
-    m_prefs->setDefaultFont(spec);
+    setFontByRole(QStringLiteral("fonts.defaultFont"), spec);
 }
 
 void FontManager::setDocumentFont(const QString &spec)
 {
-    m_prefs->setDocumentFont(spec);
+    setFontByRole(QStringLiteral("fonts.documentFont"), spec);
 }
 
 void FontManager::setMonospaceFont(const QString &spec)
 {
-    m_prefs->setMonospaceFont(spec);
+    setFontByRole(QStringLiteral("fonts.monospaceFont"), spec);
 }
 
 void FontManager::setTitlebarFont(const QString &spec)
 {
-    m_prefs->setTitlebarFont(spec);
+    setFontByRole(QStringLiteral("fonts.titlebarFont"), spec);
 }
 
 void FontManager::setDefaultFontSize(int size)
 {
-    m_prefs->setDefaultFont(specWithSize(m_prefs->defaultFont(), size, QStringLiteral("Noto Sans")));
+    setFontByRole(QStringLiteral("fonts.defaultFont"),
+                  specWithSize(currentDefaultFont(), size, QStringLiteral("Noto Sans")));
 }
 
 void FontManager::setDocumentFontSize(int size)
 {
-    m_prefs->setDocumentFont(specWithSize(m_prefs->documentFont(), size, QStringLiteral("Noto Sans")));
+    setFontByRole(QStringLiteral("fonts.documentFont"),
+                  specWithSize(currentDocumentFont(), size, QStringLiteral("Noto Sans")));
 }
 
 void FontManager::setMonospaceFontSize(int size)
 {
-    m_prefs->setMonospaceFont(specWithSize(m_prefs->monospaceFont(), size, QStringLiteral("Noto Sans Mono")));
+    setFontByRole(QStringLiteral("fonts.monospaceFont"),
+                  specWithSize(currentMonospaceFont(), size, QStringLiteral("Noto Sans Mono")));
 }
 
 void FontManager::setTitlebarFontSize(int size)
 {
-    m_prefs->setTitlebarFont(specWithSize(m_prefs->titlebarFont(), size, QStringLiteral("Noto Sans")));
+    setFontByRole(QStringLiteral("fonts.titlebarFont"),
+                  specWithSize(currentTitlebarFont(), size, QStringLiteral("Noto Sans")));
 }
 
 void FontManager::resetToDefaults()
 {
-    m_prefs->setDefaultFont({});
-    m_prefs->setDocumentFont({});
-    m_prefs->setMonospaceFont({});
-    m_prefs->setTitlebarFont({});
+    setFontByRole(QStringLiteral("fonts.defaultFont"), QString());
+    setFontByRole(QStringLiteral("fonts.documentFont"), QString());
+    setFontByRole(QStringLiteral("fonts.monospaceFont"), QString());
+    setFontByRole(QStringLiteral("fonts.titlebarFont"), QString());
+}
+
+QString FontManager::currentDefaultFont() const
+{
+    return m_desktopSettings ? m_desktopSettings->defaultFont() : QString();
+}
+
+QString FontManager::currentDocumentFont() const
+{
+    return m_desktopSettings ? m_desktopSettings->documentFont() : QString();
+}
+
+QString FontManager::currentMonospaceFont() const
+{
+    return m_desktopSettings ? m_desktopSettings->monospaceFont() : QString();
+}
+
+QString FontManager::currentTitlebarFont() const
+{
+    return m_desktopSettings ? m_desktopSettings->titlebarFont() : QString();
+}
+
+bool FontManager::setFontByRole(const QString &rolePath, const QString &spec)
+{
+    if (!m_desktopSettings) {
+        return false;
+    }
+    if (rolePath == QLatin1String("fonts.defaultFont")) {
+        return m_desktopSettings->setDefaultFont(spec);
+    }
+    if (rolePath == QLatin1String("fonts.documentFont")) {
+        return m_desktopSettings->setDocumentFont(spec);
+    }
+    if (rolePath == QLatin1String("fonts.monospaceFont")) {
+        return m_desktopSettings->setMonospaceFont(spec);
+    }
+    if (rolePath == QLatin1String("fonts.titlebarFont")) {
+        return m_desktopSettings->setTitlebarFont(spec);
+    }
+    return false;
 }

@@ -2,12 +2,13 @@
 
 #include <QObject>
 #include <QString>
-#include "../../core/prefs/uipreferences.h"
+
+class DesktopSettingsClient;
 
 /**
  * Manages desktop wallpaper via:
  *  - org.freedesktop.portal.FileChooser for image picking (D-Bus portal)
- *  - UIPreferences for reading/writing the wallpaper URI
+ *  - DesktopSettings (SSOT) for reading/writing wallpaper URI
  */
 class WallpaperManager : public QObject
 {
@@ -16,7 +17,8 @@ class WallpaperManager : public QObject
     Q_PROPERTY(bool loading READ isLoading NOTIFY loadingChanged)
 
 public:
-    explicit WallpaperManager(UIPreferences *uiPrefs, QObject *parent = nullptr);
+    explicit WallpaperManager(DesktopSettingsClient *desktopSettings,
+                              QObject *parent = nullptr);
 
     QString currentWallpaperUri() const;
     bool isLoading() const { return m_loading; }
@@ -38,7 +40,7 @@ private slots:
 private:
     void setLoading(bool loading);
 
-    UIPreferences *m_uiPrefs = nullptr;
+    DesktopSettingsClient *m_desktopSettings = nullptr;
     bool m_loading = false;
     QString m_activeRequestPath;
 };

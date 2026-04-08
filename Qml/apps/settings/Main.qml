@@ -47,12 +47,12 @@ ApplicationWindow {
     }
 
     function syncThemePreferences() {
-        Theme.applyModeString(UIPreferences.themeMode)
-        Theme.userAccentColor = UIPreferences.accentColor
-        Theme.userFontScale = UIPreferences.fontScale
-        DSStyle.Theme.applyModeString(UIPreferences.themeMode)
-        DSStyle.Theme.userAccentColor = UIPreferences.accentColor
-        DSStyle.Theme.userFontScale = UIPreferences.fontScale
+        Theme.applyModeString(DesktopSettings.themeMode)
+        Theme.userAccentColor = DesktopSettings.accentColor
+        Theme.userFontScale = DesktopSettings.fontScale
+        DSStyle.Theme.applyModeString(DesktopSettings.themeMode)
+        DSStyle.Theme.userAccentColor = DesktopSettings.accentColor
+        DSStyle.Theme.userFontScale = DesktopSettings.fontScale
     }
 
     Component.onCompleted: {
@@ -60,7 +60,7 @@ ApplicationWindow {
     }
 
     Connections {
-        target: UIPreferences
+        target: DesktopSettings
         function onThemeModeChanged() { window.syncThemePreferences() }
         function onAccentColorChanged() { window.syncThemePreferences() }
         function onFontScaleChanged() { window.syncThemePreferences() }

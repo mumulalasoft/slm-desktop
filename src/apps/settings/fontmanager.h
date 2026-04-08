@@ -4,10 +4,10 @@
 #include <QStringList>
 #include <QVariantList>
 
-class UIPreferences;
+class DesktopSettingsClient;
 
 // FontManager enumerates system fonts via QFontDatabase, exposes them to QML,
-// stores the four font-role selections via UIPreferences, and applies the active
+// stores the four font-role selections via DesktopSettings, and applies the active
 // selection to ~/.config/gtk-3.0/settings.ini, gtk-4.0/settings.ini, and
 // ~/.config/kdeglobals whenever a selection or the theme mode changes.
 //
@@ -27,7 +27,8 @@ class FontManager : public QObject
     Q_PROPERTY(int titlebarFontSize  READ titlebarFontSize  NOTIFY titlebarFontChanged)
 
 public:
-    explicit FontManager(UIPreferences *prefs, QObject *parent = nullptr);
+    explicit FontManager(DesktopSettingsClient *desktopSettings,
+                         QObject *parent = nullptr);
 
     QString defaultFont()   const;
     QString documentFont()  const;
@@ -70,8 +71,14 @@ signals:
 
 private:
     void applyFonts();
-    void connectPrefs();
+    void connectSources();
+    QString currentDefaultFont() const;
+    QString currentDocumentFont() const;
+    QString currentMonospaceFont() const;
+    QString currentTitlebarFont() const;
+    bool setFontByRole(const QString &rolePath, const QString &spec);
 
+    DesktopSettingsClient *m_desktopSettings;
     // Converts "Family,Style,Size" → GTK Pango string, e.g. "Noto Sans Bold 11".
     static QString specToGtkString(const QString &spec);
     // Converts "Family,Style,Size" → Qt font spec string for kdeglobals,
@@ -84,7 +91,6 @@ private:
                                      const QString &monospaceSpec,
                                      const QString &titlebarSpec);
 
-    UIPreferences        *m_prefs;
     mutable QVariantList  m_fontCache;
     mutable bool          m_cacheBuilt = false;
 };

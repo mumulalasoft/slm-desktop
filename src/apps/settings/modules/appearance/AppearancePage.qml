@@ -145,6 +145,26 @@ Item {
                         }
 
                         SettingCard {
+                            label: qsTr("High Contrast")
+                            description: qsTr("Increase contrast for text and UI elements.")
+                            Layout.fillWidth: true
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 10
+                                Label {
+                                    Layout.fillWidth: true
+                                    text: qsTr("Enable high contrast mode")
+                                    color: Theme.color("textPrimary")
+                                    font.pixelSize: Theme.fontSize("small")
+                                }
+                                SettingToggle {
+                                    checked: DesktopSettings.highContrast
+                                    onToggled: DesktopSettings.setHighContrast(checked)
+                                }
+                            }
+                        }
+
+                        SettingCard {
                             label: qsTr("Accent Color")
                             description: qsTr("Change the system accent color.")
                             Layout.fillWidth: true
@@ -643,9 +663,9 @@ Item {
                             Layout.fillWidth: true
                             ComboBox {
                                 model: [qsTr("Lively"), qsTr("Subtle")]
-                                currentIndex: UIPreferences.dockMotionPreset === "subtle" ? 1 : 0
+                                currentIndex: DesktopSettings.dockMotionPreset === "subtle" ? 1 : 0
                                 Layout.preferredWidth: 160
-                                onActivated: UIPreferences.setDockMotionPreset(
+                                onActivated: DesktopSettings.setDockMotionPreset(
                                     currentIndex === 0 ? "macos-lively" : "subtle")
                             }
                         }
@@ -655,8 +675,8 @@ Item {
                             description: qsTr("Automatically hide the dock when not in use.")
                             Layout.fillWidth: true
                             SettingToggle {
-                                checked: UIPreferences.dockAutoHideEnabled
-                                onToggled: UIPreferences.setDockAutoHideEnabled(checked)
+                                checked: DesktopSettings.dockAutoHideEnabled
+                                onToggled: DesktopSettings.setDockAutoHideEnabled(checked)
                             }
                         }
 
@@ -665,8 +685,8 @@ Item {
                             description: qsTr("Animate dock items when a file is dragged over them.")
                             Layout.fillWidth: true
                             SettingToggle {
-                                checked: UIPreferences.dockDropPulseEnabled
-                                onToggled: UIPreferences.setDockDropPulseEnabled(checked)
+                                checked: DesktopSettings.dockDropPulseEnabled
+                                onToggled: DesktopSettings.setDockDropPulseEnabled(checked)
                             }
                         }
 
@@ -678,12 +698,12 @@ Item {
                                 spacing: 10
                                 Slider {
                                     from: 2; to: 24; stepSize: 1
-                                    value: UIPreferences.dockDragThresholdMouse
+                                    value: DesktopSettings.dockDragThresholdMouse
                                     Layout.preferredWidth: 160
-                                    onMoved: UIPreferences.setDockDragThresholdMouse(Math.round(value))
+                                    onMoved: DesktopSettings.setDockDragThresholdMouse(Math.round(value))
                                 }
                                 Text {
-                                    text: UIPreferences.dockDragThresholdMouse + qsTr(" px")
+                                    text: DesktopSettings.dockDragThresholdMouse + qsTr(" px")
                                     font.pixelSize: Theme.fontSize("small")
                                     color: Theme.color("textSecondary")
                                     Layout.preferredWidth: 40
@@ -699,12 +719,12 @@ Item {
                                 spacing: 10
                                 Slider {
                                     from: 2; to: 24; stepSize: 1
-                                    value: UIPreferences.dockDragThresholdTouchpad
+                                    value: DesktopSettings.dockDragThresholdTouchpad
                                     Layout.preferredWidth: 160
-                                    onMoved: UIPreferences.setDockDragThresholdTouchpad(Math.round(value))
+                                    onMoved: DesktopSettings.setDockDragThresholdTouchpad(Math.round(value))
                                 }
                                 Text {
-                                    text: UIPreferences.dockDragThresholdTouchpad + qsTr(" px")
+                                    text: DesktopSettings.dockDragThresholdTouchpad + qsTr(" px")
                                     font.pixelSize: Theme.fontSize("small")
                                     color: Theme.color("textSecondary")
                                     Layout.preferredWidth: 40

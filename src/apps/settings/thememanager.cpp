@@ -1,5 +1,5 @@
 #include "thememanager.h"
-#include "../../core/prefs/uipreferences.h"
+#include "desktopsettingsclient.h"
 
 #include <QDir>
 #include <QFileInfo>
@@ -242,67 +242,64 @@ void ThemeManager::applyWindowControlsLayout(const QString &side)
 
 // ── Constructor ───────────────────────────────────────────────────────────────
 
-ThemeManager::ThemeManager(UIPreferences *prefs, QObject *parent)
+ThemeManager::ThemeManager(DesktopSettingsClient *desktopSettings,
+                           QObject *parent)
     : QObject(parent)
-    , m_prefs(prefs)
+    , m_desktopSettings(desktopSettings)
     , m_gtkThemes(scanGtkThemes())
     , m_kdeColorSchemes(scanKdeColorSchemes())
     , m_iconThemes(scanIconThemes())
 {
-    connectPrefs();
+    connectSources();
 }
 
-void ThemeManager::connectPrefs()
+void ThemeManager::connectSources()
 {
-    // Forward UIPreferences signals so QML bindings on ThemeManager stay live.
-    connect(m_prefs, &UIPreferences::gtkThemeLightChanged,
+    if (!m_desktopSettings) {
+        return;
+    }
+    connect(m_desktopSettings, &DesktopSettingsClient::gtkThemeLightChanged,
             this, &ThemeManager::gtkThemeLightChanged);
-    connect(m_prefs, &UIPreferences::gtkThemeDarkChanged,
+    connect(m_desktopSettings, &DesktopSettingsClient::gtkThemeDarkChanged,
             this, &ThemeManager::gtkThemeDarkChanged);
-    connect(m_prefs, &UIPreferences::kdeColorSchemeLightChanged,
+    connect(m_desktopSettings, &DesktopSettingsClient::kdeColorSchemeLightChanged,
             this, &ThemeManager::kdeColorSchemeLightChanged);
-    connect(m_prefs, &UIPreferences::kdeColorSchemeDarkChanged,
+    connect(m_desktopSettings, &DesktopSettingsClient::kdeColorSchemeDarkChanged,
             this, &ThemeManager::kdeColorSchemeDarkChanged);
-    connect(m_prefs, &UIPreferences::gtkIconThemeLightChanged,
+    connect(m_desktopSettings, &DesktopSettingsClient::gtkIconThemeLightChanged,
             this, &ThemeManager::gtkIconThemeLightChanged);
-    connect(m_prefs, &UIPreferences::gtkIconThemeDarkChanged,
+    connect(m_desktopSettings, &DesktopSettingsClient::gtkIconThemeDarkChanged,
             this, &ThemeManager::gtkIconThemeDarkChanged);
-    connect(m_prefs, &UIPreferences::kdeIconThemeLightChanged,
+    connect(m_desktopSettings, &DesktopSettingsClient::kdeIconThemeLightChanged,
             this, &ThemeManager::kdeIconThemeLightChanged);
-    connect(m_prefs, &UIPreferences::kdeIconThemeDarkChanged,
+    connect(m_desktopSettings, &DesktopSettingsClient::kdeIconThemeDarkChanged,
             this, &ThemeManager::kdeIconThemeDarkChanged);
-    connect(m_prefs, &UIPreferences::appearanceChanged,
-            this, &ThemeManager::appearanceChanged);
-    connect(m_prefs, &UIPreferences::preferenceChanged, this,
-            [this](const QString &key, const QVariant &) {
-                const QString normalized = key.trimmed().toLower();
-                if (normalized == QStringLiteral("windowing.controlsside")) {
-                    applyWindowControlsLayout(windowControlsSide());
-                    emit windowControlsSideChanged();
-                    emit appearanceChanged();
-                }
-            });
+    connect(m_desktopSettings, &DesktopSettingsClient::windowControlsSideChanged, this, [this]() {
+        applyWindowControlsLayout(resolveWindowControlsSide());
+        emit windowControlsSideChanged();
+        emit appearanceChanged();
+    });
 
     // Apply the active theme/icon-theme whenever the selection or the mode changes.
     auto applyActive = [this]() {
-        const bool dark = (m_prefs->themeMode() == QLatin1String("dark"));
-        applyGtkTheme(dark ? m_prefs->gtkThemeDark() : m_prefs->gtkThemeLight());
-        applyKdeColorScheme(dark ? m_prefs->kdeColorSchemeDark() : m_prefs->kdeColorSchemeLight());
-        applyGtkIconTheme(dark ? m_prefs->gtkIconThemeDark() : m_prefs->gtkIconThemeLight());
-        applyKdeIconTheme(dark ? m_prefs->kdeIconThemeDark() : m_prefs->kdeIconThemeLight());
+        const bool dark = (activeThemeMode() == QLatin1String("dark"));
+        applyGtkTheme(dark ? currentGtkThemeDark() : currentGtkThemeLight());
+        applyKdeColorScheme(dark ? currentKdeColorSchemeDark() : currentKdeColorSchemeLight());
+        applyGtkIconTheme(dark ? currentGtkIconThemeDark() : currentGtkIconThemeLight());
+        applyKdeIconTheme(dark ? currentKdeIconThemeDark() : currentKdeIconThemeLight());
     };
 
-    connect(m_prefs, &UIPreferences::themeModeChanged, this, applyActive);
-    connect(m_prefs, &UIPreferences::gtkThemeLightChanged, this, applyActive);
-    connect(m_prefs, &UIPreferences::gtkThemeDarkChanged, this, applyActive);
-    connect(m_prefs, &UIPreferences::kdeColorSchemeLightChanged, this, applyActive);
-    connect(m_prefs, &UIPreferences::kdeColorSchemeDarkChanged, this, applyActive);
-    connect(m_prefs, &UIPreferences::gtkIconThemeLightChanged, this, applyActive);
-    connect(m_prefs, &UIPreferences::gtkIconThemeDarkChanged, this, applyActive);
-    connect(m_prefs, &UIPreferences::kdeIconThemeLightChanged, this, applyActive);
-    connect(m_prefs, &UIPreferences::kdeIconThemeDarkChanged, this, applyActive);
+    connect(m_desktopSettings, &DesktopSettingsClient::themeModeChanged, this, applyActive);
+    connect(m_desktopSettings, &DesktopSettingsClient::gtkThemeLightChanged, this, applyActive);
+    connect(m_desktopSettings, &DesktopSettingsClient::gtkThemeDarkChanged, this, applyActive);
+    connect(m_desktopSettings, &DesktopSettingsClient::kdeColorSchemeLightChanged, this, applyActive);
+    connect(m_desktopSettings, &DesktopSettingsClient::kdeColorSchemeDarkChanged, this, applyActive);
+    connect(m_desktopSettings, &DesktopSettingsClient::gtkIconThemeLightChanged, this, applyActive);
+    connect(m_desktopSettings, &DesktopSettingsClient::gtkIconThemeDarkChanged, this, applyActive);
+    connect(m_desktopSettings, &DesktopSettingsClient::kdeIconThemeLightChanged, this, applyActive);
+    connect(m_desktopSettings, &DesktopSettingsClient::kdeIconThemeDarkChanged, this, applyActive);
 
-    applyWindowControlsLayout(windowControlsSide());
+    applyWindowControlsLayout(resolveWindowControlsSide());
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -311,78 +308,88 @@ QStringList ThemeManager::gtkThemes() const        { return m_gtkThemes; }
 QStringList ThemeManager::kdeColorSchemes() const  { return m_kdeColorSchemes; }
 QStringList ThemeManager::iconThemes() const       { return m_iconThemes; }
 
-QString ThemeManager::gtkThemeLight() const        { return m_prefs->gtkThemeLight(); }
-QString ThemeManager::gtkThemeDark() const         { return m_prefs->gtkThemeDark(); }
-QString ThemeManager::kdeColorSchemeLight() const  { return m_prefs->kdeColorSchemeLight(); }
-QString ThemeManager::kdeColorSchemeDark() const   { return m_prefs->kdeColorSchemeDark(); }
-QString ThemeManager::gtkIconThemeLight() const    { return m_prefs->gtkIconThemeLight(); }
-QString ThemeManager::gtkIconThemeDark() const     { return m_prefs->gtkIconThemeDark(); }
-QString ThemeManager::kdeIconThemeLight() const    { return m_prefs->kdeIconThemeLight(); }
-QString ThemeManager::kdeIconThemeDark() const     { return m_prefs->kdeIconThemeDark(); }
+QString ThemeManager::gtkThemeLight() const        { return currentGtkThemeLight(); }
+QString ThemeManager::gtkThemeDark() const         { return currentGtkThemeDark(); }
+QString ThemeManager::kdeColorSchemeLight() const  { return currentKdeColorSchemeLight(); }
+QString ThemeManager::kdeColorSchemeDark() const   { return currentKdeColorSchemeDark(); }
+QString ThemeManager::gtkIconThemeLight() const    { return currentGtkIconThemeLight(); }
+QString ThemeManager::gtkIconThemeDark() const     { return currentGtkIconThemeDark(); }
+QString ThemeManager::kdeIconThemeLight() const    { return currentKdeIconThemeLight(); }
+QString ThemeManager::kdeIconThemeDark() const     { return currentKdeIconThemeDark(); }
 QString ThemeManager::windowControlsSide() const
 {
-    const QString side = m_prefs->getPreference(QStringLiteral("windowing.controlsSide"),
-                                                QStringLiteral("right")).toString().trimmed().toLower();
-    return side == QLatin1String("left") ? QStringLiteral("left") : QStringLiteral("right");
+    return resolveWindowControlsSide();
 }
 
 void ThemeManager::setGtkThemeLight(const QString &theme)
 {
-    m_prefs->setGtkThemeLight(theme);
-    if (m_prefs->themeMode() != QLatin1String("dark"))
+    if (m_desktopSettings) {
+        m_desktopSettings->setGtkThemeLight(theme);
+    }
+    if (activeThemeMode() != QLatin1String("dark"))
         applyGtkTheme(theme);
 }
 
 void ThemeManager::setGtkThemeDark(const QString &theme)
 {
-    m_prefs->setGtkThemeDark(theme);
-    if (m_prefs->themeMode() == QLatin1String("dark"))
+    if (m_desktopSettings) {
+        m_desktopSettings->setGtkThemeDark(theme);
+    }
+    if (activeThemeMode() == QLatin1String("dark"))
         applyGtkTheme(theme);
 }
 
 void ThemeManager::setKdeColorSchemeLight(const QString &scheme)
 {
-    m_prefs->setKdeColorSchemeLight(scheme);
-    if (m_prefs->themeMode() != QLatin1String("dark"))
+    if (m_desktopSettings) {
+        m_desktopSettings->setKdeColorSchemeLight(scheme);
+    }
+    if (activeThemeMode() != QLatin1String("dark"))
         applyKdeColorScheme(scheme);
 }
 
 void ThemeManager::setKdeColorSchemeDark(const QString &scheme)
 {
-    m_prefs->setKdeColorSchemeDark(scheme);
-    if (m_prefs->themeMode() == QLatin1String("dark"))
+    if (m_desktopSettings) {
+        m_desktopSettings->setKdeColorSchemeDark(scheme);
+    }
+    if (activeThemeMode() == QLatin1String("dark"))
         applyKdeColorScheme(scheme);
 }
 
 void ThemeManager::setGtkIconThemeLight(const QString &theme)
 {
-    m_prefs->setGtkIconThemeLight(theme);
-    // System icon theme follows the GTK icon theme selection.
-    m_prefs->setIconThemeLight(theme);
-    if (m_prefs->themeMode() != QLatin1String("dark"))
+    if (m_desktopSettings) {
+        m_desktopSettings->setGtkIconThemeLight(theme);
+    }
+    if (activeThemeMode() != QLatin1String("dark"))
         applyGtkIconTheme(theme);
 }
 
 void ThemeManager::setGtkIconThemeDark(const QString &theme)
 {
-    m_prefs->setGtkIconThemeDark(theme);
-    // System icon theme follows the GTK icon theme selection.
-    m_prefs->setIconThemeDark(theme);
-    if (m_prefs->themeMode() == QLatin1String("dark"))
+    if (m_desktopSettings) {
+        m_desktopSettings->setGtkIconThemeDark(theme);
+    }
+    if (activeThemeMode() == QLatin1String("dark"))
         applyGtkIconTheme(theme);
 }
 
 void ThemeManager::setKdeIconThemeLight(const QString &theme)
 {
-    m_prefs->setKdeIconThemeLight(theme);
-    if (m_prefs->themeMode() != QLatin1String("dark"))
+    if (m_desktopSettings) {
+        m_desktopSettings->setKdeIconThemeLight(theme);
+    }
+    if (activeThemeMode() != QLatin1String("dark"))
         applyKdeIconTheme(theme);
 }
 
 void ThemeManager::setKdeIconThemeDark(const QString &theme)
 {
-    m_prefs->setKdeIconThemeDark(theme);
-    if (m_prefs->themeMode() == QLatin1String("dark"))
+    if (m_desktopSettings) {
+        m_desktopSettings->setKdeIconThemeDark(theme);
+    }
+    if (activeThemeMode() == QLatin1String("dark"))
         applyKdeIconTheme(theme);
 }
 
@@ -390,13 +397,70 @@ void ThemeManager::setWindowControlsSide(const QString &side)
 {
     const QString normalized = side.trimmed().toLower() == QLatin1String("left")
             ? QStringLiteral("left") : QStringLiteral("right");
-    if (normalized == windowControlsSide()) {
+    if (normalized == resolveWindowControlsSide()) {
         return;
     }
-    m_prefs->setPreference(QStringLiteral("windowing.controlsSide"), normalized);
+    if (m_desktopSettings) {
+        m_desktopSettings->setWindowControlsSide(normalized);
+    }
     applyWindowControlsLayout(normalized);
     emit windowControlsSideChanged();
     emit appearanceChanged();
+}
+
+QString ThemeManager::activeThemeMode() const
+{
+    return m_desktopSettings ? m_desktopSettings->themeMode() : QStringLiteral("dark");
+}
+
+QString ThemeManager::resolveWindowControlsSide() const
+{
+    if (m_desktopSettings) {
+        return m_desktopSettings->windowControlsSide().trimmed().toLower() == QLatin1String("left")
+                ? QStringLiteral("left")
+                : QStringLiteral("right");
+    }
+    return QStringLiteral("right");
+}
+
+QString ThemeManager::currentGtkThemeLight() const
+{
+    return m_desktopSettings ? m_desktopSettings->gtkThemeLight() : QString();
+}
+
+QString ThemeManager::currentGtkThemeDark() const
+{
+    return m_desktopSettings ? m_desktopSettings->gtkThemeDark() : QString();
+}
+
+QString ThemeManager::currentKdeColorSchemeLight() const
+{
+    return m_desktopSettings ? m_desktopSettings->kdeColorSchemeLight() : QString();
+}
+
+QString ThemeManager::currentKdeColorSchemeDark() const
+{
+    return m_desktopSettings ? m_desktopSettings->kdeColorSchemeDark() : QString();
+}
+
+QString ThemeManager::currentGtkIconThemeLight() const
+{
+    return m_desktopSettings ? m_desktopSettings->gtkIconThemeLight() : QString();
+}
+
+QString ThemeManager::currentGtkIconThemeDark() const
+{
+    return m_desktopSettings ? m_desktopSettings->gtkIconThemeDark() : QString();
+}
+
+QString ThemeManager::currentKdeIconThemeLight() const
+{
+    return m_desktopSettings ? m_desktopSettings->kdeIconThemeLight() : QString();
+}
+
+QString ThemeManager::currentKdeIconThemeDark() const
+{
+    return m_desktopSettings ? m_desktopSettings->kdeIconThemeDark() : QString();
 }
 
 void ThemeManager::refresh()

@@ -36,15 +36,15 @@ Flickable {
                     model: [qsTr("Small"), qsTr("Medium"), qsTr("Large")]
                     readonly property var sizeKeys: ["small", "medium", "large"]
                     currentIndex: {
-                        if (typeof UIPreferences === "undefined" || !UIPreferences) return 1
-                        var sz = UIPreferences.dockIconSize || "medium"
+                        if (typeof DesktopSettings === "undefined" || !DesktopSettings) return 1
+                        var sz = DesktopSettings.dockIconSize || "medium"
                         var idx = sizeKeys.indexOf(sz)
                         return idx >= 0 ? idx : 1
                     }
                     onActivated: function(index) {
-                        if (typeof UIPreferences !== "undefined" && UIPreferences
-                                && UIPreferences.setDockIconSize) {
-                            UIPreferences.setDockIconSize(sizeKeys[index])
+                        if (typeof DesktopSettings !== "undefined" && DesktopSettings
+                                && DesktopSettings.setDockIconSize) {
+                            DesktopSettings.setDockIconSize(sizeKeys[index])
                         }
                     }
                     Layout.preferredWidth: 160
@@ -60,13 +60,13 @@ Flickable {
 
                 SettingToggle {
                     checked: {
-                        if (typeof UIPreferences === "undefined" || !UIPreferences) return true
-                        return UIPreferences.dockMagnificationEnabled !== false
+                        if (typeof DesktopSettings === "undefined" || !DesktopSettings) return true
+                        return DesktopSettings.dockMagnificationEnabled !== false
                     }
                     onToggled: {
-                        if (typeof UIPreferences !== "undefined" && UIPreferences
-                                && UIPreferences.setDockMagnificationEnabled) {
-                            UIPreferences.setDockMagnificationEnabled(checked)
+                        if (typeof DesktopSettings !== "undefined" && DesktopSettings
+                                && DesktopSettings.setDockMagnificationEnabled) {
+                            DesktopSettings.setDockMagnificationEnabled(checked)
                         }
                     }
                 }

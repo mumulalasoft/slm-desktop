@@ -17,8 +17,8 @@ using namespace Qt::StringLiterals;
 #include "mimeappsmanager.h"
 #include "thememanager.h"
 #include "fontmanager.h"
+#include "desktopsettingsclient.h"
 #include "modules/useraccounts/useraccountscontroller.h"
-#include "../../core/prefs/uipreferences.h"
 #include "../../core/icons/themeiconprovider.h"
 #include "../../core/icons/themeiconcontroller.h"
 #include "../../printing/core/PrinterManager.h"
@@ -85,13 +85,12 @@ int main(int argc, char *argv[])
     const QUrl url = openStyleGallery
         ? QUrl(u"qrc:/qt/qml/SlmSettings/Qml/apps/settings/StylePreviewGallery.qml"_s)
         : QUrl(u"qrc:/qt/qml/SlmSettings/Qml/apps/settings/Main.qml"_s);
-    UIPreferences uiPreferences;
     ThemeIconController themeIconController;
+    DesktopSettingsClient desktopSettings;
     const QString sessionMode = qEnvironmentVariable("SLM_SESSION_MODE").trimmed().toLower();
     const bool safeModeActive = (sessionMode == QStringLiteral("safe")
                                  || sessionMode == QStringLiteral("recovery"));
-    const bool userAnimationEnabled =
-        uiPreferences.getPreference(QStringLiteral("windowing.animationEnabled"), true).toBool();
+    const bool userAnimationEnabled = desktopSettings.windowingAnimationEnabled();
     const bool runtimeAnimationsEnabled = userAnimationEnabled && !safeModeActive;
     Slm::Print::PrinterManager printManager;
     Slm::Print::PrinterAdminService printerAdmin;
@@ -114,14 +113,14 @@ int main(int argc, char *argv[])
     ComponentHealthController componentHealth;
     DaemonHealthClient daemonHealthClient;
     Slm::System::MissingComponentController missingComponents;
-    WallpaperManager wallpaperManager(&uiPreferences);
+    WallpaperManager wallpaperManager(&desktopSettings);
     MimeAppsManager mimeAppsManager;
-    ThemeManager themeManager(&uiPreferences);
-    FontManager fontManager(&uiPreferences);
+    ThemeManager themeManager(&desktopSettings);
+    FontManager fontManager(&desktopSettings);
     UserAccountsController userAccounts;
     const auto applyIconThemePref = [&]() {
-        const QString light = uiPreferences.iconThemeLight().trimmed();
-        const QString dark = uiPreferences.iconThemeDark().trimmed();
+        const QString light = desktopSettings.gtkIconThemeLight().trimmed();
+        const QString dark = desktopSettings.gtkIconThemeDark().trimmed();
         if (!light.isEmpty() && !dark.isEmpty()) {
             themeIconController.setThemeMapping(light, dark);
         } else {
@@ -129,7 +128,7 @@ int main(int argc, char *argv[])
         }
     };
     const auto applyIconThemeMode = [&]() {
-        const QString mode = uiPreferences.themeMode().trimmed().toLower();
+        const QString mode = desktopSettings.themeMode().trimmed().toLower();
         bool darkMode = false;
         if (mode == QStringLiteral("dark")) {
             darkMode = true;
@@ -142,7 +141,7 @@ int main(int argc, char *argv[])
     };
     applyIconThemePref();
     applyIconThemeMode();
-    engine.rootContext()->setContextProperty(QStringLiteral("UIPreferences"), &uiPreferences);
+    engine.rootContext()->setContextProperty(QStringLiteral("DesktopSettings"), &desktopSettings);
     engine.rootContext()->setContextProperty(QStringLiteral("ThemeIconController"), &themeIconController);
     engine.rootContext()->setContextProperty(QStringLiteral("PrintManager"), &printManager);
     engine.rootContext()->setContextProperty(QStringLiteral("PrinterAdmin"), &printerAdmin);
@@ -173,15 +172,15 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("SessionStartupMode"), sessionMode);
     engine.rootContext()->setContextProperty(QStringLiteral("SafeModeActive"), safeModeActive);
     engine.rootContext()->setContextProperty(QStringLiteral("AnimationsEnabled"), runtimeAnimationsEnabled);
-    QObject::connect(&uiPreferences, &UIPreferences::iconThemeLightChanged, &app, [&]() {
+    QObject::connect(&desktopSettings, &DesktopSettingsClient::gtkIconThemeLightChanged, &app, [&]() {
         applyIconThemePref();
         applyIconThemeMode();
     });
-    QObject::connect(&uiPreferences, &UIPreferences::iconThemeDarkChanged, &app, [&]() {
+    QObject::connect(&desktopSettings, &DesktopSettingsClient::gtkIconThemeDarkChanged, &app, [&]() {
         applyIconThemePref();
         applyIconThemeMode();
     });
-    QObject::connect(&uiPreferences, &UIPreferences::themeModeChanged, &app, [&]() {
+    QObject::connect(&desktopSettings, &DesktopSettingsClient::themeModeChanged, &app, [&]() {
         applyIconThemeMode();
     });
     printManager.reload();

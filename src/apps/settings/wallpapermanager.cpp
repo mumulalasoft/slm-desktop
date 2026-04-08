@@ -1,23 +1,25 @@
 #include "wallpapermanager.h"
+#include "desktopsettingsclient.h"
 
 #include <QDBusConnection>
 #include <QDBusMessage>
 #include <QRandomGenerator>
 #include <QDebug>
 
-WallpaperManager::WallpaperManager(UIPreferences *uiPrefs, QObject *parent)
+WallpaperManager::WallpaperManager(DesktopSettingsClient *desktopSettings,
+                                   QObject *parent)
     : QObject(parent)
-    , m_uiPrefs(uiPrefs)
+    , m_desktopSettings(desktopSettings)
 {
-    if (m_uiPrefs) {
-        connect(m_uiPrefs, &UIPreferences::wallpaperUriChanged,
+    if (m_desktopSettings) {
+        connect(m_desktopSettings, &DesktopSettingsClient::wallpaperUriChanged,
                 this, &WallpaperManager::wallpaperChanged);
     }
 }
 
 QString WallpaperManager::currentWallpaperUri() const
 {
-    return m_uiPrefs ? m_uiPrefs->wallpaperUri() : QString();
+    return m_desktopSettings ? m_desktopSettings->wallpaperUri() : QString();
 }
 
 void WallpaperManager::openFilePicker()
@@ -62,12 +64,13 @@ void WallpaperManager::openFilePicker()
 
 void WallpaperManager::setWallpaperUri(const QString &fileUri)
 {
-    if (!m_uiPrefs) {
+    if (!m_desktopSettings) {
         emit errorOccurred(tr("Wallpaper settings unavailable"));
         return;
     }
-    m_uiPrefs->setWallpaperUri(fileUri);
-    // wallpaperChanged() will be emitted via the UIPreferences::wallpaperUriChanged connection.
+    if (!m_desktopSettings->setWallpaperUri(fileUri)) {
+        emit errorOccurred(tr("Failed to update wallpaper setting"));
+    }
 }
 
 void WallpaperManager::onFileChooserResponse(uint response, const QVariantMap &results)

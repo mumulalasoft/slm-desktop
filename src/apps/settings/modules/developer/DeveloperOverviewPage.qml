@@ -16,8 +16,8 @@ Flickable {
     readonly property bool runtimeAnimationsEnabled: !safeModeActive && userAnimationEnabled
 
     function refreshAnimationPolicy() {
-        if (typeof UIPreferences !== "undefined" && UIPreferences && UIPreferences.getPreference) {
-            userAnimationEnabled = !!UIPreferences.getPreference("windowing.animationEnabled", true)
+        if (typeof DesktopSettings !== "undefined" && DesktopSettings) {
+            userAnimationEnabled = !!DesktopSettings.windowingAnimationEnabled
         } else if (typeof AnimationsEnabled !== "undefined") {
             userAnimationEnabled = !!AnimationsEnabled
         } else {
@@ -498,12 +498,9 @@ Flickable {
     }
 
     Connections {
-        target: (typeof UIPreferences !== "undefined" && UIPreferences) ? UIPreferences : null
-        function onPreferenceChanged(key, value) {
-            const normalized = String(key || "").replace(/\./g, "/").toLowerCase()
-            if (normalized === "windowing/animationenabled") {
-                root.userAnimationEnabled = !!value
-            }
+        target: (typeof DesktopSettings !== "undefined" && DesktopSettings) ? DesktopSettings : null
+        function onWindowingAnimationEnabledChanged() {
+            root.userAnimationEnabled = !!DesktopSettings.windowingAnimationEnabled
         }
     }
 }
