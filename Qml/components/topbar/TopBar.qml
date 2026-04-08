@@ -21,7 +21,6 @@ Rectangle {
     readonly property int popupHintMs: 320
 
     signal launcherRequested()
-    // signal styleGalleryRequested()
     signal tothespotRequested()
     signal screenshotCaptureRequested(string mode, int delaySec, bool grabPointer, bool concealText)
     property string timeText: ""
@@ -99,8 +98,8 @@ Rectangle {
         var active = "balanced"
         if (typeof TothespotService !== "undefined" && TothespotService && TothespotService.activeSearchProfile) {
             active = normalizeProfileId(TothespotService.activeSearchProfile())
-        } else if (typeof UIPreferences !== "undefined" && UIPreferences && UIPreferences.getPreference) {
-            active = normalizeProfileId(UIPreferences.getPreference("tothespot.searchProfile", "balanced"))
+        } else if (typeof DesktopSettings !== "undefined" && DesktopSettings && DesktopSettings.settingValue) {
+            active = normalizeProfileId(DesktopSettings.settingValue("tothespot.searchProfile", "balanced"))
         }
         activeSearchProfileId = active
     }
@@ -116,8 +115,8 @@ Rectangle {
     function setFontScale(scaleValue) {
         var normalized = normalizedFontScale(scaleValue)
         Theme.userFontScale = normalized
-        if (typeof UIPreferences !== "undefined" && UIPreferences && UIPreferences.setPreference) {
-            UIPreferences.setPreference("ui.fontScale", normalized)
+        if (typeof DesktopSettings !== "undefined" && DesktopSettings && DesktopSettings.setSettingValue) {
+            DesktopSettings.setSettingValue("ui.fontScale", normalized)
         }
     }
 
@@ -209,13 +208,15 @@ Rectangle {
     }
 
     Connections {
-        target: (typeof UIPreferences !== "undefined") ? UIPreferences : null
-        function onPreferenceChanged(key, value) {
-            var k = String(key || "")
+        target: (typeof DesktopSettings !== "undefined") ? DesktopSettings : null
+        function onSettingChanged(path) {
+            var k = String(path || "")
             if (k === "tothespot/searchProfile" || k === "tothespot.searchProfile") {
-                root.activeSearchProfileId = root.normalizeProfileId(value)
+                root.activeSearchProfileId = root.normalizeProfileId(
+                            DesktopSettings.settingValue("tothespot.searchProfile", "balanced"))
             } else if (k === "ui/fontScale" || k === "ui.fontScale") {
-                Theme.userFontScale = root.normalizedFontScale(value)
+                Theme.userFontScale = root.normalizedFontScale(
+                            DesktopSettings.settingValue("ui.fontScale", 1.0))
             }
         }
     }
@@ -261,7 +262,6 @@ Rectangle {
                 root.popupOpenHint = false
                 root.mainMenuLastCloseMs = Date.now()
             }
-            // onStyleGalleryRequested: root.styleGalleryRequested()
             // onSetFontScaleRequested: function(scaleValue) {
             //     root.setFontScale(scaleValue)
             // }
@@ -272,8 +272,9 @@ Rectangle {
                         && TothespotService.setActiveSearchProfile) {
                     handled = !!TothespotService.setActiveSearchProfile(profileId)
                 }
-                if (!handled && typeof UIPreferences !== "undefined" && UIPreferences && UIPreferences.setPreference) {
-                    UIPreferences.setPreference("tothespot.searchProfile", profileId)
+                if (!handled && typeof DesktopSettings !== "undefined" && DesktopSettings
+                        && DesktopSettings.setSettingValue) {
+                    DesktopSettings.setSettingValue("tothespot.searchProfile", profileId)
                 }
             }
             onSearchProfileResetRequested: {
@@ -283,10 +284,9 @@ Rectangle {
                         && TothespotService.setActiveSearchProfile) {
                     handled = !!TothespotService.setActiveSearchProfile("balanced")
                 }
-                if (!handled && typeof UIPreferences !== "undefined" && UIPreferences && UIPreferences.resetPreference) {
-                    UIPreferences.resetPreference("tothespot.searchProfile")
-                } else if (!handled && typeof UIPreferences !== "undefined" && UIPreferences && UIPreferences.setPreference) {
-                    UIPreferences.setPreference("tothespot.searchProfile", "balanced")
+                if (!handled && typeof DesktopSettings !== "undefined" && DesktopSettings
+                        && DesktopSettings.setSettingValue) {
+                    DesktopSettings.setSettingValue("tothespot.searchProfile", "balanced")
                 }
                 root.refreshSearchProfilesModel()
             }

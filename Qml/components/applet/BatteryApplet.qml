@@ -59,18 +59,18 @@ Item {
     }
 
     function loadPreference() {
-        if (typeof UIPreferences === "undefined" || !UIPreferences || !UIPreferences.getPreference) {
+        if (typeof DesktopSettings === "undefined" || !DesktopSettings || !DesktopSettings.settingValue) {
             return
         }
-        var value = UIPreferences.getPreference("battery.showPercentage", false)
+        var value = DesktopSettings.settingValue("battery.showPercentage", false)
         root.showPercentage = !!value
     }
 
     function savePreference() {
-        if (typeof UIPreferences === "undefined" || !UIPreferences || !UIPreferences.setPreference) {
+        if (typeof DesktopSettings === "undefined" || !DesktopSettings || !DesktopSettings.setSettingValue) {
             return
         }
-        UIPreferences.setPreference("battery.showPercentage", root.showPercentage)
+        DesktopSettings.setSettingValue("battery.showPercentage", root.showPercentage)
     }
 
     Component.onCompleted: loadPreference()

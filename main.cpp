@@ -37,6 +37,7 @@
 #include "src/services/media/mediasessionmanager.h"
 #include "src/services/network/networkmanager.h"
 #include "src/services/notifications/notificationmanager.h"
+#include "src/services/storage/storageattachnotifier.h"
 #include "shortcutmodel.h"
 #include "cursorcontroller.h"
 #include "src/core/workspace/spacesmanager.h"
@@ -71,6 +72,7 @@
 #include "src/apps/filemanager/include/filemanagerapi.h"
 #include "src/apps/filemanager/include/filemanagermodel.h"
 #include "src/apps/filemanager/include/filemanagermodelfactory.h"
+#include "src/apps/settings/desktopsettingsclient.h"
 #include "src/filemanager/ops/globalprogresscenter.h"
 #include "src/filemanager/FileManagerShellBridge.h"
 #include "src/filemanager/ThumbnailImageProvider.h"
@@ -238,6 +240,7 @@ int main(int argc, char *argv[])
     SoundManager soundManager;
     MediaSessionManager mediaSessionManager;
     NotificationManager notificationManager;
+    StorageAttachNotifier storageAttachNotifier(&notificationManager);
     NetworkManager networkManager;
     DesktopAppModel appModel;
     ShortcutModel shortcutModel;
@@ -245,6 +248,7 @@ int main(int argc, char *argv[])
     SpacesManager spacesManager;
     CursorController cursorController;
     UIPreferences uiPreferences;
+    DesktopSettingsClient desktopSettings;
     ScreenshotManager screenshotManager;
     PortalChooserLogicHelper portalChooserLogicHelper;
     ScreenshotSaveHelper screenshotSaveHelper;
@@ -427,6 +431,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("DockBootstrapState"), &dockBootstrapState);
 #endif
     engine.rootContext()->setContextProperty(QStringLiteral("SessionStateClient"), &sessionStateClient);
+    engine.rootContext()->setContextProperty(QStringLiteral("DesktopSettings"), &desktopSettings);
     engine.rootContext()->setContextProperty(QStringLiteral("MissingComponents"), &missingComponentController);
     engine.rootContext()->setContextProperty(QStringLiteral("PrintManager"), &printerManager);
     engine.rootContext()->setContextProperty(QStringLiteral("PrintSession"), &printSession);

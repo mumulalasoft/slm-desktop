@@ -76,8 +76,8 @@ Window {
     }
 
     readonly property string _wallpaperSource: {
-        const uri = String((typeof UIPreferences !== "undefined" && UIPreferences)
-                           ? (UIPreferences.wallpaperUri || "") : "")
+        const uri = String((typeof DesktopSettings !== "undefined" && DesktopSettings)
+                           ? (DesktopSettings.wallpaperUri || "") : "")
         return uri.length > 0 ? uri : "qrc:/images/wallpaper.jpeg"
     }
 

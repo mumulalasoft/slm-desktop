@@ -3,7 +3,6 @@ import QtQuick.Controls 2.15
 import "components"
 import "components/compositor" as CompositorComp
 import "components/shell" as ShellComp
-import "components/style" as StyleComp
 
 Item {
     id: root
@@ -239,14 +238,7 @@ Item {
                 ThemeIconController.applyForDarkMode) {
             ThemeIconController.applyForDarkMode(Theme.darkMode)
         }
-        if (typeof NotificationManager !== "undefined" && NotificationManager &&
-                typeof UIPreferences !== "undefined" && UIPreferences && UIPreferences.getPreference &&
-                NotificationManager.setBubbleDurationMs) {
-            var duration = Number(UIPreferences.getPreference("notifications.bubbleDurationMs", 5000))
-            if (!isNaN(duration)) {
-                NotificationManager.setBubbleDurationMs(duration)
-            }
-        }
+        syncNotificationPrefs()
         root.pushSpaceToCompositor()
         root.pushWorkspaceVisibilityToCompositor()
         root.syncWorkspaceLifecycleState()
@@ -323,15 +315,6 @@ Item {
         function onLaunchpadRequested() { root.launchpadVisible = !root.launchpadVisible }
     }
 
-    MouseArea {
-        id: styleGalleryDismissArea
-        anchors.fill: parent
-        z: 429
-        visible: styleGallery.visible
-        enabled: visible
-        onClicked: root.styleGalleryVisible = false
-    }
-
     Rectangle {
         id: spaceSwitchHud
         z: 445
@@ -403,18 +386,6 @@ Item {
 
     CompositorComp.CompositorSwitcherOverlay {
         anchors.fill: parent
-    }
-
-    StyleComp.StyleGallery {
-        id: styleGallery
-        z: 430
-        width: Math.min(parent.width - 120, 860)
-        height: Math.min(parent.height - root.panelHeight - 80, 620)
-        anchors.horizontalCenter: parent.horizontalCenter
-        y: root.panelHeight + 24
-        visible: root.styleGalleryVisible
-        onCloseRequested: root.styleGalleryVisible = false
-        onDockHidePrefsApplied: root.syncDockHidePrefs()
     }
 
     Rectangle {
@@ -633,14 +604,26 @@ Item {
         }
     }
 
+    Connections {
+        target: (typeof DesktopSettings !== "undefined") ? DesktopSettings : null
+        function onSettingChanged(path) {
+            var p = String(path || "")
+            if (p === "dock.hideMode" || p === "dock.hideDurationMs" || p === "dock.autoHideEnabled") {
+                root.syncDockHidePrefs()
+            } else if (p === "notifications.bubbleDurationMs") {
+                root.syncNotificationPrefs()
+            }
+        }
+    }
+
     function syncDockHidePrefs() {
         var mode = "duration_hide"
         var duration = 450
-        if (typeof UIPreferences !== "undefined" && UIPreferences && UIPreferences.getPreference) {
-            var legacyAuto = !!UIPreferences.getPreference("dock.autoHideEnabled", false)
-            mode = String(UIPreferences.getPreference("dock.hideMode",
-                                                      legacyAuto ? "duration_hide" : "no_hide"))
-            duration = Number(UIPreferences.getPreference("dock.hideDurationMs", 450))
+        if (typeof DesktopSettings !== "undefined" && DesktopSettings && DesktopSettings.settingValue) {
+            var legacyAuto = !!DesktopSettings.settingValue("dock.autoHideEnabled", false)
+            mode = String(DesktopSettings.settingValue("dock.hideMode",
+                                                       legacyAuto ? "duration_hide" : "no_hide"))
+            duration = Number(DesktopSettings.settingValue("dock.hideDurationMs", 450))
         }
         mode = mode.trim().toLowerCase()
         if (mode === "snart_hide") {
@@ -657,6 +640,20 @@ Item {
         root.dockHideDurationMs = duration
         pushDockModeToCompositor()
         refreshDockSmartOcclusion()
+    }
+
+    function syncNotificationPrefs() {
+        if (!(typeof NotificationManager !== "undefined" && NotificationManager && NotificationManager.setBubbleDurationMs)) {
+            return
+        }
+        var duration = 5000
+        if (typeof DesktopSettings !== "undefined" && DesktopSettings && DesktopSettings.settingValue) {
+            duration = Number(DesktopSettings.settingValue("notifications.bubbleDurationMs", 5000))
+        }
+        if (isNaN(duration)) {
+            duration = 5000
+        }
+        NotificationManager.setBubbleDurationMs(duration)
     }
 
     function pushDockModeToCompositor() {

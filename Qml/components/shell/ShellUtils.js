@@ -67,11 +67,11 @@ function applyUserFontScalePreference(shell) {
     if (typeof Theme === "undefined" || !Theme) {
         return
     }
-    if (typeof UIPreferences === "undefined" || !UIPreferences || !UIPreferences.getPreference) {
+    if (typeof DesktopSettings === "undefined" || !DesktopSettings) {
         Theme.userFontScale = 1.25
         return
     }
-    var v = UIPreferences.getPreference("ui.fontScale", 1.25)
+    var v = DesktopSettings.fontScale
     Theme.userFontScale = normalizedUserFontScale(v)
 }
 
@@ -135,11 +135,11 @@ function saveTothespotGeometry(shell) {
     shell.tothespotSavedY = clamped.y
     shell.tothespotSavedWidth = clamped.width
     shell.tothespotSavedHeight = clamped.height
-    if (typeof UIPreferences !== "undefined" && UIPreferences && UIPreferences.setPreference) {
-        UIPreferences.setPreference("tothespot.windowX", shell.tothespotSavedX)
-        UIPreferences.setPreference("tothespot.windowY", shell.tothespotSavedY)
-        UIPreferences.setPreference("tothespot.windowWidth", shell.tothespotSavedWidth)
-        UIPreferences.setPreference("tothespot.windowHeight", shell.tothespotSavedHeight)
+    if (typeof DesktopSettings !== "undefined" && DesktopSettings && DesktopSettings.setSettingValue) {
+        DesktopSettings.setSettingValue("tothespot.windowX", shell.tothespotSavedX)
+        DesktopSettings.setSettingValue("tothespot.windowY", shell.tothespotSavedY)
+        DesktopSettings.setSettingValue("tothespot.windowWidth", shell.tothespotSavedWidth)
+        DesktopSettings.setSettingValue("tothespot.windowHeight", shell.tothespotSavedHeight)
     }
 }
 

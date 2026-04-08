@@ -20,17 +20,17 @@ Item {
     property int dragEdgeDirection: 0 // -1: left, +1: right
     property bool dragEdgeSwitchArmed: false
     property int dragEdgeDwellMs: {
-        if (typeof UIPreferences === "undefined" || !UIPreferences || !UIPreferences.getPreference) {
+        if (typeof DesktopSettings === "undefined" || !DesktopSettings || !DesktopSettings.settingValue) {
             return 350
         }
-        var v = Number(UIPreferences.getPreference("workspace.dragEdgeDwellMs", 350))
+        var v = Number(DesktopSettings.settingValue("workspace.dragEdgeDwellMs", 350))
         return Math.max(120, Math.min(1200, Math.round(v)))
     }
     property int dragEdgeRepeatMs: {
-        if (typeof UIPreferences === "undefined" || !UIPreferences || !UIPreferences.getPreference) {
+        if (typeof DesktopSettings === "undefined" || !DesktopSettings || !DesktopSettings.settingValue) {
             return 260
         }
-        var v = Number(UIPreferences.getPreference("workspace.dragEdgeRepeatMs", 260))
+        var v = Number(DesktopSettings.settingValue("workspace.dragEdgeRepeatMs", 260))
         return Math.max(80, Math.min(700, Math.round(v)))
     }
     signal dismissed()

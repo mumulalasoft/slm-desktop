@@ -54,20 +54,20 @@ Item {
     }
 
     function loadPreference() {
-        if (typeof UIPreferences === "undefined" || !UIPreferences || !UIPreferences.getPreference) {
+        if (typeof DesktopSettings === "undefined" || !DesktopSettings || !DesktopSettings.settingValue) {
             return
         }
-        var value = UIPreferences.getPreference("notifications.doNotDisturb", false)
+        var value = DesktopSettings.settingValue("notifications.doNotDisturb", false)
         if (root.notificationManager && root.notificationManager.setDoNotDisturb) {
             root.notificationManager.setDoNotDisturb(!!value)
         }
     }
 
     function savePreference(enabled) {
-        if (typeof UIPreferences === "undefined" || !UIPreferences || !UIPreferences.setPreference) {
+        if (typeof DesktopSettings === "undefined" || !DesktopSettings || !DesktopSettings.setSettingValue) {
             return
         }
-        UIPreferences.setPreference("notifications.doNotDisturb", !!enabled)
+        DesktopSettings.setSettingValue("notifications.doNotDisturb", !!enabled)
     }
 
     function notificationCount() {

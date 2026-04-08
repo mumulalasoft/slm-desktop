@@ -834,7 +834,6 @@ set(DESKTOP_SHELL_QML_FILES
     Qml/components/indicators/IndicatorMenu.qml
 
     Qml/components/style/WindowControlsCapsule.qml
-    Qml/components/style/StyleGallery.qml
     Qml/components/shell/Shell.qml
     Qml/components/screenshot/ScreenshotSaveDialog.qml
     Qml/components/screenshot/ScreenshotOverwriteDialog.qml
@@ -1932,6 +1931,72 @@ target_link_libraries(docksystem_render_contract_test
 )
 
 add_test(NAME docksystem_render_contract_test COMMAND docksystem_render_contract_test)
+
+qt_add_executable(filemanager_storage_notification_contract_test
+    tests/filemanager_storage_notification_contract_test.cpp
+)
+
+target_compile_definitions(filemanager_storage_notification_contract_test
+    PRIVATE
+        DESKTOP_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\"
+)
+
+target_link_libraries(filemanager_storage_notification_contract_test
+    PRIVATE
+        Qt6::Core
+        Qt6::Test
+)
+
+add_test(NAME filemanager_storage_notification_contract_test COMMAND filemanager_storage_notification_contract_test)
+
+qt_add_executable(storage_automount_contract_test
+    tests/storage_automount_contract_test.cpp
+)
+
+target_compile_definitions(storage_automount_contract_test
+    PRIVATE
+        DESKTOP_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\"
+)
+
+target_link_libraries(storage_automount_contract_test
+    PRIVATE
+        Qt6::Core
+        Qt6::Test
+)
+
+add_test(NAME storage_automount_contract_test COMMAND storage_automount_contract_test)
+
+qt_add_executable(storagepolicystore_migration_test
+    src/services/storage/storagepolicystore.cpp
+    src/services/storage/storagepolicystore.h
+    tests/storagepolicystore_migration_test.cpp
+)
+
+target_include_directories(storagepolicystore_migration_test PRIVATE ${CMAKE_SOURCE_DIR})
+
+target_link_libraries(storagepolicystore_migration_test
+    PRIVATE
+        Qt6::Core
+        Qt6::Test
+)
+
+add_test(NAME storagepolicystore_migration_test COMMAND storagepolicystore_migration_test)
+
+qt_add_executable(storage_runtime_smoke_test
+    tests/storage_runtime_smoke_test.cpp
+)
+
+target_link_libraries(storage_runtime_smoke_test
+    PRIVATE
+        Qt6::Core
+        Qt6::DBus
+        Qt6::Test
+)
+
+add_test(NAME storage_runtime_smoke_test COMMAND storage_runtime_smoke_test)
+set_tests_properties(storage_runtime_smoke_test PROPERTIES
+    LABELS "storage-smoke"
+)
 
 qt_add_executable(shell_state_controller_test
     src/core/shell/shellstatecontroller.cpp

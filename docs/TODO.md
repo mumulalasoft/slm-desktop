@@ -20,7 +20,8 @@
   - `docs/LOGIN_SPLIT_PREP.md`
 
 ## Backlog (Tothespot)
-- [ ] Add optional preview pane for non-compact popup mode.
+- [x] Add optional preview pane for non-compact popup mode.
+  - `showPreviewPane` property (default `true`) + `hasPreviewContent` guard; visible when selected item has data.
 
 ## Backlog (Theme)
   - `elevationLow/Medium/High` semantic aliases added to `third_party/slm-style/qml/SlmStyle/Theme.qml`.
@@ -28,10 +29,16 @@
   - physics tokens (`physicsSpring/Damping/Mass` × 3 presets + `physicsEpsilon`) in `Theme.qml`.
   - easing aliases (`easingDefault`, `easingLight`) added.
   - `controlBgHover`, `controlBgPressed`, `controlDisabledBg`, `controlDisabledBorder`, `textDisabled`, `focusRing` present in `Theme.qml` light/dark palettes.
-- [ ] FileManager density pass:
+- [x] FileManager density pass:
   - align toolbar/search/tab/status heights to compact token grid.
-- [ ] Add high-contrast mode toggle in `UIPreferences` + runtime Theme switch.
-  - `UIPreferences.animationMode` (`full`/`reduced`/`minimal`) + `Theme._modeScale` + `MotionController.reducedMotion` wired in `main.cpp`.
+  - `FileManagerToolbar.qml`: `height: 36` → `Theme.controlHeightLarge` (4 controls).
+  - `FileManagerTabBar.qml`: addTabPill `Layout.preferredHeight: 20` → `Theme.controlHeightCompact`.
+  - Active components (HeaderBar/StatusBar) already token-aligned.
+- [x] Add high-contrast mode toggle via `settingsd` SSOT + runtime Theme switch.
+  - `settingsstore.cpp`: default `globalAppearance.highContrast = false` + bool validator.
+  - `DesktopSettingsClient`: `highContrast` property + `setHighContrast()` + `highContrastChanged` signal.
+  - `Theme.qml`: `readonly property bool highContrast` — reactive bind ke `DesktopSettings.highContrast`.
+  - `AppearancePage.qml`: SettingCard "High Contrast" toggle antara Color Theme dan Accent Color.
 - [ ] Add optional dynamic wallpaper sampling tint with contrast guardrail.
 - [~] SlmStyle migration guardrail:
   - [ ] Migrate remaining flagged files (current baseline: 49 files from style-usage checker).
@@ -46,11 +53,12 @@
 ## Program (Storage & Automount UX: Per-Partition, GIO/GVfs, Modern Linux Desktop)
 
 ### Guardrails Wajib
-- [ ] Jangan gunakan `mount/umount` command langsung di semua path runtime.
-- [ ] Semua operasi mount/unmount harus lewat GIO/GVfs (`GVolumeMonitor`, `GVolume`, `GMount`).
-- [ ] Semua policy berbasis partisi (`UUID`/fallback `PARTUUID`), bukan disk global.
-- [ ] System partitions (EFI/MSR/swap/recovery/LVM raw) tidak tampil di UI user biasa.
-- [ ] Notifikasi wajib satu per device attach event (tidak boleh spam per partition).
+- [x] Jangan gunakan `mount/umount` command langsung di semua path runtime.
+- [x] Semua operasi mount/unmount harus lewat GIO/GVfs (`GVolumeMonitor`, `GVolume`, `GMount`).
+- [x] Semua policy berbasis partisi (`UUID`/fallback `PARTUUID`), bukan disk global.
+- [x] System partitions (EFI/MSR/swap/recovery/LVM raw) tidak tampil di UI user biasa.
+- [~] Notifikasi wajib satu per device attach event (tidak boleh spam per partition).
+  - [x] Producer notifikasi dipindah ke service-layer global (`StorageAttachNotifier`) via `org.slm.Desktop.Storage` signal, grouped by `deviceGroupKey` + cooldown + action `[ Open ] [ Eject ]`.
 
 ### Phase 1 — Device Detection Layer (GIO/GVfs)
 - [~] Buat `StorageManager` core service (desktopd/fileopsd integration point) untuk event storage.
@@ -61,8 +69,10 @@
   - `mount-added`
   - `mount-removed`
   - [~] Coalescer per device baseline aktif (debounce 4s, grouped by `deviceGroupKey`), lanjut refinement multi-monitor/session edge cases.
-- [ ] Tambahkan aggregator event per physical device untuk grouping partitions.
-- [ ] Tambahkan loading/settling state agar scan partisi tidak menghasilkan UI jitter.
+- [~] Tambahkan aggregator event per physical device untuk grouping partitions.
+  - [x] Baseline grouping di sidebar berdasarkan `deviceGroupKey` (`Devices -> Drive -> child volumes`).
+- [~] Tambahkan loading/settling state agar scan partisi tidak menghasilkan UI jitter.
+  - [x] Baseline settle timer UI (`storageSidebarSettleMs` + `storageSettleTimer`) untuk menahan repaint sidebar saat burst event `StorageLocationsUpdated`.
 
 ### Phase 2 — Policy Engine (UUID-Based, Per Partition)
 - [ ] Definisikan model input policy:
@@ -83,42 +93,43 @@
 ### Phase 3 — Mount Executor (No Shell Mount)
   - `src/apps/filemanager/filemanagerapi_storage.cpp`
   - `src/daemon/devicesd/devicesmanager.cpp` (Mount/Eject path)
-- [ ] Tambahkan error mapping non-teknis untuk state:
+- [x] Tambahkan error mapping non-teknis untuk state:
   - locked, busy, unsupported, permission denied.
-- [ ] Tambahkan timeout + cancellation path untuk operasi mount/unmount panjang.
+- [x] Tambahkan timeout + cancellation path untuk operasi mount/unmount panjang.
 
 ### Phase 4 — Notification & Volume Selector UX
 - [~] Implement notification coalescer per device attach.
-  - [ ] UI polish + localization microcopy + selector keyboard navigation.
-- [ ] Format notifikasi multi-partition:
+  - [~] UI polish + localization microcopy + selector keyboard navigation.
+    - [x] Baseline keyboard navigation untuk volume selector (`Enter`/`Return` + hover-to-select).
+- [~] Format notifikasi multi-partition:
   - `"External Drive connected"`
   - `"X volume tersedia"`
   - actions: `[ Open ] [ Eject ]`
-- [ ] Action `Open`:
+- [~] Action `Open`:
   - jika 1 volume: buka langsung (single window)
   - jika >1 volume: tampilkan volume selector, jangan auto-open multiple windows.
-- [ ] Pastikan tidak pernah ada multiple notification per partition attach.
+- [~] Pastikan tidak pernah ada multiple notification per partition attach.
 
 ### Phase 5 — Sidebar Device UI
-- [ ] Render struktur:
+- [x] Render struktur:
   - `Devices`
   - `Drive Name`
   - child entries `Volume A/B/...`
-- [ ] Sembunyikan semua system partitions dari mode user biasa.
-- [ ] Gunakan microcopy non-teknis:
+- [x] Sembunyikan semua system partitions dari mode user biasa.
+- [x] Gunakan microcopy non-teknis:
   - Mount -> `Open Drive`
   - Unmount -> `Eject`
   - Volume -> `Drive`
-- [ ] Tambahkan loading skeleton/state saat mount scan berjalan.
+- [x] Tambahkan loading skeleton/state saat mount scan berjalan.
 
 ### Phase 6 — Properties Panel (Mount Behavior)
 - [~] Tambahkan panel `Mount Behavior` per partition:
-  - Mount otomatis
-  - Mount otomatis + buka
-  - Tanya setiap kali
-  - Jangan pernah mount otomatis
-  - `storagePolicyForPath(path)` load on open
-  - `setStoragePolicyForPath(path, patch)` save realtime
+  - [x] Mount otomatis
+  - [x] Mount otomatis + buka
+  - [x] Tanya setiap kali
+  - [x] Jangan pernah mount otomatis
+  - [x] `storagePolicyForPath(path)` load on open (service API + FileManagerApi bridge).
+  - [x] `setStoragePolicyForPath(path, patch)` save realtime (service API + FileManagerApi bridge).
   - control baseline: automount/ask, auto-open, visible, read-only, allow-exec
 - [~] Tambahkan section `Visibility`:
   - tampilkan/simpan di sidebar
@@ -126,6 +137,12 @@
   - read-write/read-only/allow exec
 - [ ] Tambahkan section `Scope`:
   - partisi ini saja / semua partisi pada device ini.
+  - [x] Baseline scope backend tersedia (`partition`/`device` via `setStoragePolicyForPath(..., scope)` + `policyScope`).
+  - [~] Baseline UI wiring tersedia di Properties dialog tab `Mount` (scope + policy toggles).
+    - [x] Tab tetap dapat dibuka saat policy belum tersedia + status/loading/error messaging.
+    - [x] Polish copy/layout + state disabled granular (busy/updating/automount/read-only) untuk control Mount tab.
+    - [x] Guard state baseline: `auto_open` otomatis off saat `automount=false`.
+    - [x] Error text di Mount tab dinormalisasi non-teknis (locked/busy/unsupported/permission) tanpa expose kode mentah.
 
 ### Phase 7 — Policy Storage & Persistence
 - [~] Simpan policy JSON per partition:
@@ -137,32 +154,51 @@
   - [~] Dedicated runtime `StorageManager` kini aktif untuk monitor storage event + snapshot query/policy resolve shared.
   - [~] Baseline DBus façade tersedia via `org.slm.Desktop.Devices.GetStorageLocations` (powered by shared `StorageManager`).
   - [~] Endpoint façade dedicated `org.slm.Desktop.Storage` sudah ada:
-    - `Ping`, `GetCapabilities`, `GetStorageLocations`, `Mount`, `Eject`, `ConnectServer`
+    - `Ping`, `GetCapabilities`, `GetStorageLocations`, `StoragePolicyForPath`, `SetStoragePolicyForPath`, `Mount`, `Eject`, `ConnectServer`
     - signal `StorageLocationsChanged` tersedia dari `devicesd`
   - [ ] Lengkapi adopsi lintas shell/settings/filemanager + kontrak event real-time penuh dari façade dedicated.
-- [ ] Implement migration + fallback key chain (`uuid` -> `partuuid` -> serial+index).
-  - `uuid` -> `partuuid` -> `device` -> `group`
+- [~] Implement migration + fallback key chain (`uuid` -> `partuuid` -> serial+index).
+  - [x] Runtime fallback chain aktif: `uuid` -> `partuuid` -> `serial-index` -> `device` -> `group`.
+  - [x] Persisted-key migrator baseline aktif di `StoragePolicyStore` (schema v3, canonical key rewrite `uuid/partuuid/serial-index` saat load).
+  - [x] Migrasi runtime-assisted `device/group` -> `serial-index` baseline aktif di `StorageManager` (promotion copy saat snapshot media tersedia).
+  - [~] Cleanup migrasi lanjut (opsional): pruning key legacy `device/group` setelah periode kompatibilitas.
+    - [x] Baseline prune opsional ditambahkan (gated env `SLM_STORAGE_POLICY_PRUNE_LEGACY_KEYS=1`), hanya hapus key legacy bila policy sama persis dengan `serial-index` target.
 - [~] Tambahkan schema versioning + safe recovery untuk file policy corrupt.
-  - [ ] Tambahkan migrator bertahap untuk schema > 2.
+  - [x] Migrator bertahap schema <= 3 ditambahkan (`migratePolicyEntriesForSchema`).
+  - [~] Perluas pipeline migrator untuk schema selanjutnya + telemetry hasil migrasi.
+    - [x] Baseline telemetry migrasi ditambahkan di `StoragePolicyStore::loadPolicyMap()` (debug log ringkas berbasis count: loaded/normalized/canonicalized/collisions/dropped/save status, tanpa expose key/path sensitif).
 
 ### Phase 8 — Special States UX
-- [ ] Locked state:
+- [~] Locked state:
   - `"Drive terkunci"` + action `[ Unlock ]`.
-- [ ] Busy state:
+  - [x] Baseline messaging non-teknis untuk error open/eject: `"Drive terkunci..."`.
+- [~] Busy state:
   - `"Drive sedang digunakan"` + actions `[ Force Eject ] [ Cancel ]`.
-- [ ] Unsupported state:
+  - [x] Baseline messaging non-teknis untuk error open/eject: `"Drive sedang digunakan..."`.
+- [~] Unsupported state:
   - `"Drive tidak dikenali"` + actions `[ Mount Read-only ] [ Ignore ]`.
-- [ ] Pastikan messaging tanpa `/dev/sdX`, UUID, atau istilah teknis mentah.
+  - [x] Baseline messaging non-teknis untuk error open/eject: `"Drive tidak dikenali."`.
+- [~] Pastikan messaging tanpa `/dev/sdX`, UUID, atau istilah teknis mentah.
+  - [x] Sanitizer baseline di `FileManagerWindowActions.notifyResult()` untuk jalur storage (`Open Drive`/`Eject`) menghapus detail `/dev/*` dan UUID mentah.
+  - [x] Mapper error storage dipusatkan di `FileManagerWindowActions` (`isStorageAction` + `nonTechnicalStorageError`) untuk normalisasi locked/busy/unsupported/permission/timeout/service-unavailable/not-found/cancelled secara konsisten lintas caller.
 
 ### Phase 9 — Integration & Hardening
 - [ ] Integrasi penuh ke FileManager sidebar + notification system + device properties panel.
-- [ ] Tambahkan contract test:
-  - no shell mount usage
-  - no per-partition notification spam
-  - system partition hidden by default
-  - single-open behavior for multi-volume device.
-- [ ] Tambahkan smoke test runtime untuk USB multi-partition dan encrypted media.
-- [ ] Tambahkan observability log ringkas (debug mode only) tanpa leak info sensitif.
+- [~] Tambahkan contract test:
+  - [x] no shell mount usage
+  - [x] no per-partition notification spam
+  - [x] system partition hidden by default
+  - [x] single-open behavior for multi-volume device.
+  - baseline: `tests/storage_automount_contract_test.cpp`.
+  - [x] persistence migration/canonicalization test: `tests/storagepolicystore_migration_test.cpp`.
+- [~] Tambahkan smoke test runtime untuk USB multi-partition dan encrypted media.
+  - [x] Baseline DBus smoke test ditambahkan: `tests/storage_runtime_smoke_test.cpp` (shape + optional hardware checks via env).
+  - [x] Tambahkan lane hardware CI/dogfooding (manual `workflow_dispatch` + self-hosted label `storage-hw`) yang mengaktifkan env strict via `scripts/test-storage-runtime-suite.sh`:
+    - `SLM_STORAGE_SMOKE_REQUIRE_SERVICE=1`
+    - `SLM_STORAGE_SMOKE_REQUIRE_MULTI_PARTITION=1`
+    - `SLM_STORAGE_SMOKE_REQUIRE_ENCRYPTED=1`
+- [~] Tambahkan observability log ringkas (debug mode only) tanpa leak info sensitif.
+  - [x] Baseline log migrasi policy `device/group -> serial-index` (jumlah entry promotion per snapshot-save).
 
 ### Acceptance Criteria
 - [ ] Satu device attach menghasilkan satu notification.
@@ -1691,6 +1727,31 @@ Tujuan utama:
       - KDE Color Scheme (light/dark)
       - GTK Icon Theme (light/dark)
       - KDE Icon Theme (light/dark)
+      - Dock (animation style, auto-hide, drop pulse, drag sensitivity mouse/touchpad) via `dock.*` keyspace
+      - Dock module (`modules/dock/DockPage.qml`) untuk icon size + magnification via `DesktopSettings` (`dock.iconSize`, `dock.magnificationEnabled`)
+      - Print module (`modules/print/PrintPage.qml`) fallback printer via `DesktopSettings` (`print.pdfFallbackPrinterId`)
+      - Keyboard module (`modules/keyboard/KeyboardPage.qml`) shortcut write/read via `DesktopSettings` (`windowing.bind*`, `shortcuts.*`)
+      - Developer Overview (`modules/developer/DeveloperOverviewPage.qml`) animation policy via `DesktopSettings` (`windowing.animationEnabled`)
+      - `ThemeManager` + settings bootstrap (`main.cpp`) sekarang source tema/icon mode dari `DesktopSettings` (fallback tetap ada via `UIPreferences`)
+      - `FontManager` migrated ke `DesktopSettings` (`fonts.defaultFont/documentFont/monospaceFont/titlebarFont`) dengan fallback `UIPreferences`
+      - `WallpaperManager` migrated ke `DesktopSettings` (`wallpaper.uri`) dengan fallback `UIPreferences`
+      - `Qml/apps/settings/{Main,StylePreviewGallery}.qml` theme sync sudah `DesktopSettings`-only (context `UIPreferences` tidak lagi diexpose dari settings app)
+      - `src/apps/settings/*` sekarang tidak lagi mereferensikan `UIPreferences` (ThemeManager/FontManager/WallpaperManager/DesktopSettingsClient/Main cutover ke `DesktopSettings` only)
+      - shell runtime sekarang expose `DesktopSettings` dari `main.cpp` (desktop process), sehingga QML shell tidak perlu baca `UIPreferences` untuk keyspace SSOT
+      - migrated shell QML reads ke `DesktopSettings`:
+        - `Qml/components/shell/Shell.qml` (theme/accent/font scale + wallpaper)
+        - `Qml/components/shell/GlobalShortcutManager.qml` (shortcut bind via `DesktopSettings.keyboardShortcut`)
+        - `Qml/DesktopScene.qml` (dock hide prefs + notification bubble duration via `DesktopSettings.settingValue`)
+        - `Qml/components/shell/ShellUtils.js` (persist tothespot geometry via `DesktopSettings.setSettingValue`)
+        - `Qml/DockSystem.qml` + `Qml/components/dock/Dock.qml` (dock icon size, magnification, motion preset, pulse, drag thresholds)
+        - `Qml/components/launchpad/Launchpad.qml` + `Qml/components/overlay/LaunchpadWindow.qml` (wallpaper + compositor blur prefs)
+        - `Qml/components/applet/BatteryApplet.qml` + `Qml/components/applet/NotificationApplet.qml` (battery/notification preference key via `DesktopSettings.settingValue`)
+        - `Qml/components/topbar/TopBarScreenshotControl.qml` + `Qml/components/screenshot/ScreenshotSaveController.js` (screenshot prefs/saveFolder via `DesktopSettings`)
+        - `Qml/components/workspace/WorkspaceOverlay.qml` (drag-edge timing prefs via `DesktopSettings.settingValue`)
+        - `Qml/components/topbar/TopBar.qml` (search-profile + font-scale preference bridge ke `DesktopSettings`)
+        - `Qml/components/portalchooser/PortalChooserController.js` (persisted chooser width/height/sort/filter prefs via `DesktopSettings`)
+        - `Qml/components/print/PrintDialog.qml` (PDF fallback printer preference via `DesktopSettings`)
+        - `Qml/apps/filemanager/FileManagerWindow.qml` (tab-state writer adapter dialihkan ke `DesktopSettings.setSettingValue`)
     - fallback path retained via `UIPreferences` if settings daemon unavailable
     - `ApplicationsPage.qml` added "Theme" section (SSOT-backed):
       - `appThemePolicy.qtGenericAllowKdeCompat`

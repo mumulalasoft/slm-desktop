@@ -7,8 +7,8 @@ Item {
     id: root
 
     property string wallpaperSource: {
-        if (typeof UIPreferences !== "undefined") {
-            const uri = String(UIPreferences.wallpaperUri || "")
+        if (typeof DesktopSettings !== "undefined" && DesktopSettings) {
+            const uri = String(DesktopSettings.wallpaperUri || "")
             if (uri.length > 0)
                 return uri
         }
@@ -479,15 +479,15 @@ Item {
     }
 
     function syncThemePreferences() {
-        if (typeof UIPreferences === "undefined") {
+        if (typeof DesktopSettings === "undefined" || !DesktopSettings) {
             return
         }
-        Theme.applyModeString(UIPreferences.themeMode)
-        Theme.userAccentColor = UIPreferences.accentColor
-        Theme.userFontScale = UIPreferences.fontScale
-        DSStyle.Theme.applyModeString(UIPreferences.themeMode)
-        DSStyle.Theme.userAccentColor = UIPreferences.accentColor
-        DSStyle.Theme.userFontScale = UIPreferences.fontScale
+        Theme.applyModeString(DesktopSettings.themeMode)
+        Theme.userAccentColor = DesktopSettings.accentColor
+        Theme.userFontScale = DesktopSettings.fontScale
+        DSStyle.Theme.applyModeString(DesktopSettings.themeMode)
+        DSStyle.Theme.userAccentColor = DesktopSettings.accentColor
+        DSStyle.Theme.userFontScale = DesktopSettings.fontScale
     }
 
     onVisibleChanged: {
@@ -508,7 +508,7 @@ Item {
     }
 
     Connections {
-        target: typeof UIPreferences !== "undefined" ? UIPreferences : null
+        target: (typeof DesktopSettings !== "undefined") ? DesktopSettings : null
         function onThemeModeChanged() { root.syncThemePreferences() }
         function onAccentColorChanged() { root.syncThemePreferences() }
         function onFontScaleChanged() { root.syncThemePreferences() }

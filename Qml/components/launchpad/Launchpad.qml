@@ -48,8 +48,8 @@ Item {
     signal addToDesktopRequested(var appData)
 
     readonly property string wallpaperSource: {
-        const uri = String((typeof UIPreferences !== "undefined" && UIPreferences)
-                           ? (UIPreferences.wallpaperUri || "") : "")
+        const uri = String((typeof DesktopSettings !== "undefined" && DesktopSettings)
+                           ? (DesktopSettings.wallpaperUri || "") : "")
         return uri.length > 0 ? uri : "qrc:/images/wallpaper.jpeg"
     }
 
@@ -67,10 +67,10 @@ Item {
                                                                / Math.max(1, effectiveRowsPerPage)))
 
     function prefBool(key, fallback) {
-        if (typeof UIPreferences === "undefined" || !UIPreferences || !UIPreferences.getPreference) {
+        if (typeof DesktopSettings === "undefined" || !DesktopSettings || !DesktopSettings.settingValue) {
             return !!fallback
         }
-        return !!UIPreferences.getPreference(key, fallback)
+        return !!DesktopSettings.settingValue(String(key || ""), fallback)
     }
 
     function refreshCompositorBlurPrefs() {
@@ -662,10 +662,10 @@ Item {
 
 
     Connections {
-        target: (typeof UIPreferences !== "undefined" && UIPreferences) ? UIPreferences : null
+        target: (typeof DesktopSettings !== "undefined" && DesktopSettings) ? DesktopSettings : null
         ignoreUnknownSignals: true
-        function onPreferenceChanged(key, value) {
-            var k = String(key || "").toLowerCase()
+        function onSettingChanged(path) {
+            var k = String(path || "").toLowerCase()
             if (k === "launchpad/compositorblurhint"
                     || k === "launchpad.compositorblurhint"
                     || k === "windowing/scenefxenabled"

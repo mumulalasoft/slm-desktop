@@ -23,7 +23,7 @@ Window {
     property string submitErrorText: ""
     property string submitInfoText: ""
     property string fallbackSelectionSource: ""
-    readonly property var uiPreferences: (typeof UIPreferences !== "undefined") ? UIPreferences : null
+    readonly property var uiPreferences: (typeof DesktopSettings !== "undefined") ? DesktopSettings : null
     // True while a submit is in progress — disables the Print button.
     readonly property bool isSubmitting: printDialogController
                                          ? !!printDialogController.isSubmitting
@@ -106,17 +106,17 @@ Window {
 
     function rememberPdfFallbackPrinter(printerId) {
         var id = String(printerId || "")
-        if (id.length <= 0 || !uiPreferences || !uiPreferences.setPreference) {
+        if (id.length <= 0 || !uiPreferences || !uiPreferences.setSettingValue) {
             return
         }
-        uiPreferences.setPreference("print.pdfFallbackPrinterId", id)
+        uiPreferences.setSettingValue("print.pdfFallbackPrinterId", id)
     }
 
     function resetPdfFallbackPrinterPreference() {
-        if (!uiPreferences || !uiPreferences.setPreference) {
+        if (!uiPreferences || !uiPreferences.setSettingValue) {
             return
         }
-        uiPreferences.setPreference("print.pdfFallbackPrinterId", "")
+        uiPreferences.setSettingValue("print.pdfFallbackPrinterId", "")
         fallbackSelectionSource = ""
         console.log("[print-fallback] preference-reset")
     }
@@ -132,8 +132,8 @@ Window {
         }
 
         var rememberedPdfPrinter = ""
-        if (uiPreferences && uiPreferences.getPreference) {
-            rememberedPdfPrinter = String(uiPreferences.getPreference("print.pdfFallbackPrinterId", ""))
+        if (uiPreferences && uiPreferences.settingValue) {
+            rememberedPdfPrinter = String(uiPreferences.settingValue("print.pdfFallbackPrinterId", ""))
         }
         var pdfPrinter = printerExists(rememberedPdfPrinter)
                 ? rememberedPdfPrinter : preferredPdfPrinterId()
@@ -371,8 +371,8 @@ Window {
                         text: "Reset PDF fallback"
                         height: Theme.metric("controlHeightCompact")
                         enabled: dialog.usePdfFallback
-                                 && !!(dialog.uiPreferences && dialog.uiPreferences.getPreference
-                                       && String(dialog.uiPreferences.getPreference("print.pdfFallbackPrinterId", "")).length > 0)
+                                 && !!(dialog.uiPreferences && dialog.uiPreferences.settingValue
+                                       && String(dialog.uiPreferences.settingValue("print.pdfFallbackPrinterId", "")).length > 0)
                         onClicked: {
                             dialog.resetPdfFallbackPrinterPreference()
                             if (dialog.usePdfFallback) {

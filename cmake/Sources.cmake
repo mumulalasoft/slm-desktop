@@ -164,6 +164,8 @@ set(SLM_ACTION_FRAMEWORK_SOURCES
 set(DESKTOP_SHELL_SERVICES
     src/services/network/networkmanager.cpp
     src/services/network/networkmanager.h
+    src/apps/settings/desktopsettingsclient.cpp
+    src/apps/settings/desktopsettingsclient.h
     src/services/power/batterymanager.cpp
     src/services/power/batterymanager.h
     src/services/power/powerbridge.cpp
@@ -503,6 +505,12 @@ set(SLM_DEVICESD_SOURCES
     src/daemon/devicesd/devicesmanager.h
     src/daemon/devicesd/devicesservice.cpp
     src/daemon/devicesd/devicesservice.h
+    src/services/storage/storagemanager.cpp
+    src/services/storage/storagemanager.h
+    src/services/storage/storageattachnotifier.cpp
+    src/services/storage/storageattachnotifier.h
+    src/services/storage/storagepolicystore.cpp
+    src/services/storage/storagepolicystore.h
     src/daemon/devicesd/devicescompatservice.cpp
     src/daemon/devicesd/devicescompatservice.h
     src/core/permissions/Capability.cpp
@@ -686,4 +694,26 @@ set(SLM_POLKIT_AGENT_SOURCES
     src/login/polkit-agent/main.cpp
     src/login/polkit-agent/polkitagentapp.h
     src/login/polkit-agent/polkitagentapp.cpp
+)
+
+# ── Settings / Context Daemons ───────────────────────────────────────────────
+
+set(SLM_SETTINGSD_SOURCES
+    src/daemon/settingsd/settingsd_main.cpp
+    src/services/settingsd/settingsservice.cpp
+    src/services/settingsd/settingsservice.h
+    src/services/settingsd/settingsstore.cpp
+    src/services/settingsd/settingsstore.h
+    src/services/theme-policy/appthemeclassifier.cpp
+    src/services/theme-policy/appthemeclassifier.h
+    src/services/theme-policy/themepolicyengine.cpp
+    src/services/theme-policy/themepolicyengine.h
+)
+
+set(SLM_CONTEXTD_SOURCES
+    src/daemon/contextd/contextd_main.cpp
+    src/services/context/contextservice.cpp
+    src/services/context/contextservice.h
+    src/services/context/ruleengine.cpp
+    src/services/context/ruleengine.h
 )

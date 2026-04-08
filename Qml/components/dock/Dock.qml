@@ -6,7 +6,7 @@ import "."
 Rectangle {
     id: root
 
-    property string hostName: "shell"
+    property string hostName: "dock"
     property bool acceptsInput: true
     property bool rendererActive: true
     property real layoutIconSlotWidth: -1
@@ -20,34 +20,34 @@ Rectangle {
     property real influenceRadius: 140
     property int animationDuration: 150
     property var appsModel: []
-    property real hoverX: width * 0.5
-    property bool dockHovered: false
-    readonly property bool hovered: dockHovered
-    // Icon slot width driven by UIPreferences.dockIconSize: small=48, medium=58, large=72
+    // hoverX and dockHovered live in DockController — renderer is state-free.
+    readonly property real hoverX: DockController.hoverX
+    readonly property bool hovered: DockController.dockHovered
+    // Icon slot width driven by DesktopSettings.dockIconSize: small=48, medium=58, large=72
     readonly property real iconSlotWidth: {
         if (layoutIconSlotWidth > 0) {
             return layoutIconSlotWidth
         }
-        const sz = (typeof UIPreferences !== "undefined" && UIPreferences
-                    && UIPreferences.dockIconSize !== undefined)
-                   ? UIPreferences.dockIconSize : "medium"
+        const sz = (typeof DesktopSettings !== "undefined" && DesktopSettings
+                    && DesktopSettings.dockIconSize !== undefined)
+                   ? DesktopSettings.dockIconSize : "medium"
         if (sz === "small") return 48
         if (sz === "large") return 72
         return 58
     }
-    readonly property bool magnificationEnabled: (typeof UIPreferences !== "undefined"
-                                                  && UIPreferences
-                                                  && UIPreferences.dockMagnificationEnabled !== undefined)
-                                                 ? UIPreferences.dockMagnificationEnabled : true
+    readonly property bool magnificationEnabled: (typeof DesktopSettings !== "undefined"
+                                                  && DesktopSettings
+                                                  && DesktopSettings.dockMagnificationEnabled !== undefined)
+                                                 ? DesktopSettings.dockMagnificationEnabled : true
     readonly property real amplitude: layoutMagnificationAmplitude >= 0
                                      ? layoutMagnificationAmplitude
                                      : (magnificationEnabled ? 10 : 0)
     readonly property real sigma: layoutMagnificationSigma >= 0 ? layoutMagnificationSigma : 148
     readonly property real hoverLift: layoutHoverLift >= 0 ? layoutHoverLift : 6
     readonly property real glowWidth: layoutGlowWidth >= 0 ? layoutGlowWidth : 170
-    readonly property real baseWidth: Math.max(392, (appsRepeater.count + 1) * 64 + 8)
+    readonly property real baseWidth: Math.max(320, (appsRepeater.count + 1) * iconSlotWidth + 8)
     readonly property real contentVPadding: 3
-    readonly property real baseHeight: 72 + (contentVPadding * 2)
+    readonly property real baseHeight: 68 + (contentVPadding * 2)
     readonly property real rowX: dockRow.x
     property string activeAppName: ""
     property alias draggingFromIndex: reorderState.draggingFromIndex
@@ -60,22 +60,22 @@ Rectangle {
     property int externalDropIndex: -1
     property string externalDropIconPath: ""
     property int dropPulseIndex: -1
-    property string motionPreset: (typeof UIPreferences !== "undefined"
-                                   && UIPreferences
-                                   && UIPreferences.dockMotionPreset !== undefined)
-                                  ? UIPreferences.dockMotionPreset : "macos-lively" // "subtle" | "macos-lively"
-    property bool dropPulseEnabled: (typeof UIPreferences !== "undefined"
-                                     && UIPreferences
-                                     && UIPreferences.dockDropPulseEnabled !== undefined)
-                                    ? UIPreferences.dockDropPulseEnabled : true
-    property int dragThresholdMousePx: (typeof UIPreferences !== "undefined"
-                                        && UIPreferences
-                                        && UIPreferences.dockDragThresholdMouse !== undefined)
-                                       ? UIPreferences.dockDragThresholdMouse : 6
-    property int dragThresholdTouchpadPx: (typeof UIPreferences !== "undefined"
-                                           && UIPreferences
-                                           && UIPreferences.dockDragThresholdTouchpad !== undefined)
-                                          ? UIPreferences.dockDragThresholdTouchpad : 3
+    property string motionPreset: (typeof DesktopSettings !== "undefined"
+                                   && DesktopSettings
+                                   && DesktopSettings.dockMotionPreset !== undefined)
+                                  ? DesktopSettings.dockMotionPreset : "macos-lively" // "subtle" | "macos-lively"
+    property bool dropPulseEnabled: (typeof DesktopSettings !== "undefined"
+                                     && DesktopSettings
+                                     && DesktopSettings.dockDropPulseEnabled !== undefined)
+                                    ? DesktopSettings.dockDropPulseEnabled : true
+    property int dragThresholdMousePx: (typeof DesktopSettings !== "undefined"
+                                        && DesktopSettings
+                                        && DesktopSettings.dockDragThresholdMouse !== undefined)
+                                       ? DesktopSettings.dockDragThresholdMouse : 6
+    property int dragThresholdTouchpadPx: (typeof DesktopSettings !== "undefined"
+                                           && DesktopSettings
+                                           && DesktopSettings.dockDragThresholdTouchpad !== undefined)
+                                          ? DesktopSettings.dockDragThresholdTouchpad : 3
     property var separatorAfterDesktopFiles: []
     readonly property bool livelyMotion: motionPreset === "macos-lively" || motionPreset === "expressive"
     readonly property real gapWidthExtra: livelyMotion ? 32 : 24
@@ -307,30 +307,30 @@ Rectangle {
 
     function syncHoverFromController() {
         if (!rendererActive || !acceptsInput) {
-            dockHovered = false
+            DockController.dockHovered = false
             return
         }
         if (DockController.inputOwnerHost !== root.hostName) {
             return
         }
         if (String(DockController.hoveredItemId || "").length > 0) {
-            dockHovered = true
+            DockController.dockHovered = true
             var nextX = Number(DockSystem.resolveItemCenterX(root.hostName,
                                                              DockController.hoveredItemId))
             if (nextX < 0) {
                 nextX = Number(DockController.lastHoverPosition || (width * 0.5))
             }
-            hoverX = Math.max(0, Math.min(width, nextX))
+            DockController.hoverX = Math.max(0, Math.min(width, nextX))
         } else if (!dockHoverHandler.hovered) {
-            dockHovered = false
+            DockController.dockHovered = false
         }
     }
 
     function clearOwnedHover() {
-        dockHovered = false
+        DockController.dockHovered = false
         if (DockController.inputOwnerHost === root.hostName
                 && String(DockController.hoveredItemId || "").length > 0) {
-            DockController.onHover("", root.hoverX, root.hostName)
+            DockController.onHover("", DockController.hoverX, root.hostName)
         }
     }
 
@@ -636,6 +636,8 @@ Rectangle {
 
     DockItem {
         id: launchpadItem
+            itemId: "launchpad"
+            dockHostName: root.hostName
             label: "Launchpad"
             iconPath: "qrc:/icons/launchpad.svg"
             baseSlotWidth: root.iconSlotWidth
@@ -770,28 +772,31 @@ Rectangle {
         acceptedDevices: PointerDevice.Mouse
         enabled: root.acceptsInput
         onHoveredChanged: {
-            root.dockHovered = hovered
+            DockController.dockHovered = hovered
             if (DockController.inputOwnerHost === root.hostName) {
                 if (!hovered) {
-                    DockController.onHover("", root.hoverX, root.hostName)
+                    DockController.onHover("", DockController.hoverX, root.hostName)
                 } else {
-                    var nearestId = String(DockSystem.resolveNearestItemId(root.hostName, root.hoverX) || "")
-                    DockController.onHover(nearestId, root.hoverX, root.hostName)
+                    var nearestId = String(DockSystem.resolveNearestItemId(root.hostName, DockController.hoverX) || "")
+                    DockController.onHover(nearestId, DockController.hoverX, root.hostName)
                 }
             }
         }
         onPointChanged: {
             if (hovered) {
-                root.hoverX = Number(point.position.x || root.hoverX)
+                DockController.hoverX = Number(point.position.x || DockController.hoverX)
                 if (DockController.inputOwnerHost === root.hostName) {
-                    var nearestId = String(DockSystem.resolveNearestItemId(root.hostName, root.hoverX) || "")
-                    DockController.onHover(nearestId, root.hoverX, root.hostName)
+                    var nearestId = String(DockSystem.resolveNearestItemId(root.hostName, DockController.hoverX) || "")
+                    DockController.onHover(nearestId, DockController.hoverX, root.hostName)
                 }
             }
         }
     }
 
-    Component.onCompleted: scheduleIconRectsEmit()
+    Component.onCompleted: {
+        console.info("[Dock] DOCK_CREATED renderer ptr=" + root + " host=" + hostName)
+        scheduleIconRectsEmit()
+    }
     onRendererActiveChanged: {
         if (rendererActive) {
             syncHoverFromController()
@@ -807,9 +812,12 @@ Rectangle {
             clearOwnedHover()
         }
     }
-    onDockHoveredChanged: {
-        if (!dockHovered) {
-            clearOwnedHover()
+    Connections {
+        target: DockController
+        function onDockHoveredChanged() {
+            if (!DockController.dockHovered) {
+                root.clearOwnedHover()
+            }
         }
     }
     onWidthChanged: scheduleIconRectsEmit()
