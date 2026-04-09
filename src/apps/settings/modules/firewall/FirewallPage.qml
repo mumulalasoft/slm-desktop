@@ -38,6 +38,7 @@ Flickable {
     property int pendingTriagePresetIndex: 1
     property int pendingConfirmPresetIndex: -1
     property string pendingConfirmPresetAction: ""
+    property bool pendingConfirmDontAskAgain: false
     property int quickBlockNowEpochSec: Math.floor(Date.now() / 1000)
     property int quickBlockLastRemainingSec: -1
     readonly property bool devPromptSimulationEnabled: Qt.application.arguments.indexOf("--firewall-dev") !== -1
@@ -1067,6 +1068,10 @@ Flickable {
     function requestExecutePendingTriagePreset() {
         var idx = root.pendingTriagePresetIndex
         root.applyPendingTriagePreset(idx)
+        if (!FirewallServiceClient.confirmBatchTriagePreset) {
+            root.executePendingTriagePreset(idx)
+            return
+        }
         if (!root.triagePresetNeedsConfirmation(idx)) {
             root.executePendingTriagePreset(idx)
             return
@@ -1074,6 +1079,7 @@ Flickable {
         var preset = root.pendingTriagePresets[idx] || {}
         root.pendingConfirmPresetIndex = idx
         root.pendingConfirmPresetAction = String(preset.action || "")
+        root.pendingConfirmDontAskAgain = false
         triagePresetConfirmDialog.open()
     }
 
@@ -2054,9 +2060,18 @@ Flickable {
                             onClicked: root.requestExecutePendingTriagePreset()
                         }
 
+                        Button {
+                            text: qsTr("Enable confirm")
+                            visible: !FirewallServiceClient.confirmBatchTriagePreset
+                            enabled: FirewallServiceClient.available
+                            onClicked: FirewallServiceClient.confirmBatchTriagePreset = true
+                        }
+
                         Text {
                             Layout.fillWidth: true
-                            text: qsTr("Preset can update filter/sort and optional batch action.")
+                            text: FirewallServiceClient.confirmBatchTriagePreset
+                                  ? qsTr("Preset can update filter/sort and optional batch action.")
+                                  : qsTr("Preset batch confirmations are currently disabled.")
                             color: Theme.color("textSecondary")
                             font.pixelSize: Theme.fontSize("small")
                             wrapMode: Text.WordWrap
@@ -2347,19 +2362,30 @@ Flickable {
                 color: Theme.color("textSecondary")
                 font.pixelSize: Theme.fontSize("small")
             }
+
+            CheckBox {
+                text: qsTr("Don't ask again for triage batch actions")
+                checked: root.pendingConfirmDontAskAgain
+                onToggled: root.pendingConfirmDontAskAgain = checked
+            }
         }
 
         onAccepted: {
             if (root.pendingConfirmPresetIndex >= 0) {
                 root.executePendingTriagePreset(root.pendingConfirmPresetIndex)
             }
+            if (root.pendingConfirmDontAskAgain) {
+                FirewallServiceClient.confirmBatchTriagePreset = false
+            }
             root.pendingConfirmPresetIndex = -1
             root.pendingConfirmPresetAction = ""
+            root.pendingConfirmDontAskAgain = false
         }
 
         onRejected: {
             root.pendingConfirmPresetIndex = -1
             root.pendingConfirmPresetAction = ""
+            root.pendingConfirmDontAskAgain = false
         }
     }
 

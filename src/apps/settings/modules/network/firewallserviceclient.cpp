@@ -19,6 +19,7 @@ constexpr const char kSettingsPath[] = "/org/slm/Desktop/Settings";
 constexpr const char kSettingsInterface[] = "org.slm.Desktop.Settings";
 constexpr const char kQuickBlockPolicyPath[] = "firewall.quickBlockUndo.policyId";
 constexpr const char kQuickBlockTargetPath[] = "firewall.quickBlockUndo.target";
+constexpr const char kConfirmBatchTriagePresetPath[] = "firewall.pendingTriage.confirmBatchPreset";
 constexpr qint64 kPendingPromptTtlSecs = 15 * 60;
 
 qint64 pendingPromptRemainingSeconds(const QVariantMap &row, const QDateTime &nowUtc)
@@ -161,6 +162,23 @@ int FirewallServiceClient::pendingPromptTtlSeconds() const
     return static_cast<int>(kPendingPromptTtlSecs);
 }
 
+bool FirewallServiceClient::confirmBatchTriagePreset() const
+{
+    return m_confirmBatchTriagePreset;
+}
+
+void FirewallServiceClient::setConfirmBatchTriagePreset(bool enabled)
+{
+    if (m_confirmBatchTriagePreset == enabled) {
+        return;
+    }
+    m_confirmBatchTriagePreset = enabled;
+    if (!m_restoringQuickBlockState) {
+        setSettingsValue(QString::fromLatin1(kConfirmBatchTriagePresetPath), enabled);
+    }
+    emit triagePreferencesChanged();
+}
+
 QString FirewallServiceClient::lastQuickBlockPolicyId() const
 {
     return m_lastQuickBlockPolicyId;
@@ -242,11 +260,15 @@ void FirewallServiceClient::restoreQuickBlockStateFromSettings()
     const QVariantMap settings = payload.value(QStringLiteral("settings")).toMap();
     bool okPolicy = false;
     bool okTarget = false;
+    bool okConfirm = false;
     const QString policyId = valueByPath(settings, QString::fromLatin1(kQuickBlockPolicyPath), &okPolicy)
                                  .toString().trimmed();
     const QString target = valueByPath(settings, QString::fromLatin1(kQuickBlockTargetPath), &okTarget)
                                .toString().trimmed();
-    if (!okPolicy && !okTarget) {
+    const bool confirmBatchPreset = valueByPath(settings,
+                                                QString::fromLatin1(kConfirmBatchTriagePresetPath),
+                                                &okConfirm).toBool();
+    if (!okPolicy && !okTarget && !okConfirm) {
         return;
     }
 
@@ -256,6 +278,9 @@ void FirewallServiceClient::restoreQuickBlockStateFromSettings()
     }
     if (okTarget) {
         setLastQuickBlockTarget(target);
+    }
+    if (okConfirm) {
+        setConfirmBatchTriagePreset(confirmBatchPreset);
     }
     m_restoringQuickBlockState = false;
     syncQuickBlockTokenWithIpPolicies();

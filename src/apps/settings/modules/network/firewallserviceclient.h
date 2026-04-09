@@ -21,6 +21,7 @@ class FirewallServiceClient : public QObject
     Q_PROPERTY(QVariantList activeConnections READ activeConnections NOTIFY activeConnectionsChanged)
     Q_PROPERTY(QVariantList pendingPrompts READ pendingPrompts NOTIFY pendingPromptsChanged)
     Q_PROPERTY(int pendingPromptTtlSeconds READ pendingPromptTtlSeconds CONSTANT)
+    Q_PROPERTY(bool confirmBatchTriagePreset READ confirmBatchTriagePreset WRITE setConfirmBatchTriagePreset NOTIFY triagePreferencesChanged)
     Q_PROPERTY(QString lastQuickBlockPolicyId READ lastQuickBlockPolicyId WRITE setLastQuickBlockPolicyId NOTIFY quickBlockStateChanged)
     Q_PROPERTY(QString lastQuickBlockTarget READ lastQuickBlockTarget WRITE setLastQuickBlockTarget NOTIFY quickBlockStateChanged)
     Q_PROPERTY(QString quickBlockUndoNotice READ quickBlockUndoNotice NOTIFY quickBlockStateChanged)
@@ -39,6 +40,8 @@ public:
     QVariantList activeConnections() const;
     QVariantList pendingPrompts() const;
     int pendingPromptTtlSeconds() const;
+    bool confirmBatchTriagePreset() const;
+    void setConfirmBatchTriagePreset(bool enabled);
     QString lastQuickBlockPolicyId() const;
     QString lastQuickBlockTarget() const;
     QString quickBlockUndoNotice() const;
@@ -78,6 +81,7 @@ signals:
     void activeConnectionsChanged();
     void pendingPromptsChanged();
     void quickBlockStateChanged();
+    void triagePreferencesChanged();
 
 private slots:
     void onNameOwnerChanged(const QString &name, const QString &oldOwner, const QString &newOwner);
@@ -94,6 +98,7 @@ private:
     void restoreQuickBlockStateFromSettings();
     void syncQuickBlockTokenWithIpPolicies();
     bool m_restoringQuickBlockState = false;
+    bool m_confirmBatchTriagePreset = true;
 
     QDBusInterface *m_iface = nullptr;
     bool m_available = false;
