@@ -797,11 +797,26 @@ Flickable {
         return root.pendingPromptSourceTrusted(item) && root.pendingPromptTargetIsLocal(item)
     }
 
+    function pendingPromptIsRiskiest(item) {
+        return !root.pendingPromptIsSafest(item)
+    }
+
     function pendingSafestCount() {
         var rows = FirewallServiceClient.pendingPrompts || []
         var count = 0
         for (var i = 0; i < rows.length; ++i) {
             if (root.pendingPromptIsSafest(rows[i])) {
+                count += 1
+            }
+        }
+        return count
+    }
+
+    function pendingRiskiestCount() {
+        var rows = FirewallServiceClient.pendingPrompts || []
+        var count = 0
+        for (var i = 0; i < rows.length; ++i) {
+            if (root.pendingPromptIsRiskiest(rows[i])) {
                 count += 1
             }
         }
@@ -845,6 +860,24 @@ Flickable {
         root.connectionResultText = resolved > 0
                 ? qsTr("Allowed %1 safest pending prompt(s).").arg(resolved)
                 : qsTr("No safest pending prompt matched.")
+        return resolved
+    }
+
+    function denyRiskiestPendingPrompts() {
+        var rows = FirewallServiceClient.pendingPrompts || []
+        var resolved = 0
+        for (var i = rows.length - 1; i >= 0; --i) {
+            if (!root.pendingPromptIsRiskiest(rows[i])) {
+                continue
+            }
+            if (FirewallServiceClient.resolvePendingPrompt(i, "deny", root.pendingPromptRemember)) {
+                resolved += 1
+            }
+        }
+        root.connectionResultOk = resolved > 0
+        root.connectionResultText = resolved > 0
+                ? qsTr("Denied %1 riskiest pending prompt(s).").arg(resolved)
+                : qsTr("No riskiest pending prompt matched.")
         return resolved
     }
 
@@ -1745,6 +1778,14 @@ Flickable {
                                      && FirewallServiceClient.enabled
                                      && root.pendingSafestCount() > 0
                             onClicked: root.allowSafestPendingPrompts()
+                        }
+
+                        Button {
+                            text: qsTr("Deny Riskiest")
+                            enabled: FirewallServiceClient.available
+                                     && FirewallServiceClient.enabled
+                                     && root.pendingRiskiestCount() > 0
+                            onClicked: root.denyRiskiestPendingPrompts()
                         }
 
                         Button {
