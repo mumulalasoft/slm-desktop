@@ -36,6 +36,8 @@ Flickable {
     property bool pendingShowSafestOnly: false
     property bool pendingSortByRisk: false
     property int pendingTriagePresetIndex: 1
+    property int pendingConfirmPresetIndex: -1
+    property string pendingConfirmPresetAction: ""
     property int quickBlockNowEpochSec: Math.floor(Date.now() / 1000)
     property int quickBlockLastRemainingSec: -1
     readonly property bool devPromptSimulationEnabled: Qt.application.arguments.indexOf("--firewall-dev") !== -1
@@ -1021,9 +1023,13 @@ Flickable {
         root.pendingSortByRisk = Boolean(preset.sortByRisk)
     }
 
-    function executePendingTriagePreset() {
-        root.applyPendingTriagePreset(root.pendingTriagePresetIndex)
-        var preset = root.pendingTriagePresets[root.pendingTriagePresetIndex] || {}
+    function executePendingTriagePreset(index) {
+        var idx = Number(index)
+        if (isNaN(idx) || idx < 0 || idx >= root.pendingTriagePresets.length) {
+            idx = root.pendingTriagePresetIndex
+        }
+        root.applyPendingTriagePreset(idx)
+        var preset = root.pendingTriagePresets[idx] || {}
         var action = String(preset.action || "none")
         if (action === "none") {
             root.connectionResultOk = true
@@ -1047,6 +1053,28 @@ Flickable {
         }
         root.connectionResultOk = false
         root.connectionResultText = qsTr("Unsupported triage preset action.")
+    }
+
+    function triagePresetNeedsConfirmation(index) {
+        var idx = Number(index)
+        if (isNaN(idx) || idx < 0 || idx >= root.pendingTriagePresets.length) {
+            idx = root.pendingTriagePresetIndex
+        }
+        var preset = root.pendingTriagePresets[idx] || {}
+        return String(preset.action || "none") !== "none"
+    }
+
+    function requestExecutePendingTriagePreset() {
+        var idx = root.pendingTriagePresetIndex
+        root.applyPendingTriagePreset(idx)
+        if (!root.triagePresetNeedsConfirmation(idx)) {
+            root.executePendingTriagePreset(idx)
+            return
+        }
+        var preset = root.pendingTriagePresets[idx] || {}
+        root.pendingConfirmPresetIndex = idx
+        root.pendingConfirmPresetAction = String(preset.action || "")
+        triagePresetConfirmDialog.open()
     }
 
     function pendingPromptExpiryText(item) {
@@ -2023,7 +2051,7 @@ Flickable {
                         Button {
                             text: qsTr("Apply Preset")
                             enabled: FirewallServiceClient.available && FirewallServiceClient.enabled
-                            onClicked: root.executePendingTriagePreset()
+                            onClicked: root.requestExecutePendingTriagePreset()
                         }
 
                         Text {
@@ -2279,6 +2307,59 @@ Flickable {
                     }
                 }
             }
+        }
+    }
+
+    Dialog {
+        id: triagePresetConfirmDialog
+        modal: true
+        title: qsTr("Apply Triage Preset?")
+        standardButtons: Dialog.Ok | Dialog.Cancel
+
+        contentItem: ColumnLayout {
+            spacing: 8
+
+            Text {
+                Layout.fillWidth: true
+                text: {
+                    var preset = root.pendingTriagePresets[root.pendingConfirmPresetIndex] || {}
+                    return qsTr("Preset \"%1\" will run batch action on pending prompts. Continue?")
+                            .arg(String(preset.label || ""))
+                }
+                wrapMode: Text.WordWrap
+                color: Theme.color("textPrimary")
+                font.pixelSize: Theme.fontSize("small")
+            }
+
+            Text {
+                Layout.fillWidth: true
+                text: {
+                    var action = String(root.pendingConfirmPresetAction || "")
+                    if (action === "deny-riskiest") {
+                        return qsTr("Action: deny riskiest prompts.")
+                    }
+                    if (action === "deny-riskiest-then-allow-safest") {
+                        return qsTr("Action: deny riskiest prompts, then allow safest prompts.")
+                    }
+                    return qsTr("Action: update triage view only.")
+                }
+                wrapMode: Text.WordWrap
+                color: Theme.color("textSecondary")
+                font.pixelSize: Theme.fontSize("small")
+            }
+        }
+
+        onAccepted: {
+            if (root.pendingConfirmPresetIndex >= 0) {
+                root.executePendingTriagePreset(root.pendingConfirmPresetIndex)
+            }
+            root.pendingConfirmPresetIndex = -1
+            root.pendingConfirmPresetAction = ""
+        }
+
+        onRejected: {
+            root.pendingConfirmPresetIndex = -1
+            root.pendingConfirmPresetAction = ""
         }
     }
 
