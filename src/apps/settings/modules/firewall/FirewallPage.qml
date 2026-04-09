@@ -1782,6 +1782,16 @@ Flickable {
 
                                     Text {
                                         Layout.fillWidth: true
+                                        visible: root.pendingPromptIsSafest(modelData)
+                                        text: qsTr("Safe candidate")
+                                        color: Theme.color("success")
+                                        font.pixelSize: Theme.fontSize("small")
+                                        font.weight: Theme.fontWeight("medium")
+                                        wrapMode: Text.WordWrap
+                                    }
+
+                                    Text {
+                                        Layout.fillWidth: true
                                         text: root.pendingPromptDetails(modelData)
                                         color: Theme.color("textSecondary")
                                         font.pixelSize: Theme.fontSize("small")
