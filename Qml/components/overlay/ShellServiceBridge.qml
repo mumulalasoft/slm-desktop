@@ -2,6 +2,7 @@ import QtQuick 2.15
 import Slm_Desktop
 import "../shell/TothespotController.js" as TothespotController
 import "../shell/ShellUtils.js" as ShellUtils
+import "SecuritySettingsRouting.js" as SecuritySettingsRouting
 
 Item {
     id: root
@@ -72,15 +73,9 @@ Item {
         if (typeof AppExecutionGate === "undefined" || !AppExecutionGate) {
             return
         }
-        var deepLink = "settings://permissions/app-secrets"
         var capability = String((root.consentPayload && root.consentPayload.capability)
                                 ? root.consentPayload.capability : "")
-        var capabilityLower = capability.toLowerCase()
-        if (capabilityLower.indexOf("network") === 0
-                || capabilityLower.indexOf("socket") >= 0
-                || capabilityLower.indexOf("firewall") >= 0) {
-            deepLink = "settings://firewall/mode"
-        }
+        var deepLink = SecuritySettingsRouting.deepLinkForCapability(capability)
         var cmd = "slm-settings --deep-link " + deepLink
         var opened = AppExecutionGate.launchCommand(cmd, "", "portal-consent-open-settings")
         if (!opened && typeof AppBinaryDir !== "undefined" && String(AppBinaryDir || "").length > 0) {

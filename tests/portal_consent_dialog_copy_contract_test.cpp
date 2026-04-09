@@ -42,24 +42,38 @@ void PortalConsentDialogCopyContractTest::consentDialog_secretMicrocopy_contract
 
 void PortalConsentDialogCopyContractTest::shellBridge_settingsDeeplink_contract()
 {
-    const QString path = QStringLiteral(DESKTOP_SOURCE_DIR)
-                         + QStringLiteral("/Qml/components/overlay/ShellServiceBridge.qml");
-    QVERIFY2(QFileInfo::exists(path), "ShellServiceBridge.qml is missing");
+    const QString bridgePath = QStringLiteral(DESKTOP_SOURCE_DIR)
+                               + QStringLiteral("/Qml/components/overlay/ShellServiceBridge.qml");
+    QVERIFY2(QFileInfo::exists(bridgePath), "ShellServiceBridge.qml is missing");
 
-    QFile file(path);
+    QFile file(bridgePath);
     QVERIFY2(file.open(QIODevice::ReadOnly | QIODevice::Text), "cannot open ShellServiceBridge.qml");
     const QString text = QString::fromUtf8(file.readAll());
 
     QVERIFY2(text.contains(QStringLiteral("function openConsentSettings()")),
              "missing openConsentSettings helper");
-    QVERIFY2(text.contains(QStringLiteral("settings://permissions/app-secrets")),
-             "missing settings deep-link target");
-    QVERIFY2(text.contains(QStringLiteral("settings://firewall/mode")),
-             "missing firewall settings deep-link target");
-    QVERIFY2(text.contains(QStringLiteral("capabilityLower.indexOf(\"network\")")),
-             "missing capability-based deeplink routing");
+    QVERIFY2(text.contains(QStringLiteral("SecuritySettingsRouting.deepLinkForCapability")),
+             "missing shared security settings routing helper call");
     QVERIFY2(text.contains(QStringLiteral("portal-consent-open-settings")),
              "missing execution source tag for consent settings jump");
+
+    const QString routingPath = QStringLiteral(DESKTOP_SOURCE_DIR)
+                                + QStringLiteral("/Qml/components/overlay/SecuritySettingsRouting.js");
+    QVERIFY2(QFileInfo::exists(routingPath), "SecuritySettingsRouting.js is missing");
+
+    QFile routingFile(routingPath);
+    QVERIFY2(routingFile.open(QIODevice::ReadOnly | QIODevice::Text),
+             "cannot open SecuritySettingsRouting.js");
+    const QString routingText = QString::fromUtf8(routingFile.readAll());
+
+    QVERIFY2(routingText.contains(QStringLiteral("function deepLinkForCapability")),
+             "missing deepLinkForCapability helper");
+    QVERIFY2(routingText.contains(QStringLiteral("settings://permissions/app-secrets")),
+             "missing default security settings deep-link");
+    QVERIFY2(routingText.contains(QStringLiteral("settings://firewall/mode")),
+             "missing firewall settings deep-link");
+    QVERIFY2(routingText.contains(QStringLiteral("capabilityLower.indexOf(\"network\")")),
+             "missing capability-based deeplink routing");
 }
 
 QTEST_GUILESS_MAIN(PortalConsentDialogCopyContractTest)

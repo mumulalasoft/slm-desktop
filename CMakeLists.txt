@@ -4431,6 +4431,26 @@ set_tests_properties(portal_consent_dialog_copy_contract_test PROPERTIES
     LABELS "secret-consent"
 )
 
+qt_add_executable(security_settings_routing_js_test
+    tests/security_settings_routing_js_test.cpp
+)
+
+target_compile_definitions(security_settings_routing_js_test PRIVATE
+    DESKTOP_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\"
+)
+
+target_link_libraries(security_settings_routing_js_test
+    PRIVATE
+        Qt6::Core
+        Qt6::Qml
+        Qt6::Test
+)
+
+add_test(NAME security_settings_routing_js_test COMMAND security_settings_routing_js_test)
+set_tests_properties(security_settings_routing_js_test PROPERTIES
+    LABELS "secret-consent"
+)
+
 qt_add_executable(portal_consent_dialog_behavior_test
     tests/portal_consent_dialog_behavior_test.cpp
 )
@@ -4500,6 +4520,7 @@ set_tests_properties(portal_secret_consent_contract_snapshot_test PROPERTIES
 set(_SLM_SECRET_CONSENT_TEST_SUITE_DEPS
     portal_secret_integration_test
     portal_consent_dialog_copy_contract_test
+    security_settings_routing_js_test
     portal_consent_dialog_behavior_test
     portal_dialog_bridge_payload_test
     portal_secret_consent_contract_snapshot_test
