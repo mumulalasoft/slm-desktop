@@ -843,6 +843,39 @@ Flickable {
         return score
     }
 
+    function pendingPromptRiskTier(item) {
+        var score = root.pendingPromptRiskScore(item)
+        if (score >= 8) {
+            return "high"
+        }
+        if (score >= 5) {
+            return "medium"
+        }
+        return "low"
+    }
+
+    function pendingPromptRiskTierText(item) {
+        var tier = root.pendingPromptRiskTier(item)
+        if (tier === "high") {
+            return qsTr("Risk: High")
+        }
+        if (tier === "medium") {
+            return qsTr("Risk: Medium")
+        }
+        return qsTr("Risk: Low")
+    }
+
+    function pendingPromptRiskTierColor(item) {
+        var tier = root.pendingPromptRiskTier(item)
+        if (tier === "high") {
+            return Theme.color("error")
+        }
+        if (tier === "medium") {
+            return Theme.color("warning")
+        }
+        return Theme.color("success")
+    }
+
     function pendingPromptIsRiskiest(item) {
         if (root.pendingPromptIsSafest(item)) {
             return false
@@ -1912,6 +1945,15 @@ Flickable {
                                         visible: root.pendingPromptIsSafest(promptItem)
                                         text: qsTr("Safe candidate")
                                         color: Theme.color("success")
+                                        font.pixelSize: Theme.fontSize("small")
+                                        font.weight: Theme.fontWeight("medium")
+                                        wrapMode: Text.WordWrap
+                                    }
+
+                                    Text {
+                                        Layout.fillWidth: true
+                                        text: root.pendingPromptRiskTierText(promptItem)
+                                        color: root.pendingPromptRiskTierColor(promptItem)
                                         font.pixelSize: Theme.fontSize("small")
                                         font.weight: Theme.fontWeight("medium")
                                         wrapMode: Text.WordWrap
