@@ -152,7 +152,7 @@ private slots:
         }, QStringLiteral("allow"), true);
         QCOMPARE(remember.value(QStringLiteral("ok")).toBool(), true);
         QCOMPARE(remember.value(QStringLiteral("persisted")).toBool(), true);
-        QCOMPARE(service.ListAppPolicies().size(), 2);
+        QCOMPARE(service.ListAppPolicies().size(), 1);
     }
 
     void ip_policy_contract()
@@ -248,6 +248,22 @@ private slots:
         const QVariantMap clearResult = service.ClearAppPolicies();
         QCOMPARE(clearResult.value(QStringLiteral("ok")).toBool(), true);
         QCOMPARE(service.ListAppPolicies().size(), 0);
+
+        const QVariantMap dedup1 = service.SetAppPolicy(QVariantMap{
+            {QStringLiteral("appId"), QStringLiteral("org.example.Dedup")},
+            {QStringLiteral("decision"), QStringLiteral("allow")},
+            {QStringLiteral("direction"), QStringLiteral("incoming")},
+        });
+        const QVariantMap dedup2 = service.SetAppPolicy(QVariantMap{
+            {QStringLiteral("appId"), QStringLiteral("org.example.Dedup")},
+            {QStringLiteral("decision"), QStringLiteral("deny")},
+            {QStringLiteral("direction"), QStringLiteral("incoming")},
+        });
+        QCOMPARE(dedup1.value(QStringLiteral("ok")).toBool(), true);
+        QCOMPARE(dedup2.value(QStringLiteral("ok")).toBool(), true);
+        const QVariantList dedupList = service.ListAppPolicies();
+        QCOMPARE(dedupList.size(), 1);
+        QCOMPARE(dedupList.first().toMap().value(QStringLiteral("decision")).toString(), QStringLiteral("deny"));
     }
 
     void list_connections_shape_contract()

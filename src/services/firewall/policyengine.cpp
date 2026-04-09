@@ -434,10 +434,36 @@ QVariantMap PolicyEngine::setAppPolicy(const QVariantMap &policy)
     }
 
     QVariantList entries = m_store->value(QStringLiteral("firewall.rules.apps.entries"), QVariantList{}).toList();
-    entries.append(normalizedPolicy);
+    QVariantList nextEntries;
+    bool replaced = false;
+    for (const QVariant &entry : entries) {
+        const QVariantMap map = entry.toMap();
+        const bool sameApp = normalizedString(map.value(QStringLiteral("appId")))
+                == normalizedString(normalizedPolicy.value(QStringLiteral("appId")));
+        const bool sameDirection = normalizeScope(map.value(QStringLiteral("direction")))
+                == normalizeScope(normalizedPolicy.value(QStringLiteral("direction")));
+        if (!replaced && sameApp && sameDirection) {
+            QVariantMap updated = normalizedPolicy;
+            const QString existingPolicyId = map.value(QStringLiteral("policyId")).toString();
+            if (!existingPolicyId.isEmpty()) {
+                updated.insert(QStringLiteral("policyId"), existingPolicyId);
+            }
+            const QString createdAt = map.value(QStringLiteral("createdAt")).toString();
+            if (!createdAt.isEmpty()) {
+                updated.insert(QStringLiteral("createdAt"), createdAt);
+            }
+            nextEntries.append(updated);
+            replaced = true;
+            continue;
+        }
+        nextEntries.append(map);
+    }
+    if (!replaced) {
+        nextEntries.append(normalizedPolicy);
+    }
 
     QString error;
-    const bool ok = m_store->setValue(QStringLiteral("firewall.rules.apps.entries"), entries, &error)
+    const bool ok = m_store->setValue(QStringLiteral("firewall.rules.apps.entries"), nextEntries, &error)
         && m_store->setValue(QStringLiteral("firewall.rules.apps.last"), normalizedPolicy, &error);
     return {
         {QStringLiteral("ok"), ok},

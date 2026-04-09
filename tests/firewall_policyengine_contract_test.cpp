@@ -277,6 +277,40 @@ private slots:
         QCOMPARE(engine.listAppPolicies().size(), 0);
     }
 
+    void app_policy_set_deduplicates_by_app_and_direction()
+    {
+        Slm::Firewall::PolicyStore store;
+        QString error;
+        QVERIFY(store.start(&error));
+
+        Slm::Firewall::NftablesAdapter nft;
+        Slm::Firewall::AppIdentityClient identity;
+        Slm::Firewall::PolicyEngine engine(&store, &nft, &identity);
+
+        const QVariantMap first = engine.setAppPolicy(QVariantMap{
+            {QStringLiteral("appId"), QStringLiteral("org.example.Dedup")},
+            {QStringLiteral("decision"), QStringLiteral("allow")},
+            {QStringLiteral("direction"), QStringLiteral("incoming")},
+        });
+        QCOMPARE(first.value(QStringLiteral("ok")).toBool(), true);
+        const QVariantMap firstPolicy = first.value(QStringLiteral("policy")).toMap();
+        const QString policyId = firstPolicy.value(QStringLiteral("policyId")).toString();
+        QVERIFY(!policyId.isEmpty());
+        QCOMPARE(engine.listAppPolicies().size(), 1);
+
+        const QVariantMap second = engine.setAppPolicy(QVariantMap{
+            {QStringLiteral("appId"), QStringLiteral("org.example.Dedup")},
+            {QStringLiteral("decision"), QStringLiteral("deny")},
+            {QStringLiteral("direction"), QStringLiteral("incoming")},
+        });
+        QCOMPARE(second.value(QStringLiteral("ok")).toBool(), true);
+        QCOMPARE(engine.listAppPolicies().size(), 1);
+
+        const QVariantMap stored = engine.listAppPolicies().first().toMap();
+        QCOMPARE(stored.value(QStringLiteral("policyId")).toString(), policyId);
+        QCOMPARE(stored.value(QStringLiteral("decision")).toString(), QStringLiteral("deny"));
+    }
+
     void list_connections_shape_contract()
     {
         Slm::Firewall::PolicyStore store;
