@@ -32,6 +32,7 @@ Flickable {
     property bool connectionRemember: false
     property string connectionResultText: ""
     property bool connectionResultOk: true
+    property int quickBlockNowEpochSec: Math.floor(Date.now() / 1000)
     readonly property bool devPromptSimulationEnabled: Qt.application.arguments.indexOf("--firewall-dev") !== -1
 
     readonly property var firewallModes: [
@@ -319,6 +320,82 @@ Flickable {
         }
         var ms = Date.parse(text)
         return isNaN(ms) ? 0 : ms
+    }
+
+    function parseDurationSeconds(value) {
+        var raw = String(value || "").trim().toLowerCase()
+        if (!raw.length) {
+            return 0
+        }
+        var match = raw.match(/^(\d+)\s*([smhd]?)$/)
+        if (!match) {
+            return 0
+        }
+        var amount = Number(match[1])
+        if (isNaN(amount) || amount <= 0) {
+            return 0
+        }
+        var unit = String(match[2] || "")
+        if (unit === "m") {
+            return amount * 60
+        }
+        if (unit === "h") {
+            return amount * 3600
+        }
+        if (unit === "d") {
+            return amount * 86400
+        }
+        return amount
+    }
+
+    function currentQuickBlockPolicy() {
+        var id = String(FirewallServiceClient.lastQuickBlockPolicyId || "").trim()
+        if (!id.length) {
+            return null
+        }
+        var all = FirewallServiceClient.ipPolicies || []
+        for (var i = 0; i < all.length; ++i) {
+            var row = all[i] || {}
+            if (String(row.policyId || "") === id) {
+                return row
+            }
+        }
+        return null
+    }
+
+    function quickBlockRemainingSeconds() {
+        var policy = root.currentQuickBlockPolicy()
+        if (!policy || !Boolean(policy.temporary)) {
+            return -1
+        }
+        var createdAtMs = root.parseIsoMs(String(policy.createdAt || ""))
+        if (createdAtMs <= 0) {
+            return -1
+        }
+        var durationSec = root.parseDurationSeconds(String(policy.duration || "1h"))
+        if (durationSec <= 0) {
+            durationSec = 3600
+        }
+        var expirySec = Math.floor(createdAtMs / 1000) + durationSec
+        var remaining = expirySec - root.quickBlockNowEpochSec
+        return remaining > 0 ? remaining : 0
+    }
+
+    function formatRemainingSeconds(seconds) {
+        var total = Number(seconds || 0)
+        if (isNaN(total) || total <= 0) {
+            return "0s"
+        }
+        var h = Math.floor(total / 3600)
+        var m = Math.floor((total % 3600) / 60)
+        var s = total % 60
+        if (h > 0) {
+            return String(h) + "h " + String(m) + "m"
+        }
+        if (m > 0) {
+            return String(m) + "m " + String(s) + "s"
+        }
+        return String(s) + "s"
     }
 
     function ipPolicyPrimaryTarget(entry) {
@@ -1475,6 +1552,18 @@ Flickable {
                     }
 
                     Text {
+                        visible: {
+                            var remaining = root.quickBlockRemainingSeconds()
+                            return FirewallServiceClient.lastQuickBlockPolicyId.length > 0 && remaining >= 0
+                        }
+                        text: qsTr("Quick block expires in %1")
+                              .arg(root.formatRemainingSeconds(root.quickBlockRemainingSeconds()))
+                        color: Theme.color("textSecondary")
+                        font.pixelSize: Theme.fontSize("small")
+                        Layout.fillWidth: true
+                    }
+
+                    Text {
                         visible: FirewallServiceClient.lastQuickBlockPolicyId.length === 0
                                  && FirewallServiceClient.quickBlockUndoNotice.length > 0
                         text: FirewallServiceClient.quickBlockUndoNotice
@@ -1493,5 +1582,12 @@ Flickable {
         FirewallServiceClient.refreshAppPolicies()
         FirewallServiceClient.refreshIpPolicies()
         FirewallServiceClient.refreshConnections()
+    }
+
+    Timer {
+        interval: 1000
+        repeat: true
+        running: true
+        onTriggered: root.quickBlockNowEpochSec = Math.floor(Date.now() / 1000)
     }
 }
