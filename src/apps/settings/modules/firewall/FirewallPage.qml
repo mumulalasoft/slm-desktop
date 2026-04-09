@@ -392,6 +392,56 @@ Flickable {
         return "outgoing"
     }
 
+    function extractRemoteIp(entry) {
+        var row = entry || {}
+        var remote = String(row.remote || "").trim()
+        if (!remote.length || remote === "*" || remote.indexOf("*:") === 0) {
+            return ""
+        }
+        if (remote.indexOf("[") === 0) {
+            var close = remote.indexOf("]")
+            if (close > 1) {
+                return remote.substring(1, close)
+            }
+            return ""
+        }
+        var colon = remote.lastIndexOf(":")
+        if (colon <= 0) {
+            return remote
+        }
+        return remote.substring(0, colon)
+    }
+
+    function quickBlockConnectionIp(entry) {
+        var ip = root.extractRemoteIp(entry)
+        if (!ip.length) {
+            root.connectionResultOk = false
+            root.connectionResultText = qsTr("Remote endpoint has no blockable IP.")
+            return false
+        }
+        var identity = (entry || {}).identity || {}
+        var appName = String(identity.app_name || "")
+        var note = appName.length
+                ? qsTr("from active connection: %1").arg(appName)
+                : qsTr("from active connection")
+        var ok = FirewallServiceClient.setIpPolicy({
+            type: "ip",
+            ip: ip,
+            scope: "both",
+            reason: "active-connection-quick-block",
+            note: note
+        })
+        root.connectionResultOk = ok
+        root.connectionResultText = ok
+                ? qsTr("Remote IP blocked: %1").arg(ip)
+                : qsTr("Failed to block remote IP.")
+        if (ok) {
+            FirewallServiceClient.refreshIpPolicies()
+            FirewallServiceClient.refreshConnections()
+        }
+        return ok
+    }
+
     function promptRequestPayload() {
         var pid = Number(promptPidText)
         if (isNaN(pid)) {
@@ -1288,6 +1338,14 @@ Flickable {
                                     text: qsTr("Deny")
                                     enabled: FirewallServiceClient.available && FirewallServiceClient.enabled
                                     onClicked: root.applyConnectionDecision(modelData, "deny")
+                                }
+
+                                Button {
+                                    text: qsTr("Block IP")
+                                    enabled: FirewallServiceClient.available
+                                             && FirewallServiceClient.enabled
+                                             && root.extractRemoteIp(modelData).length > 0
+                                    onClicked: root.quickBlockConnectionIp(modelData)
                                 }
                             }
                         }
