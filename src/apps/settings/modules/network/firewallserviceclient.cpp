@@ -213,6 +213,30 @@ void FirewallServiceClient::restoreQuickBlockStateFromSettings()
         setLastQuickBlockTarget(target);
     }
     m_restoringQuickBlockState = false;
+    syncQuickBlockTokenWithIpPolicies();
+}
+
+void FirewallServiceClient::syncQuickBlockTokenWithIpPolicies()
+{
+    const QString policyId = m_lastQuickBlockPolicyId.trimmed();
+    if (policyId.isEmpty()) {
+        return;
+    }
+
+    bool exists = false;
+    for (const QVariant &entry : m_ipPolicies) {
+        const QVariantMap row = entry.toMap();
+        if (row.value(QStringLiteral("policyId")).toString() == policyId) {
+            exists = true;
+            break;
+        }
+    }
+    if (exists) {
+        return;
+    }
+
+    setLastQuickBlockPolicyId(QString());
+    setLastQuickBlockTarget(QString());
 }
 
 bool FirewallServiceClient::refresh()
@@ -422,6 +446,7 @@ bool FirewallServiceClient::refreshIpPolicies()
         m_ipPolicies = next;
         emit ipPoliciesChanged();
     }
+    syncQuickBlockTokenWithIpPolicies();
     return true;
 }
 

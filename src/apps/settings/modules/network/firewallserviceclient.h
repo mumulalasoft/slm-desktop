@@ -78,6 +78,7 @@ private:
     bool applyStateMap(const QVariantMap &map);
     bool setSettingsValue(const QString &path, const QVariant &value) const;
     void restoreQuickBlockStateFromSettings();
+    void syncQuickBlockTokenWithIpPolicies();
     bool m_restoringQuickBlockState = false;
 
     QDBusInterface *m_iface = nullptr;
