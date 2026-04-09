@@ -37,14 +37,15 @@ Window {
     readonly property int shakeDurC: Math.max(1, Math.round(Theme.durationMicro * 0.51))
     readonly property int shakeDurD: Math.max(1, Math.round(Theme.durationMicro * 0.44))
     readonly property int shakeDurE: Math.max(1, Math.round(Theme.durationMicro * 0.36))
+    readonly property int lockGlyphSize: Theme.fontPxJumbo + Theme.fontPxTitle + Theme.fontPxTiny
 
     function applyThemePreferences() {
-        if (typeof UIPreferences === "undefined" || !UIPreferences) {
+        if (typeof DesktopSettings === "undefined" || !DesktopSettings) {
             return
         }
-        Theme.applyModeString(UIPreferences.themeMode)
-        Theme.userAccentColor = UIPreferences.accentColor
-        Theme.userFontScale = UIPreferences.fontScale
+        Theme.applyModeString(DesktopSettings.themeMode)
+        Theme.userAccentColor = DesktopSettings.accentColor
+        Theme.userFontScale = DesktopSettings.fontScale
     }
 
     onControllerActiveChanged: {
@@ -63,7 +64,7 @@ Window {
 
     Component.onCompleted: applyThemePreferences()
 
-    onClosing: function(close) {
+    function onClosing(close) {
         if (!authDialogController || !authDialogController.active) {
             close.accepted = true
             return
@@ -117,7 +118,7 @@ Window {
         radius: Theme.radiusWindowAlt
         border.color: root.surfaceBorder
         border.width: Theme.borderWidthThin
-        opacity: 0.0
+        opacity: Theme.borderWidthNone
         scale: 0.97
 
         SequentialAnimation {
@@ -154,7 +155,7 @@ Window {
                 Label {
                     anchors.centerIn: parent
                     text: "🔒"
-                    font.pixelSize: 62
+                    font.pixelSize: root.lockGlyphSize
                 }
             }
 
@@ -398,10 +399,10 @@ Window {
     }
 
     Connections {
-        target: (typeof UIPreferences !== "undefined") ? UIPreferences : null
-        function onThemeModeChanged() { Theme.applyModeString(UIPreferences.themeMode) }
-        function onAccentColorChanged() { Theme.userAccentColor = UIPreferences.accentColor }
-        function onFontScaleChanged() { Theme.userFontScale = UIPreferences.fontScale }
+        target: (typeof DesktopSettings !== "undefined") ? DesktopSettings : null
+        function onThemeModeChanged() { Theme.applyModeString(DesktopSettings.themeMode) }
+        function onAccentColorChanged() { Theme.userAccentColor = DesktopSettings.accentColor }
+        function onFontScaleChanged() { Theme.userFontScale = DesktopSettings.fontScale }
     }
 
     Shortcut {

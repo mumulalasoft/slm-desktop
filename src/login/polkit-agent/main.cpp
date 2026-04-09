@@ -5,7 +5,7 @@
 #include <QQmlContext>
 #include <QString>
 
-#include "../../core/prefs/uipreferences.h"
+#include "../../apps/settings/desktopsettingsclient.h"
 #include "authdialogcontroller.h"
 #include "polkitagentapp.h"
 
@@ -15,7 +15,7 @@ int main(int argc, char *argv[])
 {
     QGuiApplication app(argc, argv);
     app.setOrganizationName(u"SLM"_s);
-    // Share the same UI preference scope as shell/settings so theme updates
+    // Share the same desktop settings scope as shell/settings so theme updates
     // (mode, accent, font scale) are reflected in auth dialog runtime.
     app.setApplicationName(u"SLM Desktop"_s);
 
@@ -32,9 +32,9 @@ int main(int argc, char *argv[])
         engine.addImportPath(qtQmlImportPath);
     }
     engine.addImportPath(u"qrc:/qt/qml"_s);
-    UIPreferences uiPreferences;
+    DesktopSettingsClient desktopSettings;
     engine.rootContext()->setContextProperty(u"authDialogController"_s, agent.dialogController());
-    engine.rootContext()->setContextProperty(u"UIPreferences"_s, &uiPreferences);
+    engine.rootContext()->setContextProperty(u"DesktopSettings"_s, &desktopSettings);
     QObject::connect(
         &engine,
         &QQmlApplicationEngine::objectCreationFailed,

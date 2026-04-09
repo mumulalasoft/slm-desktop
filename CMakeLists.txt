@@ -4836,8 +4836,8 @@ qt_add_executable(slm-polkit-agent
     src/login/polkit-agent/authsession.h
     src/login/polkit-agent/authdialogcontroller.cpp
     src/login/polkit-agent/authdialogcontroller.h
-    src/core/prefs/uipreferences.cpp
-    src/core/prefs/uipreferences.h
+    src/apps/settings/desktopsettingsclient.cpp
+    src/apps/settings/desktopsettingsclient.h
 )
 qt_add_qml_module(slm-polkit-agent
     URI SlmPolkitAgent
@@ -4876,6 +4876,7 @@ qt_add_resources(slm-polkit-agent "slm_polkit_agent_slmstyle_module"
 target_link_libraries(slm-polkit-agent
     PRIVATE
         Qt6::Core
+        Qt6::DBus
         Qt6::Gui
         Qt6::Qml
         Qt6::Quick
