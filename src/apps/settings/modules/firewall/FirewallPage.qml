@@ -35,6 +35,7 @@ Flickable {
     property bool pendingPromptRemember: false
     property bool pendingShowSafestOnly: false
     property bool pendingSortByRisk: false
+    property int pendingTriagePresetIndex: 1
     property int quickBlockNowEpochSec: Math.floor(Date.now() / 1000)
     property int quickBlockLastRemainingSec: -1
     readonly property bool devPromptSimulationEnabled: Qt.application.arguments.indexOf("--firewall-dev") !== -1
@@ -82,6 +83,26 @@ Flickable {
     readonly property var connectionDirections: [
         { value: "incoming", label: qsTr("Incoming") },
         { value: "outgoing", label: qsTr("Outgoing") }
+    ]
+    readonly property var pendingTriagePresets: [
+        {
+            label: qsTr("Conservative"),
+            showSafestOnly: true,
+            sortByRisk: true,
+            action: "none"
+        },
+        {
+            label: qsTr("Balanced"),
+            showSafestOnly: false,
+            sortByRisk: true,
+            action: "deny-riskiest"
+        },
+        {
+            label: qsTr("Aggressive"),
+            showSafestOnly: false,
+            sortByRisk: true,
+            action: "deny-riskiest-then-allow-safest"
+        }
     ]
 
     function modeIndex(value) {
@@ -987,6 +1008,45 @@ Flickable {
                 ? qsTr("Denied %1 riskiest pending prompt(s).").arg(resolved)
                 : qsTr("No riskiest pending prompt matched.")
         return resolved
+    }
+
+    function applyPendingTriagePreset(index) {
+        var idx = Number(index)
+        if (isNaN(idx) || idx < 0 || idx >= root.pendingTriagePresets.length) {
+            idx = 0
+        }
+        root.pendingTriagePresetIndex = idx
+        var preset = root.pendingTriagePresets[idx] || {}
+        root.pendingShowSafestOnly = Boolean(preset.showSafestOnly)
+        root.pendingSortByRisk = Boolean(preset.sortByRisk)
+    }
+
+    function executePendingTriagePreset() {
+        root.applyPendingTriagePreset(root.pendingTriagePresetIndex)
+        var preset = root.pendingTriagePresets[root.pendingTriagePresetIndex] || {}
+        var action = String(preset.action || "none")
+        if (action === "none") {
+            root.connectionResultOk = true
+            root.connectionResultText = qsTr("Preset applied: %1").arg(String(preset.label || "Conservative"))
+            return
+        }
+        if (action === "deny-riskiest") {
+            root.denyRiskiestPendingPrompts()
+            return
+        }
+        if (action === "deny-riskiest-then-allow-safest") {
+            var denied = root.denyRiskiestPendingPrompts()
+            var allowed = root.allowSafestPendingPrompts()
+            root.connectionResultOk = denied > 0 || allowed > 0
+            root.connectionResultText = root.connectionResultOk
+                    ? qsTr("Aggressive triage applied: denied %1 riskiest, allowed %2 safest.")
+                          .arg(denied)
+                          .arg(allowed)
+                    : qsTr("Aggressive triage found no matching pending prompt.")
+            return
+        }
+        root.connectionResultOk = false
+        root.connectionResultText = qsTr("Unsupported triage preset action.")
     }
 
     function pendingPromptExpiryText(item) {
@@ -1941,6 +2001,40 @@ Flickable {
                         }
                     }
 
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+
+                        Label {
+                            text: qsTr("Triage Preset")
+                            color: Theme.color("textSecondary")
+                        }
+
+                        ComboBox {
+                            Layout.preferredWidth: 190
+                            model: root.pendingTriagePresets.map(function(item) { return item.label })
+                            currentIndex: root.pendingTriagePresetIndex
+                            enabled: FirewallServiceClient.available && FirewallServiceClient.enabled
+                            onActivated: function(index) {
+                                root.applyPendingTriagePreset(index)
+                            }
+                        }
+
+                        Button {
+                            text: qsTr("Apply Preset")
+                            enabled: FirewallServiceClient.available && FirewallServiceClient.enabled
+                            onClicked: root.executePendingTriagePreset()
+                        }
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: qsTr("Preset can update filter/sort and optional batch action.")
+                            color: Theme.color("textSecondary")
+                            font.pixelSize: Theme.fontSize("small")
+                            wrapMode: Text.WordWrap
+                        }
+                    }
+
                     Repeater {
                         model: root.pendingPromptRows()
 
@@ -2189,6 +2283,7 @@ Flickable {
     }
 
     Component.onCompleted: {
+        root.applyPendingTriagePreset(root.pendingTriagePresetIndex)
         FirewallServiceClient.refresh()
         FirewallServiceClient.refreshAppPolicies()
         FirewallServiceClient.refreshIpPolicies()
