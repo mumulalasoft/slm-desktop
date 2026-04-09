@@ -22,6 +22,8 @@ public:
     QVariantMap applyBasePolicy(const QVariantMap &state);
     QVariantMap setAppPolicy(const QVariantMap &policy);
     QVariantMap setIpPolicy(const QVariantMap &policy);
+    QVariantList listIpPolicies() const;
+    QVariantMap clearIpPolicies();
     QVariantList listConnections() const;
 
 private:

@@ -37,6 +37,8 @@ public slots:
     QVariantMap EvaluateConnection(const QVariantMap &request);
     QVariantMap SetAppPolicy(const QVariantMap &policy);
     QVariantMap SetIpPolicy(const QVariantMap &policy);
+    QVariantList ListIpPolicies() const;
+    QVariantMap ClearIpPolicies();
     QVariantList ListConnections() const;
 
 signals:

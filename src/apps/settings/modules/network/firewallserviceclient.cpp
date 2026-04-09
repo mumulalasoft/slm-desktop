@@ -70,6 +70,11 @@ QString FirewallServiceClient::defaultOutgoingPolicy() const
     return m_defaultOutgoingPolicy;
 }
 
+QVariantList FirewallServiceClient::ipPolicies() const
+{
+    return m_ipPolicies;
+}
+
 bool FirewallServiceClient::refresh()
 {
     if (!ensureIface()) {
@@ -83,7 +88,9 @@ bool FirewallServiceClient::refresh()
     if (!payload.value(QStringLiteral("ok"), false).toBool()) {
         return false;
     }
-    return applyStateMap(payload);
+    const bool stateOk = applyStateMap(payload);
+    refreshIpPolicies();
+    return stateOk;
 }
 
 bool FirewallServiceClient::setEnabled(bool enabled)
@@ -118,7 +125,48 @@ bool FirewallServiceClient::setIpPolicy(const QVariantMap &policy)
         return false;
     }
     const QVariantMap payload = reply.value();
-    return payload.value(QStringLiteral("ok"), false).toBool();
+    const bool ok = payload.value(QStringLiteral("ok"), false).toBool();
+    if (ok) {
+        refreshIpPolicies();
+    }
+    return ok;
+}
+
+bool FirewallServiceClient::refreshIpPolicies()
+{
+    if (!ensureIface()) {
+        return false;
+    }
+    QDBusReply<QVariantList> reply = m_iface->call(QStringLiteral("ListIpPolicies"));
+    if (!reply.isValid()) {
+        return false;
+    }
+    const QVariantList next = reply.value();
+    if (m_ipPolicies != next) {
+        m_ipPolicies = next;
+        emit ipPoliciesChanged();
+    }
+    return true;
+}
+
+bool FirewallServiceClient::clearIpPolicies()
+{
+    if (!ensureIface()) {
+        return false;
+    }
+    QDBusReply<QVariantMap> reply = m_iface->call(QStringLiteral("ClearIpPolicies"));
+    if (!reply.isValid()) {
+        return false;
+    }
+    const QVariantMap payload = reply.value();
+    const bool ok = payload.value(QStringLiteral("ok"), false).toBool();
+    if (ok) {
+        if (!m_ipPolicies.isEmpty()) {
+            m_ipPolicies.clear();
+            emit ipPoliciesChanged();
+        }
+    }
+    return ok;
 }
 
 void FirewallServiceClient::onNameOwnerChanged(const QString &name,
@@ -146,6 +194,7 @@ void FirewallServiceClient::onNameOwnerChanged(const QString &name,
 void FirewallServiceClient::onFirewallStateChanged(const QVariantMap &state)
 {
     applyStateMap(state);
+    refreshIpPolicies();
 }
 
 bool FirewallServiceClient::ensureIface()

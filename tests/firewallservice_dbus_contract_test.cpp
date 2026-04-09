@@ -125,6 +125,15 @@ private slots:
         const QVariantMap result = service.SetIpPolicy(request);
         QCOMPARE(result.value(QStringLiteral("ok")).toBool(), true);
         QVERIFY(result.value(QStringLiteral("policy")).toMap().contains(QStringLiteral("targets")));
+
+        const QVariantList listed = service.ListIpPolicies();
+        QCOMPARE(listed.size(), 1);
+        QVERIFY(listed.first().toMap().value(QStringLiteral("targets")).toStringList().contains(
+                    QStringLiteral("203.0.113.0/24")));
+
+        const QVariantMap cleared = service.ClearIpPolicies();
+        QCOMPARE(cleared.value(QStringLiteral("ok")).toBool(), true);
+        QCOMPARE(service.ListIpPolicies().size(), 0);
     }
 
 private:

@@ -215,6 +215,48 @@ QVariantMap PolicyEngine::setIpPolicy(const QVariantMap &policy)
     };
 }
 
+QVariantList PolicyEngine::listIpPolicies() const
+{
+    if (!m_store) {
+        return {};
+    }
+    return m_store->value(QStringLiteral("firewall.rules.ipBlocks.entries"), QVariantList{}).toList();
+}
+
+QVariantMap PolicyEngine::clearIpPolicies()
+{
+    if (!m_store) {
+        return {
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), QStringLiteral("store-unavailable")},
+        };
+    }
+
+    QString error;
+    const bool ok = m_store->setValue(QStringLiteral("firewall.rules.ipBlocks.entries"), QVariantList{}, &error);
+    if (!ok) {
+        return {
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), error},
+        };
+    }
+
+    if (m_nft) {
+        QString nftError;
+        if (!m_nft->reconcileState(&nftError)) {
+            return {
+                {QStringLiteral("ok"), false},
+                {QStringLiteral("error"), nftError.isEmpty() ? QStringLiteral("nft-reconcile-failed") : nftError},
+            };
+        }
+    }
+
+    return {
+        {QStringLiteral("ok"), true},
+        {QStringLiteral("error"), QString()},
+    };
+}
+
 QVariantList PolicyEngine::listConnections() const
 {
     return {};

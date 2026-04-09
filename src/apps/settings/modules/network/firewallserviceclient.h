@@ -2,6 +2,7 @@
 
 #include <QObject>
 #include <QString>
+#include <QVariantList>
 #include <QVariantMap>
 
 class QDBusInterface;
@@ -14,6 +15,7 @@ class FirewallServiceClient : public QObject
     Q_PROPERTY(QString mode READ mode NOTIFY stateChanged)
     Q_PROPERTY(QString defaultIncomingPolicy READ defaultIncomingPolicy NOTIFY stateChanged)
     Q_PROPERTY(QString defaultOutgoingPolicy READ defaultOutgoingPolicy NOTIFY stateChanged)
+    Q_PROPERTY(QVariantList ipPolicies READ ipPolicies NOTIFY ipPoliciesChanged)
 
 public:
     explicit FirewallServiceClient(QObject *parent = nullptr);
@@ -23,6 +25,7 @@ public:
     QString mode() const;
     QString defaultIncomingPolicy() const;
     QString defaultOutgoingPolicy() const;
+    QVariantList ipPolicies() const;
 
     Q_INVOKABLE bool refresh();
     Q_INVOKABLE bool setEnabled(bool enabled);
@@ -30,10 +33,13 @@ public:
     Q_INVOKABLE bool setDefaultIncomingPolicy(const QString &policy);
     Q_INVOKABLE bool setDefaultOutgoingPolicy(const QString &policy);
     Q_INVOKABLE bool setIpPolicy(const QVariantMap &policy);
+    Q_INVOKABLE bool refreshIpPolicies();
+    Q_INVOKABLE bool clearIpPolicies();
 
 signals:
     void availableChanged();
     void stateChanged();
+    void ipPoliciesChanged();
 
 private slots:
     void onNameOwnerChanged(const QString &name, const QString &oldOwner, const QString &newOwner);
@@ -50,4 +56,5 @@ private:
     QString m_mode = QStringLiteral("home");
     QString m_defaultIncomingPolicy = QStringLiteral("deny");
     QString m_defaultOutgoingPolicy = QStringLiteral("allow");
+    QVariantList m_ipPolicies;
 };

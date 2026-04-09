@@ -76,6 +76,7 @@ Flickable {
                 : qsTr("Failed to apply IP policy.")
         if (ok) {
             blockTarget = ""
+            FirewallServiceClient.refreshIpPolicies()
         }
     }
 
@@ -271,8 +272,86 @@ Flickable {
                     }
                 }
             }
+
+            SettingCard {
+                label: qsTr("Blocked Entries")
+                description: qsTr("Current blocked IP/subnet rules from firewall policy store")
+
+                ColumnLayout {
+                    spacing: 8
+                    Layout.fillWidth: true
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: qsTr("%1 active rule(s)").arg(FirewallServiceClient.ipPolicies.length)
+                            color: Theme.color("textSecondary")
+                            font.pixelSize: Theme.fontSize("small")
+                        }
+
+                        Button {
+                            text: qsTr("Clear All")
+                            enabled: FirewallServiceClient.available
+                                     && FirewallServiceClient.enabled
+                                     && FirewallServiceClient.ipPolicies.length > 0
+                            onClicked: {
+                                var ok = FirewallServiceClient.clearIpPolicies()
+                                root.blockResultOk = ok
+                                root.blockResultText = ok
+                                        ? qsTr("All blocked IP policies cleared.")
+                                        : qsTr("Failed to clear blocked IP policies.")
+                            }
+                        }
+                    }
+
+                    Repeater {
+                        model: FirewallServiceClient.ipPolicies
+
+                        delegate: Rectangle {
+                            Layout.fillWidth: true
+                            radius: Theme.radiusControl
+                            color: Theme.color("surface")
+                            border.width: Theme.borderWidthThin
+                            border.color: Theme.color("panelBorder")
+                            implicitHeight: row.implicitHeight + 10
+
+                            RowLayout {
+                                id: row
+                                anchors.fill: parent
+                                anchors.margins: 8
+                                spacing: 10
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: {
+                                        var p = modelData || {}
+                                        var targets = (p.targets || []).join(", ")
+                                        var scope = String(p.scope || "both")
+                                        var reason = String(p.reason || "")
+                                        var base = targets.length ? targets : qsTr("(empty)")
+                                        var tail = " [" + scope + "]"
+                                        if (reason.length) {
+                                            tail += " - " + reason
+                                        }
+                                        return base + tail
+                                    }
+                                    color: Theme.color("textPrimary")
+                                    font.pixelSize: Theme.fontSize("small")
+                                    elide: Text.ElideRight
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 
-    Component.onCompleted: FirewallServiceClient.refresh()
+    Component.onCompleted: {
+        FirewallServiceClient.refresh()
+        FirewallServiceClient.refreshIpPolicies()
+    }
 }

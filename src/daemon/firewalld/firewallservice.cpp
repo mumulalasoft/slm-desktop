@@ -238,6 +238,22 @@ QVariantMap FirewallService::SetIpPolicy(const QVariantMap &policy)
     return result;
 }
 
+QVariantList FirewallService::ListIpPolicies() const
+{
+    return m_policyEngine.listIpPolicies();
+}
+
+QVariantMap FirewallService::ClearIpPolicies()
+{
+    const QVariantMap result = m_policyEngine.clearIpPolicies();
+    emit PolicyChanged(QVariantMap{
+        {QStringLiteral("kind"), QStringLiteral("ip")},
+        {QStringLiteral("action"), QStringLiteral("clear")},
+        {QStringLiteral("ok"), result.value(QStringLiteral("ok"), false)},
+    });
+    return result;
+}
+
 QVariantList FirewallService::ListConnections() const
 {
     return m_policyEngine.listConnections();

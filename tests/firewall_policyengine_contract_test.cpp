@@ -92,6 +92,30 @@ private slots:
         QCOMPARE(stored.value(QStringLiteral("reason")).toString(), QStringLiteral("suspicious-ingress"));
         QCOMPARE(stored.value(QStringLiteral("duration")).toString(), QStringLiteral("24h"));
     }
+
+    void list_and_clear_ip_policies_contract()
+    {
+        Slm::Firewall::PolicyStore store;
+        QString error;
+        QVERIFY(store.start(&error));
+
+        Slm::Firewall::NftablesAdapter nft;
+        Slm::Firewall::AppIdentityClient identity;
+        Slm::Firewall::PolicyEngine engine(&store, &nft, &identity);
+
+        QCOMPARE(engine.listIpPolicies().size(), 0);
+
+        const QVariantMap addResult = engine.setIpPolicy(QVariantMap{
+            {QStringLiteral("ip"), QStringLiteral("203.0.113.7")},
+            {QStringLiteral("scope"), QStringLiteral("both")},
+        });
+        QCOMPARE(addResult.value(QStringLiteral("ok")).toBool(), true);
+        QCOMPARE(engine.listIpPolicies().size(), 1);
+
+        const QVariantMap clearResult = engine.clearIpPolicies();
+        QCOMPARE(clearResult.value(QStringLiteral("ok")).toBool(), true);
+        QCOMPARE(engine.listIpPolicies().size(), 0);
+    }
 };
 
 QTEST_GUILESS_MAIN(FirewallPolicyEngineContractTest)
