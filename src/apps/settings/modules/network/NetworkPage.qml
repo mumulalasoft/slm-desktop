@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import Slm_Desktop
 import "../../../../../Qml/apps/settings/components"
 
 Flickable {
@@ -18,6 +19,16 @@ Flickable {
     property string wifiAuthReason: ""
     property var componentIssues: []
     property bool hasBlockingIssues: false
+    readonly property var firewallModes: [
+        { value: "home", label: "Home" },
+        { value: "public", label: "Public" },
+        { value: "custom", label: "Custom" }
+    ]
+    readonly property var firewallPolicies: [
+        { value: "deny", label: "Deny" },
+        { value: "allow", label: "Allow" },
+        { value: "prompt", label: "Prompt" }
+    ]
 
     function refreshComponentIssues() {
         if (typeof ComponentHealth === "undefined" || !ComponentHealth) {
@@ -36,6 +47,24 @@ Flickable {
         }
     }
 
+    function modeIndex(value) {
+        for (var i = 0; i < firewallModes.length; ++i) {
+            if (firewallModes[i].value === value) {
+                return i
+            }
+        }
+        return 0
+    }
+
+    function policyIndex(value) {
+        for (var i = 0; i < firewallPolicies.length; ++i) {
+            if (firewallPolicies[i].value === value) {
+                return i
+            }
+        }
+        return 0
+    }
+
     ColumnLayout {
         id: contentColumn
         anchors.left: parent.left
@@ -44,10 +73,10 @@ Flickable {
         spacing: 24
 
         Text {
-            text: "Network"
-            font.pixelSize: 28
-            font.weight: Font.Bold
-            color: "#ffffff"
+            text: qsTr("Network")
+            font.pixelSize: Theme.fontSize("display")
+            font.weight: Theme.fontWeight("bold")
+            color: Theme.color("textPrimary")
         }
 
         MissingComponentsCard {
@@ -136,8 +165,84 @@ Flickable {
                 
                 Text {
                     text: root.nmBinding.value
-                    color: root.nmBinding.value === "Connected" ? "#4CAF50" : "#F44336"
-                    font.weight: Font.Medium
+                    color: root.nmBinding.value === "Connected"
+                           ? Theme.color("success")
+                           : Theme.color("error")
+                    font.weight: Theme.fontWeight("medium")
+                }
+            }
+        }
+
+        // Firewall Section
+        SettingGroup {
+            title: "Firewall"
+            Layout.fillWidth: true
+
+            SettingCard {
+                label: "Service Status"
+                description: FirewallServiceClient.available
+                             ? "Connected to desktop-firewalld"
+                             : "Firewall service offline"
+
+                Text {
+                    text: FirewallServiceClient.available ? "Online" : "Offline"
+                    color: FirewallServiceClient.available
+                           ? Theme.color("success")
+                           : Theme.color("error")
+                    font.weight: Theme.fontWeight("medium")
+                }
+            }
+
+            SettingCard {
+                label: "Firewall"
+                description: "Block incoming by default while keeping desktop networking simple"
+
+                SettingToggle {
+                    checked: FirewallServiceClient.enabled
+                    enabled: FirewallServiceClient.available && !root.hasBlockingIssues
+                    onToggled: FirewallServiceClient.setEnabled(checked)
+                }
+            }
+
+            SettingCard {
+                label: "Mode"
+                description: "Choose policy profile for current network context"
+
+                ComboBox {
+                    model: root.firewallModes.map(function(item) { return item.label })
+                    currentIndex: root.modeIndex(FirewallServiceClient.mode)
+                    enabled: FirewallServiceClient.available && FirewallServiceClient.enabled && !root.hasBlockingIssues
+                    onActivated: function(index) {
+                        FirewallServiceClient.setMode(root.firewallModes[index].value)
+                    }
+                }
+            }
+
+            SettingCard {
+                label: "Incoming Default Policy"
+                description: "Default action for incoming connections"
+
+                ComboBox {
+                    model: root.firewallPolicies.map(function(item) { return item.label })
+                    currentIndex: root.policyIndex(FirewallServiceClient.defaultIncomingPolicy)
+                    enabled: FirewallServiceClient.available && FirewallServiceClient.enabled && !root.hasBlockingIssues
+                    onActivated: function(index) {
+                        FirewallServiceClient.setDefaultIncomingPolicy(root.firewallPolicies[index].value)
+                    }
+                }
+            }
+
+            SettingCard {
+                label: "Outgoing Default Policy"
+                description: "Default action for outgoing connections"
+
+                ComboBox {
+                    model: root.firewallPolicies.map(function(item) { return item.label })
+                    currentIndex: root.policyIndex(FirewallServiceClient.defaultOutgoingPolicy)
+                    enabled: FirewallServiceClient.available && FirewallServiceClient.enabled && !root.hasBlockingIssues
+                    onActivated: function(index) {
+                        FirewallServiceClient.setDefaultOutgoingPolicy(root.firewallPolicies[index].value)
+                    }
                 }
             }
         }
@@ -175,5 +280,8 @@ Flickable {
         }
     }
 
-    Component.onCompleted: refreshComponentIssues()
+    Component.onCompleted: {
+        refreshComponentIssues()
+        FirewallServiceClient.refresh()
+    }
 }
