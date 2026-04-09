@@ -152,6 +152,30 @@ Flickable {
         }
     }
 
+    function quarantineApp(appId) {
+        var id = String(appId || "").trim()
+        if (!id.length) {
+            appResultOk = false
+            appResultText = qsTr("App ID cannot be empty.")
+            return false
+        }
+
+        var ok = FirewallServiceClient.setAppPolicy({
+            appId: id,
+            decision: "deny",
+            direction: "both",
+            remember: true
+        })
+        appResultOk = ok
+        appResultText = ok
+                ? qsTr("Application quarantined (incoming and outgoing blocked).")
+                : qsTr("Failed to quarantine application.")
+        if (ok) {
+            FirewallServiceClient.refreshAppPolicies()
+        }
+        return ok
+    }
+
     function appPoliciesByDecision(decision) {
         var out = []
         var all = FirewallServiceClient.appPolicies || []
@@ -552,6 +576,12 @@ Flickable {
                             enabled: FirewallServiceClient.available && FirewallServiceClient.enabled
                             onClicked: root.submitAppRule()
                         }
+
+                        Button {
+                            text: qsTr("Quarantine")
+                            enabled: FirewallServiceClient.available && FirewallServiceClient.enabled
+                            onClicked: root.quarantineApp(root.appRuleAppId)
+                        }
                     }
 
                     Text {
@@ -599,6 +629,17 @@ Flickable {
                                     color: Theme.color("textPrimary")
                                     font.pixelSize: Theme.fontSize("small")
                                     elide: Text.ElideRight
+                                }
+
+                                Button {
+                                    text: qsTr("Quarantine")
+                                    enabled: FirewallServiceClient.available
+                                             && FirewallServiceClient.enabled
+                                             && String((modelData || {}).appId || "").length > 0
+                                    onClicked: {
+                                        var id = String((modelData || {}).appId || "")
+                                        root.quarantineApp(id)
+                                    }
                                 }
 
                                 Button {
@@ -671,6 +712,17 @@ Flickable {
                                     color: Theme.color("textPrimary")
                                     font.pixelSize: Theme.fontSize("small")
                                     elide: Text.ElideRight
+                                }
+
+                                Button {
+                                    text: qsTr("Quarantine")
+                                    enabled: FirewallServiceClient.available
+                                             && FirewallServiceClient.enabled
+                                             && String((modelData || {}).appId || "").length > 0
+                                    onClicked: {
+                                        var id = String((modelData || {}).appId || "")
+                                        root.quarantineApp(id)
+                                    }
                                 }
 
                                 Button {
