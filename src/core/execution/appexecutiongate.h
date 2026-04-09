@@ -6,13 +6,11 @@
 class DockModel;
 class LaunchEnvResolver;
 class ShortcutModel;
-class UIPreferences;
 
 class AppExecutionGate : public QObject {
     Q_OBJECT
 public:
     explicit AppExecutionGate(DockModel *dockModel, ShortcutModel *shortcutModel,
-                              UIPreferences *uiPreferences,
                               QObject *desktopSettings = nullptr,
                               QObject *parent = nullptr);
 
@@ -49,7 +47,6 @@ private:
 
     DockModel          *m_dockModel       = nullptr;
     ShortcutModel      *m_shortcutModel   = nullptr;
-    UIPreferences      *m_uiPreferences   = nullptr;
     QObject           *m_desktopSettings  = nullptr;
     LaunchEnvResolver  *m_envResolver     = nullptr;
 };

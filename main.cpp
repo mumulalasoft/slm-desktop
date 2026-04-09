@@ -343,12 +343,11 @@ int main(int argc, char *argv[])
     QObject::connect(&desktopSettings, &DesktopSettingsClient::gtkIconThemeDarkChanged, &app, [&]() {
         applyIconThemePref();
     });
-    AppExecutionGate appExecutionGate(&dockModel, &shortcutModel, nullptr, &desktopSettings);
+    AppExecutionGate appExecutionGate(&dockModel, &shortcutModel, &desktopSettings);
     appModel.setExecutionGate(&appExecutionGate);
     appModel.setDesktopSettings(&desktopSettings);
     appModel.setUIPreferences(nullptr);
     AppCommandRouter appCommandRouter(&appExecutionGate,
-                                      nullptr,
                                       &screenshotManager,
                                       &desktopSettings);
     const QString envBackend = qEnvironmentVariable("DS_WINDOWING_BACKEND").trimmed();

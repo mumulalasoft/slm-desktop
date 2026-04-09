@@ -2,7 +2,6 @@
 
 #include "../../../dockmodel.h"
 #include "../../../shortcutmodel.h"
-#include "../prefs/uipreferences.h"
 #include "../../core/launcher/applauncher.h"
 #include "../../core/launcher/launchenvresolver.h"
 
@@ -67,13 +66,11 @@ bool launchDesktopFileViaGio(const QString &desktopFilePath,
 }
 
 AppExecutionGate::AppExecutionGate(DockModel *dockModel, ShortcutModel *shortcutModel,
-                                   UIPreferences *uiPreferences,
                                    QObject *desktopSettings,
                                    QObject *parent)
     : QObject(parent)
     , m_dockModel(dockModel)
     , m_shortcutModel(shortcutModel)
-    , m_uiPreferences(uiPreferences)
     , m_desktopSettings(desktopSettings)
 {
 }
@@ -416,5 +413,5 @@ bool AppExecutionGate::verboseLoggingEnabled() const
             return v.toBool();
         }
     }
-    return m_uiPreferences ? m_uiPreferences->verboseLogging() : false;
+    return false;
 }

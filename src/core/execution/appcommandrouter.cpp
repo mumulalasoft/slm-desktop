@@ -2,20 +2,17 @@
 
 #include "appexecutiongate.h"
 #include "../../../screenshotmanager.h"
-#include "../prefs/uipreferences.h"
 
 #include <QDebug>
 #include <QJsonDocument>
 #include <QJsonObject>
 
 AppCommandRouter::AppCommandRouter(AppExecutionGate *gate,
-                                   UIPreferences *uiPreferences,
                                    ScreenshotManager *screenshotManager,
                                    QObject *desktopSettings,
                                    QObject *parent)
     : QObject(parent)
     , m_gate(gate)
-    , m_uiPreferences(uiPreferences)
     , m_desktopSettings(desktopSettings)
     , m_screenshotManager(screenshotManager)
 {
@@ -253,7 +250,7 @@ bool AppCommandRouter::verboseLoggingEnabled() const
             return v.toBool();
         }
     }
-    return m_uiPreferences ? m_uiPreferences->verboseLogging() : false;
+    return false;
 }
 
 QVariantList AppCommandRouter::recentEvents() const
