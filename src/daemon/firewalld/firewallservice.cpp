@@ -61,6 +61,9 @@ bool FirewallService::start(QString *error)
     }
 
     loadSettingsState();
+    if (!applyCurrentBasePolicy(error)) {
+        return false;
+    }
 
     m_serviceRegistered = Slm::Firewall::Dbus::registerServiceObject(QDBusConnection::sessionBus(), this);
     if (!m_serviceRegistered && error) {
@@ -121,11 +124,18 @@ QVariantMap FirewallService::SetEnabled(bool enabled)
     QString error;
     const bool persisted = setSettingsValue(QStringLiteral("firewall.enabled"), enabled, &error);
     m_enabled = enabled;
+    QString packetError;
+    const bool packetApplied = applyCurrentBasePolicy(&packetError);
     QVariantMap state = GetStatus();
     state.insert(QStringLiteral("persisted"), persisted);
+    state.insert(QStringLiteral("packetApplied"), packetApplied);
     if (!persisted) {
         state.insert(QStringLiteral("ok"), false);
         state.insert(QStringLiteral("error"), error.isEmpty() ? QStringLiteral("settingsd-unavailable") : error);
+    }
+    if (!packetApplied) {
+        state.insert(QStringLiteral("ok"), false);
+        state.insert(QStringLiteral("packetError"), packetError.isEmpty() ? QStringLiteral("nft-apply-failed") : packetError);
     }
     emit FirewallStateChanged(state);
     return state;
@@ -138,11 +148,18 @@ QVariantMap FirewallService::SetMode(const QString &mode)
     const bool persisted = setSettingsValue(QStringLiteral("firewall.mode"),
                                             Slm::Firewall::firewallModeToString(m_mode),
                                             &error);
+    QString packetError;
+    const bool packetApplied = applyCurrentBasePolicy(&packetError);
     QVariantMap state = GetStatus();
     state.insert(QStringLiteral("persisted"), persisted);
+    state.insert(QStringLiteral("packetApplied"), packetApplied);
     if (!persisted) {
         state.insert(QStringLiteral("ok"), false);
         state.insert(QStringLiteral("error"), error.isEmpty() ? QStringLiteral("settingsd-unavailable") : error);
+    }
+    if (!packetApplied) {
+        state.insert(QStringLiteral("ok"), false);
+        state.insert(QStringLiteral("packetError"), packetError.isEmpty() ? QStringLiteral("nft-apply-failed") : packetError);
     }
     emit FirewallStateChanged(state);
     return state;
@@ -155,11 +172,18 @@ QVariantMap FirewallService::SetDefaultIncomingPolicy(const QString &policy)
     const bool persisted = setSettingsValue(QStringLiteral("firewall.defaultIncomingPolicy"),
                                             m_defaultIncomingPolicy,
                                             &error);
+    QString packetError;
+    const bool packetApplied = applyCurrentBasePolicy(&packetError);
     QVariantMap state = GetStatus();
     state.insert(QStringLiteral("persisted"), persisted);
+    state.insert(QStringLiteral("packetApplied"), packetApplied);
     if (!persisted) {
         state.insert(QStringLiteral("ok"), false);
         state.insert(QStringLiteral("error"), error.isEmpty() ? QStringLiteral("settingsd-unavailable") : error);
+    }
+    if (!packetApplied) {
+        state.insert(QStringLiteral("ok"), false);
+        state.insert(QStringLiteral("packetError"), packetError.isEmpty() ? QStringLiteral("nft-apply-failed") : packetError);
     }
     emit FirewallStateChanged(state);
     return state;
@@ -172,11 +196,18 @@ QVariantMap FirewallService::SetDefaultOutgoingPolicy(const QString &policy)
     const bool persisted = setSettingsValue(QStringLiteral("firewall.defaultOutgoingPolicy"),
                                             m_defaultOutgoingPolicy,
                                             &error);
+    QString packetError;
+    const bool packetApplied = applyCurrentBasePolicy(&packetError);
     QVariantMap state = GetStatus();
     state.insert(QStringLiteral("persisted"), persisted);
+    state.insert(QStringLiteral("packetApplied"), packetApplied);
     if (!persisted) {
         state.insert(QStringLiteral("ok"), false);
         state.insert(QStringLiteral("error"), error.isEmpty() ? QStringLiteral("settingsd-unavailable") : error);
+    }
+    if (!packetApplied) {
+        state.insert(QStringLiteral("ok"), false);
+        state.insert(QStringLiteral("packetError"), packetError.isEmpty() ? QStringLiteral("nft-apply-failed") : packetError);
     }
     emit FirewallStateChanged(state);
     return state;
@@ -277,6 +308,25 @@ bool FirewallService::setSettingsValue(const QString &path, const QVariant &valu
     const bool ok = payload.value(QStringLiteral("ok"), false).toBool();
     if (!ok && error) {
         *error = payload.value(QStringLiteral("error")).toString();
+    }
+    return ok;
+}
+
+bool FirewallService::applyCurrentBasePolicy(QString *error)
+{
+    if (error) {
+        error->clear();
+    }
+    const QVariantMap state{
+        {QStringLiteral("enabled"), m_enabled},
+        {QStringLiteral("mode"), Slm::Firewall::firewallModeToString(m_mode)},
+        {QStringLiteral("defaultIncomingPolicy"), m_defaultIncomingPolicy},
+        {QStringLiteral("defaultOutgoingPolicy"), m_defaultOutgoingPolicy},
+    };
+    const QVariantMap result = m_policyEngine.applyBasePolicy(state);
+    const bool ok = result.value(QStringLiteral("ok"), false).toBool();
+    if (!ok && error) {
+        *error = result.value(QStringLiteral("error")).toString();
     }
     return ok;
 }

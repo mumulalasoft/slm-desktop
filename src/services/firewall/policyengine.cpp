@@ -26,6 +26,22 @@ QVariantMap PolicyEngine::evaluateConnection(const QVariantMap &request) const
     };
 }
 
+QVariantMap PolicyEngine::applyBasePolicy(const QVariantMap &state)
+{
+    if (!m_nft) {
+        return {
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), QStringLiteral("nft-unavailable")},
+        };
+    }
+    QString error;
+    const bool ok = m_nft->applyBasePolicy(state, &error);
+    return {
+        {QStringLiteral("ok"), ok},
+        {QStringLiteral("error"), error},
+    };
+}
+
 QVariantMap PolicyEngine::setAppPolicy(const QVariantMap &policy)
 {
     if (!m_store) {

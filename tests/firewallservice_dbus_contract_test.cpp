@@ -72,6 +72,7 @@ private slots:
 
         const QVariantMap setEnabledResult = service.SetEnabled(false);
         QCOMPARE(setEnabledResult.value(QStringLiteral("enabled")).toBool(), false);
+        QCOMPARE(setEnabledResult.value(QStringLiteral("packetApplied")).toBool(), true);
 
         const QVariantMap settingsPayloadAfter = settings.GetSettings();
         const QVariantMap settingsAfterRoot = settingsPayloadAfter.value(QStringLiteral("settings")).toMap();
@@ -92,7 +93,8 @@ private slots:
         QCOMPARE(status.value(QStringLiteral("defaultOutgoingPolicy")).toString(), QStringLiteral("allow"));
 
         service.SetDefaultIncomingPolicy(QStringLiteral("prompt"));
-        service.SetDefaultOutgoingPolicy(QStringLiteral("deny"));
+        const QVariantMap outgoingResult = service.SetDefaultOutgoingPolicy(QStringLiteral("deny"));
+        QCOMPARE(outgoingResult.value(QStringLiteral("packetApplied")).toBool(), true);
 
         status = service.GetStatus();
         QCOMPARE(status.value(QStringLiteral("defaultIncomingPolicy")).toString(), QStringLiteral("prompt"));
