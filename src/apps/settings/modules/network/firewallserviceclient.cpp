@@ -7,6 +7,9 @@
 #include <QDateTime>
 #include <QJsonDocument>
 
+#include <algorithm>
+#include <limits>
+
 namespace {
 constexpr const char kService[] = "org.slm.Desktop.Firewall";
 constexpr const char kPath[] = "/org/slm/Desktop/Firewall";
@@ -17,6 +20,27 @@ constexpr const char kSettingsInterface[] = "org.slm.Desktop.Settings";
 constexpr const char kQuickBlockPolicyPath[] = "firewall.quickBlockUndo.policyId";
 constexpr const char kQuickBlockTargetPath[] = "firewall.quickBlockUndo.target";
 constexpr qint64 kPendingPromptTtlSecs = 15 * 60;
+
+qint64 pendingPromptRemainingSeconds(const QVariantMap &row, const QDateTime &nowUtc)
+{
+    const QString receivedRaw = row.value(QStringLiteral("receivedAt")).toString().trimmed();
+    if (receivedRaw.isEmpty()) {
+        return std::numeric_limits<qint64>::max();
+    }
+    const QDateTime receivedAt = QDateTime::fromString(receivedRaw, Qt::ISODate);
+    if (!receivedAt.isValid()) {
+        return std::numeric_limits<qint64>::max();
+    }
+    qint64 ageSecs = receivedAt.secsTo(nowUtc);
+    if (ageSecs < 0) {
+        ageSecs = 0;
+    }
+    qint64 remaining = kPendingPromptTtlSecs - ageSecs;
+    if (remaining < 0) {
+        remaining = 0;
+    }
+    return remaining;
+}
 
 QString normalizeMode(const QString &value)
 {
@@ -633,6 +657,35 @@ bool FirewallServiceClient::pruneStalePendingPrompts()
     return changed;
 }
 
+bool FirewallServiceClient::sortPendingPromptsByExpiry()
+{
+    if (m_pendingPrompts.size() < 2) {
+        return false;
+    }
+
+    const QVariantList before = m_pendingPrompts;
+    const QDateTime nowUtc = QDateTime::currentDateTimeUtc();
+    std::stable_sort(m_pendingPrompts.begin(), m_pendingPrompts.end(),
+                     [&](const QVariant &leftVar, const QVariant &rightVar) {
+        const QVariantMap left = leftVar.toMap();
+        const QVariantMap right = rightVar.toMap();
+
+        const qint64 leftRemaining = pendingPromptRemainingSeconds(left, nowUtc);
+        const qint64 rightRemaining = pendingPromptRemainingSeconds(right, nowUtc);
+        if (leftRemaining != rightRemaining) {
+            return leftRemaining < rightRemaining;
+        }
+
+        const QString leftReceived = left.value(QStringLiteral("receivedAt")).toString();
+        const QString rightReceived = right.value(QStringLiteral("receivedAt")).toString();
+        const qint64 leftMs = QDateTime::fromString(leftReceived, Qt::ISODate).toMSecsSinceEpoch();
+        const qint64 rightMs = QDateTime::fromString(rightReceived, Qt::ISODate).toMSecsSinceEpoch();
+        return leftMs < rightMs;
+    });
+
+    return m_pendingPrompts != before;
+}
+
 void FirewallServiceClient::onNameOwnerChanged(const QString &name,
                                                const QString &oldOwner,
                                                const QString &newOwner)
@@ -715,6 +768,7 @@ void FirewallServiceClient::onConnectionPromptRequested(const QVariantMap &promp
             const int rowIndex = m_pendingPrompts.indexOf(item);
             if (rowIndex >= 0) {
                 m_pendingPrompts[rowIndex] = updated;
+                sortPendingPromptsByExpiry();
                 emit pendingPromptsChanged();
             }
             return;
@@ -728,6 +782,7 @@ void FirewallServiceClient::onConnectionPromptRequested(const QVariantMap &promp
     while (m_pendingPrompts.size() > 20) {
         m_pendingPrompts.removeFirst();
     }
+    sortPendingPromptsByExpiry();
     emit pendingPromptsChanged();
 }
 

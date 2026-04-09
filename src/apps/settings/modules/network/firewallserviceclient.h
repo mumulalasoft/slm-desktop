@@ -86,6 +86,7 @@ private slots:
 
 private:
     bool pruneStalePendingPrompts();
+    bool sortPendingPromptsByExpiry();
     bool ensureIface();
     bool callBoolMapMethod(const QString &method, const QVariant &arg);
     bool applyStateMap(const QVariantMap &map);
