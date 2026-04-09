@@ -127,6 +127,50 @@ bool FirewallServiceClient::setDefaultOutgoingPolicy(const QString &policy)
                              normalizePolicy(policy, m_defaultOutgoingPolicy));
 }
 
+QVariantMap FirewallServiceClient::evaluateConnection(const QVariantMap &request)
+{
+    if (!ensureIface()) {
+        return QVariantMap{
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), QStringLiteral("service-unavailable")},
+        };
+    }
+    QDBusReply<QVariantMap> reply = m_iface->call(QStringLiteral("EvaluateConnection"), request);
+    if (!reply.isValid()) {
+        return QVariantMap{
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), QStringLiteral("dbus-call-failed")},
+        };
+    }
+    return reply.value();
+}
+
+bool FirewallServiceClient::resolveConnectionDecision(const QVariantMap &request,
+                                                      const QString &decision,
+                                                      bool remember)
+{
+    if (!ensureIface()) {
+        return false;
+    }
+    const QString normalized = normalizePolicy(decision, QStringLiteral("prompt"));
+    if (normalized == QLatin1String("prompt")) {
+        return false;
+    }
+    QDBusReply<QVariantMap> reply = m_iface->call(QStringLiteral("ResolveConnectionDecision"),
+                                                  request,
+                                                  normalized,
+                                                  remember);
+    if (!reply.isValid()) {
+        return false;
+    }
+    const QVariantMap payload = reply.value();
+    const bool ok = payload.value(QStringLiteral("ok"), false).toBool();
+    if (ok && remember) {
+        refreshAppPolicies();
+    }
+    return ok;
+}
+
 bool FirewallServiceClient::setIpPolicy(const QVariantMap &policy)
 {
     if (!ensureIface()) {

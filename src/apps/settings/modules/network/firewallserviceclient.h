@@ -36,6 +36,10 @@ public:
     Q_INVOKABLE bool setMode(const QString &mode);
     Q_INVOKABLE bool setDefaultIncomingPolicy(const QString &policy);
     Q_INVOKABLE bool setDefaultOutgoingPolicy(const QString &policy);
+    Q_INVOKABLE QVariantMap evaluateConnection(const QVariantMap &request);
+    Q_INVOKABLE bool resolveConnectionDecision(const QVariantMap &request,
+                                               const QString &decision,
+                                               bool remember);
     Q_INVOKABLE bool setAppPolicy(const QVariantMap &policy);
     Q_INVOKABLE bool refreshAppPolicies();
     Q_INVOKABLE bool clearAppPolicies();

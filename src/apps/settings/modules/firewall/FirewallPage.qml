@@ -21,6 +21,11 @@ Flickable {
     property int appRuleDirectionIndex: 0
     property string appResultText: ""
     property bool appResultOk: true
+    property string promptPidText: "-1"
+    property int promptDirectionIndex: 0
+    property bool promptRemember: false
+    property string promptResultText: ""
+    property bool promptResultOk: true
 
     readonly property var firewallModes: [
         { value: "home", label: qsTr("Home") },
@@ -50,6 +55,10 @@ Flickable {
         { value: "incoming", label: qsTr("Incoming") },
         { value: "outgoing", label: qsTr("Outgoing") },
         { value: "both", label: qsTr("Both") }
+    ]
+    readonly property var connectionDirections: [
+        { value: "incoming", label: qsTr("Incoming") },
+        { value: "outgoing", label: qsTr("Outgoing") }
     ]
 
     function modeIndex(value) {
@@ -140,6 +149,41 @@ Flickable {
         var local = String(row.local || "-")
         var remote = String(row.remote || "-")
         return appName + " (" + protocol + ") " + local + " -> " + remote
+    }
+
+    function promptRequestPayload() {
+        var pid = Number(promptPidText)
+        if (isNaN(pid)) {
+            pid = -1
+        }
+        return {
+            pid: pid,
+            direction: connectionDirections[promptDirectionIndex].value
+        }
+    }
+
+    function simulateEvaluateConnection() {
+        var response = FirewallServiceClient.evaluateConnection(promptRequestPayload())
+        var ok = Boolean(response && response.ok)
+        var decision = String(response && response.decision || "unknown")
+        var source = String(response && response.source || "")
+        promptResultOk = ok
+        promptResultText = ok
+                ? qsTr("Decision: %1 (%2)").arg(decision).arg(source)
+                : qsTr("Failed to evaluate connection.")
+    }
+
+    function applyPromptDecision(decision) {
+        var ok = FirewallServiceClient.resolveConnectionDecision(
+                    promptRequestPayload(),
+                    decision,
+                    promptRemember)
+        promptResultOk = ok
+        promptResultText = ok
+                ? (promptRemember
+                   ? qsTr("Decision saved as app policy.")
+                   : qsTr("Decision applied once."))
+                : qsTr("Failed to apply decision.")
     }
 
     function policyIndex(value) {
@@ -251,6 +295,76 @@ Flickable {
         SettingGroup {
             title: qsTr("Application Rules")
             Layout.fillWidth: true
+
+            SettingCard {
+                label: qsTr("Prompt Simulation")
+                description: qsTr("Test evaluate + allow/deny flow and remember decision")
+
+                ColumnLayout {
+                    spacing: 8
+                    Layout.fillWidth: true
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+
+                        TextField {
+                            Layout.preferredWidth: 160
+                            placeholderText: qsTr("PID (default -1)")
+                            text: root.promptPidText
+                            enabled: FirewallServiceClient.available && FirewallServiceClient.enabled
+                            onTextChanged: root.promptPidText = text
+                        }
+
+                        ComboBox {
+                            Layout.fillWidth: true
+                            model: root.connectionDirections.map(function(item) { return item.label })
+                            currentIndex: root.promptDirectionIndex
+                            enabled: FirewallServiceClient.available && FirewallServiceClient.enabled
+                            onActivated: function(index) {
+                                root.promptDirectionIndex = index
+                            }
+                        }
+
+                        CheckBox {
+                            text: qsTr("Remember")
+                            checked: root.promptRemember
+                            enabled: FirewallServiceClient.available && FirewallServiceClient.enabled
+                            onToggled: root.promptRemember = checked
+                        }
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+
+                        Button {
+                            text: qsTr("Evaluate")
+                            enabled: FirewallServiceClient.available && FirewallServiceClient.enabled
+                            onClicked: root.simulateEvaluateConnection()
+                        }
+
+                        Button {
+                            text: qsTr("Allow")
+                            enabled: FirewallServiceClient.available && FirewallServiceClient.enabled
+                            onClicked: root.applyPromptDecision("allow")
+                        }
+
+                        Button {
+                            text: qsTr("Deny")
+                            enabled: FirewallServiceClient.available && FirewallServiceClient.enabled
+                            onClicked: root.applyPromptDecision("deny")
+                        }
+                    }
+
+                    Text {
+                        visible: root.promptResultText.length > 0
+                        text: root.promptResultText
+                        color: root.promptResultOk ? Theme.color("success") : Theme.color("error")
+                        font.pixelSize: Theme.fontSize("small")
+                    }
+                }
+            }
 
             SettingCard {
                 label: qsTr("Add Rule")
