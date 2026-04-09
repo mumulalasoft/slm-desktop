@@ -45,6 +45,10 @@
     <method name="ClearIpPolicies">
       <arg name="result" type="a{sv}" direction="out"/>
     </method>
+    <method name="RemoveIpPolicy">
+      <arg name="policyId" type="s" direction="in"/>
+      <arg name="result" type="a{sv}" direction="out"/>
+    </method>
     <method name="ListConnections">
       <arg name="result" type="av" direction="out"/>
     </method>

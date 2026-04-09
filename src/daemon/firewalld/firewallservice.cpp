@@ -254,6 +254,18 @@ QVariantMap FirewallService::ClearIpPolicies()
     return result;
 }
 
+QVariantMap FirewallService::RemoveIpPolicy(const QString &policyId)
+{
+    const QVariantMap result = m_policyEngine.removeIpPolicy(policyId);
+    emit PolicyChanged(QVariantMap{
+        {QStringLiteral("kind"), QStringLiteral("ip")},
+        {QStringLiteral("action"), QStringLiteral("remove")},
+        {QStringLiteral("policyId"), policyId},
+        {QStringLiteral("ok"), result.value(QStringLiteral("ok"), false)},
+    });
+    return result;
+}
+
 QVariantList FirewallService::ListConnections() const
 {
     return m_policyEngine.listConnections();

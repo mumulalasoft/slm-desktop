@@ -342,6 +342,21 @@ Flickable {
                                     font.pixelSize: Theme.fontSize("small")
                                     elide: Text.ElideRight
                                 }
+
+                                Button {
+                                    text: qsTr("Remove")
+                                    enabled: FirewallServiceClient.available
+                                             && FirewallServiceClient.enabled
+                                             && String((modelData || {}).policyId || "").length > 0
+                                    onClicked: {
+                                        var id = String((modelData || {}).policyId || "")
+                                        var ok = FirewallServiceClient.removeIpPolicy(id)
+                                        root.blockResultOk = ok
+                                        root.blockResultText = ok
+                                                ? qsTr("Blocked IP policy removed.")
+                                                : qsTr("Failed to remove blocked IP policy.")
+                                    }
+                                }
                             }
                         }
                     }

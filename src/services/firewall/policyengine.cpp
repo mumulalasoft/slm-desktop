@@ -4,6 +4,9 @@
 #include "nftablesadapter.h"
 #include "policystore.h"
 
+#include <QDateTime>
+#include <QUuid>
+
 namespace Slm::Firewall {
 
 namespace {
@@ -90,6 +93,8 @@ QVariantMap normalizeIpBlockPolicy(const QVariantMap &policy, QString *error)
     const QString reason = normalizedString(policy.value(QStringLiteral("reason")));
 
     return {
+        {QStringLiteral("policyId"), QUuid::createUuid().toString(QUuid::WithoutBraces)},
+        {QStringLiteral("createdAt"), QDateTime::currentDateTimeUtc().toString(Qt::ISODate)},
         {QStringLiteral("type"), type},
         {QStringLiteral("scope"), normalizeScope(policy.value(QStringLiteral("scope")))},
         {QStringLiteral("targets"), targets},
@@ -235,6 +240,66 @@ QVariantMap PolicyEngine::clearIpPolicies()
     QString error;
     const bool ok = m_store->setValue(QStringLiteral("firewall.rules.ipBlocks.entries"), QVariantList{}, &error);
     if (!ok) {
+        return {
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), error},
+        };
+    }
+
+    if (m_nft) {
+        QString nftError;
+        if (!m_nft->reconcileState(&nftError)) {
+            return {
+                {QStringLiteral("ok"), false},
+                {QStringLiteral("error"), nftError.isEmpty() ? QStringLiteral("nft-reconcile-failed") : nftError},
+            };
+        }
+    }
+
+    return {
+        {QStringLiteral("ok"), true},
+        {QStringLiteral("error"), QString()},
+    };
+}
+
+QVariantMap PolicyEngine::removeIpPolicy(const QString &policyId)
+{
+    if (!m_store) {
+        return {
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), QStringLiteral("store-unavailable")},
+        };
+    }
+
+    const QString id = policyId.trimmed();
+    if (id.isEmpty()) {
+        return {
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), QStringLiteral("policy-id-empty")},
+        };
+    }
+
+    const QVariantList entries = m_store->value(QStringLiteral("firewall.rules.ipBlocks.entries"), QVariantList{}).toList();
+    QVariantList kept;
+    bool removed = false;
+    for (const QVariant &entry : entries) {
+        const QVariantMap map = entry.toMap();
+        if (!removed && map.value(QStringLiteral("policyId")).toString() == id) {
+            removed = true;
+            continue;
+        }
+        kept.append(map);
+    }
+
+    if (!removed) {
+        return {
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), QStringLiteral("policy-id-not-found")},
+        };
+    }
+
+    QString error;
+    if (!m_store->setValue(QStringLiteral("firewall.rules.ipBlocks.entries"), kept, &error)) {
         return {
             {QStringLiteral("ok"), false},
             {QStringLiteral("error"), error},

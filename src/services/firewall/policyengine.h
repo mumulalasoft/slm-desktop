@@ -24,6 +24,7 @@ public:
     QVariantMap setIpPolicy(const QVariantMap &policy);
     QVariantList listIpPolicies() const;
     QVariantMap clearIpPolicies();
+    QVariantMap removeIpPolicy(const QString &policyId);
     QVariantList listConnections() const;
 
 private:

@@ -125,6 +125,7 @@ private slots:
         const QVariantMap result = service.SetIpPolicy(request);
         QCOMPARE(result.value(QStringLiteral("ok")).toBool(), true);
         QVERIFY(result.value(QStringLiteral("policy")).toMap().contains(QStringLiteral("targets")));
+        QVERIFY(result.value(QStringLiteral("policy")).toMap().contains(QStringLiteral("policyId")));
 
         const QVariantList listed = service.ListIpPolicies();
         QCOMPARE(listed.size(), 1);
@@ -134,6 +135,41 @@ private slots:
         const QVariantMap cleared = service.ClearIpPolicies();
         QCOMPARE(cleared.value(QStringLiteral("ok")).toBool(), true);
         QCOMPARE(service.ListIpPolicies().size(), 0);
+    }
+
+    void remove_ip_policy_contract()
+    {
+        FirewallService service;
+
+        const QVariantMap first = service.SetIpPolicy(QVariantMap{
+            {QStringLiteral("ip"), QStringLiteral("203.0.113.81")},
+            {QStringLiteral("scope"), QStringLiteral("both")},
+        });
+        const QVariantMap second = service.SetIpPolicy(QVariantMap{
+            {QStringLiteral("ip"), QStringLiteral("198.51.100.91")},
+            {QStringLiteral("scope"), QStringLiteral("incoming")},
+        });
+        QCOMPARE(first.value(QStringLiteral("ok")).toBool(), true);
+        QCOMPARE(second.value(QStringLiteral("ok")).toBool(), true);
+
+        const QString firstId = first.value(QStringLiteral("policy")).toMap().value(QStringLiteral("policyId")).toString();
+        const QString secondId = second.value(QStringLiteral("policy")).toMap().value(QStringLiteral("policyId")).toString();
+        QVERIFY(!firstId.isEmpty());
+        QVERIFY(!secondId.isEmpty());
+        QCOMPARE(service.ListIpPolicies().size(), 2);
+
+        const QVariantMap removeResult = service.RemoveIpPolicy(firstId);
+        QCOMPARE(removeResult.value(QStringLiteral("ok")).toBool(), true);
+        const QVariantList listed = service.ListIpPolicies();
+        QCOMPARE(listed.size(), 1);
+        QCOMPARE(listed.first().toMap().value(QStringLiteral("policyId")).toString(), secondId);
+
+        const QVariantMap missing = service.RemoveIpPolicy(QStringLiteral("policy-does-not-exist"));
+        QCOMPARE(missing.value(QStringLiteral("ok")).toBool(), false);
+        QCOMPARE(missing.value(QStringLiteral("error")).toString(), QStringLiteral("policy-id-not-found"));
+
+        const QVariantMap cleared = service.ClearIpPolicies();
+        QCOMPARE(cleared.value(QStringLiteral("ok")).toBool(), true);
     }
 
 private:

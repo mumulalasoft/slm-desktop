@@ -78,8 +78,10 @@ private slots:
         const QVariantMap result = engine.setIpPolicy(request);
         QCOMPARE(result.value(QStringLiteral("ok")).toBool(), true);
         QCOMPARE(result.value(QStringLiteral("appliedRules")).toInt(), 2);
-        QCOMPARE(result.value(QStringLiteral("policy")).toMap().value(QStringLiteral("scope")).toString(),
-                 QStringLiteral("incoming"));
+        const QVariantMap normalizedPolicy = result.value(QStringLiteral("policy")).toMap();
+        QCOMPARE(normalizedPolicy.value(QStringLiteral("scope")).toString(), QStringLiteral("incoming"));
+        QVERIFY(!normalizedPolicy.value(QStringLiteral("policyId")).toString().isEmpty());
+        QVERIFY(!normalizedPolicy.value(QStringLiteral("createdAt")).toString().isEmpty());
 
         const QStringList rules = nft.lastAppliedBatch();
         QVERIFY(rules.contains(QStringLiteral("add rule inet slm_firewall input ip saddr 203.0.113.10 drop")));
@@ -91,6 +93,7 @@ private slots:
         QCOMPARE(stored.value(QStringLiteral("type")).toString(), QStringLiteral("list"));
         QCOMPARE(stored.value(QStringLiteral("reason")).toString(), QStringLiteral("suspicious-ingress"));
         QCOMPARE(stored.value(QStringLiteral("duration")).toString(), QStringLiteral("24h"));
+        QVERIFY(!stored.value(QStringLiteral("policyId")).toString().isEmpty());
     }
 
     void list_and_clear_ip_policies_contract()
@@ -115,6 +118,45 @@ private slots:
         const QVariantMap clearResult = engine.clearIpPolicies();
         QCOMPARE(clearResult.value(QStringLiteral("ok")).toBool(), true);
         QCOMPARE(engine.listIpPolicies().size(), 0);
+    }
+
+    void remove_ip_policy_contract()
+    {
+        Slm::Firewall::PolicyStore store;
+        QString error;
+        QVERIFY(store.start(&error));
+
+        Slm::Firewall::NftablesAdapter nft;
+        Slm::Firewall::AppIdentityClient identity;
+        Slm::Firewall::PolicyEngine engine(&store, &nft, &identity);
+
+        const QVariantMap first = engine.setIpPolicy(QVariantMap{
+            {QStringLiteral("ip"), QStringLiteral("203.0.113.21")},
+            {QStringLiteral("scope"), QStringLiteral("both")},
+        });
+        const QVariantMap second = engine.setIpPolicy(QVariantMap{
+            {QStringLiteral("ip"), QStringLiteral("198.51.100.52")},
+            {QStringLiteral("scope"), QStringLiteral("incoming")},
+        });
+        QCOMPARE(first.value(QStringLiteral("ok")).toBool(), true);
+        QCOMPARE(second.value(QStringLiteral("ok")).toBool(), true);
+
+        const QString firstId = first.value(QStringLiteral("policy")).toMap().value(QStringLiteral("policyId")).toString();
+        const QString secondId = second.value(QStringLiteral("policy")).toMap().value(QStringLiteral("policyId")).toString();
+        QVERIFY(!firstId.isEmpty());
+        QVERIFY(!secondId.isEmpty());
+        QCOMPARE(engine.listIpPolicies().size(), 2);
+
+        const QVariantMap removeResult = engine.removeIpPolicy(firstId);
+        QCOMPARE(removeResult.value(QStringLiteral("ok")).toBool(), true);
+
+        const QVariantList remaining = engine.listIpPolicies();
+        QCOMPARE(remaining.size(), 1);
+        QCOMPARE(remaining.first().toMap().value(QStringLiteral("policyId")).toString(), secondId);
+
+        const QVariantMap missing = engine.removeIpPolicy(QStringLiteral("missing-policy-id"));
+        QCOMPARE(missing.value(QStringLiteral("ok")).toBool(), false);
+        QCOMPARE(missing.value(QStringLiteral("error")).toString(), QStringLiteral("policy-id-not-found"));
     }
 };
 

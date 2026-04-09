@@ -169,6 +169,27 @@ bool FirewallServiceClient::clearIpPolicies()
     return ok;
 }
 
+bool FirewallServiceClient::removeIpPolicy(const QString &policyId)
+{
+    if (!ensureIface()) {
+        return false;
+    }
+    const QString id = policyId.trimmed();
+    if (id.isEmpty()) {
+        return false;
+    }
+    QDBusReply<QVariantMap> reply = m_iface->call(QStringLiteral("RemoveIpPolicy"), id);
+    if (!reply.isValid()) {
+        return false;
+    }
+    const QVariantMap payload = reply.value();
+    const bool ok = payload.value(QStringLiteral("ok"), false).toBool();
+    if (ok) {
+        refreshIpPolicies();
+    }
+    return ok;
+}
+
 void FirewallServiceClient::onNameOwnerChanged(const QString &name,
                                                const QString &oldOwner,
                                                const QString &newOwner)

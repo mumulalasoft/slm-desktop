@@ -39,6 +39,7 @@ public slots:
     QVariantMap SetIpPolicy(const QVariantMap &policy);
     QVariantList ListIpPolicies() const;
     QVariantMap ClearIpPolicies();
+    QVariantMap RemoveIpPolicy(const QString &policyId);
     QVariantList ListConnections() const;
 
 signals:
