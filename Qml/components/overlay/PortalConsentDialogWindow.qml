@@ -32,6 +32,12 @@ AppDialog {
     readonly property bool isSecretReadCapability: capabilityLabel === "Secret.Read"
     readonly property bool isSecretWriteCapability: capabilityLabel === "Secret.Store"
     readonly property bool isSecretDeleteCapability: capabilityLabel === "Secret.Delete"
+    readonly property bool isNetworkCapability: {
+        var normalized = capabilityLabel.toLowerCase()
+        return normalized.indexOf("network") === 0
+                || normalized.indexOf("socket") >= 0
+                || normalized.indexOf("firewall") >= 0
+    }
     readonly property bool persistentEligible: {
         if (!payload || payload.persistentEligible === undefined) {
             return true
@@ -214,7 +220,7 @@ AppDialog {
 
             DSStyle.Button {
                 visible: root.isSecretCapability
-                text: "Open Security Settings"
+                text: root.isNetworkCapability ? "Open Firewall Settings" : "Open Security Settings"
                 onClicked: root.openSettingsRequested()
             }
 
