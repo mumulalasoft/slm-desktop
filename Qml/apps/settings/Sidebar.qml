@@ -15,6 +15,25 @@ Rectangle {
 
     signal moduleSelected(string id)
 
+    function firewallPendingPromptCount() {
+        if (typeof FirewallServiceClient === "undefined" || !FirewallServiceClient) {
+            return 0
+        }
+        const pending = FirewallServiceClient.pendingPrompts
+        if (!pending || typeof pending.length !== "number") {
+            return 0
+        }
+        return Math.max(0, pending.length)
+    }
+
+    function moduleBadgeCount(moduleId) {
+        const id = String(moduleId || "").trim().toLowerCase()
+        if (id === "firewall") {
+            return root.firewallPendingPromptCount()
+        }
+        return 0
+    }
+
     function microAnimationAllowed() {
         if (!Theme.animationsEnabled) {
             return false
@@ -120,6 +139,7 @@ Rectangle {
                                     width: Math.floor((tilesFlow.width - 20) / 3)
                                     height: 64
                                     padding: 0
+                                    readonly property int moduleBadge: root.moduleBadgeCount(modelData.id)
 
                                     background: Rectangle {
                                         radius: Theme.radiusCard || 8
@@ -160,6 +180,26 @@ Rectangle {
                                             elide: Text.ElideRight
                                             maximumLineCount: 2
                                             Layout.alignment: Qt.AlignVCenter
+                                        }
+
+                                        Rectangle {
+                                            visible: moduleBadge > 0
+                                            Layout.alignment: Qt.AlignVCenter
+                                            implicitHeight: 22
+                                            implicitWidth: Math.max(22, badgeText.implicitWidth + 10)
+                                            radius: Theme.radiusLg
+                                            color: Theme.color("accent")
+                                            border.width: Theme.borderWidthThin
+                                            border.color: Qt.rgba(0, 0, 0, 0.14)
+
+                                            Text {
+                                                id: badgeText
+                                                anchors.centerIn: parent
+                                                text: moduleBadge > 99 ? "99+" : String(moduleBadge)
+                                                font.pixelSize: Theme.fontSize("xs")
+                                                font.weight: Theme.fontWeight("semibold")
+                                                color: Theme.color("onAccent")
+                                            }
                                         }
                                     }
 
