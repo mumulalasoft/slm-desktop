@@ -21,6 +21,7 @@ class FirewallServiceClient : public QObject
     Q_PROPERTY(QVariantList activeConnections READ activeConnections NOTIFY activeConnectionsChanged)
     Q_PROPERTY(QString lastQuickBlockPolicyId READ lastQuickBlockPolicyId WRITE setLastQuickBlockPolicyId NOTIFY quickBlockStateChanged)
     Q_PROPERTY(QString lastQuickBlockTarget READ lastQuickBlockTarget WRITE setLastQuickBlockTarget NOTIFY quickBlockStateChanged)
+    Q_PROPERTY(QString quickBlockUndoNotice READ quickBlockUndoNotice NOTIFY quickBlockStateChanged)
 
 public:
     explicit FirewallServiceClient(QObject *parent = nullptr);
@@ -36,6 +37,7 @@ public:
     QVariantList activeConnections() const;
     QString lastQuickBlockPolicyId() const;
     QString lastQuickBlockTarget() const;
+    QString quickBlockUndoNotice() const;
     void setLastQuickBlockPolicyId(const QString &policyId);
     void setLastQuickBlockTarget(const QString &target);
 
@@ -93,4 +95,5 @@ private:
     QVariantList m_activeConnections;
     QString m_lastQuickBlockPolicyId;
     QString m_lastQuickBlockTarget;
+    QString m_quickBlockUndoNotice;
 };

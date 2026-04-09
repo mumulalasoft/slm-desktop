@@ -1473,6 +1473,16 @@ Flickable {
                                  && FirewallServiceClient.lastQuickBlockPolicyId.length > 0
                         onClicked: root.undoLastQuickBlock()
                     }
+
+                    Text {
+                        visible: FirewallServiceClient.lastQuickBlockPolicyId.length === 0
+                                 && FirewallServiceClient.quickBlockUndoNotice.length > 0
+                        text: FirewallServiceClient.quickBlockUndoNotice
+                        color: Theme.color("textSecondary")
+                        font.pixelSize: Theme.fontSize("small")
+                        wrapMode: Text.WordWrap
+                        Layout.fillWidth: true
+                    }
                 }
             }
         }

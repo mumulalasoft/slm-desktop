@@ -134,6 +134,11 @@ QString FirewallServiceClient::lastQuickBlockTarget() const
     return m_lastQuickBlockTarget;
 }
 
+QString FirewallServiceClient::quickBlockUndoNotice() const
+{
+    return m_quickBlockUndoNotice;
+}
+
 void FirewallServiceClient::setLastQuickBlockPolicyId(const QString &policyId)
 {
     const QString normalized = policyId.trimmed();
@@ -141,6 +146,9 @@ void FirewallServiceClient::setLastQuickBlockPolicyId(const QString &policyId)
         return;
     }
     m_lastQuickBlockPolicyId = normalized;
+    if (!normalized.isEmpty() && !m_quickBlockUndoNotice.isEmpty()) {
+        m_quickBlockUndoNotice.clear();
+    }
     if (!m_restoringQuickBlockState) {
         setSettingsValue(QString::fromLatin1(kQuickBlockPolicyPath), normalized);
     }
@@ -235,8 +243,10 @@ void FirewallServiceClient::syncQuickBlockTokenWithIpPolicies()
         return;
     }
 
+    m_quickBlockUndoNotice = QStringLiteral("Last quick block is no longer available (expired or removed).");
     setLastQuickBlockPolicyId(QString());
     setLastQuickBlockTarget(QString());
+    emit quickBlockStateChanged();
 }
 
 bool FirewallServiceClient::refresh()
