@@ -19,16 +19,6 @@ Flickable {
     property string wifiAuthReason: ""
     property var componentIssues: []
     property bool hasBlockingIssues: false
-    readonly property var firewallModes: [
-        { value: "home", label: "Home" },
-        { value: "public", label: "Public" },
-        { value: "custom", label: "Custom" }
-    ]
-    readonly property var firewallPolicies: [
-        { value: "deny", label: "Deny" },
-        { value: "allow", label: "Allow" },
-        { value: "prompt", label: "Prompt" }
-    ]
 
     function refreshComponentIssues() {
         if (typeof ComponentHealth === "undefined" || !ComponentHealth) {
@@ -45,24 +35,6 @@ Flickable {
                 return level === "required"
             })
         }
-    }
-
-    function modeIndex(value) {
-        for (var i = 0; i < firewallModes.length; ++i) {
-            if (firewallModes[i].value === value) {
-                return i
-            }
-        }
-        return 0
-    }
-
-    function policyIndex(value) {
-        for (var i = 0; i < firewallPolicies.length; ++i) {
-            if (firewallPolicies[i].value === value) {
-                return i
-            }
-        }
-        return 0
     }
 
     ColumnLayout {
@@ -173,75 +145,23 @@ Flickable {
             }
         }
 
-        // Firewall Section
+        // Security Shortcut
         SettingGroup {
-            title: "Firewall"
+            title: "Security"
             Layout.fillWidth: true
 
             SettingCard {
-                label: "Service Status"
-                description: FirewallServiceClient.available
-                             ? "Connected to desktop-firewalld"
-                             : "Firewall service offline"
-
-                Text {
-                    text: FirewallServiceClient.available ? "Online" : "Offline"
-                    color: FirewallServiceClient.available
-                           ? Theme.color("success")
-                           : Theme.color("error")
-                    font.weight: Theme.fontWeight("medium")
-                }
-            }
-
-            SettingCard {
                 label: "Firewall"
-                description: "Block incoming by default while keeping desktop networking simple"
+                description: "Advanced app-aware firewall controls live in Security settings"
 
-                SettingToggle {
-                    checked: FirewallServiceClient.enabled
-                    enabled: FirewallServiceClient.available && !root.hasBlockingIssues
-                    onToggled: FirewallServiceClient.setEnabled(checked)
-                }
-            }
-
-            SettingCard {
-                label: "Mode"
-                description: "Choose policy profile for current network context"
-
-                ComboBox {
-                    model: root.firewallModes.map(function(item) { return item.label })
-                    currentIndex: root.modeIndex(FirewallServiceClient.mode)
-                    enabled: FirewallServiceClient.available && FirewallServiceClient.enabled && !root.hasBlockingIssues
-                    onActivated: function(index) {
-                        FirewallServiceClient.setMode(root.firewallModes[index].value)
-                    }
-                }
-            }
-
-            SettingCard {
-                label: "Incoming Default Policy"
-                description: "Default action for incoming connections"
-
-                ComboBox {
-                    model: root.firewallPolicies.map(function(item) { return item.label })
-                    currentIndex: root.policyIndex(FirewallServiceClient.defaultIncomingPolicy)
-                    enabled: FirewallServiceClient.available && FirewallServiceClient.enabled && !root.hasBlockingIssues
-                    onActivated: function(index) {
-                        FirewallServiceClient.setDefaultIncomingPolicy(root.firewallPolicies[index].value)
-                    }
-                }
-            }
-
-            SettingCard {
-                label: "Outgoing Default Policy"
-                description: "Default action for outgoing connections"
-
-                ComboBox {
-                    model: root.firewallPolicies.map(function(item) { return item.label })
-                    currentIndex: root.policyIndex(FirewallServiceClient.defaultOutgoingPolicy)
-                    enabled: FirewallServiceClient.available && FirewallServiceClient.enabled && !root.hasBlockingIssues
-                    onActivated: function(index) {
-                        FirewallServiceClient.setDefaultOutgoingPolicy(root.firewallPolicies[index].value)
+                Button {
+                    text: "Open Firewall Settings"
+                    flat: true
+                    enabled: !root.hasBlockingIssues
+                    onClicked: {
+                        if (SettingsApp) {
+                            SettingsApp.openModule("firewall")
+                        }
                     }
                 }
             }
@@ -282,6 +202,5 @@ Flickable {
 
     Component.onCompleted: {
         refreshComponentIssues()
-        FirewallServiceClient.refresh()
     }
 }

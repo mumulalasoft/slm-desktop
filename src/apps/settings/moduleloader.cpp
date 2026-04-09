@@ -246,6 +246,7 @@ void ModuleLoader::addBuiltinModuleOrder()
         QStringLiteral("applications"),
         QStringLiteral("useraccounts"),
         QStringLiteral("permissions"),
+        QStringLiteral("firewall"),
         QStringLiteral("developer"),
         QStringLiteral("about")
     };

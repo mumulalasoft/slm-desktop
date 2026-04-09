@@ -3,8 +3,8 @@
     "name": "Network",
     "icon": "network-workgroup",
     "group": "Connectivity",
-    "description": "Wi-Fi, Ethernet, VPN, proxy, and firewall.",
-    "keywords": ["wifi", "ethernet", "vpn", "proxy", "internet", "firewall", "security"],
+    "description": "Wi-Fi, Ethernet, VPN, and proxy.",
+    "keywords": ["wifi", "ethernet", "vpn", "proxy", "internet"],
     "main": "NetworkPage.qml",
     "settings": [
         {
@@ -32,24 +32,6 @@
             "keywords": ["vpn", "private network"],
             "type": "action",
             "backend_binding": "dbus:org.freedesktop.NetworkManager.Settings",
-            "privileged_action": "org.slm.settings.network.modify"
-        },
-        {
-            "id": "firewall-enabled",
-            "label": "Firewall",
-            "description": "Enable desktop firewall service",
-            "keywords": ["firewall", "security", "incoming"],
-            "type": "toggle",
-            "backend_binding": "dbus:org.slm.Desktop.Firewall",
-            "privileged_action": "org.slm.settings.network.modify"
-        },
-        {
-            "id": "firewall-mode",
-            "label": "Firewall Mode",
-            "description": "Set firewall profile: Home, Public, or Custom",
-            "keywords": ["firewall", "mode", "home", "public", "custom"],
-            "type": "choice",
-            "backend_binding": "dbus:org.slm.Desktop.Firewall",
             "privileged_action": "org.slm.settings.network.modify"
         }
     ]
