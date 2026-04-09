@@ -32,6 +32,7 @@ Flickable {
     property bool connectionRemember: false
     property string connectionResultText: ""
     property bool connectionResultOk: true
+    property bool pendingPromptRemember: false
     property int quickBlockNowEpochSec: Math.floor(Date.now() / 1000)
     property int quickBlockLastRemainingSec: -1
     readonly property bool devPromptSimulationEnabled: Qt.application.arguments.indexOf("--firewall-dev") !== -1
@@ -666,6 +667,18 @@ Flickable {
             return executable
         }
         return qsTr("Unknown actor")
+    }
+
+    function pendingPromptLabel(item) {
+        var row = item || {}
+        var evaluation = row.evaluation || {}
+        var actor = root.evaluateActorLabel(evaluation)
+        var target = root.evaluateTargetLabel(evaluation)
+        var source = String(evaluation.source || "policy")
+        if (target.length) {
+            return actor + " -> " + target + " (" + source + ")"
+        }
+        return actor + " (" + source + ")"
     }
 
     function simulateEvaluateConnection() {
@@ -1492,6 +1505,94 @@ Flickable {
         SettingGroup {
             title: qsTr("Active Connections")
             Layout.fillWidth: true
+
+            SettingCard {
+                label: qsTr("Pending Prompts")
+                description: qsTr("Incoming prompt requests that need allow/deny decision")
+
+                ColumnLayout {
+                    spacing: 8
+                    Layout.fillWidth: true
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: qsTr("%1 pending prompt(s)").arg(FirewallServiceClient.pendingPrompts.length)
+                            color: Theme.color("textSecondary")
+                            font.pixelSize: Theme.fontSize("small")
+                        }
+
+                        CheckBox {
+                            text: qsTr("Remember")
+                            checked: root.pendingPromptRemember
+                            enabled: FirewallServiceClient.available && FirewallServiceClient.enabled
+                            onToggled: root.pendingPromptRemember = checked
+                        }
+
+                        Button {
+                            text: qsTr("Clear")
+                            enabled: FirewallServiceClient.available
+                                     && FirewallServiceClient.pendingPrompts.length > 0
+                            onClicked: FirewallServiceClient.clearPendingPrompts()
+                        }
+                    }
+
+                    Repeater {
+                        model: FirewallServiceClient.pendingPrompts
+
+                        delegate: Rectangle {
+                            Layout.fillWidth: true
+                            radius: Theme.radiusControl
+                            color: Theme.color("surface")
+                            border.width: Theme.borderWidthThin
+                            border.color: Theme.color("panelBorder")
+                            implicitHeight: pendingRow.implicitHeight + 10
+
+                            RowLayout {
+                                id: pendingRow
+                                anchors.fill: parent
+                                anchors.margins: 8
+                                spacing: 10
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: root.pendingPromptLabel(modelData)
+                                    color: Theme.color("textPrimary")
+                                    font.pixelSize: Theme.fontSize("small")
+                                    elide: Text.ElideRight
+                                }
+
+                                Button {
+                                    text: qsTr("Allow")
+                                    enabled: FirewallServiceClient.available && FirewallServiceClient.enabled
+                                    onClicked: {
+                                        var ok = FirewallServiceClient.resolvePendingPrompt(index, "allow", root.pendingPromptRemember)
+                                        root.connectionResultOk = ok
+                                        root.connectionResultText = ok
+                                                ? qsTr("Pending prompt allowed.")
+                                                : qsTr("Failed to resolve pending prompt.")
+                                    }
+                                }
+
+                                Button {
+                                    text: qsTr("Deny")
+                                    enabled: FirewallServiceClient.available && FirewallServiceClient.enabled
+                                    onClicked: {
+                                        var ok = FirewallServiceClient.resolvePendingPrompt(index, "deny", root.pendingPromptRemember)
+                                        root.connectionResultOk = ok
+                                        root.connectionResultText = ok
+                                                ? qsTr("Pending prompt denied.")
+                                                : qsTr("Failed to resolve pending prompt.")
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
 
             SettingCard {
                 label: qsTr("Live Network Activity")

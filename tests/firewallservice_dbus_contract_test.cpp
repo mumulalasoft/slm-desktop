@@ -134,6 +134,7 @@ private slots:
     void evaluate_connection_policy_contract()
     {
         FirewallService service;
+        QSignalSpy promptSpy(&service, &FirewallService::ConnectionPromptRequested);
         const QVariantMap incomingDefault = service.EvaluateConnection(QVariantMap{
             {QStringLiteral("pid"), -1},
             {QStringLiteral("direction"), QStringLiteral("incoming")},
@@ -165,6 +166,10 @@ private slots:
         QCOMPARE(outgoingUnknown.value(QStringLiteral("decision")).toString(), QStringLiteral("prompt"));
         QCOMPARE(outgoingUnknown.value(QStringLiteral("source")).toString(), QStringLiteral("cli-default-prompt"));
         QCOMPARE(outgoingUnknown.value(QStringLiteral("promptSuppressed")).toBool(), false);
+        QCOMPARE(promptSpy.count(), 1);
+        const QVariantMap promptPayload = promptSpy.takeFirst().at(0).toMap();
+        QVERIFY(!promptPayload.value(QStringLiteral("request")).toMap().isEmpty());
+        QVERIFY(!promptPayload.value(QStringLiteral("evaluation")).toMap().isEmpty());
 
         const QVariantMap outgoingSuppressed = service.EvaluateConnection(QVariantMap{
             {QStringLiteral("pid"), -1},
@@ -174,6 +179,7 @@ private slots:
         QCOMPARE(outgoingSuppressed.value(QStringLiteral("decision")).toString(), QStringLiteral("deny"));
         QCOMPARE(outgoingSuppressed.value(QStringLiteral("source")).toString(), QStringLiteral("prompt-cooldown"));
         QCOMPARE(outgoingSuppressed.value(QStringLiteral("promptSuppressed")).toBool(), true);
+        QCOMPARE(promptSpy.count(), 0);
 
         const QVariantMap outgoingLocal = service.EvaluateConnection(QVariantMap{
             {QStringLiteral("pid"), -1},

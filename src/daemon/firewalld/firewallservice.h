@@ -54,6 +54,7 @@ signals:
     void FirewallStateChanged(const QVariantMap &state);
     void PolicyChanged(const QVariantMap &change);
     void ConnectionObserved(const QVariantMap &event);
+    void ConnectionPromptRequested(const QVariantMap &prompt);
 
 private:
     void syncRuntimeStateToPolicyStore();

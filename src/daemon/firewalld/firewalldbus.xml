@@ -81,5 +81,8 @@
     <signal name="ConnectionObserved">
       <arg name="event" type="a{sv}"/>
     </signal>
+    <signal name="ConnectionPromptRequested">
+      <arg name="prompt" type="a{sv}"/>
+    </signal>
   </interface>
 </node>

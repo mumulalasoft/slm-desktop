@@ -4,6 +4,8 @@
 #include <QDBusInterface>
 #include <QDBusReply>
 #include <QDBusVariant>
+#include <QDateTime>
+#include <QJsonDocument>
 
 namespace {
 constexpr const char kService[] = "org.slm.Desktop.Firewall";
@@ -122,6 +124,11 @@ QVariantList FirewallServiceClient::ipPolicies() const
 QVariantList FirewallServiceClient::activeConnections() const
 {
     return m_activeConnections;
+}
+
+QVariantList FirewallServiceClient::pendingPrompts() const
+{
+    return m_pendingPrompts;
 }
 
 QString FirewallServiceClient::lastQuickBlockPolicyId() const
@@ -518,6 +525,35 @@ bool FirewallServiceClient::refreshConnections()
     return true;
 }
 
+bool FirewallServiceClient::resolvePendingPrompt(int index, const QString &decision, bool remember)
+{
+    if (index < 0 || index >= m_pendingPrompts.size()) {
+        return false;
+    }
+    const QVariantMap row = m_pendingPrompts.at(index).toMap();
+    const QVariantMap request = row.value(QStringLiteral("request")).toMap();
+    if (request.isEmpty()) {
+        return false;
+    }
+    const bool ok = resolveConnectionDecision(request, decision, remember);
+    if (!ok) {
+        return false;
+    }
+
+    m_pendingPrompts.removeAt(index);
+    emit pendingPromptsChanged();
+    return true;
+}
+
+void FirewallServiceClient::clearPendingPrompts()
+{
+    if (m_pendingPrompts.isEmpty()) {
+        return;
+    }
+    m_pendingPrompts.clear();
+    emit pendingPromptsChanged();
+}
+
 void FirewallServiceClient::onNameOwnerChanged(const QString &name,
                                                const QString &oldOwner,
                                                const QString &newOwner)
@@ -548,6 +584,10 @@ void FirewallServiceClient::onNameOwnerChanged(const QString &name,
         m_activeConnections.clear();
         emit activeConnectionsChanged();
     }
+    if (!m_pendingPrompts.isEmpty()) {
+        m_pendingPrompts.clear();
+        emit pendingPromptsChanged();
+    }
     delete m_iface;
     m_iface = nullptr;
 }
@@ -558,6 +598,40 @@ void FirewallServiceClient::onFirewallStateChanged(const QVariantMap &state)
     refreshAppPolicies();
     refreshIpPolicies();
     refreshConnections();
+}
+
+void FirewallServiceClient::onConnectionPromptRequested(const QVariantMap &prompt)
+{
+    const QVariantMap request = prompt.value(QStringLiteral("request")).toMap();
+    const QVariantMap evaluation = prompt.value(QStringLiteral("evaluation")).toMap();
+    if (request.isEmpty() || evaluation.isEmpty()) {
+        return;
+    }
+
+    const QString requestKey = QString::fromUtf8(
+        QJsonDocument::fromVariant(request).toJson(QJsonDocument::Compact));
+    const QString evaluationKey = QString::fromUtf8(
+        QJsonDocument::fromVariant(evaluation).toJson(QJsonDocument::Compact));
+    for (const QVariant &item : m_pendingPrompts) {
+        const QVariantMap existing = item.toMap();
+        const QString existingRequestKey = QString::fromUtf8(
+            QJsonDocument::fromVariant(existing.value(QStringLiteral("request")).toMap())
+                .toJson(QJsonDocument::Compact));
+        const QString existingEvaluationKey = QString::fromUtf8(
+            QJsonDocument::fromVariant(existing.value(QStringLiteral("evaluation")).toMap())
+                .toJson(QJsonDocument::Compact));
+        if (existingRequestKey == requestKey && existingEvaluationKey == evaluationKey) {
+            return;
+        }
+    }
+
+    QVariantMap row = prompt;
+    row.insert(QStringLiteral("receivedAt"), QDateTime::currentDateTimeUtc().toString(Qt::ISODate));
+    m_pendingPrompts.append(row);
+    while (m_pendingPrompts.size() > 20) {
+        m_pendingPrompts.removeFirst();
+    }
+    emit pendingPromptsChanged();
 }
 
 bool FirewallServiceClient::ensureIface()
@@ -584,6 +658,12 @@ bool FirewallServiceClient::ensureIface()
                                               QStringLiteral("FirewallStateChanged"),
                                               this,
                                               SLOT(onFirewallStateChanged(QVariantMap)));
+        QDBusConnection::sessionBus().connect(QLatin1String(kService),
+                                              QLatin1String(kPath),
+                                              QLatin1String(kInterface),
+                                              QStringLiteral("ConnectionPromptRequested"),
+                                              this,
+                                              SLOT(onConnectionPromptRequested(QVariantMap)));
     }
     return nowAvailable;
 }

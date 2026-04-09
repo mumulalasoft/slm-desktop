@@ -252,6 +252,14 @@ QVariantMap FirewallService::EvaluateConnection(const QVariantMap &request)
 {
     const QVariantMap result = m_policyEngine.evaluateConnection(request);
     emit ConnectionObserved(request);
+    const QString decision = result.value(QStringLiteral("decision")).toString();
+    const bool promptSuppressed = result.value(QStringLiteral("promptSuppressed"), false).toBool();
+    if (decision == QLatin1String("prompt") && !promptSuppressed) {
+        emit ConnectionPromptRequested(QVariantMap{
+            {QStringLiteral("request"), request},
+            {QStringLiteral("evaluation"), result},
+        });
+    }
     return result;
 }
 

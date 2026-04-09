@@ -19,6 +19,7 @@ class FirewallServiceClient : public QObject
     Q_PROPERTY(QVariantList appPolicies READ appPolicies NOTIFY appPoliciesChanged)
     Q_PROPERTY(QVariantList ipPolicies READ ipPolicies NOTIFY ipPoliciesChanged)
     Q_PROPERTY(QVariantList activeConnections READ activeConnections NOTIFY activeConnectionsChanged)
+    Q_PROPERTY(QVariantList pendingPrompts READ pendingPrompts NOTIFY pendingPromptsChanged)
     Q_PROPERTY(QString lastQuickBlockPolicyId READ lastQuickBlockPolicyId WRITE setLastQuickBlockPolicyId NOTIFY quickBlockStateChanged)
     Q_PROPERTY(QString lastQuickBlockTarget READ lastQuickBlockTarget WRITE setLastQuickBlockTarget NOTIFY quickBlockStateChanged)
     Q_PROPERTY(QString quickBlockUndoNotice READ quickBlockUndoNotice NOTIFY quickBlockStateChanged)
@@ -35,6 +36,7 @@ public:
     QVariantList appPolicies() const;
     QVariantList ipPolicies() const;
     QVariantList activeConnections() const;
+    QVariantList pendingPrompts() const;
     QString lastQuickBlockPolicyId() const;
     QString lastQuickBlockTarget() const;
     QString quickBlockUndoNotice() const;
@@ -61,6 +63,8 @@ public:
     Q_INVOKABLE bool clearIpPolicies();
     Q_INVOKABLE bool removeIpPolicy(const QString &policyId);
     Q_INVOKABLE bool refreshConnections();
+    Q_INVOKABLE bool resolvePendingPrompt(int index, const QString &decision, bool remember);
+    Q_INVOKABLE void clearPendingPrompts();
 
 signals:
     void availableChanged();
@@ -68,11 +72,13 @@ signals:
     void appPoliciesChanged();
     void ipPoliciesChanged();
     void activeConnectionsChanged();
+    void pendingPromptsChanged();
     void quickBlockStateChanged();
 
 private slots:
     void onNameOwnerChanged(const QString &name, const QString &oldOwner, const QString &newOwner);
     void onFirewallStateChanged(const QVariantMap &state);
+    void onConnectionPromptRequested(const QVariantMap &prompt);
 
 private:
     bool ensureIface();
@@ -93,6 +99,7 @@ private:
     QVariantList m_appPolicies;
     QVariantList m_ipPolicies;
     QVariantList m_activeConnections;
+    QVariantList m_pendingPrompts;
     QString m_lastQuickBlockPolicyId;
     QString m_lastQuickBlockTarget;
     QString m_quickBlockUndoNotice;
