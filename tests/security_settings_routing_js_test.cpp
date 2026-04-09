@@ -11,6 +11,7 @@ class SecuritySettingsRoutingJsTest : public QObject
 
 private slots:
     void deepLinkForCapability_contract();
+    void firewallQuickBlockUi_contract();
 };
 
 void SecuritySettingsRoutingJsTest::deepLinkForCapability_contract()
@@ -54,6 +55,28 @@ void SecuritySettingsRoutingJsTest::deepLinkForCapability_contract()
     const QJSValue emptyCapability = call(QString());
     QVERIFY2(!emptyCapability.isError(), qPrintable(emptyCapability.toString()));
     QCOMPARE(emptyCapability.toString(), QStringLiteral("settings://permissions/app-secrets"));
+}
+
+void SecuritySettingsRoutingJsTest::firewallQuickBlockUi_contract()
+{
+    const QString path = QStringLiteral(DESKTOP_SOURCE_DIR)
+                         + QStringLiteral("/src/apps/settings/modules/firewall/FirewallPage.qml");
+    QVERIFY2(QFileInfo::exists(path), "FirewallPage.qml is missing");
+
+    QFile file(path);
+    QVERIFY2(file.open(QIODevice::ReadOnly | QIODevice::Text),
+             "cannot open FirewallPage.qml");
+    const QString text = QString::fromUtf8(file.readAll());
+
+    QVERIFY(text.contains(QStringLiteral("function quickBlockConnectionIp(entry, temporary)")));
+    QVERIFY(text.contains(QStringLiteral("function quickBlockConnectionSubnet24(entry)")));
+    QVERIFY(text.contains(QStringLiteral("function undoLastQuickBlock()")));
+    QVERIFY(text.contains(QStringLiteral("Undo Last Quick Block")));
+    QVERIFY(text.contains(QStringLiteral("Quick block expires in %1")));
+    QVERIFY(text.contains(QStringLiteral("Block 1h")));
+    QVERIFY(text.contains(QStringLiteral("Block Permanent")));
+    QVERIFY(text.contains(QStringLiteral("Block Subnet (/24)")));
+    QVERIFY(text.contains(QStringLiteral("quickBlockCountdownColor")));
 }
 
 QTEST_GUILESS_MAIN(SecuritySettingsRoutingJsTest)
