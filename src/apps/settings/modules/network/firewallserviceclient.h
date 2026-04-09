@@ -82,6 +82,7 @@ private slots:
     void onConnectionPromptRequested(const QVariantMap &prompt);
 
 private:
+    bool pruneStalePendingPrompts();
     bool ensureIface();
     bool callBoolMapMethod(const QString &method, const QVariant &arg);
     bool applyStateMap(const QVariantMap &map);

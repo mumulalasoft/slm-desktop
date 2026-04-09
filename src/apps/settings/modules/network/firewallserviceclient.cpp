@@ -16,6 +16,7 @@ constexpr const char kSettingsPath[] = "/org/slm/Desktop/Settings";
 constexpr const char kSettingsInterface[] = "org.slm.Desktop.Settings";
 constexpr const char kQuickBlockPolicyPath[] = "firewall.quickBlockUndo.policyId";
 constexpr const char kQuickBlockTargetPath[] = "firewall.quickBlockUndo.target";
+constexpr qint64 kPendingPromptTtlSecs = 15 * 60;
 
 QString normalizeMode(const QString &value)
 {
@@ -527,6 +528,10 @@ bool FirewallServiceClient::refreshConnections()
 
 bool FirewallServiceClient::resolvePendingPrompt(int index, const QString &decision, bool remember)
 {
+    const bool hadPrunedRows = pruneStalePendingPrompts();
+    if (hadPrunedRows) {
+        emit pendingPromptsChanged();
+    }
     if (index < 0 || index >= m_pendingPrompts.size()) {
         return false;
     }
@@ -547,7 +552,11 @@ bool FirewallServiceClient::resolvePendingPrompt(int index, const QString &decis
 
 int FirewallServiceClient::resolveAllPendingPrompts(const QString &decision, bool remember)
 {
+    const bool hadPrunedRows = pruneStalePendingPrompts();
     if (m_pendingPrompts.isEmpty()) {
+        if (hadPrunedRows) {
+            emit pendingPromptsChanged();
+        }
         return 0;
     }
 
@@ -565,7 +574,7 @@ int FirewallServiceClient::resolveAllPendingPrompts(const QString &decision, boo
         ++resolved;
     }
 
-    if (resolved > 0) {
+    if (resolved > 0 || hadPrunedRows) {
         emit pendingPromptsChanged();
     }
     return resolved;
@@ -578,6 +587,34 @@ void FirewallServiceClient::clearPendingPrompts()
     }
     m_pendingPrompts.clear();
     emit pendingPromptsChanged();
+}
+
+bool FirewallServiceClient::pruneStalePendingPrompts()
+{
+    if (m_pendingPrompts.isEmpty()) {
+        return false;
+    }
+
+    const QDateTime nowUtc = QDateTime::currentDateTimeUtc();
+    bool changed = false;
+    for (int i = m_pendingPrompts.size() - 1; i >= 0; --i) {
+        const QVariantMap row = m_pendingPrompts.at(i).toMap();
+        const QString receivedRaw = row.value(QStringLiteral("receivedAt")).toString().trimmed();
+        if (receivedRaw.isEmpty()) {
+            continue;
+        }
+        const QDateTime receivedAt = QDateTime::fromString(receivedRaw, Qt::ISODate);
+        if (!receivedAt.isValid()) {
+            continue;
+        }
+        const qint64 ageSecs = receivedAt.secsTo(nowUtc);
+        if (ageSecs <= kPendingPromptTtlSecs) {
+            continue;
+        }
+        m_pendingPrompts.removeAt(i);
+        changed = true;
+    }
+    return changed;
 }
 
 void FirewallServiceClient::onNameOwnerChanged(const QString &name,
@@ -624,13 +661,20 @@ void FirewallServiceClient::onFirewallStateChanged(const QVariantMap &state)
     refreshAppPolicies();
     refreshIpPolicies();
     refreshConnections();
+    if (pruneStalePendingPrompts()) {
+        emit pendingPromptsChanged();
+    }
 }
 
 void FirewallServiceClient::onConnectionPromptRequested(const QVariantMap &prompt)
 {
+    const bool hadPrunedRows = pruneStalePendingPrompts();
     const QVariantMap request = prompt.value(QStringLiteral("request")).toMap();
     const QVariantMap evaluation = prompt.value(QStringLiteral("evaluation")).toMap();
     if (request.isEmpty() || evaluation.isEmpty()) {
+        if (hadPrunedRows) {
+            emit pendingPromptsChanged();
+        }
         return;
     }
 
