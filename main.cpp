@@ -297,14 +297,14 @@ int main(int argc, char *argv[])
     MultitaskingController multitaskingController(&workspaceManager, &spacesManager);
     WindowThumbnailLayoutEngine windowThumbnailLayoutEngine;
     const auto applyIconThemePref = [&]() {
-        const QString light = uiPreferences.iconThemeLight().trimmed();
-        const QString dark = uiPreferences.iconThemeDark().trimmed();
+        const QString light = desktopSettings.gtkIconThemeLight().trimmed();
+        const QString dark = desktopSettings.gtkIconThemeDark().trimmed();
         if (!light.isEmpty() && !dark.isEmpty()) {
             themeIconController.setThemeMapping(light, dark);
         } else {
             themeIconController.useAutoDetectedMapping();
         }
-        const QString mode = uiPreferences.themeMode().trimmed().toLower();
+        const QString mode = desktopSettings.themeMode().trimmed().toLower();
         const bool darkMode = (mode == QStringLiteral("dark"))
                 || (mode != QStringLiteral("light")
                     && app.palette().color(QPalette::Window).lightness() < 128);
@@ -315,25 +315,34 @@ int main(int argc, char *argv[])
     const QString sessionMode = qEnvironmentVariable("SLM_SESSION_MODE").trimmed().toLower();
     const bool safeModeActive = (sessionMode == QStringLiteral("safe")
                                  || sessionMode == QStringLiteral("recovery"));
-    const bool userAnimationEnabled =
-        uiPreferences.getPreference(QStringLiteral("windowing.animationEnabled"), true).toBool();
+    const bool userAnimationEnabled = desktopSettings.windowingAnimationEnabled();
     const bool runtimeAnimationsEnabled = userAnimationEnabled && !safeModeActive;
     const auto applyAnimationMode = [&]() {
-        const QString amode = uiPreferences.animationMode();
+        const QString amode = desktopSettings.settingValue(QStringLiteral("animation.mode"),
+                                                           QStringLiteral("full")).toString().trimmed().toLower();
         const bool needsReduced = !runtimeAnimationsEnabled
                                   || amode == QLatin1String("reduced")
                                   || amode == QLatin1String("minimal");
         motionController.setReducedMotion(needsReduced);
     };
     applyAnimationMode();
-    QObject::connect(&uiPreferences, &UIPreferences::animationModeChanged, &app, [&]() {
+    QObject::connect(&desktopSettings, &DesktopSettingsClient::windowingAnimationEnabledChanged, &app, [&]() {
         applyAnimationMode();
     });
-
-    QObject::connect(&uiPreferences, &UIPreferences::iconThemeLightChanged, &app, [&]() {
+    QObject::connect(&desktopSettings, &DesktopSettingsClient::settingChanged, &app, [&](const QString &path) {
+        if (path == QLatin1String("animation.mode")) {
+            applyAnimationMode();
+        }
+    });
+    QObject::connect(&desktopSettings, &DesktopSettingsClient::themeModeChanged, &app, [&]() {
+        applyAnimationMode();
         applyIconThemePref();
     });
-    QObject::connect(&uiPreferences, &UIPreferences::iconThemeDarkChanged, &app, [&]() {
+
+    QObject::connect(&desktopSettings, &DesktopSettingsClient::gtkIconThemeLightChanged, &app, [&]() {
+        applyIconThemePref();
+    });
+    QObject::connect(&desktopSettings, &DesktopSettingsClient::gtkIconThemeDarkChanged, &app, [&]() {
         applyIconThemePref();
     });
     AppExecutionGate appExecutionGate(&dockModel, &shortcutModel, &uiPreferences);
@@ -341,8 +350,8 @@ int main(int argc, char *argv[])
     appModel.setUIPreferences(&uiPreferences);
     AppCommandRouter appCommandRouter(&appExecutionGate, &uiPreferences, &screenshotManager);
     const QString envBackend = qEnvironmentVariable("DS_WINDOWING_BACKEND").trimmed();
-    const QString prefBackend = uiPreferences.getPreference(QStringLiteral("windowing.backend"),
-                                                            QStringLiteral("kwin-wayland")).toString();
+    const QString prefBackend = desktopSettings.settingValue(QStringLiteral("windowing.backend"),
+                                                             QStringLiteral("kwin-wayland")).toString();
     const QString requestedBackend = envBackend.isEmpty() ? prefBackend : envBackend;
     windowingBackendManager.configureBackend(requestedBackend);
     printerManager.reload();
