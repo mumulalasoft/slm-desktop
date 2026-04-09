@@ -160,7 +160,7 @@ Flickable {
                     enabled: !root.hasBlockingIssues
                     onClicked: {
                         if (SettingsApp) {
-                            SettingsApp.openModule("firewall")
+                            SettingsApp.openModuleSetting("firewall", "mode")
                         }
                     }
                 }

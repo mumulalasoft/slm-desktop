@@ -7,6 +7,7 @@
 #include <QStandardPaths>
 
 #include "../src/apps/settings/settingsapp.h"
+#include "../src/apps/settings/moduleloader.h"
 
 namespace {
 QString writeTestModule()
@@ -81,6 +82,25 @@ private slots:
         QVERIFY(app.lastModuleOpenLatencyMs() >= 0);
 
         QDir(moduleDir).removeRecursively();
+    }
+
+    void openDeepLink_builtinFirewall_resolvesAnchors()
+    {
+        QQmlApplicationEngine engine;
+        SettingsApp app(&engine);
+
+        const QVariantMap firewallModule = app.moduleLoader()->moduleById(QStringLiteral("firewall"));
+        if (firewallModule.isEmpty()) {
+            QSKIP("Built-in firewall module not available in this test environment");
+        }
+
+        QVERIFY(app.openDeepLink(QStringLiteral("settings://firewall/mode")));
+        QCOMPARE(app.currentModuleId(), QStringLiteral("firewall"));
+        QCOMPARE(app.currentSettingId(), QStringLiteral("mode"));
+
+        QVERIFY(app.openDeepLink(QStringLiteral("settings://firewall#incoming-default")));
+        QCOMPARE(app.currentModuleId(), QStringLiteral("firewall"));
+        QCOMPARE(app.currentSettingId(), QStringLiteral("incoming-default"));
     }
 };
 

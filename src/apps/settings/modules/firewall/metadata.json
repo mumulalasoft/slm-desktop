@@ -13,6 +13,7 @@
             "description": "Enable or disable desktop firewall protection",
             "keywords": ["firewall", "enabled", "protection"],
             "type": "toggle",
+            "anchor": "status",
             "backend_binding": "dbus:org.slm.Desktop.Firewall",
             "privileged_action": "org.slm.settings.network.modify"
         },
@@ -22,6 +23,7 @@
             "description": "Choose firewall mode: Home, Public, or Custom",
             "keywords": ["mode", "home", "public", "custom"],
             "type": "choice",
+            "anchor": "mode",
             "backend_binding": "dbus:org.slm.Desktop.Firewall",
             "privileged_action": "org.slm.settings.network.modify"
         },
@@ -31,6 +33,7 @@
             "description": "Default decision for incoming connections",
             "keywords": ["incoming", "default", "allow", "deny", "prompt"],
             "type": "choice",
+            "anchor": "incoming-default",
             "backend_binding": "dbus:org.slm.Desktop.Firewall",
             "privileged_action": "org.slm.settings.network.modify"
         },
@@ -40,6 +43,7 @@
             "description": "Default decision for outgoing connections",
             "keywords": ["outgoing", "default", "allow", "deny", "prompt"],
             "type": "choice",
+            "anchor": "outgoing-default",
             "backend_binding": "dbus:org.slm.Desktop.Firewall",
             "privileged_action": "org.slm.settings.network.modify"
         }
