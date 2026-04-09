@@ -33,6 +33,7 @@ Flickable {
     property string connectionResultText: ""
     property bool connectionResultOk: true
     property int quickBlockNowEpochSec: Math.floor(Date.now() / 1000)
+    property int quickBlockLastRemainingSec: -1
     readonly property bool devPromptSimulationEnabled: Qt.application.arguments.indexOf("--firewall-dev") !== -1
 
     readonly property var firewallModes: [
@@ -1599,12 +1600,23 @@ Flickable {
         FirewallServiceClient.refreshAppPolicies()
         FirewallServiceClient.refreshIpPolicies()
         FirewallServiceClient.refreshConnections()
+        root.quickBlockLastRemainingSec = root.quickBlockRemainingSeconds()
     }
 
     Timer {
         interval: 1000
         repeat: true
         running: true
-        onTriggered: root.quickBlockNowEpochSec = Math.floor(Date.now() / 1000)
+        onTriggered: {
+            root.quickBlockNowEpochSec = Math.floor(Date.now() / 1000)
+            var remaining = root.quickBlockRemainingSeconds()
+            if (root.quickBlockLastRemainingSec > 0
+                    && remaining === 0
+                    && FirewallServiceClient.lastQuickBlockPolicyId.length > 0) {
+                FirewallServiceClient.refreshIpPolicies()
+                FirewallServiceClient.refreshConnections()
+            }
+            root.quickBlockLastRemainingSec = remaining
+        }
     }
 }
