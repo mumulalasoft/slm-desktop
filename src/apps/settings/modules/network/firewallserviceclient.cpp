@@ -545,6 +545,32 @@ bool FirewallServiceClient::resolvePendingPrompt(int index, const QString &decis
     return true;
 }
 
+int FirewallServiceClient::resolveAllPendingPrompts(const QString &decision, bool remember)
+{
+    if (m_pendingPrompts.isEmpty()) {
+        return 0;
+    }
+
+    int resolved = 0;
+    for (int i = m_pendingPrompts.size() - 1; i >= 0; --i) {
+        const QVariantMap row = m_pendingPrompts.at(i).toMap();
+        const QVariantMap request = row.value(QStringLiteral("request")).toMap();
+        if (request.isEmpty()) {
+            continue;
+        }
+        if (!resolveConnectionDecision(request, decision, remember)) {
+            continue;
+        }
+        m_pendingPrompts.removeAt(i);
+        ++resolved;
+    }
+
+    if (resolved > 0) {
+        emit pendingPromptsChanged();
+    }
+    return resolved;
+}
+
 void FirewallServiceClient::clearPendingPrompts()
 {
     if (m_pendingPrompts.isEmpty()) {

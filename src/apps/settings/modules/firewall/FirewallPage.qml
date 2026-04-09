@@ -1556,6 +1556,36 @@ Flickable {
                         }
 
                         Button {
+                            text: qsTr("Allow All")
+                            enabled: FirewallServiceClient.available
+                                     && FirewallServiceClient.enabled
+                                     && FirewallServiceClient.pendingPrompts.length > 0
+                            onClicked: {
+                                var count = FirewallServiceClient.resolveAllPendingPrompts("allow",
+                                                                                          root.pendingPromptRemember)
+                                root.connectionResultOk = count > 0
+                                root.connectionResultText = count > 0
+                                        ? qsTr("Allowed %1 pending prompt(s).").arg(count)
+                                        : qsTr("No pending prompt was allowed.")
+                            }
+                        }
+
+                        Button {
+                            text: qsTr("Deny All")
+                            enabled: FirewallServiceClient.available
+                                     && FirewallServiceClient.enabled
+                                     && FirewallServiceClient.pendingPrompts.length > 0
+                            onClicked: {
+                                var count = FirewallServiceClient.resolveAllPendingPrompts("deny",
+                                                                                          root.pendingPromptRemember)
+                                root.connectionResultOk = count > 0
+                                root.connectionResultText = count > 0
+                                        ? qsTr("Denied %1 pending prompt(s).").arg(count)
+                                        : qsTr("No pending prompt was denied.")
+                            }
+                        }
+
+                        Button {
                             text: qsTr("Clear")
                             enabled: FirewallServiceClient.available
                                      && FirewallServiceClient.pendingPrompts.length > 0

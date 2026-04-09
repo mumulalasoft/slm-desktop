@@ -64,6 +64,7 @@ public:
     Q_INVOKABLE bool removeIpPolicy(const QString &policyId);
     Q_INVOKABLE bool refreshConnections();
     Q_INVOKABLE bool resolvePendingPrompt(int index, const QString &decision, bool remember);
+    Q_INVOKABLE int resolveAllPendingPrompts(const QString &decision, bool remember);
     Q_INVOKABLE void clearPendingPrompts();
 
 signals:
