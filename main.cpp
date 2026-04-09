@@ -404,6 +404,7 @@ int main(int argc, char *argv[])
                                           &appCommandRouter,
                                           &cursorController,
                                           &themeIconController,
+                                          &desktopSettings,
                                           &uiPreferences,
                                           &windowingBackendManager,
                                           &workspaceManager,
@@ -444,7 +445,6 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("DockBootstrapState"), &dockBootstrapState);
 #endif
     engine.rootContext()->setContextProperty(QStringLiteral("SessionStateClient"), &sessionStateClient);
-    engine.rootContext()->setContextProperty(QStringLiteral("DesktopSettings"), &desktopSettings);
     engine.rootContext()->setContextProperty(QStringLiteral("MissingComponents"), &missingComponentController);
     engine.rootContext()->setContextProperty(QStringLiteral("PrintManager"), &printerManager);
     engine.rootContext()->setContextProperty(QStringLiteral("PrintSession"), &printSession);
