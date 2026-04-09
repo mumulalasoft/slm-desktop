@@ -30,7 +30,6 @@ Related:
 - Shared static lib: `slm-login-lib` (`SlmLogin::Lib`)
 
 ## Shared/non-owned dependencies (must stay platform or be consumed)
-- `src/core/prefs/uipreferences.*` (currently consumed by `slm-polkit-agent`)
 - `Qml/components/system/MissingComponentsCard.qml` (used by greeter/recovery)
 - `third_party/slm-style` QML module (used by polkit dialog style)
 
@@ -51,8 +50,6 @@ Related:
 - `src/core/system/componentregistry.cpp` references login runtime components:
   - `slm-watchdog`
   - `slm-recovery-app`
-- Polkit agent target currently compiles with:
-  - `src/core/prefs/uipreferences.*`
 - Recovery app now uses DBus client call for daemon health snapshot:
   - `org.slm.WorkspaceManager1::DaemonHealthSnapshot()`
 

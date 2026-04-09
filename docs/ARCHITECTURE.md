@@ -48,7 +48,8 @@ Recommended API by source:
 
 ## Preferences
 
-`UIPreferences` owns persisted runtime options (motion, drag thresholds, autohide, verbose logging).
+`DesktopSettings` (settingsd SSOT) owns persisted runtime options
+(motion, drag thresholds, autohide, verbose logging).
 
 ## Design constraints
 

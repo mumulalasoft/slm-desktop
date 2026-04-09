@@ -285,8 +285,8 @@
   - CPU tinggi, GPU fallback, battery saver, dan accessibility `reduce motion`. (triggers — future work)
     - implemented runtime gate: `SLM_SESSION_MODE in {safe,recovery}` -> `SafeModeActive=true`,
       `Theme.duration* ~= 0`, `Theme.transitionDuration ~= 0`, `MotionController.reducedMotion=true`.
-    - `UIPreferences.animationMode` property + `setAnimationMode` + stored in `windowing/animationMode`.
-    - `Theme.animationMode` reads `UIPreferences.animationMode` reactively.
+    - `DesktopSettings.settingValue("animation.mode")` sebagai sumber mode animasi runtime.
+    - `Theme.animationMode` reads `DesktopSettings` reactively.
     - `Theme._modeScale`: `full=1.0`, `reduced=0.60`, `minimal=0.25` — all duration tokens scaled.
     - `MotionController.reducedMotion` set true for reduced/minimal at startup + runtime in `main.cpp`.
   - semua animasi lewat frame clock vsync.
@@ -1604,14 +1604,10 @@ Tujuan utama:
     - `src/services/settingsd/settingsservice.{h,cpp}`
     - `src/services/settingsd/settingsstore.{h,cpp}`
     - `tests/settingsservice_dbus_test.cpp`
-    - compatibility bridge awal di `src/core/prefs/uipreferences.cpp`:
-      - mapped read (`getPreference`) ke `org.slm.Desktop.Settings` untuk key tema utama
-      - mapped write dari setter `UIPreferences` ke SSOT daemon
-      - fallback ke QSettings lokal saat daemon belum tersedia
-      - subscribe signal D-Bus `SettingChanged` + `AppearanceModeChanged` untuk live cache sync ke QML runtime
-      - policy API bridge:
-        - `ClassifyApp` + `ResolveThemeForApp` exposed from `desktop-settingsd`
-        - integrated with `AppThemeClassifier` + `ThemePolicyEngine`
+    - legacy compatibility bridge (`UIPreferences`) sudah dihapus; jalur runtime via `DesktopSettings` (settingsd SSOT)
+    - policy API bridge:
+      - `ClassifyApp` + `ResolveThemeForApp` exposed from `desktop-settingsd`
+      - integrated with `AppThemeClassifier` + `ThemePolicyEngine`
 
 ### Phase 2 — Schema settings (versioned + migratable)
 - [~] Definisikan schema versioned (JSON) dengan default value + migrator:
@@ -1732,9 +1728,9 @@ Tujuan utama:
       - Print module (`modules/print/PrintPage.qml`) fallback printer via `DesktopSettings` (`print.pdfFallbackPrinterId`)
       - Keyboard module (`modules/keyboard/KeyboardPage.qml`) shortcut write/read via `DesktopSettings` (`windowing.bind*`, `shortcuts.*`)
       - Developer Overview (`modules/developer/DeveloperOverviewPage.qml`) animation policy via `DesktopSettings` (`windowing.animationEnabled`)
-      - `ThemeManager` + settings bootstrap (`main.cpp`) sekarang source tema/icon mode dari `DesktopSettings` (fallback tetap ada via `UIPreferences`)
-      - `FontManager` migrated ke `DesktopSettings` (`fonts.defaultFont/documentFont/monospaceFont/titlebarFont`) dengan fallback `UIPreferences`
-      - `WallpaperManager` migrated ke `DesktopSettings` (`wallpaper.uri`) dengan fallback `UIPreferences`
+      - `ThemeManager` + settings bootstrap (`main.cpp`) sekarang source tema/icon mode dari `DesktopSettings` (tanpa fallback legacy)
+      - `FontManager` migrated ke `DesktopSettings` (`fonts.defaultFont/documentFont/monospaceFont/titlebarFont`)
+      - `WallpaperManager` migrated ke `DesktopSettings` (`wallpaper.uri`)
       - `Qml/apps/settings/{Main,StylePreviewGallery}.qml` theme sync sudah `DesktopSettings`-only (context `UIPreferences` tidak lagi diexpose dari settings app)
       - `src/apps/settings/*` sekarang tidak lagi mereferensikan `UIPreferences` (ThemeManager/FontManager/WallpaperManager/DesktopSettingsClient/Main cutover ke `DesktopSettings` only)
       - shell runtime sekarang expose `DesktopSettings` dari `main.cpp` (desktop process), sehingga QML shell tidak perlu baca `UIPreferences` untuk keyspace SSOT
@@ -1752,7 +1748,7 @@ Tujuan utama:
         - `Qml/components/portalchooser/PortalChooserController.js` (persisted chooser width/height/sort/filter prefs via `DesktopSettings`)
         - `Qml/components/print/PrintDialog.qml` (PDF fallback printer preference via `DesktopSettings`)
         - `Qml/apps/filemanager/FileManagerWindow.qml` (tab-state writer adapter dialihkan ke `DesktopSettings.setSettingValue`)
-    - fallback path retained via `UIPreferences` if settings daemon unavailable
+    - fallback legacy `UIPreferences` removed; runtime now `DesktopSettings`-only
     - `ApplicationsPage.qml` added "Theme" section (SSOT-backed):
       - `appThemePolicy.qtGenericAllowKdeCompat`
       - `appThemePolicy.qtIncompatibleUseDesktopFallback`

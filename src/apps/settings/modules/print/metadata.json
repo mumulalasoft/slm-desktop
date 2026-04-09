@@ -13,7 +13,7 @@
             "description": "Preferred virtual PDF printer used by Print dialog fallback.",
             "keywords": ["pdf", "fallback", "printer", "cups-pdf"],
             "type": "text",
-            "backend_binding": "uipreferences:print.pdfFallbackPrinterId"
+            "backend_binding": "settings:print.pdfFallbackPrinterId"
         },
         {
             "id": "pdf-fallback-reset",
@@ -21,7 +21,7 @@
             "description": "Clear saved fallback printer selection.",
             "keywords": ["reset", "print", "pdf", "fallback"],
             "type": "action",
-            "backend_binding": "uipreferences:print.pdfFallbackPrinterId"
+            "backend_binding": "settings:print.pdfFallbackPrinterId"
         }
     ]
 }

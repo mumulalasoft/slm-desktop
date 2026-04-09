@@ -128,7 +128,6 @@ BindingDescriptor SettingBindingResolver::parse(const QString &bindingSpec,
     }
 
     if (scheme == QStringLiteral("settings")
-        || scheme == QStringLiteral("uipreferences")
         || scheme == QStringLiteral("system")
         || scheme == QStringLiteral("xdg")
         || scheme == QStringLiteral("portal")) {

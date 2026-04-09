@@ -217,29 +217,6 @@ scripts/check-slm-style-usage.sh
 cmake --build build --target lint_slm_style_usage
 ```
 
-## CLI UIPreference
-
-Binary CLI: `uipreference`
-
-```bash
-uipreference ls
-uipreference --help
-uipreference man
-uipreference <app-name> list
-uipreference <app-name> get <key> [fallback]
-uipreference <app-name> set <key> <value>
-uipreference <app-name> reset <key>
-```
-
-Examples:
-
-```bash
-uipreference ls
-uipreference SLM get dock.motionPreset
-uipreference SLM set dock.autoHideEnabled true
-uipreference SLM reset debug.verboseLogging
-```
-
 ## CLI Windowing Audit (kwin-only)
 
 Binary CLI: `windowingctl`

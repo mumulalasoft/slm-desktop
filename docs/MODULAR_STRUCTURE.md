@@ -9,7 +9,6 @@ The current build remains in root for stability; migration is incremental.
 apps/
   slm-desktop/
   tools/
-    uipreference/
     indicatorctl/
 
 modules/
@@ -25,7 +24,7 @@ modules/
 ### `modules/slm-desktop-core`
 
 Shared runtime APIs for all apps:
-- `UIPreferences` C++ API + DBus contract for centralized preference.
+- Desktop settings/runtime preference contracts (settingsd SSOT).
 - Theme contract (token names, dark/light policy, icon theme mapping).
 - Shared service helpers (future): app execution gate, indicator registry client.
 
@@ -46,15 +45,12 @@ Desktop shell app only:
 ### `apps/tools/*`
 
 Tooling binaries:
-- `uipreference`
 - `indicatorctl`
 
 ## Migration map (current -> target)
 
-- `uipreferences.*` -> `modules/slm-desktop-core/src`
 - `themeiconcontroller.*`, theme token contract -> `modules/slm-desktop-core/src`
 - `Style/*` -> `modules/slm-desktop-style/Style`
-- `uipreference_cli.cpp` -> `apps/tools/uipreference`
 - `src/cli/indicatorctl.cpp` -> `apps/tools/indicatorctl`
 - `main.cpp`, `Qml/*`, shell managers -> `apps/slm-desktop`
 
