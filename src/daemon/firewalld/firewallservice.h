@@ -34,6 +34,7 @@ public slots:
     QVariantMap SetMode(const QString &mode);
     QVariantMap SetDefaultIncomingPolicy(const QString &policy);
     QVariantMap SetDefaultOutgoingPolicy(const QString &policy);
+    QVariantMap SetPromptCooldownSeconds(int seconds);
     QVariantMap EvaluateConnection(const QVariantMap &request);
     QVariantMap ResolveConnectionDecision(const QVariantMap &request,
                                           const QString &decision,
@@ -65,6 +66,7 @@ private:
     bool m_enabled = true;
     QString m_defaultIncomingPolicy = QStringLiteral("deny");
     QString m_defaultOutgoingPolicy = QStringLiteral("allow");
+    int m_promptCooldownSeconds = 20;
     Slm::Firewall::PolicyStore m_store;
     Slm::Firewall::NftablesAdapter m_nftAdapter;
     Slm::Firewall::AppIdentityClient m_identityClient;

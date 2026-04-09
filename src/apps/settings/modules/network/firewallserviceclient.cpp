@@ -70,6 +70,11 @@ QString FirewallServiceClient::defaultOutgoingPolicy() const
     return m_defaultOutgoingPolicy;
 }
 
+int FirewallServiceClient::promptCooldownSeconds() const
+{
+    return m_promptCooldownSeconds;
+}
+
 QVariantList FirewallServiceClient::appPolicies() const
 {
     return m_appPolicies;
@@ -125,6 +130,11 @@ bool FirewallServiceClient::setDefaultOutgoingPolicy(const QString &policy)
 {
     return callBoolMapMethod(QStringLiteral("SetDefaultOutgoingPolicy"),
                              normalizePolicy(policy, m_defaultOutgoingPolicy));
+}
+
+bool FirewallServiceClient::setPromptCooldownSeconds(int seconds)
+{
+    return callBoolMapMethod(QStringLiteral("SetPromptCooldownSeconds"), seconds);
 }
 
 QVariantMap FirewallServiceClient::evaluateConnection(const QVariantMap &request)
@@ -437,16 +447,24 @@ bool FirewallServiceClient::applyStateMap(const QVariantMap &map)
     const QString nextOutgoing = normalizePolicy(
         map.value(QStringLiteral("defaultOutgoingPolicy"), m_defaultOutgoingPolicy).toString(),
         m_defaultOutgoingPolicy);
+    int nextCooldown = map.value(QStringLiteral("promptCooldownSeconds"), m_promptCooldownSeconds).toInt();
+    if (nextCooldown < 1) {
+        nextCooldown = 1;
+    } else if (nextCooldown > 300) {
+        nextCooldown = 300;
+    }
 
     const bool changed = (m_enabled != nextEnabled)
             || (m_mode != nextMode)
             || (m_defaultIncomingPolicy != nextIncoming)
-            || (m_defaultOutgoingPolicy != nextOutgoing);
+            || (m_defaultOutgoingPolicy != nextOutgoing)
+            || (m_promptCooldownSeconds != nextCooldown);
 
     m_enabled = nextEnabled;
     m_mode = nextMode;
     m_defaultIncomingPolicy = nextIncoming;
     m_defaultOutgoingPolicy = nextOutgoing;
+    m_promptCooldownSeconds = nextCooldown;
 
     if (changed) {
         emit stateChanged();

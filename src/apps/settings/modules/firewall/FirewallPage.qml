@@ -324,6 +324,32 @@ Flickable {
                     }
                 }
             }
+
+            SettingCard {
+                label: qsTr("Prompt Cooldown")
+                description: qsTr("Anti-spam cooldown for repeated prompt decision (seconds)")
+
+                RowLayout {
+                    spacing: 8
+                    Layout.fillWidth: true
+
+                    SpinBox {
+                        id: promptCooldownSpin
+                        from: 1
+                        to: 300
+                        value: FirewallServiceClient.promptCooldownSeconds
+                        editable: true
+                        enabled: FirewallServiceClient.available && FirewallServiceClient.enabled
+                        onValueModified: FirewallServiceClient.setPromptCooldownSeconds(value)
+                    }
+
+                    Text {
+                        text: qsTr("%1 sec").arg(FirewallServiceClient.promptCooldownSeconds)
+                        color: Theme.color("textSecondary")
+                        font.pixelSize: Theme.fontSize("small")
+                    }
+                }
+            }
         }
 
         SettingGroup {

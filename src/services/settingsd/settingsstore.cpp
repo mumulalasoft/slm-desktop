@@ -294,6 +294,7 @@ QVariantMap SettingsStore::defaultSettings()
              {QStringLiteral("mode"), QStringLiteral("home")},
              {QStringLiteral("defaultIncomingPolicy"), QStringLiteral("deny")},
              {QStringLiteral("defaultOutgoingPolicy"), QStringLiteral("allow")},
+             {QStringLiteral("promptCooldownSeconds"), 20},
              {QStringLiteral("networkProfiles"), QVariantMap{}},
              {QStringLiteral("rules"), QVariantMap{
                   {QStringLiteral("apps"), QVariantMap{}},
@@ -581,6 +582,17 @@ bool SettingsStore::validateValue(const QString &path, const QVariant &value, QS
                 && policy != QStringLiteral("prompt")) {
             if (error) {
                 *error = QStringLiteral("firewall default policy must be allow/deny/prompt");
+            }
+            return false;
+        }
+        return true;
+    }
+    if (path == QStringLiteral("firewall.promptCooldownSeconds")) {
+        bool ok = false;
+        const int seconds = value.toInt(&ok);
+        if (!ok || seconds < 1 || seconds > 300) {
+            if (error) {
+                *error = QStringLiteral("firewall.promptCooldownSeconds must be integer in range 1..300");
             }
             return false;
         }

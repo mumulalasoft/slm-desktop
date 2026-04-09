@@ -23,6 +23,17 @@ QString normalizeFirewallPolicy(const QString &value, const QString &fallback)
     }
     return fallback;
 }
+
+int normalizePromptCooldownSeconds(int value)
+{
+    if (value < 1) {
+        return 1;
+    }
+    if (value > 300) {
+        return 300;
+    }
+    return value;
+}
 }
 
 FirewallService::FirewallService(QObject *parent)
@@ -116,6 +127,7 @@ QVariantMap FirewallService::GetStatus() const
         {QStringLiteral("mode"), Slm::Firewall::firewallModeToString(m_mode)},
         {QStringLiteral("defaultIncomingPolicy"), m_defaultIncomingPolicy},
         {QStringLiteral("defaultOutgoingPolicy"), m_defaultOutgoingPolicy},
+        {QStringLiteral("promptCooldownSeconds"), m_promptCooldownSeconds},
         {QStringLiteral("apiVersion"), apiVersion()},
     };
 }
@@ -212,6 +224,24 @@ QVariantMap FirewallService::SetDefaultOutgoingPolicy(const QString &policy)
     if (!packetApplied) {
         state.insert(QStringLiteral("ok"), false);
         state.insert(QStringLiteral("packetError"), packetError.isEmpty() ? QStringLiteral("nft-apply-failed") : packetError);
+    }
+    syncRuntimeStateToPolicyStore();
+    emit FirewallStateChanged(state);
+    return state;
+}
+
+QVariantMap FirewallService::SetPromptCooldownSeconds(int seconds)
+{
+    m_promptCooldownSeconds = normalizePromptCooldownSeconds(seconds);
+    QString error;
+    const bool persisted = setSettingsValue(QStringLiteral("firewall.promptCooldownSeconds"),
+                                            m_promptCooldownSeconds,
+                                            &error);
+    QVariantMap state = GetStatus();
+    state.insert(QStringLiteral("persisted"), persisted);
+    if (!persisted) {
+        state.insert(QStringLiteral("ok"), false);
+        state.insert(QStringLiteral("error"), error.isEmpty() ? QStringLiteral("settingsd-unavailable") : error);
     }
     syncRuntimeStateToPolicyStore();
     emit FirewallStateChanged(state);
@@ -352,6 +382,8 @@ bool FirewallService::loadSettingsState()
         m_defaultOutgoingPolicy = normalizeFirewallPolicy(
             firewall.value(QStringLiteral("defaultOutgoingPolicy"), m_defaultOutgoingPolicy).toString(),
             m_defaultOutgoingPolicy);
+        m_promptCooldownSeconds = normalizePromptCooldownSeconds(
+            firewall.value(QStringLiteral("promptCooldownSeconds"), m_promptCooldownSeconds).toInt());
     }
     syncRuntimeStateToPolicyStore();
     return true;
@@ -364,6 +396,7 @@ void FirewallService::syncRuntimeStateToPolicyStore()
     m_store.setValue(QStringLiteral("firewall.mode"), Slm::Firewall::firewallModeToString(m_mode), &ignored);
     m_store.setValue(QStringLiteral("firewall.defaultIncomingPolicy"), m_defaultIncomingPolicy, &ignored);
     m_store.setValue(QStringLiteral("firewall.defaultOutgoingPolicy"), m_defaultOutgoingPolicy, &ignored);
+    m_store.setValue(QStringLiteral("firewall.promptCooldownSeconds"), m_promptCooldownSeconds, &ignored);
 }
 
 bool FirewallService::setSettingsValue(const QString &path, const QVariant &value, QString *error) const

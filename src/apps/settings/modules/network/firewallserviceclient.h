@@ -15,6 +15,7 @@ class FirewallServiceClient : public QObject
     Q_PROPERTY(QString mode READ mode NOTIFY stateChanged)
     Q_PROPERTY(QString defaultIncomingPolicy READ defaultIncomingPolicy NOTIFY stateChanged)
     Q_PROPERTY(QString defaultOutgoingPolicy READ defaultOutgoingPolicy NOTIFY stateChanged)
+    Q_PROPERTY(int promptCooldownSeconds READ promptCooldownSeconds NOTIFY stateChanged)
     Q_PROPERTY(QVariantList appPolicies READ appPolicies NOTIFY appPoliciesChanged)
     Q_PROPERTY(QVariantList ipPolicies READ ipPolicies NOTIFY ipPoliciesChanged)
     Q_PROPERTY(QVariantList activeConnections READ activeConnections NOTIFY activeConnectionsChanged)
@@ -27,6 +28,7 @@ public:
     QString mode() const;
     QString defaultIncomingPolicy() const;
     QString defaultOutgoingPolicy() const;
+    int promptCooldownSeconds() const;
     QVariantList appPolicies() const;
     QVariantList ipPolicies() const;
     QVariantList activeConnections() const;
@@ -36,6 +38,7 @@ public:
     Q_INVOKABLE bool setMode(const QString &mode);
     Q_INVOKABLE bool setDefaultIncomingPolicy(const QString &policy);
     Q_INVOKABLE bool setDefaultOutgoingPolicy(const QString &policy);
+    Q_INVOKABLE bool setPromptCooldownSeconds(int seconds);
     Q_INVOKABLE QVariantMap evaluateConnection(const QVariantMap &request);
     Q_INVOKABLE bool resolveConnectionDecision(const QVariantMap &request,
                                                const QString &decision,
@@ -72,6 +75,7 @@ private:
     QString m_mode = QStringLiteral("home");
     QString m_defaultIncomingPolicy = QStringLiteral("deny");
     QString m_defaultOutgoingPolicy = QStringLiteral("allow");
+    int m_promptCooldownSeconds = 20;
     QVariantList m_appPolicies;
     QVariantList m_ipPolicies;
     QVariantList m_activeConnections;

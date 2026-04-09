@@ -27,6 +27,10 @@
       <arg name="policy" type="s" direction="in"/>
       <arg name="result" type="a{sv}" direction="out"/>
     </method>
+    <method name="SetPromptCooldownSeconds">
+      <arg name="seconds" type="i" direction="in"/>
+      <arg name="result" type="a{sv}" direction="out"/>
+    </method>
     <method name="EvaluateConnection">
       <arg name="request" type="a{sv}" direction="in"/>
       <arg name="result" type="a{sv}" direction="out"/>
