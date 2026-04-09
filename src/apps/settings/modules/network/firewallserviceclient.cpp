@@ -70,6 +70,11 @@ QString FirewallServiceClient::defaultOutgoingPolicy() const
     return m_defaultOutgoingPolicy;
 }
 
+QVariantList FirewallServiceClient::appPolicies() const
+{
+    return m_appPolicies;
+}
+
 QVariantList FirewallServiceClient::ipPolicies() const
 {
     return m_ipPolicies;
@@ -89,6 +94,7 @@ bool FirewallServiceClient::refresh()
         return false;
     }
     const bool stateOk = applyStateMap(payload);
+    refreshAppPolicies();
     refreshIpPolicies();
     return stateOk;
 }
@@ -128,6 +134,79 @@ bool FirewallServiceClient::setIpPolicy(const QVariantMap &policy)
     const bool ok = payload.value(QStringLiteral("ok"), false).toBool();
     if (ok) {
         refreshIpPolicies();
+    }
+    return ok;
+}
+
+bool FirewallServiceClient::setAppPolicy(const QVariantMap &policy)
+{
+    if (!ensureIface()) {
+        return false;
+    }
+    QDBusReply<QVariantMap> reply = m_iface->call(QStringLiteral("SetAppPolicy"), policy);
+    if (!reply.isValid()) {
+        return false;
+    }
+    const QVariantMap payload = reply.value();
+    const bool ok = payload.value(QStringLiteral("ok"), false).toBool();
+    if (ok) {
+        refreshAppPolicies();
+    }
+    return ok;
+}
+
+bool FirewallServiceClient::refreshAppPolicies()
+{
+    if (!ensureIface()) {
+        return false;
+    }
+    QDBusReply<QVariantList> reply = m_iface->call(QStringLiteral("ListAppPolicies"));
+    if (!reply.isValid()) {
+        return false;
+    }
+    const QVariantList next = reply.value();
+    if (m_appPolicies != next) {
+        m_appPolicies = next;
+        emit appPoliciesChanged();
+    }
+    return true;
+}
+
+bool FirewallServiceClient::clearAppPolicies()
+{
+    if (!ensureIface()) {
+        return false;
+    }
+    QDBusReply<QVariantMap> reply = m_iface->call(QStringLiteral("ClearAppPolicies"));
+    if (!reply.isValid()) {
+        return false;
+    }
+    const QVariantMap payload = reply.value();
+    const bool ok = payload.value(QStringLiteral("ok"), false).toBool();
+    if (ok && !m_appPolicies.isEmpty()) {
+        m_appPolicies.clear();
+        emit appPoliciesChanged();
+    }
+    return ok;
+}
+
+bool FirewallServiceClient::removeAppPolicy(const QString &policyId)
+{
+    if (!ensureIface()) {
+        return false;
+    }
+    const QString id = policyId.trimmed();
+    if (id.isEmpty()) {
+        return false;
+    }
+    QDBusReply<QVariantMap> reply = m_iface->call(QStringLiteral("RemoveAppPolicy"), id);
+    if (!reply.isValid()) {
+        return false;
+    }
+    const QVariantMap payload = reply.value();
+    const bool ok = payload.value(QStringLiteral("ok"), false).toBool();
+    if (ok) {
+        refreshAppPolicies();
     }
     return ok;
 }
@@ -208,6 +287,14 @@ void FirewallServiceClient::onNameOwnerChanged(const QString &name,
         m_available = false;
         emit availableChanged();
     }
+    if (!m_appPolicies.isEmpty()) {
+        m_appPolicies.clear();
+        emit appPoliciesChanged();
+    }
+    if (!m_ipPolicies.isEmpty()) {
+        m_ipPolicies.clear();
+        emit ipPoliciesChanged();
+    }
     delete m_iface;
     m_iface = nullptr;
 }
@@ -215,6 +302,7 @@ void FirewallServiceClient::onNameOwnerChanged(const QString &name,
 void FirewallServiceClient::onFirewallStateChanged(const QVariantMap &state)
 {
     applyStateMap(state);
+    refreshAppPolicies();
     refreshIpPolicies();
 }
 

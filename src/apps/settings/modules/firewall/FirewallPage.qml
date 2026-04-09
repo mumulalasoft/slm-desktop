@@ -16,6 +16,11 @@ Flickable {
     property string blockDuration: "24h"
     property string blockResultText: ""
     property bool blockResultOk: true
+    property string appRuleAppId: ""
+    property int appRuleDecisionIndex: 1
+    property int appRuleDirectionIndex: 0
+    property string appResultText: ""
+    property bool appResultOk: true
 
     readonly property var firewallModes: [
         { value: "home", label: qsTr("Home") },
@@ -32,6 +37,16 @@ Flickable {
         { value: "subnet", label: qsTr("Subnet (CIDR)") }
     ]
     readonly property var blockScopes: [
+        { value: "incoming", label: qsTr("Incoming") },
+        { value: "outgoing", label: qsTr("Outgoing") },
+        { value: "both", label: qsTr("Both") }
+    ]
+    readonly property var appRuleDecisions: [
+        { value: "allow", label: qsTr("Allow") },
+        { value: "deny", label: qsTr("Block") },
+        { value: "prompt", label: qsTr("Prompt") }
+    ]
+    readonly property var appRuleDirections: [
         { value: "incoming", label: qsTr("Incoming") },
         { value: "outgoing", label: qsTr("Outgoing") },
         { value: "both", label: qsTr("Both") }
@@ -78,6 +93,43 @@ Flickable {
             blockTarget = ""
             FirewallServiceClient.refreshIpPolicies()
         }
+    }
+
+    function submitAppRule() {
+        var appId = String(appRuleAppId || "").trim()
+        if (!appId.length) {
+            appResultOk = false
+            appResultText = qsTr("App ID cannot be empty.")
+            return
+        }
+
+        var payload = {
+            appId: appId,
+            decision: appRuleDecisions[appRuleDecisionIndex].value,
+            direction: appRuleDirections[appRuleDirectionIndex].value,
+            remember: true
+        }
+        var ok = FirewallServiceClient.setAppPolicy(payload)
+        appResultOk = ok
+        appResultText = ok
+                ? qsTr("Application rule saved.")
+                : qsTr("Failed to save application rule.")
+        if (ok) {
+            appRuleAppId = ""
+            FirewallServiceClient.refreshAppPolicies()
+        }
+    }
+
+    function appPoliciesByDecision(decision) {
+        var out = []
+        var all = FirewallServiceClient.appPolicies || []
+        for (var i = 0; i < all.length; ++i) {
+            var entry = all[i] || {}
+            if (String(entry.decision || "") === String(decision)) {
+                out.push(entry)
+            }
+        }
+        return out
     }
 
     function policyIndex(value) {
@@ -181,6 +233,197 @@ Flickable {
                     enabled: FirewallServiceClient.available && FirewallServiceClient.enabled
                     onActivated: function(index) {
                         FirewallServiceClient.setDefaultOutgoingPolicy(root.firewallPolicies[index].value)
+                    }
+                }
+            }
+        }
+
+        SettingGroup {
+            title: qsTr("Application Rules")
+            Layout.fillWidth: true
+
+            SettingCard {
+                label: qsTr("Add Rule")
+                description: qsTr("Allow, block, or prompt by application identity")
+
+                ColumnLayout {
+                    spacing: 8
+                    Layout.fillWidth: true
+
+                    TextField {
+                        Layout.fillWidth: true
+                        placeholderText: qsTr("App ID (example: org.mozilla.firefox)")
+                        text: root.appRuleAppId
+                        enabled: FirewallServiceClient.available && FirewallServiceClient.enabled
+                        onTextChanged: root.appRuleAppId = text
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+
+                        ComboBox {
+                            Layout.fillWidth: true
+                            model: root.appRuleDecisions.map(function(item) { return item.label })
+                            currentIndex: root.appRuleDecisionIndex
+                            enabled: FirewallServiceClient.available && FirewallServiceClient.enabled
+                            onActivated: function(index) {
+                                root.appRuleDecisionIndex = index
+                            }
+                        }
+
+                        ComboBox {
+                            Layout.fillWidth: true
+                            model: root.appRuleDirections.map(function(item) { return item.label })
+                            currentIndex: root.appRuleDirectionIndex
+                            enabled: FirewallServiceClient.available && FirewallServiceClient.enabled
+                            onActivated: function(index) {
+                                root.appRuleDirectionIndex = index
+                            }
+                        }
+
+                        Button {
+                            text: qsTr("Save")
+                            enabled: FirewallServiceClient.available && FirewallServiceClient.enabled
+                            onClicked: root.submitAppRule()
+                        }
+                    }
+
+                    Text {
+                        visible: root.appResultText.length > 0
+                        text: root.appResultText
+                        color: root.appResultOk ? Theme.color("success") : Theme.color("error")
+                        font.pixelSize: Theme.fontSize("small")
+                    }
+                }
+            }
+
+            SettingCard {
+                label: qsTr("Allowed Apps")
+                description: qsTr("Apps with explicit allow policy")
+
+                ColumnLayout {
+                    spacing: 8
+                    Layout.fillWidth: true
+
+                    Repeater {
+                        model: root.appPoliciesByDecision("allow")
+
+                        delegate: Rectangle {
+                            Layout.fillWidth: true
+                            radius: Theme.radiusControl
+                            color: Theme.color("surface")
+                            border.width: Theme.borderWidthThin
+                            border.color: Theme.color("panelBorder")
+                            implicitHeight: allowedRow.implicitHeight + 10
+
+                            RowLayout {
+                                id: allowedRow
+                                anchors.fill: parent
+                                anchors.margins: 8
+                                spacing: 10
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: {
+                                        var p = modelData || {}
+                                        var appId = String(p.appId || qsTr("(unknown app)"))
+                                        var direction = String(p.direction || "incoming")
+                                        return appId + " [" + direction + "]"
+                                    }
+                                    color: Theme.color("textPrimary")
+                                    font.pixelSize: Theme.fontSize("small")
+                                    elide: Text.ElideRight
+                                }
+
+                                Button {
+                                    text: qsTr("Remove")
+                                    enabled: FirewallServiceClient.available
+                                             && FirewallServiceClient.enabled
+                                             && String((modelData || {}).policyId || "").length > 0
+                                    onClicked: {
+                                        var id = String((modelData || {}).policyId || "")
+                                        var ok = FirewallServiceClient.removeAppPolicy(id)
+                                        root.appResultOk = ok
+                                        root.appResultText = ok
+                                                ? qsTr("Application rule removed.")
+                                                : qsTr("Failed to remove application rule.")
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Button {
+                        text: qsTr("Clear All App Rules")
+                        enabled: FirewallServiceClient.available
+                                 && FirewallServiceClient.enabled
+                                 && FirewallServiceClient.appPolicies.length > 0
+                        onClicked: {
+                            var ok = FirewallServiceClient.clearAppPolicies()
+                            root.appResultOk = ok
+                            root.appResultText = ok
+                                    ? qsTr("All application rules cleared.")
+                                    : qsTr("Failed to clear application rules.")
+                        }
+                    }
+                }
+            }
+
+            SettingCard {
+                label: qsTr("Blocked Apps")
+                description: qsTr("Apps with explicit deny policy")
+
+                ColumnLayout {
+                    spacing: 8
+                    Layout.fillWidth: true
+
+                    Repeater {
+                        model: root.appPoliciesByDecision("deny")
+
+                        delegate: Rectangle {
+                            Layout.fillWidth: true
+                            radius: Theme.radiusControl
+                            color: Theme.color("surface")
+                            border.width: Theme.borderWidthThin
+                            border.color: Theme.color("panelBorder")
+                            implicitHeight: blockedRow.implicitHeight + 10
+
+                            RowLayout {
+                                id: blockedRow
+                                anchors.fill: parent
+                                anchors.margins: 8
+                                spacing: 10
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: {
+                                        var p = modelData || {}
+                                        var appId = String(p.appId || qsTr("(unknown app)"))
+                                        var direction = String(p.direction || "incoming")
+                                        return appId + " [" + direction + "]"
+                                    }
+                                    color: Theme.color("textPrimary")
+                                    font.pixelSize: Theme.fontSize("small")
+                                    elide: Text.ElideRight
+                                }
+
+                                Button {
+                                    text: qsTr("Remove")
+                                    enabled: FirewallServiceClient.available
+                                             && FirewallServiceClient.enabled
+                                             && String((modelData || {}).policyId || "").length > 0
+                                    onClicked: {
+                                        var id = String((modelData || {}).policyId || "")
+                                        var ok = FirewallServiceClient.removeAppPolicy(id)
+                                        root.appResultOk = ok
+                                        root.appResultText = ok
+                                                ? qsTr("Application rule removed.")
+                                                : qsTr("Failed to remove application rule.")
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -367,6 +610,7 @@ Flickable {
 
     Component.onCompleted: {
         FirewallServiceClient.refresh()
+        FirewallServiceClient.refreshAppPolicies()
         FirewallServiceClient.refreshIpPolicies()
     }
 }
