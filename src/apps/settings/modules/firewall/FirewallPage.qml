@@ -33,6 +33,7 @@ Flickable {
     property string connectionResultText: ""
     property bool connectionResultOk: true
     property bool pendingPromptRemember: false
+    property bool pendingShowSafestOnly: false
     property int quickBlockNowEpochSec: Math.floor(Date.now() / 1000)
     property int quickBlockLastRemainingSec: -1
     readonly property bool devPromptSimulationEnabled: Qt.application.arguments.indexOf("--firewall-dev") !== -1
@@ -805,6 +806,28 @@ Flickable {
             }
         }
         return count
+    }
+
+    function pendingPromptRows() {
+        var source = FirewallServiceClient.pendingPrompts || []
+        var out = []
+        for (var i = 0; i < source.length; ++i) {
+            var row = source[i] || {}
+            var safest = root.pendingPromptIsSafest(row)
+            if (root.pendingShowSafestOnly && !safest) {
+                continue
+            }
+            out.push({
+                sourceIndex: i,
+                item: row,
+                safest: safest
+            })
+        }
+        return out
+    }
+
+    function visiblePendingPromptCount() {
+        return root.pendingPromptRows().length
     }
 
     function allowSafestPendingPrompts() {
@@ -1693,7 +1716,11 @@ Flickable {
 
                         Text {
                             Layout.fillWidth: true
-                            text: qsTr("%1 pending prompt(s)").arg(FirewallServiceClient.pendingPrompts.length)
+                            text: root.pendingShowSafestOnly
+                                  ? qsTr("%1 pending prompt(s) shown • %2 total")
+                                        .arg(root.visiblePendingPromptCount())
+                                        .arg(FirewallServiceClient.pendingPrompts.length)
+                                  : qsTr("%1 pending prompt(s)").arg(FirewallServiceClient.pendingPrompts.length)
                             color: Theme.color("textSecondary")
                             font.pixelSize: Theme.fontSize("small")
                         }
@@ -1703,6 +1730,13 @@ Flickable {
                             checked: root.pendingPromptRemember
                             enabled: FirewallServiceClient.available && FirewallServiceClient.enabled
                             onToggled: root.pendingPromptRemember = checked
+                        }
+
+                        CheckBox {
+                            text: qsTr("Show safest only")
+                            checked: root.pendingShowSafestOnly
+                            enabled: FirewallServiceClient.available
+                            onToggled: root.pendingShowSafestOnly = checked
                         }
 
                         Button {
@@ -1752,9 +1786,12 @@ Flickable {
                     }
 
                     Repeater {
-                        model: FirewallServiceClient.pendingPrompts
+                        model: root.pendingPromptRows()
 
                         delegate: Rectangle {
+                            readonly property var rowData: modelData || {}
+                            readonly property var promptItem: rowData.item || {}
+                            readonly property int sourceIndex: Number(rowData.sourceIndex || -1)
                             Layout.fillWidth: true
                             radius: Theme.radiusControl
                             color: Theme.color("surface")
@@ -1774,7 +1811,7 @@ Flickable {
 
                                     Text {
                                         Layout.fillWidth: true
-                                        text: root.pendingPromptLabel(modelData)
+                                        text: root.pendingPromptLabel(promptItem)
                                         color: Theme.color("textPrimary")
                                         font.pixelSize: Theme.fontSize("small")
                                         wrapMode: Text.WordWrap
@@ -1782,7 +1819,7 @@ Flickable {
 
                                     Text {
                                         Layout.fillWidth: true
-                                        visible: root.pendingPromptIsSafest(modelData)
+                                        visible: root.pendingPromptIsSafest(promptItem)
                                         text: qsTr("Safe candidate")
                                         color: Theme.color("success")
                                         font.pixelSize: Theme.fontSize("small")
@@ -1792,7 +1829,7 @@ Flickable {
 
                                     Text {
                                         Layout.fillWidth: true
-                                        text: root.pendingPromptDetails(modelData)
+                                        text: root.pendingPromptDetails(promptItem)
                                         color: Theme.color("textSecondary")
                                         font.pixelSize: Theme.fontSize("small")
                                         wrapMode: Text.WordWrap
@@ -1800,20 +1837,22 @@ Flickable {
 
                                     Text {
                                         Layout.fillWidth: true
-                                        visible: root.pendingPromptRemainingSeconds(modelData) >= 0
-                                        text: root.pendingPromptExpiryText(modelData)
-                                        color: root.pendingPromptCountdownColor(modelData)
+                                        visible: root.pendingPromptRemainingSeconds(promptItem) >= 0
+                                        text: root.pendingPromptExpiryText(promptItem)
+                                        color: root.pendingPromptCountdownColor(promptItem)
                                         font.pixelSize: Theme.fontSize("small")
-                                        font.weight: root.pendingPromptCountdownWeight(modelData)
+                                        font.weight: root.pendingPromptCountdownWeight(promptItem)
                                         wrapMode: Text.WordWrap
                                     }
                                 }
 
                                 Button {
                                     text: qsTr("Allow")
-                                    enabled: FirewallServiceClient.available && FirewallServiceClient.enabled
+                                    enabled: FirewallServiceClient.available
+                                             && FirewallServiceClient.enabled
+                                             && sourceIndex >= 0
                                     onClicked: {
-                                        var ok = FirewallServiceClient.resolvePendingPrompt(index, "allow", root.pendingPromptRemember)
+                                        var ok = FirewallServiceClient.resolvePendingPrompt(sourceIndex, "allow", root.pendingPromptRemember)
                                         root.connectionResultOk = ok
                                         root.connectionResultText = ok
                                                 ? qsTr("Pending prompt allowed.")
@@ -1823,9 +1862,11 @@ Flickable {
 
                                 Button {
                                     text: qsTr("Deny")
-                                    enabled: FirewallServiceClient.available && FirewallServiceClient.enabled
+                                    enabled: FirewallServiceClient.available
+                                             && FirewallServiceClient.enabled
+                                             && sourceIndex >= 0
                                     onClicked: {
-                                        var ok = FirewallServiceClient.resolvePendingPrompt(index, "deny", root.pendingPromptRemember)
+                                        var ok = FirewallServiceClient.resolvePendingPrompt(sourceIndex, "deny", root.pendingPromptRemember)
                                         root.connectionResultOk = ok
                                         root.connectionResultText = ok
                                                 ? qsTr("Pending prompt denied.")
