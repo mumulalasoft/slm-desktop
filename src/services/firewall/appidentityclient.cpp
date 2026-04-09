@@ -5,6 +5,7 @@
 #include <QDBusReply>
 #include <QFile>
 #include <QFileInfo>
+#include <QRegularExpression>
 #include <QSet>
 #include <QString>
 
@@ -19,6 +20,74 @@ QString readFirstLine(const QString &path)
         return {};
     }
     return QString::fromUtf8(file.readLine()).trimmed();
+}
+
+QStringList readProcCmdline(qint64 pid)
+{
+    QFile file(QStringLiteral("/proc/%1/cmdline").arg(pid));
+    if (!file.open(QIODevice::ReadOnly)) {
+        return {};
+    }
+    const QByteArray raw = file.readAll();
+    if (raw.isEmpty()) {
+        return {};
+    }
+    QStringList out;
+    const QList<QByteArray> parts = raw.split('\0');
+    for (const QByteArray &part : parts) {
+        if (!part.isEmpty()) {
+            out.append(QString::fromUtf8(part));
+        }
+    }
+    return out;
+}
+
+QVariantMap readProcMeta(qint64 pid)
+{
+    QVariantMap meta;
+    const QString statusPath = QStringLiteral("/proc/%1/status").arg(pid);
+    QFile statusFile(statusPath);
+    if (statusFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        const QString content = QString::fromUtf8(statusFile.readAll());
+        const QRegularExpression uidRx(QStringLiteral("^Uid:\\s*(\\d+)"), QRegularExpression::MultilineOption);
+        const QRegularExpression ppidRx(QStringLiteral("^PPid:\\s*(\\d+)"), QRegularExpression::MultilineOption);
+        const QRegularExpressionMatch uidMatch = uidRx.match(content);
+        const QRegularExpressionMatch ppidMatch = ppidRx.match(content);
+        if (uidMatch.hasMatch()) {
+            meta.insert(QStringLiteral("uid"), uidMatch.captured(1).toLongLong());
+        }
+        if (ppidMatch.hasMatch()) {
+            meta.insert(QStringLiteral("parent_pid"), ppidMatch.captured(1).toLongLong());
+        }
+    }
+
+    const QString cwd = QFile::symLinkTarget(QStringLiteral("/proc/%1/cwd").arg(pid));
+    if (!cwd.isEmpty()) {
+        meta.insert(QStringLiteral("cwd"), cwd);
+    }
+
+    const QString stdinLink = QFile::symLinkTarget(QStringLiteral("/proc/%1/fd/0").arg(pid));
+    if (!stdinLink.isEmpty()) {
+        meta.insert(QStringLiteral("tty"), stdinLink);
+    }
+
+    QFile cgroupFile(QStringLiteral("/proc/%1/cgroup").arg(pid));
+    if (cgroupFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        const QString cgroup = QString::fromUtf8(cgroupFile.readAll()).trimmed();
+        if (!cgroup.isEmpty()) {
+            meta.insert(QStringLiteral("cgroup"), cgroup);
+        }
+    }
+
+    const QStringList argv = readProcCmdline(pid);
+    if (!argv.isEmpty()) {
+        QVariantList argValues;
+        for (const QString &arg : argv) {
+            argValues.append(arg);
+        }
+        meta.insert(QStringLiteral("argv"), argValues);
+    }
+    return meta;
 }
 
 QString inferSourceFromExecutable(const QString &executable)
@@ -92,9 +161,11 @@ QVariantMap normalizedResult(qint64 pid,
                              const QString &executable,
                              const QString &source,
                              const QString &trustLevel,
-                             const QString &context)
+                             const QString &context,
+                             const QVariantMap &contextMeta = {},
+                             const QString &scriptTarget = QString())
 {
-    return {
+    QVariantMap result{
         {QStringLiteral("app_name"), appName.isEmpty() ? QStringLiteral("Unknown App") : appName},
         {QStringLiteral("app_id"), appId.isEmpty() ? QStringLiteral("unknown") : appId},
         {QStringLiteral("pid"), pid},
@@ -103,6 +174,13 @@ QVariantMap normalizedResult(qint64 pid,
         {QStringLiteral("trust_level"), trustLevel.isEmpty() ? QStringLiteral("unknown") : trustLevel},
         {QStringLiteral("context"), context.isEmpty() ? QStringLiteral("cli") : context},
     };
+    if (!contextMeta.isEmpty()) {
+        result.insert(QStringLiteral("context_meta"), contextMeta);
+    }
+    if (!scriptTarget.trimmed().isEmpty()) {
+        result.insert(QStringLiteral("script_target"), scriptTarget.trimmed());
+    }
+    return result;
 }
 
 } // namespace
@@ -143,6 +221,8 @@ QVariantMap AppIdentityClient::resolveViaAppd(qint64 pid) const
     }
 
     const QVariantMap procIdentity = resolveViaProc(pid);
+    const QVariantMap procMeta = procIdentity.value(QStringLiteral("context_meta")).toMap();
+    const QString scriptTarget = procIdentity.value(QStringLiteral("script_target")).toString();
 
     const QDBusReply<QVariantMap> resolveReply = iface.call(QStringLiteral("ResolveByPid"), pid);
     if (resolveReply.isValid()) {
@@ -161,7 +241,7 @@ QVariantMap AppIdentityClient::resolveViaAppd(qint64 pid) const
                 ? QStringLiteral("/dev/tty")
                 : QString();
             const QString context = inferContext(category, executable, ttyHint);
-            return normalizedResult(pid, appName, appId, executable, source, trustLevel, context);
+            return normalizedResult(pid, appName, appId, executable, source, trustLevel, context, procMeta, scriptTarget);
         }
     }
 
@@ -187,7 +267,7 @@ QVariantMap AppIdentityClient::resolveViaAppd(qint64 pid) const
                 ? QStringLiteral("/dev/tty")
                 : QString();
             const QString context = inferContext(category, executable, ttyHint);
-            return normalizedResult(pid, appName, appId, executable, source, trustLevel, context);
+            return normalizedResult(pid, appName, appId, executable, source, trustLevel, context, procMeta, scriptTarget);
         }
     }
     return {};
@@ -201,7 +281,8 @@ QVariantMap AppIdentityClient::resolveViaProc(qint64 pid) const
     const QString procRoot = QStringLiteral("/proc/%1").arg(pid);
     const QString executable = QFile::symLinkTarget(procRoot + QStringLiteral("/exe"));
     const QString comm = readFirstLine(procRoot + QStringLiteral("/comm"));
-    const QString stdinLink = QFile::symLinkTarget(procRoot + QStringLiteral("/fd/0"));
+    const QVariantMap procMeta = readProcMeta(pid);
+    const QString stdinLink = procMeta.value(QStringLiteral("tty")).toString();
     const QString tty = (stdinLink.startsWith(QStringLiteral("/dev/pts/"))
                          || stdinLink.startsWith(QStringLiteral("/dev/tty")))
         ? stdinLink
@@ -219,8 +300,15 @@ QVariantMap AppIdentityClient::resolveViaProc(qint64 pid) const
     const QString source = inferSourceFromExecutable(executable);
     const QString trustLevel = inferTrustLevel(source, executable);
     const QString context = inferContext(QString(), executable, tty);
+    QString scriptTarget;
+    if (context == QLatin1String("interpreter")) {
+        const QVariantList argv = procMeta.value(QStringLiteral("argv")).toList();
+        if (argv.size() > 1) {
+            scriptTarget = argv.at(1).toString();
+        }
+    }
 
-    return normalizedResult(pid, appName, appId, executable, source, trustLevel, context);
+    return normalizedResult(pid, appName, appId, executable, source, trustLevel, context, procMeta, scriptTarget);
 }
 
 } // namespace Slm::Firewall

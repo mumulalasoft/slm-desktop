@@ -34,6 +34,8 @@ private slots:
         QVERIFY(identity.value(QStringLiteral("context")).toString() == QStringLiteral("gui")
                 || identity.value(QStringLiteral("context")).toString() == QStringLiteral("cli")
                 || identity.value(QStringLiteral("context")).toString() == QStringLiteral("interpreter"));
+        const QVariantMap contextMeta = identity.value(QStringLiteral("context_meta")).toMap();
+        QVERIFY(contextMeta.contains(QStringLiteral("argv")));
     }
 };
 
