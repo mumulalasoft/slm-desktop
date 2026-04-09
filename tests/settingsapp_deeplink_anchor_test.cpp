@@ -105,6 +105,10 @@ private slots:
         QVERIFY(app.openDeepLink(QStringLiteral("settings://firewall/blocked-ip")));
         QCOMPARE(app.currentModuleId(), QStringLiteral("firewall"));
         QCOMPARE(app.currentSettingId(), QStringLiteral("blocked-ip"));
+
+        QVERIFY(app.openDeepLink(QStringLiteral("settings://firewall/pending-prompts")));
+        QCOMPARE(app.currentModuleId(), QStringLiteral("firewall"));
+        QCOMPARE(app.currentSettingId(), QStringLiteral("pending-prompts"));
     }
 };
 

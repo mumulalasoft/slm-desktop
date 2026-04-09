@@ -56,6 +56,16 @@
             "anchor": "blocked-ip",
             "backend_binding": "dbus:org.slm.Desktop.Firewall",
             "privileged_action": "org.slm.settings.network.modify"
+        },
+        {
+            "id": "pending-prompts",
+            "label": "Pending Prompts",
+            "description": "Review and resolve queued firewall connection prompts",
+            "keywords": ["pending prompt", "allow deny", "connection request", "firewall queue"],
+            "type": "action",
+            "anchor": "pending-prompts",
+            "backend_binding": "dbus:org.slm.Desktop.Firewall",
+            "privileged_action": "org.slm.settings.network.modify"
         }
     ]
 }
