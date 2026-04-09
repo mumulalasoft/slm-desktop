@@ -152,6 +152,7 @@ private slots:
              }},
             {QStringLiteral("scope"), QStringLiteral("incoming")},
             {QStringLiteral("reason"), QStringLiteral("suspicious-ingress")},
+            {QStringLiteral("note"), QStringLiteral("incident-42")},
             {QStringLiteral("temporary"), true},
             {QStringLiteral("duration"), QStringLiteral("24h")},
         };
@@ -173,6 +174,7 @@ private slots:
         const QVariantMap stored = entries.first().toMap();
         QCOMPARE(stored.value(QStringLiteral("type")).toString(), QStringLiteral("list"));
         QCOMPARE(stored.value(QStringLiteral("reason")).toString(), QStringLiteral("suspicious-ingress"));
+        QCOMPARE(stored.value(QStringLiteral("note")).toString(), QStringLiteral("incident-42"));
         QCOMPARE(stored.value(QStringLiteral("duration")).toString(), QStringLiteral("24h"));
         QVERIFY(!stored.value(QStringLiteral("policyId")).toString().isEmpty());
     }

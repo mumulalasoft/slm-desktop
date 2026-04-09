@@ -192,6 +192,7 @@ private slots:
             {QStringLiteral("cidr"), QStringLiteral("203.0.113.0/24")},
             {QStringLiteral("scope"), QStringLiteral("both")},
             {QStringLiteral("reason"), QStringLiteral("manual-block")},
+            {QStringLiteral("note"), QStringLiteral("soc-ticket-7")},
         };
 
         const QVariantMap result = service.SetIpPolicy(request);
@@ -203,6 +204,8 @@ private slots:
         QCOMPARE(listed.size(), 1);
         QVERIFY(listed.first().toMap().value(QStringLiteral("targets")).toStringList().contains(
                     QStringLiteral("203.0.113.0/24")));
+        QCOMPARE(listed.first().toMap().value(QStringLiteral("note")).toString(),
+                 QStringLiteral("soc-ticket-7"));
 
         const QVariantMap cleared = service.ClearIpPolicies();
         QCOMPARE(cleared.value(QStringLiteral("ok")).toBool(), true);

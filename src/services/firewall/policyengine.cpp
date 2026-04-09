@@ -139,6 +139,7 @@ QVariantMap normalizeIpBlockPolicy(const QVariantMap &policy, QString *error)
     const bool temporary = policy.value(QStringLiteral("temporary"), false).toBool();
     const QString duration = normalizedString(policy.value(QStringLiteral("duration")));
     const QString reason = normalizedString(policy.value(QStringLiteral("reason")));
+    const QString note = normalizedString(policy.value(QStringLiteral("note")));
 
     return {
         {QStringLiteral("policyId"), QUuid::createUuid().toString(QUuid::WithoutBraces)},
@@ -149,6 +150,7 @@ QVariantMap normalizeIpBlockPolicy(const QVariantMap &policy, QString *error)
         {QStringLiteral("temporary"), temporary},
         {QStringLiteral("duration"), temporary ? (duration.isEmpty() ? QStringLiteral("1h") : duration) : QString()},
         {QStringLiteral("reason"), reason},
+        {QStringLiteral("note"), note},
         {QStringLiteral("hitCount"), 0},
         {QStringLiteral("enabled"), true},
     };
