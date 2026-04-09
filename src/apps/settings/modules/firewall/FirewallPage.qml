@@ -702,10 +702,36 @@ Flickable {
         if (receivedLabel.length) {
             text += "\n" + qsTr("Received: %1").arg(receivedLabel)
         }
+        var remainingSec = root.pendingPromptRemainingSeconds(row)
+        if (remainingSec >= 0) {
+            text += "\n" + qsTr("Expires in: %1").arg(root.formatRemainingSeconds(remainingSec))
+        }
         if (!isNaN(duplicateCount) && duplicateCount > 0) {
             text += "\n" + qsTr("Suppressed duplicate(s): %1").arg(duplicateCount)
         }
         return text
+    }
+
+    function pendingPromptRemainingSeconds(item) {
+        var row = item || {}
+        var receivedAt = String(row.receivedAt || "").trim()
+        if (!receivedAt.length) {
+            return -1
+        }
+        var receivedMs = root.parseIsoMs(receivedAt)
+        if (receivedMs <= 0) {
+            return -1
+        }
+        var ttlSec = Number(FirewallServiceClient.pendingPromptTtlSeconds || 900)
+        if (isNaN(ttlSec) || ttlSec <= 0) {
+            ttlSec = 900
+        }
+        var elapsedSec = root.quickBlockNowEpochSec - Math.floor(receivedMs / 1000)
+        if (elapsedSec < 0) {
+            elapsedSec = 0
+        }
+        var remaining = ttlSec - elapsedSec
+        return remaining > 0 ? remaining : 0
     }
 
     function simulateEvaluateConnection() {
@@ -1828,6 +1854,9 @@ Flickable {
                     && FirewallServiceClient.lastQuickBlockPolicyId.length > 0) {
                 FirewallServiceClient.refreshIpPolicies()
                 FirewallServiceClient.refreshConnections()
+            }
+            if (root.quickBlockNowEpochSec % 5 === 0) {
+                FirewallServiceClient.prunePendingPrompts()
             }
             root.quickBlockLastRemainingSec = remaining
         }

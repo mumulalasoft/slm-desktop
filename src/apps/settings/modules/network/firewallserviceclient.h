@@ -20,6 +20,7 @@ class FirewallServiceClient : public QObject
     Q_PROPERTY(QVariantList ipPolicies READ ipPolicies NOTIFY ipPoliciesChanged)
     Q_PROPERTY(QVariantList activeConnections READ activeConnections NOTIFY activeConnectionsChanged)
     Q_PROPERTY(QVariantList pendingPrompts READ pendingPrompts NOTIFY pendingPromptsChanged)
+    Q_PROPERTY(int pendingPromptTtlSeconds READ pendingPromptTtlSeconds CONSTANT)
     Q_PROPERTY(QString lastQuickBlockPolicyId READ lastQuickBlockPolicyId WRITE setLastQuickBlockPolicyId NOTIFY quickBlockStateChanged)
     Q_PROPERTY(QString lastQuickBlockTarget READ lastQuickBlockTarget WRITE setLastQuickBlockTarget NOTIFY quickBlockStateChanged)
     Q_PROPERTY(QString quickBlockUndoNotice READ quickBlockUndoNotice NOTIFY quickBlockStateChanged)
@@ -37,6 +38,7 @@ public:
     QVariantList ipPolicies() const;
     QVariantList activeConnections() const;
     QVariantList pendingPrompts() const;
+    int pendingPromptTtlSeconds() const;
     QString lastQuickBlockPolicyId() const;
     QString lastQuickBlockTarget() const;
     QString quickBlockUndoNotice() const;
@@ -66,6 +68,7 @@ public:
     Q_INVOKABLE bool resolvePendingPrompt(int index, const QString &decision, bool remember);
     Q_INVOKABLE int resolveAllPendingPrompts(const QString &decision, bool remember);
     Q_INVOKABLE void clearPendingPrompts();
+    Q_INVOKABLE int prunePendingPrompts();
 
 signals:
     void availableChanged();

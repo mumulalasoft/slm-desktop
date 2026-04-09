@@ -132,6 +132,11 @@ QVariantList FirewallServiceClient::pendingPrompts() const
     return m_pendingPrompts;
 }
 
+int FirewallServiceClient::pendingPromptTtlSeconds() const
+{
+    return static_cast<int>(kPendingPromptTtlSecs);
+}
+
 QString FirewallServiceClient::lastQuickBlockPolicyId() const
 {
     return m_lastQuickBlockPolicyId;
@@ -587,6 +592,17 @@ void FirewallServiceClient::clearPendingPrompts()
     }
     m_pendingPrompts.clear();
     emit pendingPromptsChanged();
+}
+
+int FirewallServiceClient::prunePendingPrompts()
+{
+    const int before = m_pendingPrompts.size();
+    if (!pruneStalePendingPrompts()) {
+        return 0;
+    }
+    emit pendingPromptsChanged();
+    const int after = m_pendingPrompts.size();
+    return before > after ? (before - after) : 0;
 }
 
 bool FirewallServiceClient::pruneStalePendingPrompts()
