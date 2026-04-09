@@ -412,7 +412,7 @@ Flickable {
         return remote.substring(0, colon)
     }
 
-    function quickBlockConnectionIp(entry) {
+    function quickBlockConnectionIp(entry, temporary) {
         var ip = root.extractRemoteIp(entry)
         if (!ip.length) {
             root.connectionResultOk = false
@@ -424,16 +424,23 @@ Flickable {
         var note = appName.length
                 ? qsTr("from active connection: %1").arg(appName)
                 : qsTr("from active connection")
-        var ok = FirewallServiceClient.setIpPolicy({
+        var payload = {
             type: "ip",
             ip: ip,
             scope: "both",
             reason: "active-connection-quick-block",
             note: note
-        })
+        }
+        if (temporary) {
+            payload.temporary = true
+            payload.duration = "1h"
+        }
+        var ok = FirewallServiceClient.setIpPolicy(payload)
         root.connectionResultOk = ok
         root.connectionResultText = ok
-                ? qsTr("Remote IP blocked: %1").arg(ip)
+                ? (temporary
+                   ? qsTr("Remote IP blocked for 1h: %1").arg(ip)
+                   : qsTr("Remote IP blocked permanently: %1").arg(ip))
                 : qsTr("Failed to block remote IP.")
         if (ok) {
             FirewallServiceClient.refreshIpPolicies()
@@ -1340,12 +1347,26 @@ Flickable {
                                     onClicked: root.applyConnectionDecision(modelData, "deny")
                                 }
 
-                                Button {
+                                ToolButton {
                                     text: qsTr("Block IP")
                                     enabled: FirewallServiceClient.available
                                              && FirewallServiceClient.enabled
                                              && root.extractRemoteIp(modelData).length > 0
-                                    onClicked: root.quickBlockConnectionIp(modelData)
+                                    onClicked: blockIpMenu.open()
+
+                                    Menu {
+                                        id: blockIpMenu
+
+                                        MenuItem {
+                                            text: qsTr("Block 1h")
+                                            onTriggered: root.quickBlockConnectionIp(modelData, true)
+                                        }
+
+                                        MenuItem {
+                                            text: qsTr("Block Permanent")
+                                            onTriggered: root.quickBlockConnectionIp(modelData, false)
+                                        }
+                                    }
                                 }
                             }
                         }
