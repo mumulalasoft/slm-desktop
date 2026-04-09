@@ -702,10 +702,6 @@ Flickable {
         if (receivedLabel.length) {
             text += "\n" + qsTr("Received: %1").arg(receivedLabel)
         }
-        var remainingSec = root.pendingPromptRemainingSeconds(row)
-        if (remainingSec >= 0) {
-            text += "\n" + qsTr("Expires in: %1").arg(root.formatRemainingSeconds(remainingSec))
-        }
         if (!isNaN(duplicateCount) && duplicateCount > 0) {
             text += "\n" + qsTr("Suppressed duplicate(s): %1").arg(duplicateCount)
         }
@@ -732,6 +728,35 @@ Flickable {
         }
         var remaining = ttlSec - elapsedSec
         return remaining > 0 ? remaining : 0
+    }
+
+    function pendingPromptExpiryText(item) {
+        var remainingSec = root.pendingPromptRemainingSeconds(item)
+        if (remainingSec < 0) {
+            return ""
+        }
+        return qsTr("Expires in: %1").arg(root.formatRemainingSeconds(remainingSec))
+    }
+
+    function pendingPromptCountdownColor(item) {
+        var remainingSec = root.pendingPromptRemainingSeconds(item)
+        if (remainingSec < 0) {
+            return Theme.color("textSecondary")
+        }
+        if (remainingSec <= 60) {
+            return Theme.color("error")
+        }
+        if (remainingSec <= 300) {
+            return Theme.color("warning")
+        }
+        return Theme.color("textSecondary")
+    }
+
+    function pendingPromptCountdownWeight(item) {
+        var remainingSec = root.pendingPromptRemainingSeconds(item)
+        return remainingSec >= 0 && remainingSec <= 60
+                ? Theme.fontWeight("medium")
+                : Theme.fontWeight("normal")
     }
 
     function simulateEvaluateConnection() {
@@ -1657,6 +1682,16 @@ Flickable {
                                         text: root.pendingPromptDetails(modelData)
                                         color: Theme.color("textSecondary")
                                         font.pixelSize: Theme.fontSize("small")
+                                        wrapMode: Text.WordWrap
+                                    }
+
+                                    Text {
+                                        Layout.fillWidth: true
+                                        visible: root.pendingPromptRemainingSeconds(modelData) >= 0
+                                        text: root.pendingPromptExpiryText(modelData)
+                                        color: root.pendingPromptCountdownColor(modelData)
+                                        font.pixelSize: Theme.fontSize("small")
+                                        font.weight: root.pendingPromptCountdownWeight(modelData)
                                         wrapMode: Text.WordWrap
                                     }
                                 }
