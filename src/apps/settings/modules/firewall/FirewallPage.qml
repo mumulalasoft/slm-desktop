@@ -819,6 +819,90 @@ Flickable {
         return source.indexOf("trusted") >= 0
     }
 
+    function pendingPromptTargetIp(item) {
+        var row = item || {}
+        var evaluation = row.evaluation || {}
+        var request = row.request || {}
+        var target = evaluation.target || {}
+        var ip = String(target.ip || request.destinationIp || request.sourceIp || request.remoteIp || request.ip || "").trim()
+        if (ip.length) {
+            return ip
+        }
+        var host = String(target.host || request.destinationHost || request.host || "").trim()
+        if (root.isPrivateOrLocalIpv4(host)) {
+            return host
+        }
+        return ""
+    }
+
+    function pendingPromptTargetSubnet24(item) {
+        var ip = root.pendingPromptTargetIp(item)
+        if (!ip.length) {
+            return ""
+        }
+        return root.ipv4Subnet24(ip)
+    }
+
+    function pendingPromptBlockTargetIp(sourceIndex, item, temporary) {
+        var ip = root.pendingPromptTargetIp(item)
+        if (!ip.length) {
+            root.connectionResultOk = false
+            root.connectionResultText = qsTr("Pending prompt target has no blockable IP.")
+            return false
+        }
+        var label = root.pendingPromptLabel(item)
+        var response = FirewallServiceClient.setIpPolicyDetailed({
+            type: "ip",
+            ip: ip,
+            scope: "both",
+            reason: "pending-prompt-target-block",
+            temporary: Boolean(temporary),
+            duration: temporary ? "1h" : "",
+            note: qsTr("from pending prompt: %1").arg(label)
+        })
+        var ok = Boolean(response && response.ok)
+        if (!ok) {
+            root.connectionResultOk = false
+            root.connectionResultText = qsTr("Failed to block pending prompt IP target.")
+            return false
+        }
+        FirewallServiceClient.resolvePendingPrompt(sourceIndex, "deny", false)
+        FirewallServiceClient.refreshIpPolicies()
+        root.connectionResultOk = true
+        root.connectionResultText = temporary
+                ? qsTr("Pending prompt target blocked for 1h: %1").arg(ip)
+                : qsTr("Pending prompt target blocked: %1").arg(ip)
+        return true
+    }
+
+    function pendingPromptBlockTargetSubnet24(sourceIndex, item) {
+        var cidr = root.pendingPromptTargetSubnet24(item)
+        if (!cidr.length) {
+            root.connectionResultOk = false
+            root.connectionResultText = qsTr("Pending prompt subnet block requires IPv4 target.")
+            return false
+        }
+        var label = root.pendingPromptLabel(item)
+        var response = FirewallServiceClient.setIpPolicyDetailed({
+            type: "subnet",
+            cidr: cidr,
+            scope: "both",
+            reason: "pending-prompt-target-subnet-block",
+            note: qsTr("from pending prompt: %1").arg(label)
+        })
+        var ok = Boolean(response && response.ok)
+        if (!ok) {
+            root.connectionResultOk = false
+            root.connectionResultText = qsTr("Failed to block pending prompt subnet target.")
+            return false
+        }
+        FirewallServiceClient.resolvePendingPrompt(sourceIndex, "deny", false)
+        FirewallServiceClient.refreshIpPolicies()
+        root.connectionResultOk = true
+        root.connectionResultText = qsTr("Pending prompt subnet blocked: %1").arg(cidr)
+        return true
+    }
+
     function pendingPromptIsSafest(item) {
         return root.pendingPromptSourceTrusted(item) && root.pendingPromptTargetIsLocal(item)
     }
@@ -2174,6 +2258,24 @@ Flickable {
                                                 ? qsTr("Pending prompt denied.")
                                                 : qsTr("Failed to resolve pending prompt.")
                                     }
+                                }
+
+                                Button {
+                                    text: qsTr("Block IP")
+                                    enabled: FirewallServiceClient.available
+                                             && FirewallServiceClient.enabled
+                                             && sourceIndex >= 0
+                                             && root.pendingPromptTargetIp(promptItem).length > 0
+                                    onClicked: root.pendingPromptBlockTargetIp(sourceIndex, promptItem, false)
+                                }
+
+                                Button {
+                                    text: qsTr("Block /24")
+                                    enabled: FirewallServiceClient.available
+                                             && FirewallServiceClient.enabled
+                                             && sourceIndex >= 0
+                                             && root.pendingPromptTargetSubnet24(promptItem).length > 0
+                                    onClicked: root.pendingPromptBlockTargetSubnet24(sourceIndex, promptItem)
                                 }
                             }
                         }

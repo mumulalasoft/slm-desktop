@@ -12,6 +12,7 @@ class SecuritySettingsRoutingJsTest : public QObject
 private slots:
     void deepLinkForCapability_contract();
     void firewallQuickBlockUi_contract();
+    void firewallPendingPromptBlockUi_contract();
 };
 
 void SecuritySettingsRoutingJsTest::deepLinkForCapability_contract()
@@ -77,6 +78,24 @@ void SecuritySettingsRoutingJsTest::firewallQuickBlockUi_contract()
     QVERIFY(text.contains(QStringLiteral("Block Permanent")));
     QVERIFY(text.contains(QStringLiteral("Block Subnet (/24)")));
     QVERIFY(text.contains(QStringLiteral("quickBlockCountdownColor")));
+}
+
+void SecuritySettingsRoutingJsTest::firewallPendingPromptBlockUi_contract()
+{
+    const QString path = QStringLiteral(DESKTOP_SOURCE_DIR)
+                         + QStringLiteral("/src/apps/settings/modules/firewall/FirewallPage.qml");
+    QVERIFY2(QFileInfo::exists(path), "FirewallPage.qml is missing");
+
+    QFile file(path);
+    QVERIFY2(file.open(QIODevice::ReadOnly | QIODevice::Text),
+             "cannot open FirewallPage.qml");
+    const QString text = QString::fromUtf8(file.readAll());
+
+    QVERIFY(text.contains(QStringLiteral("function pendingPromptTargetIp(item)")));
+    QVERIFY(text.contains(QStringLiteral("function pendingPromptBlockTargetIp(sourceIndex, item, temporary)")));
+    QVERIFY(text.contains(QStringLiteral("function pendingPromptBlockTargetSubnet24(sourceIndex, item)")));
+    QVERIFY(text.contains(QStringLiteral("Block IP")));
+    QVERIFY(text.contains(QStringLiteral("Block /24")));
 }
 
 QTEST_GUILESS_MAIN(SecuritySettingsRoutingJsTest)
