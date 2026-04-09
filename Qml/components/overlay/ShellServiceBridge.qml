@@ -73,6 +73,14 @@ Item {
             return
         }
         var deepLink = "settings://permissions/app-secrets"
+        var capability = String((root.consentPayload && root.consentPayload.capability)
+                                ? root.consentPayload.capability : "")
+        var capabilityLower = capability.toLowerCase()
+        if (capabilityLower.indexOf("network") === 0
+                || capabilityLower.indexOf("socket") >= 0
+                || capabilityLower.indexOf("firewall") >= 0) {
+            deepLink = "settings://firewall/mode"
+        }
         var cmd = "slm-settings --deep-link " + deepLink
         var opened = AppExecutionGate.launchCommand(cmd, "", "portal-consent-open-settings")
         if (!opened && typeof AppBinaryDir !== "undefined" && String(AppBinaryDir || "").length > 0) {
