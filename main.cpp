@@ -48,7 +48,6 @@
 #include "src/core/icons/themeiconprovider.h"
 #include "src/core/icons/themeiconcontroller.h"
 #include "resourcepaths.h"
-#include "src/core/prefs/uipreferences.h"
 #include "src/services/sound/soundmanager.h"
 #include "src/services/indicator/statusnotifierhost.h"
 #include "src/services/portal/screencastprivacymodel.h"
@@ -247,7 +246,6 @@ int main(int argc, char *argv[])
     DockModel dockModel;
     SpacesManager spacesManager;
     CursorController cursorController;
-    UIPreferences uiPreferences;
     DesktopSettingsClient desktopSettings;
     ScreenshotManager screenshotManager;
     PortalChooserLogicHelper portalChooserLogicHelper;
@@ -405,7 +403,6 @@ int main(int argc, char *argv[])
                                           &cursorController,
                                           &themeIconController,
                                           &desktopSettings,
-                                          &uiPreferences,
                                           &windowingBackendManager,
                                           &workspaceManager,
                                           &workspaceStripModel,

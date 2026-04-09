@@ -23,7 +23,6 @@ class AppExecutionGate;
 class AppCommandRouter;
 class CursorController;
 class ThemeIconController;
-class UIPreferences;
 class WindowingBackendManager;
 class WorkspaceManager;
 class WorkspaceStripModel;
@@ -77,7 +76,6 @@ void registerCoreContext(QQmlContext *context,
                          CursorController *cursorController,
                          ThemeIconController *themeIconController,
                          QObject *desktopSettings,
-                         UIPreferences *uiPreferences,
                          WindowingBackendManager *windowingBackendManager,
                          WorkspaceManager *workspaceManager,
                          WorkspaceStripModel *workspaceStripModel,
