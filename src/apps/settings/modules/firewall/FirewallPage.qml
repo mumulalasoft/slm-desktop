@@ -236,6 +236,24 @@ Flickable {
         return out
     }
 
+    function isAppQuarantined(appId) {
+        var id = String(appId || "").trim()
+        if (!id.length) {
+            return false
+        }
+        var all = FirewallServiceClient.appPolicies || []
+        for (var i = 0; i < all.length; ++i) {
+            var row = all[i] || {}
+            if (String(row.appId || "") !== id) {
+                continue
+            }
+            if (String(row.decision || "") === "deny" && String(row.direction || "") === "both") {
+                return true
+            }
+        }
+        return false
+    }
+
     function parseIsoMs(value) {
         var text = String(value || "").trim()
         if (!text.length) {
@@ -678,7 +696,9 @@ Flickable {
                                         var p = modelData || {}
                                         var appId = String(p.appId || qsTr("(unknown app)"))
                                         var direction = String(p.direction || "incoming")
-                                        return appId + " [" + direction + "]"
+                                        var quarantined = root.isAppQuarantined(appId)
+                                        var suffix = quarantined ? " • " + qsTr("Quarantined") : ""
+                                        return appId + " [" + direction + "]" + suffix
                                     }
                                     color: Theme.color("textPrimary")
                                     font.pixelSize: Theme.fontSize("small")
@@ -772,7 +792,9 @@ Flickable {
                                         var p = modelData || {}
                                         var appId = String(p.appId || qsTr("(unknown app)"))
                                         var direction = String(p.direction || "incoming")
-                                        return appId + " [" + direction + "]"
+                                        var quarantined = root.isAppQuarantined(appId)
+                                        var suffix = quarantined ? " • " + qsTr("Quarantined") : ""
+                                        return appId + " [" + direction + "]" + suffix
                                     }
                                     color: Theme.color("textPrimary")
                                     font.pixelSize: Theme.fontSize("small")
