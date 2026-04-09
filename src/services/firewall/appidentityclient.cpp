@@ -142,43 +142,54 @@ QVariantMap AppIdentityClient::resolveViaAppd(qint64 pid) const
         return {};
     }
 
-    const QDBusReply<QVariantList> reply = iface.call(QStringLiteral("ListRunningApps"));
-    if (!reply.isValid()) {
-        return {};
+    const QVariantMap procIdentity = resolveViaProc(pid);
+
+    const QDBusReply<QVariantMap> resolveReply = iface.call(QStringLiteral("ResolveByPid"), pid);
+    if (resolveReply.isValid()) {
+        const QVariantMap payload = resolveReply.value();
+        if (payload.value(QStringLiteral("ok"), false).toBool()) {
+            const QString appId = payload.value(QStringLiteral("appId")).toString().trimmed();
+            const QString category = payload.value(QStringLiteral("category")).toString().trimmed();
+            QString executable = payload.value(QStringLiteral("executableHint")).toString().trimmed();
+            if (executable.isEmpty()) {
+                executable = procIdentity.value(QStringLiteral("executable")).toString().trimmed();
+            }
+            const QString appName = appId.isEmpty() ? QFileInfo(executable).baseName() : appId;
+            const QString source = inferSourceFromExecutable(executable);
+            const QString trustLevel = inferTrustLevel(source, executable);
+            const QString ttyHint = procIdentity.value(QStringLiteral("context")).toString() == QLatin1String("cli")
+                ? QStringLiteral("/dev/tty")
+                : QString();
+            const QString context = inferContext(category, executable, ttyHint);
+            return normalizedResult(pid, appName, appId, executable, source, trustLevel, context);
+        }
     }
 
-    const QVariantList apps = reply.value();
+    const QDBusReply<QVariantList> listReply = iface.call(QStringLiteral("ListRunningApps"));
+    if (!listReply.isValid()) {
+        return {};
+    }
+    const QVariantList apps = listReply.value();
     for (const QVariant &item : apps) {
         const QVariantMap app = item.toMap();
         const QVariantList pids = app.value(QStringLiteral("pids")).toList();
-        bool matched = false;
         for (const QVariant &candidate : pids) {
-            if (candidate.toLongLong() == pid) {
-                matched = true;
-                break;
+            if (candidate.toLongLong() != pid) {
+                continue;
             }
+            const QString appId = app.value(QStringLiteral("appId")).toString().trimmed();
+            const QString category = app.value(QStringLiteral("category")).toString().trimmed();
+            QString executable = procIdentity.value(QStringLiteral("executable")).toString().trimmed();
+            const QString appName = appId.isEmpty() ? QFileInfo(executable).baseName() : appId;
+            const QString source = inferSourceFromExecutable(executable);
+            const QString trustLevel = inferTrustLevel(source, executable);
+            const QString ttyHint = procIdentity.value(QStringLiteral("context")).toString() == QLatin1String("cli")
+                ? QStringLiteral("/dev/tty")
+                : QString();
+            const QString context = inferContext(category, executable, ttyHint);
+            return normalizedResult(pid, appName, appId, executable, source, trustLevel, context);
         }
-        if (!matched) {
-            continue;
-        }
-
-        const QVariantMap procIdentity = resolveViaProc(pid);
-        const QString appId = app.value(QStringLiteral("appId")).toString().trimmed();
-        const QString category = app.value(QStringLiteral("category")).toString().trimmed();
-        QString executable = app.value(QStringLiteral("executableHint")).toString().trimmed();
-        if (executable.isEmpty()) {
-            executable = procIdentity.value(QStringLiteral("executable")).toString().trimmed();
-        }
-        const QString appName = appId.isEmpty() ? QFileInfo(executable).baseName() : appId;
-        const QString source = inferSourceFromExecutable(executable);
-        const QString trustLevel = inferTrustLevel(source, executable);
-        const QString ttyHint = procIdentity.value(QStringLiteral("context")).toString() == QLatin1String("cli")
-            ? QStringLiteral("/dev/tty")
-            : QString();
-        const QString context = inferContext(category, executable, ttyHint);
-        return normalizedResult(pid, appName, appId, executable, source, trustLevel, context);
     }
-
     return {};
 }
 
