@@ -76,6 +76,9 @@ private:
     bool ensureIface();
     bool callBoolMapMethod(const QString &method, const QVariant &arg);
     bool applyStateMap(const QVariantMap &map);
+    bool setSettingsValue(const QString &path, const QVariant &value) const;
+    void restoreQuickBlockStateFromSettings();
+    bool m_restoringQuickBlockState = false;
 
     QDBusInterface *m_iface = nullptr;
     bool m_available = false;

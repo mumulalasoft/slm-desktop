@@ -3,11 +3,17 @@
 #include <QDBusConnection>
 #include <QDBusInterface>
 #include <QDBusReply>
+#include <QDBusVariant>
 
 namespace {
 constexpr const char kService[] = "org.slm.Desktop.Firewall";
 constexpr const char kPath[] = "/org/slm/Desktop/Firewall";
 constexpr const char kInterface[] = "org.slm.Desktop.Firewall";
+constexpr const char kSettingsService[] = "org.slm.Desktop.Settings";
+constexpr const char kSettingsPath[] = "/org/slm/Desktop/Settings";
+constexpr const char kSettingsInterface[] = "org.slm.Desktop.Settings";
+constexpr const char kQuickBlockPolicyPath[] = "firewall.quickBlockUndo.policyId";
+constexpr const char kQuickBlockTargetPath[] = "firewall.quickBlockUndo.target";
 
 QString normalizeMode(const QString &value)
 {
@@ -28,6 +34,33 @@ QString normalizePolicy(const QString &value, const QString &fallback)
     }
     return fallback;
 }
+
+QVariant valueByPath(const QVariantMap &root, const QString &path, bool *ok)
+{
+    if (ok) {
+        *ok = false;
+    }
+    const QStringList segments = path.split('.', Qt::SkipEmptyParts);
+    if (segments.isEmpty()) {
+        return {};
+    }
+
+    QVariant current = root;
+    for (int i = 0; i < segments.size(); ++i) {
+        const QVariantMap map = current.toMap();
+        if (!map.contains(segments.at(i))) {
+            return {};
+        }
+        current = map.value(segments.at(i));
+        if (i < segments.size() - 1 && !current.canConvert<QVariantMap>()) {
+            return {};
+        }
+    }
+    if (ok) {
+        *ok = true;
+    }
+    return current;
+}
 }
 
 FirewallServiceClient::FirewallServiceClient(QObject *parent)
@@ -43,6 +76,7 @@ FirewallServiceClient::FirewallServiceClient(QObject *parent)
 
     ensureIface();
     refresh();
+    restoreQuickBlockStateFromSettings();
 }
 
 bool FirewallServiceClient::available() const
@@ -107,6 +141,9 @@ void FirewallServiceClient::setLastQuickBlockPolicyId(const QString &policyId)
         return;
     }
     m_lastQuickBlockPolicyId = normalized;
+    if (!m_restoringQuickBlockState) {
+        setSettingsValue(QString::fromLatin1(kQuickBlockPolicyPath), normalized);
+    }
     emit quickBlockStateChanged();
 }
 
@@ -117,7 +154,65 @@ void FirewallServiceClient::setLastQuickBlockTarget(const QString &target)
         return;
     }
     m_lastQuickBlockTarget = normalized;
+    if (!m_restoringQuickBlockState) {
+        setSettingsValue(QString::fromLatin1(kQuickBlockTargetPath), normalized);
+    }
     emit quickBlockStateChanged();
+}
+
+bool FirewallServiceClient::setSettingsValue(const QString &path, const QVariant &value) const
+{
+    QDBusInterface settingsIface(QString::fromLatin1(kSettingsService),
+                                 QString::fromLatin1(kSettingsPath),
+                                 QString::fromLatin1(kSettingsInterface),
+                                 QDBusConnection::sessionBus());
+    if (!settingsIface.isValid()) {
+        return false;
+    }
+    QDBusReply<QVariantMap> reply = settingsIface.call(QStringLiteral("SetSetting"),
+                                                       path,
+                                                       QVariant::fromValue(QDBusVariant(value)));
+    return reply.isValid() && reply.value().value(QStringLiteral("ok"), false).toBool();
+}
+
+void FirewallServiceClient::restoreQuickBlockStateFromSettings()
+{
+    QDBusInterface settingsIface(QString::fromLatin1(kSettingsService),
+                                 QString::fromLatin1(kSettingsPath),
+                                 QString::fromLatin1(kSettingsInterface),
+                                 QDBusConnection::sessionBus());
+    if (!settingsIface.isValid()) {
+        return;
+    }
+
+    QDBusReply<QVariantMap> reply = settingsIface.call(QStringLiteral("GetSettings"));
+    if (!reply.isValid()) {
+        return;
+    }
+    const QVariantMap payload = reply.value();
+    if (!payload.value(QStringLiteral("ok"), false).toBool()) {
+        return;
+    }
+
+    const QVariantMap settings = payload.value(QStringLiteral("settings")).toMap();
+    bool okPolicy = false;
+    bool okTarget = false;
+    const QString policyId = valueByPath(settings, QString::fromLatin1(kQuickBlockPolicyPath), &okPolicy)
+                                 .toString().trimmed();
+    const QString target = valueByPath(settings, QString::fromLatin1(kQuickBlockTargetPath), &okTarget)
+                               .toString().trimmed();
+    if (!okPolicy && !okTarget) {
+        return;
+    }
+
+    m_restoringQuickBlockState = true;
+    if (okPolicy) {
+        setLastQuickBlockPolicyId(policyId);
+    }
+    if (okTarget) {
+        setLastQuickBlockTarget(target);
+    }
+    m_restoringQuickBlockState = false;
 }
 
 bool FirewallServiceClient::refresh()
