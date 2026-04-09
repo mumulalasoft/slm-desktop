@@ -10,8 +10,8 @@ class FirewallServiceClientContractTest : public QObject
 private slots:
     void confirmBatchTriagePreference_contract()
     {
-        const QString base = QString::fromLocal8Bit(qgetenv("CMAKE_SOURCE_DIR")).trimmed();
-        QVERIFY2(!base.isEmpty(), "CMAKE_SOURCE_DIR is not set");
+        const QString base = QString::fromUtf8(QT_TESTCASE_SOURCEDIR);
+        QVERIFY2(!base.trimmed().isEmpty(), "DESKTOP_SOURCE_DIR is empty");
 
         const QString headerPath = base
                 + QStringLiteral("/src/apps/settings/modules/network/firewallserviceclient.h");
@@ -47,8 +47,8 @@ private slots:
 
     void triageDontAskAgainUi_contract()
     {
-        const QString base = QString::fromLocal8Bit(qgetenv("CMAKE_SOURCE_DIR")).trimmed();
-        QVERIFY2(!base.isEmpty(), "CMAKE_SOURCE_DIR is not set");
+        const QString base = QString::fromUtf8(QT_TESTCASE_SOURCEDIR);
+        QVERIFY2(!base.trimmed().isEmpty(), "DESKTOP_SOURCE_DIR is empty");
 
         const QString qmlPath = base
                 + QStringLiteral("/src/apps/settings/modules/firewall/FirewallPage.qml");
