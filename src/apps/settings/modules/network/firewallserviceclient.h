@@ -48,6 +48,7 @@ public:
     Q_INVOKABLE bool clearAppPolicies();
     Q_INVOKABLE bool removeAppPolicy(const QString &policyId);
     Q_INVOKABLE bool setIpPolicy(const QVariantMap &policy);
+    Q_INVOKABLE QVariantMap setIpPolicyDetailed(const QVariantMap &policy);
     Q_INVOKABLE bool refreshIpPolicies();
     Q_INVOKABLE bool clearIpPolicies();
     Q_INVOKABLE bool removeIpPolicy(const QString &policyId);

@@ -183,19 +183,31 @@ bool FirewallServiceClient::resolveConnectionDecision(const QVariantMap &request
 
 bool FirewallServiceClient::setIpPolicy(const QVariantMap &policy)
 {
+    const QVariantMap payload = setIpPolicyDetailed(policy);
+    return payload.value(QStringLiteral("ok"), false).toBool();
+}
+
+QVariantMap FirewallServiceClient::setIpPolicyDetailed(const QVariantMap &policy)
+{
     if (!ensureIface()) {
-        return false;
+        return QVariantMap{
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), QStringLiteral("service-unavailable")},
+        };
     }
     QDBusReply<QVariantMap> reply = m_iface->call(QStringLiteral("SetIpPolicy"), policy);
     if (!reply.isValid()) {
-        return false;
+        return QVariantMap{
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), QStringLiteral("dbus-call-failed")},
+        };
     }
     const QVariantMap payload = reply.value();
     const bool ok = payload.value(QStringLiteral("ok"), false).toBool();
     if (ok) {
         refreshIpPolicies();
     }
-    return ok;
+    return payload;
 }
 
 bool FirewallServiceClient::setAppPolicy(const QVariantMap &policy)

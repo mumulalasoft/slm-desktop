@@ -32,6 +32,8 @@ Flickable {
     property bool connectionRemember: false
     property string connectionResultText: ""
     property bool connectionResultOk: true
+    property string lastQuickBlockPolicyId: ""
+    property string lastQuickBlockTarget: ""
     readonly property bool devPromptSimulationEnabled: Qt.application.arguments.indexOf("--firewall-dev") !== -1
 
     readonly property var firewallModes: [
@@ -450,7 +452,10 @@ Flickable {
             payload.temporary = true
             payload.duration = "1h"
         }
-        var ok = FirewallServiceClient.setIpPolicy(payload)
+        var response = FirewallServiceClient.setIpPolicyDetailed(payload)
+        var ok = Boolean(response && response.ok)
+        var policy = response && response.policy ? response.policy : {}
+        var policyId = String(policy.policyId || "")
         root.connectionResultOk = ok
         root.connectionResultText = ok
                 ? (temporary
@@ -458,6 +463,8 @@ Flickable {
                    : qsTr("Remote IP blocked permanently: %1").arg(ip))
                 : qsTr("Failed to block remote IP.")
         if (ok) {
+            root.lastQuickBlockPolicyId = policyId
+            root.lastQuickBlockTarget = ip
             FirewallServiceClient.refreshIpPolicies()
             FirewallServiceClient.refreshConnections()
         }
@@ -482,18 +489,44 @@ Flickable {
         var note = appName.length
                 ? qsTr("from active connection: %1").arg(appName)
                 : qsTr("from active connection")
-        var ok = FirewallServiceClient.setIpPolicy({
+        var response = FirewallServiceClient.setIpPolicyDetailed({
             type: "subnet",
             cidr: cidr,
             scope: "both",
             reason: "active-connection-subnet-quick-block",
             note: note
         })
+        var ok = Boolean(response && response.ok)
+        var policy = response && response.policy ? response.policy : {}
+        var policyId = String(policy.policyId || "")
         root.connectionResultOk = ok
         root.connectionResultText = ok
                 ? qsTr("Remote subnet blocked: %1").arg(cidr)
                 : qsTr("Failed to block remote subnet.")
         if (ok) {
+            root.lastQuickBlockPolicyId = policyId
+            root.lastQuickBlockTarget = cidr
+            FirewallServiceClient.refreshIpPolicies()
+            FirewallServiceClient.refreshConnections()
+        }
+        return ok
+    }
+
+    function undoLastQuickBlock() {
+        var id = String(root.lastQuickBlockPolicyId || "").trim()
+        if (!id.length) {
+            root.connectionResultOk = false
+            root.connectionResultText = qsTr("No quick block to undo.")
+            return false
+        }
+        var ok = FirewallServiceClient.removeIpPolicy(id)
+        root.connectionResultOk = ok
+        root.connectionResultText = ok
+                ? qsTr("Quick block removed: %1").arg(String(root.lastQuickBlockTarget || id))
+                : qsTr("Failed to undo quick block.")
+        if (ok) {
+            root.lastQuickBlockPolicyId = ""
+            root.lastQuickBlockTarget = ""
             FirewallServiceClient.refreshIpPolicies()
             FirewallServiceClient.refreshConnections()
         }
@@ -1433,6 +1466,14 @@ Flickable {
                         text: root.connectionResultText
                         color: root.connectionResultOk ? Theme.color("success") : Theme.color("error")
                         font.pixelSize: Theme.fontSize("small")
+                    }
+
+                    Button {
+                        text: qsTr("Undo Last Quick Block")
+                        enabled: FirewallServiceClient.available
+                                 && FirewallServiceClient.enabled
+                                 && root.lastQuickBlockPolicyId.length > 0
+                        onClicked: root.undoLastQuickBlock()
                     }
                 }
             }
