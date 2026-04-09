@@ -200,6 +200,7 @@ QVariantMap SettingsStore::defaultSettings()
              {QStringLiteral("uiScale"), 1.0},
              {QStringLiteral("iconSizeClass"), QStringLiteral("medium")},
              {QStringLiteral("cursorTheme"), QStringLiteral("default")},
+             {QStringLiteral("highContrast"), false},
          }},
         {QStringLiteral("shellTheme"), QVariantMap{
              {QStringLiteral("name"), QStringLiteral("slm")},
@@ -248,6 +249,57 @@ QVariantMap SettingsStore::defaultSettings()
              {QStringLiteral("sunriseHour"), 6},
              {QStringLiteral("sunsetHour"), 18},
          }},
+        {QStringLiteral("dock"), QVariantMap{
+             {QStringLiteral("motionPreset"), QStringLiteral("subtle")},
+             {QStringLiteral("autoHideEnabled"), false},
+             {QStringLiteral("dropPulseEnabled"), true},
+             {QStringLiteral("dragThresholdMouse"), 6},
+             {QStringLiteral("dragThresholdTouchpad"), 3},
+             {QStringLiteral("iconSize"), QStringLiteral("medium")},
+             {QStringLiteral("magnificationEnabled"), true},
+         }},
+        {QStringLiteral("print"), QVariantMap{
+             {QStringLiteral("pdfFallbackPrinterId"), QStringLiteral("")},
+         }},
+        {QStringLiteral("windowing"), QVariantMap{
+             {QStringLiteral("animationEnabled"), true},
+             {QStringLiteral("controlsSide"), QStringLiteral("right")},
+             {QStringLiteral("bindClose"), QStringLiteral("Alt+F4")},
+             {QStringLiteral("bindMinimize"), QStringLiteral("Alt+F9")},
+             {QStringLiteral("bindMaximize"), QStringLiteral("Alt+Up")},
+             {QStringLiteral("bindTileLeft"), QStringLiteral("Alt+Left")},
+             {QStringLiteral("bindTileRight"), QStringLiteral("Alt+Right")},
+             {QStringLiteral("bindSwitchNext"), QStringLiteral("Alt+F11")},
+             {QStringLiteral("bindSwitchPrev"), QStringLiteral("Alt+F12")},
+             {QStringLiteral("bindWorkspace"), QStringLiteral("Alt+F3")},
+         }},
+        {QStringLiteral("shortcuts"), QVariantMap{
+             {QStringLiteral("workspaceOverview"), QStringLiteral("Meta+S")},
+             {QStringLiteral("workspacePrev"), QStringLiteral("Meta+Left")},
+             {QStringLiteral("workspaceNext"), QStringLiteral("Meta+Right")},
+             {QStringLiteral("moveWindowPrev"), QStringLiteral("Meta+Shift+Left")},
+             {QStringLiteral("moveWindowNext"), QStringLiteral("Meta+Shift+Right")},
+         }},
+        {QStringLiteral("fonts"), QVariantMap{
+             {QStringLiteral("defaultFont"), QStringLiteral("")},
+             {QStringLiteral("documentFont"), QStringLiteral("")},
+             {QStringLiteral("monospaceFont"), QStringLiteral("")},
+             {QStringLiteral("titlebarFont"), QStringLiteral("")},
+         }},
+        {QStringLiteral("wallpaper"), QVariantMap{
+             {QStringLiteral("uri"), QStringLiteral("")},
+         }},
+        {QStringLiteral("firewall"), QVariantMap{
+             {QStringLiteral("enabled"), true},
+             {QStringLiteral("mode"), QStringLiteral("home")},
+             {QStringLiteral("defaultIncomingPolicy"), QStringLiteral("deny")},
+             {QStringLiteral("defaultOutgoingPolicy"), QStringLiteral("allow")},
+             {QStringLiteral("networkProfiles"), QVariantMap{}},
+             {QStringLiteral("rules"), QVariantMap{
+                  {QStringLiteral("apps"), QVariantMap{}},
+                  {QStringLiteral("ipBlocks"), QVariantMap{}},
+              }},
+         }},
         {QStringLiteral("perAppOverride"), QVariantMap{}},
     };
 }
@@ -293,6 +345,13 @@ bool SettingsStore::validateRoot(const QVariantMap &raw, QString *error)
         QStringLiteral("fallbackPolicy"),
         QStringLiteral("contextAutomation"),
         QStringLiteral("contextTime"),
+        QStringLiteral("dock"),
+        QStringLiteral("print"),
+        QStringLiteral("windowing"),
+        QStringLiteral("shortcuts"),
+        QStringLiteral("fonts"),
+        QStringLiteral("wallpaper"),
+        QStringLiteral("firewall"),
         QStringLiteral("perAppOverride"),
     };
 
@@ -369,11 +428,159 @@ bool SettingsStore::validateValue(const QString &path, const QVariant &value, QS
         }
         return true;
     }
+    if (path == QStringLiteral("globalAppearance.highContrast")) {
+        if (value.metaType().id() != QMetaType::Bool) {
+            if (error) {
+                *error = QStringLiteral("highContrast must be boolean");
+            }
+            return false;
+        }
+        return true;
+    }
     if (path == QStringLiteral("globalAppearance.fontSize")) {
         const int v = value.toInt();
         if (v < 6 || v > 72) {
             if (error) {
                 *error = QStringLiteral("fontSize out of supported range 6..72");
+            }
+            return false;
+        }
+        return true;
+    }
+    if (path == QStringLiteral("dock.motionPreset")) {
+        const QString v = value.toString().trimmed().toLower();
+        if (v != QStringLiteral("subtle") && v != QStringLiteral("macos-lively")) {
+            if (error) {
+                *error = QStringLiteral("invalid dock motion preset: expected subtle/macos-lively");
+            }
+            return false;
+        }
+        return true;
+    }
+    if (path == QStringLiteral("dock.autoHideEnabled")
+            || path == QStringLiteral("dock.dropPulseEnabled")
+            || path == QStringLiteral("dock.magnificationEnabled")) {
+        if (value.metaType().id() != QMetaType::Bool) {
+            if (error) {
+                *error = QStringLiteral("dock flags must be boolean");
+            }
+            return false;
+        }
+        return true;
+    }
+    if (path == QStringLiteral("dock.iconSize")) {
+        const QString v = value.toString().trimmed().toLower();
+        if (v != QStringLiteral("small")
+                && v != QStringLiteral("medium")
+                && v != QStringLiteral("large")) {
+            if (error) {
+                *error = QStringLiteral("invalid dock icon size: expected small/medium/large");
+            }
+            return false;
+        }
+        return true;
+    }
+    if (path == QStringLiteral("dock.dragThresholdMouse")
+            || path == QStringLiteral("dock.dragThresholdTouchpad")) {
+        bool ok = false;
+        const int v = value.toInt(&ok);
+        if (!ok || v < 2 || v > 24) {
+            if (error) {
+                *error = QStringLiteral("dock drag threshold out of supported range 2..24");
+            }
+            return false;
+        }
+        return true;
+    }
+    if (path == QStringLiteral("print.pdfFallbackPrinterId")) {
+        if (!value.canConvert<QString>()) {
+            if (error) {
+                *error = QStringLiteral("pdfFallbackPrinterId must be a string");
+            }
+            return false;
+        }
+        return true;
+    }
+    if (path == QStringLiteral("windowing.animationEnabled")) {
+        if (value.metaType().id() != QMetaType::Bool) {
+            if (error) {
+                *error = QStringLiteral("windowing.animationEnabled must be boolean");
+            }
+            return false;
+        }
+        return true;
+    }
+    if (path == QStringLiteral("windowing.controlsSide")) {
+        const QString v = value.toString().trimmed().toLower();
+        if (v != QStringLiteral("left") && v != QStringLiteral("right")) {
+            if (error) {
+                *error = QStringLiteral("windowing.controlsSide must be left/right");
+            }
+            return false;
+        }
+        return true;
+    }
+    if (path.startsWith(QStringLiteral("windowing.bind"))
+            || path.startsWith(QStringLiteral("shortcuts."))) {
+        const QString v = value.toString().trimmed();
+        if (v.isEmpty()) {
+            if (error) {
+                *error = QStringLiteral("shortcut value must be a non-empty string");
+            }
+            return false;
+        }
+        return true;
+    }
+    if (path == QStringLiteral("fonts.defaultFont")
+            || path == QStringLiteral("fonts.documentFont")
+            || path == QStringLiteral("fonts.monospaceFont")
+            || path == QStringLiteral("fonts.titlebarFont")) {
+        if (value.metaType().id() != QMetaType::QString) {
+            if (error) {
+                *error = QStringLiteral("font spec must be a string");
+            }
+            return false;
+        }
+        return true;
+    }
+    if (path == QStringLiteral("wallpaper.uri")) {
+        if (value.metaType().id() != QMetaType::QString) {
+            if (error) {
+                *error = QStringLiteral("wallpaper uri must be a string");
+            }
+            return false;
+        }
+        return true;
+    }
+    if (path == QStringLiteral("firewall.enabled")) {
+        if (value.metaType().id() != QMetaType::Bool) {
+            if (error) {
+                *error = QStringLiteral("firewall.enabled must be boolean");
+            }
+            return false;
+        }
+        return true;
+    }
+    if (path == QStringLiteral("firewall.mode")) {
+        const QString mode = value.toString().trimmed().toLower();
+        if (mode != QStringLiteral("home")
+                && mode != QStringLiteral("public")
+                && mode != QStringLiteral("custom")) {
+            if (error) {
+                *error = QStringLiteral("firewall.mode must be home/public/custom");
+            }
+            return false;
+        }
+        return true;
+    }
+    if (path == QStringLiteral("firewall.defaultIncomingPolicy")
+            || path == QStringLiteral("firewall.defaultOutgoingPolicy")) {
+        const QString policy = value.toString().trimmed().toLower();
+        if (policy != QStringLiteral("allow")
+                && policy != QStringLiteral("deny")
+                && policy != QStringLiteral("prompt")) {
+            if (error) {
+                *error = QStringLiteral("firewall default policy must be allow/deny/prompt");
             }
             return false;
         }

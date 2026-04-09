@@ -2675,6 +2675,14 @@ qt_add_executable(firewallservice_dbus_contract_test
     src/services/firewall/nftablesadapter.h
     src/services/firewall/appidentityclient.cpp
     src/services/firewall/appidentityclient.h
+    src/services/settingsd/settingsstore.cpp
+    src/services/settingsd/settingsstore.h
+    src/services/settingsd/settingsservice.cpp
+    src/services/settingsd/settingsservice.h
+    src/services/theme-policy/appthemeclassifier.cpp
+    src/services/theme-policy/appthemeclassifier.h
+    src/services/theme-policy/themepolicyengine.cpp
+    src/services/theme-policy/themepolicyengine.h
     tests/firewallservice_dbus_contract_test.cpp
 )
 

@@ -44,6 +44,9 @@ signals:
     void ConnectionObserved(const QVariantMap &event);
 
 private:
+    bool loadSettingsState();
+    bool setSettingsValue(const QString &path, const QVariant &value, QString *error = nullptr) const;
+
     bool m_serviceRegistered = false;
     Slm::Firewall::FirewallMode m_mode = Slm::Firewall::FirewallMode::Home;
     bool m_enabled = true;
