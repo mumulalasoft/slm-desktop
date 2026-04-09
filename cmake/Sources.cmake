@@ -713,3 +713,20 @@ set(SLM_CONTEXTD_SOURCES
     src/services/context/ruleengine.cpp
     src/services/context/ruleengine.h
 )
+
+set(SLM_FIREWALLD_SOURCES
+    src/daemon/firewalld/firewalld_main.cpp
+    src/daemon/firewalld/firewallservice.cpp
+    src/daemon/firewalld/firewallservice.h
+    src/daemon/firewalld/firewalldbusadaptor.cpp
+    src/daemon/firewalld/firewalldbusadaptor.h
+    src/daemon/firewalld/firewalltypes.h
+    src/services/firewall/policyengine.cpp
+    src/services/firewall/policyengine.h
+    src/services/firewall/policystore.cpp
+    src/services/firewall/policystore.h
+    src/services/firewall/nftablesadapter.cpp
+    src/services/firewall/nftablesadapter.h
+    src/services/firewall/appidentityclient.cpp
+    src/services/firewall/appidentityclient.h
+)

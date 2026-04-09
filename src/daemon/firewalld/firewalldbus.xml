@@ -1,0 +1,47 @@
+<!DOCTYPE node PUBLIC "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN"
+                      "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
+<node>
+  <interface name="org.slm.Desktop.Firewall">
+    <method name="Ping">
+      <arg name="result" type="a{sv}" direction="out"/>
+    </method>
+    <method name="GetCapabilities">
+      <arg name="result" type="a{sv}" direction="out"/>
+    </method>
+    <method name="GetStatus">
+      <arg name="result" type="a{sv}" direction="out"/>
+    </method>
+    <method name="SetEnabled">
+      <arg name="enabled" type="b" direction="in"/>
+      <arg name="result" type="a{sv}" direction="out"/>
+    </method>
+    <method name="SetMode">
+      <arg name="mode" type="s" direction="in"/>
+      <arg name="result" type="a{sv}" direction="out"/>
+    </method>
+    <method name="EvaluateConnection">
+      <arg name="request" type="a{sv}" direction="in"/>
+      <arg name="result" type="a{sv}" direction="out"/>
+    </method>
+    <method name="SetAppPolicy">
+      <arg name="policy" type="a{sv}" direction="in"/>
+      <arg name="result" type="a{sv}" direction="out"/>
+    </method>
+    <method name="SetIpPolicy">
+      <arg name="policy" type="a{sv}" direction="in"/>
+      <arg name="result" type="a{sv}" direction="out"/>
+    </method>
+    <method name="ListConnections">
+      <arg name="result" type="av" direction="out"/>
+    </method>
+    <signal name="FirewallStateChanged">
+      <arg name="state" type="a{sv}"/>
+    </signal>
+    <signal name="PolicyChanged">
+      <arg name="change" type="a{sv}"/>
+    </signal>
+    <signal name="ConnectionObserved">
+      <arg name="event" type="a{sv}"/>
+    </signal>
+  </interface>
+</node>

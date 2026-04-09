@@ -2084,3 +2084,341 @@ Progress implementasi (awal):
     - resolved action dari `context.rules.actions`
     - gate status dari SSOT (`contextAutomation.*`)
   - `ContextDebugPage.qml` tersedia untuk raw context JSON + sensor source summary.
+
+## Roadmap — Modern Network & Firewall System (Production-Ready)
+
+### Objective
+- Bangun sistem Network & Firewall terpadu untuk desktop Linux dengan prinsip:
+  - user-centric (app-oriented, bukan network-centric)
+  - secure by default
+  - application-aware (berbasis app identity)
+  - terintegrasi dengan desktop core (`desktop-appd`)
+  - simple untuk user umum, advanced untuk power user
+
+### Core Architecture (Wajib)
+- Packet Engine (low level):
+  - backend rule final: `nftables`
+- Identity Layer (SSOT):
+  - source of truth: `desktop-appd`
+  - mapping wajib: PID -> app identity, CLI context (cwd/parent/tty), Flatpak App ID, `.desktop` app name/icon
+  - output identity minimal:
+    - `app_name`
+    - `app_id`
+    - `pid`
+    - `executable`
+    - `source` (`apt`/`flatpak`/`manual`)
+    - `trust_level`
+    - `context` (`gui`/`cli`/`interpreter`)
+- Policy Engine:
+  - service: `desktop-firewalld`
+  - fungsi:
+    - evaluasi koneksi incoming/outgoing
+    - decision `allow`/`deny`/`prompt`
+    - inject rule ke `nftables`
+    - persist keputusan user
+
+### Firewall Design
+- Default policy (wajib):
+  - Incoming: deny all
+  - Outgoing: allow (v1)
+  - Loopback: allow
+  - Established: allow
+- Firewall mode (wajib):
+  - `Home`:
+    - allow LAN
+    - allow trusted apps
+    - block unknown incoming
+  - `Public`:
+    - block all incoming
+    - stealth mode on
+    - optional restrict unknown outbound
+  - `Custom`: full user control
+
+### Network Management
+- Wajib:
+  - Network profiles: `Home`, `Office`, `Public WiFi`, `Custom`
+  - Auto-detect profile berbasis `SSID`, `gateway`, `IP range`
+  - Connection awareness:
+    - network type (`wifi`/`ethernet`)
+    - trusted/untrusted
+    - metered/unmetered
+  - Real-time monitoring:
+    - `App -> IP -> port`
+    - bandwidth usage
+    - active connections
+
+### Application Firewall (Core Feature)
+- Incoming prompt flow (wajib):
+  - Popup: app meminta menerima koneksi
+  - Action: `Allow` / `Deny`
+  - Option: `Remember`, `Only local network`
+- Outgoing control (phase 2+):
+  - Prompt app connect ke remote endpoint
+  - Action: `Allow` / `Block` / `Block IP`
+
+### CLI & Process Handling
+- Klasifikasi process:
+  - `system` (apt/systemd/resolver)
+  - `developer` (git/npm/cargo/pip)
+  - `network_tools` (curl/wget/ssh)
+  - `interpreter` (python/node)
+  - `unknown`
+- Deteksi wajib:
+  - PID, UID, parent process, CWD, TTY, cgroup
+- Default policy CLI:
+  - system: allow
+  - developer: allow + log
+  - network_tools: first-time prompt
+  - unknown: prompt/restrict
+- Interpreter handling:
+  - parse argumen target script
+  - tampilkan konteks script (`python script.py`, `node app.js`)
+
+### IP Block Feature (Wajib)
+- Rule type:
+  - block single IP
+  - block subnet (CIDR)
+  - block list (multiple IP)
+- Tambahan:
+  - temporary block (`1h`, `24h`)
+  - permanent block
+  - hit counter
+  - reason/note
+
+### Trust System
+- Trust levels:
+  - `system`
+  - `trusted` (repo resmi/signed)
+  - `unknown`
+  - `suspicious`
+- Behavior:
+  - trusted: optional auto-allow
+  - unknown: prompt
+  - suspicious: default block
+
+### Smart Features (Wajib)
+- Auto suggestion:
+  - jika app sering diblok -> sarankan allow
+- Behavior learning:
+  - simpan kebiasaan user dan adapt policy
+- Quarantine mode:
+  - block semua network untuk app mencurigakan
+
+### Settings UI (SSOT)
+- Lokasi: `Settings -> Security -> Firewall`
+- Section wajib:
+  - Firewall toggle
+  - Mode (`Home`/`Public`/`Custom`)
+  - Allowed Apps
+  - Blocked Apps
+  - Blocked IP/Network
+  - Active Connections
+  - Reset Configuration
+
+### UX Rules (Wajib)
+- Jangan tampilkan port number di UI utama
+- Jangan expose `nftables`/`iptables` ke user umum
+- Tampilkan nama aplikasi, icon, dan konteks
+- Semua keputusan harus bisa di-undo
+- Popup tidak boleh spam
+
+### Integration
+- `desktop-appd`: app identity source of truth
+- `systemd`: process grouping via cgroup
+- `NetworkManager`: network state/provider
+
+### Implementation Priority
+- Phase 1 (wajib):
+  - incoming firewall
+  - IP block
+  - basic UI
+  - identity mapping
+- Phase 2:
+  - outgoing control
+  - CLI detection
+  - popup system
+- Phase 3:
+  - smart learning
+  - trust system
+  - quarantine
+
+### Anti-Pattern (Jangan)
+- Expose iptables langsung ke user
+- Hanya port-based
+- Tanpa app identity
+- Ignore CLI process
+- Popup tanpa konteks
+
+### Success Criteria
+- User tidak perlu memahami port/network detail
+- Firewall tetap powerful
+- Semua koneksi bisa ditelusuri ke app
+- Sistem robust (unbreakable principle)
+- UX setara/lebih baik dari macOS
+
+### Execution Checklist (Milestone-Based)
+
+#### Milestone 0 — Foundation & Contract Freeze
+- [ ] Finalisasi schema SSOT `desktop-firewalld`:
+  - [ ] `firewall.mode`
+  - [ ] `firewall.enabled`
+  - [ ] `firewall.defaultIncomingPolicy`
+  - [ ] `firewall.defaultOutgoingPolicy`
+  - [ ] `firewall.networkProfiles.*`
+  - [ ] `firewall.rules.apps.*`
+  - [ ] `firewall.rules.ipBlocks.*`
+- [ ] Tetapkan DBus contract v1:
+  - [ ] `org.slm.Desktop.Firewall` (`Ping`, `GetCapabilities`, `GetStatus`, `SetMode`, `SetEnabled`)
+  - [ ] `EvaluateConnection`, `SetAppPolicy`, `SetIpPolicy`, `ListConnections`
+  - [ ] signal `FirewallStateChanged`, `PolicyChanged`, `ConnectionObserved`
+- [ ] Freeze identity payload contract dari `desktop-appd`.
+- [ ] Definisikan mapping trust level + source normalization.
+- [ ] Tambah contract test baseline untuk API shape + backward compatibility.
+
+#### Milestone 0 — Technical Skeleton (Task Breakdown)
+- [ ] Scaffold daemon target `desktop-firewalld`:
+  - [ ] `src/daemon/firewalld/firewalld_main.cpp`
+  - [ ] `src/daemon/firewalld/firewallservice.h`
+  - [ ] `src/daemon/firewalld/firewallservice.cpp`
+  - [ ] `src/daemon/firewalld/firewalltypes.h` (enum/DTO policy decision + mode)
+- [ ] Define DBus adaptor/interface surface:
+  - [ ] `src/daemon/firewalld/firewalldbusadaptor.h`
+  - [ ] `src/daemon/firewalld/firewalldbusadaptor.cpp`
+  - [ ] `src/daemon/firewalld/firewalldbus.xml` (authoritative contract source)
+- [ ] Add policy engine skeleton:
+  - [ ] `src/services/firewall/policyengine.h`
+  - [ ] `src/services/firewall/policyengine.cpp`
+  - [ ] `src/services/firewall/policystore.h`
+  - [ ] `src/services/firewall/policystore.cpp` (versioned JSON + migration stub)
+- [ ] Add packet engine adapter (nftables abstraction):
+  - [ ] `src/services/firewall/nftablesadapter.h`
+  - [ ] `src/services/firewall/nftablesadapter.cpp`
+  - [ ] support methods: `ensureBaseRules()`, `applyAtomicBatch()`, `reconcileState()`
+- [ ] Add identity bridge contract to `desktop-appd`:
+  - [ ] `src/services/firewall/appidentityclient.h`
+  - [ ] `src/services/firewall/appidentityclient.cpp`
+  - [ ] payload validator for:
+    - [ ] `app_name`, `app_id`, `pid`, `executable`
+    - [ ] `source`, `trust_level`, `context`
+- [ ] Add SSOT settings schema wiring:
+  - [ ] extend settings schema docs/keyspace in `docs/TODO.md` + `docs/ARCHITECTURE.md`
+  - [ ] settingsd baseline key registration (`firewall.*`) in settings store defaults
+- [ ] Add test skeleton:
+  - [ ] `tests/firewallservice_dbus_contract_test.cpp`
+  - [ ] `tests/firewall_policyengine_contract_test.cpp`
+  - [ ] `tests/firewall_nftables_adapter_test.cpp`
+  - [ ] `tests/firewall_identity_mapping_contract_test.cpp`
+- [ ] Add build wiring:
+  - [ ] register new sources in `cmake/Sources.cmake`
+  - [ ] add `desktop-firewalld` target + install rule in `CMakeLists.txt`
+  - [ ] add CI lane stub `scripts/test-firewall-contract-suite.sh`
+
+#### Milestone 1 — Phase 1 (Wajib MVP)
+- [ ] Implement `desktop-firewalld` service skeleton + lifecycle.
+- [ ] Implement default policy enforcement:
+  - [ ] incoming deny all
+  - [ ] outgoing allow
+  - [ ] loopback allow
+  - [ ] established allow
+- [ ] Integrasi packet engine `nftables`:
+  - [ ] table/chain bootstrap idempotent
+  - [ ] atomic rule update
+  - [ ] rollback on apply failure
+- [ ] Integrasi identity layer (`desktop-appd`) untuk inbound app attribution.
+- [ ] Implement IP block management:
+  - [ ] single IP
+  - [ ] subnet CIDR
+  - [ ] list block
+  - [ ] temporary/permanent
+  - [ ] reason/note + hit counter
+- [ ] UI basic (Settings -> Security -> Firewall):
+  - [ ] toggle firewall
+  - [ ] mode Home/Public/Custom
+  - [ ] blocked IP/network list
+  - [ ] reset configuration
+- [ ] Acceptance gate Milestone 1:
+  - [ ] incoming unsolicited blocked by default
+  - [ ] mode switch reflected ke rule aktif
+  - [ ] ip block persist lintas restart
+
+#### Milestone 2 — Phase 2 (Interactive Control)
+- [ ] Implement incoming prompt system:
+  - [ ] popup allow/deny
+  - [ ] remember decision
+  - [ ] only local network option
+  - [ ] anti-spam coalescing/throttling
+- [ ] Implement outgoing control (opt-in mode):
+  - [ ] allow/block/block-IP
+  - [ ] endpoint + app context summary
+- [ ] Implement CLI/process classifier:
+  - [ ] system/developer/network_tools/interpreter/unknown
+  - [ ] collect PID/UID/PPID/CWD/TTY/cgroup
+  - [ ] interpreter target script extraction
+- [ ] Implement network profile auto-detection:
+  - [ ] SSID
+  - [ ] gateway
+  - [ ] IP range
+  - [ ] trusted/untrusted + metered state
+- [ ] Real-time active connection monitor:
+  - [ ] app -> ip -> port internal model
+  - [ ] bandwidth counters
+  - [ ] UI list active connections
+- [ ] Acceptance gate Milestone 2:
+  - [ ] popup decision tersimpan dan replay tanpa spam
+  - [ ] outgoing restriction aktif sesuai mode
+  - [ ] CLI context muncul jelas di prompt/log
+
+#### Milestone 3 — Phase 3 (Smart & Trust)
+- [ ] Implement trust system engine:
+  - [ ] system/trusted/unknown/suspicious
+  - [ ] source/signature/reputation mapping
+- [ ] Implement smart suggestion:
+  - [ ] frequent-block detection
+  - [ ] allow suggestion with undo
+- [ ] Implement behavior learning:
+  - [ ] local decision history
+  - [ ] adaptive policy hints
+- [ ] Implement quarantine mode:
+  - [ ] full network block per app
+  - [ ] one-click recover
+- [ ] Acceptance gate Milestone 3:
+  - [ ] suspicious default-block works
+  - [ ] quarantine deterministic + reversible
+  - [ ] learning tidak override explicit user decision
+
+#### Milestone 4 — Hardening & Production Readiness
+- [ ] Security hardening:
+  - [ ] strict input validation
+  - [ ] policy file versioning + migration
+  - [ ] atomic write + crash-safe recovery
+  - [ ] least-privilege boundaries antar service
+- [ ] Reliability:
+  - [ ] rule reconciliation on boot/resume
+  - [ ] self-heal when nftables state drift detected
+  - [ ] watchdog + healthcheck endpoint
+- [ ] Observability:
+  - [ ] structured audit log (privacy-safe)
+  - [ ] counters: allow/deny/prompt hit rates
+  - [ ] debug snapshot export
+- [ ] Performance:
+  - [ ] no UI jank saat burst connection events
+  - [ ] bounded memory untuk connection history
+- [ ] UX quality:
+  - [ ] undo path untuk setiap decision
+  - [ ] no raw nftables/iptables term di UI utama
+  - [ ] no noisy technical jargon for non-advanced mode
+
+#### Milestone 5 — Release & Rollout
+- [ ] End-to-end regression suite:
+  - [ ] firewall mode contract tests
+  - [ ] identity mapping tests
+  - [ ] prompt-flow UI contract tests
+  - [ ] policy persistence + migration tests
+- [ ] Canary rollout:
+  - [ ] feature flags per module
+  - [ ] staged enablement
+  - [ ] rollback switch
+- [ ] Post-release validation:
+  - [ ] real-world false positive review
+  - [ ] tuning default prompt policies
+  - [ ] update docs/user guide

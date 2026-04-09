@@ -529,6 +529,10 @@ qt_add_executable(desktop-contextd
     ${SLM_CONTEXTD_SOURCES}
 )
 
+qt_add_executable(slm-firewalld
+    ${SLM_FIREWALLD_SOURCES}
+)
+
 qt_add_executable(slm-secretd
     src/daemon/secretd/secretd_main.cpp
     src/services/secret/secretservice.cpp
@@ -672,6 +676,13 @@ target_link_libraries(slm-settingsd
         Qt6::DBus
 )
 target_include_directories(slm-settingsd PRIVATE ${CMAKE_SOURCE_DIR})
+
+target_link_libraries(slm-firewalld
+    PRIVATE
+        Qt6::Core
+        Qt6::DBus
+)
+target_include_directories(slm-firewalld PRIVATE ${CMAKE_SOURCE_DIR})
 
 target_link_libraries(slm-secretd
     PRIVATE
@@ -1212,6 +1223,10 @@ install(TARGETS slm-envd
 )
 
 install(TARGETS slm-settingsd
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
+install(TARGETS slm-firewalld
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
@@ -2645,6 +2660,89 @@ target_link_libraries(settingsservice_dbus_test
 )
 
 add_test(NAME settingsservice_dbus_test COMMAND settingsservice_dbus_test)
+
+qt_add_executable(firewallservice_dbus_contract_test
+    src/daemon/firewalld/firewallservice.cpp
+    src/daemon/firewalld/firewallservice.h
+    src/daemon/firewalld/firewalldbusadaptor.cpp
+    src/daemon/firewalld/firewalldbusadaptor.h
+    src/daemon/firewalld/firewalltypes.h
+    src/services/firewall/policyengine.cpp
+    src/services/firewall/policyengine.h
+    src/services/firewall/policystore.cpp
+    src/services/firewall/policystore.h
+    src/services/firewall/nftablesadapter.cpp
+    src/services/firewall/nftablesadapter.h
+    src/services/firewall/appidentityclient.cpp
+    src/services/firewall/appidentityclient.h
+    tests/firewallservice_dbus_contract_test.cpp
+)
+
+target_include_directories(firewallservice_dbus_contract_test PRIVATE ${CMAKE_SOURCE_DIR})
+
+target_link_libraries(firewallservice_dbus_contract_test
+    PRIVATE
+        Qt6::Core
+        Qt6::DBus
+        Qt6::Test
+)
+
+add_test(NAME firewallservice_dbus_contract_test COMMAND firewallservice_dbus_contract_test)
+
+qt_add_executable(firewall_policyengine_contract_test
+    src/daemon/firewalld/firewalltypes.h
+    src/services/firewall/policyengine.cpp
+    src/services/firewall/policyengine.h
+    src/services/firewall/policystore.cpp
+    src/services/firewall/policystore.h
+    src/services/firewall/nftablesadapter.cpp
+    src/services/firewall/nftablesadapter.h
+    src/services/firewall/appidentityclient.cpp
+    src/services/firewall/appidentityclient.h
+    tests/firewall_policyengine_contract_test.cpp
+)
+
+target_include_directories(firewall_policyengine_contract_test PRIVATE ${CMAKE_SOURCE_DIR})
+
+target_link_libraries(firewall_policyengine_contract_test
+    PRIVATE
+        Qt6::Core
+        Qt6::Test
+)
+
+add_test(NAME firewall_policyengine_contract_test COMMAND firewall_policyengine_contract_test)
+
+qt_add_executable(firewall_nftables_adapter_test
+    src/services/firewall/nftablesadapter.cpp
+    src/services/firewall/nftablesadapter.h
+    tests/firewall_nftables_adapter_test.cpp
+)
+
+target_include_directories(firewall_nftables_adapter_test PRIVATE ${CMAKE_SOURCE_DIR})
+
+target_link_libraries(firewall_nftables_adapter_test
+    PRIVATE
+        Qt6::Core
+        Qt6::Test
+)
+
+add_test(NAME firewall_nftables_adapter_test COMMAND firewall_nftables_adapter_test)
+
+qt_add_executable(firewall_identity_mapping_contract_test
+    src/services/firewall/appidentityclient.cpp
+    src/services/firewall/appidentityclient.h
+    tests/firewall_identity_mapping_contract_test.cpp
+)
+
+target_include_directories(firewall_identity_mapping_contract_test PRIVATE ${CMAKE_SOURCE_DIR})
+
+target_link_libraries(firewall_identity_mapping_contract_test
+    PRIVATE
+        Qt6::Core
+        Qt6::Test
+)
+
+add_test(NAME firewall_identity_mapping_contract_test COMMAND firewall_identity_mapping_contract_test)
 
 qt_add_executable(settings_searchengine_context_ranking_test
     src/apps/settings/moduleloader.cpp
