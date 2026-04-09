@@ -82,6 +82,45 @@ private slots:
         QCOMPARE(second.value(QStringLiteral("promptSuppressed")).toBool(), true);
     }
 
+    void evaluate_connection_matching_ip_policy_denies_and_increments_hit_count()
+    {
+        Slm::Firewall::PolicyStore store;
+        QString error;
+        QVERIFY(store.start(&error));
+
+        Slm::Firewall::NftablesAdapter nft;
+        Slm::Firewall::AppIdentityClient identity;
+        Slm::Firewall::PolicyEngine engine(&store, &nft, &identity);
+
+        const QVariantMap added = engine.setIpPolicy(QVariantMap{
+            {QStringLiteral("ip"), QStringLiteral("203.0.113.25")},
+            {QStringLiteral("scope"), QStringLiteral("incoming")},
+            {QStringLiteral("reason"), QStringLiteral("test-ingress-deny")},
+        });
+        QCOMPARE(added.value(QStringLiteral("ok")).toBool(), true);
+        const QString policyId = added.value(QStringLiteral("policy")).toMap()
+                                     .value(QStringLiteral("policyId")).toString();
+        QVERIFY(!policyId.isEmpty());
+
+        const QVariantMap result = engine.evaluateConnection(QVariantMap{
+            {QStringLiteral("pid"), -1},
+            {QStringLiteral("direction"), QStringLiteral("incoming")},
+            {QStringLiteral("sourceIp"), QStringLiteral("203.0.113.25")},
+        });
+        QCOMPARE(result.value(QStringLiteral("ok")).toBool(), true);
+        QCOMPARE(result.value(QStringLiteral("decision")).toString(), QStringLiteral("deny"));
+        QCOMPARE(result.value(QStringLiteral("source")).toString(), QStringLiteral("ip-policy"));
+        QCOMPARE(result.value(QStringLiteral("policyId")).toString(), policyId);
+
+        const QVariantList listed = engine.listIpPolicies();
+        QCOMPARE(listed.size(), 1);
+        const QVariantMap stored = listed.first().toMap();
+        QCOMPARE(stored.value(QStringLiteral("hitCount")).toInt(), 1);
+        QVERIFY(!stored.value(QStringLiteral("lastHitAt")).toString().isEmpty());
+        QCOMPARE(stored.value(QStringLiteral("lastMatchedTarget")).toString(),
+                 QStringLiteral("203.0.113.25"));
+    }
+
     void resolve_connection_decision_persists_when_remember_true()
     {
         Slm::Firewall::PolicyStore store;

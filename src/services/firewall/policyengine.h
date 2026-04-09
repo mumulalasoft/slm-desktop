@@ -40,6 +40,9 @@ private:
                                     const QString &direction,
                                     const QString &source) const;
     QVariantList pruneExpiredIpPolicies() const;
+    void incrementIpPolicyHitCount(const QString &policyId,
+                                   const QString &matchedTarget,
+                                   const QDateTime &hitAtUtc) const;
     static qint64 parseDurationSeconds(const QString &rawDuration);
     static bool isIpPolicyExpired(const QVariantMap &policy, const QDateTime &nowUtc);
 

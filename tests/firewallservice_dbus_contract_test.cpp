@@ -182,6 +182,29 @@ private slots:
         QCOMPARE(remember.value(QStringLiteral("ok")).toBool(), true);
         QCOMPARE(remember.value(QStringLiteral("persisted")).toBool(), true);
         QCOMPARE(service.ListAppPolicies().size(), 1);
+
+        const QVariantMap ipPolicy = service.SetIpPolicy(QVariantMap{
+            {QStringLiteral("ip"), QStringLiteral("198.51.100.9")},
+            {QStringLiteral("scope"), QStringLiteral("incoming")},
+        });
+        QCOMPARE(ipPolicy.value(QStringLiteral("ok")).toBool(), true);
+        const QString policyId = ipPolicy.value(QStringLiteral("policy")).toMap()
+                                     .value(QStringLiteral("policyId")).toString();
+        QVERIFY(!policyId.isEmpty());
+
+        const QVariantMap blocked = service.EvaluateConnection(QVariantMap{
+            {QStringLiteral("pid"), -1},
+            {QStringLiteral("direction"), QStringLiteral("incoming")},
+            {QStringLiteral("sourceIp"), QStringLiteral("198.51.100.9")},
+        });
+        QCOMPARE(blocked.value(QStringLiteral("ok")).toBool(), true);
+        QCOMPARE(blocked.value(QStringLiteral("decision")).toString(), QStringLiteral("deny"));
+        QCOMPARE(blocked.value(QStringLiteral("source")).toString(), QStringLiteral("ip-policy"));
+        QCOMPARE(blocked.value(QStringLiteral("policyId")).toString(), policyId);
+
+        const QVariantList ipPolicies = service.ListIpPolicies();
+        QCOMPARE(ipPolicies.size(), 1);
+        QCOMPARE(ipPolicies.first().toMap().value(QStringLiteral("hitCount")).toInt(), 1);
     }
 
     void ip_policy_contract()

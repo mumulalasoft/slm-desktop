@@ -277,6 +277,81 @@ QString classifyProcessKind(const QVariantMap &identity)
 
     return QStringLiteral("unknown");
 }
+
+QString requestIpForDirection(const QVariantMap &request, const QString &direction)
+{
+    const QString preferred = direction == QLatin1String("incoming")
+        ? normalizedString(request.value(QStringLiteral("sourceIp")))
+        : normalizedString(request.value(QStringLiteral("destinationIp")));
+    if (!preferred.isEmpty()) {
+        return preferred;
+    }
+
+    const QString remoteIp = normalizedString(request.value(QStringLiteral("remoteIp")));
+    if (!remoteIp.isEmpty()) {
+        return remoteIp;
+    }
+
+    return normalizedString(request.value(QStringLiteral("ip")));
+}
+
+bool targetMatchesIp(const QString &target, const QString &ip)
+{
+    const QString normalizedTarget = target.trimmed();
+    if (normalizedTarget.isEmpty() || ip.isEmpty()) {
+        return false;
+    }
+
+    auto parseIpv4 = [](const QString &raw, quint32 *out) -> bool {
+        if (!out) {
+            return false;
+        }
+        const QStringList parts = raw.trimmed().split(QLatin1Char('.'));
+        if (parts.size() != 4) {
+            return false;
+        }
+        quint32 value = 0;
+        for (const QString &part : parts) {
+            bool ok = false;
+            const int octet = part.toInt(&ok);
+            if (!ok || octet < 0 || octet > 255) {
+                return false;
+            }
+            value = (value << 8) | static_cast<quint32>(octet);
+        }
+        *out = value;
+        return true;
+    };
+
+    quint32 candidate = 0;
+    if (!parseIpv4(ip, &candidate)) {
+        return false;
+    }
+
+    if (normalizedTarget.contains(QLatin1Char('/'))) {
+        const QStringList subnetParts = normalizedTarget.split(QLatin1Char('/'));
+        if (subnetParts.size() != 2) {
+            return false;
+        }
+        quint32 network = 0;
+        if (!parseIpv4(subnetParts.at(0), &network)) {
+            return false;
+        }
+        bool ok = false;
+        const int prefix = subnetParts.at(1).toInt(&ok);
+        if (!ok || prefix < 0 || prefix > 32) {
+            return false;
+        }
+        const quint32 mask = prefix == 0 ? 0 : (0xFFFFFFFFu << (32 - prefix));
+        return (candidate & mask) == (network & mask);
+    }
+
+    quint32 single = 0;
+    if (!parseIpv4(normalizedTarget, &single)) {
+        return false;
+    }
+    return candidate == single;
+}
 } // namespace
 
 PolicyEngine::PolicyEngine(PolicyStore *store,
@@ -291,6 +366,7 @@ PolicyEngine::PolicyEngine(PolicyStore *store,
 QVariantMap PolicyEngine::evaluateConnection(const QVariantMap &request) const
 {
     const QString direction = normalizeDirection(request.value(QStringLiteral("direction")));
+    const QString requestIp = requestIpForDirection(request, direction);
     const qint64 pid = request.value(QStringLiteral("pid"), -1).toLongLong();
     const QVariantMap identity = m_identity ? m_identity->resolveByPid(pid) : QVariantMap{};
     const QString appId = normalizedString(identity.value(QStringLiteral("app_id")));
@@ -303,6 +379,37 @@ QVariantMap PolicyEngine::evaluateConnection(const QVariantMap &request) const
             {QStringLiteral("source"), QStringLiteral("firewall-disabled")},
             {QStringLiteral("identity"), identity},
         };
+    }
+
+    if (!requestIp.isEmpty()) {
+        const QVariantList ipEntries = listIpPolicies();
+        for (auto it = ipEntries.crbegin(); it != ipEntries.crend(); ++it) {
+            const QVariantMap entry = it->toMap();
+            if (!entry.value(QStringLiteral("enabled"), true).toBool()) {
+                continue;
+            }
+            if (!scopeMatchesDirection(normalizeScope(entry.value(QStringLiteral("scope"))), direction)) {
+                continue;
+            }
+            const QStringList targets = entry.value(QStringLiteral("targets")).toStringList();
+            for (const QString &target : targets) {
+                if (!targetMatchesIp(target, requestIp)) {
+                    continue;
+                }
+                const QString policyId = entry.value(QStringLiteral("policyId")).toString();
+                incrementIpPolicyHitCount(policyId, target, QDateTime::currentDateTimeUtc());
+                return {
+                    {QStringLiteral("ok"), true},
+                    {QStringLiteral("decision"), QStringLiteral("deny")},
+                    {QStringLiteral("direction"), direction},
+                    {QStringLiteral("source"), QStringLiteral("ip-policy")},
+                    {QStringLiteral("policyId"), policyId},
+                    {QStringLiteral("matchedTarget"), target},
+                    {QStringLiteral("matchedIp"), requestIp},
+                    {QStringLiteral("identity"), identity},
+                };
+            }
+        }
     }
 
     const QVariantList appEntries = listAppPolicies();
@@ -785,6 +892,43 @@ QVariantList PolicyEngine::pruneExpiredIpPolicies() const
     }
 
     return kept;
+}
+
+void PolicyEngine::incrementIpPolicyHitCount(const QString &policyId,
+                                             const QString &matchedTarget,
+                                             const QDateTime &hitAtUtc) const
+{
+    if (!m_store) {
+        return;
+    }
+    const QString id = policyId.trimmed();
+    if (id.isEmpty()) {
+        return;
+    }
+
+    QVariantList entries = pruneExpiredIpPolicies();
+    bool updated = false;
+    for (int i = 0; i < entries.size(); ++i) {
+        QVariantMap map = entries.at(i).toMap();
+        if (map.value(QStringLiteral("policyId")).toString() != id) {
+            continue;
+        }
+        map.insert(QStringLiteral("hitCount"), map.value(QStringLiteral("hitCount"), 0).toInt() + 1);
+        map.insert(QStringLiteral("lastHitAt"), hitAtUtc.toString(Qt::ISODate));
+        if (!matchedTarget.trimmed().isEmpty()) {
+            map.insert(QStringLiteral("lastMatchedTarget"), matchedTarget.trimmed());
+        }
+        entries[i] = map;
+        updated = true;
+        break;
+    }
+
+    if (!updated) {
+        return;
+    }
+
+    QString error;
+    m_store->setValue(QStringLiteral("firewall.rules.ipBlocks.entries"), entries, &error);
 }
 
 qint64 PolicyEngine::parseDurationSeconds(const QString &rawDuration)
