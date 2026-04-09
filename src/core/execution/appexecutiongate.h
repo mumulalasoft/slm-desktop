@@ -12,7 +12,9 @@ class AppExecutionGate : public QObject {
     Q_OBJECT
 public:
     explicit AppExecutionGate(DockModel *dockModel, ShortcutModel *shortcutModel,
-                              UIPreferences *uiPreferences, QObject *parent = nullptr);
+                              UIPreferences *uiPreferences,
+                              QObject *desktopSettings = nullptr,
+                              QObject *parent = nullptr);
 
     Q_INVOKABLE bool launchDesktopEntry(const QString &desktopFilePath, const QString &executable,
                                         const QString &displayName, const QString &iconName = QString(),
@@ -48,5 +50,6 @@ private:
     DockModel          *m_dockModel       = nullptr;
     ShortcutModel      *m_shortcutModel   = nullptr;
     UIPreferences      *m_uiPreferences   = nullptr;
+    QObject           *m_desktopSettings  = nullptr;
     LaunchEnvResolver  *m_envResolver     = nullptr;
 };

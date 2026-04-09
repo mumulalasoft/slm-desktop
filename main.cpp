@@ -345,10 +345,14 @@ int main(int argc, char *argv[])
     QObject::connect(&desktopSettings, &DesktopSettingsClient::gtkIconThemeDarkChanged, &app, [&]() {
         applyIconThemePref();
     });
-    AppExecutionGate appExecutionGate(&dockModel, &shortcutModel, &uiPreferences);
+    AppExecutionGate appExecutionGate(&dockModel, &shortcutModel, &uiPreferences, &desktopSettings);
     appModel.setExecutionGate(&appExecutionGate);
+    appModel.setDesktopSettings(&desktopSettings);
     appModel.setUIPreferences(&uiPreferences);
-    AppCommandRouter appCommandRouter(&appExecutionGate, &uiPreferences, &screenshotManager);
+    AppCommandRouter appCommandRouter(&appExecutionGate,
+                                      &uiPreferences,
+                                      &screenshotManager,
+                                      &desktopSettings);
     const QString envBackend = qEnvironmentVariable("DS_WINDOWING_BACKEND").trimmed();
     const QString prefBackend = desktopSettings.settingValue(QStringLiteral("windowing.backend"),
                                                              QStringLiteral("kwin-wayland")).toString();

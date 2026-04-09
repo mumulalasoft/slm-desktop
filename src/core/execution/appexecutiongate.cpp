@@ -67,11 +67,14 @@ bool launchDesktopFileViaGio(const QString &desktopFilePath,
 }
 
 AppExecutionGate::AppExecutionGate(DockModel *dockModel, ShortcutModel *shortcutModel,
-                                   UIPreferences *uiPreferences, QObject *parent)
+                                   UIPreferences *uiPreferences,
+                                   QObject *desktopSettings,
+                                   QObject *parent)
     : QObject(parent)
     , m_dockModel(dockModel)
     , m_shortcutModel(shortcutModel)
     , m_uiPreferences(uiPreferences)
+    , m_desktopSettings(desktopSettings)
 {
 }
 
@@ -403,5 +406,15 @@ bool AppExecutionGate::launchFromTerminal(const QString &command, const QString 
 
 bool AppExecutionGate::verboseLoggingEnabled() const
 {
+    if (m_desktopSettings) {
+        QVariant v;
+        const bool okInvoke = QMetaObject::invokeMethod(m_desktopSettings, "settingValue",
+                                                         Q_RETURN_ARG(QVariant, v),
+                                                         Q_ARG(QString, QStringLiteral("debug.verboseLogging")),
+                                                         Q_ARG(QVariant, false));
+        if (okInvoke) {
+            return v.toBool();
+        }
+    }
     return m_uiPreferences ? m_uiPreferences->verboseLogging() : false;
 }

@@ -20,6 +20,7 @@ public:
     explicit AppCommandRouter(AppExecutionGate *gate,
                               UIPreferences *uiPreferences = nullptr,
                               ScreenshotManager *screenshotManager = nullptr,
+                              QObject *desktopSettings = nullptr,
                               QObject *parent = nullptr);
 
     Q_INVOKABLE bool route(const QString &action, const QVariantMap &payload = QVariantMap(),
@@ -65,6 +66,7 @@ private:
 
     AppExecutionGate *m_gate = nullptr;
     UIPreferences *m_uiPreferences = nullptr;
+    QObject *m_desktopSettings = nullptr;
     ScreenshotManager *m_screenshotManager = nullptr;
     QVector<RouterEvent> m_recentEvents;
 };

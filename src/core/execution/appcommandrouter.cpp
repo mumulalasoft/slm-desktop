@@ -11,10 +11,12 @@
 AppCommandRouter::AppCommandRouter(AppExecutionGate *gate,
                                    UIPreferences *uiPreferences,
                                    ScreenshotManager *screenshotManager,
+                                   QObject *desktopSettings,
                                    QObject *parent)
     : QObject(parent)
     , m_gate(gate)
     , m_uiPreferences(uiPreferences)
+    , m_desktopSettings(desktopSettings)
     , m_screenshotManager(screenshotManager)
 {
 }
@@ -241,6 +243,16 @@ bool AppCommandRouter::execFromTerminal(const QString &command, const QString &w
 
 bool AppCommandRouter::verboseLoggingEnabled() const
 {
+    if (m_desktopSettings) {
+        QVariant v;
+        const bool okInvoke = QMetaObject::invokeMethod(m_desktopSettings, "settingValue",
+                                                         Q_RETURN_ARG(QVariant, v),
+                                                         Q_ARG(QString, QStringLiteral("debug.verboseLogging")),
+                                                         Q_ARG(QVariant, false));
+        if (okInvoke) {
+            return v.toBool();
+        }
+    }
     return m_uiPreferences ? m_uiPreferences->verboseLogging() : false;
 }
 

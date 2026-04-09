@@ -65,7 +65,7 @@ int main(int argc, char *argv[])
     FolderSharingService folderSharingService;
     CaptureStreamIngestor captureStreamIngestor(&captureService);
     Slm::Actions::ActionRegistry actionRegistry;
-    AppExecutionGate appExecutionGate(nullptr, nullptr, &uiPreferences);
+    AppExecutionGate appExecutionGate(nullptr, nullptr, &uiPreferences, nullptr);
     actionRegistry.setExecutionGate(&appExecutionGate);
     actionRegistry.reload();
     Slm::Actions::Framework::SlmActionFramework actionFramework(&actionRegistry);

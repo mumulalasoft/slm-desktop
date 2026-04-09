@@ -53,6 +53,9 @@ public:
     QHash<int, QByteArray> roleNames() const override;
 
     Q_INVOKABLE void refresh();
+    // Non-blocking variant: heavy GIO + filesystem work runs on a thread-pool
+    // thread. The model is updated on the main thread when the scan completes.
+    Q_INVOKABLE void refreshAsync();
     Q_INVOKABLE int countMatching(const QString &searchText) const;
     Q_INVOKABLE QVariantList page(int pageIndex, int pageSize, const QString &searchText) const;
     Q_INVOKABLE QVariantMap appUsage(const QString &desktopId,
@@ -66,6 +69,7 @@ public:
     Q_INVOKABLE QVariantMap invokeSlmQuickAction(const QString &actionId,
                                                  const QVariantMap &context = QVariantMap{});
     void setExecutionGate(AppExecutionGate *gate);
+    void setDesktopSettings(QObject *desktopSettings);
     void setUIPreferences(UIPreferences *preferences);
 
 signals:
@@ -94,13 +98,17 @@ private:
     static QStringList keysFromUsageRecord(const QString &appName, const QString &appExec);
     void reloadScoringWeights();
     int effectiveScore(int launchCount, int fileOpenCount, qint64 lastLaunchMs) const;
+    static QVector<DesktopAppEntry> computeAppsFromSystem();
 
 private slots:
     void onAppExecutionRecorded(QString source, QString name, QString desktopFile, QString executable, bool success);
     void onPreferenceChanged(QString key, QVariant value);
+    void onDesktopSettingChanged(QString path);
 
 private:
+    bool m_refreshRunning = false;
     AppExecutionGate *m_gate = nullptr;
+    QObject *m_desktopSettings = nullptr;
     UIPreferences *m_preferences = nullptr;
     QVector<DesktopAppEntry> m_apps;
     void *m_appInfoMonitor = nullptr;
