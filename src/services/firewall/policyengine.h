@@ -19,6 +19,9 @@ public:
                  AppIdentityClient *identity);
 
     QVariantMap evaluateConnection(const QVariantMap &request) const;
+    QVariantMap resolveConnectionDecision(const QVariantMap &request,
+                                          const QString &decision,
+                                          bool remember);
     QVariantMap applyBasePolicy(const QVariantMap &state);
     QVariantMap setAppPolicy(const QVariantMap &policy);
     QVariantList listAppPolicies() const;

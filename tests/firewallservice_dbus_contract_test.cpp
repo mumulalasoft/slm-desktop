@@ -145,6 +145,14 @@ private slots:
         QCOMPARE(outgoingUnknown.value(QStringLiteral("ok")).toBool(), true);
         QCOMPARE(outgoingUnknown.value(QStringLiteral("decision")).toString(), QStringLiteral("prompt"));
         QCOMPARE(outgoingUnknown.value(QStringLiteral("source")).toString(), QStringLiteral("cli-default-prompt"));
+
+        const QVariantMap remember = service.ResolveConnectionDecision(QVariantMap{
+            {QStringLiteral("pid"), -1},
+            {QStringLiteral("direction"), QStringLiteral("incoming")},
+        }, QStringLiteral("allow"), true);
+        QCOMPARE(remember.value(QStringLiteral("ok")).toBool(), true);
+        QCOMPARE(remember.value(QStringLiteral("persisted")).toBool(), true);
+        QCOMPARE(service.ListAppPolicies().size(), 2);
     }
 
     void ip_policy_contract()

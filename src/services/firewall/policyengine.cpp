@@ -349,6 +349,57 @@ QVariantMap PolicyEngine::evaluateConnection(const QVariantMap &request) const
     };
 }
 
+QVariantMap PolicyEngine::resolveConnectionDecision(const QVariantMap &request,
+                                                    const QString &decision,
+                                                    bool remember)
+{
+    const QString normalized = normalizeDecision(decision);
+    if (normalized == QLatin1String("prompt")) {
+        return {
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), QStringLiteral("decision-must-be-allow-or-deny")},
+        };
+    }
+
+    const QVariantMap evaluation = evaluateConnection(request);
+    const QVariantMap identity = evaluation.value(QStringLiteral("identity")).toMap();
+    const QString direction = normalizeDirection(request.value(QStringLiteral("direction")));
+
+    QVariantMap result{
+        {QStringLiteral("ok"), true},
+        {QStringLiteral("decision"), normalized},
+        {QStringLiteral("remember"), remember},
+        {QStringLiteral("persisted"), false},
+    };
+
+    if (!remember) {
+        return result;
+    }
+
+    const QString appId = normalizedString(identity.value(QStringLiteral("app_id")));
+    if (appId.isEmpty()) {
+        return {
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), QStringLiteral("identity-app-id-missing")},
+        };
+    }
+
+    const QVariantMap persist = setAppPolicy(QVariantMap{
+        {QStringLiteral("appId"), appId},
+        {QStringLiteral("appName"), identity.value(QStringLiteral("app_name")).toString()},
+        {QStringLiteral("decision"), normalized},
+        {QStringLiteral("direction"), direction},
+        {QStringLiteral("remember"), true},
+    });
+    if (!persist.value(QStringLiteral("ok"), false).toBool()) {
+        return persist;
+    }
+
+    result.insert(QStringLiteral("persisted"), true);
+    result.insert(QStringLiteral("policy"), persist.value(QStringLiteral("policy")).toMap());
+    return result;
+}
+
 QVariantMap PolicyEngine::applyBasePolicy(const QVariantMap &state)
 {
     if (!m_nft) {

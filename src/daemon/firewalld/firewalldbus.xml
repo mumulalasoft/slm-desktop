@@ -31,6 +31,12 @@
       <arg name="request" type="a{sv}" direction="in"/>
       <arg name="result" type="a{sv}" direction="out"/>
     </method>
+    <method name="ResolveConnectionDecision">
+      <arg name="request" type="a{sv}" direction="in"/>
+      <arg name="decision" type="s" direction="in"/>
+      <arg name="remember" type="b" direction="in"/>
+      <arg name="result" type="a{sv}" direction="out"/>
+    </method>
     <method name="SetAppPolicy">
       <arg name="policy" type="a{sv}" direction="in"/>
       <arg name="result" type="a{sv}" direction="out"/>

@@ -225,6 +225,22 @@ QVariantMap FirewallService::EvaluateConnection(const QVariantMap &request)
     return result;
 }
 
+QVariantMap FirewallService::ResolveConnectionDecision(const QVariantMap &request,
+                                                       const QString &decision,
+                                                       bool remember)
+{
+    const QVariantMap result = m_policyEngine.resolveConnectionDecision(request, decision, remember);
+    if (result.value(QStringLiteral("persisted"), false).toBool()) {
+        emit PolicyChanged(QVariantMap{
+            {QStringLiteral("kind"), QStringLiteral("app")},
+            {QStringLiteral("action"), QStringLiteral("remember-from-prompt")},
+            {QStringLiteral("policy"), result.value(QStringLiteral("policy")).toMap()},
+            {QStringLiteral("ok"), result.value(QStringLiteral("ok"), false)},
+        });
+    }
+    return result;
+}
+
 QVariantMap FirewallService::SetAppPolicy(const QVariantMap &policy)
 {
     const QVariantMap result = m_policyEngine.setAppPolicy(policy);

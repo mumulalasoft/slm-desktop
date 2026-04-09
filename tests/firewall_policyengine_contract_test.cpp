@@ -73,6 +73,33 @@ private slots:
         QCOMPARE(result.value(QStringLiteral("processKind")).toString(), QStringLiteral("unknown"));
     }
 
+    void resolve_connection_decision_persists_when_remember_true()
+    {
+        Slm::Firewall::PolicyStore store;
+        QString error;
+        QVERIFY(store.start(&error));
+
+        Slm::Firewall::NftablesAdapter nft;
+        Slm::Firewall::AppIdentityClient identity;
+        Slm::Firewall::PolicyEngine engine(&store, &nft, &identity);
+
+        const QVariantMap once = engine.resolveConnectionDecision(QVariantMap{
+            {QStringLiteral("pid"), -1},
+            {QStringLiteral("direction"), QStringLiteral("incoming")},
+        }, QStringLiteral("deny"), false);
+        QCOMPARE(once.value(QStringLiteral("ok")).toBool(), true);
+        QCOMPARE(once.value(QStringLiteral("persisted")).toBool(), false);
+        QCOMPARE(engine.listAppPolicies().size(), 0);
+
+        const QVariantMap remember = engine.resolveConnectionDecision(QVariantMap{
+            {QStringLiteral("pid"), -1},
+            {QStringLiteral("direction"), QStringLiteral("incoming")},
+        }, QStringLiteral("allow"), true);
+        QCOMPARE(remember.value(QStringLiteral("ok")).toBool(), true);
+        QCOMPARE(remember.value(QStringLiteral("persisted")).toBool(), true);
+        QCOMPARE(engine.listAppPolicies().size(), 1);
+    }
+
     void apply_base_policy_pushes_batch_to_nft()
     {
         Slm::Firewall::PolicyStore store;
