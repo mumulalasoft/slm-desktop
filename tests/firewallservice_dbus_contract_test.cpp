@@ -112,6 +112,33 @@ private slots:
         QCOMPARE(firewall.value(QStringLiteral("defaultOutgoingPolicy")).toString(), QStringLiteral("deny"));
     }
 
+    void evaluate_connection_policy_contract()
+    {
+        FirewallService service;
+        const QVariantMap incomingDefault = service.EvaluateConnection(QVariantMap{
+            {QStringLiteral("pid"), -1},
+            {QStringLiteral("direction"), QStringLiteral("incoming")},
+        });
+        QCOMPARE(incomingDefault.value(QStringLiteral("ok")).toBool(), true);
+        QCOMPARE(incomingDefault.value(QStringLiteral("decision")).toString(), QStringLiteral("deny"));
+        QCOMPARE(incomingDefault.value(QStringLiteral("source")).toString(), QStringLiteral("default-incoming"));
+
+        const QVariantMap addPolicy = service.SetAppPolicy(QVariantMap{
+            {QStringLiteral("appId"), QStringLiteral("unknown")},
+            {QStringLiteral("decision"), QStringLiteral("allow")},
+            {QStringLiteral("direction"), QStringLiteral("incoming")},
+        });
+        QCOMPARE(addPolicy.value(QStringLiteral("ok")).toBool(), true);
+
+        const QVariantMap incomingApp = service.EvaluateConnection(QVariantMap{
+            {QStringLiteral("pid"), -1},
+            {QStringLiteral("direction"), QStringLiteral("incoming")},
+        });
+        QCOMPARE(incomingApp.value(QStringLiteral("ok")).toBool(), true);
+        QCOMPARE(incomingApp.value(QStringLiteral("decision")).toString(), QStringLiteral("allow"));
+        QCOMPARE(incomingApp.value(QStringLiteral("source")).toString(), QStringLiteral("app-policy"));
+    }
+
     void ip_policy_contract()
     {
         FirewallService service;

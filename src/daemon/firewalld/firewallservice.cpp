@@ -61,6 +61,7 @@ bool FirewallService::start(QString *error)
     }
 
     loadSettingsState();
+    syncRuntimeStateToPolicyStore();
     if (!applyCurrentBasePolicy(error)) {
         return false;
     }
@@ -137,6 +138,7 @@ QVariantMap FirewallService::SetEnabled(bool enabled)
         state.insert(QStringLiteral("ok"), false);
         state.insert(QStringLiteral("packetError"), packetError.isEmpty() ? QStringLiteral("nft-apply-failed") : packetError);
     }
+    syncRuntimeStateToPolicyStore();
     emit FirewallStateChanged(state);
     return state;
 }
@@ -161,6 +163,7 @@ QVariantMap FirewallService::SetMode(const QString &mode)
         state.insert(QStringLiteral("ok"), false);
         state.insert(QStringLiteral("packetError"), packetError.isEmpty() ? QStringLiteral("nft-apply-failed") : packetError);
     }
+    syncRuntimeStateToPolicyStore();
     emit FirewallStateChanged(state);
     return state;
 }
@@ -185,6 +188,7 @@ QVariantMap FirewallService::SetDefaultIncomingPolicy(const QString &policy)
         state.insert(QStringLiteral("ok"), false);
         state.insert(QStringLiteral("packetError"), packetError.isEmpty() ? QStringLiteral("nft-apply-failed") : packetError);
     }
+    syncRuntimeStateToPolicyStore();
     emit FirewallStateChanged(state);
     return state;
 }
@@ -209,6 +213,7 @@ QVariantMap FirewallService::SetDefaultOutgoingPolicy(const QString &policy)
         state.insert(QStringLiteral("ok"), false);
         state.insert(QStringLiteral("packetError"), packetError.isEmpty() ? QStringLiteral("nft-apply-failed") : packetError);
     }
+    syncRuntimeStateToPolicyStore();
     emit FirewallStateChanged(state);
     return state;
 }
@@ -332,7 +337,17 @@ bool FirewallService::loadSettingsState()
             firewall.value(QStringLiteral("defaultOutgoingPolicy"), m_defaultOutgoingPolicy).toString(),
             m_defaultOutgoingPolicy);
     }
+    syncRuntimeStateToPolicyStore();
     return true;
+}
+
+void FirewallService::syncRuntimeStateToPolicyStore()
+{
+    QString ignored;
+    m_store.setValue(QStringLiteral("firewall.enabled"), m_enabled, &ignored);
+    m_store.setValue(QStringLiteral("firewall.mode"), Slm::Firewall::firewallModeToString(m_mode), &ignored);
+    m_store.setValue(QStringLiteral("firewall.defaultIncomingPolicy"), m_defaultIncomingPolicy, &ignored);
+    m_store.setValue(QStringLiteral("firewall.defaultOutgoingPolicy"), m_defaultOutgoingPolicy, &ignored);
 }
 
 bool FirewallService::setSettingsValue(const QString &path, const QVariant &value, QString *error) const

@@ -28,6 +28,15 @@ QString normalizeScope(const QVariant &value)
     return QStringLiteral("both");
 }
 
+QString normalizeDirection(const QVariant &value)
+{
+    const QString direction = normalizedString(value).toLower();
+    if (direction == QLatin1String("incoming") || direction == QLatin1String("outgoing")) {
+        return direction;
+    }
+    return QStringLiteral("incoming");
+}
+
 QString normalizeType(const QVariantMap &policy)
 {
     const QString explicitType = normalizedString(policy.value(QStringLiteral("type"))).toLower();
@@ -169,6 +178,49 @@ qint64 extractPidFromProcessField(const QString &processField)
     }
     return match.captured(1).toLongLong();
 }
+
+bool scopeMatchesDirection(const QString &scope, const QString &direction)
+{
+    if (scope == QLatin1String("both")) {
+        return true;
+    }
+    return scope == direction;
+}
+
+bool readFirewallEnabled(const PolicyStore *store)
+{
+    if (!store) {
+        return true;
+    }
+    if (store->snapshot().contains(QStringLiteral("firewall.enabled"))) {
+        return store->value(QStringLiteral("firewall.enabled"), true).toBool();
+    }
+    const QVariantMap nested = store->value(QStringLiteral("firewall"), QVariantMap{}).toMap();
+    return nested.value(QStringLiteral("enabled"), true).toBool();
+}
+
+QString readDefaultPolicy(const PolicyStore *store, const QString &direction)
+{
+    if (!store) {
+        return direction == QLatin1String("outgoing") ? QStringLiteral("allow") : QStringLiteral("deny");
+    }
+
+    const QString key = direction == QLatin1String("outgoing")
+        ? QStringLiteral("firewall.defaultOutgoingPolicy")
+        : QStringLiteral("firewall.defaultIncomingPolicy");
+    const QString nestedKey = direction == QLatin1String("outgoing")
+        ? QStringLiteral("defaultOutgoingPolicy")
+        : QStringLiteral("defaultIncomingPolicy");
+    const QString fallback = direction == QLatin1String("outgoing")
+        ? QStringLiteral("allow")
+        : QStringLiteral("deny");
+
+    if (store->snapshot().contains(key)) {
+        return normalizeDecision(store->value(key, fallback));
+    }
+    const QVariantMap nested = store->value(QStringLiteral("firewall"), QVariantMap{}).toMap();
+    return normalizeDecision(nested.value(nestedKey, fallback));
+}
 } // namespace
 
 PolicyEngine::PolicyEngine(PolicyStore *store,
@@ -182,11 +234,52 @@ PolicyEngine::PolicyEngine(PolicyStore *store,
 
 QVariantMap PolicyEngine::evaluateConnection(const QVariantMap &request) const
 {
+    const QString direction = normalizeDirection(request.value(QStringLiteral("direction")));
     const qint64 pid = request.value(QStringLiteral("pid"), -1).toLongLong();
     const QVariantMap identity = m_identity ? m_identity->resolveByPid(pid) : QVariantMap{};
+    const QString appId = normalizedString(identity.value(QStringLiteral("app_id")));
+
+    if (!readFirewallEnabled(m_store)) {
+        return {
+            {QStringLiteral("ok"), true},
+            {QStringLiteral("decision"), policyDecisionToString(PolicyDecision::Allow)},
+            {QStringLiteral("direction"), direction},
+            {QStringLiteral("source"), QStringLiteral("firewall-disabled")},
+            {QStringLiteral("identity"), identity},
+        };
+    }
+
+    const QVariantList appEntries = listAppPolicies();
+    for (auto it = appEntries.crbegin(); it != appEntries.crend(); ++it) {
+        const QVariantMap entry = it->toMap();
+        if (!entry.value(QStringLiteral("enabled"), true).toBool()) {
+            continue;
+        }
+        if (normalizedString(entry.value(QStringLiteral("appId"))) != appId) {
+            continue;
+        }
+        if (!scopeMatchesDirection(normalizeScope(entry.value(QStringLiteral("direction"))), direction)) {
+            continue;
+        }
+        const QString decision = normalizeDecision(entry.value(QStringLiteral("decision")));
+        return {
+            {QStringLiteral("ok"), true},
+            {QStringLiteral("decision"), decision},
+            {QStringLiteral("direction"), direction},
+            {QStringLiteral("source"), QStringLiteral("app-policy")},
+            {QStringLiteral("policyId"), entry.value(QStringLiteral("policyId")).toString()},
+            {QStringLiteral("identity"), identity},
+        };
+    }
+
+    const QString defaultDecision = readDefaultPolicy(m_store, direction);
     return {
         {QStringLiteral("ok"), true},
-        {QStringLiteral("decision"), policyDecisionToString(PolicyDecision::Prompt)},
+        {QStringLiteral("decision"), defaultDecision},
+        {QStringLiteral("direction"), direction},
+        {QStringLiteral("source"), direction == QLatin1String("outgoing")
+             ? QStringLiteral("default-outgoing")
+             : QStringLiteral("default-incoming")},
         {QStringLiteral("identity"), identity},
     };
 }

@@ -52,6 +52,7 @@ signals:
     void ConnectionObserved(const QVariantMap &event);
 
 private:
+    void syncRuntimeStateToPolicyStore();
     bool loadSettingsState();
     bool setSettingsValue(const QString &path, const QVariant &value, QString *error = nullptr) const;
     bool applyCurrentBasePolicy(QString *error = nullptr);

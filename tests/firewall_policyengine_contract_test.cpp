@@ -24,8 +24,34 @@ private slots:
             QVariantMap{{QStringLiteral("pid"), 1234},
                         {QStringLiteral("direction"), QStringLiteral("incoming")}});
         QCOMPARE(result.value(QStringLiteral("ok")).toBool(), true);
-        QCOMPARE(result.value(QStringLiteral("decision")).toString(), QStringLiteral("prompt"));
+        QCOMPARE(result.value(QStringLiteral("decision")).toString(), QStringLiteral("deny"));
+        QCOMPARE(result.value(QStringLiteral("source")).toString(), QStringLiteral("default-incoming"));
         QVERIFY(result.value(QStringLiteral("identity")).toMap().contains(QStringLiteral("app_id")));
+    }
+
+    void evaluate_connection_prefers_matching_app_policy()
+    {
+        Slm::Firewall::PolicyStore store;
+        QString error;
+        QVERIFY(store.start(&error));
+
+        Slm::Firewall::NftablesAdapter nft;
+        Slm::Firewall::AppIdentityClient identity;
+        Slm::Firewall::PolicyEngine engine(&store, &nft, &identity);
+
+        const QVariantMap addPolicy = engine.setAppPolicy(QVariantMap{
+            {QStringLiteral("appId"), QStringLiteral("unknown")},
+            {QStringLiteral("decision"), QStringLiteral("allow")},
+            {QStringLiteral("direction"), QStringLiteral("incoming")},
+        });
+        QCOMPARE(addPolicy.value(QStringLiteral("ok")).toBool(), true);
+
+        const QVariantMap result = engine.evaluateConnection(
+            QVariantMap{{QStringLiteral("pid"), -1},
+                        {QStringLiteral("direction"), QStringLiteral("incoming")}});
+        QCOMPARE(result.value(QStringLiteral("ok")).toBool(), true);
+        QCOMPARE(result.value(QStringLiteral("decision")).toString(), QStringLiteral("allow"));
+        QCOMPARE(result.value(QStringLiteral("source")).toString(), QStringLiteral("app-policy"));
     }
 
     void apply_base_policy_pushes_batch_to_nft()
