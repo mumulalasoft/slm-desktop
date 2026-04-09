@@ -398,6 +398,20 @@ Flickable {
         return String(s) + "s"
     }
 
+    function quickBlockCountdownColor(remainingSeconds) {
+        var remaining = Number(remainingSeconds)
+        if (isNaN(remaining) || remaining < 0) {
+            return Theme.color("textSecondary")
+        }
+        if (remaining <= 60) {
+            return Theme.color("error")
+        }
+        if (remaining <= 300) {
+            return Theme.color("warning")
+        }
+        return Theme.color("textSecondary")
+    }
+
     function ipPolicyPrimaryTarget(entry) {
         var p = entry || {}
         var targets = p.targets || []
@@ -1558,8 +1572,11 @@ Flickable {
                         }
                         text: qsTr("Quick block expires in %1")
                               .arg(root.formatRemainingSeconds(root.quickBlockRemainingSeconds()))
-                        color: Theme.color("textSecondary")
+                        color: root.quickBlockCountdownColor(root.quickBlockRemainingSeconds())
                         font.pixelSize: Theme.fontSize("small")
+                        font.weight: root.quickBlockRemainingSeconds() <= 60
+                                     ? Theme.fontWeight("medium")
+                                     : Theme.fontWeight("normal")
                         Layout.fillWidth: true
                     }
 
