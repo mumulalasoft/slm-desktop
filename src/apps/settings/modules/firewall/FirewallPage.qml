@@ -634,14 +634,50 @@ Flickable {
         }
     }
 
+    function evaluateTargetLabel(response) {
+        var target = response && response.target ? response.target : {}
+        var ip = String(target.ip || "")
+        var host = String(target.host || "")
+        var port = Number(target.port || 0)
+        var endpoint = host.length ? host : ip
+        if (!endpoint.length) {
+            return ""
+        }
+        if (!isNaN(port) && port > 0) {
+            return endpoint + ":" + String(port)
+        }
+        return endpoint
+    }
+
+    function evaluateActorLabel(response) {
+        var actor = response && response.actor ? response.actor : {}
+        var scriptTarget = String(actor.scriptTarget || "")
+        var appName = String(actor.appName || "")
+        var executable = String(actor.executable || "")
+        if (scriptTarget.length) {
+            return scriptTarget
+        }
+        if (appName.length) {
+            return appName
+        }
+        if (executable.length) {
+            return executable
+        }
+        return qsTr("Unknown actor")
+    }
+
     function simulateEvaluateConnection() {
         var response = FirewallServiceClient.evaluateConnection(promptRequestPayload())
         var ok = Boolean(response && response.ok)
         var decision = String(response && response.decision || "unknown")
         var source = String(response && response.source || "")
+        var actor = root.evaluateActorLabel(response)
+        var target = root.evaluateTargetLabel(response)
         promptResultOk = ok
         promptResultText = ok
-                ? qsTr("Decision: %1 (%2)").arg(decision).arg(source)
+                ? (target.length
+                   ? qsTr("Decision: %1 (%2)\nActor: %3\nTarget: %4").arg(decision).arg(source).arg(actor).arg(target)
+                   : qsTr("Decision: %1 (%2)\nActor: %3").arg(decision).arg(source).arg(actor))
                 : qsTr("Failed to evaluate connection.")
     }
 
