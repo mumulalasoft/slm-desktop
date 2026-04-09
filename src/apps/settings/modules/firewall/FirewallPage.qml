@@ -34,6 +34,7 @@ Flickable {
     property bool connectionResultOk: true
     property bool pendingPromptRemember: false
     property bool pendingShowSafestOnly: false
+    property bool pendingSortByRisk: false
     property int quickBlockNowEpochSec: Math.floor(Date.now() / 1000)
     property int quickBlockLastRemainingSec: -1
     readonly property bool devPromptSimulationEnabled: Qt.application.arguments.indexOf("--firewall-dev") !== -1
@@ -918,6 +919,31 @@ Flickable {
                 sourceIndex: i,
                 item: row,
                 safest: safest
+            })
+        }
+        if (root.pendingSortByRisk) {
+            out.sort(function(left, right) {
+                var l = left || {}
+                var r = right || {}
+                var leftItem = l.item || {}
+                var rightItem = r.item || {}
+                var leftRisk = root.pendingPromptRiskScore(leftItem)
+                var rightRisk = root.pendingPromptRiskScore(rightItem)
+                if (leftRisk !== rightRisk) {
+                    return rightRisk - leftRisk
+                }
+                var leftRemaining = root.pendingPromptRemainingSeconds(leftItem)
+                var rightRemaining = root.pendingPromptRemainingSeconds(rightItem)
+                if (leftRemaining < 0) {
+                    leftRemaining = 2147483647
+                }
+                if (rightRemaining < 0) {
+                    rightRemaining = 2147483647
+                }
+                if (leftRemaining !== rightRemaining) {
+                    return leftRemaining - rightRemaining
+                }
+                return Number(l.sourceIndex || 0) - Number(r.sourceIndex || 0)
             })
         }
         return out
@@ -1852,6 +1878,13 @@ Flickable {
                             checked: root.pendingShowSafestOnly
                             enabled: FirewallServiceClient.available
                             onToggled: root.pendingShowSafestOnly = checked
+                        }
+
+                        CheckBox {
+                            text: qsTr("Sort by risk")
+                            checked: root.pendingSortByRisk
+                            enabled: FirewallServiceClient.available
+                            onToggled: root.pendingSortByRisk = checked
                         }
 
                         Button {
