@@ -176,6 +176,54 @@ Flickable {
         return ok
     }
 
+    function unquarantineApp(appId) {
+        var id = String(appId || "").trim()
+        if (!id.length) {
+            appResultOk = false
+            appResultText = qsTr("App ID cannot be empty.")
+            return false
+        }
+
+        var all = FirewallServiceClient.appPolicies || []
+        var targets = []
+        for (var i = 0; i < all.length; ++i) {
+            var row = all[i] || {}
+            if (String(row.appId || "") !== id) {
+                continue
+            }
+            if (String(row.decision || "") !== "deny") {
+                continue
+            }
+            if (String(row.direction || "") !== "both") {
+                continue
+            }
+            var policyId = String(row.policyId || "")
+            if (policyId.length) {
+                targets.push(policyId)
+            }
+        }
+
+        if (targets.length === 0) {
+            appResultOk = false
+            appResultText = qsTr("No quarantine rule found for this app.")
+            return false
+        }
+
+        var removed = 0
+        for (var j = 0; j < targets.length; ++j) {
+            if (FirewallServiceClient.removeAppPolicy(targets[j])) {
+                removed += 1
+            }
+        }
+        var ok = removed === targets.length
+        appResultOk = ok
+        appResultText = ok
+                ? qsTr("Application unquarantined.")
+                : qsTr("Failed to fully unquarantine application.")
+        FirewallServiceClient.refreshAppPolicies()
+        return ok
+    }
+
     function appPoliciesByDecision(decision) {
         var out = []
         var all = FirewallServiceClient.appPolicies || []
@@ -582,6 +630,12 @@ Flickable {
                             enabled: FirewallServiceClient.available && FirewallServiceClient.enabled
                             onClicked: root.quarantineApp(root.appRuleAppId)
                         }
+
+                        Button {
+                            text: qsTr("Unquarantine")
+                            enabled: FirewallServiceClient.available && FirewallServiceClient.enabled
+                            onClicked: root.unquarantineApp(root.appRuleAppId)
+                        }
                     }
 
                     Text {
@@ -639,6 +693,17 @@ Flickable {
                                     onClicked: {
                                         var id = String((modelData || {}).appId || "")
                                         root.quarantineApp(id)
+                                    }
+                                }
+
+                                Button {
+                                    text: qsTr("Unquarantine")
+                                    enabled: FirewallServiceClient.available
+                                             && FirewallServiceClient.enabled
+                                             && String((modelData || {}).appId || "").length > 0
+                                    onClicked: {
+                                        var id = String((modelData || {}).appId || "")
+                                        root.unquarantineApp(id)
                                     }
                                 }
 
@@ -722,6 +787,17 @@ Flickable {
                                     onClicked: {
                                         var id = String((modelData || {}).appId || "")
                                         root.quarantineApp(id)
+                                    }
+                                }
+
+                                Button {
+                                    text: qsTr("Unquarantine")
+                                    enabled: FirewallServiceClient.available
+                                             && FirewallServiceClient.enabled
+                                             && String((modelData || {}).appId || "").length > 0
+                                    onClicked: {
+                                        var id = String((modelData || {}).appId || "")
+                                        root.unquarantineApp(id)
                                     }
                                 }
 
