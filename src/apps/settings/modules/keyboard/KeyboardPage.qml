@@ -28,7 +28,10 @@ Flickable {
 
         readonly property string currentVal: {
             _rev // reactive trigger
-            return UIPreferences.getPreference(prefKey, defaultVal)
+            if (typeof DesktopSettings !== "undefined" && DesktopSettings && DesktopSettings.keyboardShortcut) {
+                return String(DesktopSettings.keyboardShortcut(prefKey, defaultVal))
+            }
+            return defaultVal
         }
 
         implicitWidth: Math.max(chip.contentWidth + 24, 110)
@@ -36,10 +39,10 @@ Flickable {
 
         // ── Helpers ──────────────────────────────────────────────────────
         function save(seq) {
-            if (seq.length > 0)
-                UIPreferences.setPreference(prefKey, seq)
-            else
-                UIPreferences.resetPreference(prefKey)
+            if (typeof DesktopSettings !== "undefined" && DesktopSettings && DesktopSettings.setKeyboardShortcut) {
+                var valueToSet = seq.length > 0 ? seq : defaultVal
+                DesktopSettings.setKeyboardShortcut(prefKey, valueToSet)
+            }
             _rev++
             listening = false
         }
@@ -90,9 +93,9 @@ Flickable {
             anchors.verticalCenter: parent.verticalCenter
             width: parent.implicitWidth
             height: parent.height
-            radius: 5
+            radius: Theme.radiusSmPlus
             color: sk.listening ? Theme.color("accent") : Theme.color("controlBg")
-            border.width: 1
+            border.width: Theme.borderWidthThin
             border.color: sk.listening ? "transparent" : Theme.color("panelBorder")
 
             Behavior on color { ColorAnimation { duration: 120; easing.type: Easing.OutQuad } }
@@ -130,8 +133,12 @@ Flickable {
         onActiveFocusChanged: { if (!activeFocus) listening = false }
 
         Connections {
-            target: UIPreferences
-            function onPreferenceChanged() { sk._rev++ }
+            target: (typeof DesktopSettings !== "undefined") ? DesktopSettings : null
+            function onKeyboardShortcutChanged(path) {
+                if (!path || String(path) === sk.prefKey) {
+                    sk._rev++
+                }
+            }
         }
     }
     // ── End ShortcutKey ───────────────────────────────────────────────────

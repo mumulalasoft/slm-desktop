@@ -40,19 +40,19 @@ Flickable {
     }
 
     function fallbackId() {
-        return (typeof UIPreferences !== "undefined" && UIPreferences)
-               ? String(UIPreferences.getPreference("print.pdfFallbackPrinterId", ""))
+        return (typeof DesktopSettings !== "undefined" && DesktopSettings)
+               ? String(DesktopSettings.printPdfFallbackPrinterId || "")
                : ""
     }
 
     function setFallback(id) {
-        if (typeof UIPreferences === "undefined" || !UIPreferences) return
-        UIPreferences.setPreference("print.pdfFallbackPrinterId", id)
+        if (typeof DesktopSettings === "undefined" || !DesktopSettings) return
+        DesktopSettings.setPrintPdfFallbackPrinterId(id)
     }
 
     function clearFallback() {
-        if (typeof UIPreferences === "undefined" || !UIPreferences) return
-        UIPreferences.setPreference("print.pdfFallbackPrinterId", "")
+        if (typeof DesktopSettings === "undefined" || !DesktopSettings) return
+        DesktopSettings.setPrintPdfFallbackPrinterId("")
     }
 
     function doReload() {
@@ -89,9 +89,7 @@ Flickable {
         }
     }
 
-    // Reactive fallback ID — incremented on preference change so bindings re-read
-    property int _rev: 0
-    readonly property string currentFallbackId: { _rev; return root.fallbackId() }
+    readonly property string currentFallbackId: root.fallbackId()
 
     // ComboBox selected index (tracks detected printers list)
     property int selectedIndex: -1
@@ -110,8 +108,8 @@ Flickable {
     Component.onCompleted: root.refreshComponentIssues()
 
     Connections {
-        target: (typeof UIPreferences !== "undefined") ? UIPreferences : null
-        function onPreferenceChanged() { root._rev++; root.syncSelectedIndex() }
+        target: (typeof DesktopSettings !== "undefined") ? DesktopSettings : null
+        function onPrintPdfFallbackPrinterIdChanged() { root.syncSelectedIndex() }
     }
     Connections {
         target: (typeof PrintManager !== "undefined") ? PrintManager : null
@@ -156,7 +154,7 @@ Flickable {
             Rectangle {
                 visible: addPrinterSheet.errorText.length > 0
                 Layout.fillWidth: true
-                radius: 6
+                radius: Theme.radiusMd
                 color: Theme.color("errorSoft")
                 implicitHeight: addErrText.implicitHeight + 16
 
@@ -240,7 +238,7 @@ Flickable {
                 spacing: 4
                 Layout.fillWidth: true
                 Label {
-                    text: qsTr("Driver (optional — leave blank for generic IPP)")
+                    text: qsTr("Driver (optional — leave blank for generic driver)")
                     font.pixelSize: Theme.fontSize("small")
                     color: Theme.color("textSecondary")
                 }
@@ -305,7 +303,7 @@ Flickable {
             visible: false
             property string message: ""
             Layout.fillWidth: true
-            radius: 8
+            radius: Theme.radiusControl
             color: Theme.color("errorSoft")
             implicitHeight: errRow.implicitHeight + 16
 
@@ -371,14 +369,14 @@ Flickable {
 
                         // Availability dot
                         Rectangle {
-                            width: 8; height: 8; radius: 4
+                            width: 8; height: 8; radius: Theme.radiusSm
                             color: available ? Theme.color("success") : Theme.color("error")
                         }
 
                         // System default badge
                         Rectangle {
                             visible: isSysDefault
-                            radius: 4
+                            radius: Theme.radiusSm
                             color: Theme.color("accentSoft")
                             implicitWidth: sysDefaultLabel.implicitWidth + 10
                             implicitHeight: 22
