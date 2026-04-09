@@ -90,6 +90,36 @@ QVariantList FirewallServiceClient::activeConnections() const
     return m_activeConnections;
 }
 
+QString FirewallServiceClient::lastQuickBlockPolicyId() const
+{
+    return m_lastQuickBlockPolicyId;
+}
+
+QString FirewallServiceClient::lastQuickBlockTarget() const
+{
+    return m_lastQuickBlockTarget;
+}
+
+void FirewallServiceClient::setLastQuickBlockPolicyId(const QString &policyId)
+{
+    const QString normalized = policyId.trimmed();
+    if (m_lastQuickBlockPolicyId == normalized) {
+        return;
+    }
+    m_lastQuickBlockPolicyId = normalized;
+    emit quickBlockStateChanged();
+}
+
+void FirewallServiceClient::setLastQuickBlockTarget(const QString &target)
+{
+    const QString normalized = target.trimmed();
+    if (m_lastQuickBlockTarget == normalized) {
+        return;
+    }
+    m_lastQuickBlockTarget = normalized;
+    emit quickBlockStateChanged();
+}
+
 bool FirewallServiceClient::refresh()
 {
     if (!ensureIface()) {

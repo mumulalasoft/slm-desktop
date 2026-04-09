@@ -32,8 +32,6 @@ Flickable {
     property bool connectionRemember: false
     property string connectionResultText: ""
     property bool connectionResultOk: true
-    property string lastQuickBlockPolicyId: ""
-    property string lastQuickBlockTarget: ""
     readonly property bool devPromptSimulationEnabled: Qt.application.arguments.indexOf("--firewall-dev") !== -1
 
     readonly property var firewallModes: [
@@ -463,8 +461,8 @@ Flickable {
                    : qsTr("Remote IP blocked permanently: %1").arg(ip))
                 : qsTr("Failed to block remote IP.")
         if (ok) {
-            root.lastQuickBlockPolicyId = policyId
-            root.lastQuickBlockTarget = ip
+            FirewallServiceClient.lastQuickBlockPolicyId = policyId
+            FirewallServiceClient.lastQuickBlockTarget = ip
             FirewallServiceClient.refreshIpPolicies()
             FirewallServiceClient.refreshConnections()
         }
@@ -504,8 +502,8 @@ Flickable {
                 ? qsTr("Remote subnet blocked: %1").arg(cidr)
                 : qsTr("Failed to block remote subnet.")
         if (ok) {
-            root.lastQuickBlockPolicyId = policyId
-            root.lastQuickBlockTarget = cidr
+            FirewallServiceClient.lastQuickBlockPolicyId = policyId
+            FirewallServiceClient.lastQuickBlockTarget = cidr
             FirewallServiceClient.refreshIpPolicies()
             FirewallServiceClient.refreshConnections()
         }
@@ -513,7 +511,7 @@ Flickable {
     }
 
     function undoLastQuickBlock() {
-        var id = String(root.lastQuickBlockPolicyId || "").trim()
+        var id = String(FirewallServiceClient.lastQuickBlockPolicyId || "").trim()
         if (!id.length) {
             root.connectionResultOk = false
             root.connectionResultText = qsTr("No quick block to undo.")
@@ -522,11 +520,11 @@ Flickable {
         var ok = FirewallServiceClient.removeIpPolicy(id)
         root.connectionResultOk = ok
         root.connectionResultText = ok
-                ? qsTr("Quick block removed: %1").arg(String(root.lastQuickBlockTarget || id))
+                ? qsTr("Quick block removed: %1").arg(String(FirewallServiceClient.lastQuickBlockTarget || id))
                 : qsTr("Failed to undo quick block.")
         if (ok) {
-            root.lastQuickBlockPolicyId = ""
-            root.lastQuickBlockTarget = ""
+            FirewallServiceClient.lastQuickBlockPolicyId = ""
+            FirewallServiceClient.lastQuickBlockTarget = ""
             FirewallServiceClient.refreshIpPolicies()
             FirewallServiceClient.refreshConnections()
         }
@@ -1472,7 +1470,7 @@ Flickable {
                         text: qsTr("Undo Last Quick Block")
                         enabled: FirewallServiceClient.available
                                  && FirewallServiceClient.enabled
-                                 && root.lastQuickBlockPolicyId.length > 0
+                                 && FirewallServiceClient.lastQuickBlockPolicyId.length > 0
                         onClicked: root.undoLastQuickBlock()
                     }
                 }

@@ -19,6 +19,8 @@ class FirewallServiceClient : public QObject
     Q_PROPERTY(QVariantList appPolicies READ appPolicies NOTIFY appPoliciesChanged)
     Q_PROPERTY(QVariantList ipPolicies READ ipPolicies NOTIFY ipPoliciesChanged)
     Q_PROPERTY(QVariantList activeConnections READ activeConnections NOTIFY activeConnectionsChanged)
+    Q_PROPERTY(QString lastQuickBlockPolicyId READ lastQuickBlockPolicyId WRITE setLastQuickBlockPolicyId NOTIFY quickBlockStateChanged)
+    Q_PROPERTY(QString lastQuickBlockTarget READ lastQuickBlockTarget WRITE setLastQuickBlockTarget NOTIFY quickBlockStateChanged)
 
 public:
     explicit FirewallServiceClient(QObject *parent = nullptr);
@@ -32,6 +34,10 @@ public:
     QVariantList appPolicies() const;
     QVariantList ipPolicies() const;
     QVariantList activeConnections() const;
+    QString lastQuickBlockPolicyId() const;
+    QString lastQuickBlockTarget() const;
+    void setLastQuickBlockPolicyId(const QString &policyId);
+    void setLastQuickBlockTarget(const QString &target);
 
     Q_INVOKABLE bool refresh();
     Q_INVOKABLE bool setEnabled(bool enabled);
@@ -60,6 +66,7 @@ signals:
     void appPoliciesChanged();
     void ipPoliciesChanged();
     void activeConnectionsChanged();
+    void quickBlockStateChanged();
 
 private slots:
     void onNameOwnerChanged(const QString &name, const QString &oldOwner, const QString &newOwner);
@@ -80,4 +87,6 @@ private:
     QVariantList m_appPolicies;
     QVariantList m_ipPolicies;
     QVariantList m_activeConnections;
+    QString m_lastQuickBlockPolicyId;
+    QString m_lastQuickBlockTarget;
 };
