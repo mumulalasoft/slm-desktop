@@ -188,8 +188,6 @@ set(DESKTOP_SHELL_SERVICES
     src/services/portal/inputcaptureprivacymodel.h
     cursorcontroller.cpp
     cursorcontroller.h
-    src/core/prefs/uipreferences.cpp
-    src/core/prefs/uipreferences.h
     src/core/icons/themeiconprovider.cpp
     src/core/icons/themeiconprovider.h
     src/core/icons/themeiconcontroller.cpp
@@ -433,8 +431,6 @@ set(DESKTOPD_SOURCES
     src/core/workspace/workspacemanager.h
     src/core/workspace/spacesmanager.cpp
     src/core/workspace/spacesmanager.h
-    src/core/prefs/uipreferences.cpp
-    src/core/prefs/uipreferences.h
     src/core/workspace/windowingbackendmanager.cpp
     src/core/workspace/windowingbackendmanager.h
     src/core/workspace/kwinwaylandipcclient.cpp

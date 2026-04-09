@@ -239,12 +239,6 @@ if(DEFINED Qt6_DIR AND TARGET slm-desktop)
     endif()
 endif()
 
-qt_add_executable(uipreference
-    uipreference_cli.cpp
-    src/core/prefs/uipreferences.cpp
-    src/core/prefs/uipreferences.h
-)
-
 qt_add_executable(indicatorctl
     src/cli/indicatorctl.cpp
 )
@@ -303,8 +297,6 @@ qt_add_executable(slm-settings
     src/apps/settings/fontmanager.h
     src/apps/settings/modules/useraccounts/useraccountscontroller.cpp
     src/apps/settings/modules/useraccounts/useraccountscontroller.h
-    src/core/prefs/uipreferences.cpp
-    src/core/prefs/uipreferences.h
     src/printing/core/PrinterCapabilityProvider.cpp
     src/printing/core/PrinterCapabilityProvider.h
     src/printing/core/PrinterManager.cpp
@@ -451,8 +443,6 @@ qt_add_executable(slmcapdemo
     dockmodel.h
     shortcutmodel.cpp
     shortcutmodel.h
-    src/core/prefs/uipreferences.cpp
-    src/core/prefs/uipreferences.h
     src/core/actions/framework/slmdesktopentryscanner.cpp
     src/core/actions/framework/slmdesktopentryscanner.h
     src/core/actions/framework/slmactionframework.cpp
@@ -1092,12 +1082,6 @@ add_custom_command(TARGET slm-desktop POST_BUILD
             $<TARGET_FILE_DIR:slm-desktop>/appSlm_Desktop
 )
 
-target_link_libraries(uipreference
-    PRIVATE
-        Qt6::Core
-        Qt6::DBus
-)
-
 target_link_libraries(indicatorctl
     PRIVATE
         Qt6::Core
@@ -1174,10 +1158,6 @@ install(TARGETS slm-desktop
 
 # Backward-compatible build alias for legacy scripts.
 add_custom_target(appSlm_Desktop DEPENDS slm-desktop)
-
-install(TARGETS uipreference
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-)
 
 install(TARGETS indicatorctl
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
@@ -1372,8 +1352,6 @@ qt_add_executable(appcommandrouter_test
     src/core/execution/appcommandrouter.h
     screenshotmanager.cpp
     screenshotmanager.h
-    src/core/prefs/uipreferences.cpp
-    src/core/prefs/uipreferences.h
     tests/appcommandrouter_test.cpp
 )
 
@@ -1553,8 +1531,6 @@ qt_add_executable(appmodel_xbel_fallback_test
     appmodel.cpp
     appmodel.h
     ${SLM_ACTION_TEST_SOURCES}
-    src/core/prefs/uipreferences.cpp
-    src/core/prefs/uipreferences.h
     tests/appmodel_xbel_fallback_test.cpp
 )
 
@@ -1573,8 +1549,6 @@ qt_add_executable(appmodel_scoring_weights_test
     appmodel.cpp
     appmodel.h
     ${SLM_ACTION_TEST_SOURCES}
-    src/core/prefs/uipreferences.cpp
-    src/core/prefs/uipreferences.h
     tests/appmodel_scoring_weights_test.cpp
 )
 
@@ -1646,8 +1620,6 @@ qt_add_executable(workspacectl_smoke_test
     ${SLM_PERMISSION_TEST_SOURCES}
     src/core/workspace/spacesmanager.cpp
     src/core/workspace/spacesmanager.h
-    src/core/prefs/uipreferences.cpp
-    src/core/prefs/uipreferences.h
     src/core/workspace/windowingbackendmanager.cpp
     src/core/workspace/windowingbackendmanager.h
     src/core/workspace/kwinwaylandipcclient.cpp
@@ -2325,8 +2297,6 @@ qt_add_executable(filemanagerapi_daemon_recovery_test
     dockmodel.h
     shortcutmodel.cpp
     shortcutmodel.h
-    src/core/prefs/uipreferences.cpp
-    src/core/prefs/uipreferences.h
     src/apps/filemanager/include/filemanagerapi.h
     src/core/system/componentregistry.cpp
     src/core/system/componentregistry.h
@@ -2450,8 +2420,6 @@ qt_add_executable(filemanagerapi_fileops_contract_test
     dockmodel.h
     shortcutmodel.cpp
     shortcutmodel.h
-    src/core/prefs/uipreferences.cpp
-    src/core/prefs/uipreferences.h
     src/apps/filemanager/include/filemanagerapi.h
     src/core/system/componentregistry.cpp
     src/core/system/componentregistry.h
@@ -2522,8 +2490,6 @@ qt_add_executable(filemanager_shell_contract_test
     src/core/launcher/launchenvresolver.h
     src/apps/settings/modules/developer/envserviceclient.cpp
     src/apps/settings/modules/developer/envserviceclient.h
-    src/core/prefs/uipreferences.cpp
-    src/core/prefs/uipreferences.h
     src/filemanager/FileManagerShellBridge.cpp
     src/filemanager/FileManagerShellBridge.h
     src/core/system/componentregistry.cpp
@@ -2738,8 +2704,6 @@ add_test(NAME contextclient_test COMMAND $<TARGET_FILE:contextclient_test>)
 qt_add_executable(desktopsettingsclient_test
     src/apps/settings/desktopsettingsclient.cpp
     src/apps/settings/desktopsettingsclient.h
-    src/core/prefs/uipreferences.cpp
-    src/core/prefs/uipreferences.h
     tests/desktopsettingsclient_test.cpp
 )
 
@@ -3502,8 +3466,6 @@ qt_add_executable(workspacemanager_dbus_test
     src/daemon/desktopd/desktopdaemonservice.h
     src/core/workspace/spacesmanager.cpp
     src/core/workspace/spacesmanager.h
-    src/core/prefs/uipreferences.cpp
-    src/core/prefs/uipreferences.h
     src/services/clipboard/ClipboardSearchProvider.cpp
     src/services/clipboard/ClipboardSearchProvider.h
     src/services/clipboard/contentclassifier.cpp
@@ -3575,8 +3537,6 @@ qt_add_executable(globalsearchservice_dbus_test
     src/core/workspace/kwinsupportinfoparser.h
     src/core/workspace/workspacemanager.cpp
     src/core/workspace/workspacemanager.h
-    src/core/prefs/uipreferences.cpp
-    src/core/prefs/uipreferences.h
     src/services/clipboard/ClipboardSearchProvider.cpp
     src/services/clipboard/ClipboardSearchProvider.h
     src/services/clipboard/contentclassifier.cpp
@@ -3834,8 +3794,6 @@ qt_add_executable(slmcapabilityservice_dbus_test
     src/daemon/desktopd/slmcapabilityservice.h
     ${SLM_ACTION_TEST_SOURCES}
     ${SLM_ACTION_FRAMEWORK_TEST_SOURCES}
-    src/core/prefs/uipreferences.cpp
-    src/core/prefs/uipreferences.h
     ${SLM_PERMISSION_TEST_SOURCES}
     tests/slmcapabilityservice_dbus_test.cpp
 )
@@ -3892,8 +3850,6 @@ qt_add_executable(tothespotservice_dbus_test
     ${SLM_ACTION_TEST_SOURCES}
     ${SLM_ACTION_FRAMEWORK_TEST_SOURCES}
     ${SLM_PERMISSION_TEST_SOURCES}
-    src/core/prefs/uipreferences.cpp
-    src/core/prefs/uipreferences.h
     tests/tothespotservice_dbus_test.cpp
 )
 
@@ -4550,8 +4506,6 @@ qt_add_executable(slmactionregistry_test
     dockmodel.h
     shortcutmodel.cpp
     shortcutmodel.h
-    src/core/prefs/uipreferences.cpp
-    src/core/prefs/uipreferences.h
     tests/slmactionregistry_test.cpp
 )
 
@@ -4593,8 +4547,6 @@ qt_add_executable(slmcapability_framework_test
     dockmodel.h
     shortcutmodel.cpp
     shortcutmodel.h
-    src/core/prefs/uipreferences.cpp
-    src/core/prefs/uipreferences.h
     src/core/actions/framework/slmframeworktypes.h
     src/core/actions/framework/acl/slmacllexer.cpp
     src/core/actions/framework/acl/slmacllexer.h
