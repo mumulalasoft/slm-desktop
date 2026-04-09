@@ -254,6 +254,64 @@ Flickable {
         return false
     }
 
+    function quarantinedApps() {
+        var out = []
+        var seen = {}
+        var all = FirewallServiceClient.appPolicies || []
+        for (var i = 0; i < all.length; ++i) {
+            var row = all[i] || {}
+            if (String(row.decision || "") !== "deny" || String(row.direction || "") !== "both") {
+                continue
+            }
+            var appId = String(row.appId || "").trim()
+            if (!appId.length || seen[appId]) {
+                continue
+            }
+            seen[appId] = true
+            out.push({
+                appId: appId,
+                appName: String(row.appName || ""),
+                policyId: String(row.policyId || "")
+            })
+        }
+        return out
+    }
+
+    function clearQuarantineRules() {
+        var all = FirewallServiceClient.appPolicies || []
+        var targets = []
+        for (var i = 0; i < all.length; ++i) {
+            var row = all[i] || {}
+            if (String(row.decision || "") !== "deny" || String(row.direction || "") !== "both") {
+                continue
+            }
+            var policyId = String(row.policyId || "")
+            if (policyId.length) {
+                targets.push(policyId)
+            }
+        }
+
+        if (targets.length === 0) {
+            appResultOk = false
+            appResultText = qsTr("No quarantine rules to clear.")
+            return false
+        }
+
+        var removed = 0
+        for (var j = 0; j < targets.length; ++j) {
+            if (FirewallServiceClient.removeAppPolicy(targets[j])) {
+                removed += 1
+            }
+        }
+        var ok = removed === targets.length
+        appResultOk = ok
+        appResultText = ok
+                ? qsTr("All quarantine rules cleared.")
+                : qsTr("Failed to clear some quarantine rules.")
+        FirewallServiceClient.refreshAppPolicies()
+        return ok
+    }
+
     function parseIsoMs(value) {
         var text = String(value || "").trim()
         if (!text.length) {
@@ -835,6 +893,80 @@ Flickable {
                                         root.appResultText = ok
                                                 ? qsTr("Application rule removed.")
                                                 : qsTr("Failed to remove application rule.")
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            SettingCard {
+                label: qsTr("Quarantined Apps")
+                description: qsTr("Apps blocked for both incoming and outgoing traffic")
+
+                ColumnLayout {
+                    spacing: 8
+                    Layout.fillWidth: true
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: qsTr("%1 quarantined app(s)").arg(root.quarantinedApps().length)
+                            color: Theme.color("textSecondary")
+                            font.pixelSize: Theme.fontSize("small")
+                        }
+
+                        Button {
+                            text: qsTr("Clear Quarantine Rules")
+                            enabled: FirewallServiceClient.available
+                                     && FirewallServiceClient.enabled
+                                     && root.quarantinedApps().length > 0
+                            onClicked: root.clearQuarantineRules()
+                        }
+                    }
+
+                    Repeater {
+                        model: root.quarantinedApps()
+
+                        delegate: Rectangle {
+                            Layout.fillWidth: true
+                            radius: Theme.radiusControl
+                            color: Theme.color("surface")
+                            border.width: Theme.borderWidthThin
+                            border.color: Theme.color("panelBorder")
+                            implicitHeight: quarantineRow.implicitHeight + 10
+
+                            RowLayout {
+                                id: quarantineRow
+                                anchors.fill: parent
+                                anchors.margins: 8
+                                spacing: 10
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: {
+                                        var p = modelData || {}
+                                        var appId = String(p.appId || qsTr("(unknown app)"))
+                                        var appName = String(p.appName || "")
+                                        return appName.length ? appName + " (" + appId + ")" : appId
+                                    }
+                                    color: Theme.color("textPrimary")
+                                    font.pixelSize: Theme.fontSize("small")
+                                    elide: Text.ElideRight
+                                }
+
+                                Button {
+                                    text: qsTr("Unquarantine")
+                                    enabled: FirewallServiceClient.available
+                                             && FirewallServiceClient.enabled
+                                             && String((modelData || {}).appId || "").length > 0
+                                    onClicked: {
+                                        var id = String((modelData || {}).appId || "")
+                                        root.unquarantineApp(id)
                                     }
                                 }
                             }
