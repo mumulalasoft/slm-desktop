@@ -18,20 +18,37 @@ import "Qml/components/shell/TothespotController.js" as TothespotController
 
 ApplicationWindow {
     id: root
+    function readSetting(path, fallback) {
+        if (typeof DesktopSettings !== "undefined" && DesktopSettings
+                && DesktopSettings.settingValue) {
+            return DesktopSettings.settingValue(path, fallback)
+        }
+        if (typeof UIPreferences !== "undefined" && UIPreferences
+                && UIPreferences.getPreference) {
+            return UIPreferences.getPreference(path, fallback)
+        }
+        return fallback
+    }
+    function writeSetting(path, value) {
+        if (typeof DesktopSettings !== "undefined" && DesktopSettings
+                && DesktopSettings.setSettingValue) {
+            return DesktopSettings.setSettingValue(path, value)
+        }
+        if (typeof UIPreferences !== "undefined" && UIPreferences
+                && UIPreferences.setPreference) {
+            UIPreferences.setPreference(path, value)
+            return true
+        }
+        return false
+    }
     property bool styleDarkMode: Theme.darkMode
     property bool startWindowed: (typeof AppStartWindowed !== "undefined") ? !!AppStartWindowed : false
     property int startWindowWidthHint: (typeof AppStartWindowWidth !== "undefined") ? Number(AppStartWindowWidth) : 0
     property int startWindowHeightHint: (typeof AppStartWindowHeight !== "undefined") ? Number(AppStartWindowHeight) : 0
     property bool topBarPopupExpanded: false
-    property bool motionDebugOverlayEnabled: (typeof UIPreferences !== "undefined" && UIPreferences && UIPreferences.getPreference)
-                                              ? !!UIPreferences.getPreference("motion.debugOverlay", false)
-                                              : false
-    property real motionTimeScale: (typeof UIPreferences !== "undefined" && UIPreferences && UIPreferences.getPreference)
-                                    ? Number(UIPreferences.getPreference("motion.timeScale", 1.0))
-                                    : 1.0
-    property bool motionReducedEnabled: (typeof UIPreferences !== "undefined" && UIPreferences && UIPreferences.getPreference)
-                                         ? !!UIPreferences.getPreference("motion.reduced", false)
-                                         : false
+    property bool motionDebugOverlayEnabled: !!readSetting("motion.debugOverlay", false)
+    property real motionTimeScale: Number(readSetting("motion.timeScale", 1.0))
+    property bool motionReducedEnabled: !!readSetting("motion.reduced", false)
     property var motionDebugRows: []
     property bool shellContextMenuOpen: false
     property bool fileManagerVisible: false
@@ -98,12 +115,8 @@ ApplicationWindow {
     property real areaShotStartY: 0
     property real areaShotEndX: 0
     property real areaShotEndY: 0
-    property string areaShotBind: (typeof UIPreferences !== "undefined" && UIPreferences && UIPreferences.getPreference)
-                                  ? String(UIPreferences.getPreference("screenshot.bindArea", "Alt+Shift+S"))
-                                  : "Alt+Shift+S"
-    property string fullscreenShotBind: (typeof UIPreferences !== "undefined" && UIPreferences && UIPreferences.getPreference)
-                                        ? String(UIPreferences.getPreference("screenshot.bindFullscreen", "Alt+Shift+F"))
-                                        : "Alt+Shift+F"
+    property string areaShotBind: String(readSetting("screenshot.bindArea", "Alt+Shift+S"))
+    property string fullscreenShotBind: String(readSetting("screenshot.bindFullscreen", "Alt+Shift+F"))
     property int pendingScreenshotDelaySec: 0
     property string pendingScreenshotMode: "screen"
     property bool screenshotSaveDialogVisible: false
@@ -176,26 +189,13 @@ ApplicationWindow {
     property var tothespotTelemetryLast: ({})
     property var tothespotProviderStats: ({})
     property var tothespotPreviewData: ({})
-    property bool tothespotShowDebug: (typeof UIPreferences !== "undefined" && UIPreferences && UIPreferences.getPreference)
-                                      ? !!UIPreferences.getPreference("debug.verboseLogging", false)
-                                      : false
-    property bool tothespotNotifyClipboardResolveSuccess: (typeof UIPreferences !== "undefined"
-                                                           && UIPreferences
-                                                           && UIPreferences.getPreference)
-                                                          ? !!UIPreferences.getPreference(
-                                                              "tothespot.notifyClipboardResolveSuccess", true)
-                                                          : true
-    property string tothespotBind: (typeof UIPreferences !== "undefined" && UIPreferences && UIPreferences.getPreference)
-                                   ? String(UIPreferences.getPreference("tothespot.bindToggle", "Alt+Space"))
-                                   : "Alt+Space"
-    property int tothespotSavedX: (typeof UIPreferences !== "undefined" && UIPreferences && UIPreferences.getPreference)
-                                  ? Number(UIPreferences.getPreference("tothespot.windowX", -1)) : -1
-    property int tothespotSavedY: (typeof UIPreferences !== "undefined" && UIPreferences && UIPreferences.getPreference)
-                                  ? Number(UIPreferences.getPreference("tothespot.windowY", -1)) : -1
-    property int tothespotSavedWidth: (typeof UIPreferences !== "undefined" && UIPreferences && UIPreferences.getPreference)
-                                      ? Number(UIPreferences.getPreference("tothespot.windowWidth", -1)) : -1
-    property int tothespotSavedHeight: (typeof UIPreferences !== "undefined" && UIPreferences && UIPreferences.getPreference)
-                                       ? Number(UIPreferences.getPreference("tothespot.windowHeight", -1)) : -1
+    property bool tothespotShowDebug: !!readSetting("debug.verboseLogging", false)
+    property bool tothespotNotifyClipboardResolveSuccess: !!readSetting("tothespot.notifyClipboardResolveSuccess", true)
+    property string tothespotBind: String(readSetting("tothespot.bindToggle", "Alt+Space"))
+    property int tothespotSavedX: Number(readSetting("tothespot.windowX", -1))
+    property int tothespotSavedY: Number(readSetting("tothespot.windowY", -1))
+    property int tothespotSavedWidth: Number(readSetting("tothespot.windowWidth", -1))
+    property int tothespotSavedHeight: Number(readSetting("tothespot.windowHeight", -1))
     property bool tothespotRestoringGeometry: false
     onTothespotVisibleChanged: {
         if (typeof ShellStateController !== "undefined" && ShellStateController) ShellStateController.setToTheSpotVisible(tothespotVisible)
@@ -268,15 +268,15 @@ ApplicationWindow {
     }
 
     function syncStyleThemeFromPreferences() {
-        if (typeof UIPreferences === "undefined" || !UIPreferences) {
+        if (typeof DesktopSettings === "undefined" || !DesktopSettings) {
             return
         }
-        Theme.applyModeString(UIPreferences.themeMode)
-        Theme.userAccentColor = UIPreferences.accentColor
-        Theme.userFontScale = UIPreferences.fontScale
-        DSStyle.Theme.applyModeString(UIPreferences.themeMode)
-        DSStyle.Theme.userAccentColor = UIPreferences.accentColor
-        DSStyle.Theme.userFontScale = UIPreferences.fontScale
+        Theme.applyModeString(String(DesktopSettings.themeMode || "system"))
+        Theme.userAccentColor = String(DesktopSettings.accentColor || "")
+        Theme.userFontScale = Number(DesktopSettings.fontScale || 1.0)
+        DSStyle.Theme.applyModeString(String(DesktopSettings.themeMode || "system"))
+        DSStyle.Theme.userAccentColor = String(DesktopSettings.accentColor || "")
+        DSStyle.Theme.userFontScale = Number(DesktopSettings.fontScale || 1.0)
     }
 
     onPortalChooserSelectedPathsChanged: {
@@ -310,7 +310,7 @@ ApplicationWindow {
     }
 
     Connections {
-        target: typeof UIPreferences !== "undefined" ? UIPreferences : null
+        target: typeof DesktopSettings !== "undefined" ? DesktopSettings : null
         function onThemeModeChanged() { root.syncStyleThemeFromPreferences() }
         function onAccentColorChanged() { root.syncStyleThemeFromPreferences() }
         function onFontScaleChanged() { root.syncStyleThemeFromPreferences() }
@@ -507,9 +507,7 @@ ApplicationWindow {
         onActivated: {
             root.motionDebugOverlayEnabled = !root.motionDebugOverlayEnabled
             ShellUtils.refreshMotionDebugRows(root)
-            if (typeof UIPreferences !== "undefined" && UIPreferences && UIPreferences.setPreference) {
-                UIPreferences.setPreference("motion.debugOverlay", root.motionDebugOverlayEnabled)
-            }
+            root.writeSetting("motion.debugOverlay", root.motionDebugOverlayEnabled)
         }
     }
 
@@ -545,6 +543,7 @@ ApplicationWindow {
         fileManagerApi: (typeof FileManagerApi !== "undefined") ? FileManagerApi : null
         tothespotService: (typeof TothespotService !== "undefined") ? TothespotService : null
         tothespotResultsModel: tothespotResultsModel
+        desktopSettings: (typeof DesktopSettings !== "undefined") ? DesktopSettings : null
         uiPreferences: (typeof UIPreferences !== "undefined") ? UIPreferences : null
     }
 

@@ -12,6 +12,7 @@ Item {
     property var fileManagerApi: null
     property var tothespotService: null
     property var tothespotResultsModel: null
+    property var desktopSettings: null
     property var uiPreferences: null
     property bool consentDialogVisible: false
     property string consentRequestPath: ""
@@ -139,6 +140,36 @@ Item {
             if (root.shellApi.tothespotVisible
                     && String(root.shellApi.tothespotQuery || "").trim().length >= 2) {
                 TothespotController.refreshResults(root.shellApi, root.tothespotResultsModel, true)
+            }
+        }
+    }
+
+    Connections {
+        target: root.desktopSettings
+        ignoreUnknownSignals: true
+        function onSettingChanged(path) {
+            var k = String(path || "")
+            if (k === "debug.verboseLogging") {
+                root.shellApi.tothespotShowDebug = !!root.desktopSettings.settingValue(
+                            "debug.verboseLogging", false)
+            } else if (k === "motion.debugOverlay") {
+                root.shellApi.motionDebugOverlayEnabled = !!root.desktopSettings.settingValue(
+                            "motion.debugOverlay", false)
+                ShellUtils.refreshMotionDebugRows(root.shellApi)
+            } else if (k === "motion.timeScale") {
+                root.shellApi.motionTimeScale = Number(root.desktopSettings.settingValue(
+                                                           "motion.timeScale", 1.0))
+                ShellUtils.applyMotionTimeScale(root.shellApi)
+            } else if (k === "motion.reduced") {
+                root.shellApi.motionReducedEnabled = !!root.desktopSettings.settingValue(
+                            "motion.reduced", false)
+                ShellUtils.applyMotionTimeScale(root.shellApi)
+            } else if (k === "globalAppearance.uiScale") {
+                Theme.userFontScale = ShellUtils.normalizedUserFontScale(
+                            root.desktopSettings.settingValue("globalAppearance.uiScale", 1.0))
+            } else if (k === "tothespot.notifyClipboardResolveSuccess") {
+                root.shellApi.tothespotNotifyClipboardResolveSuccess = !!root.desktopSettings.settingValue(
+                            "tothespot.notifyClipboardResolveSuccess", true)
             }
         }
     }
