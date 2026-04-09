@@ -14,6 +14,7 @@ Flickable {
     property int blockScopeIndex: 2
     property bool blockTemporary: false
     property string blockDuration: "24h"
+    property string blockNote: ""
     property string blockResultText: ""
     property bool blockResultOk: true
     property string appRuleAppId: ""
@@ -88,6 +89,10 @@ Flickable {
             reason: "manual-ui-block",
             temporary: blockTemporary
         }
+        var note = String(blockNote || "").trim()
+        if (note.length) {
+            payload.note = note
+        }
         if (blockTypes[blockTypeIndex].value === "subnet") {
             payload.cidr = target
         } else {
@@ -104,6 +109,7 @@ Flickable {
                 : qsTr("Failed to apply IP policy.")
         if (ok) {
             blockTarget = ""
+            blockNote = ""
             FirewallServiceClient.refreshIpPolicies()
         }
     }
@@ -636,6 +642,14 @@ Flickable {
                         onTextChanged: root.blockTarget = text
                     }
 
+                    TextField {
+                        Layout.fillWidth: true
+                        placeholderText: qsTr("Note (optional)")
+                        text: root.blockNote
+                        enabled: FirewallServiceClient.available && FirewallServiceClient.enabled
+                        onTextChanged: root.blockNote = text
+                    }
+
                     RowLayout {
                         spacing: 8
                         Layout.fillWidth: true
@@ -759,10 +773,25 @@ Flickable {
                                         var targets = (p.targets || []).join(", ")
                                         var scope = String(p.scope || "both")
                                         var reason = String(p.reason || "")
+                                        var note = String(p.note || "")
+                                        var temporary = Boolean(p.temporary)
+                                        var duration = String(p.duration || "")
+                                        var hitCount = Number(p.hitCount || 0)
+                                        var lastHitAt = String(p.lastHitAt || "")
                                         var base = targets.length ? targets : qsTr("(empty)")
                                         var tail = " [" + scope + "]"
                                         if (reason.length) {
                                             tail += " - " + reason
+                                        }
+                                        if (note.length) {
+                                            tail += " | " + qsTr("note: %1").arg(note)
+                                        }
+                                        if (temporary) {
+                                            tail += " | " + qsTr("temporary %1").arg(duration.length ? duration : "1h")
+                                        }
+                                        tail += " | " + qsTr("hits: %1").arg(hitCount)
+                                        if (lastHitAt.length) {
+                                            tail += " | " + qsTr("last hit: %1").arg(lastHitAt)
                                         }
                                         return base + tail
                                     }
