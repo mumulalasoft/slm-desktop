@@ -80,6 +80,36 @@ private slots:
         QCOMPARE(firewallAfter.value(QStringLiteral("enabled")).toBool(), false);
     }
 
+    void default_policy_roundtrip_contract()
+    {
+        SettingsService settings;
+        QString settingsError;
+        QVERIFY2(settings.start(&settingsError), qPrintable(settingsError));
+
+        FirewallService service;
+        QVariantMap status = service.GetStatus();
+        QCOMPARE(status.value(QStringLiteral("defaultIncomingPolicy")).toString(), QStringLiteral("deny"));
+        QCOMPARE(status.value(QStringLiteral("defaultOutgoingPolicy")).toString(), QStringLiteral("allow"));
+
+        service.SetDefaultIncomingPolicy(QStringLiteral("prompt"));
+        service.SetDefaultOutgoingPolicy(QStringLiteral("deny"));
+
+        status = service.GetStatus();
+        QCOMPARE(status.value(QStringLiteral("defaultIncomingPolicy")).toString(), QStringLiteral("prompt"));
+        QCOMPARE(status.value(QStringLiteral("defaultOutgoingPolicy")).toString(), QStringLiteral("deny"));
+
+        // Invalid value should be normalized to previous valid value.
+        service.SetDefaultIncomingPolicy(QStringLiteral("invalid-policy"));
+        status = service.GetStatus();
+        QCOMPARE(status.value(QStringLiteral("defaultIncomingPolicy")).toString(), QStringLiteral("prompt"));
+
+        const QVariantMap settingsPayload = settings.GetSettings();
+        const QVariantMap settingsRoot = settingsPayload.value(QStringLiteral("settings")).toMap();
+        const QVariantMap firewall = settingsRoot.value(QStringLiteral("firewall")).toMap();
+        QCOMPARE(firewall.value(QStringLiteral("defaultIncomingPolicy")).toString(), QStringLiteral("prompt"));
+        QCOMPARE(firewall.value(QStringLiteral("defaultOutgoingPolicy")).toString(), QStringLiteral("deny"));
+    }
+
 private:
     QString m_storePath;
 };

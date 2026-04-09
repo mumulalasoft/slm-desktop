@@ -12,6 +12,17 @@ constexpr const char kApiVersion[] = "1.0";
 constexpr const char kSettingsService[] = "org.slm.Desktop.Settings";
 constexpr const char kSettingsPath[] = "/org/slm/Desktop/Settings";
 constexpr const char kSettingsIface[] = "org.slm.Desktop.Settings";
+
+QString normalizeFirewallPolicy(const QString &value, const QString &fallback)
+{
+    const QString normalized = value.trimmed().toLower();
+    if (normalized == QLatin1String("allow")
+            || normalized == QLatin1String("deny")
+            || normalized == QLatin1String("prompt")) {
+        return normalized;
+    }
+    return fallback;
+}
 }
 
 FirewallService::FirewallService(QObject *parent)
@@ -99,8 +110,8 @@ QVariantMap FirewallService::GetStatus() const
         {QStringLiteral("ok"), true},
         {QStringLiteral("enabled"), m_enabled},
         {QStringLiteral("mode"), Slm::Firewall::firewallModeToString(m_mode)},
-        {QStringLiteral("defaultIncomingPolicy"), QStringLiteral("deny")},
-        {QStringLiteral("defaultOutgoingPolicy"), QStringLiteral("allow")},
+        {QStringLiteral("defaultIncomingPolicy"), m_defaultIncomingPolicy},
+        {QStringLiteral("defaultOutgoingPolicy"), m_defaultOutgoingPolicy},
         {QStringLiteral("apiVersion"), apiVersion()},
     };
 }
@@ -126,6 +137,40 @@ QVariantMap FirewallService::SetMode(const QString &mode)
     QString error;
     const bool persisted = setSettingsValue(QStringLiteral("firewall.mode"),
                                             Slm::Firewall::firewallModeToString(m_mode),
+                                            &error);
+    QVariantMap state = GetStatus();
+    state.insert(QStringLiteral("persisted"), persisted);
+    if (!persisted) {
+        state.insert(QStringLiteral("ok"), false);
+        state.insert(QStringLiteral("error"), error.isEmpty() ? QStringLiteral("settingsd-unavailable") : error);
+    }
+    emit FirewallStateChanged(state);
+    return state;
+}
+
+QVariantMap FirewallService::SetDefaultIncomingPolicy(const QString &policy)
+{
+    m_defaultIncomingPolicy = normalizeFirewallPolicy(policy, m_defaultIncomingPolicy);
+    QString error;
+    const bool persisted = setSettingsValue(QStringLiteral("firewall.defaultIncomingPolicy"),
+                                            m_defaultIncomingPolicy,
+                                            &error);
+    QVariantMap state = GetStatus();
+    state.insert(QStringLiteral("persisted"), persisted);
+    if (!persisted) {
+        state.insert(QStringLiteral("ok"), false);
+        state.insert(QStringLiteral("error"), error.isEmpty() ? QStringLiteral("settingsd-unavailable") : error);
+    }
+    emit FirewallStateChanged(state);
+    return state;
+}
+
+QVariantMap FirewallService::SetDefaultOutgoingPolicy(const QString &policy)
+{
+    m_defaultOutgoingPolicy = normalizeFirewallPolicy(policy, m_defaultOutgoingPolicy);
+    QString error;
+    const bool persisted = setSettingsValue(QStringLiteral("firewall.defaultOutgoingPolicy"),
+                                            m_defaultOutgoingPolicy,
                                             &error);
     QVariantMap state = GetStatus();
     state.insert(QStringLiteral("persisted"), persisted);
@@ -193,6 +238,12 @@ bool FirewallService::loadSettingsState()
         m_mode = Slm::Firewall::firewallModeFromString(
             firewall.value(QStringLiteral("mode"),
                            Slm::Firewall::firewallModeToString(m_mode)).toString());
+        m_defaultIncomingPolicy = normalizeFirewallPolicy(
+            firewall.value(QStringLiteral("defaultIncomingPolicy"), m_defaultIncomingPolicy).toString(),
+            m_defaultIncomingPolicy);
+        m_defaultOutgoingPolicy = normalizeFirewallPolicy(
+            firewall.value(QStringLiteral("defaultOutgoingPolicy"), m_defaultOutgoingPolicy).toString(),
+            m_defaultOutgoingPolicy);
     }
     return true;
 }

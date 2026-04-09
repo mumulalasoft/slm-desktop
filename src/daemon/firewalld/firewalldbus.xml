@@ -19,6 +19,14 @@
       <arg name="mode" type="s" direction="in"/>
       <arg name="result" type="a{sv}" direction="out"/>
     </method>
+    <method name="SetDefaultIncomingPolicy">
+      <arg name="policy" type="s" direction="in"/>
+      <arg name="result" type="a{sv}" direction="out"/>
+    </method>
+    <method name="SetDefaultOutgoingPolicy">
+      <arg name="policy" type="s" direction="in"/>
+      <arg name="result" type="a{sv}" direction="out"/>
+    </method>
     <method name="EvaluateConnection">
       <arg name="request" type="a{sv}" direction="in"/>
       <arg name="result" type="a{sv}" direction="out"/>

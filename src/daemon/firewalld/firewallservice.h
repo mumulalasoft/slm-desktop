@@ -32,6 +32,8 @@ public slots:
     QVariantMap GetStatus() const;
     QVariantMap SetEnabled(bool enabled);
     QVariantMap SetMode(const QString &mode);
+    QVariantMap SetDefaultIncomingPolicy(const QString &policy);
+    QVariantMap SetDefaultOutgoingPolicy(const QString &policy);
     QVariantMap EvaluateConnection(const QVariantMap &request);
     QVariantMap SetAppPolicy(const QVariantMap &policy);
     QVariantMap SetIpPolicy(const QVariantMap &policy);
@@ -50,6 +52,8 @@ private:
     bool m_serviceRegistered = false;
     Slm::Firewall::FirewallMode m_mode = Slm::Firewall::FirewallMode::Home;
     bool m_enabled = true;
+    QString m_defaultIncomingPolicy = QStringLiteral("deny");
+    QString m_defaultOutgoingPolicy = QStringLiteral("allow");
     Slm::Firewall::PolicyStore m_store;
     Slm::Firewall::NftablesAdapter m_nftAdapter;
     Slm::Firewall::AppIdentityClient m_identityClient;
