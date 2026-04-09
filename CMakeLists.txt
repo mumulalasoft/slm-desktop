@@ -2717,6 +2717,7 @@ target_include_directories(firewall_policyengine_contract_test PRIVATE ${CMAKE_S
 target_link_libraries(firewall_policyengine_contract_test
     PRIVATE
         Qt6::Core
+        Qt6::DBus
         Qt6::Test
 )
 
@@ -2749,6 +2750,7 @@ target_include_directories(firewall_identity_mapping_contract_test PRIVATE ${CMA
 target_link_libraries(firewall_identity_mapping_contract_test
     PRIVATE
         Qt6::Core
+        Qt6::DBus
         Qt6::Test
 )
 

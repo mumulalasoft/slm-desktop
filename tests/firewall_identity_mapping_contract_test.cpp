@@ -2,6 +2,8 @@
 
 #include "../src/services/firewall/appidentityclient.h"
 
+#include <QCoreApplication>
+
 class FirewallIdentityMappingContractTest : public QObject
 {
     Q_OBJECT
@@ -20,6 +22,18 @@ private slots:
         QVERIFY(identity.contains(QStringLiteral("trust_level")));
         QVERIFY(identity.contains(QStringLiteral("context")));
         QCOMPARE(identity.value(QStringLiteral("pid")).toLongLong(), 4242);
+    }
+
+    void resolve_current_pid_has_executable()
+    {
+        Slm::Firewall::AppIdentityClient client;
+        const qint64 pid = QCoreApplication::applicationPid();
+        const QVariantMap identity = client.resolveByPid(pid);
+        QCOMPARE(identity.value(QStringLiteral("pid")).toLongLong(), pid);
+        QVERIFY(!identity.value(QStringLiteral("executable")).toString().trimmed().isEmpty());
+        QVERIFY(identity.value(QStringLiteral("context")).toString() == QStringLiteral("gui")
+                || identity.value(QStringLiteral("context")).toString() == QStringLiteral("cli")
+                || identity.value(QStringLiteral("context")).toString() == QStringLiteral("interpreter"));
     }
 };
 
