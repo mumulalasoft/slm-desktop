@@ -29,6 +29,7 @@ Flickable {
     property bool connectionRemember: false
     property string connectionResultText: ""
     property bool connectionResultOk: true
+    readonly property bool devPromptSimulationEnabled: Qt.application.arguments.indexOf("--firewall-dev") !== -1
 
     readonly property var firewallModes: [
         { value: "home", label: qsTr("Home") },
@@ -332,6 +333,7 @@ Flickable {
             SettingCard {
                 label: qsTr("Prompt Simulation")
                 description: qsTr("Test evaluate + allow/deny flow and remember decision")
+                visible: root.devPromptSimulationEnabled
 
                 ColumnLayout {
                     spacing: 8
