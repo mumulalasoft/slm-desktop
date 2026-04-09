@@ -614,7 +614,7 @@ QVariantMap PolicyEngine::setIpPolicy(const QVariantMap &policy)
         };
     }
 
-    QVariantList entries = m_store->value(QStringLiteral("firewall.rules.ipBlocks.entries"), QVariantList{}).toList();
+    QVariantList entries = pruneExpiredIpPolicies();
     entries.append(normalizedPolicy);
 
     QString error;
@@ -647,7 +647,7 @@ QVariantList PolicyEngine::listIpPolicies() const
     if (!m_store) {
         return {};
     }
-    return m_store->value(QStringLiteral("firewall.rules.ipBlocks.entries"), QVariantList{}).toList();
+    return pruneExpiredIpPolicies();
 }
 
 QVariantMap PolicyEngine::clearIpPolicies()
@@ -701,7 +701,7 @@ QVariantMap PolicyEngine::removeIpPolicy(const QString &policyId)
         };
     }
 
-    const QVariantList entries = m_store->value(QStringLiteral("firewall.rules.ipBlocks.entries"), QVariantList{}).toList();
+    const QVariantList entries = pruneExpiredIpPolicies();
     QVariantList kept;
     bool removed = false;
     for (const QVariant &entry : entries) {
@@ -742,6 +742,99 @@ QVariantMap PolicyEngine::removeIpPolicy(const QString &policyId)
         {QStringLiteral("ok"), true},
         {QStringLiteral("error"), QString()},
     };
+}
+
+QVariantList PolicyEngine::pruneExpiredIpPolicies() const
+{
+    if (!m_store) {
+        return {};
+    }
+
+    const QVariantList entries = m_store->value(QStringLiteral("firewall.rules.ipBlocks.entries"), QVariantList{}).toList();
+    if (entries.isEmpty()) {
+        return entries;
+    }
+
+    const QDateTime now = QDateTime::currentDateTimeUtc();
+    QVariantList kept;
+    kept.reserve(entries.size());
+    bool changed = false;
+    for (const QVariant &entry : entries) {
+        const QVariantMap map = entry.toMap();
+        if (isIpPolicyExpired(map, now)) {
+            changed = true;
+            continue;
+        }
+        kept.append(map);
+    }
+
+    if (!changed) {
+        return entries;
+    }
+
+    QString error;
+    if (!m_store->setValue(QStringLiteral("firewall.rules.ipBlocks.entries"), kept, &error)) {
+        return kept;
+    }
+
+    if (m_nft) {
+        QString nftError;
+        m_nft->reconcileState(&nftError);
+    }
+
+    return kept;
+}
+
+qint64 PolicyEngine::parseDurationSeconds(const QString &rawDuration)
+{
+    const QString value = rawDuration.trimmed().toLower();
+    if (value.isEmpty()) {
+        return -1;
+    }
+
+    static const QRegularExpression rx(QStringLiteral("^(\\d+)\\s*([smhd]?)$"));
+    const QRegularExpressionMatch match = rx.match(value);
+    if (!match.hasMatch()) {
+        return -1;
+    }
+
+    bool ok = false;
+    const qint64 amount = match.captured(1).toLongLong(&ok);
+    if (!ok || amount <= 0) {
+        return -1;
+    }
+
+    const QString unit = match.captured(2);
+    if (unit == QLatin1String("m")) {
+        return amount * 60;
+    }
+    if (unit == QLatin1String("h")) {
+        return amount * 3600;
+    }
+    if (unit == QLatin1String("d")) {
+        return amount * 86400;
+    }
+    return amount;
+}
+
+bool PolicyEngine::isIpPolicyExpired(const QVariantMap &policy, const QDateTime &nowUtc)
+{
+    if (!policy.value(QStringLiteral("temporary"), false).toBool()) {
+        return false;
+    }
+
+    const QString createdAtRaw = policy.value(QStringLiteral("createdAt")).toString();
+    const QDateTime createdAt = QDateTime::fromString(createdAtRaw, Qt::ISODate);
+    if (!createdAt.isValid()) {
+        return false;
+    }
+
+    qint64 durationSeconds = parseDurationSeconds(policy.value(QStringLiteral("duration")).toString());
+    if (durationSeconds <= 0) {
+        durationSeconds = 3600;
+    }
+
+    return createdAt.addSecs(durationSeconds) <= nowUtc;
 }
 
 QVariantList PolicyEngine::listConnections() const

@@ -240,6 +240,37 @@ private slots:
         QCOMPARE(missing.value(QStringLiteral("error")).toString(), QStringLiteral("policy-id-not-found"));
     }
 
+    void list_ip_policies_prunes_expired_temporary_entries()
+    {
+        Slm::Firewall::PolicyStore store;
+        QString error;
+        QVERIFY(store.start(&error));
+
+        Slm::Firewall::NftablesAdapter nft;
+        Slm::Firewall::AppIdentityClient identity;
+        Slm::Firewall::PolicyEngine engine(&store, &nft, &identity);
+
+        const QVariantMap temporary = engine.setIpPolicy(QVariantMap{
+            {QStringLiteral("ip"), QStringLiteral("203.0.113.42")},
+            {QStringLiteral("scope"), QStringLiteral("both")},
+            {QStringLiteral("temporary"), true},
+            {QStringLiteral("duration"), QStringLiteral("1h")},
+        });
+        QCOMPARE(temporary.value(QStringLiteral("ok")).toBool(), true);
+
+        QVariantList entries = store.value(QStringLiteral("firewall.rules.ipBlocks.entries")).toList();
+        QCOMPARE(entries.size(), 1);
+
+        QVariantMap expired = entries.first().toMap();
+        expired.insert(QStringLiteral("createdAt"),
+                       QDateTime::currentDateTimeUtc().addSecs(-7200).toString(Qt::ISODate));
+        store.setValue(QStringLiteral("firewall.rules.ipBlocks.entries"), QVariantList{expired}, &error);
+
+        const QVariantList listed = engine.listIpPolicies();
+        QCOMPARE(listed.size(), 0);
+        QCOMPARE(store.value(QStringLiteral("firewall.rules.ipBlocks.entries")).toList().size(), 0);
+    }
+
     void app_policy_crud_contract()
     {
         Slm::Firewall::PolicyStore store;

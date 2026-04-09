@@ -244,6 +244,23 @@ private slots:
         QCOMPARE(cleared.value(QStringLiteral("ok")).toBool(), true);
     }
 
+    void list_ip_policies_prunes_expired_temporary_entries()
+    {
+        FirewallService service;
+
+        const QVariantMap temporary = service.SetIpPolicy(QVariantMap{
+            {QStringLiteral("ip"), QStringLiteral("203.0.113.98")},
+            {QStringLiteral("scope"), QStringLiteral("incoming")},
+            {QStringLiteral("temporary"), true},
+            {QStringLiteral("duration"), QStringLiteral("1s")},
+        });
+        QCOMPARE(temporary.value(QStringLiteral("ok")).toBool(), true);
+        QCOMPARE(service.ListIpPolicies().size(), 1);
+
+        QTest::qWait(2100);
+        QCOMPARE(service.ListIpPolicies().size(), 0);
+    }
+
     void app_policy_contract()
     {
         FirewallService service;

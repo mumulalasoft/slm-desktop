@@ -39,6 +39,9 @@ private:
     QVariantMap applyPromptCooldown(const QVariantMap &identity,
                                     const QString &direction,
                                     const QString &source) const;
+    QVariantList pruneExpiredIpPolicies() const;
+    static qint64 parseDurationSeconds(const QString &rawDuration);
+    static bool isIpPolicyExpired(const QVariantMap &policy, const QDateTime &nowUtc);
 
     PolicyStore *m_store = nullptr;
     NftablesAdapter *m_nft = nullptr;
