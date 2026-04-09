@@ -2270,6 +2270,15 @@ Flickable {
                                 }
 
                                 Button {
+                                    text: qsTr("Block 1h")
+                                    enabled: FirewallServiceClient.available
+                                             && FirewallServiceClient.enabled
+                                             && sourceIndex >= 0
+                                             && root.pendingPromptTargetIp(promptItem).length > 0
+                                    onClicked: root.pendingPromptBlockTargetIp(sourceIndex, promptItem, true)
+                                }
+
+                                Button {
                                     text: qsTr("Block /24")
                                     enabled: FirewallServiceClient.available
                                              && FirewallServiceClient.enabled

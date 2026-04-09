@@ -95,6 +95,7 @@ void SecuritySettingsRoutingJsTest::firewallPendingPromptBlockUi_contract()
     QVERIFY(text.contains(QStringLiteral("function pendingPromptBlockTargetIp(sourceIndex, item, temporary)")));
     QVERIFY(text.contains(QStringLiteral("function pendingPromptBlockTargetSubnet24(sourceIndex, item)")));
     QVERIFY(text.contains(QStringLiteral("Block IP")));
+    QVERIFY(text.contains(QStringLiteral("pendingPromptBlockTargetIp(sourceIndex, promptItem, true)")));
     QVERIFY(text.contains(QStringLiteral("Block /24")));
 }
 
