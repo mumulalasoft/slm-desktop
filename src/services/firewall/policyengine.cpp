@@ -41,6 +41,42 @@ QString normalizeType(const QVariantMap &policy)
     return QStringLiteral("ip");
 }
 
+QString normalizeDecision(const QVariant &value)
+{
+    const QString decision = normalizedString(value).toLower();
+    if (decision == QLatin1String("allow")
+            || decision == QLatin1String("deny")
+            || decision == QLatin1String("prompt")) {
+        return decision;
+    }
+    return QStringLiteral("prompt");
+}
+
+QVariantMap normalizeAppPolicy(const QVariantMap &policy, QString *error)
+{
+    if (error) {
+        *error = QString();
+    }
+    const QString appId = normalizedString(policy.value(QStringLiteral("appId")));
+    if (appId.isEmpty()) {
+        if (error) {
+            *error = QStringLiteral("app-policy-missing-app-id");
+        }
+        return {};
+    }
+    const QString appName = normalizedString(policy.value(QStringLiteral("appName")));
+    return {
+        {QStringLiteral("policyId"), QUuid::createUuid().toString(QUuid::WithoutBraces)},
+        {QStringLiteral("createdAt"), QDateTime::currentDateTimeUtc().toString(Qt::ISODate)},
+        {QStringLiteral("appId"), appId},
+        {QStringLiteral("appName"), appName},
+        {QStringLiteral("direction"), normalizeScope(policy.value(QStringLiteral("direction")))},
+        {QStringLiteral("decision"), normalizeDecision(policy.value(QStringLiteral("decision")))},
+        {QStringLiteral("remember"), policy.value(QStringLiteral("remember"), true).toBool()},
+        {QStringLiteral("enabled"), true},
+    };
+}
+
 QVariantMap normalizeIpBlockPolicy(const QVariantMap &policy, QString *error)
 {
     if (error) {
@@ -167,8 +203,91 @@ QVariantMap PolicyEngine::setAppPolicy(const QVariantMap &policy)
             {QStringLiteral("error"), QStringLiteral("store-unavailable")},
         };
     }
+    QString normalizeError;
+    const QVariantMap normalizedPolicy = normalizeAppPolicy(policy, &normalizeError);
+    if (normalizedPolicy.isEmpty()) {
+        return {
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), normalizeError.isEmpty() ? QStringLiteral("app-policy-invalid") : normalizeError},
+        };
+    }
+
+    QVariantList entries = m_store->value(QStringLiteral("firewall.rules.apps.entries"), QVariantList{}).toList();
+    entries.append(normalizedPolicy);
+
     QString error;
-    const bool ok = m_store->setValue(QStringLiteral("firewall.rules.apps.last"), policy, &error);
+    const bool ok = m_store->setValue(QStringLiteral("firewall.rules.apps.entries"), entries, &error)
+        && m_store->setValue(QStringLiteral("firewall.rules.apps.last"), normalizedPolicy, &error);
+    return {
+        {QStringLiteral("ok"), ok},
+        {QStringLiteral("error"), error},
+        {QStringLiteral("policy"), normalizedPolicy},
+    };
+}
+
+QVariantList PolicyEngine::listAppPolicies() const
+{
+    if (!m_store) {
+        return {};
+    }
+    return m_store->value(QStringLiteral("firewall.rules.apps.entries"), QVariantList{}).toList();
+}
+
+QVariantMap PolicyEngine::clearAppPolicies()
+{
+    if (!m_store) {
+        return {
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), QStringLiteral("store-unavailable")},
+        };
+    }
+
+    QString error;
+    const bool ok = m_store->setValue(QStringLiteral("firewall.rules.apps.entries"), QVariantList{}, &error);
+    return {
+        {QStringLiteral("ok"), ok},
+        {QStringLiteral("error"), error},
+    };
+}
+
+QVariantMap PolicyEngine::removeAppPolicy(const QString &policyId)
+{
+    if (!m_store) {
+        return {
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), QStringLiteral("store-unavailable")},
+        };
+    }
+
+    const QString id = policyId.trimmed();
+    if (id.isEmpty()) {
+        return {
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), QStringLiteral("policy-id-empty")},
+        };
+    }
+
+    const QVariantList entries = m_store->value(QStringLiteral("firewall.rules.apps.entries"), QVariantList{}).toList();
+    QVariantList kept;
+    bool removed = false;
+    for (const QVariant &entry : entries) {
+        const QVariantMap map = entry.toMap();
+        if (!removed && map.value(QStringLiteral("policyId")).toString() == id) {
+            removed = true;
+            continue;
+        }
+        kept.append(map);
+    }
+
+    if (!removed) {
+        return {
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), QStringLiteral("policy-id-not-found")},
+        };
+    }
+
+    QString error;
+    const bool ok = m_store->setValue(QStringLiteral("firewall.rules.apps.entries"), kept, &error);
     return {
         {QStringLiteral("ok"), ok},
         {QStringLiteral("error"), error},

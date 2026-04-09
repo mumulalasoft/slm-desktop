@@ -36,6 +36,9 @@ public slots:
     QVariantMap SetDefaultOutgoingPolicy(const QString &policy);
     QVariantMap EvaluateConnection(const QVariantMap &request);
     QVariantMap SetAppPolicy(const QVariantMap &policy);
+    QVariantList ListAppPolicies() const;
+    QVariantMap ClearAppPolicies();
+    QVariantMap RemoveAppPolicy(const QString &policyId);
     QVariantMap SetIpPolicy(const QVariantMap &policy);
     QVariantList ListIpPolicies() const;
     QVariantMap ClearIpPolicies();

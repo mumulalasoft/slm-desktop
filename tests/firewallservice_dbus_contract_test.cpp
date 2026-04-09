@@ -172,6 +172,41 @@ private slots:
         QCOMPARE(cleared.value(QStringLiteral("ok")).toBool(), true);
     }
 
+    void app_policy_contract()
+    {
+        FirewallService service;
+        QCOMPARE(service.ListAppPolicies().size(), 0);
+
+        const QVariantMap first = service.SetAppPolicy(QVariantMap{
+            {QStringLiteral("appId"), QStringLiteral("org.example.AppOne")},
+            {QStringLiteral("decision"), QStringLiteral("deny")},
+            {QStringLiteral("direction"), QStringLiteral("incoming")},
+        });
+        const QVariantMap second = service.SetAppPolicy(QVariantMap{
+            {QStringLiteral("appId"), QStringLiteral("org.example.AppTwo")},
+            {QStringLiteral("decision"), QStringLiteral("allow")},
+            {QStringLiteral("direction"), QStringLiteral("both")},
+        });
+        QCOMPARE(first.value(QStringLiteral("ok")).toBool(), true);
+        QCOMPARE(second.value(QStringLiteral("ok")).toBool(), true);
+        QCOMPARE(service.ListAppPolicies().size(), 2);
+
+        const QString firstId = first.value(QStringLiteral("policy")).toMap().value(QStringLiteral("policyId")).toString();
+        QVERIFY(!firstId.isEmpty());
+
+        const QVariantMap removeResult = service.RemoveAppPolicy(firstId);
+        QCOMPARE(removeResult.value(QStringLiteral("ok")).toBool(), true);
+        QCOMPARE(service.ListAppPolicies().size(), 1);
+
+        const QVariantMap missing = service.RemoveAppPolicy(QStringLiteral("missing-policy-id"));
+        QCOMPARE(missing.value(QStringLiteral("ok")).toBool(), false);
+        QCOMPARE(missing.value(QStringLiteral("error")).toString(), QStringLiteral("policy-id-not-found"));
+
+        const QVariantMap clearResult = service.ClearAppPolicies();
+        QCOMPARE(clearResult.value(QStringLiteral("ok")).toBool(), true);
+        QCOMPARE(service.ListAppPolicies().size(), 0);
+    }
+
 private:
     QString m_storePath;
 };

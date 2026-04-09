@@ -224,8 +224,36 @@ QVariantMap FirewallService::SetAppPolicy(const QVariantMap &policy)
 {
     const QVariantMap result = m_policyEngine.setAppPolicy(policy);
     emit PolicyChanged(QVariantMap{{QStringLiteral("kind"), QStringLiteral("app")},
-                                   {QStringLiteral("policy"), policy},
+                                   {QStringLiteral("policy"), result.value(QStringLiteral("policy")).toMap()},
                                    {QStringLiteral("ok"), result.value(QStringLiteral("ok"), false)}});
+    return result;
+}
+
+QVariantList FirewallService::ListAppPolicies() const
+{
+    return m_policyEngine.listAppPolicies();
+}
+
+QVariantMap FirewallService::ClearAppPolicies()
+{
+    const QVariantMap result = m_policyEngine.clearAppPolicies();
+    emit PolicyChanged(QVariantMap{
+        {QStringLiteral("kind"), QStringLiteral("app")},
+        {QStringLiteral("action"), QStringLiteral("clear")},
+        {QStringLiteral("ok"), result.value(QStringLiteral("ok"), false)},
+    });
+    return result;
+}
+
+QVariantMap FirewallService::RemoveAppPolicy(const QString &policyId)
+{
+    const QVariantMap result = m_policyEngine.removeAppPolicy(policyId);
+    emit PolicyChanged(QVariantMap{
+        {QStringLiteral("kind"), QStringLiteral("app")},
+        {QStringLiteral("action"), QStringLiteral("remove")},
+        {QStringLiteral("policyId"), policyId},
+        {QStringLiteral("ok"), result.value(QStringLiteral("ok"), false)},
+    });
     return result;
 }
 

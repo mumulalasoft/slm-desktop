@@ -35,6 +35,16 @@
       <arg name="policy" type="a{sv}" direction="in"/>
       <arg name="result" type="a{sv}" direction="out"/>
     </method>
+    <method name="ListAppPolicies">
+      <arg name="result" type="av" direction="out"/>
+    </method>
+    <method name="ClearAppPolicies">
+      <arg name="result" type="a{sv}" direction="out"/>
+    </method>
+    <method name="RemoveAppPolicy">
+      <arg name="policyId" type="s" direction="in"/>
+      <arg name="result" type="a{sv}" direction="out"/>
+    </method>
     <method name="SetIpPolicy">
       <arg name="policy" type="a{sv}" direction="in"/>
       <arg name="result" type="a{sv}" direction="out"/>
