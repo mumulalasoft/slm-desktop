@@ -26,6 +26,10 @@ void PortalConsentDialogCopyContractTest::consentDialog_secretMicrocopy_contract
              "missing secret read microcopy");
     QVERIFY2(text.contains(QStringLiteral("Open Security Settings")),
              "missing settings shortcut action");
+    QVERIFY2(text.contains(QStringLiteral("Open Firewall Settings")),
+             "missing firewall-specific settings shortcut action");
+    QVERIFY2(text.contains(QStringLiteral("readonly property bool isNetworkCapability")),
+             "missing network capability classification contract");
     QVERIFY2(text.contains(QStringLiteral("I understand this can remove saved sign-in data for this app.")),
              "missing destructive confirmation copy");
     QVERIFY2(text.contains(QStringLiteral("readonly property bool persistentEligible")),
@@ -50,6 +54,10 @@ void PortalConsentDialogCopyContractTest::shellBridge_settingsDeeplink_contract(
              "missing openConsentSettings helper");
     QVERIFY2(text.contains(QStringLiteral("settings://permissions/app-secrets")),
              "missing settings deep-link target");
+    QVERIFY2(text.contains(QStringLiteral("settings://firewall/mode")),
+             "missing firewall settings deep-link target");
+    QVERIFY2(text.contains(QStringLiteral("capabilityLower.indexOf(\"network\")")),
+             "missing capability-based deeplink routing");
     QVERIFY2(text.contains(QStringLiteral("portal-consent-open-settings")),
              "missing execution source tag for consent settings jump");
 }
