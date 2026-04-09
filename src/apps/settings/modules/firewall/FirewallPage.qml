@@ -26,6 +26,9 @@ Flickable {
     property bool promptRemember: false
     property string promptResultText: ""
     property bool promptResultOk: true
+    property bool connectionRemember: false
+    property string connectionResultText: ""
+    property bool connectionResultOk: true
 
     readonly property var firewallModes: [
         { value: "home", label: qsTr("Home") },
@@ -151,6 +154,15 @@ Flickable {
         return appName + " (" + protocol + ") " + local + " -> " + remote
     }
 
+    function connectionDirection(entry) {
+        var row = entry || {}
+        var remote = String(row.remote || "")
+        if (remote.indexOf("*:") === 0 || remote === "*") {
+            return "incoming"
+        }
+        return "outgoing"
+    }
+
     function promptRequestPayload() {
         var pid = Number(promptPidText)
         if (isNaN(pid)) {
@@ -184,6 +196,27 @@ Flickable {
                    ? qsTr("Decision saved as app policy.")
                    : qsTr("Decision applied once."))
                 : qsTr("Failed to apply decision.")
+    }
+
+    function applyConnectionDecision(entry, decision) {
+        var row = entry || {}
+        var request = {
+            pid: Number(row.pid || -1),
+            direction: root.connectionDirection(row)
+        }
+        var ok = FirewallServiceClient.resolveConnectionDecision(
+                    request,
+                    decision,
+                    root.connectionRemember)
+        root.connectionResultOk = ok
+        root.connectionResultText = ok
+                ? (root.connectionRemember
+                   ? qsTr("Connection decision saved as app policy.")
+                   : qsTr("Connection decision applied once."))
+                : qsTr("Failed to apply connection decision.")
+        if (ok) {
+            FirewallServiceClient.refreshAppPolicies()
+        }
     }
 
     function policyIndex(value) {
@@ -759,6 +792,13 @@ Flickable {
                             enabled: FirewallServiceClient.available
                             onClicked: FirewallServiceClient.refreshConnections()
                         }
+
+                        CheckBox {
+                            text: qsTr("Remember")
+                            checked: root.connectionRemember
+                            enabled: FirewallServiceClient.available && FirewallServiceClient.enabled
+                            onToggled: root.connectionRemember = checked
+                        }
                     }
 
                     Repeater {
@@ -785,8 +825,27 @@ Flickable {
                                     font.pixelSize: Theme.fontSize("small")
                                     elide: Text.ElideRight
                                 }
+
+                                Button {
+                                    text: qsTr("Allow")
+                                    enabled: FirewallServiceClient.available && FirewallServiceClient.enabled
+                                    onClicked: root.applyConnectionDecision(modelData, "allow")
+                                }
+
+                                Button {
+                                    text: qsTr("Deny")
+                                    enabled: FirewallServiceClient.available && FirewallServiceClient.enabled
+                                    onClicked: root.applyConnectionDecision(modelData, "deny")
+                                }
                             }
                         }
+                    }
+
+                    Text {
+                        visible: root.connectionResultText.length > 0
+                        text: root.connectionResultText
+                        color: root.connectionResultOk ? Theme.color("success") : Theme.color("error")
+                        font.pixelSize: Theme.fontSize("small")
                     }
                 }
             }
