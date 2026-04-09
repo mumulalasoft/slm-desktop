@@ -17,6 +17,7 @@ class FirewallServiceClient : public QObject
     Q_PROPERTY(QString defaultOutgoingPolicy READ defaultOutgoingPolicy NOTIFY stateChanged)
     Q_PROPERTY(QVariantList appPolicies READ appPolicies NOTIFY appPoliciesChanged)
     Q_PROPERTY(QVariantList ipPolicies READ ipPolicies NOTIFY ipPoliciesChanged)
+    Q_PROPERTY(QVariantList activeConnections READ activeConnections NOTIFY activeConnectionsChanged)
 
 public:
     explicit FirewallServiceClient(QObject *parent = nullptr);
@@ -28,6 +29,7 @@ public:
     QString defaultOutgoingPolicy() const;
     QVariantList appPolicies() const;
     QVariantList ipPolicies() const;
+    QVariantList activeConnections() const;
 
     Q_INVOKABLE bool refresh();
     Q_INVOKABLE bool setEnabled(bool enabled);
@@ -42,12 +44,14 @@ public:
     Q_INVOKABLE bool refreshIpPolicies();
     Q_INVOKABLE bool clearIpPolicies();
     Q_INVOKABLE bool removeIpPolicy(const QString &policyId);
+    Q_INVOKABLE bool refreshConnections();
 
 signals:
     void availableChanged();
     void stateChanged();
     void appPoliciesChanged();
     void ipPoliciesChanged();
+    void activeConnectionsChanged();
 
 private slots:
     void onNameOwnerChanged(const QString &name, const QString &oldOwner, const QString &newOwner);
@@ -66,4 +70,5 @@ private:
     QString m_defaultOutgoingPolicy = QStringLiteral("allow");
     QVariantList m_appPolicies;
     QVariantList m_ipPolicies;
+    QVariantList m_activeConnections;
 };

@@ -80,6 +80,11 @@ QVariantList FirewallServiceClient::ipPolicies() const
     return m_ipPolicies;
 }
 
+QVariantList FirewallServiceClient::activeConnections() const
+{
+    return m_activeConnections;
+}
+
 bool FirewallServiceClient::refresh()
 {
     if (!ensureIface()) {
@@ -96,6 +101,7 @@ bool FirewallServiceClient::refresh()
     const bool stateOk = applyStateMap(payload);
     refreshAppPolicies();
     refreshIpPolicies();
+    refreshConnections();
     return stateOk;
 }
 
@@ -269,6 +275,23 @@ bool FirewallServiceClient::removeIpPolicy(const QString &policyId)
     return ok;
 }
 
+bool FirewallServiceClient::refreshConnections()
+{
+    if (!ensureIface()) {
+        return false;
+    }
+    QDBusReply<QVariantList> reply = m_iface->call(QStringLiteral("ListConnections"));
+    if (!reply.isValid()) {
+        return false;
+    }
+    const QVariantList next = reply.value();
+    if (m_activeConnections != next) {
+        m_activeConnections = next;
+        emit activeConnectionsChanged();
+    }
+    return true;
+}
+
 void FirewallServiceClient::onNameOwnerChanged(const QString &name,
                                                const QString &oldOwner,
                                                const QString &newOwner)
@@ -295,6 +318,10 @@ void FirewallServiceClient::onNameOwnerChanged(const QString &name,
         m_ipPolicies.clear();
         emit ipPoliciesChanged();
     }
+    if (!m_activeConnections.isEmpty()) {
+        m_activeConnections.clear();
+        emit activeConnectionsChanged();
+    }
     delete m_iface;
     m_iface = nullptr;
 }
@@ -304,6 +331,7 @@ void FirewallServiceClient::onFirewallStateChanged(const QVariantMap &state)
     applyStateMap(state);
     refreshAppPolicies();
     refreshIpPolicies();
+    refreshConnections();
 }
 
 bool FirewallServiceClient::ensureIface()

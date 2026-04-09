@@ -132,6 +132,16 @@ Flickable {
         return out
     }
 
+    function connectionLabel(entry) {
+        var row = entry || {}
+        var identity = row.identity || {}
+        var appName = String(identity.app_name || "Unknown App")
+        var protocol = String(row.protocol || "net")
+        var local = String(row.local || "-")
+        var remote = String(row.remote || "-")
+        return appName + " (" + protocol + ") " + local + " -> " + remote
+    }
+
     function policyIndex(value) {
         for (var i = 0; i < firewallPolicies.length; ++i) {
             if (firewallPolicies[i].value === value) {
@@ -606,11 +616,73 @@ Flickable {
                 }
             }
         }
+
+        SettingGroup {
+            title: qsTr("Active Connections")
+            Layout.fillWidth: true
+
+            SettingCard {
+                label: qsTr("Live Network Activity")
+                description: qsTr("Current app-to-network connections observed by desktop-firewalld")
+
+                ColumnLayout {
+                    spacing: 8
+                    Layout.fillWidth: true
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: qsTr("%1 active connection(s)").arg(FirewallServiceClient.activeConnections.length)
+                            color: Theme.color("textSecondary")
+                            font.pixelSize: Theme.fontSize("small")
+                        }
+
+                        Button {
+                            text: qsTr("Refresh")
+                            enabled: FirewallServiceClient.available
+                            onClicked: FirewallServiceClient.refreshConnections()
+                        }
+                    }
+
+                    Repeater {
+                        model: FirewallServiceClient.activeConnections
+
+                        delegate: Rectangle {
+                            Layout.fillWidth: true
+                            radius: Theme.radiusControl
+                            color: Theme.color("surface")
+                            border.width: Theme.borderWidthThin
+                            border.color: Theme.color("panelBorder")
+                            implicitHeight: connectionRow.implicitHeight + 10
+
+                            RowLayout {
+                                id: connectionRow
+                                anchors.fill: parent
+                                anchors.margins: 8
+                                spacing: 10
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: root.connectionLabel(modelData)
+                                    color: Theme.color("textPrimary")
+                                    font.pixelSize: Theme.fontSize("small")
+                                    elide: Text.ElideRight
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     Component.onCompleted: {
         FirewallServiceClient.refresh()
         FirewallServiceClient.refreshAppPolicies()
         FirewallServiceClient.refreshIpPolicies()
+        FirewallServiceClient.refreshConnections()
     }
 }
