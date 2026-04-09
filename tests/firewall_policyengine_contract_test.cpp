@@ -54,6 +54,25 @@ private slots:
         QCOMPARE(result.value(QStringLiteral("source")).toString(), QStringLiteral("app-policy"));
     }
 
+    void evaluate_connection_outgoing_unknown_prompts()
+    {
+        Slm::Firewall::PolicyStore store;
+        QString error;
+        QVERIFY(store.start(&error));
+
+        Slm::Firewall::NftablesAdapter nft;
+        Slm::Firewall::AppIdentityClient identity;
+        Slm::Firewall::PolicyEngine engine(&store, &nft, &identity);
+
+        const QVariantMap result = engine.evaluateConnection(
+            QVariantMap{{QStringLiteral("pid"), -1},
+                        {QStringLiteral("direction"), QStringLiteral("outgoing")}});
+        QCOMPARE(result.value(QStringLiteral("ok")).toBool(), true);
+        QCOMPARE(result.value(QStringLiteral("decision")).toString(), QStringLiteral("prompt"));
+        QCOMPARE(result.value(QStringLiteral("source")).toString(), QStringLiteral("cli-default-prompt"));
+        QCOMPARE(result.value(QStringLiteral("processKind")).toString(), QStringLiteral("unknown"));
+    }
+
     void apply_base_policy_pushes_batch_to_nft()
     {
         Slm::Firewall::PolicyStore store;

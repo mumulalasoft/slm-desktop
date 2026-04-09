@@ -5,6 +5,7 @@
 #include "policystore.h"
 
 #include <QDateTime>
+#include <QFileInfo>
 #include <QProcess>
 #include <QRegularExpression>
 #include <QUuid>
@@ -221,6 +222,44 @@ QString readDefaultPolicy(const PolicyStore *store, const QString &direction)
     const QVariantMap nested = store->value(QStringLiteral("firewall"), QVariantMap{}).toMap();
     return normalizeDecision(nested.value(nestedKey, fallback));
 }
+
+QString classifyProcessKind(const QVariantMap &identity)
+{
+    const QString executable = identity.value(QStringLiteral("executable")).toString();
+    const QString exeBase = QFileInfo(executable).fileName().toLower();
+
+    if (exeBase == QLatin1String("apt")
+            || exeBase == QLatin1String("apt-get")
+            || exeBase == QLatin1String("dpkg")
+            || exeBase == QLatin1String("systemd")
+            || exeBase == QLatin1String("systemd-resolved")
+            || exeBase == QLatin1String("networkmanager")) {
+        return QStringLiteral("system");
+    }
+
+    if (exeBase == QLatin1String("git")
+            || exeBase == QLatin1String("npm")
+            || exeBase == QLatin1String("node")
+            || exeBase == QLatin1String("cargo")
+            || exeBase == QLatin1String("pip")
+            || exeBase == QLatin1String("python")
+            || exeBase == QLatin1String("python3")) {
+        return QStringLiteral("developer");
+    }
+
+    if (exeBase == QLatin1String("curl")
+            || exeBase == QLatin1String("wget")
+            || exeBase == QLatin1String("ssh")) {
+        return QStringLiteral("network_tools");
+    }
+
+    const QString context = identity.value(QStringLiteral("context")).toString();
+    if (context == QLatin1String("interpreter")) {
+        return QStringLiteral("interpreter");
+    }
+
+    return QStringLiteral("unknown");
+}
 } // namespace
 
 PolicyEngine::PolicyEngine(PolicyStore *store,
@@ -273,6 +312,32 @@ QVariantMap PolicyEngine::evaluateConnection(const QVariantMap &request) const
     }
 
     const QString defaultDecision = readDefaultPolicy(m_store, direction);
+    if (direction == QLatin1String("outgoing") && defaultDecision == QLatin1String("allow")) {
+        const QString processKind = classifyProcessKind(identity);
+        if (processKind == QLatin1String("system") || processKind == QLatin1String("developer")) {
+            return {
+                {QStringLiteral("ok"), true},
+                {QStringLiteral("decision"), QStringLiteral("allow")},
+                {QStringLiteral("direction"), direction},
+                {QStringLiteral("source"), QStringLiteral("cli-default-allow")},
+                {QStringLiteral("processKind"), processKind},
+                {QStringLiteral("identity"), identity},
+            };
+        }
+        if (processKind == QLatin1String("network_tools")
+                || processKind == QLatin1String("interpreter")
+                || processKind == QLatin1String("unknown")) {
+            return {
+                {QStringLiteral("ok"), true},
+                {QStringLiteral("decision"), QStringLiteral("prompt")},
+                {QStringLiteral("direction"), direction},
+                {QStringLiteral("source"), QStringLiteral("cli-default-prompt")},
+                {QStringLiteral("processKind"), processKind},
+                {QStringLiteral("identity"), identity},
+            };
+        }
+    }
+
     return {
         {QStringLiteral("ok"), true},
         {QStringLiteral("decision"), defaultDecision},
