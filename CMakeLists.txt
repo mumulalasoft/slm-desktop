@@ -2756,6 +2756,20 @@ target_link_libraries(firewall_identity_mapping_contract_test
 
 add_test(NAME firewall_identity_mapping_contract_test COMMAND firewall_identity_mapping_contract_test)
 
+qt_add_executable(firewallserviceclient_contract_test
+    tests/firewallserviceclient_contract_test.cpp
+)
+
+target_include_directories(firewallserviceclient_contract_test PRIVATE ${CMAKE_SOURCE_DIR})
+
+target_link_libraries(firewallserviceclient_contract_test
+    PRIVATE
+        Qt6::Core
+        Qt6::Test
+)
+
+add_test(NAME firewallserviceclient_contract_test COMMAND firewallserviceclient_contract_test)
+
 qt_add_executable(settings_searchengine_context_ranking_test
     src/apps/settings/moduleloader.cpp
     src/apps/settings/moduleloader.h
