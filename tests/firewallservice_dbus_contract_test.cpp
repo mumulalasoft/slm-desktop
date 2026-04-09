@@ -175,6 +175,20 @@ private slots:
         QCOMPARE(outgoingSuppressed.value(QStringLiteral("source")).toString(), QStringLiteral("prompt-cooldown"));
         QCOMPARE(outgoingSuppressed.value(QStringLiteral("promptSuppressed")).toBool(), true);
 
+        const QVariantMap outgoingLocal = service.EvaluateConnection(QVariantMap{
+            {QStringLiteral("pid"), -1},
+            {QStringLiteral("direction"), QStringLiteral("outgoing")},
+            {QStringLiteral("destinationIp"), QStringLiteral("10.10.0.2")},
+            {QStringLiteral("destinationPort"), 8080},
+        });
+        QCOMPARE(outgoingLocal.value(QStringLiteral("ok")).toBool(), true);
+        QCOMPARE(outgoingLocal.value(QStringLiteral("decision")).toString(), QStringLiteral("allow"));
+        QCOMPARE(outgoingLocal.value(QStringLiteral("source")).toString(), QStringLiteral("cli-local-target-allow"));
+        const QVariantMap localTarget = outgoingLocal.value(QStringLiteral("target")).toMap();
+        QCOMPARE(localTarget.value(QStringLiteral("ip")).toString(), QStringLiteral("10.10.0.2"));
+        QCOMPARE(localTarget.value(QStringLiteral("port")).toInt(), 8080);
+        QVERIFY(outgoingLocal.value(QStringLiteral("actor")).toMap().contains(QStringLiteral("appName")));
+
         const QVariantMap remember = service.ResolveConnectionDecision(QVariantMap{
             {QStringLiteral("pid"), -1},
             {QStringLiteral("direction"), QStringLiteral("incoming")},

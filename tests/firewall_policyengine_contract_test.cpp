@@ -82,6 +82,30 @@ private slots:
         QCOMPARE(second.value(QStringLiteral("promptSuppressed")).toBool(), true);
     }
 
+    void evaluate_connection_outgoing_unknown_private_target_allows()
+    {
+        Slm::Firewall::PolicyStore store;
+        QString error;
+        QVERIFY(store.start(&error));
+
+        Slm::Firewall::NftablesAdapter nft;
+        Slm::Firewall::AppIdentityClient identity;
+        Slm::Firewall::PolicyEngine engine(&store, &nft, &identity);
+
+        const QVariantMap result = engine.evaluateConnection(
+            QVariantMap{{QStringLiteral("pid"), -1},
+                        {QStringLiteral("direction"), QStringLiteral("outgoing")},
+                        {QStringLiteral("destinationIp"), QStringLiteral("192.168.1.50")},
+                        {QStringLiteral("destinationPort"), 443}});
+        QCOMPARE(result.value(QStringLiteral("ok")).toBool(), true);
+        QCOMPARE(result.value(QStringLiteral("decision")).toString(), QStringLiteral("allow"));
+        QCOMPARE(result.value(QStringLiteral("source")).toString(), QStringLiteral("cli-local-target-allow"));
+        const QVariantMap target = result.value(QStringLiteral("target")).toMap();
+        QCOMPARE(target.value(QStringLiteral("ip")).toString(), QStringLiteral("192.168.1.50"));
+        QCOMPARE(target.value(QStringLiteral("port")).toInt(), 443);
+        QVERIFY(result.value(QStringLiteral("actor")).toMap().contains(QStringLiteral("appName")));
+    }
+
     void evaluate_connection_matching_ip_policy_denies_and_increments_hit_count()
     {
         Slm::Firewall::PolicyStore store;

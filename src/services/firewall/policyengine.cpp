@@ -352,6 +352,96 @@ bool targetMatchesIp(const QString &target, const QString &ip)
     }
     return candidate == single;
 }
+
+QVariantMap requestTargetMeta(const QVariantMap &request)
+{
+    QVariantMap target;
+    const QString ip = normalizedString(request.value(QStringLiteral("destinationIp")));
+    const QString sourceIp = normalizedString(request.value(QStringLiteral("sourceIp")));
+    const QString fallbackIp = normalizedString(request.value(QStringLiteral("ip")));
+    const QString host = normalizedString(request.value(QStringLiteral("destinationHost")));
+    const QString fallbackHost = normalizedString(request.value(QStringLiteral("host")));
+    const int port = request.value(QStringLiteral("destinationPort"),
+                                   request.value(QStringLiteral("port"), 0)).toInt();
+    if (!ip.isEmpty()) {
+        target.insert(QStringLiteral("ip"), ip);
+    } else if (!sourceIp.isEmpty()) {
+        target.insert(QStringLiteral("ip"), sourceIp);
+    } else if (!fallbackIp.isEmpty()) {
+        target.insert(QStringLiteral("ip"), fallbackIp);
+    }
+    if (!host.isEmpty()) {
+        target.insert(QStringLiteral("host"), host);
+    } else if (!fallbackHost.isEmpty()) {
+        target.insert(QStringLiteral("host"), fallbackHost);
+    }
+    if (port > 0) {
+        target.insert(QStringLiteral("port"), port);
+    }
+    return target;
+}
+
+bool isPrivateOrLocalIpv4(const QString &ip)
+{
+    quint32 value = 0;
+    const QStringList parts = ip.trimmed().split(QLatin1Char('.'));
+    if (parts.size() != 4) {
+        return false;
+    }
+    for (const QString &part : parts) {
+        bool ok = false;
+        const int octet = part.toInt(&ok);
+        if (!ok || octet < 0 || octet > 255) {
+            return false;
+        }
+        value = (value << 8) | static_cast<quint32>(octet);
+    }
+    const int o1 = static_cast<int>((value >> 24) & 0xFF);
+    const int o2 = static_cast<int>((value >> 16) & 0xFF);
+    if (o1 == 10) {
+        return true;
+    }
+    if (o1 == 172 && o2 >= 16 && o2 <= 31) {
+        return true;
+    }
+    if (o1 == 192 && o2 == 168) {
+        return true;
+    }
+    if (o1 == 127) {
+        return true;
+    }
+    if (o1 == 169 && o2 == 254) {
+        return true;
+    }
+    return false;
+}
+
+QVariantMap requestActorMeta(const QVariantMap &identity)
+{
+    QVariantMap actor;
+    const QString scriptTarget = normalizedString(identity.value(QStringLiteral("script_target")));
+    const QString executable = normalizedString(identity.value(QStringLiteral("executable")));
+    const QString appName = normalizedString(identity.value(QStringLiteral("app_name")));
+    if (!appName.isEmpty()) {
+        actor.insert(QStringLiteral("appName"), appName);
+    }
+    if (!scriptTarget.isEmpty()) {
+        actor.insert(QStringLiteral("scriptTarget"), scriptTarget);
+    }
+    if (!executable.isEmpty()) {
+        actor.insert(QStringLiteral("executable"), executable);
+    }
+    const QVariantMap contextMeta = identity.value(QStringLiteral("context_meta")).toMap();
+    const QString cwd = normalizedString(contextMeta.value(QStringLiteral("cwd")));
+    const QString tty = normalizedString(contextMeta.value(QStringLiteral("tty")));
+    if (!cwd.isEmpty()) {
+        actor.insert(QStringLiteral("cwd"), cwd);
+    }
+    if (!tty.isEmpty()) {
+        actor.insert(QStringLiteral("tty"), tty);
+    }
+    return actor;
+}
 } // namespace
 
 PolicyEngine::PolicyEngine(PolicyStore *store,
@@ -370,6 +460,8 @@ QVariantMap PolicyEngine::evaluateConnection(const QVariantMap &request) const
     const qint64 pid = request.value(QStringLiteral("pid"), -1).toLongLong();
     const QVariantMap identity = m_identity ? m_identity->resolveByPid(pid) : QVariantMap{};
     const QString appId = normalizedString(identity.value(QStringLiteral("app_id")));
+    const QVariantMap targetMeta = requestTargetMeta(request);
+    const QVariantMap actorMeta = requestActorMeta(identity);
 
     if (!readFirewallEnabled(m_store)) {
         return {
@@ -378,6 +470,8 @@ QVariantMap PolicyEngine::evaluateConnection(const QVariantMap &request) const
             {QStringLiteral("direction"), direction},
             {QStringLiteral("source"), QStringLiteral("firewall-disabled")},
             {QStringLiteral("identity"), identity},
+            {QStringLiteral("target"), targetMeta},
+            {QStringLiteral("actor"), actorMeta},
         };
     }
 
@@ -407,6 +501,8 @@ QVariantMap PolicyEngine::evaluateConnection(const QVariantMap &request) const
                     {QStringLiteral("matchedTarget"), target},
                     {QStringLiteral("matchedIp"), requestIp},
                     {QStringLiteral("identity"), identity},
+                    {QStringLiteral("target"), targetMeta},
+                    {QStringLiteral("actor"), actorMeta},
                 };
             }
         }
@@ -435,12 +531,16 @@ QVariantMap PolicyEngine::evaluateConnection(const QVariantMap &request) const
             {QStringLiteral("source"), QStringLiteral("app-policy")},
             {QStringLiteral("policyId"), entry.value(QStringLiteral("policyId")).toString()},
             {QStringLiteral("identity"), identity},
+            {QStringLiteral("target"), targetMeta},
+            {QStringLiteral("actor"), actorMeta},
         };
     }
 
     const QString defaultDecision = readDefaultPolicy(m_store, direction);
     if (direction == QLatin1String("outgoing") && defaultDecision == QLatin1String("allow")) {
         const QString processKind = classifyProcessKind(identity);
+        const QString destinationIp = normalizedString(targetMeta.value(QStringLiteral("ip")));
+        const bool localTarget = !destinationIp.isEmpty() && isPrivateOrLocalIpv4(destinationIp);
         if (processKind == QLatin1String("system") || processKind == QLatin1String("developer")) {
             return {
                 {QStringLiteral("ok"), true},
@@ -449,13 +549,29 @@ QVariantMap PolicyEngine::evaluateConnection(const QVariantMap &request) const
                 {QStringLiteral("source"), QStringLiteral("cli-default-allow")},
                 {QStringLiteral("processKind"), processKind},
                 {QStringLiteral("identity"), identity},
+                {QStringLiteral("target"), targetMeta},
+                {QStringLiteral("actor"), actorMeta},
             };
         }
         if (processKind == QLatin1String("network_tools")
                 || processKind == QLatin1String("interpreter")
                 || processKind == QLatin1String("unknown")) {
+            if (localTarget) {
+                return {
+                    {QStringLiteral("ok"), true},
+                    {QStringLiteral("decision"), QStringLiteral("allow")},
+                    {QStringLiteral("direction"), direction},
+                    {QStringLiteral("source"), QStringLiteral("cli-local-target-allow")},
+                    {QStringLiteral("processKind"), processKind},
+                    {QStringLiteral("identity"), identity},
+                    {QStringLiteral("target"), targetMeta},
+                    {QStringLiteral("actor"), actorMeta},
+                };
+            }
             QVariantMap result = applyPromptCooldown(identity, direction, QStringLiteral("cli-default-prompt"));
             result.insert(QStringLiteral("processKind"), processKind);
+            result.insert(QStringLiteral("target"), targetMeta);
+            result.insert(QStringLiteral("actor"), actorMeta);
             return result;
         }
     }
@@ -476,6 +592,8 @@ QVariantMap PolicyEngine::evaluateConnection(const QVariantMap &request) const
              ? QStringLiteral("default-outgoing")
              : QStringLiteral("default-incoming")},
         {QStringLiteral("identity"), identity},
+        {QStringLiteral("target"), targetMeta},
+        {QStringLiteral("actor"), actorMeta},
     };
 }
 
