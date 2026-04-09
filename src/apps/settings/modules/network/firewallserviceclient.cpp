@@ -647,11 +647,22 @@ void FirewallServiceClient::onConnectionPromptRequested(const QVariantMap &promp
             QJsonDocument::fromVariant(existing.value(QStringLiteral("evaluation")).toMap())
                 .toJson(QJsonDocument::Compact));
         if (existingRequestKey == requestKey && existingEvaluationKey == evaluationKey) {
+            const int priorCount = existing.value(QStringLiteral("duplicateCount"), 0).toInt();
+            const int duplicateCount = (priorCount < 0 ? 0 : priorCount) + 1;
+            QVariantMap updated = existing;
+            updated.insert(QStringLiteral("duplicateCount"), duplicateCount);
+            updated.insert(QStringLiteral("receivedAt"), QDateTime::currentDateTimeUtc().toString(Qt::ISODate));
+            const int rowIndex = m_pendingPrompts.indexOf(item);
+            if (rowIndex >= 0) {
+                m_pendingPrompts[rowIndex] = updated;
+                emit pendingPromptsChanged();
+            }
             return;
         }
     }
 
     QVariantMap row = prompt;
+    row.insert(QStringLiteral("duplicateCount"), 0);
     row.insert(QStringLiteral("receivedAt"), QDateTime::currentDateTimeUtc().toString(Qt::ISODate));
     m_pendingPrompts.append(row);
     while (m_pendingPrompts.size() > 20) {

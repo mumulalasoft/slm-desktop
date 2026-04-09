@@ -685,6 +685,7 @@ Flickable {
         var row = item || {}
         var request = row.request || {}
         var evaluation = row.evaluation || {}
+        var duplicateCount = Number(row.duplicateCount || 0)
         var direction = String(request.direction || evaluation.direction || "unknown")
         var source = String(evaluation.source || "policy")
         var receivedAt = String(row.receivedAt || "")
@@ -700,6 +701,9 @@ Flickable {
         var text = qsTr("Direction: %1 • Source: %2").arg(direction).arg(source)
         if (receivedLabel.length) {
             text += "\n" + qsTr("Received: %1").arg(receivedLabel)
+        }
+        if (!isNaN(duplicateCount) && duplicateCount > 0) {
+            text += "\n" + qsTr("Suppressed duplicate(s): %1").arg(duplicateCount)
         }
         return text
     }
