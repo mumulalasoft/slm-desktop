@@ -13,7 +13,6 @@ Item {
     property var tothespotService: null
     property var tothespotResultsModel: null
     property var desktopSettings: null
-    property var uiPreferences: null
     property bool consentDialogVisible: false
     property string consentRequestPath: ""
     property var consentPayload: ({})
@@ -174,28 +173,4 @@ Item {
         }
     }
 
-    Connections {
-        target: root.uiPreferences
-        ignoreUnknownSignals: true
-        function onPreferenceChanged(key, value) {
-            var k = String(key || "")
-            if (k === "debug/verboseLogging" || k === "debug.verboseLogging") {
-                root.shellApi.tothespotShowDebug = !!value
-            } else if (k === "motion/debugOverlay" || k === "motion.debugOverlay") {
-                root.shellApi.motionDebugOverlayEnabled = !!value
-                ShellUtils.refreshMotionDebugRows(root.shellApi)
-            } else if (k === "motion/timeScale" || k === "motion.timescale") {
-                root.shellApi.motionTimeScale = Number(value)
-                ShellUtils.applyMotionTimeScale(root.shellApi)
-            } else if (k === "motion/reduced" || k === "motion.reduced") {
-                root.shellApi.motionReducedEnabled = !!value
-                ShellUtils.applyMotionTimeScale(root.shellApi)
-            } else if (k === "ui/fontScale" || k === "ui.fontScale") {
-                Theme.userFontScale = ShellUtils.normalizedUserFontScale(value)
-            } else if (k === "tothespot/notifyClipboardResolveSuccess"
-                       || k === "tothespot.notifyClipboardResolveSuccess") {
-                root.shellApi.tothespotNotifyClipboardResolveSuccess = !!value
-            }
-        }
-    }
 }

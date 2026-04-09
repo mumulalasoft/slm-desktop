@@ -23,21 +23,12 @@ ApplicationWindow {
                 && DesktopSettings.settingValue) {
             return DesktopSettings.settingValue(path, fallback)
         }
-        if (typeof UIPreferences !== "undefined" && UIPreferences
-                && UIPreferences.getPreference) {
-            return UIPreferences.getPreference(path, fallback)
-        }
         return fallback
     }
     function writeSetting(path, value) {
         if (typeof DesktopSettings !== "undefined" && DesktopSettings
                 && DesktopSettings.setSettingValue) {
             return DesktopSettings.setSettingValue(path, value)
-        }
-        if (typeof UIPreferences !== "undefined" && UIPreferences
-                && UIPreferences.setPreference) {
-            UIPreferences.setPreference(path, value)
-            return true
         }
         return false
     }
@@ -544,7 +535,6 @@ ApplicationWindow {
         tothespotService: (typeof TothespotService !== "undefined") ? TothespotService : null
         tothespotResultsModel: tothespotResultsModel
         desktopSettings: (typeof DesktopSettings !== "undefined") ? DesktopSettings : null
-        uiPreferences: (typeof UIPreferences !== "undefined") ? UIPreferences : null
     }
 
     ListModel {

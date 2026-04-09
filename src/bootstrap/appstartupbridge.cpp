@@ -25,7 +25,6 @@
 #include "../core/execution/appcommandrouter.h"
 #include "../../cursorcontroller.h"
 #include "../core/icons/themeiconcontroller.h"
-#include "../core/prefs/uipreferences.h"
 #include "../core/workspace/windowingbackendmanager.h"
 #include "../core/workspace/workspacemanager.h"
 #include "../core/workspace/workspacestripmodel.h"
