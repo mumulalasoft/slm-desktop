@@ -1,6 +1,5 @@
 #include "appmodel.h"
 #include "src/core/execution/appexecutiongate.h"
-#include "src/core/prefs/uipreferences.h"
 
 #ifdef QT_DBUS_LIB
 #include <QDBusConnection>
@@ -804,23 +803,6 @@ void DesktopAppModel::setExecutionGate(AppExecutionGate *gate)
     }
 }
 
-void DesktopAppModel::setUIPreferences(UIPreferences *preferences)
-{
-    if (m_preferences == preferences) {
-        return;
-    }
-    if (m_preferences) {
-        disconnect(m_preferences, nullptr, this, nullptr);
-    }
-    m_preferences = preferences;
-    if (m_preferences) {
-        connect(m_preferences, &UIPreferences::preferenceChanged,
-                this, &DesktopAppModel::onPreferenceChanged);
-    }
-    reloadScoringWeights();
-    rebuildUsageStats();
-}
-
 void DesktopAppModel::setDesktopSettings(QObject *desktopSettings)
 {
     if (m_desktopSettings == desktopSettings) {
@@ -860,18 +842,6 @@ void DesktopAppModel::reloadScoringWeights()
                 }
             }
         }
-        if (m_preferences) {
-            for (const QString &path : paths) {
-                const QVariant v = m_preferences->getPreference(path, QVariant());
-                if (v.isValid() && !v.isNull()) {
-                    bool ok = false;
-                    const int out = v.toInt(&ok);
-                    if (ok) {
-                        return out;
-                    }
-                }
-            }
-        }
         return fallback;
     };
 
@@ -900,19 +870,6 @@ void DesktopAppModel::onAppExecutionRecorded(QString source, QString name, QStri
         return;
     }
     noteLaunchEvent(name, desktopFile, executable);
-}
-
-void DesktopAppModel::onPreferenceChanged(QString key, QVariant value)
-{
-    Q_UNUSED(value);
-    const QString k = key.trimmed().toLower();
-    if (k != QStringLiteral("app/scorelaunchweight") &&
-        k != QStringLiteral("app/scorefileopenweight") &&
-        k != QStringLiteral("app/scorerecencyweight")) {
-        return;
-    }
-    reloadScoringWeights();
-    rebuildUsageStats();
 }
 
 void DesktopAppModel::onDesktopSettingChanged(QString path)

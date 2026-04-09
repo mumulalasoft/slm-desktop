@@ -5,12 +5,12 @@
 #include <QDBusMetaType>
 #include <QDBusReply>
 #include <QDateTime>
+#include <QHash>
 #include <QSignalSpy>
 
 #include "../appmodel.h"
 #include "../globalsearchservice.h"
 #include "../src/core/workspace/spacesmanager.h"
-#include "../src/core/prefs/uipreferences.h"
 #include "../src/core/workspace/windowingbackendmanager.h"
 #include "../src/core/workspace/workspacemanager.h"
 
@@ -100,6 +100,38 @@ public slots:
         Q_UNUSED(id)
     }
 };
+
+class FakeDesktopSettings : public QObject
+{
+    Q_OBJECT
+public:
+    Q_INVOKABLE QVariant settingValue(const QString &path,
+                                      const QVariant &fallback = QVariant()) const
+    {
+        const QString key = path.trimmed();
+        return m_values.contains(key) ? m_values.value(key) : fallback;
+    }
+
+    Q_INVOKABLE bool setSettingValue(const QString &path, const QVariant &value)
+    {
+        const QString key = path.trimmed();
+        if (key.isEmpty()) {
+            return false;
+        }
+        if (m_values.value(key) == value) {
+            return false;
+        }
+        m_values.insert(key, value);
+        emit settingChanged(key);
+        return true;
+    }
+
+signals:
+    void settingChanged(const QString &path);
+
+private:
+    QHash<QString, QVariant> m_values;
+};
 }
 
 class GlobalSearchServiceDbusTest : public QObject
@@ -114,12 +146,12 @@ private slots:
         WorkspaceManager workspace(&backend,
                                    &spaces,
                                    backend.compositorStateObject());
-        UIPreferences prefs;
+        FakeDesktopSettings settings;
         DesktopAppModel appModel;
-        appModel.setUIPreferences(&prefs);
+        appModel.setDesktopSettings(&settings);
         appModel.refresh();
 
-        GlobalSearchService service(&appModel, &workspace, &prefs);
+        GlobalSearchService service(&appModel, &workspace, &settings);
         const QVariantList profiles = service.GetSearchProfiles();
         QVERIFY(!profiles.isEmpty());
 
@@ -170,12 +202,12 @@ private slots:
         WorkspaceManager workspace(&backend,
                                    &spaces,
                                    backend.compositorStateObject());
-        UIPreferences prefs;
+        FakeDesktopSettings settings;
         DesktopAppModel appModel;
-        appModel.setUIPreferences(&prefs);
+        appModel.setDesktopSettings(&settings);
         appModel.refresh();
 
-        GlobalSearchService service(&appModel, &workspace, &prefs);
+        GlobalSearchService service(&appModel, &workspace, &settings);
         if (!service.serviceRegistered()) {
             QSKIP("org.slm.Desktop.Search.v1 already owned in this environment");
         }
@@ -235,12 +267,12 @@ private slots:
         WorkspaceManager workspace(&backend,
                                    &spaces,
                                    backend.compositorStateObject());
-        UIPreferences prefs;
+        FakeDesktopSettings settings;
         DesktopAppModel appModel;
-        appModel.setUIPreferences(&prefs);
+        appModel.setDesktopSettings(&settings);
         appModel.refresh();
 
-        GlobalSearchService service(&appModel, &workspace, &prefs);
+        GlobalSearchService service(&appModel, &workspace, &settings);
         if (!service.serviceRegistered()) {
             QSKIP("org.slm.Desktop.Search.v1 already owned in this environment");
         }
@@ -322,12 +354,12 @@ private slots:
         WorkspaceManager workspace(&backend,
                                    &spaces,
                                    backend.compositorStateObject());
-        UIPreferences prefs;
+        FakeDesktopSettings settings;
         DesktopAppModel appModel;
-        appModel.setUIPreferences(&prefs);
+        appModel.setDesktopSettings(&settings);
         appModel.refresh();
 
-        GlobalSearchService service(&appModel, &workspace, &prefs);
+        GlobalSearchService service(&appModel, &workspace, &settings);
         if (!service.serviceRegistered()) {
             QSKIP("org.slm.Desktop.Search.v1 already owned in this environment");
         }
@@ -392,12 +424,12 @@ private slots:
         WorkspaceManager workspace(&backend,
                                    &spaces,
                                    backend.compositorStateObject());
-        UIPreferences prefs;
+        FakeDesktopSettings settings;
         DesktopAppModel appModel;
-        appModel.setUIPreferences(&prefs);
+        appModel.setDesktopSettings(&settings);
         appModel.refresh();
 
-        GlobalSearchService service(&appModel, &workspace, &prefs);
+        GlobalSearchService service(&appModel, &workspace, &settings);
         if (!service.serviceRegistered()) {
             QSKIP("org.slm.Desktop.Search.v1 already owned in this environment");
         }
@@ -612,7 +644,7 @@ private slots:
         QVERIFY(activeProfileMeta.value(QStringLiteral("ok")).toBool());
         QCOMPARE(activeProfileMeta.value(QStringLiteral("profileId")).toString(), QStringLiteral("balanced"));
         QVERIFY(!activeProfileMeta.value(QStringLiteral("updatedAtUtc")).toString().isEmpty());
-        QCOMPARE(activeProfileMeta.value(QStringLiteral("source")).toString(), QStringLiteral("uipreferences"));
+        QCOMPARE(activeProfileMeta.value(QStringLiteral("source")).toString(), QStringLiteral("desktopsettings"));
 
         QDBusReply<bool> setAppsFirstReply = iface.call(QStringLiteral("SetActiveSearchProfile"),
                                                         QStringLiteral("apps-first"));
@@ -659,7 +691,7 @@ private slots:
         QCOMPARE(activeAfterInvalidReply.value(), QStringLiteral("balanced"));
 
         // Validate searchProfile affects score calculation.
-        prefs.setPreference(QStringLiteral("tothespot.searchProfile"), QStringLiteral("balanced"));
+        settings.setSettingValue(QStringLiteral("tothespot.searchProfile"), QStringLiteral("balanced"));
         QVariantMap appOnlyBalanced;
         appOnlyBalanced.insert(QStringLiteral("limit"), 1);
         appOnlyBalanced.insert(QStringLiteral("includeApps"), true);
@@ -705,12 +737,12 @@ private slots:
         WorkspaceManager workspace(&backend,
                                    &spaces,
                                    backend.compositorStateObject());
-        UIPreferences prefs;
+        FakeDesktopSettings settings;
         DesktopAppModel appModel;
-        appModel.setUIPreferences(&prefs);
+        appModel.setDesktopSettings(&settings);
         appModel.refresh();
 
-        GlobalSearchService service(&appModel, &workspace, &prefs);
+        GlobalSearchService service(&appModel, &workspace, &settings);
         if (!service.serviceRegistered()) {
             QSKIP("org.slm.Desktop.Search.v1 already owned in this environment");
         }

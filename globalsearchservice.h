@@ -22,7 +22,6 @@
 
 class DesktopAppModel;
 class WorkspaceManager;
-class UIPreferences;
 
 struct SearchResultEntry
 {
@@ -60,7 +59,7 @@ class GlobalSearchService : public QObject, protected QDBusContext
 public:
     explicit GlobalSearchService(DesktopAppModel *appModel,
                                  WorkspaceManager *workspaceManager,
-                                 UIPreferences *uiPreferences = nullptr,
+                                 QObject *desktopSettings = nullptr,
                                  QObject *parent = nullptr);
     ~GlobalSearchService() override;
 
@@ -131,7 +130,7 @@ private:
 
     DesktopAppModel *m_appModel = nullptr;
     WorkspaceManager *m_workspaceManager = nullptr;
-    UIPreferences *m_uiPreferences = nullptr;
+    QObject *m_desktopSettings = nullptr;
     bool m_serviceRegistered = false;
     QHash<QString, QVariantMap> m_resultIndex;
     QSet<QString> m_providers;

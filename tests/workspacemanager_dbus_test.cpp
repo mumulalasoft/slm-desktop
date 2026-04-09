@@ -10,7 +10,6 @@
 #include "../src/daemon/desktopd/daemonhealthmonitor.h"
 #include "../src/daemon/desktopd/desktopdaemonservice.h"
 #include "../src/core/workspace/spacesmanager.h"
-#include "../src/core/prefs/uipreferences.h"
 #include "../src/core/workspace/windowingbackendmanager.h"
 #include "../src/core/workspace/workspacemanager.h"
 
@@ -37,9 +36,7 @@ private slots:
         WorkspaceManager workspace(&backend,
                                    &spaces,
                                    backend.compositorStateObject());
-        UIPreferences prefs;
         DesktopAppModel appModel;
-        appModel.setUIPreferences(&prefs);
         appModel.refresh();
         DaemonHealthMonitor healthMonitor;
         DesktopDaemonService service(&workspace, &backend, &spaces, &appModel, &healthMonitor);
@@ -213,9 +210,7 @@ private slots:
         WorkspaceManager workspace(&backend,
                                    &spaces,
                                    backend.compositorStateObject());
-        UIPreferences prefs;
         DesktopAppModel appModel;
-        appModel.setUIPreferences(&prefs);
         appModel.refresh();
         DesktopDaemonService service(&workspace, &backend, &spaces, &appModel, nullptr);
         QVERIFY(service.serviceRegistered());

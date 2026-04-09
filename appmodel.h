@@ -13,7 +13,6 @@ typedef struct _GFile GFile;
 typedef struct _GFileMonitor GFileMonitor;
 
 class AppExecutionGate;
-class UIPreferences;
 class QTimer;
 
 struct DesktopAppEntry {
@@ -70,7 +69,6 @@ public:
                                                  const QVariantMap &context = QVariantMap{});
     void setExecutionGate(AppExecutionGate *gate);
     void setDesktopSettings(QObject *desktopSettings);
-    void setUIPreferences(UIPreferences *preferences);
 
 signals:
     void appScoresChanged();
@@ -102,14 +100,12 @@ private:
 
 private slots:
     void onAppExecutionRecorded(QString source, QString name, QString desktopFile, QString executable, bool success);
-    void onPreferenceChanged(QString key, QVariant value);
     void onDesktopSettingChanged(QString path);
 
 private:
     bool m_refreshRunning = false;
     AppExecutionGate *m_gate = nullptr;
     QObject *m_desktopSettings = nullptr;
-    UIPreferences *m_preferences = nullptr;
     QVector<DesktopAppEntry> m_apps;
     void *m_appInfoMonitor = nullptr;
     QVector<void *> m_appDirMonitors;

@@ -10,7 +10,6 @@
 #include "../../filemanager/ops/fileoperationsservice.h"
 #include "../../core/workspace/spacesmanager.h"
 #include "../../core/workspace/windowingbackendmanager.h"
-#include "../../core/prefs/uipreferences.h"
 #include "sessionstatecompatservice.h"
 #include "sessionstatemanager.h"
 #include "sessionstateservice.h"
@@ -35,9 +34,7 @@ int main(int argc, char *argv[])
 
     WindowingBackendManager windowingBackendManager;
     windowingBackendManager.configureBackend(QStringLiteral("kwin-wayland"));
-    UIPreferences uiPreferences;
     DesktopAppModel appModel;
-    appModel.setUIPreferences(&uiPreferences);
     appModel.refresh();
 
     SpacesManager spacesManager;
@@ -50,7 +47,7 @@ int main(int argc, char *argv[])
                                        &spacesManager,
                                        &appModel,
                                        &daemonHealthMonitor);
-    GlobalSearchService globalSearchService(&appModel, &workspaceManager, &uiPreferences);
+    GlobalSearchService globalSearchService(&appModel, &workspaceManager, nullptr);
     WorkspaceCompatService legacyCompatService(&workspaceManager,
                                                &windowingBackendManager,
                                                &spacesManager);

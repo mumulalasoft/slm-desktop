@@ -5,6 +5,7 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QHash>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QStandardPaths>
@@ -12,7 +13,6 @@
 #include <QVariantMap>
 
 #include "../appmodel.h"
-#include "../src/core/prefs/uipreferences.h"
 
 namespace {
 QString deriveKey(const QString &desktopId, const QString &desktopFile, const QString &executable)
@@ -32,6 +32,37 @@ QString deriveKey(const QString &desktopId, const QString &desktopFile, const QS
     }
     return QFileInfo(exec).fileName().toLower();
 }
+
+class FakeDesktopSettings : public QObject
+{
+    Q_OBJECT
+public:
+    Q_INVOKABLE QVariant settingValue(const QString &path,
+                                      const QVariant &fallback = QVariant()) const
+    {
+        const QString key = path.trimmed();
+        return m_values.contains(key) ? m_values.value(key) : fallback;
+    }
+    Q_INVOKABLE bool setSettingValue(const QString &path, const QVariant &value)
+    {
+        const QString key = path.trimmed();
+        if (key.isEmpty()) {
+            return false;
+        }
+        if (m_values.value(key) == value) {
+            return false;
+        }
+        m_values.insert(key, value);
+        emit settingChanged(key);
+        return true;
+    }
+
+signals:
+    void settingChanged(const QString &path);
+
+private:
+    QHash<QString, QVariant> m_values;
+};
 }
 
 class AppModelScoringWeightsTest : public QObject
@@ -41,9 +72,9 @@ class AppModelScoringWeightsTest : public QObject
 private slots:
     void preferenceWeights_affectScoreDeterministically()
     {
-        UIPreferences prefs;
+        FakeDesktopSettings settings;
         DesktopAppModel model;
-        model.setUIPreferences(&prefs);
+        model.setDesktopSettings(&settings);
         model.refresh();
 
         const QVariantList firstPage = model.page(0, 1, QString());
@@ -84,9 +115,9 @@ private slots:
         cacheFile.write(QJsonDocument(root).toJson(QJsonDocument::Compact));
         cacheFile.close();
 
-        prefs.setPreference(QStringLiteral("app.score.launchWeight"), 2);
-        prefs.setPreference(QStringLiteral("app.score.fileOpenWeight"), 4);
-        prefs.setPreference(QStringLiteral("app.score.recencyWeight"), 0);
+        settings.setSettingValue(QStringLiteral("app.score.launchWeight"), 2);
+        settings.setSettingValue(QStringLiteral("app.score.fileOpenWeight"), 4);
+        settings.setSettingValue(QStringLiteral("app.score.recencyWeight"), 0);
 
         model.refresh();
         QVariantMap stats = model.appUsage(desktopId, desktopFile, executable);
@@ -96,9 +127,9 @@ private slots:
         QVERIFY(fileOpenCountA >= 5);
         QCOMPARE(stats.value(QStringLiteral("score")).toInt(), launchCountA * 2 + fileOpenCountA * 4);
 
-        prefs.setPreference(QStringLiteral("app.score.launchWeight"), 10);
-        prefs.setPreference(QStringLiteral("app.score.fileOpenWeight"), 0);
-        prefs.setPreference(QStringLiteral("app.score.recencyWeight"), 0);
+        settings.setSettingValue(QStringLiteral("app.score.launchWeight"), 10);
+        settings.setSettingValue(QStringLiteral("app.score.fileOpenWeight"), 0);
+        settings.setSettingValue(QStringLiteral("app.score.recencyWeight"), 0);
 
         stats = model.appUsage(desktopId, desktopFile, executable);
         const int launchCountB = stats.value(QStringLiteral("launchCount7d")).toInt();

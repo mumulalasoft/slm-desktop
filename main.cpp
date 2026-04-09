@@ -346,7 +346,6 @@ int main(int argc, char *argv[])
     AppExecutionGate appExecutionGate(&dockModel, &shortcutModel, &desktopSettings);
     appModel.setExecutionGate(&appExecutionGate);
     appModel.setDesktopSettings(&desktopSettings);
-    appModel.setUIPreferences(nullptr);
     AppCommandRouter appCommandRouter(&appExecutionGate,
                                       &screenshotManager,
                                       &desktopSettings);
