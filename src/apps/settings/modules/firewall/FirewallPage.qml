@@ -681,6 +681,29 @@ Flickable {
         return actor + " (" + source + ")"
     }
 
+    function pendingPromptDetails(item) {
+        var row = item || {}
+        var request = row.request || {}
+        var evaluation = row.evaluation || {}
+        var direction = String(request.direction || evaluation.direction || "unknown")
+        var source = String(evaluation.source || "policy")
+        var receivedAt = String(row.receivedAt || "")
+        var receivedLabel = ""
+        if (receivedAt.length) {
+            var ms = Date.parse(receivedAt)
+            if (!isNaN(ms)) {
+                receivedLabel = new Date(ms).toLocaleString()
+            } else {
+                receivedLabel = receivedAt
+            }
+        }
+        var text = qsTr("Direction: %1 • Source: %2").arg(direction).arg(source)
+        if (receivedLabel.length) {
+            text += "\n" + qsTr("Received: %1").arg(receivedLabel)
+        }
+        return text
+    }
+
     function simulateEvaluateConnection() {
         var response = FirewallServiceClient.evaluateConnection(promptRequestPayload())
         var ok = Boolean(response && response.ok)
@@ -1557,12 +1580,25 @@ Flickable {
                                 anchors.margins: 8
                                 spacing: 10
 
-                                Text {
+                                ColumnLayout {
                                     Layout.fillWidth: true
-                                    text: root.pendingPromptLabel(modelData)
-                                    color: Theme.color("textPrimary")
-                                    font.pixelSize: Theme.fontSize("small")
-                                    elide: Text.ElideRight
+                                    spacing: 2
+
+                                    Text {
+                                        Layout.fillWidth: true
+                                        text: root.pendingPromptLabel(modelData)
+                                        color: Theme.color("textPrimary")
+                                        font.pixelSize: Theme.fontSize("small")
+                                        wrapMode: Text.WordWrap
+                                    }
+
+                                    Text {
+                                        Layout.fillWidth: true
+                                        text: root.pendingPromptDetails(modelData)
+                                        color: Theme.color("textSecondary")
+                                        font.pixelSize: Theme.fontSize("small")
+                                        wrapMode: Text.WordWrap
+                                    }
                                 }
 
                                 Button {
