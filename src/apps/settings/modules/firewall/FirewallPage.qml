@@ -730,6 +730,101 @@ Flickable {
         return remaining > 0 ? remaining : 0
     }
 
+    function isPrivateOrLocalIpv4(ip) {
+        var raw = String(ip || "").trim()
+        var parts = raw.split(".")
+        if (parts.length !== 4) {
+            return false
+        }
+        var o1 = Number(parts[0])
+        var o2 = Number(parts[1])
+        var o3 = Number(parts[2])
+        var o4 = Number(parts[3])
+        if (isNaN(o1) || isNaN(o2) || isNaN(o3) || isNaN(o4)) {
+            return false
+        }
+        if (o1 < 0 || o1 > 255 || o2 < 0 || o2 > 255 || o3 < 0 || o3 > 255 || o4 < 0 || o4 > 255) {
+            return false
+        }
+        if (o1 === 10) {
+            return true
+        }
+        if (o1 === 172 && o2 >= 16 && o2 <= 31) {
+            return true
+        }
+        if (o1 === 192 && o2 === 168) {
+            return true
+        }
+        if (o1 === 127) {
+            return true
+        }
+        if (o1 === 169 && o2 === 254) {
+            return true
+        }
+        return false
+    }
+
+    function pendingPromptTargetIsLocal(item) {
+        var row = item || {}
+        var evaluation = row.evaluation || {}
+        var request = row.request || {}
+        var target = evaluation.target || {}
+        var ip = String(target.ip || request.destinationIp || request.sourceIp || request.remoteIp || request.ip || "").trim()
+        var host = String(target.host || request.destinationHost || request.host || "").trim().toLowerCase()
+        if (ip.length && root.isPrivateOrLocalIpv4(ip)) {
+            return true
+        }
+        if (host === "localhost" || host === "localhost.localdomain") {
+            return true
+        }
+        return false
+    }
+
+    function pendingPromptSourceTrusted(item) {
+        var row = item || {}
+        var evaluation = row.evaluation || {}
+        var identity = evaluation.identity || {}
+        var source = String(evaluation.source || "").trim().toLowerCase()
+        var trustLevel = String(identity.trust_level || "").trim().toLowerCase()
+        if (trustLevel === "system" || trustLevel === "trusted") {
+            return true
+        }
+        return source.indexOf("trusted") >= 0
+    }
+
+    function pendingPromptIsSafest(item) {
+        return root.pendingPromptSourceTrusted(item) && root.pendingPromptTargetIsLocal(item)
+    }
+
+    function pendingSafestCount() {
+        var rows = FirewallServiceClient.pendingPrompts || []
+        var count = 0
+        for (var i = 0; i < rows.length; ++i) {
+            if (root.pendingPromptIsSafest(rows[i])) {
+                count += 1
+            }
+        }
+        return count
+    }
+
+    function allowSafestPendingPrompts() {
+        var rows = FirewallServiceClient.pendingPrompts || []
+        var resolved = 0
+        for (var i = rows.length - 1; i >= 0; --i) {
+            if (!root.pendingPromptIsSafest(rows[i])) {
+                continue
+            }
+            if (FirewallServiceClient.resolvePendingPrompt(i, "allow", root.pendingPromptRemember)) {
+                resolved += 1
+            }
+        }
+        root.connectionResultOk = resolved > 0
+        root.connectionResultText = resolved > 0
+                ? qsTr("Allowed %1 safest pending prompt(s).").arg(resolved)
+                : qsTr("No safest pending prompt matched.")
+        return resolved
+    }
+
     function pendingPromptExpiryText(item) {
         var remainingSec = root.pendingPromptRemainingSeconds(item)
         if (remainingSec < 0) {
@@ -1608,6 +1703,14 @@ Flickable {
                             checked: root.pendingPromptRemember
                             enabled: FirewallServiceClient.available && FirewallServiceClient.enabled
                             onToggled: root.pendingPromptRemember = checked
+                        }
+
+                        Button {
+                            text: qsTr("Allow Safest")
+                            enabled: FirewallServiceClient.available
+                                     && FirewallServiceClient.enabled
+                                     && root.pendingSafestCount() > 0
+                            onClicked: root.allowSafestPendingPrompts()
                         }
 
                         Button {
