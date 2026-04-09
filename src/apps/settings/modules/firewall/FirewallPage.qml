@@ -16,6 +16,7 @@ Flickable {
     property string blockDuration: "24h"
     property string blockNote: ""
     property int ipSortIndex: 0
+    property int ipFilterIndex: 0
     property string blockResultText: ""
     property bool blockResultOk: true
     property string appRuleAppId: ""
@@ -56,6 +57,12 @@ Flickable {
         { value: "latest", label: qsTr("Latest") },
         { value: "most_hits", label: qsTr("Most Hits") },
         { value: "target_asc", label: qsTr("Target A-Z") }
+    ]
+    readonly property var ipFilterModes: [
+        { value: "all", label: qsTr("All") },
+        { value: "temporary", label: qsTr("Temporary") },
+        { value: "permanent", label: qsTr("Permanent") },
+        { value: "active_hits", label: qsTr("Hits > 0") }
     ]
     readonly property var appRuleDecisions: [
         { value: "allow", label: qsTr("Allow") },
@@ -176,7 +183,26 @@ Flickable {
     }
 
     function sortedIpPolicies() {
-        var items = (FirewallServiceClient.ipPolicies || []).slice(0)
+        var allItems = (FirewallServiceClient.ipPolicies || []).slice(0)
+        var filterMode = ipFilterModes[ipFilterIndex]
+                ? String(ipFilterModes[ipFilterIndex].value || "all")
+                : "all"
+        var items = []
+        for (var i = 0; i < allItems.length; ++i) {
+            var row = allItems[i] || {}
+            var temporary = Boolean(row.temporary)
+            var hits = Number(row.hitCount || 0)
+            if (filterMode === "temporary" && !temporary) {
+                continue
+            }
+            if (filterMode === "permanent" && temporary) {
+                continue
+            }
+            if (filterMode === "active_hits" && hits <= 0) {
+                continue
+            }
+            items.push(row)
+        }
         var mode = ipSortModes[ipSortIndex] ? String(ipSortModes[ipSortIndex].value || "latest") : "latest"
         items.sort(function(a, b) {
             var left = a || {}
@@ -800,6 +826,23 @@ Flickable {
                     RowLayout {
                         Layout.fillWidth: true
                         spacing: 8
+
+                        Label {
+                            text: qsTr("Filter")
+                            color: Theme.color("textSecondary")
+                        }
+
+                        ComboBox {
+                            Layout.preferredWidth: 180
+                            model: root.ipFilterModes.map(function(item) { return item.label })
+                            currentIndex: root.ipFilterIndex
+                            enabled: FirewallServiceClient.available
+                            onActivated: function(index) {
+                                root.ipFilterIndex = index
+                            }
+                        }
+
+                        Item { Layout.fillWidth: true }
 
                         Label {
                             text: qsTr("Sort")
