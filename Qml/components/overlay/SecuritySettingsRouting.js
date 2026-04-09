@@ -6,8 +6,7 @@ function deepLinkForCapability(capabilityValue) {
     if (capabilityLower.indexOf("network") === 0
             || capabilityLower.indexOf("socket") >= 0
             || capabilityLower.indexOf("firewall") >= 0) {
-        return "settings://firewall/mode"
+        return "settings://firewall/pending-prompts"
     }
     return "settings://permissions/app-secrets"
 }
-

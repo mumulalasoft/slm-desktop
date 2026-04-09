@@ -38,15 +38,15 @@ void SecuritySettingsRoutingJsTest::deepLinkForCapability_contract()
 
     const QJSValue networkListen = call(QStringLiteral("Network.Listen"));
     QVERIFY2(!networkListen.isError(), qPrintable(networkListen.toString()));
-    QCOMPARE(networkListen.toString(), QStringLiteral("settings://firewall/mode"));
+    QCOMPARE(networkListen.toString(), QStringLiteral("settings://firewall/pending-prompts"));
 
     const QJSValue socketBind = call(QStringLiteral("socket.bind"));
     QVERIFY2(!socketBind.isError(), qPrintable(socketBind.toString()));
-    QCOMPARE(socketBind.toString(), QStringLiteral("settings://firewall/mode"));
+    QCOMPARE(socketBind.toString(), QStringLiteral("settings://firewall/pending-prompts"));
 
     const QJSValue firewallManage = call(QStringLiteral("Firewall.Manage"));
     QVERIFY2(!firewallManage.isError(), qPrintable(firewallManage.toString()));
-    QCOMPARE(firewallManage.toString(), QStringLiteral("settings://firewall/mode"));
+    QCOMPARE(firewallManage.toString(), QStringLiteral("settings://firewall/pending-prompts"));
 
     const QJSValue secretRead = call(QStringLiteral("Secret.Read"));
     QVERIFY2(!secretRead.isError(), qPrintable(secretRead.toString()));
