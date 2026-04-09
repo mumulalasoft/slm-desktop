@@ -2,6 +2,8 @@
 
 #include "src/daemon/firewalld/firewalltypes.h"
 
+#include <QDateTime>
+#include <QHash>
 #include <QVariantList>
 #include <QVariantMap>
 
@@ -34,9 +36,14 @@ public:
     QVariantList listConnections() const;
 
 private:
+    QVariantMap applyPromptCooldown(const QVariantMap &identity,
+                                    const QString &direction,
+                                    const QString &source) const;
+
     PolicyStore *m_store = nullptr;
     NftablesAdapter *m_nft = nullptr;
     AppIdentityClient *m_identity = nullptr;
+    mutable QHash<QString, QDateTime> m_lastPromptAt;
 };
 
 } // namespace Slm::Firewall

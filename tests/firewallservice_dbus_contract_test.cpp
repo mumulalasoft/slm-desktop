@@ -145,6 +145,16 @@ private slots:
         QCOMPARE(outgoingUnknown.value(QStringLiteral("ok")).toBool(), true);
         QCOMPARE(outgoingUnknown.value(QStringLiteral("decision")).toString(), QStringLiteral("prompt"));
         QCOMPARE(outgoingUnknown.value(QStringLiteral("source")).toString(), QStringLiteral("cli-default-prompt"));
+        QCOMPARE(outgoingUnknown.value(QStringLiteral("promptSuppressed")).toBool(), false);
+
+        const QVariantMap outgoingSuppressed = service.EvaluateConnection(QVariantMap{
+            {QStringLiteral("pid"), -1},
+            {QStringLiteral("direction"), QStringLiteral("outgoing")},
+        });
+        QCOMPARE(outgoingSuppressed.value(QStringLiteral("ok")).toBool(), true);
+        QCOMPARE(outgoingSuppressed.value(QStringLiteral("decision")).toString(), QStringLiteral("deny"));
+        QCOMPARE(outgoingSuppressed.value(QStringLiteral("source")).toString(), QStringLiteral("prompt-cooldown"));
+        QCOMPARE(outgoingSuppressed.value(QStringLiteral("promptSuppressed")).toBool(), true);
 
         const QVariantMap remember = service.ResolveConnectionDecision(QVariantMap{
             {QStringLiteral("pid"), -1},

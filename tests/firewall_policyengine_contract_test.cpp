@@ -71,6 +71,15 @@ private slots:
         QCOMPARE(result.value(QStringLiteral("decision")).toString(), QStringLiteral("prompt"));
         QCOMPARE(result.value(QStringLiteral("source")).toString(), QStringLiteral("cli-default-prompt"));
         QCOMPARE(result.value(QStringLiteral("processKind")).toString(), QStringLiteral("unknown"));
+        QCOMPARE(result.value(QStringLiteral("promptSuppressed")).toBool(), false);
+
+        const QVariantMap second = engine.evaluateConnection(
+            QVariantMap{{QStringLiteral("pid"), -1},
+                        {QStringLiteral("direction"), QStringLiteral("outgoing")}});
+        QCOMPARE(second.value(QStringLiteral("ok")).toBool(), true);
+        QCOMPARE(second.value(QStringLiteral("decision")).toString(), QStringLiteral("deny"));
+        QCOMPARE(second.value(QStringLiteral("source")).toString(), QStringLiteral("prompt-cooldown"));
+        QCOMPARE(second.value(QStringLiteral("promptSuppressed")).toBool(), true);
     }
 
     void resolve_connection_decision_persists_when_remember_true()

@@ -223,6 +223,21 @@ QString readDefaultPolicy(const PolicyStore *store, const QString &direction)
     return normalizeDecision(nested.value(nestedKey, fallback));
 }
 
+int readPromptCooldownSeconds(const PolicyStore *store)
+{
+    if (!store) {
+        return 20;
+    }
+    const int raw = store->value(QStringLiteral("firewall.promptCooldownSeconds"), 20).toInt();
+    if (raw < 1) {
+        return 1;
+    }
+    if (raw > 300) {
+        return 300;
+    }
+    return raw;
+}
+
 QString classifyProcessKind(const QVariantMap &identity)
 {
     const QString executable = identity.value(QStringLiteral("executable")).toString();
@@ -301,6 +316,9 @@ QVariantMap PolicyEngine::evaluateConnection(const QVariantMap &request) const
             continue;
         }
         const QString decision = normalizeDecision(entry.value(QStringLiteral("decision")));
+        if (decision == QLatin1String("prompt")) {
+            return applyPromptCooldown(identity, direction, QStringLiteral("app-policy"));
+        }
         return {
             {QStringLiteral("ok"), true},
             {QStringLiteral("decision"), decision},
@@ -327,15 +345,18 @@ QVariantMap PolicyEngine::evaluateConnection(const QVariantMap &request) const
         if (processKind == QLatin1String("network_tools")
                 || processKind == QLatin1String("interpreter")
                 || processKind == QLatin1String("unknown")) {
-            return {
-                {QStringLiteral("ok"), true},
-                {QStringLiteral("decision"), QStringLiteral("prompt")},
-                {QStringLiteral("direction"), direction},
-                {QStringLiteral("source"), QStringLiteral("cli-default-prompt")},
-                {QStringLiteral("processKind"), processKind},
-                {QStringLiteral("identity"), identity},
-            };
+            QVariantMap result = applyPromptCooldown(identity, direction, QStringLiteral("cli-default-prompt"));
+            result.insert(QStringLiteral("processKind"), processKind);
+            return result;
         }
+    }
+
+    if (defaultDecision == QLatin1String("prompt")) {
+        return applyPromptCooldown(identity,
+                                   direction,
+                                   direction == QLatin1String("outgoing")
+                                       ? QStringLiteral("default-outgoing")
+                                       : QStringLiteral("default-incoming"));
     }
 
     return {
@@ -345,6 +366,41 @@ QVariantMap PolicyEngine::evaluateConnection(const QVariantMap &request) const
         {QStringLiteral("source"), direction == QLatin1String("outgoing")
              ? QStringLiteral("default-outgoing")
              : QStringLiteral("default-incoming")},
+        {QStringLiteral("identity"), identity},
+    };
+}
+
+QVariantMap PolicyEngine::applyPromptCooldown(const QVariantMap &identity,
+                                              const QString &direction,
+                                              const QString &source) const
+{
+    const QString appId = normalizedString(identity.value(QStringLiteral("app_id")));
+    const QString key = QStringLiteral("%1|%2").arg(appId.isEmpty() ? QStringLiteral("unknown") : appId,
+                                                   direction);
+    const int cooldownSeconds = readPromptCooldownSeconds(m_store);
+    const QDateTime now = QDateTime::currentDateTimeUtc();
+    const QDateTime last = m_lastPromptAt.value(key);
+    if (last.isValid()) {
+        const qint64 elapsed = last.secsTo(now);
+        if (elapsed >= 0 && elapsed < cooldownSeconds) {
+            return {
+                {QStringLiteral("ok"), true},
+                {QStringLiteral("decision"), QStringLiteral("deny")},
+                {QStringLiteral("direction"), direction},
+                {QStringLiteral("source"), QStringLiteral("prompt-cooldown")},
+                {QStringLiteral("promptSuppressed"), true},
+                {QStringLiteral("cooldownRemainingSec"), cooldownSeconds - static_cast<int>(elapsed)},
+                {QStringLiteral("identity"), identity},
+            };
+        }
+    }
+    m_lastPromptAt.insert(key, now);
+    return {
+        {QStringLiteral("ok"), true},
+        {QStringLiteral("decision"), QStringLiteral("prompt")},
+        {QStringLiteral("direction"), direction},
+        {QStringLiteral("source"), source},
+        {QStringLiteral("promptSuppressed"), false},
         {QStringLiteral("identity"), identity},
     };
 }
