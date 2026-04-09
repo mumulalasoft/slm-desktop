@@ -108,6 +108,19 @@ bool FirewallServiceClient::setDefaultOutgoingPolicy(const QString &policy)
                              normalizePolicy(policy, m_defaultOutgoingPolicy));
 }
 
+bool FirewallServiceClient::setIpPolicy(const QVariantMap &policy)
+{
+    if (!ensureIface()) {
+        return false;
+    }
+    QDBusReply<QVariantMap> reply = m_iface->call(QStringLiteral("SetIpPolicy"), policy);
+    if (!reply.isValid()) {
+        return false;
+    }
+    const QVariantMap payload = reply.value();
+    return payload.value(QStringLiteral("ok"), false).toBool();
+}
+
 void FirewallServiceClient::onNameOwnerChanged(const QString &name,
                                                const QString &oldOwner,
                                                const QString &newOwner)
@@ -210,4 +223,3 @@ bool FirewallServiceClient::applyStateMap(const QVariantMap &map)
     }
     return true;
 }
-

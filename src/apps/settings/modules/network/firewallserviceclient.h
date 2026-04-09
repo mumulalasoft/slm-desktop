@@ -29,6 +29,7 @@ public:
     Q_INVOKABLE bool setMode(const QString &mode);
     Q_INVOKABLE bool setDefaultIncomingPolicy(const QString &policy);
     Q_INVOKABLE bool setDefaultOutgoingPolicy(const QString &policy);
+    Q_INVOKABLE bool setIpPolicy(const QVariantMap &policy);
 
 signals:
     void availableChanged();

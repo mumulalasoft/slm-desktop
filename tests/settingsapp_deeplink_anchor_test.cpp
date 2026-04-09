@@ -101,6 +101,10 @@ private slots:
         QVERIFY(app.openDeepLink(QStringLiteral("settings://firewall#incoming-default")));
         QCOMPARE(app.currentModuleId(), QStringLiteral("firewall"));
         QCOMPARE(app.currentSettingId(), QStringLiteral("incoming-default"));
+
+        QVERIFY(app.openDeepLink(QStringLiteral("settings://firewall/blocked-ip")));
+        QCOMPARE(app.currentModuleId(), QStringLiteral("firewall"));
+        QCOMPARE(app.currentSettingId(), QStringLiteral("blocked-ip"));
     }
 };
 

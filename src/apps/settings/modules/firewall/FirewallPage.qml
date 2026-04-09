@@ -9,6 +9,13 @@ Flickable {
     anchors.fill: parent
     contentHeight: contentColumn.height + 32
     clip: true
+    property string blockTarget: ""
+    property int blockTypeIndex: 0
+    property int blockScopeIndex: 2
+    property bool blockTemporary: false
+    property string blockDuration: "24h"
+    property string blockResultText: ""
+    property bool blockResultOk: true
 
     readonly property var firewallModes: [
         { value: "home", label: qsTr("Home") },
@@ -20,6 +27,15 @@ Flickable {
         { value: "allow", label: qsTr("Allow") },
         { value: "prompt", label: qsTr("Prompt") }
     ]
+    readonly property var blockTypes: [
+        { value: "ip", label: qsTr("Single IP") },
+        { value: "subnet", label: qsTr("Subnet (CIDR)") }
+    ]
+    readonly property var blockScopes: [
+        { value: "incoming", label: qsTr("Incoming") },
+        { value: "outgoing", label: qsTr("Outgoing") },
+        { value: "both", label: qsTr("Both") }
+    ]
 
     function modeIndex(value) {
         for (var i = 0; i < firewallModes.length; ++i) {
@@ -28,6 +44,39 @@ Flickable {
             }
         }
         return 0
+    }
+
+    function submitIpBlock() {
+        var target = String(blockTarget || "").trim()
+        if (!target.length) {
+            blockResultOk = false
+            blockResultText = qsTr("Target address cannot be empty.")
+            return
+        }
+
+        var payload = {
+            type: blockTypes[blockTypeIndex].value,
+            scope: blockScopes[blockScopeIndex].value,
+            reason: "manual-ui-block",
+            temporary: blockTemporary
+        }
+        if (blockTypes[blockTypeIndex].value === "subnet") {
+            payload.cidr = target
+        } else {
+            payload.ip = target
+        }
+        if (blockTemporary) {
+            payload.duration = String(blockDuration || "24h")
+        }
+
+        var ok = FirewallServiceClient.setIpPolicy(payload)
+        blockResultOk = ok
+        blockResultText = ok
+                ? qsTr("IP policy applied.")
+                : qsTr("Failed to apply IP policy.")
+        if (ok) {
+            blockTarget = ""
+        }
     }
 
     function policyIndex(value) {
@@ -135,8 +184,95 @@ Flickable {
                 }
             }
         }
+
+        SettingGroup {
+            title: qsTr("IP Block")
+            Layout.fillWidth: true
+
+            SettingCard {
+                label: qsTr("Block Address or Network")
+                description: qsTr("Add immediate deny rule by IP or CIDR subnet")
+
+                ColumnLayout {
+                    spacing: 8
+                    Layout.fillWidth: true
+
+                    TextField {
+                        Layout.fillWidth: true
+                        placeholderText: root.blockTypeIndex === 0
+                                         ? qsTr("Example: 203.0.113.10")
+                                         : qsTr("Example: 203.0.113.0/24")
+                        text: root.blockTarget
+                        enabled: FirewallServiceClient.available && FirewallServiceClient.enabled
+                        onTextChanged: root.blockTarget = text
+                    }
+
+                    RowLayout {
+                        spacing: 8
+                        Layout.fillWidth: true
+
+                        ComboBox {
+                            Layout.fillWidth: true
+                            model: root.blockTypes.map(function(item) { return item.label })
+                            currentIndex: root.blockTypeIndex
+                            enabled: FirewallServiceClient.available && FirewallServiceClient.enabled
+                            onActivated: function(index) {
+                                root.blockTypeIndex = index
+                            }
+                        }
+
+                        ComboBox {
+                            Layout.fillWidth: true
+                            model: root.blockScopes.map(function(item) { return item.label })
+                            currentIndex: root.blockScopeIndex
+                            enabled: FirewallServiceClient.available && FirewallServiceClient.enabled
+                            onActivated: function(index) {
+                                root.blockScopeIndex = index
+                            }
+                        }
+                    }
+
+                    RowLayout {
+                        spacing: 8
+                        Layout.fillWidth: true
+
+                        CheckBox {
+                            text: qsTr("Temporary")
+                            checked: root.blockTemporary
+                            enabled: FirewallServiceClient.available && FirewallServiceClient.enabled
+                            onToggled: root.blockTemporary = checked
+                        }
+
+                        ComboBox {
+                            Layout.preferredWidth: 120
+                            model: [qsTr("1h"), qsTr("24h"), qsTr("7d")]
+                            currentIndex: 1
+                            enabled: root.blockTemporary && FirewallServiceClient.available && FirewallServiceClient.enabled
+                            onActivated: function(index) {
+                                var values = ["1h", "24h", "7d"]
+                                root.blockDuration = values[index]
+                            }
+                        }
+
+                        Item { Layout.fillWidth: true }
+
+                        Button {
+                            text: qsTr("Block")
+                            enabled: FirewallServiceClient.available && FirewallServiceClient.enabled
+                            onClicked: root.submitIpBlock()
+                        }
+                    }
+
+                    Text {
+                        visible: root.blockResultText.length > 0
+                        text: root.blockResultText
+                        color: root.blockResultOk ? Theme.color("success") : Theme.color("error")
+                        font.pixelSize: Theme.fontSize("small")
+                    }
+                }
+            }
+        }
     }
 
     Component.onCompleted: FirewallServiceClient.refresh()
 }
-

@@ -46,6 +46,16 @@
             "anchor": "outgoing-default",
             "backend_binding": "dbus:org.slm.Desktop.Firewall",
             "privileged_action": "org.slm.settings.network.modify"
+        },
+        {
+            "id": "blocked-ip",
+            "label": "Blocked IP / Network",
+            "description": "Block single IP or subnet (CIDR)",
+            "keywords": ["blocked ip", "subnet", "cidr", "deny", "network"],
+            "type": "action",
+            "anchor": "blocked-ip",
+            "backend_binding": "dbus:org.slm.Desktop.Firewall",
+            "privileged_action": "org.slm.settings.network.modify"
         }
     ]
 }
