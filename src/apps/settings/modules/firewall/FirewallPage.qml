@@ -469,10 +469,12 @@ Flickable {
         var row = entry || {}
         var identity = row.identity || {}
         var appName = String(identity.app_name || "Unknown App")
+        var scriptTarget = String(identity.script_target || "")
         var protocol = String(row.protocol || "net")
         var local = String(row.local || "-")
         var remote = String(row.remote || "-")
-        return appName + " (" + protocol + ") " + local + " -> " + remote
+        var actor = scriptTarget.length ? scriptTarget : appName
+        return actor + " (" + protocol + ") " + local + " -> " + remote
     }
 
     function connectionDirection(entry) {
@@ -700,6 +702,10 @@ Flickable {
             pid: Number(row.pid || -1),
             direction: root.connectionDirection(row)
         }
+        var target = root.extractRemoteIp(row)
+        if (!target.length) {
+            target = String(row.remote || "-")
+        }
         var ok = FirewallServiceClient.resolveConnectionDecision(
                     request,
                     decision,
@@ -707,8 +713,8 @@ Flickable {
         root.connectionResultOk = ok
         root.connectionResultText = ok
                 ? (root.connectionRemember
-                   ? qsTr("Connection decision saved as app policy.")
-                   : qsTr("Connection decision applied once."))
+                   ? qsTr("Connection decision saved for %1.").arg(target)
+                   : qsTr("Connection decision applied once for %1.").arg(target))
                 : qsTr("Failed to apply connection decision.")
         if (ok) {
             FirewallServiceClient.refreshAppPolicies()
