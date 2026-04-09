@@ -207,6 +207,21 @@ private slots:
         QCOMPARE(service.ListAppPolicies().size(), 0);
     }
 
+    void list_connections_shape_contract()
+    {
+        FirewallService service;
+        const QVariantList connections = service.ListConnections();
+        for (const QVariant &item : connections) {
+            const QVariantMap row = item.toMap();
+            QVERIFY(row.contains(QStringLiteral("protocol")));
+            QVERIFY(row.contains(QStringLiteral("state")));
+            QVERIFY(row.contains(QStringLiteral("local")));
+            QVERIFY(row.contains(QStringLiteral("remote")));
+            QVERIFY(row.contains(QStringLiteral("pid")));
+            QVERIFY(row.contains(QStringLiteral("identity")));
+        }
+    }
+
 private:
     QString m_storePath;
 };

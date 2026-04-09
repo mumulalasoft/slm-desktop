@@ -5,6 +5,8 @@
 #include "policystore.h"
 
 #include <QDateTime>
+#include <QProcess>
+#include <QRegularExpression>
 #include <QUuid>
 
 namespace Slm::Firewall {
@@ -156,6 +158,16 @@ QStringList buildIpBlockRules(const QVariantMap &normalizedPolicy)
         }
     }
     return rules;
+}
+
+qint64 extractPidFromProcessField(const QString &processField)
+{
+    static const QRegularExpression pidRx(QStringLiteral("pid=(\\d+)"));
+    const QRegularExpressionMatch match = pidRx.match(processField);
+    if (!match.hasMatch()) {
+        return -1;
+    }
+    return match.captured(1).toLongLong();
 }
 } // namespace
 
@@ -443,7 +455,46 @@ QVariantMap PolicyEngine::removeIpPolicy(const QString &policyId)
 
 QVariantList PolicyEngine::listConnections() const
 {
-    return {};
+    QProcess proc;
+    proc.start(QStringLiteral("ss"),
+               QStringList{
+                   QStringLiteral("-tunp"),
+                   QStringLiteral("-H"),
+               });
+    if (!proc.waitForFinished(1000) || proc.exitStatus() != QProcess::NormalExit || proc.exitCode() != 0) {
+        return {};
+    }
+
+    const QString output = QString::fromUtf8(proc.readAllStandardOutput());
+    const QStringList lines = output.split(QLatin1Char('\n'), Qt::SkipEmptyParts);
+    QVariantList result;
+    for (const QString &rawLine : lines) {
+        const QString line = rawLine.simplified();
+        const QStringList parts = line.split(QLatin1Char(' '), Qt::SkipEmptyParts);
+        if (parts.size() < 6) {
+            continue;
+        }
+
+        const QString protocol = parts.value(0);
+        const QString state = parts.value(1);
+        const QString localAddress = parts.value(4);
+        const QString remoteAddress = parts.value(5);
+        const QString processField = parts.mid(6).join(QLatin1Char(' '));
+        const qint64 pid = extractPidFromProcessField(processField);
+        const QVariantMap identity = (pid > 0 && m_identity) ? m_identity->resolveByPid(pid) : QVariantMap{};
+
+        result.append(QVariantMap{
+            {QStringLiteral("protocol"), protocol},
+            {QStringLiteral("state"), state},
+            {QStringLiteral("local"), localAddress},
+            {QStringLiteral("remote"), remoteAddress},
+            {QStringLiteral("pid"), pid},
+            {QStringLiteral("process"), processField},
+            {QStringLiteral("identity"), identity},
+        });
+    }
+
+    return result;
 }
 
 } // namespace Slm::Firewall

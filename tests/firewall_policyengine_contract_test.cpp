@@ -204,6 +204,28 @@ private slots:
         QCOMPARE(clearResult.value(QStringLiteral("ok")).toBool(), true);
         QCOMPARE(engine.listAppPolicies().size(), 0);
     }
+
+    void list_connections_shape_contract()
+    {
+        Slm::Firewall::PolicyStore store;
+        QString error;
+        QVERIFY(store.start(&error));
+
+        Slm::Firewall::NftablesAdapter nft;
+        Slm::Firewall::AppIdentityClient identity;
+        Slm::Firewall::PolicyEngine engine(&store, &nft, &identity);
+
+        const QVariantList connections = engine.listConnections();
+        for (const QVariant &item : connections) {
+            const QVariantMap row = item.toMap();
+            QVERIFY(row.contains(QStringLiteral("protocol")));
+            QVERIFY(row.contains(QStringLiteral("state")));
+            QVERIFY(row.contains(QStringLiteral("local")));
+            QVERIFY(row.contains(QStringLiteral("remote")));
+            QVERIFY(row.contains(QStringLiteral("pid")));
+            QVERIFY(row.contains(QStringLiteral("identity")));
+        }
+    }
 };
 
 QTEST_GUILESS_MAIN(FirewallPolicyEngineContractTest)
