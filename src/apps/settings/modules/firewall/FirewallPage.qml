@@ -412,6 +412,21 @@ Flickable {
         return remote.substring(0, colon)
     }
 
+    function ipv4Subnet24(ip) {
+        var value = String(ip || "").trim()
+        var parts = value.split(".")
+        if (parts.length !== 4) {
+            return ""
+        }
+        for (var i = 0; i < parts.length; ++i) {
+            var n = Number(parts[i])
+            if (isNaN(n) || n < 0 || n > 255) {
+                return ""
+            }
+        }
+        return parts[0] + "." + parts[1] + "." + parts[2] + ".0/24"
+    }
+
     function quickBlockConnectionIp(entry, temporary) {
         var ip = root.extractRemoteIp(entry)
         if (!ip.length) {
@@ -442,6 +457,42 @@ Flickable {
                    ? qsTr("Remote IP blocked for 1h: %1").arg(ip)
                    : qsTr("Remote IP blocked permanently: %1").arg(ip))
                 : qsTr("Failed to block remote IP.")
+        if (ok) {
+            FirewallServiceClient.refreshIpPolicies()
+            FirewallServiceClient.refreshConnections()
+        }
+        return ok
+    }
+
+    function quickBlockConnectionSubnet24(entry) {
+        var ip = root.extractRemoteIp(entry)
+        if (!ip.length) {
+            root.connectionResultOk = false
+            root.connectionResultText = qsTr("Remote endpoint has no blockable IP.")
+            return false
+        }
+        var cidr = root.ipv4Subnet24(ip)
+        if (!cidr.length) {
+            root.connectionResultOk = false
+            root.connectionResultText = qsTr("Subnet quick block supports IPv4 endpoints only.")
+            return false
+        }
+        var identity = (entry || {}).identity || {}
+        var appName = String(identity.app_name || "")
+        var note = appName.length
+                ? qsTr("from active connection: %1").arg(appName)
+                : qsTr("from active connection")
+        var ok = FirewallServiceClient.setIpPolicy({
+            type: "subnet",
+            cidr: cidr,
+            scope: "both",
+            reason: "active-connection-subnet-quick-block",
+            note: note
+        })
+        root.connectionResultOk = ok
+        root.connectionResultText = ok
+                ? qsTr("Remote subnet blocked: %1").arg(cidr)
+                : qsTr("Failed to block remote subnet.")
         if (ok) {
             FirewallServiceClient.refreshIpPolicies()
             FirewallServiceClient.refreshConnections()
@@ -1365,6 +1416,11 @@ Flickable {
                                         MenuItem {
                                             text: qsTr("Block Permanent")
                                             onTriggered: root.quickBlockConnectionIp(modelData, false)
+                                        }
+
+                                        MenuItem {
+                                            text: qsTr("Block Subnet (/24)")
+                                            onTriggered: root.quickBlockConnectionSubnet24(modelData)
                                         }
                                     }
                                 }
