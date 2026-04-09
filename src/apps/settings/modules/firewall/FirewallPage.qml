@@ -706,6 +706,7 @@ Flickable {
         if (!isNaN(duplicateCount) && duplicateCount > 0) {
             text += "\n" + qsTr("Suppressed duplicate(s): %1").arg(duplicateCount)
         }
+        text += "\n" + qsTr("Risk score: %1").arg(root.pendingPromptRiskScore(row))
         return text
     }
 
@@ -797,8 +798,56 @@ Flickable {
         return root.pendingPromptSourceTrusted(item) && root.pendingPromptTargetIsLocal(item)
     }
 
+    function pendingPromptRiskScore(item) {
+        var row = item || {}
+        var evaluation = row.evaluation || {}
+        var identity = evaluation.identity || {}
+        var processKind = String(evaluation.processKind || "").trim().toLowerCase()
+        var trustLevel = String(identity.trust_level || "").trim().toLowerCase()
+        var source = String(evaluation.source || "").trim().toLowerCase()
+        var duplicateCount = Number(row.duplicateCount || 0)
+        var remainingSec = root.pendingPromptRemainingSeconds(row)
+        var score = 0
+
+        if (!root.pendingPromptSourceTrusted(row)) {
+            score += 3
+        }
+        if (!root.pendingPromptTargetIsLocal(row)) {
+            score += 3
+        }
+
+        if (trustLevel === "unknown") {
+            score += 2
+        } else if (trustLevel === "suspicious") {
+            score += 4
+        }
+
+        if (processKind === "unknown") {
+            score += 2
+        } else if (processKind === "network_tools" || processKind === "interpreter") {
+            score += 1
+        }
+
+        if (source.indexOf("default") >= 0 || source.indexOf("prompt") >= 0) {
+            score += 1
+        }
+
+        if (!isNaN(duplicateCount) && duplicateCount > 0) {
+            score += Math.min(3, duplicateCount)
+        }
+
+        if (remainingSec >= 0 && remainingSec <= 120) {
+            score += 1
+        }
+
+        return score
+    }
+
     function pendingPromptIsRiskiest(item) {
-        return !root.pendingPromptIsSafest(item)
+        if (root.pendingPromptIsSafest(item)) {
+            return false
+        }
+        return root.pendingPromptRiskScore(item) >= 6
     }
 
     function pendingSafestCount() {
