@@ -112,6 +112,21 @@ private slots:
         QCOMPARE(firewall.value(QStringLiteral("defaultOutgoingPolicy")).toString(), QStringLiteral("deny"));
     }
 
+    void ip_policy_contract()
+    {
+        FirewallService service;
+        const QVariantMap request{
+            {QStringLiteral("type"), QStringLiteral("subnet")},
+            {QStringLiteral("cidr"), QStringLiteral("203.0.113.0/24")},
+            {QStringLiteral("scope"), QStringLiteral("both")},
+            {QStringLiteral("reason"), QStringLiteral("manual-block")},
+        };
+
+        const QVariantMap result = service.SetIpPolicy(request);
+        QCOMPARE(result.value(QStringLiteral("ok")).toBool(), true);
+        QVERIFY(result.value(QStringLiteral("policy")).toMap().contains(QStringLiteral("targets")));
+    }
+
 private:
     QString m_storePath;
 };
