@@ -15,6 +15,7 @@ Flickable {
     property bool blockTemporary: false
     property string blockDuration: "24h"
     property string blockNote: ""
+    property int ipSortIndex: 0
     property string blockResultText: ""
     property bool blockResultOk: true
     property string appRuleAppId: ""
@@ -50,6 +51,11 @@ Flickable {
         { value: "incoming", label: qsTr("Incoming") },
         { value: "outgoing", label: qsTr("Outgoing") },
         { value: "both", label: qsTr("Both") }
+    ]
+    readonly property var ipSortModes: [
+        { value: "latest", label: qsTr("Latest") },
+        { value: "most_hits", label: qsTr("Most Hits") },
+        { value: "target_asc", label: qsTr("Target A-Z") }
     ]
     readonly property var appRuleDecisions: [
         { value: "allow", label: qsTr("Allow") },
@@ -149,6 +155,48 @@ Flickable {
             }
         }
         return out
+    }
+
+    function parseIsoMs(value) {
+        var text = String(value || "").trim()
+        if (!text.length) {
+            return 0
+        }
+        var ms = Date.parse(text)
+        return isNaN(ms) ? 0 : ms
+    }
+
+    function ipPolicyPrimaryTarget(entry) {
+        var p = entry || {}
+        var targets = p.targets || []
+        if (targets.length > 0) {
+            return String(targets[0] || "")
+        }
+        return ""
+    }
+
+    function sortedIpPolicies() {
+        var items = (FirewallServiceClient.ipPolicies || []).slice(0)
+        var mode = ipSortModes[ipSortIndex] ? String(ipSortModes[ipSortIndex].value || "latest") : "latest"
+        items.sort(function(a, b) {
+            var left = a || {}
+            var right = b || {}
+            if (mode === "most_hits") {
+                var leftHits = Number(left.hitCount || 0)
+                var rightHits = Number(right.hitCount || 0)
+                if (leftHits !== rightHits) {
+                    return rightHits - leftHits
+                }
+                return parseIsoMs(String(right.lastHitAt || right.createdAt || ""))
+                        - parseIsoMs(String(left.lastHitAt || left.createdAt || ""))
+            }
+            if (mode === "target_asc") {
+                return ipPolicyPrimaryTarget(left).localeCompare(ipPolicyPrimaryTarget(right))
+            }
+            return parseIsoMs(String(right.lastHitAt || right.createdAt || ""))
+                    - parseIsoMs(String(left.lastHitAt || left.createdAt || ""))
+        })
+        return items
     }
 
     function connectionLabel(entry) {
@@ -749,8 +797,30 @@ Flickable {
                         }
                     }
 
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+
+                        Label {
+                            text: qsTr("Sort")
+                            color: Theme.color("textSecondary")
+                        }
+
+                        ComboBox {
+                            Layout.preferredWidth: 180
+                            model: root.ipSortModes.map(function(item) { return item.label })
+                            currentIndex: root.ipSortIndex
+                            enabled: FirewallServiceClient.available
+                            onActivated: function(index) {
+                                root.ipSortIndex = index
+                            }
+                        }
+
+                        Item { Layout.fillWidth: true }
+                    }
+
                     Repeater {
-                        model: FirewallServiceClient.ipPolicies
+                        model: root.sortedIpPolicies()
 
                         delegate: Rectangle {
                             Layout.fillWidth: true
