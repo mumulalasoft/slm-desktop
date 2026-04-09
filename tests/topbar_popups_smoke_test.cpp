@@ -18,22 +18,6 @@ public:
     int revision() const { return 1; }
 };
 
-class UIPreferencesStub : public QObject
-{
-    Q_OBJECT
-public:
-    explicit UIPreferencesStub(QObject *parent = nullptr) : QObject(parent) {}
-
-    Q_INVOKABLE QVariant getPreference(const QString &, const QVariant &fallback = QVariant()) const
-    {
-        return fallback;
-    }
-
-    Q_INVOKABLE void setPreference(const QString &, const QVariant &) {}
-    Q_INVOKABLE void setDockMotionPreset(const QString &) {}
-    Q_INVOKABLE void setDockDropPulseEnabled(bool) {}
-    Q_INVOKABLE void setDockAutoHideEnabled(bool) {}
-};
 }
 
 class TopBarPopupsSmokeTest : public QObject
@@ -43,7 +27,6 @@ class TopBarPopupsSmokeTest : public QObject
 private:
     QQmlEngine m_engine;
     ThemeIconControllerStub m_themeIconController;
-    UIPreferencesStub m_uiPreferences;
     QQuickWindow m_window;
     QString m_lastComponentError;
 
@@ -57,7 +40,6 @@ private:
         }
         m_engine.addImportPath(importRoot);
         m_engine.rootContext()->setContextProperty(QStringLiteral("ThemeIconController"), &m_themeIconController);
-        m_engine.rootContext()->setContextProperty(QStringLiteral("UIPreferences"), &m_uiPreferences);
 
         QQmlComponent component(&m_engine, QUrl::fromLocalFile(topbarDir + QLatin1Char('/') + fileName));
         if (!component.isReady()) {
