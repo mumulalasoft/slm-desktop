@@ -93,6 +93,8 @@ void SecuritySettingsRoutingJsTest::firewallPendingPromptBlockUi_contract()
 
     QVERIFY(text.contains(QStringLiteral("function pendingPromptTargetIp(item)")));
     QVERIFY(text.contains(QStringLiteral("function pendingPromptEffectiveDecision(item, requestedDecision)")));
+    QVERIFY(text.contains(QStringLiteral("function appPolicyTargetScopeLabel(entry)")));
+    QVERIFY(text.contains(QStringLiteral("local-only")));
     QVERIFY(text.contains(QStringLiteral("function pendingPromptBlockTargetIp(sourceIndex, item, temporary)")));
     QVERIFY(text.contains(QStringLiteral("function pendingPromptBlockTargetSubnet24(sourceIndex, item)")));
     QVERIFY(text.contains(QStringLiteral("Only local network")));

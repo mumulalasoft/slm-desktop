@@ -266,6 +266,15 @@ Flickable {
         return out
     }
 
+    function appPolicyTargetScopeLabel(entry) {
+        var row = entry || {}
+        var targetScope = String(row.targetScope || "any").trim().toLowerCase()
+        if (targetScope === "local" || targetScope === "local_only") {
+            return qsTr("local-only")
+        }
+        return qsTr("any-target")
+    }
+
     function isAppQuarantined(appId) {
         var id = String(appId || "").trim()
         if (!id.length) {
@@ -1593,9 +1602,10 @@ Flickable {
                                         var p = modelData || {}
                                         var appId = String(p.appId || qsTr("(unknown app)"))
                                         var direction = String(p.direction || "incoming")
+                                        var targetScope = root.appPolicyTargetScopeLabel(p)
                                         var quarantined = root.isAppQuarantined(appId)
                                         var suffix = quarantined ? " • " + qsTr("Quarantined") : ""
-                                        return appId + " [" + direction + "]" + suffix
+                                        return appId + " [" + direction + ", " + targetScope + "]" + suffix
                                     }
                                     color: Theme.color("textPrimary")
                                     font.pixelSize: Theme.fontSize("small")
@@ -1689,9 +1699,10 @@ Flickable {
                                         var p = modelData || {}
                                         var appId = String(p.appId || qsTr("(unknown app)"))
                                         var direction = String(p.direction || "incoming")
+                                        var targetScope = root.appPolicyTargetScopeLabel(p)
                                         var quarantined = root.isAppQuarantined(appId)
                                         var suffix = quarantined ? " • " + qsTr("Quarantined") : ""
-                                        return appId + " [" + direction + "]" + suffix
+                                        return appId + " [" + direction + ", " + targetScope + "]" + suffix
                                     }
                                     color: Theme.color("textPrimary")
                                     font.pixelSize: Theme.fontSize("small")
