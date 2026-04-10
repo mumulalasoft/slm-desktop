@@ -856,8 +856,13 @@ Flickable {
     }
 
     function resolvePendingPromptWithLocalPolicy(sourceIndex, item, requestedDecision) {
-        var finalDecision = root.pendingPromptEffectiveDecision(item, requestedDecision)
-        var ok = FirewallServiceClient.resolvePendingPrompt(sourceIndex, finalDecision, root.pendingPromptRemember)
+        var requested = String(requestedDecision || "").trim().toLowerCase()
+        var onlyLocal = root.pendingPromptOnlyLocal && requested === "allow"
+        var finalDecision = root.pendingPromptEffectiveDecision(item, requested)
+        var ok = FirewallServiceClient.resolvePendingPrompt(sourceIndex,
+                                                            requested,
+                                                            root.pendingPromptRemember,
+                                                            onlyLocal)
         return {
             ok: ok,
             decision: finalDecision
@@ -1085,18 +1090,30 @@ Flickable {
     function allowSafestPendingPrompts() {
         var rows = FirewallServiceClient.pendingPrompts || []
         var resolved = 0
+        var deniedByLocalOnly = 0
         for (var i = rows.length - 1; i >= 0; --i) {
             if (!root.pendingPromptIsSafest(rows[i])) {
                 continue
             }
-            if (FirewallServiceClient.resolvePendingPrompt(i, "allow", root.pendingPromptRemember)) {
+            var result = root.resolvePendingPromptWithLocalPolicy(i, rows[i], "allow")
+            if (result.ok) {
                 resolved += 1
+                if (String(result.decision || "") === "deny") {
+                    deniedByLocalOnly += 1
+                }
             }
         }
         root.connectionResultOk = resolved > 0
-        root.connectionResultText = resolved > 0
-                ? qsTr("Allowed %1 safest pending prompt(s).").arg(resolved)
-                : qsTr("No safest pending prompt matched.")
+        if (resolved > 0) {
+            root.connectionResultText = deniedByLocalOnly > 0
+                    ? qsTr("Processed %1 safest prompt(s): allowed %2, denied %3 non-local.")
+                          .arg(resolved)
+                          .arg(resolved - deniedByLocalOnly)
+                          .arg(deniedByLocalOnly)
+                    : qsTr("Allowed %1 safest pending prompt(s).").arg(resolved)
+        } else {
+            root.connectionResultText = qsTr("No safest pending prompt matched.")
+        }
         return resolved
     }
 

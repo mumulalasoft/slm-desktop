@@ -203,6 +203,23 @@ private slots:
         QCOMPARE(remember.value(QStringLiteral("persisted")).toBool(), true);
         QCOMPARE(service.ListAppPolicies().size(), 1);
 
+        const QVariantMap rememberLocalOnly = service.ResolveConnectionDecision(QVariantMap{
+            {QStringLiteral("pid"), -1},
+            {QStringLiteral("direction"), QStringLiteral("outgoing")},
+            {QStringLiteral("destinationIp"), QStringLiteral("203.0.113.34")},
+            {QStringLiteral("localOnly"), true},
+        }, QStringLiteral("allow"), true);
+        QCOMPARE(rememberLocalOnly.value(QStringLiteral("ok")).toBool(), true);
+        QCOMPARE(rememberLocalOnly.value(QStringLiteral("persisted")).toBool(), true);
+        QCOMPARE(rememberLocalOnly.value(QStringLiteral("decision")).toString(), QStringLiteral("deny"));
+
+        const QVariantList localOnlyPolicies = service.ListAppPolicies();
+        QCOMPARE(localOnlyPolicies.size(), 2);
+        const QVariantMap latestLocalOnly = localOnlyPolicies.last().toMap();
+        QCOMPARE(latestLocalOnly.value(QStringLiteral("direction")).toString(), QStringLiteral("outgoing"));
+        QCOMPARE(latestLocalOnly.value(QStringLiteral("decision")).toString(), QStringLiteral("allow"));
+        QCOMPARE(latestLocalOnly.value(QStringLiteral("targetScope")).toString(), QStringLiteral("local"));
+
         const QVariantMap ipPolicy = service.SetIpPolicy(QVariantMap{
             {QStringLiteral("ip"), QStringLiteral("198.51.100.9")},
             {QStringLiteral("scope"), QStringLiteral("incoming")},

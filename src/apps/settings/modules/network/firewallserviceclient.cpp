@@ -580,7 +580,10 @@ bool FirewallServiceClient::refreshConnections()
     return true;
 }
 
-bool FirewallServiceClient::resolvePendingPrompt(int index, const QString &decision, bool remember)
+bool FirewallServiceClient::resolvePendingPrompt(int index,
+                                                 const QString &decision,
+                                                 bool remember,
+                                                 bool onlyLocal)
 {
     const bool hadPrunedRows = pruneStalePendingPrompts();
     if (hadPrunedRows) {
@@ -590,9 +593,12 @@ bool FirewallServiceClient::resolvePendingPrompt(int index, const QString &decis
         return false;
     }
     const QVariantMap row = m_pendingPrompts.at(index).toMap();
-    const QVariantMap request = row.value(QStringLiteral("request")).toMap();
+    QVariantMap request = row.value(QStringLiteral("request")).toMap();
     if (request.isEmpty()) {
         return false;
+    }
+    if (onlyLocal) {
+        request.insert(QStringLiteral("localOnly"), true);
     }
     const bool ok = resolveConnectionDecision(request, decision, remember);
     if (!ok) {
@@ -604,7 +610,9 @@ bool FirewallServiceClient::resolvePendingPrompt(int index, const QString &decis
     return true;
 }
 
-int FirewallServiceClient::resolveAllPendingPrompts(const QString &decision, bool remember)
+int FirewallServiceClient::resolveAllPendingPrompts(const QString &decision,
+                                                    bool remember,
+                                                    bool onlyLocal)
 {
     const bool hadPrunedRows = pruneStalePendingPrompts();
     if (m_pendingPrompts.isEmpty()) {
@@ -617,9 +625,12 @@ int FirewallServiceClient::resolveAllPendingPrompts(const QString &decision, boo
     int resolved = 0;
     for (int i = m_pendingPrompts.size() - 1; i >= 0; --i) {
         const QVariantMap row = m_pendingPrompts.at(i).toMap();
-        const QVariantMap request = row.value(QStringLiteral("request")).toMap();
+        QVariantMap request = row.value(QStringLiteral("request")).toMap();
         if (request.isEmpty()) {
             continue;
+        }
+        if (onlyLocal) {
+            request.insert(QStringLiteral("localOnly"), true);
         }
         if (!resolveConnectionDecision(request, decision, remember)) {
             continue;

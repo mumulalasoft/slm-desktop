@@ -64,6 +64,15 @@ QString normalizeDecision(const QVariant &value)
     return QStringLiteral("prompt");
 }
 
+QString normalizeTargetScope(const QVariant &value)
+{
+    const QString scope = normalizedString(value).toLower();
+    if (scope == QLatin1String("local") || scope == QLatin1String("local_only")) {
+        return QStringLiteral("local");
+    }
+    return QStringLiteral("any");
+}
+
 QVariantMap normalizeAppPolicy(const QVariantMap &policy, QString *error)
 {
     if (error) {
@@ -84,6 +93,7 @@ QVariantMap normalizeAppPolicy(const QVariantMap &policy, QString *error)
         {QStringLiteral("appName"), appName},
         {QStringLiteral("direction"), normalizeScope(policy.value(QStringLiteral("direction")))},
         {QStringLiteral("decision"), normalizeDecision(policy.value(QStringLiteral("decision")))},
+        {QStringLiteral("targetScope"), normalizeTargetScope(policy.value(QStringLiteral("targetScope")))},
         {QStringLiteral("remember"), policy.value(QStringLiteral("remember"), true).toBool()},
         {QStringLiteral("enabled"), true},
     };
@@ -416,6 +426,13 @@ bool isPrivateOrLocalIpv4(const QString &ip)
     return false;
 }
 
+bool isLocalHostName(const QString &host)
+{
+    const QString normalized = host.trimmed().toLower();
+    return normalized == QLatin1String("localhost")
+            || normalized == QLatin1String("localhost.localdomain");
+}
+
 QVariantMap requestActorMeta(const QVariantMap &identity)
 {
     QVariantMap actor;
@@ -521,8 +538,28 @@ QVariantMap PolicyEngine::evaluateConnection(const QVariantMap &request) const
             continue;
         }
         const QString decision = normalizeDecision(entry.value(QStringLiteral("decision")));
+        const QString targetScope = normalizeTargetScope(entry.value(QStringLiteral("targetScope")));
         if (decision == QLatin1String("prompt")) {
             return applyPromptCooldown(identity, direction, QStringLiteral("app-policy"));
+        }
+        if (decision == QLatin1String("allow") && targetScope == QLatin1String("local")) {
+            const QString targetIp = normalizedString(targetMeta.value(QStringLiteral("ip")));
+            const QString targetHost = normalizedString(targetMeta.value(QStringLiteral("host")));
+            const bool localTarget = (!targetIp.isEmpty() && isPrivateOrLocalIpv4(targetIp))
+                    || (!targetHost.isEmpty() && isLocalHostName(targetHost));
+            if (!localTarget) {
+                return {
+                    {QStringLiteral("ok"), true},
+                    {QStringLiteral("decision"), QStringLiteral("deny")},
+                    {QStringLiteral("direction"), direction},
+                    {QStringLiteral("source"), QStringLiteral("app-policy-local-only")},
+                    {QStringLiteral("policyId"), entry.value(QStringLiteral("policyId")).toString()},
+                    {QStringLiteral("targetScope"), targetScope},
+                    {QStringLiteral("identity"), identity},
+                    {QStringLiteral("target"), targetMeta},
+                    {QStringLiteral("actor"), actorMeta},
+                };
+            }
         }
         return {
             {QStringLiteral("ok"), true},
@@ -530,6 +567,7 @@ QVariantMap PolicyEngine::evaluateConnection(const QVariantMap &request) const
             {QStringLiteral("direction"), direction},
             {QStringLiteral("source"), QStringLiteral("app-policy")},
             {QStringLiteral("policyId"), entry.value(QStringLiteral("policyId")).toString()},
+            {QStringLiteral("targetScope"), targetScope},
             {QStringLiteral("identity"), identity},
             {QStringLiteral("target"), targetMeta},
             {QStringLiteral("actor"), actorMeta},
@@ -647,12 +685,23 @@ QVariantMap PolicyEngine::resolveConnectionDecision(const QVariantMap &request,
     const QVariantMap evaluation = evaluateConnection(request);
     const QVariantMap identity = evaluation.value(QStringLiteral("identity")).toMap();
     const QString direction = normalizeDirection(request.value(QStringLiteral("direction")));
+    const bool localOnlyRequested = request.value(QStringLiteral("localOnly"), false).toBool()
+            && normalized == QLatin1String("allow");
+    const QVariantMap targetMeta = requestTargetMeta(request);
+    const QString targetIp = normalizedString(targetMeta.value(QStringLiteral("ip")));
+    const QString targetHost = normalizedString(targetMeta.value(QStringLiteral("host")));
+    const bool localTarget = (!targetIp.isEmpty() && isPrivateOrLocalIpv4(targetIp))
+            || (!targetHost.isEmpty() && isLocalHostName(targetHost));
+    const QString effectiveDecision = (localOnlyRequested && !localTarget)
+            ? QStringLiteral("deny")
+            : normalized;
 
     QVariantMap result{
         {QStringLiteral("ok"), true},
-        {QStringLiteral("decision"), normalized},
+        {QStringLiteral("decision"), effectiveDecision},
         {QStringLiteral("remember"), remember},
         {QStringLiteral("persisted"), false},
+        {QStringLiteral("targetScope"), localOnlyRequested ? QStringLiteral("local") : QStringLiteral("any")},
     };
 
     if (!remember) {
@@ -672,6 +721,7 @@ QVariantMap PolicyEngine::resolveConnectionDecision(const QVariantMap &request,
         {QStringLiteral("appName"), identity.value(QStringLiteral("app_name")).toString()},
         {QStringLiteral("decision"), normalized},
         {QStringLiteral("direction"), direction},
+        {QStringLiteral("targetScope"), localOnlyRequested ? QStringLiteral("local") : QStringLiteral("any")},
         {QStringLiteral("remember"), true},
     });
     if (!persist.value(QStringLiteral("ok"), false).toBool()) {

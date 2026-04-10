@@ -172,6 +172,55 @@ private slots:
         QCOMPARE(engine.listAppPolicies().size(), 1);
     }
 
+    void resolve_connection_decision_local_only_persists_and_replays()
+    {
+        Slm::Firewall::PolicyStore store;
+        QString error;
+        QVERIFY(store.start(&error));
+
+        Slm::Firewall::NftablesAdapter nft;
+        Slm::Firewall::AppIdentityClient identity;
+        Slm::Firewall::PolicyEngine engine(&store, &nft, &identity);
+
+        const QVariantMap rememberLocalOnly = engine.resolveConnectionDecision(QVariantMap{
+            {QStringLiteral("pid"), -1},
+            {QStringLiteral("direction"), QStringLiteral("outgoing")},
+            {QStringLiteral("destinationIp"), QStringLiteral("203.0.113.55")},
+            {QStringLiteral("localOnly"), true},
+        }, QStringLiteral("allow"), true);
+        QCOMPARE(rememberLocalOnly.value(QStringLiteral("ok")).toBool(), true);
+        QCOMPARE(rememberLocalOnly.value(QStringLiteral("persisted")).toBool(), true);
+        QCOMPARE(rememberLocalOnly.value(QStringLiteral("decision")).toString(), QStringLiteral("deny"));
+        QCOMPARE(rememberLocalOnly.value(QStringLiteral("targetScope")).toString(), QStringLiteral("local"));
+
+        const QVariantList policies = engine.listAppPolicies();
+        QCOMPARE(policies.size(), 1);
+        const QVariantMap policy = policies.first().toMap();
+        QCOMPARE(policy.value(QStringLiteral("decision")).toString(), QStringLiteral("allow"));
+        QCOMPARE(policy.value(QStringLiteral("targetScope")).toString(), QStringLiteral("local"));
+        QCOMPARE(policy.value(QStringLiteral("direction")).toString(), QStringLiteral("outgoing"));
+
+        const QVariantMap replayNonLocal = engine.evaluateConnection(QVariantMap{
+            {QStringLiteral("pid"), -1},
+            {QStringLiteral("direction"), QStringLiteral("outgoing")},
+            {QStringLiteral("destinationIp"), QStringLiteral("198.51.100.22")},
+        });
+        QCOMPARE(replayNonLocal.value(QStringLiteral("ok")).toBool(), true);
+        QCOMPARE(replayNonLocal.value(QStringLiteral("decision")).toString(), QStringLiteral("deny"));
+        QCOMPARE(replayNonLocal.value(QStringLiteral("source")).toString(), QStringLiteral("app-policy-local-only"));
+        QCOMPARE(replayNonLocal.value(QStringLiteral("targetScope")).toString(), QStringLiteral("local"));
+
+        const QVariantMap replayLocal = engine.evaluateConnection(QVariantMap{
+            {QStringLiteral("pid"), -1},
+            {QStringLiteral("direction"), QStringLiteral("outgoing")},
+            {QStringLiteral("destinationIp"), QStringLiteral("10.10.0.8")},
+        });
+        QCOMPARE(replayLocal.value(QStringLiteral("ok")).toBool(), true);
+        QCOMPARE(replayLocal.value(QStringLiteral("decision")).toString(), QStringLiteral("allow"));
+        QCOMPARE(replayLocal.value(QStringLiteral("source")).toString(), QStringLiteral("app-policy"));
+        QCOMPARE(replayLocal.value(QStringLiteral("targetScope")).toString(), QStringLiteral("local"));
+    }
+
     void apply_base_policy_pushes_batch_to_nft()
     {
         Slm::Firewall::PolicyStore store;
