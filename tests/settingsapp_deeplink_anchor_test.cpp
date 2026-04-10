@@ -109,6 +109,10 @@ private slots:
         QVERIFY(app.openDeepLink(QStringLiteral("settings://firewall/pending-prompts")));
         QCOMPARE(app.currentModuleId(), QStringLiteral("firewall"));
         QCOMPARE(app.currentSettingId(), QStringLiteral("pending-prompts"));
+
+        QVERIFY(app.openDeepLink(QStringLiteral("settings://firewall/reset-config")));
+        QCOMPARE(app.currentModuleId(), QStringLiteral("firewall"));
+        QCOMPARE(app.currentSettingId(), QStringLiteral("reset-config"));
     }
 };
 

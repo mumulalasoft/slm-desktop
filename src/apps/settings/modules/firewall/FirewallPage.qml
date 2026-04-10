@@ -1314,6 +1314,30 @@ Flickable {
         return 0
     }
 
+    function resetFirewallConfiguration() {
+        var okEnabled = FirewallServiceClient.setEnabled(true)
+        var okMode = FirewallServiceClient.setMode("home")
+        var okIncoming = FirewallServiceClient.setDefaultIncomingPolicy("deny")
+        var okOutgoing = FirewallServiceClient.setDefaultOutgoingPolicy("allow")
+        var okCooldown = FirewallServiceClient.setPromptCooldownSeconds(20)
+        var okApps = FirewallServiceClient.clearAppPolicies()
+        var okIp = FirewallServiceClient.clearIpPolicies()
+        FirewallServiceClient.clearPendingPrompts()
+        FirewallServiceClient.lastQuickBlockPolicyId = ""
+        FirewallServiceClient.lastQuickBlockTarget = ""
+        FirewallServiceClient.refresh()
+        FirewallServiceClient.refreshAppPolicies()
+        FirewallServiceClient.refreshIpPolicies()
+        FirewallServiceClient.refreshConnections()
+
+        var allOk = okEnabled && okMode && okIncoming && okOutgoing && okCooldown && okApps && okIp
+        root.connectionResultOk = allOk
+        root.connectionResultText = allOk
+                ? qsTr("Firewall configuration reset to secure defaults.")
+                : qsTr("Some firewall reset actions failed. Please review current state.")
+        return allOk
+    }
+
     ColumnLayout {
         id: contentColumn
         anchors.left: parent.left
@@ -1432,6 +1456,35 @@ Flickable {
                         text: qsTr("%1 sec").arg(FirewallServiceClient.promptCooldownSeconds)
                         color: Theme.color("textSecondary")
                         font.pixelSize: Theme.fontSize("small")
+                    }
+                }
+            }
+        }
+
+        SettingGroup {
+            title: qsTr("Maintenance")
+            Layout.fillWidth: true
+
+            SettingCard {
+                label: qsTr("Reset Configuration")
+                description: qsTr("Clear rules and restore secure firewall defaults")
+
+                RowLayout {
+                    spacing: 8
+                    Layout.fillWidth: true
+
+                    Button {
+                        text: qsTr("Reset Firewall")
+                        enabled: FirewallServiceClient.available
+                        onClicked: resetFirewallConfirmDialog.open()
+                    }
+
+                    Text {
+                        Layout.fillWidth: true
+                        text: qsTr("This action can be undone by reapplying app/IP policies.")
+                        color: Theme.color("textSecondary")
+                        font.pixelSize: Theme.fontSize("small")
+                        wrapMode: Text.WordWrap
                     }
                 }
             }
@@ -2538,6 +2591,35 @@ Flickable {
                 }
             }
         }
+    }
+
+    Dialog {
+        id: resetFirewallConfirmDialog
+        modal: true
+        title: qsTr("Reset Firewall Configuration?")
+        standardButtons: Dialog.Ok | Dialog.Cancel
+
+        contentItem: ColumnLayout {
+            spacing: 8
+
+            Text {
+                Layout.fillWidth: true
+                text: qsTr("This will clear application/IP rules and restore defaults:\n- Enabled\n- Mode: Home\n- Incoming: Deny\n- Outgoing: Allow\n- Prompt cooldown: 20s")
+                wrapMode: Text.WordWrap
+                color: Theme.color("textPrimary")
+                font.pixelSize: Theme.fontSize("small")
+            }
+
+            Text {
+                Layout.fillWidth: true
+                text: qsTr("Pending prompt queue will also be cleared.")
+                wrapMode: Text.WordWrap
+                color: Theme.color("textSecondary")
+                font.pixelSize: Theme.fontSize("small")
+            }
+        }
+
+        onAccepted: root.resetFirewallConfiguration()
     }
 
     Dialog {

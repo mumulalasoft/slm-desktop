@@ -13,6 +13,7 @@ private slots:
     void deepLinkForCapability_contract();
     void firewallQuickBlockUi_contract();
     void firewallPendingPromptBlockUi_contract();
+    void firewallResetUi_contract();
 };
 
 void SecuritySettingsRoutingJsTest::deepLinkForCapability_contract()
@@ -103,6 +104,23 @@ void SecuritySettingsRoutingJsTest::firewallPendingPromptBlockUi_contract()
     QVERIFY(text.contains(QStringLiteral("Block IP")));
     QVERIFY(text.contains(QStringLiteral("pendingPromptBlockTargetIp(sourceIndex, promptItem, true)")));
     QVERIFY(text.contains(QStringLiteral("Block /24")));
+}
+
+void SecuritySettingsRoutingJsTest::firewallResetUi_contract()
+{
+    const QString path = QStringLiteral(DESKTOP_SOURCE_DIR)
+                         + QStringLiteral("/src/apps/settings/modules/firewall/FirewallPage.qml");
+    QVERIFY2(QFileInfo::exists(path), "FirewallPage.qml is missing");
+
+    QFile file(path);
+    QVERIFY2(file.open(QIODevice::ReadOnly | QIODevice::Text),
+             "cannot open FirewallPage.qml");
+    const QString text = QString::fromUtf8(file.readAll());
+
+    QVERIFY(text.contains(QStringLiteral("function resetFirewallConfiguration()")));
+    QVERIFY(text.contains(QStringLiteral("Reset Configuration")));
+    QVERIFY(text.contains(QStringLiteral("Reset Firewall")));
+    QVERIFY(text.contains(QStringLiteral("Reset Firewall Configuration?")));
 }
 
 QTEST_GUILESS_MAIN(SecuritySettingsRoutingJsTest)

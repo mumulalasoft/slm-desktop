@@ -66,6 +66,16 @@
             "anchor": "pending-prompts",
             "backend_binding": "dbus:org.slm.Desktop.Firewall",
             "privileged_action": "org.slm.settings.network.modify"
+        },
+        {
+            "id": "reset-config",
+            "label": "Reset Configuration",
+            "description": "Clear policies and restore secure firewall defaults",
+            "keywords": ["reset", "restore defaults", "clear policies", "maintenance"],
+            "type": "action",
+            "anchor": "reset-config",
+            "backend_binding": "dbus:org.slm.Desktop.Firewall",
+            "privileged_action": "org.slm.settings.network.modify"
         }
     ]
 }
