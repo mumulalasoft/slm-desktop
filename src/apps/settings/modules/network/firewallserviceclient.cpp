@@ -1,11 +1,13 @@
 #include "firewallserviceclient.h"
 
 #include <QDBusConnection>
+#include <QDBusArgument>
 #include <QDBusInterface>
 #include <QDBusReply>
 #include <QDBusVariant>
 #include <QDateTime>
 #include <QJsonDocument>
+#include <QMetaType>
 
 #include <algorithm>
 #include <limits>
@@ -21,6 +23,8 @@ constexpr const char kQuickBlockPolicyPath[] = "firewall.quickBlockUndo.policyId
 constexpr const char kQuickBlockTargetPath[] = "firewall.quickBlockUndo.target";
 constexpr const char kConfirmBatchTriagePresetPath[] = "firewall.pendingTriage.confirmBatchPreset";
 constexpr qint64 kPendingPromptTtlSecs = 15 * 60;
+constexpr qint64 kPromptDuplicateSuppressSecs = 8;
+constexpr qint64 kPromptDuplicateSuppressCacheSecs = kPromptDuplicateSuppressSecs * 6;
 
 qint64 pendingPromptRemainingSeconds(const QVariantMap &row, const QDateTime &nowUtc)
 {
@@ -88,6 +92,62 @@ QVariant valueByPath(const QVariantMap &root, const QString &path, bool *ok)
         *ok = true;
     }
     return current;
+}
+
+QVariant normalizeDbusVariant(const QVariant &input);
+
+QVariantList normalizeDbusList(const QVariantList &list)
+{
+    QVariantList normalized;
+    normalized.reserve(list.size());
+    for (const QVariant &entry : list) {
+        normalized.append(normalizeDbusVariant(entry));
+    }
+    return normalized;
+}
+
+QVariantMap normalizeDbusMap(const QVariantMap &map)
+{
+    QVariantMap normalized;
+    for (auto it = map.constBegin(); it != map.constEnd(); ++it) {
+        normalized.insert(it.key(), normalizeDbusVariant(it.value()));
+    }
+    return normalized;
+}
+
+QVariant normalizeDbusVariant(const QVariant &input)
+{
+    if (input.userType() == qMetaTypeId<QDBusVariant>()) {
+        const QDBusVariant dbusVariant = qvariant_cast<QDBusVariant>(input);
+        return normalizeDbusVariant(dbusVariant.variant());
+    }
+
+    if (input.userType() == qMetaTypeId<QDBusArgument>()) {
+        const QDBusArgument arg = qvariant_cast<QDBusArgument>(input);
+        const QVariantMap asMap = qdbus_cast<QVariantMap>(arg);
+        if (!asMap.isEmpty()) {
+            return normalizeDbusMap(asMap);
+        }
+        const QVariantList asList = qdbus_cast<QVariantList>(arg);
+        if (!asList.isEmpty()) {
+            return normalizeDbusList(asList);
+        }
+        return {};
+    }
+
+    if (input.userType() == QMetaType::QVariantMap) {
+        const QVariantMap map = input.toMap();
+        if (!map.isEmpty()) {
+            return normalizeDbusMap(map);
+        }
+    }
+    if (input.userType() == QMetaType::QVariantList) {
+        const QVariantList list = input.toList();
+        if (!list.isEmpty()) {
+            return normalizeDbusList(list);
+        }
+    }
+    return input;
 }
 }
 
@@ -722,6 +782,68 @@ bool FirewallServiceClient::sortPendingPromptsByExpiry()
     return m_pendingPrompts != before;
 }
 
+QString FirewallServiceClient::promptThrottleKey(const QVariantMap &request,
+                                                 const QVariantMap &evaluation) const
+{
+    const QVariantMap actor = evaluation.value(QStringLiteral("actor")).toMap();
+    const QVariantMap identity = evaluation.value(QStringLiteral("identity")).toMap();
+    const QVariantMap target = evaluation.value(QStringLiteral("target")).toMap();
+
+    const QString appId = identity.value(QStringLiteral("app_id")).toString().trimmed().toLower();
+    const QString actorName = actor.value(QStringLiteral("appName")).toString().trimmed().toLower();
+    const QString executable = actor.value(QStringLiteral("executable")).toString().trimmed().toLower();
+    const QString scriptTarget = actor.value(QStringLiteral("scriptTarget")).toString().trimmed().toLower();
+    const QString direction = request.value(QStringLiteral("direction"),
+                                            evaluation.value(QStringLiteral("direction"),
+                                                             QStringLiteral("incoming")))
+                                  .toString().trimmed().toLower();
+
+    const QString endpointIp = target.value(QStringLiteral("ip"),
+                                            request.value(QStringLiteral("destinationIp"),
+                                                          request.value(QStringLiteral("remoteIp"),
+                                                                        request.value(QStringLiteral("ip")))))
+                                   .toString().trimmed().toLower();
+    const QString endpointHost = target.value(QStringLiteral("host"),
+                                              request.value(QStringLiteral("destinationHost"),
+                                                            request.value(QStringLiteral("host"))))
+                                     .toString().trimmed().toLower();
+    const QString endpointPort = target.value(QStringLiteral("port"),
+                                              request.value(QStringLiteral("destinationPort"),
+                                                            request.value(QStringLiteral("port"))))
+                                     .toString().trimmed().toLower();
+
+    const QString actorKey = !appId.isEmpty()
+            ? appId
+            : (!actorName.isEmpty()
+               ? actorName
+               : (!scriptTarget.isEmpty() ? scriptTarget : executable));
+    const QString endpointKey = !endpointHost.isEmpty()
+            ? endpointHost
+            : endpointIp;
+
+    if (actorKey.isEmpty() || endpointKey.isEmpty()) {
+        return {};
+    }
+
+    return QStringLiteral("%1|%2|%3|%4")
+            .arg(actorKey, direction, endpointKey, endpointPort);
+}
+
+void FirewallServiceClient::prunePromptThrottleCache(qint64 nowSecs)
+{
+    if (m_lastPromptEpochByKey.isEmpty()) {
+        return;
+    }
+
+    for (auto it = m_lastPromptEpochByKey.begin(); it != m_lastPromptEpochByKey.end(); ) {
+        if ((nowSecs - it.value()) > kPromptDuplicateSuppressCacheSecs) {
+            it = m_lastPromptEpochByKey.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}
+
 void FirewallServiceClient::onNameOwnerChanged(const QString &name,
                                                const QString &oldOwner,
                                                const QString &newOwner)
@@ -756,6 +878,7 @@ void FirewallServiceClient::onNameOwnerChanged(const QString &name,
         m_pendingPrompts.clear();
         emit pendingPromptsChanged();
     }
+    m_lastPromptEpochByKey.clear();
     delete m_iface;
     m_iface = nullptr;
 }
@@ -771,16 +894,62 @@ void FirewallServiceClient::onFirewallStateChanged(const QVariantMap &state)
     }
 }
 
+void FirewallServiceClient::onPolicyChanged(const QVariantMap &change)
+{
+    const QVariantMap normalized = normalizeDbusMap(change);
+    const QString kind = normalized.value(QStringLiteral("kind")).toString().trimmed().toLower();
+    if (kind == QLatin1String("app")) {
+        refreshAppPolicies();
+        return;
+    }
+    if (kind == QLatin1String("ip")) {
+        refreshIpPolicies();
+        refreshConnections();
+        return;
+    }
+    refreshAppPolicies();
+    refreshIpPolicies();
+    refreshConnections();
+}
+
 void FirewallServiceClient::onConnectionPromptRequested(const QVariantMap &prompt)
 {
     const bool hadPrunedRows = pruneStalePendingPrompts();
-    const QVariantMap request = prompt.value(QStringLiteral("request")).toMap();
-    const QVariantMap evaluation = prompt.value(QStringLiteral("evaluation")).toMap();
+    const QVariantMap normalizedPrompt = normalizeDbusMap(prompt);
+    const QVariantMap request = normalizedPrompt.value(QStringLiteral("request")).toMap();
+    const QVariantMap evaluation = normalizedPrompt.value(QStringLiteral("evaluation")).toMap();
     if (request.isEmpty() || evaluation.isEmpty()) {
         if (hadPrunedRows) {
             emit pendingPromptsChanged();
         }
         return;
+    }
+
+    const qint64 nowSecs = QDateTime::currentSecsSinceEpoch();
+    prunePromptThrottleCache(nowSecs);
+    const QString throttleKey = promptThrottleKey(request, evaluation);
+    if (!throttleKey.isEmpty()) {
+        const qint64 lastSeenSecs = m_lastPromptEpochByKey.value(throttleKey, 0);
+        const bool inSuppressWindow = lastSeenSecs > 0
+                && (nowSecs - lastSeenSecs) < kPromptDuplicateSuppressSecs;
+        m_lastPromptEpochByKey.insert(throttleKey, nowSecs);
+        if (inSuppressWindow) {
+            for (int i = 0; i < m_pendingPrompts.size(); ++i) {
+                QVariantMap existing = m_pendingPrompts.at(i).toMap();
+                if (existing.value(QStringLiteral("throttleKey")).toString() != throttleKey) {
+                    continue;
+                }
+                const int priorCount = existing.value(QStringLiteral("duplicateCount"), 0).toInt();
+                existing.insert(QStringLiteral("duplicateCount"), (priorCount < 0 ? 0 : priorCount) + 1);
+                m_pendingPrompts[i] = existing;
+                emit pendingPromptsChanged();
+                return;
+            }
+            if (hadPrunedRows) {
+                emit pendingPromptsChanged();
+            }
+            return;
+        }
     }
 
     const QString requestKey = QString::fromUtf8(
@@ -801,6 +970,9 @@ void FirewallServiceClient::onConnectionPromptRequested(const QVariantMap &promp
             QVariantMap updated = existing;
             updated.insert(QStringLiteral("duplicateCount"), duplicateCount);
             updated.insert(QStringLiteral("receivedAt"), QDateTime::currentDateTimeUtc().toString(Qt::ISODate));
+            if (!throttleKey.isEmpty()) {
+                updated.insert(QStringLiteral("throttleKey"), throttleKey);
+            }
             const int rowIndex = m_pendingPrompts.indexOf(item);
             if (rowIndex >= 0) {
                 m_pendingPrompts[rowIndex] = updated;
@@ -811,9 +983,12 @@ void FirewallServiceClient::onConnectionPromptRequested(const QVariantMap &promp
         }
     }
 
-    QVariantMap row = prompt;
+    QVariantMap row = normalizedPrompt;
     row.insert(QStringLiteral("duplicateCount"), 0);
     row.insert(QStringLiteral("receivedAt"), QDateTime::currentDateTimeUtc().toString(Qt::ISODate));
+    if (!throttleKey.isEmpty()) {
+        row.insert(QStringLiteral("throttleKey"), throttleKey);
+    }
     m_pendingPrompts.append(row);
     while (m_pendingPrompts.size() > 20) {
         m_pendingPrompts.removeFirst();
@@ -846,6 +1021,12 @@ bool FirewallServiceClient::ensureIface()
                                               QStringLiteral("FirewallStateChanged"),
                                               this,
                                               SLOT(onFirewallStateChanged(QVariantMap)));
+        QDBusConnection::sessionBus().connect(QLatin1String(kService),
+                                              QLatin1String(kPath),
+                                              QLatin1String(kInterface),
+                                              QStringLiteral("PolicyChanged"),
+                                              this,
+                                              SLOT(onPolicyChanged(QVariantMap)));
         QDBusConnection::sessionBus().connect(QLatin1String(kService),
                                               QLatin1String(kPath),
                                               QLatin1String(kInterface),

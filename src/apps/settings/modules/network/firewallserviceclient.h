@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QObject>
+#include <QHash>
 #include <QString>
 #include <QVariantList>
 #include <QVariantMap>
@@ -86,9 +87,12 @@ signals:
 private slots:
     void onNameOwnerChanged(const QString &name, const QString &oldOwner, const QString &newOwner);
     void onFirewallStateChanged(const QVariantMap &state);
+    void onPolicyChanged(const QVariantMap &change);
     void onConnectionPromptRequested(const QVariantMap &prompt);
 
 private:
+    QString promptThrottleKey(const QVariantMap &request, const QVariantMap &evaluation) const;
+    void prunePromptThrottleCache(qint64 nowSecs);
     bool pruneStalePendingPrompts();
     bool sortPendingPromptsByExpiry();
     bool ensureIface();
@@ -111,6 +115,7 @@ private:
     QVariantList m_ipPolicies;
     QVariantList m_activeConnections;
     QVariantList m_pendingPrompts;
+    QHash<QString, qint64> m_lastPromptEpochByKey;
     QString m_lastQuickBlockPolicyId;
     QString m_lastQuickBlockTarget;
     QString m_quickBlockUndoNotice;
