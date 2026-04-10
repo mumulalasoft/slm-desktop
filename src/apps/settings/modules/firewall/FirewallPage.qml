@@ -33,6 +33,7 @@ Flickable {
     property string connectionResultText: ""
     property bool connectionResultOk: true
     property bool pendingPromptRemember: false
+    property bool pendingPromptOnlyLocal: false
     property bool pendingShowSafestOnly: false
     property bool pendingSortByRisk: false
     property int pendingTriagePresetIndex: 1
@@ -841,6 +842,26 @@ Flickable {
             return ""
         }
         return root.ipv4Subnet24(ip)
+    }
+
+    function pendingPromptEffectiveDecision(item, requestedDecision) {
+        var decision = String(requestedDecision || "").trim().toLowerCase()
+        if (decision !== "allow") {
+            return decision
+        }
+        if (!root.pendingPromptOnlyLocal) {
+            return "allow"
+        }
+        return root.pendingPromptTargetIsLocal(item) ? "allow" : "deny"
+    }
+
+    function resolvePendingPromptWithLocalPolicy(sourceIndex, item, requestedDecision) {
+        var finalDecision = root.pendingPromptEffectiveDecision(item, requestedDecision)
+        var ok = FirewallServiceClient.resolvePendingPrompt(sourceIndex, finalDecision, root.pendingPromptRemember)
+        return {
+            ok: ok,
+            decision: finalDecision
+        }
     }
 
     function pendingPromptBlockTargetIp(sourceIndex, item, temporary) {
@@ -2052,6 +2073,13 @@ Flickable {
                         }
 
                         CheckBox {
+                            text: qsTr("Only local network")
+                            checked: root.pendingPromptOnlyLocal
+                            enabled: FirewallServiceClient.available && FirewallServiceClient.enabled
+                            onToggled: root.pendingPromptOnlyLocal = checked
+                        }
+
+                        CheckBox {
                             text: qsTr("Show safest only")
                             checked: root.pendingShowSafestOnly
                             enabled: FirewallServiceClient.available
@@ -2081,18 +2109,44 @@ Flickable {
                             onClicked: root.denyRiskiestPendingPrompts()
                         }
 
-                        Button {
-                            text: qsTr("Allow All")
-                            enabled: FirewallServiceClient.available
-                                     && FirewallServiceClient.enabled
-                                     && FirewallServiceClient.pendingPrompts.length > 0
-                            onClicked: {
-                                var count = FirewallServiceClient.resolveAllPendingPrompts("allow",
-                                                                                          root.pendingPromptRemember)
-                                root.connectionResultOk = count > 0
-                                root.connectionResultText = count > 0
-                                        ? qsTr("Allowed %1 pending prompt(s).").arg(count)
-                                        : qsTr("No pending prompt was allowed.")
+                                Button {
+                                    text: qsTr("Allow All")
+                                    enabled: FirewallServiceClient.available
+                                             && FirewallServiceClient.enabled
+                                             && FirewallServiceClient.pendingPrompts.length > 0
+                                    onClicked: {
+                                if (!root.pendingPromptOnlyLocal) {
+                                    var count = FirewallServiceClient.resolveAllPendingPrompts("allow",
+                                                                                              root.pendingPromptRemember)
+                                    root.connectionResultOk = count > 0
+                                    root.connectionResultText = count > 0
+                                            ? qsTr("Allowed %1 pending prompt(s).").arg(count)
+                                            : qsTr("No pending prompt was allowed.")
+                                } else {
+                                    var rows = FirewallServiceClient.pendingPrompts || []
+                                    var processed = 0
+                                    var allowed = 0
+                                    var denied = 0
+                                    for (var i = rows.length - 1; i >= 0; --i) {
+                                        var result = root.resolvePendingPromptWithLocalPolicy(i, rows[i], "allow")
+                                        if (!result.ok) {
+                                            continue
+                                        }
+                                        processed += 1
+                                        if (String(result.decision || "") === "allow") {
+                                            allowed += 1
+                                        } else {
+                                            denied += 1
+                                        }
+                                    }
+                                    root.connectionResultOk = processed > 0
+                                    root.connectionResultText = processed > 0
+                                            ? qsTr("Processed %1 prompt(s): allowed %2 local, denied %3 non-local.")
+                                                  .arg(processed)
+                                                  .arg(allowed)
+                                                  .arg(denied)
+                                            : qsTr("No pending prompt was processed.")
+                                }
                             }
                         }
 
@@ -2238,10 +2292,12 @@ Flickable {
                                              && FirewallServiceClient.enabled
                                              && sourceIndex >= 0
                                     onClicked: {
-                                        var ok = FirewallServiceClient.resolvePendingPrompt(sourceIndex, "allow", root.pendingPromptRemember)
-                                        root.connectionResultOk = ok
-                                        root.connectionResultText = ok
-                                                ? qsTr("Pending prompt allowed.")
+                                        var result = root.resolvePendingPromptWithLocalPolicy(sourceIndex, promptItem, "allow")
+                                        root.connectionResultOk = result.ok
+                                        root.connectionResultText = result.ok
+                                                ? (String(result.decision || "") === "allow"
+                                                   ? qsTr("Pending prompt allowed.")
+                                                   : qsTr("Pending prompt denied (non-local target)."))
                                                 : qsTr("Failed to resolve pending prompt.")
                                     }
                                 }

@@ -92,8 +92,10 @@ void SecuritySettingsRoutingJsTest::firewallPendingPromptBlockUi_contract()
     const QString text = QString::fromUtf8(file.readAll());
 
     QVERIFY(text.contains(QStringLiteral("function pendingPromptTargetIp(item)")));
+    QVERIFY(text.contains(QStringLiteral("function pendingPromptEffectiveDecision(item, requestedDecision)")));
     QVERIFY(text.contains(QStringLiteral("function pendingPromptBlockTargetIp(sourceIndex, item, temporary)")));
     QVERIFY(text.contains(QStringLiteral("function pendingPromptBlockTargetSubnet24(sourceIndex, item)")));
+    QVERIFY(text.contains(QStringLiteral("Only local network")));
     QVERIFY(text.contains(QStringLiteral("Block IP")));
     QVERIFY(text.contains(QStringLiteral("pendingPromptBlockTargetIp(sourceIndex, promptItem, true)")));
     QVERIFY(text.contains(QStringLiteral("Block /24")));
