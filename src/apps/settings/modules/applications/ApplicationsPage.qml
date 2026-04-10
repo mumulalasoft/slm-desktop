@@ -535,22 +535,27 @@ Item {
         }
 
         // Lazy-load the app list when the dialog opens
-        property var appList: []
+        property var installedApps: []
         onOpened: {
             appSearchField.text = ""
             customCmdField.text = ""
             if (StartupAppsController)
-                appList = StartupAppsController.installedApps()
+                installedApps = StartupAppsController.installedApps()
+            else
+                installedApps = []
             appSearchField.forceActiveFocus()
         }
 
         // Filtered model
         readonly property var filteredApps: {
             const q = appSearchField.text.trim().toLowerCase()
-            if (q.length === 0) return appList
-            return appList.filter(function(a) {
-                return a.name.toLowerCase().indexOf(q) >= 0
-                    || (a.comment && a.comment.toLowerCase().indexOf(q) >= 0)
+            const source = addStartupDialog.installedApps || []
+            if (q.length === 0) return source
+            return source.filter(function(a) {
+                if (!a) return false
+                const name = String(a.name || "").toLowerCase()
+                const comment = String(a.comment || "").toLowerCase()
+                return name.indexOf(q) >= 0 || comment.indexOf(q) >= 0
             })
         }
 
@@ -633,7 +638,7 @@ Item {
                             spacing: 2
                             Text {
                                 Layout.fillWidth: true
-                                text: modelData.name
+                                text: String((modelData && modelData.name) ? modelData.name : "")
                                 font.pixelSize: Theme.fontSize("body")
                                 color: Theme.color("textPrimary")
                                 elide: Text.ElideRight

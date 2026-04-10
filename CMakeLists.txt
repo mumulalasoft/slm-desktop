@@ -810,7 +810,9 @@ set(DESKTOP_SHELL_QML_FILES
     Qml/components/overlay/WorkspaceWindow.qml
     Qml/components/overlay/LockScreenWindow.qml
     Qml/components/overlay/PortalConsentDialogWindow.qml
+    Qml/components/overlay/FirewallPromptDialog.qml
     Qml/components/overlay/LaunchpadActions.js
+    Qml/components/overlay/SecuritySettingsRouting.js
     # Qml/components/NotificationIndicator.qml
     Qml/components/applet/ScreencastIndicator.qml
     Qml/components/applet/InputCaptureIndicator.qml
@@ -2769,6 +2771,61 @@ target_link_libraries(firewallserviceclient_contract_test
 )
 
 add_test(NAME firewallserviceclient_contract_test COMMAND firewallserviceclient_contract_test)
+
+qt_add_executable(firewallserviceclient_prompt_throttle_test
+    src/apps/settings/modules/network/firewallserviceclient.cpp
+    src/apps/settings/modules/network/firewallserviceclient.h
+    tests/firewallserviceclient_prompt_throttle_test.cpp
+)
+
+target_include_directories(firewallserviceclient_prompt_throttle_test PRIVATE ${CMAKE_SOURCE_DIR})
+
+target_link_libraries(firewallserviceclient_prompt_throttle_test
+    PRIVATE
+        Qt6::Core
+        Qt6::DBus
+        Qt6::Test
+)
+
+add_test(NAME firewallserviceclient_prompt_throttle_test COMMAND firewallserviceclient_prompt_throttle_test)
+
+qt_add_executable(firewallserviceclient_dbus_signal_flow_test
+    src/daemon/firewalld/firewallservice.cpp
+    src/daemon/firewalld/firewallservice.h
+    src/daemon/firewalld/firewalldbusadaptor.cpp
+    src/daemon/firewalld/firewalldbusadaptor.h
+    src/daemon/firewalld/firewalltypes.h
+    src/services/firewall/policyengine.cpp
+    src/services/firewall/policyengine.h
+    src/services/firewall/policystore.cpp
+    src/services/firewall/policystore.h
+    src/services/firewall/nftablesadapter.cpp
+    src/services/firewall/nftablesadapter.h
+    src/services/firewall/appidentityclient.cpp
+    src/services/firewall/appidentityclient.h
+    src/services/settingsd/settingsstore.cpp
+    src/services/settingsd/settingsstore.h
+    src/services/settingsd/settingsservice.cpp
+    src/services/settingsd/settingsservice.h
+    src/services/theme-policy/appthemeclassifier.cpp
+    src/services/theme-policy/appthemeclassifier.h
+    src/services/theme-policy/themepolicyengine.cpp
+    src/services/theme-policy/themepolicyengine.h
+    src/apps/settings/modules/network/firewallserviceclient.cpp
+    src/apps/settings/modules/network/firewallserviceclient.h
+    tests/firewallserviceclient_dbus_signal_flow_test.cpp
+)
+
+target_include_directories(firewallserviceclient_dbus_signal_flow_test PRIVATE ${CMAKE_SOURCE_DIR})
+
+target_link_libraries(firewallserviceclient_dbus_signal_flow_test
+    PRIVATE
+        Qt6::Core
+        Qt6::DBus
+        Qt6::Test
+)
+
+add_test(NAME firewallserviceclient_dbus_signal_flow_test COMMAND firewallserviceclient_dbus_signal_flow_test)
 
 qt_add_executable(settings_searchengine_context_ranking_test
     src/apps/settings/moduleloader.cpp

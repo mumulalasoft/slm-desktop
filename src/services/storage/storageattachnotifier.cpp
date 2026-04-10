@@ -6,6 +6,7 @@
 #include <QDBusInterface>
 #include <QDBusReply>
 #include <QDateTime>
+#include <QMetaObject>
 #include <QProcess>
 #include <QSet>
 #include <QUrl>
@@ -49,10 +50,14 @@ StorageAttachNotifier::StorageAttachNotifier(NotificationManager *notificationMa
     }
 
     if (m_notificationManager) {
-        connect(m_notificationManager, &NotificationManager::ActionInvoked,
-                this, &StorageAttachNotifier::onNotificationActionInvoked);
-        connect(m_notificationManager, &NotificationManager::NotificationClosed,
-                this, &StorageAttachNotifier::onNotificationClosed);
+        connect(m_notificationManager,
+                SIGNAL(ActionInvoked(uint,QString)),
+                this,
+                SLOT(onNotificationActionInvoked(uint,QString)));
+        connect(m_notificationManager,
+                SIGNAL(NotificationClosed(uint,uint)),
+                this,
+                SLOT(onNotificationClosed(uint,uint)));
     }
 
     refreshSnapshot(false);
@@ -301,14 +306,23 @@ void StorageAttachNotifier::refreshSnapshot(bool notifyOnAttach)
             }
             const QStringList actions{QStringLiteral("open"), QStringLiteral("Open"),
                                       QStringLiteral("eject"), QStringLiteral("Eject")};
-            const uint id = m_notificationManager->Notify(QStringLiteral("Storage"),
-                                                          0,
-                                                          QStringLiteral("drive-removable-media-symbolic"),
-                                                          tr("External Drive connected"),
-                                                          tr("%1 volume tersedia").arg(group.visibleCount),
-                                                          actions,
-                                                          QVariantMap(),
-                                                          7000);
+            uint id = 0;
+            const bool invoked = QMetaObject::invokeMethod(
+                m_notificationManager,
+                "Notify",
+                Qt::DirectConnection,
+                Q_RETURN_ARG(uint, id),
+                Q_ARG(QString, QStringLiteral("Storage")),
+                Q_ARG(uint, 0u),
+                Q_ARG(QString, QStringLiteral("drive-removable-media-symbolic")),
+                Q_ARG(QString, tr("External Drive connected")),
+                Q_ARG(QString, tr("%1 volume tersedia").arg(group.visibleCount)),
+                Q_ARG(QStringList, actions),
+                Q_ARG(QVariantMap, QVariantMap{}),
+                Q_ARG(int, 7000));
+            if (!invoked) {
+                id = 0;
+            }
             if (id > 0) {
                 DeviceGroupPayload payload;
                 payload.label = group.label;
