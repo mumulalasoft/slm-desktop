@@ -22,6 +22,7 @@ Flickable {
     property string appRuleAppId: ""
     property int appRuleDecisionIndex: 1
     property int appRuleDirectionIndex: 0
+    property bool appRuleOnlyLocal: false
     property string appResultText: ""
     property bool appResultOk: true
     property string promptPidText: "-1"
@@ -171,13 +172,21 @@ Flickable {
             direction: appRuleDirections[appRuleDirectionIndex].value,
             remember: true
         }
+        if (String(payload.decision || "") === "allow" && appRuleOnlyLocal) {
+            payload.targetScope = "local"
+        }
         var ok = FirewallServiceClient.setAppPolicy(payload)
         appResultOk = ok
-        appResultText = ok
-                ? qsTr("Application rule saved.")
-                : qsTr("Failed to save application rule.")
+        if (ok) {
+            appResultText = (String(payload.targetScope || "") === "local")
+                    ? qsTr("Application rule saved (allow local-only).")
+                    : qsTr("Application rule saved.")
+        } else {
+            appResultText = qsTr("Failed to save application rule.")
+        }
         if (ok) {
             appRuleAppId = ""
+            appRuleOnlyLocal = false
             FirewallServiceClient.refreshAppPolicies()
         }
     }
@@ -1530,6 +1539,9 @@ Flickable {
                             enabled: FirewallServiceClient.available && FirewallServiceClient.enabled
                             onActivated: function(index) {
                                 root.appRuleDecisionIndex = index
+                                if (String(root.appRuleDecisions[index].value || "") !== "allow") {
+                                    root.appRuleOnlyLocal = false
+                                }
                             }
                         }
 
@@ -1560,6 +1572,14 @@ Flickable {
                             enabled: FirewallServiceClient.available && FirewallServiceClient.enabled
                             onClicked: root.unquarantineApp(root.appRuleAppId)
                         }
+                    }
+
+                    CheckBox {
+                        text: qsTr("Only local network")
+                        checked: root.appRuleOnlyLocal
+                        visible: String(root.appRuleDecisions[root.appRuleDecisionIndex].value || "") === "allow"
+                        enabled: FirewallServiceClient.available && FirewallServiceClient.enabled
+                        onToggled: root.appRuleOnlyLocal = checked
                     }
 
                     Text {
