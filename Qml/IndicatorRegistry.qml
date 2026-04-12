@@ -82,6 +82,50 @@ QtObject {
         return true
     }
 
+    function _updateEntryByName(name, mutator) {
+        var key = String(name || "")
+        if (key.length <= 0 || !mutator) {
+            return false
+        }
+        var next = _cloneList(entries)
+        var changedAny = false
+        for (var i = 0; i < next.length; ++i) {
+            var item = next[i]
+            if (!item || String(item.name || "") !== key) {
+                continue
+            }
+            var updated = mutator(item)
+            if (updated) {
+                next[i] = updated
+                changedAny = true
+            }
+        }
+        if (!changedAny) {
+            return false
+        }
+        entries = _sorted(next)
+        changed()
+        return true
+    }
+
+    function setIndicatorEnabledByName(name, enabled) {
+        var target = !!enabled
+        return _updateEntryByName(name, function(item) {
+            if (!!item.enabled === target) {
+                return null
+            }
+            return {
+                id: item.id,
+                name: item.name,
+                source: item.source,
+                order: item.order,
+                visible: item.visible,
+                enabled: target,
+                properties: item.properties
+            }
+        })
+    }
+
     function clearExternalIndicators() {
         entries = []
         changed()

@@ -33,6 +33,21 @@ ApplicationWindow {
         return false
     }
     property bool styleDarkMode: Theme.darkMode
+    readonly property bool startupTraceEnabled: (typeof StartupTraceEnabled !== "undefined") ? !!StartupTraceEnabled : false
+    property bool startupNonCriticalWindowsReady: false
+    property bool startupTopbarBootstrapReady: false
+    property bool startupTopbarItemsReady: false
+    property bool dockLoadGateOpen: false
+    function markStartupTopbarItemsReady() {
+        if (!startupTopbarItemsReady) {
+            startupTopbarItemsReady = true
+            startupQmlMark("main.topbarItems.ready")
+        }
+        if (!dockLoadGateOpen) {
+            dockLoadGateOpen = true
+            startupQmlMark("main.dockLoadGate.open")
+        }
+    }
     property bool startWindowed: (typeof AppStartWindowed !== "undefined") ? !!AppStartWindowed : false
     property int startWindowWidthHint: (typeof AppStartWindowWidth !== "undefined") ? Number(AppStartWindowWidth) : 0
     property int startWindowHeightHint: (typeof AppStartWindowHeight !== "undefined") ? Number(AppStartWindowHeight) : 0
@@ -227,7 +242,13 @@ ApplicationWindow {
     }
     visible: true
     onVisibleChanged: {
-        if (visible) console.warn("[STARTUP-ORDER] shell visible t=" + Date.now())
+        if (visible) {
+            // Intentionally quiet in runtime; startup diagnostics can be enabled from C++.
+            if (topBarWindow && topBarWindow.startupItemsReady && !dockLoadGateOpen) {
+                dockLoadGateOpen = true
+                startupQmlMark("main.dockLoadGate.open.visible")
+            }
+        }
     }
     width: startWindowed
            ? Math.max(minimumWidth,
@@ -269,6 +290,16 @@ ApplicationWindow {
         DSStyle.Theme.userAccentColor = String(DesktopSettings.accentColor || "")
         DSStyle.Theme.userFontScale = Number(DesktopSettings.fontScale || 1.0)
     }
+    function startupQmlMark(phase, detail) {
+        if (!startupTraceEnabled)
+            return
+        var text = "[startup-qml] phase=" + String(phase || "")
+        if (detail !== undefined && detail !== null && String(detail).length > 0) {
+            text += " detail=" + String(detail)
+        }
+        text += " t=" + Date.now()
+        console.warn(text)
+    }
 
     onPortalChooserSelectedPathsChanged: {
         if (portalChooserApi) {
@@ -277,26 +308,54 @@ ApplicationWindow {
     }
 
     Component.onCompleted: {
+        startupQmlMark("main.onCompleted.begin")
         syncStyleThemeFromPreferences()
-        // 5-minute threshold — 30 s default is too short for normal launchpad browsing.
-        if (typeof ShellLayerWatchdog !== "undefined" && ShellLayerWatchdog) {
-            ShellLayerWatchdog.overlayStuckThresholdMs = 300000
+        Qt.callLater(function() {
+            startupQmlMark("main.deferredInit.begin")
+            // 5-minute threshold — 30 s default is too short for normal launchpad browsing.
+            if (typeof ShellLayerWatchdog !== "undefined" && ShellLayerWatchdog) {
+                ShellLayerWatchdog.overlayStuckThresholdMs = 300000
+            }
+            if (typeof AppModel !== "undefined" && AppModel) {
+                appModelRef = AppModel
+            }
+            if (typeof FileManagerApi !== "undefined" && FileManagerApi) {
+                fileManagerApiRef = FileManagerApi
+            }
+            if (typeof TothespotService !== "undefined" && TothespotService) {
+                tothespotServiceRef = TothespotService
+            }
+            ShellUtils.applyUserFontScalePreference(root)
+            ShellUtils.applyMotionTimeScale(root)
+            ShellUtils.refreshMotionDebugRows(root)
+            FileManagerGlobalMenuController.syncOverride(root, detachedFileManagerWindow)
+            if (typeof SessionStateClient !== "undefined" && SessionStateClient) {
+                root.lockScreenVisible = !!SessionStateClient.locked
+            }
+            startupTopbarBootstrapTimer.restart()
+            startupNonCriticalWindowsTimer.restart()
+            startupQmlMark("main.deferredInit.end")
+        })
+        startupQmlMark("main.onCompleted.end")
+    }
+
+    Timer {
+        id: startupTopbarBootstrapTimer
+        interval: 250
+        repeat: false
+        onTriggered: {
+            root.startupTopbarBootstrapReady = true
+            root.startupQmlMark("main.topbarBootstrap.ready")
         }
-        if (typeof AppModel !== "undefined" && AppModel) {
-            appModelRef = AppModel
-        }
-        if (typeof FileManagerApi !== "undefined" && FileManagerApi) {
-            fileManagerApiRef = FileManagerApi
-        }
-        if (typeof TothespotService !== "undefined" && TothespotService) {
-            tothespotServiceRef = TothespotService
-        }
-        ShellUtils.applyUserFontScalePreference(root)
-        ShellUtils.applyMotionTimeScale(root)
-        ShellUtils.refreshMotionDebugRows(root)
-        FileManagerGlobalMenuController.syncOverride(root, detachedFileManagerWindow)
-        if (typeof SessionStateClient !== "undefined" && SessionStateClient) {
-            root.lockScreenVisible = !!SessionStateClient.locked
+    }
+
+    Timer {
+        id: startupNonCriticalWindowsTimer
+        interval: 1500
+        repeat: false
+        onTriggered: {
+            root.startupNonCriticalWindowsReady = true
+            root.startupQmlMark("main.nonCriticalWindows.ready")
         }
     }
 
@@ -556,10 +615,16 @@ ApplicationWindow {
         placesModel: portalChooserPlacesModel
     }
 
-    OverlayComp.GlobalProgressWindow {
-        id: globalProgressWindow
-        rootWindow: root
-        overlayVisible: false
+    Loader {
+        id: globalProgressWindowLoader
+        active: false
+        asynchronous: false
+        sourceComponent: Component {
+            OverlayComp.GlobalProgressWindow {
+                rootWindow: root
+                overlayVisible: false
+            }
+        }
     }
 
     DesktopScene {
@@ -615,155 +680,227 @@ ApplicationWindow {
         }
     }
 
-    OverlayComp.AreaShotSelectorWindow {
-        id: areaShotWindow
-        rootWindow: root
-        selecting: root.areaShotSelecting
-        startX: root.areaShotStartX
-        startY: root.areaShotStartY
-        endX: root.areaShotEndX
-        endY: root.areaShotEndY
-        onCancelRequested: ScreenshotController.cancelAreaSelection(root)
-        onSelectionChanged: function(x, y) {
-            root.areaShotEndX = x
-            root.areaShotEndY = y
-        }
-        onSelectionCommitted: function(x, y) {
-            root.areaShotEndX = x
-            root.areaShotEndY = y
-            ScreenshotController.commitAreaSelection(root)
-        }
-    }
-
-    ScreenshotComp.ScreenshotSaveDialog {
-        id: screenshotSaveWindow
-        visible: root.visible && root.screenshotSaveDialogVisible
-        parentWindow: root
-        sourcePath: root.screenshotSaveSourcePath
-        saveName: root.screenshotSaveName
-        saveFolderText: String(root.screenshotSaveFolder || ScreenshotSaveController.defaultSaveFolder(root))
-        typeIndex: root.screenshotSaveTypeIndex
-        errorCode: root.screenshotSaveErrorCode
-        errorHint: root.screenshotSaveErrorHint
-        saveDisabledReason: root.screenshotSaveBlockedByNoSpace
-                            ? "No space left in destination. Choose another folder."
-                            : ""
-        outputTypes: root.screenshotOutputTypes
-        onSaveNameEdited: function(value) {
-            root.screenshotSaveName = value
-            root.screenshotSaveBlockedByNoSpace = false
-            if (String(root.screenshotSaveErrorCode || "") === "no-space") {
-                root.screenshotSaveErrorCode = ""
-                root.screenshotSaveErrorHint = ""
+    Loader {
+        id: areaShotWindowLoader
+        active: !!root.areaShotSelecting
+        asynchronous: false
+        sourceComponent: Component {
+            OverlayComp.AreaShotSelectorWindow {
+                rootWindow: root
+                selecting: root.areaShotSelecting
+                startX: root.areaShotStartX
+                startY: root.areaShotStartY
+                endX: root.areaShotEndX
+                endY: root.areaShotEndY
+                onCancelRequested: ScreenshotController.cancelAreaSelection(root)
+                onSelectionChanged: function(x, y) {
+                    root.areaShotEndX = x
+                    root.areaShotEndY = y
+                }
+                onSelectionCommitted: function(x, y) {
+                    root.areaShotEndX = x
+                    root.areaShotEndY = y
+                    ScreenshotController.commitAreaSelection(root)
+                }
             }
         }
-        onTypeIndexChangedByUser: function(indexValue) {
-            root.screenshotSaveTypeIndex = indexValue
-            var typeInfo = ScreenshotSaveController.outputTypeAt(root, indexValue)
-            var ext = String(typeInfo && typeInfo.ext ? typeInfo.ext : "png")
-            if (typeof ScreenshotSaveHelper !== "undefined"
-                    && ScreenshotSaveHelper
-                    && ScreenshotSaveHelper.ensureFileNameForExtension) {
-                root.screenshotSaveName = String(
-                            ScreenshotSaveHelper.ensureFileNameForExtension(
-                                String(root.screenshotSaveName || ""), ext))
+    }
+
+    Loader {
+        id: screenshotSaveWindowLoader
+        active: !!root.screenshotSaveDialogVisible
+        asynchronous: false
+        sourceComponent: Component {
+            ScreenshotComp.ScreenshotSaveDialog {
+                visible: root.visible && root.screenshotSaveDialogVisible
+                parentWindow: root
+                sourcePath: root.screenshotSaveSourcePath
+                saveName: root.screenshotSaveName
+                saveFolderText: String(root.screenshotSaveFolder || ScreenshotSaveController.defaultSaveFolder(root))
+                typeIndex: root.screenshotSaveTypeIndex
+                errorCode: root.screenshotSaveErrorCode
+                errorHint: root.screenshotSaveErrorHint
+                saveDisabledReason: root.screenshotSaveBlockedByNoSpace
+                                    ? "No space left in destination. Choose another folder."
+                                    : ""
+                outputTypes: root.screenshotOutputTypes
+                onSaveNameEdited: function(value) {
+                    root.screenshotSaveName = value
+                    root.screenshotSaveBlockedByNoSpace = false
+                    if (String(root.screenshotSaveErrorCode || "") === "no-space") {
+                        root.screenshotSaveErrorCode = ""
+                        root.screenshotSaveErrorHint = ""
+                    }
+                }
+                onTypeIndexChangedByUser: function(indexValue) {
+                    root.screenshotSaveTypeIndex = indexValue
+                    var typeInfo = ScreenshotSaveController.outputTypeAt(root, indexValue)
+                    var ext = String(typeInfo && typeInfo.ext ? typeInfo.ext : "png")
+                    if (typeof ScreenshotSaveHelper !== "undefined"
+                            && ScreenshotSaveHelper
+                            && ScreenshotSaveHelper.ensureFileNameForExtension) {
+                        root.screenshotSaveName = String(
+                                    ScreenshotSaveHelper.ensureFileNameForExtension(
+                                        String(root.screenshotSaveName || ""), ext))
+                    }
+                    root.screenshotSaveBlockedByNoSpace = false
+                    if (String(root.screenshotSaveErrorCode || "") === "no-space") {
+                        root.screenshotSaveErrorCode = ""
+                        root.screenshotSaveErrorHint = ""
+                    }
+                }
+                saveEnabled: !root.screenshotSaveBlockedByNoSpace
+                onChooseFolderRequested: ScreenshotSaveController.chooseSaveFolder(root)
+                onCancelRequested: ScreenshotSaveController.cancelSaveDialog(root)
+                onSaveRequested: ScreenshotSaveController.submitSaveDialog(root)
             }
-            root.screenshotSaveBlockedByNoSpace = false
-            if (String(root.screenshotSaveErrorCode || "") === "no-space") {
-                root.screenshotSaveErrorCode = ""
-                root.screenshotSaveErrorHint = ""
+        }
+    }
+
+    Loader {
+        id: screenshotOverwriteWindowLoader
+        active: !!root.screenshotOverwriteDialogVisible
+        asynchronous: false
+        sourceComponent: Component {
+            ScreenshotComp.ScreenshotOverwriteDialog {
+                visible: root.visible && root.screenshotOverwriteDialogVisible
+                parentWindow: root
+                transientParentWindow: (screenshotSaveWindowLoader.item
+                                        && screenshotSaveWindowLoader.item.visible)
+                                       ? screenshotSaveWindowLoader.item
+                                       : root
+                targetPath: String(root.screenshotOverwriteTargetPath || "")
+                alwaysReplaceInSession: root.portalChooserOverwriteAlwaysThisSession
+                onAlwaysReplaceToggled: function(checked) {
+                    root.portalChooserOverwriteAlwaysThisSession = checked
+                }
+                onCancelRequested: ScreenshotSaveController.cancelOverwrite(root)
+                onReplaceRequested: ScreenshotSaveController.confirmOverwrite(root)
             }
         }
-        saveEnabled: !root.screenshotSaveBlockedByNoSpace
-        onChooseFolderRequested: ScreenshotSaveController.chooseSaveFolder(root)
-        onCancelRequested: ScreenshotSaveController.cancelSaveDialog(root)
-        onSaveRequested: ScreenshotSaveController.submitSaveDialog(root)
     }
 
-    ScreenshotComp.ScreenshotOverwriteDialog {
-        id: screenshotOverwriteWindow
-        visible: root.visible && root.screenshotOverwriteDialogVisible
-        parentWindow: root
-        transientParentWindow: screenshotSaveWindow.visible ? screenshotSaveWindow : root
-        targetPath: String(root.screenshotOverwriteTargetPath || "")
-        alwaysReplaceInSession: root.portalChooserOverwriteAlwaysThisSession
-        onAlwaysReplaceToggled: function(checked) {
-            root.portalChooserOverwriteAlwaysThisSession = checked
-        }
-        onCancelRequested: ScreenshotSaveController.cancelOverwrite(root)
-        onReplaceRequested: ScreenshotSaveController.confirmOverwrite(root)
-    }
-
-    PrintComp.PrintDialog {
-        id: printDialogWindow
-        visible: root.visible && root.printDialogVisible
-        parentWindow: root
-        printManager: (typeof PrintManager !== "undefined") ? PrintManager : null
-        printSession: (typeof PrintSession !== "undefined") ? PrintSession : null
-        printPreviewModel: (typeof PrintPreviewModel !== "undefined") ? PrintPreviewModel : null
-        printJobSubmitter: (typeof PrintJobSubmitter !== "undefined") ? PrintJobSubmitter : null
-        documentUri: root.printDocumentUri
-        documentTitle: root.printDocumentTitle
-        preferPdfOutput: root.printPreferPdfOutput
-        onCloseRequested: root.printDialogVisible = false
-    }
-
-    OverlayComp.PortalFileChooserWindow {
-        id: portalFileChooserWindow
-        rootWindow: root
-        chooserApi: portalChooserApi
-        entriesModel: portalChooserEntries
-        placesModel: portalChooserPlacesModel
-    }
-
-    PortalChooserComp.PortalChooserOverwriteDialog {
-        id: portalChooserOverwriteWindow
-        visible: root.visible && root.portalChooserOverwriteDialogVisible
-        parentWindow: root
-        transientParentWindow: portalFileChooserWindow.visible ? portalFileChooserWindow : root
-        targetPath: String(root.portalChooserOverwriteTargetPath || "")
-        escapeEnabled: root.portalChooserOverwriteDialogVisible
-        onEscapeRequested: root.portalChooserOverwriteDialogVisible = false
-        onCancelRequested: root.portalChooserOverwriteDialogVisible = false
-        onReplaceRequested: {
-            root.portalChooserOverwriteDialogVisible = false
-            portalChooserApi.finishPortalFileChooser(true, false, "", true)
+    Loader {
+        id: printDialogWindowLoader
+        active: !!root.printDialogVisible
+        asynchronous: false
+        sourceComponent: Component {
+            PrintComp.PrintDialog {
+                visible: root.visible && root.printDialogVisible
+                parentWindow: root
+                printManager: (typeof PrintManager !== "undefined") ? PrintManager : null
+                printSession: (typeof PrintSession !== "undefined") ? PrintSession : null
+                printPreviewModel: (typeof PrintPreviewModel !== "undefined") ? PrintPreviewModel : null
+                printJobSubmitter: (typeof PrintJobSubmitter !== "undefined") ? PrintJobSubmitter : null
+                documentUri: root.printDocumentUri
+                documentTitle: root.printDocumentTitle
+                preferPdfOutput: root.printPreferPdfOutput
+                onCloseRequested: root.printDialogVisible = false
+            }
         }
     }
 
-    OverlayComp.PortalConsentDialogWindow {
-        id: portalConsentDialogWindow
-        hostRoot: root
-        bridge: shellServiceBridge
-        visible: root.visible && shellServiceBridge.consentDialogVisible
-        requestPath: String(shellServiceBridge.consentRequestPath || "")
-        payload: shellServiceBridge.consentPayload
-        onAllowOnceRequested: shellServiceBridge.acceptConsentOnce()
-        onAllowAlwaysRequested: shellServiceBridge.acceptConsentAlways()
-        onDenyRequested: shellServiceBridge.denyConsent()
-        onCancelRequested: shellServiceBridge.cancelConsent()
-        onOpenSettingsRequested: shellServiceBridge.openConsentSettings()
-    }
-
-    OverlayComp.DetachedFileManagerWindow {
-        id: detachedFileManagerWindow
-        rootWindow: root
-        shellApi: root
-        panelHeight: desktopScene.panelHeight
-        fileModel: (typeof FileManagerModel !== "undefined") ? FileManagerModel : null
-        onPrintRequested: function(documentUri, documentTitle, preferPdfOutput) {
-            root.printDocumentUri = String(documentUri || "")
-            root.printDocumentTitle = String(documentTitle || "Document")
-            root.printPreferPdfOutput = !!preferPdfOutput
-            root.printDialogVisible = root.printDocumentUri.length > 0
+    Loader {
+        id: portalFileChooserWindowLoader
+        active: !!root.portalFileChooserVisible
+        asynchronous: false
+        sourceComponent: Component {
+            OverlayComp.PortalFileChooserWindow {
+                rootWindow: root
+                chooserApi: portalChooserApi
+                entriesModel: portalChooserEntries
+                placesModel: portalChooserPlacesModel
+            }
         }
     }
+
+    Loader {
+        id: portalChooserOverwriteWindowLoader
+        active: !!root.portalChooserOverwriteDialogVisible
+        asynchronous: false
+        sourceComponent: Component {
+            PortalChooserComp.PortalChooserOverwriteDialog {
+                visible: root.visible && root.portalChooserOverwriteDialogVisible
+                parentWindow: root
+                transientParentWindow: (portalFileChooserWindowLoader.item
+                                        && portalFileChooserWindowLoader.item.visible)
+                                       ? portalFileChooserWindowLoader.item
+                                       : root
+                targetPath: String(root.portalChooserOverwriteTargetPath || "")
+                escapeEnabled: root.portalChooserOverwriteDialogVisible
+                onEscapeRequested: root.portalChooserOverwriteDialogVisible = false
+                onCancelRequested: root.portalChooserOverwriteDialogVisible = false
+                onReplaceRequested: {
+                    root.portalChooserOverwriteDialogVisible = false
+                    portalChooserApi.finishPortalFileChooser(true, false, "", true)
+                }
+            }
+        }
+    }
+
+    Loader {
+        id: portalConsentDialogWindowLoader
+        active: root.visible && shellServiceBridge.consentDialogVisible
+        asynchronous: false
+        sourceComponent: Component {
+            OverlayComp.PortalConsentDialogWindow {
+                hostRoot: root
+                bridge: shellServiceBridge
+                visible: root.visible && shellServiceBridge.consentDialogVisible
+                requestPath: String(shellServiceBridge.consentRequestPath || "")
+                payload: shellServiceBridge.consentPayload
+                onAllowOnceRequested: shellServiceBridge.acceptConsentOnce()
+                onAllowAlwaysRequested: shellServiceBridge.acceptConsentAlways()
+                onDenyRequested: shellServiceBridge.denyConsent()
+                onCancelRequested: shellServiceBridge.cancelConsent()
+                onOpenSettingsRequested: shellServiceBridge.openConsentSettings()
+            }
+        }
+    }
+
+    Loader {
+        id: firewallPromptDialogLoader
+        active: !!root.startupNonCriticalWindowsReady
+        asynchronous: false
+        sourceComponent: Component {
+            OverlayComp.FirewallPromptDialog {
+                hostRoot: root
+            }
+        }
+    }
+
+    Loader {
+        id: detachedFileManagerWindowLoader
+        active: !!root.detachedFileManagerVisible
+        asynchronous: false
+        sourceComponent: Component {
+            OverlayComp.DetachedFileManagerWindow {
+                rootWindow: root
+                shellApi: root
+                panelHeight: desktopScene.panelHeight
+                fileModel: (typeof FileManagerModel !== "undefined") ? FileManagerModel : null
+                onPrintRequested: function(documentUri, documentTitle, preferPdfOutput) {
+                    root.printDocumentUri = String(documentUri || "")
+                    root.printDocumentTitle = String(documentTitle || "Document")
+                    root.printPreferPdfOutput = !!preferPdfOutput
+                    root.printDialogVisible = root.printDocumentUri.length > 0
+                }
+            }
+        }
+    }
+    readonly property var detachedFileManagerWindow: detachedFileManagerWindowLoader.item
 
     OverlayComp.TopBarWindow {
         id: topBarWindow
         rootWindow: root
         desktopScene: desktopScene
         shellApi: root
+        onStartupItemsReadyReached: root.markStartupTopbarItemsReady()
+        onStartupItemsReadyChanged: {
+            if (startupItemsReady) {
+                root.markStartupTopbarItemsReady()
+            }
+        }
         onLauncherRequested: desktopScene.launchpadVisible = !desktopScene.launchpadVisible
         onTothespotRequested: {
             if (root.tothespotVisible) {
@@ -803,12 +940,24 @@ ApplicationWindow {
     }
 
     // DockWindow — single persistent Dock surface (wlr-layer-shell).
-    // Created once at shell start. Never destroyed. No duplicate in Launchpad.
-    OverlayComp.DockWindow {
-        id: dockWindow
-        rootWindow: root
-        desktopScene: desktopScene
-        appsModel: DockModel
+    // Deferred out of critical startup path to prioritize first desktop frame.
+    Loader {
+        id: dockWindowLoader
+        active: !!root.visible
+                && !!root.dockLoadGateOpen
+        asynchronous: false
+        sourceComponent: Component {
+            OverlayComp.DockWindow {
+                rootWindow: root
+                desktopScene: desktopScene
+                appsModel: DockModel
+            }
+        }
+        onActiveChanged: {
+            if (active) {
+                root.startupQmlMark("main.dockLoader.activated")
+            }
+        }
     }
 
     // LaunchpadWindow — transient frameless Window above application windows.
@@ -820,7 +969,9 @@ ApplicationWindow {
         // that occurs when Component bindings resolve 'desktopScene' to
         // LaunchpadWindow's own required property instead of Main.qml's ID.
         readonly property var sceneRef: desktopScene
-        active: true
+        active: !!root.visible
+                && !!desktopScene
+                && !!desktopScene.launchpadVisible
         asynchronous: false
         sourceComponent: Component {
             OverlayComp.LaunchpadWindow {
@@ -845,26 +996,40 @@ ApplicationWindow {
         }
     }
 
-    TothespotDismissWindow {
-        id: tothespotDismissWindow
-        rootWindow: root
-        overlayVisible: root.tothespotVisible
-        onDismissRequested: root.tothespotVisible = false
+    Loader {
+        id: tothespotDismissWindowLoader
+        active: !!root.tothespotVisible
+        asynchronous: false
+        sourceComponent: Component {
+            TothespotDismissWindow {
+                rootWindow: root
+                overlayVisible: root.tothespotVisible
+                onDismissRequested: root.tothespotVisible = false
+            }
+        }
     }
 
-    OverlayComp.ClipboardOverlayWindow {
-        id: clipboardOverlayWindow
-        rootWindow: root
-        panelHeight: desktopScene.panelHeight
-        overlayVisible: root.clipboardOverlayVisible && !root.lockScreenVisible
-        client: (typeof ClipboardServiceClient !== "undefined") ? ClipboardServiceClient : null
-        onCloseRequested: root.clipboardOverlayVisible = false
+    Loader {
+        id: clipboardOverlayWindowLoader
+        active: !!root.clipboardOverlayVisible && !root.lockScreenVisible
+        asynchronous: false
+        sourceComponent: Component {
+            OverlayComp.ClipboardOverlayWindow {
+                rootWindow: root
+                panelHeight: desktopScene.panelHeight
+                overlayVisible: root.clipboardOverlayVisible && !root.lockScreenVisible
+                client: (typeof ClipboardServiceClient !== "undefined") ? ClipboardServiceClient : null
+                onCloseRequested: root.clipboardOverlayVisible = false
+            }
+        }
     }
 
     // TothespotWindow — deferred Loader with error boundary.
     Loader {
         id: tothespotWindowLoader
-        active: true
+        active: !!root.visible
+                && !!root.tothespotVisible
+                && !root.lockScreenVisible
         asynchronous: false
         sourceComponent: Component {
             TothespotWindow {
@@ -917,7 +1082,9 @@ ApplicationWindow {
     // WorkspaceWindow — deferred Loader with error boundary.
     Loader {
         id: workspaceWindowLoader
-        active: true
+        active: !!root.visible
+                && !!desktopScene
+                && !!desktopScene.workspaceVisible
         asynchronous: false
         sourceComponent: Component {
             OverlayComp.WorkspaceWindow {
@@ -983,101 +1150,115 @@ ApplicationWindow {
         }
     }
 
-    OverlayComp.LockScreenWindow {
-        id: lockScreenWindow
-        rootWindow: root
-        overlayVisible: root.lockScreenVisible
-        userName: (typeof SessionStateClient !== "undefined" && SessionStateClient && SessionStateClient.userName)
-                  ? String(SessionStateClient.userName)
-                  : "User"
-        onVisibleChanged: {
-            if (visible) {
-                unlockErrorCode = ""
-            }
-        }
-        onUnlockRequested: function(password) {
-            if (lockScreenWindow.lockoutActive) {
-                return
-            }
-            if (typeof SessionStateClient !== "undefined" && SessionStateClient && SessionStateClient.requestUnlock) {
-                if (SessionStateClient.requestUnlock(password)) {
-                    root.lockScreenVisible = false
-                    lockScreenWindow.lockFailed = false
-                    lockScreenWindow.failedAttempts = 0
-                    lockScreenWindow.lockoutLevel = 0
-                    lockScreenWindow.unlockErrorCode = ""
-                } else {
-                    lockScreenWindow.lockFailed = true
-                    lockScreenWindow.unlockErrorCode = String(SessionStateClient.lastUnlockError || "")
-                    var backendRetrySec = Number(SessionStateClient.lastRetryAfterSec || 0)
-                    if (backendRetrySec > 0) {
-                        lockScreenWindow.lockoutActive = true
-                        lockScreenWindow.lockoutDurationSec = backendRetrySec
-                        lockScreenWindow.lockoutRemainingSec = backendRetrySec
-                        lockScreenWindow.failedAttempts = 0
-                        if (lockScreenWindow.lockoutTimer) {
-                            lockScreenWindow.lockoutTimer.restart()
-                        }
-                        if (lockScreenWindow.lockoutTick) {
-                            lockScreenWindow.lockoutTick.restart()
-                        }
-                    } else {
-                        lockScreenWindow.failedAttempts = Number(lockScreenWindow.failedAttempts || 0) + 1
-                        if (lockScreenWindow.failedAttempts >= 5) {
-                            lockScreenWindow.lockoutLevel = Number(lockScreenWindow.lockoutLevel || 0) + 1
-                            var lockoutSeconds = 10
-                            if (lockScreenWindow.lockoutLevel >= 2) {
-                                lockoutSeconds = 30
-                            }
-                            if (lockScreenWindow.lockoutLevel >= 3) {
-                                lockoutSeconds = 60
-                            }
-                            if (lockScreenWindow.lockoutLevel >= 4) {
-                                lockoutSeconds = 120
-                            }
-                            if (lockScreenWindow.lockoutLevel >= 5) {
-                                lockoutSeconds = 300
-                            }
-                            lockScreenWindow.lockoutActive = true
-                            lockScreenWindow.lockoutDurationSec = lockoutSeconds
-                            lockScreenWindow.lockoutRemainingSec = lockoutSeconds
-                            lockScreenWindow.failedAttempts = 0
-                            if (lockScreenWindow.lockoutTimer) {
-                                lockScreenWindow.lockoutTimer.restart()
-                            }
-                            if (lockScreenWindow.lockoutTick) {
-                                lockScreenWindow.lockoutTick.restart()
-                            }
-                        }
+    Loader {
+        id: lockScreenWindowLoader
+        active: !!root.lockScreenVisible
+                || !!(typeof SessionStateClient !== "undefined" && SessionStateClient && SessionStateClient.locked)
+        asynchronous: false
+        sourceComponent: Component {
+            OverlayComp.LockScreenWindow {
+                id: lockScreenWindow
+                rootWindow: root
+                overlayVisible: root.lockScreenVisible
+                userName: (typeof SessionStateClient !== "undefined" && SessionStateClient && SessionStateClient.userName)
+                          ? String(SessionStateClient.userName)
+                          : "User"
+                onVisibleChanged: {
+                    if (visible) {
+                        unlockErrorCode = ""
                     }
                 }
-                return
-            }
-            if (String(password || "").trim().length > 0) {
-                root.lockScreenVisible = false
-                lockScreenWindow.lockFailed = false
-                lockScreenWindow.failedAttempts = 0
-                lockScreenWindow.lockoutLevel = 0
-                lockScreenWindow.unlockErrorCode = ""
-            } else {
-                lockScreenWindow.lockFailed = true
-                lockScreenWindow.unlockErrorCode = "empty-password"
-                lockScreenWindow.failedAttempts = Number(lockScreenWindow.failedAttempts || 0) + 1
+                onUnlockRequested: function(password) {
+                    if (lockScreenWindow.lockoutActive) {
+                        return
+                    }
+                    if (typeof SessionStateClient !== "undefined" && SessionStateClient && SessionStateClient.requestUnlock) {
+                        if (SessionStateClient.requestUnlock(password)) {
+                            root.lockScreenVisible = false
+                            lockScreenWindow.lockFailed = false
+                            lockScreenWindow.failedAttempts = 0
+                            lockScreenWindow.lockoutLevel = 0
+                            lockScreenWindow.unlockErrorCode = ""
+                        } else {
+                            lockScreenWindow.lockFailed = true
+                            lockScreenWindow.unlockErrorCode = String(SessionStateClient.lastUnlockError || "")
+                            var backendRetrySec = Number(SessionStateClient.lastRetryAfterSec || 0)
+                            if (backendRetrySec > 0) {
+                                lockScreenWindow.lockoutActive = true
+                                lockScreenWindow.lockoutDurationSec = backendRetrySec
+                                lockScreenWindow.lockoutRemainingSec = backendRetrySec
+                                lockScreenWindow.failedAttempts = 0
+                                if (lockScreenWindow.lockoutTimer) {
+                                    lockScreenWindow.lockoutTimer.restart()
+                                }
+                                if (lockScreenWindow.lockoutTick) {
+                                    lockScreenWindow.lockoutTick.restart()
+                                }
+                            } else {
+                                lockScreenWindow.failedAttempts = Number(lockScreenWindow.failedAttempts || 0) + 1
+                                if (lockScreenWindow.failedAttempts >= 5) {
+                                    lockScreenWindow.lockoutLevel = Number(lockScreenWindow.lockoutLevel || 0) + 1
+                                    var lockoutSeconds = 10
+                                    if (lockScreenWindow.lockoutLevel >= 2) {
+                                        lockoutSeconds = 30
+                                    }
+                                    if (lockScreenWindow.lockoutLevel >= 3) {
+                                        lockoutSeconds = 60
+                                    }
+                                    if (lockScreenWindow.lockoutLevel >= 4) {
+                                        lockoutSeconds = 120
+                                    }
+                                    if (lockScreenWindow.lockoutLevel >= 5) {
+                                        lockoutSeconds = 300
+                                    }
+                                    lockScreenWindow.lockoutActive = true
+                                    lockScreenWindow.lockoutDurationSec = lockoutSeconds
+                                    lockScreenWindow.lockoutRemainingSec = lockoutSeconds
+                                    lockScreenWindow.failedAttempts = 0
+                                    if (lockScreenWindow.lockoutTimer) {
+                                        lockScreenWindow.lockoutTimer.restart()
+                                    }
+                                    if (lockScreenWindow.lockoutTick) {
+                                        lockScreenWindow.lockoutTick.restart()
+                                    }
+                                }
+                            }
+                        }
+                        return
+                    }
+                    if (String(password || "").trim().length > 0) {
+                        root.lockScreenVisible = false
+                        lockScreenWindow.lockFailed = false
+                        lockScreenWindow.failedAttempts = 0
+                        lockScreenWindow.lockoutLevel = 0
+                        lockScreenWindow.unlockErrorCode = ""
+                    } else {
+                        lockScreenWindow.lockFailed = true
+                        lockScreenWindow.unlockErrorCode = "empty-password"
+                        lockScreenWindow.failedAttempts = Number(lockScreenWindow.failedAttempts || 0) + 1
+                    }
+                }
             }
         }
     }
 
-    OverlayComp.MotionDebugOverlay {
-        id: motionDebugOverlay
-        anchors.fill: parent
-        enabled: root.motionDebugOverlayEnabled
-        rows: root.motionDebugRows
-        panelHeight: desktopScene.panelHeight
-        frameDt: (typeof MotionController !== "undefined" && MotionController)
-                 ? MotionController.lastFrameDt : 0
-        timeScale: (typeof MotionController !== "undefined" && MotionController)
-                   ? MotionController.timeScale : 1
-        droppedFrameCount: (typeof MotionController !== "undefined" && MotionController)
-                           ? MotionController.droppedFrameCount : 0
+    Loader {
+        id: motionDebugOverlayLoader
+        active: !!root.motionDebugOverlayEnabled
+        asynchronous: false
+        sourceComponent: Component {
+            OverlayComp.MotionDebugOverlay {
+                anchors.fill: parent
+                enabled: root.motionDebugOverlayEnabled
+                rows: root.motionDebugRows
+                panelHeight: desktopScene.panelHeight
+                frameDt: (typeof MotionController !== "undefined" && MotionController)
+                         ? MotionController.lastFrameDt : 0
+                timeScale: (typeof MotionController !== "undefined" && MotionController)
+                           ? MotionController.timeScale : 1
+                droppedFrameCount: (typeof MotionController !== "undefined" && MotionController)
+                                   ? MotionController.droppedFrameCount : 0
+            }
+        }
     }
 }

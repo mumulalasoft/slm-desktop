@@ -3,6 +3,7 @@
 
 #include <QDesktopServices>
 #include <QDir>
+#include <QElapsedTimer>
 #include <QFile>
 #include <QFileInfo>
 #include <QHash>
@@ -433,12 +434,23 @@ void ShortcutModel::scheduleRefreshFromWatcher()
 
 void ShortcutModel::load()
 {
+    const bool startupTrace = qEnvironmentVariableIntValue("SLM_STARTUP_TRACE") > 0;
+    QElapsedTimer loadTimer;
+    if (startupTrace) {
+        loadTimer.start();
+        qWarning().noquote() << "[startup-trace] phase=shortcutmodel.load.begin";
+    }
+
     QVector<ShortcutEntry> nextEntries;
     if (!ensureDesktopDir()) {
         beginResetModel();
         m_entries.clear();
         endResetModel();
         setupDesktopWatcher();
+        if (startupTrace) {
+            qWarning().noquote() << "[startup-trace] phase=shortcutmodel.load.end detail=count=0 ms="
+                                 + QString::number(loadTimer.elapsed());
+        }
         return;
     }
 
@@ -625,6 +637,11 @@ void ShortcutModel::load()
     m_entries = std::move(nextEntries);
     endResetModel();
     setupDesktopWatcher();
+    if (startupTrace) {
+        qWarning().noquote() << ("[startup-trace] phase=shortcutmodel.load.end detail=count="
+                                 + QString::number(m_entries.size())
+                                 + " ms=" + QString::number(loadTimer.elapsed()));
+    }
 }
 
 bool ShortcutModel::containsDesktopFile(const QString &desktopFilePath) const

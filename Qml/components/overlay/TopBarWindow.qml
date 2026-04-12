@@ -8,14 +8,17 @@ Item {
     required property var rootWindow
     required property var desktopScene
     property var shellApi: null
+    // Hybrid mode: defer applet bootstrap off critical load path, but start quickly.
+    readonly property bool deferredReady: !!(shellApi && shellApi.startupTopbarBootstrapReady)
+    readonly property bool startupItemsReady: !!topBarSurface && !!topBarSurface.startupItemsReady
 
     readonly property bool anyPopupOpen: !!topBarSurface && !!topBarSurface.anyPopupOpen
     readonly property int popupHeadroom: Math.round(Math.min((rootWindow ? rootWindow.height : 0) * 0.45, 420))
 
     signal launcherRequested()
-    signal styleGalleryRequested()
     signal tothespotRequested()
     signal screenshotCaptureRequested(string mode, int delaySec, bool grabPointer, bool concealText)
+    signal startupItemsReadyReached()
 
     // TopBar is a persistent layer — never hidden by overlay state.
     // Opacity dims when launchpad is open so it blends with the frosted backdrop.
@@ -40,15 +43,16 @@ Item {
             anchors.right: parent.right
             anchors.top: parent.top
             height: desktopScene ? desktopScene.panelHeight : 0
+            deferredReady: root.deferredReady
             fileManagerContent: (root.shellApi && root.shellApi.fileManagerContent)
                                 ? root.shellApi.fileManagerContent : null
 
             onLauncherRequested: root.launcherRequested()
-            onStyleGalleryRequested: root.styleGalleryRequested()
             onTothespotRequested: root.tothespotRequested()
             onScreenshotCaptureRequested: function(mode, delaySec, grabPointer, concealText) {
                 root.screenshotCaptureRequested(mode, delaySec, grabPointer, concealText)
             }
+            onStartupItemsReadyReached: root.startupItemsReadyReached()
         }
     }
 }

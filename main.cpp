@@ -18,6 +18,8 @@
 #include <QProcess>
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
+#include <QWindow>
+#include <QTextStream>
 #include <csignal>
 #if defined(__linux__)
 #include <execinfo.h>
@@ -71,6 +73,7 @@
 #include "src/apps/filemanager/include/filemanagerapi.h"
 #include "src/apps/filemanager/include/filemanagermodel.h"
 #include "src/apps/filemanager/include/filemanagermodelfactory.h"
+#include "src/apps/settings/modules/network/firewallserviceclient.h"
 #include "src/apps/settings/desktopsettingsclient.h"
 #include "src/filemanager/ops/globalprogresscenter.h"
 #include "src/filemanager/FileManagerShellBridge.h"
@@ -132,6 +135,73 @@ int main(int argc, char *argv[])
         return region;
     };
     const qint64 t0 = QDateTime::currentMSecsSinceEpoch();
+    const bool startupLogs = qEnvironmentVariableIntValue("SLM_STARTUP_LOG") > 0;
+    const bool startupTrace = qEnvironmentVariableIntValue("SLM_STARTUP_TRACE") > 0;
+    const bool startupDiag = startupLogs || startupTrace;
+    QString startupTracePath;
+    QFile startupTraceFile;
+    if (startupTrace) {
+        startupTracePath = qEnvironmentVariable("SLM_STARTUP_LOG_FILE").trimmed();
+        if (startupTracePath.isEmpty()) {
+            startupTracePath = QDir::tempPath()
+                + QStringLiteral("/slm-startup-")
+                + QString::number(t0)
+                + QStringLiteral(".log");
+        }
+        startupTraceFile.setFileName(startupTracePath);
+        const bool opened = startupTraceFile.open(QIODevice::WriteOnly
+                                                  | QIODevice::Truncate
+                                                  | QIODevice::Text);
+        if (!opened) {
+            qWarning().noquote() << "[startup] unable to open trace file:" << startupTracePath;
+        }
+    }
+    const auto startupMark = [&](const QString &phase, const QString &detail = QString()) {
+        if (!startupTrace) {
+            return;
+        }
+        const qint64 elapsed = QDateTime::currentMSecsSinceEpoch() - t0;
+        QString line = QStringLiteral("[startup-trace] t=%1ms phase=%2")
+                           .arg(elapsed)
+                           .arg(phase.trimmed());
+        const QString trimmedDetail = detail.trimmed();
+        if (!trimmedDetail.isEmpty()) {
+            line += QStringLiteral(" detail=%1").arg(trimmedDetail);
+        }
+        qInfo().noquote() << line;
+        if (startupTraceFile.isOpen()) {
+            QTextStream stream(&startupTraceFile);
+            stream << line << '\n';
+            stream.flush();
+        }
+    };
+    const auto windowSummary = [](QWindow *window) -> QString {
+        if (!window) {
+            return QStringLiteral("null-window");
+        }
+        const QString title = window->title().trimmed().isEmpty()
+                ? QStringLiteral("<untitled>")
+                : window->title().trimmed();
+        return QStringLiteral("%1 visible=%2 exposed=%3 size=%4x%5 type=%6")
+            .arg(title,
+                 window->isVisible() ? QStringLiteral("1") : QStringLiteral("0"),
+                 window->isExposed() ? QStringLiteral("1") : QStringLiteral("0"))
+            .arg(window->width())
+            .arg(window->height())
+            .arg(static_cast<int>(window->type()));
+    };
+    const auto topWindowsSummary = [&]() -> QString {
+        const auto windows = QGuiApplication::topLevelWindows();
+        if (windows.isEmpty()) {
+            return QStringLiteral("none");
+        }
+        QStringList rows;
+        rows.reserve(windows.size());
+        for (QWindow *window : windows) {
+            rows << windowSummary(window);
+        }
+        return rows.join(QStringLiteral(" | "));
+    };
     {
         QSurfaceFormat fmt = QSurfaceFormat::defaultFormat();
         if (fmt.alphaBufferSize() < 8) {
@@ -147,8 +217,20 @@ int main(int argc, char *argv[])
     qputenv("QT_QUICK_CONTROLS_STYLE", "SlmStyle");
 
     QGuiApplication app(argc, argv);
-    qInfo().noquote() << "[startup] QGuiApplication ready"
-                      << (QDateTime::currentMSecsSinceEpoch() - t0) << "ms";
+    if (startupDiag) {
+        qInfo().noquote() << "[startup] QGuiApplication ready"
+                          << (QDateTime::currentMSecsSinceEpoch() - t0) << "ms";
+    }
+    startupMark(QStringLiteral("app.ready"));
+    QObject::connect(&app, &QGuiApplication::focusWindowChanged, &app,
+                     [&](QWindow *window) {
+        startupMark(QStringLiteral("window.focusChanged"), windowSummary(window));
+    });
+    QObject::connect(&app, &QGuiApplication::applicationStateChanged, &app,
+                     [&](Qt::ApplicationState state) {
+        startupMark(QStringLiteral("app.stateChanged"),
+                    QStringLiteral("state=%1").arg(static_cast<int>(state)));
+    });
     QCoreApplication::setOrganizationName(QStringLiteral("SLM"));
     QCoreApplication::setApplicationName(QStringLiteral("SLM Desktop"));
     const auto serviceRegistered = [](const QString &service) -> bool {
@@ -179,32 +261,41 @@ int main(int argc, char *argv[])
                                                                         startDaemonBinary,
                                                                         &app);
         QObject::connect(runner, &Slm::Bootstrap::DaemonServiceBootstrapRunner::serviceReady,
-                         &app, [logName, runner](const QString &, int attempt) {
-            if (attempt > 1) {
+                         &app, [logName, runner, startupDiag, startupMark](const QString &, int attempt) {
+            if (startupDiag && attempt > 1) {
                 qInfo().noquote() << "[startup] service ready:" << logName
                                   << "attempt=" << attempt
                                   << "spawns=" << runner->spawnAttemptCount()
                                   << "started=" << runner->spawnStartedCount()
                                   << "lastSpawnAttempt=" << runner->lastSpawnAttempt();
             }
+            startupMark(QStringLiteral("service.ready"),
+                        QStringLiteral("%1 attempt=%2").arg(logName).arg(attempt));
         });
         QObject::connect(runner, &Slm::Bootstrap::DaemonServiceBootstrapRunner::spawnAttempted,
-                         &app, [logName, runner](const QString &, int attempt, bool started) {
-            if (started) {
+                         &app, [logName, runner, startupDiag, startupMark](const QString &, int attempt, bool started) {
+            if (startupDiag && started) {
                 qInfo().noquote() << "[startup] started" << logName
                                   << "attempt=" << attempt
                                   << "spawnCount=" << runner->spawnAttemptCount()
                                   << "startedCount=" << runner->spawnStartedCount();
             }
+            Q_UNUSED(runner)
+            if (started) {
+                startupMark(QStringLiteral("service.spawn"),
+                            QStringLiteral("%1 attempt=%2").arg(logName).arg(attempt));
+            }
         });
         QObject::connect(runner, &Slm::Bootstrap::DaemonServiceBootstrapRunner::gaveUp,
-                         &app, [logName, runner](const QString &, int attempt) {
+                         &app, [logName, runner, startupMark](const QString &, int attempt) {
             qWarning().noquote() << "[startup] service not ready after retries:" << logName;
             qWarning().noquote() << "[startup] bootstrap stats:" << logName
                                  << "attempt=" << attempt
                                  << "spawns=" << runner->spawnAttemptCount()
                                  << "started=" << runner->spawnStartedCount()
                                  << "lastSpawnAttempt=" << runner->lastSpawnAttempt();
+            startupMark(QStringLiteral("service.gaveUp"),
+                        QStringLiteral("%1 attempt=%2").arg(logName).arg(attempt));
         });
         runner->start();
     };
@@ -216,11 +307,18 @@ int main(int argc, char *argv[])
                             QStringLiteral("slm-clipboardd"),
                             QStringLiteral("slm-clipboardd"),
                             QStringLiteral("slm-clipboardd"));
+    startupMark(QStringLiteral("service.bootstrap.installed"));
     const AppStartupArgs startupArgs = parseAppStartupArgs(app.arguments());
+    startupMark(QStringLiteral("args.parsed"),
+                QStringLiteral("windowed=%1 width=%2 height=%3")
+                    .arg(startupArgs.startWindowed ? QStringLiteral("true") : QStringLiteral("false"))
+                    .arg(startupArgs.windowWidth)
+                    .arg(startupArgs.windowHeight));
     const bool slmActionTreeDebug =
         qEnvironmentVariableIntValue("SLM_ACTION_TREE_DEBUG") > 0;
 
     QQmlApplicationEngine engine;
+    startupMark(QStringLiteral("engine.created"));
     const QString qtQmlImportsPath = QLibraryInfo::path(QLibraryInfo::QmlImportsPath);
     if (!qtQmlImportsPath.isEmpty()) {
         engine.addImportPath(qtQmlImportsPath);
@@ -247,6 +345,7 @@ int main(int argc, char *argv[])
     SpacesManager spacesManager;
     CursorController cursorController;
     DesktopSettingsClient desktopSettings;
+    FirewallServiceClient firewallServiceClient;
     ScreenshotManager screenshotManager;
     PortalChooserLogicHelper portalChooserLogicHelper;
     ScreenshotSaveHelper screenshotSaveHelper;
@@ -377,8 +476,11 @@ int main(int argc, char *argv[])
                              printSession.setPrinterCapability(printerManager.capabilities(selected));
                          }
                      });
-    qInfo().noquote() << "[startup] managers constructed"
-                      << (QDateTime::currentMSecsSinceEpoch() - t0) << "ms";
+    if (startupLogs) {
+        qInfo().noquote() << "[startup] managers constructed"
+                          << (QDateTime::currentMSecsSinceEpoch() - t0) << "ms";
+    }
+    startupMark(QStringLiteral("managers.constructed"));
     AppStartupBridge::registerTopBarIndicatorContext(engine.rootContext(),
                                                      &networkManager,
                                                      &bluetoothManager,
@@ -440,6 +542,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("DockBootstrapState"), &dockBootstrapState);
 #endif
     engine.rootContext()->setContextProperty(QStringLiteral("SessionStateClient"), &sessionStateClient);
+    engine.rootContext()->setContextProperty(QStringLiteral("FirewallServiceClient"), &firewallServiceClient);
     engine.rootContext()->setContextProperty(QStringLiteral("MissingComponents"), &missingComponentController);
     engine.rootContext()->setContextProperty(QStringLiteral("PrintManager"), &printerManager);
     engine.rootContext()->setContextProperty(QStringLiteral("PrintSession"), &printSession);
@@ -450,14 +553,28 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("SessionStartupMode"), sessionMode);
     engine.rootContext()->setContextProperty(QStringLiteral("SafeModeActive"), safeModeActive);
     engine.rootContext()->setContextProperty(QStringLiteral("AnimationsEnabled"), runtimeAnimationsEnabled);
+    engine.rootContext()->setContextProperty(QStringLiteral("StartupTraceEnabled"), startupTrace);
     AppStartupBridge::wireGlobalBatchProgress(&app,
                                               &fileManagerApi,
                                               &windowingBackendManager,
                                               &globalProgressCenter);
     engine.addImportPath(QDir::currentPath());
     engine.addImportPath(appDir);
-    qInfo().noquote() << "[startup] qml context configured"
-                      << (QDateTime::currentMSecsSinceEpoch() - t0) << "ms";
+    if (startupLogs) {
+        qInfo().noquote() << "[startup] qml context configured"
+                          << (QDateTime::currentMSecsSinceEpoch() - t0) << "ms";
+    }
+    startupMark(QStringLiteral("qml.context.configured"));
+    QObject::connect(&engine,
+                     &QQmlApplicationEngine::objectCreated,
+                     &app,
+                     [&](QObject *obj, const QUrl &url) {
+        const QString detail = QStringLiteral("url=%1 created=%2 rootCount=%3")
+                                   .arg(url.toString(),
+                                        obj ? QStringLiteral("true") : QStringLiteral("false"))
+                                   .arg(engine.rootObjects().size());
+        startupMark(QStringLiteral("qml.objectCreated"), detail);
+    });
     QObject::connect(
         &engine,
         &QQmlApplicationEngine::objectCreationFailed,
@@ -468,6 +585,7 @@ int main(int argc, char *argv[])
     // prefixes used by different Qt/CMake generator configurations.
     const QString mainQmlQtPrefix = ResourcePaths::Qml::mainQtPrefix();
     const QString mainQmlModulePrefix = ResourcePaths::Qml::mainModulePrefix();
+    startupMark(QStringLiteral("qml.load.begin"));
     if (QFile::exists(mainQmlQtPrefix)) {
         engine.load(QUrl(ResourcePaths::Qml::mainQtPrefixUrl()));
     } else if (QFile::exists(mainQmlModulePrefix)) {
@@ -476,9 +594,14 @@ int main(int argc, char *argv[])
         qCritical().noquote() << "[startup] Main.qml resource not found in qrc prefixes:"
                               << mainQmlQtPrefix << "or" << mainQmlModulePrefix;
     }
-    qInfo().noquote() << "[startup] qml loaded"
-                      << (QDateTime::currentMSecsSinceEpoch() - t0) << "ms"
-                      << "rootObjects=" << engine.rootObjects().size();
+    if (startupLogs) {
+        qInfo().noquote() << "[startup] qml loaded"
+                          << (QDateTime::currentMSecsSinceEpoch() - t0) << "ms"
+                          << "rootObjects=" << engine.rootObjects().size();
+    }
+    startupMark(QStringLiteral("qml.load.end"),
+                QStringLiteral("rootCount=%1").arg(engine.rootObjects().size()));
+    startupMark(QStringLiteral("window.snapshot.afterLoad"), topWindowsSummary());
 
     // Wire the motion scheduler to the display vsync via QQuickWindow::afterAnimating.
     // This replaces the internal 16ms QTimer with a vsync-synchronised tick so that
@@ -489,6 +612,20 @@ int main(int argc, char *argv[])
             motionController.enableVsyncDriving();
             QObject::connect(shellWindow, &QQuickWindow::afterAnimating,
                              &motionController, &Slm::Motion::MotionController::windowFrame);
+            QObject::connect(shellWindow, &QQuickWindow::frameSwapped,
+                             &app, [&, shellWindow]() {
+                static bool firstFrameLogged = false;
+                if (firstFrameLogged) {
+                    return;
+                }
+                firstFrameLogged = true;
+                startupMark(QStringLiteral("window.firstFrameSwapped"),
+                            QStringLiteral("visible=%1 size=%2x%3")
+                                .arg(shellWindow->isVisible() ? QStringLiteral("true")
+                                                              : QStringLiteral("false"))
+                                .arg(shellWindow->width())
+                                .arg(shellWindow->height()));
+            });
         }
     }
 
@@ -512,13 +649,42 @@ int main(int argc, char *argv[])
     });
     detachedWindowMaskTimer.start();
 
-    QTimer::singleShot(1800, &app, [&engine, t0]() {
-        qInfo().noquote() << "[startup] heartbeat"
-                          << (QDateTime::currentMSecsSinceEpoch() - t0) << "ms"
-                          << "rootObjects=" << engine.rootObjects().size();
-    });
-    qInfo().noquote() << "[startup] event loop entering"
-                      << (QDateTime::currentMSecsSinceEpoch() - t0) << "ms";
+    if (startupLogs) {
+        QTimer::singleShot(1800, &app, [&engine, t0]() {
+            qInfo().noquote() << "[startup] heartbeat"
+                              << (QDateTime::currentMSecsSinceEpoch() - t0) << "ms"
+                              << "rootObjects=" << engine.rootObjects().size();
+        });
+        qInfo().noquote() << "[startup] event loop entering"
+                          << (QDateTime::currentMSecsSinceEpoch() - t0) << "ms";
+    }
+    startupMark(QStringLiteral("eventloop.enter"));
+    if (startupTrace) {
+        auto *startupPulseTimer = new QTimer(&app);
+        startupPulseTimer->setInterval(1000);
+        QString lastWindowSnapshot;
+        QObject::connect(startupPulseTimer, &QTimer::timeout, &app, [&, startupPulseTimer]() {
+            static int pulse = 0;
+            ++pulse;
+            QString detail = QStringLiteral("n=%1 rootCount=%2 windows=%3")
+                            .arg(pulse)
+                            .arg(engine.rootObjects().size())
+                            .arg(QGuiApplication::topLevelWindows().size());
+            const QString snapshot = topWindowsSummary();
+            if (snapshot != lastWindowSnapshot || pulse <= 5) {
+                detail += QStringLiteral(" snapshot=%1").arg(snapshot);
+                lastWindowSnapshot = snapshot;
+            }
+            startupMark(QStringLiteral("runtime.pulse"), detail);
+            if (pulse >= 20) {
+                startupPulseTimer->stop();
+                startupMark(QStringLiteral("runtime.pulse.stop"));
+            }
+        });
+        startupPulseTimer->start();
+        startupMark(QStringLiteral("runtime.pulse.start"),
+                    QStringLiteral("path=%1").arg(startupTracePath));
+    }
 
     return app.exec();
 }

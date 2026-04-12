@@ -5,6 +5,8 @@ import SlmStyle as DSStyle
 
 Item {
     id: root
+    readonly property bool startupTraceEnabled: (typeof StartupTraceEnabled !== "undefined") ? !!StartupTraceEnabled : false
+    property bool shortcutsBootstrapped: false
 
     property string wallpaperSource: {
         if (typeof DesktopSettings !== "undefined" && DesktopSettings) {
@@ -19,7 +21,9 @@ Item {
     property bool contextMenuOnly: false
     property real dockTopY: -1
     property int maxShortcuts: 24
-    property int totalSlots: Math.max(modelCount(), gridColumns() * visibleRows())
+    // Keep startup instantiation bounded. Building full-screen empty slot delegates
+    // (often >100) is expensive and blocks the first shell completion path.
+    property int totalSlots: Math.max(modelCount(), Math.min(maxShortcuts, gridColumns() * visibleRows()))
     property int cellWidth: 104
     property int cellHeight: 122
     property int tileWidth: 96
@@ -63,6 +67,17 @@ Item {
     signal dockDropCommit(string desktopFile, real globalX, string iconPath)
     signal dockDropClear()
     signal shellContextMenuRequested(real x, real y)
+
+    function startupQmlMark(phase, detail) {
+        if (!startupTraceEnabled)
+            return
+        var text = "[startup-qml] phase=" + String(phase || "")
+        if (detail !== undefined && detail !== null && String(detail).length > 0) {
+            text += " detail=" + String(detail)
+        }
+        text += " t=" + Date.now()
+        console.warn(text)
+    }
 
     function isSelected(modelIndex) {
         if (modelIndex === undefined || modelIndex < 0) {
@@ -491,7 +506,7 @@ Item {
     }
 
     onVisibleChanged: {
-        if (visible) {
+        if (visible && shortcutsBootstrapped) {
             refreshShortcuts()
         }
     }
@@ -501,10 +516,18 @@ Item {
     onTotalSlotsChanged: rebuildSlots()
 
     Component.onCompleted: {
-        refreshShortcuts()
+        startupQmlMark("shell.onCompleted.begin")
         loadPersistedSlotMap()
         rebuildSlots()
         syncThemePreferences()
+        Qt.callLater(function() {
+            startupQmlMark("shell.deferredShortcuts.begin")
+            refreshShortcuts()
+            shortcutsBootstrapped = true
+            startupQmlMark("shell.deferredShortcuts.end",
+                           "count=" + String(modelCount()))
+        })
+        startupQmlMark("shell.onCompleted.end")
     }
 
     Connections {

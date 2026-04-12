@@ -210,6 +210,7 @@ RowLayout {
             required property var modelData
             active: !!modelData && modelData.enabled !== false
             visible: !!modelData && modelData.visible !== false
+            asynchronous: true
             source: {
                 var s = String(modelData && modelData.source ? modelData.source : "")
                 if (s === "" || s.indexOf("://") >= 0 || s.indexOf("/") === 0) {
@@ -269,6 +270,7 @@ RowLayout {
             required property var modelData
             active: !!modelData && modelData.enabled !== false
             visible: !!modelData && modelData.visible !== false
+            asynchronous: true
             source: modelData && modelData.source ? modelData.source : ""
             Layout.minimumWidth: implicitWidth
             Layout.preferredWidth: implicitWidth
