@@ -8,6 +8,9 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QPalette>
+#include <QProcess>
+#include <QDBusConnection>
+#include <QDBusConnectionInterface>
 
 using namespace Qt::StringLiterals;
 
@@ -69,6 +72,27 @@ int main(int argc, char *argv[])
     parser.addOption(deepLinkOption);
     parser.addOption(styleGalleryOption);
     parser.process(app);
+
+    const auto ensureSettingsdAvailable = []() {
+        QDBusConnectionInterface *busIface = QDBusConnection::sessionBus().interface();
+        if (!busIface) {
+            return;
+        }
+        if (busIface->isServiceRegistered(QStringLiteral("org.slm.Desktop.Settings")).value()) {
+            return;
+        }
+
+        const QString appDir = QFileInfo(QCoreApplication::applicationFilePath()).absolutePath();
+        const QString localPath = QDir(appDir).filePath(QStringLiteral("slm-settingsd"));
+        bool started = false;
+        if (QFileInfo::exists(localPath)) {
+            started = QProcess::startDetached(localPath, {});
+        }
+        if (!started) {
+            QProcess::startDetached(QStringLiteral("slm-settingsd"), {});
+        }
+    };
+    ensureSettingsdAvailable();
 
     QString initialModuleId = parser.value(moduleOption);
     const QString initialDeepLink = parser.value(deepLinkOption).trimmed();

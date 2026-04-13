@@ -164,6 +164,8 @@ set(SLM_ACTION_FRAMEWORK_SOURCES
 set(DESKTOP_SHELL_SERVICES
     src/services/network/networkmanager.cpp
     src/services/network/networkmanager.h
+    src/apps/settings/modules/network/firewallserviceclient.cpp
+    src/apps/settings/modules/network/firewallserviceclient.h
     src/apps/settings/desktopsettingsclient.cpp
     src/apps/settings/desktopsettingsclient.h
     src/services/power/batterymanager.cpp
@@ -176,6 +178,8 @@ set(DESKTOP_SHELL_SERVICES
     src/services/notifications/notificationmanager.h
     src/services/notifications/desktopnotificationadaptor.cpp
     src/services/notifications/desktopnotificationadaptor.h
+    src/services/storage/storageattachnotifier.cpp
+    src/services/storage/storageattachnotifier.h
     src/services/sound/soundmanager.cpp
     src/services/sound/soundmanager.h
     src/services/media/mediasessionmanager.cpp

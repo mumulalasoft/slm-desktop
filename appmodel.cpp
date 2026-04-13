@@ -766,7 +766,7 @@ void DesktopAppModel::setupDesktopDirMonitors()
         }
         g_signal_connect(monitor, "changed", G_CALLBACK(&DesktopAppModel::onDesktopDirChanged), this);
         m_appDirMonitors.push_back(monitor);
-        qCInfo(lcAppModel) << "Monitoring desktop directory:" << root;
+        qCDebug(lcAppModel) << "Monitoring desktop directory:" << root;
     }
 }
 
@@ -1071,7 +1071,7 @@ void DesktopAppModel::refresh()
     m_apps = std::move(newApps);
     endResetModel();
 
-    qCInfo(lcAppModel) << "DesktopAppModel refresh done, app count =" << m_apps.size();
+    qCDebug(lcAppModel) << "DesktopAppModel refresh done, app count =" << m_apps.size();
     rebuildUsageStats();
 }
 

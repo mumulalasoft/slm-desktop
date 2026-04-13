@@ -307,6 +307,10 @@ int main(int argc, char *argv[])
                             QStringLiteral("slm-clipboardd"),
                             QStringLiteral("slm-clipboardd"),
                             QStringLiteral("slm-clipboardd"));
+    installServiceBootstrap(QStringLiteral("org.slm.Desktop.Settings"),
+                            QStringLiteral("slm-settingsd"),
+                            QStringLiteral("slm-settingsd"),
+                            QStringLiteral("slm-settingsd"));
     startupMark(QStringLiteral("service.bootstrap.installed"));
     const AppStartupArgs startupArgs = parseAppStartupArgs(app.arguments());
     startupMark(QStringLiteral("args.parsed"),
