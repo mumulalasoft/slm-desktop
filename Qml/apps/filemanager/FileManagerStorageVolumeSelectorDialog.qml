@@ -23,7 +23,6 @@ AppDialog {
             text: String(hostRoot.storageSelectorDeviceLabel || qsTr("External Drive"))
             color: Theme.color("textPrimary")
             font.pixelSize: Theme.fontSize("body")
-            font.weight: Font.DemiBold
             elide: Text.ElideRight
         }
 
