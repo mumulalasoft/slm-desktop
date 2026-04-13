@@ -20,6 +20,7 @@ ENABLE_USER_UNITS="${SLM_ENABLE_USER_UNITS:-1}"
 
 BIN_DIR="/usr/local/bin"
 LIBEXEC_DIR="/usr/libexec"
+SLM_LIBEXEC_DIR="/usr/local/libexec/slm/recovery"
 SESSION_DIR="/usr/share/wayland-sessions"
 
 echo "[install-slm-runtime] root=$ROOT_DIR"
@@ -73,6 +74,17 @@ install_if_exists "$BUILD_DIR/slm-recoveryd" "$BIN_DIR/slm-recoveryd"
 
 install -Dm644 "$ROOT_DIR/sessions/slm.desktop" "$SESSION_DIR/slm.desktop"
 echo "[install-slm-runtime][OK] $SESSION_DIR/slm.desktop"
+
+install -d "$SLM_LIBEXEC_DIR"
+install -m755 "$ROOT_DIR/scripts/recovery/request-bootloader-recovery.sh" \
+  "$SLM_LIBEXEC_DIR/request-bootloader-recovery.sh"
+install -m755 "$ROOT_DIR/scripts/recovery/detect-recovery-boot-entry.sh" \
+  "$SLM_LIBEXEC_DIR/detect-recovery-boot-entry.sh"
+install -m755 "$ROOT_DIR/scripts/recovery/install-recovery-boot-entry.sh" \
+  "$SLM_LIBEXEC_DIR/install-recovery-boot-entry.sh"
+install -m755 "$ROOT_DIR/scripts/recovery/build-recovery-partition-image.sh" \
+  "$SLM_LIBEXEC_DIR/build-recovery-partition-image.sh"
+echo "[install-slm-runtime][OK] recovery helpers installed at $SLM_LIBEXEC_DIR"
 
 if [[ -n "$TARGET_USER" ]]; then
   USER_HOME="$(getent passwd "$TARGET_USER" | cut -d: -f6)"

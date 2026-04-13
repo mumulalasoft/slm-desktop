@@ -53,9 +53,15 @@ Operational helper in repo:
 - `scripts/recovery/request-bootloader-recovery.sh`
   - systemd-boot: `bootctl set-oneshot <entry>`
   - GRUB: `grub-reboot <entry>`
+- `scripts/recovery/detect-recovery-boot-entry.sh`
+  - auto-select suitable recovery entry from systemd-boot/GRUB configs.
+- `scripts/recovery/install-recovery-boot-entry.sh`
+  - install/update recovery boot entry from generated templates.
+- `scripts/recovery/build-recovery-partition-image.sh`
+  - produce recovery SquashFS image + manifest + boot entry templates.
 - `slm-recoveryd` optional hook:
   - `SLM_RECOVERY_BOOTLOADER_HELPER=/path/to/request-bootloader-recovery.sh`
-  - `SLM_RECOVERY_BOOT_ENTRY=recovery`
+  - `SLM_RECOVERY_BOOT_ENTRY=auto`
 
 ## 4) systemd Services
 

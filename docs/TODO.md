@@ -59,7 +59,7 @@
 - [~] Contract test baseline added (`tests/recoveryservice_contract_test.cpp`).
 - [~] Initial architecture output document added: `docs/architecture/HYBRID_RECOVERY_ARCHITECTURE.md`.
 - [~] In-system Safe Mode page integrated (`Qml/recovery/SafeModePage.qml`) with simple-clean action UI and wired backend actions (restart/reset/disable-extension/reset-graphics/terminal/network/snapshot routing).
-- [ ] Recovery partition image/build pipeline and bootloader fallback selector automation.
+- [~] Recovery partition image/build pipeline + bootloader selector baseline implemented (`build-recovery-partition-image.sh`, `install-recovery-boot-entry.sh`, `detect-recovery-boot-entry.sh`, helper auto-entry wiring in `slm-recoveryd.service`).
 - [ ] Full safe-mode/recovery UI flow completion per strict action list.
 - [~] Snapshot diff preview and guarded rollback execution from UI (`RecoveryApp.previewSnapshotDiff`, confirmation-gated restore flow in `Qml/recovery/SnapshotPage.qml`).
 
