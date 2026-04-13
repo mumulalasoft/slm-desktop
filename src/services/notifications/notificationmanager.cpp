@@ -6,6 +6,13 @@
 #include <QDBusConnectionInterface>
 #include <QDBusError>
 #include <QDebug>
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QStandardPaths>
 
 namespace {
 constexpr const char *kFreedesktopNotificationService = "org.freedesktop.Notifications";
@@ -214,6 +221,17 @@ NotificationManager::NotificationManager(QObject *parent)
     m_bannerModel = new NotificationListModel(this);
     new DesktopNotificationAdaptor(this);
     registerDbusService();
+
+    // Resolve history file path under the app data dir.
+    const QString dataDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    m_historyFilePath = QDir(dataDir).filePath(QStringLiteral("notification_history.json"));
+
+    // Debounced save: write at most once per 2 s when notifications change.
+    m_saveTimer.setInterval(2000);
+    m_saveTimer.setSingleShot(true);
+    connect(&m_saveTimer, &QTimer::timeout, this, &NotificationManager::saveHistory);
+
+    loadHistory();
 }
 
 NotificationManager::~NotificationManager()
@@ -319,6 +337,7 @@ void NotificationManager::clearAll()
     m_bannerAttemptHistoryByApp.clear();
     emitCountIfChanged(before);
     emitUnreadCountIfChanged(beforeUnread);
+    m_saveTimer.start();
 }
 
 bool NotificationManager::closeById(uint id)
@@ -334,6 +353,7 @@ bool NotificationManager::closeById(uint id)
         emit NotificationRemoved(id);
         emitCountIfChanged(before);
         emitUnreadCountIfChanged(beforeUnread);
+        m_saveTimer.start();
     }
     return ok;
 }
@@ -522,6 +542,9 @@ bool NotificationManager::markRead(uint id, bool read)
         m_bannerModel->removeById(id);
     }
     emitUnreadCountIfChanged(beforeUnread);
+    if (changed) {
+        m_saveTimer.start();
+    }
     return changed;
 }
 
@@ -656,6 +679,10 @@ uint NotificationManager::upsertNotification(const NotificationEntry &entry, boo
     if (!suppressBanner) {
         updateLatestNotification(effectiveEntry);
     }
+
+    // Schedule a debounced history save so disk writes are batched during bursts.
+    m_saveTimer.start();
+
     return effectiveEntry.id;
 }
 
@@ -724,4 +751,117 @@ bool NotificationManager::shouldSuppressBannerForSpam(const NotificationEntry &e
     }
 
     return false;
+}
+
+void NotificationManager::saveHistory()
+{
+    if (m_historyFilePath.isEmpty() || !m_model) {
+        return;
+    }
+
+    // Serialize the most recent kMaxHistoryEntries from the model.
+    const int totalRows = m_model->rowCount();
+    const int startRow  = qMax(0, totalRows - kMaxHistoryEntries);
+    QJsonArray arr;
+    for (int i = startRow; i < totalRows; ++i) {
+        const QModelIndex idx = m_model->index(i, 0);
+        NotificationEntry entry;
+        entry.id       = static_cast<uint>(m_model->data(idx, NotificationListModel::IdRole).toUInt());
+        entry.appId    = m_model->data(idx, NotificationListModel::AppIdRole).toString();
+        entry.appName  = m_model->data(idx, NotificationListModel::AppNameRole).toString();
+        entry.appIcon  = m_model->data(idx, NotificationListModel::AppIconRole).toString();
+        entry.summary  = m_model->data(idx, NotificationListModel::SummaryRole).toString();
+        entry.body     = m_model->data(idx, NotificationListModel::BodyRole).toString();
+        entry.priority = m_model->data(idx, NotificationListModel::PriorityRole).toString();
+        entry.groupId  = m_model->data(idx, NotificationListModel::GroupIdRole).toString();
+        entry.read     = m_model->data(idx, NotificationListModel::ReadRole).toBool();
+        entry.banner   = m_model->data(idx, NotificationListModel::BannerRole).toBool();
+        arr.append(QJsonObject::fromVariantMap(toVariantMap(entry)));
+    }
+
+    QJsonObject root;
+    root[QStringLiteral("version")] = 1;
+    root[QStringLiteral("nextId")]  = static_cast<qint64>(m_nextId);
+    root[QStringLiteral("entries")] = arr;
+    const QJsonDocument doc(root);
+
+    const QFileInfo histInfo(m_historyFilePath);
+    const QDir histDir = histInfo.absoluteDir();
+    if (!histDir.exists()) {
+        histDir.mkpath(QStringLiteral("."));
+    }
+
+    QFile f(m_historyFilePath);
+    if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        qWarning() << "NotificationManager: failed to save history to" << m_historyFilePath
+                   << "error:" << f.errorString();
+        return;
+    }
+    f.write(doc.toJson(QJsonDocument::Compact));
+}
+
+void NotificationManager::loadHistory()
+{
+    if (m_historyFilePath.isEmpty()) {
+        return;
+    }
+
+    QFile f(m_historyFilePath);
+    if (!f.open(QIODevice::ReadOnly)) {
+        return; // Normal on first run — no history yet.
+    }
+
+    QJsonParseError parseError;
+    const QJsonDocument doc = QJsonDocument::fromJson(f.readAll(), &parseError);
+    if (doc.isNull() || !doc.isObject()) {
+        qWarning() << "NotificationManager: failed to parse history:" << parseError.errorString();
+        return;
+    }
+
+    const QJsonObject root = doc.object();
+
+    // Restore next ID counter before inserting entries.
+    const uint savedNextId = static_cast<uint>(root[QStringLiteral("nextId")].toInt(1));
+    if (savedNextId > m_nextId) {
+        m_nextId = savedNextId;
+    }
+
+    const QJsonArray arr = root[QStringLiteral("entries")].toArray();
+    int loaded = 0;
+    for (const QJsonValue &v : arr) {
+        if (loaded >= kMaxHistoryEntries) {
+            break;
+        }
+        const QJsonObject obj = v.toObject();
+        NotificationEntry entry;
+        entry.id       = static_cast<uint>(obj[QStringLiteral("id")].toInt());
+        entry.appId    = obj[QStringLiteral("app_id")].toString();
+        entry.appName  = obj[QStringLiteral("app_name")].toString();
+        entry.appIcon  = obj[QStringLiteral("icon")].toString();
+        entry.summary  = obj[QStringLiteral("title")].toString();
+        entry.body     = obj[QStringLiteral("body")].toString();
+        entry.priority = obj[QStringLiteral("priority")].toString(QStringLiteral("normal"));
+        entry.groupId  = obj[QStringLiteral("group_id")].toString();
+        entry.read     = obj[QStringLiteral("read")].toBool(true);
+        // Restored notifications never show as banners — the user already saw them.
+        entry.banner   = false;
+        entry.urgency  = 1;
+        const QString ts = obj[QStringLiteral("timestamp")].toString();
+        if (!ts.isEmpty()) {
+            entry.timestamp = QDateTime::fromString(ts, Qt::ISODate);
+        }
+        if (entry.id > 0 && m_model) {
+            m_model->upsert(entry);
+            if (entry.id >= m_nextId) {
+                m_nextId = entry.id + 1;
+            }
+            ++loaded;
+        }
+    }
+
+    if (loaded > 0) {
+        emit countChanged();
+        emit unreadCountChanged();
+        qInfo() << "NotificationManager: restored" << loaded << "notifications from history";
+    }
 }

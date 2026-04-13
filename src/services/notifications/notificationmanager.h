@@ -4,7 +4,9 @@
 #include <QHash>
 #include <QDateTime>
 #include <QObject>
+#include <QString>
 #include <QStringList>
+#include <QTimer>
 #include <QVariantMap>
 #include <QVector>
 
@@ -160,6 +162,13 @@ private:
     void updateLatestNotification(const NotificationEntry &entry);
     bool shouldSuppressBannerForSpam(const NotificationEntry &entry);
 
+    // History persistence: save/load notification history to disk so the
+    // notification center survives daemon restarts.
+    void saveHistory();
+    void loadHistory();
+
+    static constexpr int kMaxHistoryEntries = 200;
+
     bool m_serviceRegistered = false;
     bool m_desktopServiceRegistered = false;
     uint m_nextId = 1;
@@ -173,4 +182,6 @@ private:
     QHash<QString, QVector<qint64>> m_bannerAttemptHistoryByApp;
     NotificationListModel *m_model = nullptr;
     NotificationListModel *m_bannerModel = nullptr;
+    QString m_historyFilePath;
+    QTimer m_saveTimer;
 };

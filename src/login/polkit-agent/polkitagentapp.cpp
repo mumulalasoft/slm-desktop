@@ -161,14 +161,29 @@ PolkitAgentApp::PolkitAgentApp(QObject *parent)
     m_dialogController->setSession(m_authSession);
 
     m_lockFile.setStaleLockTime(15000);
+
     m_heartbeat.setInterval(30000);
     connect(&m_heartbeat, &QTimer::timeout, this, []() {
         qInfo().noquote() << "[slm-polkit-agent] heartbeat"
                           << QDateTime::currentDateTime().toString(Qt::ISODateWithMs);
     });
 
+#ifdef SLM_HAVE_POLKIT_AGENT
+    // Auth request timeout: cancel and fail if the user doesn't respond within
+    // kAuthTimeoutMs. This prevents the agent from hanging when polkitd sends a
+    // request that the UI never answers (e.g. screen locked, dialog lost focus).
+    constexpr int kAuthTimeoutMs = 120000; // 2 minutes
+    m_requestTimeout.setInterval(kAuthTimeoutMs);
+    m_requestTimeout.setSingleShot(true);
+    connect(&m_requestTimeout, &QTimer::timeout, this, [this]() {
+        qWarning().noquote() << "[slm-polkit-agent] auth timeout — cancelling pending request";
+        completeAuthenticationRequest(false, QStringLiteral("timeout"));
+    });
+#endif
+
     connect(m_authSession, &AuthSession::request, this, [this](const QString &prompt, bool echoOn) {
-        qInfo().noquote() << "[slm-polkit-agent] auth prompt" << prompt;
+        // Log only the prompt label, never credential values.
+        qInfo().noquote() << "[slm-polkit-agent] auth prompt received echo=" << echoOn;
         if (m_dialogController) {
             m_dialogController->handleSessionRequest(prompt, echoOn);
         }
@@ -189,14 +204,28 @@ PolkitAgentApp::PolkitAgentApp(QObject *parent)
         if (m_dialogController) {
             m_dialogController->handleSessionCompleted();
         }
-        completeAuthenticationRequest(gainedAuthorization, gainedAuthorization ? QString() : QStringLiteral("authorization-denied"));
+        completeAuthenticationRequest(gainedAuthorization,
+                                      gainedAuthorization ? QString()
+                                                          : QStringLiteral("authorization-denied"));
     });
 }
 
 PolkitAgentApp::~PolkitAgentApp()
 {
 #ifdef SLM_HAVE_POLKIT_AGENT
+    m_requestTimeout.stop();
     completeAuthenticationRequest(false, QStringLiteral("agent-shutdown"));
+    // Fail all queued requests so polkitd doesn't hang waiting for answers.
+    while (!m_requestQueue.isEmpty()) {
+        QueuedRequest req = m_requestQueue.dequeue();
+        g_object_unref(req.identity);
+        if (req.cancellable) {
+            g_object_unref(req.cancellable);
+        }
+        g_task_return_new_error(asTask(req.task), G_IO_ERROR, G_IO_ERROR_CANCELLED,
+                                "agent-shutdown");
+        g_object_unref(req.task);
+    }
     if (m_registrationHandle) {
         polkit_agent_listener_unregister(m_registrationHandle);
         m_registrationHandle = nullptr;
@@ -324,14 +353,10 @@ bool PolkitAgentApp::beginAuthenticationRequest(const QString &actionId,
     Q_UNUSED(iconName);
     Q_UNUSED(details);
 
-    if (m_pendingTask) {
-        g_task_return_new_error(asTask(task), G_IO_ERROR, G_IO_ERROR_BUSY, "another-authentication-is-active");
-        return false;
-    }
-
     GList *identityList = asIdentityList(identities);
     if (!identityList || !identityList->data) {
-        g_task_return_new_error(asTask(task), G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT, "identity-not-provided");
+        g_task_return_new_error(asTask(task), G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT,
+                                "identity-not-provided");
         return false;
     }
 
@@ -340,12 +365,31 @@ bool PolkitAgentApp::beginAuthenticationRequest(const QString &actionId,
     const QString identityLabel = QString::fromUtf8(identityText ? identityText : "");
     g_free(identityText);
 
+    // If another request is already active, queue this one rather than failing
+    // it immediately. polkitd may legitimately send multiple simultaneous auth
+    // requests (e.g. two apps requesting privilege at the same time).
+    if (m_pendingTask) {
+        QueuedRequest req;
+        req.actionId      = actionId;
+        req.message       = message;
+        req.cookie        = cookie;
+        req.identityLabel = identityLabel;
+        req.identity      = g_object_ref(identity); // held until processNextRequest
+        req.task          = task;                   // we own this GTask*
+        req.cancellable   = cancellable ? g_object_ref(cancellable) : nullptr;
+        m_requestQueue.enqueue(req);
+        qInfo().noquote() << "[slm-polkit-agent] auth request queued action=" << actionId
+                          << "queue-depth=" << m_requestQueue.size();
+        return true; // accepted — we're responsible for completing this task later
+    }
+
     m_dialogController->beginRequest(actionId, message, identityLabel);
 
     QString startError;
     if (!m_authSession->start(identity, cookie, &startError)) {
         m_dialogController->endRequest();
-        g_task_return_new_error(asTask(task), G_IO_ERROR, G_IO_ERROR_FAILED, "%s", startError.toUtf8().constData());
+        g_task_return_new_error(asTask(task), G_IO_ERROR, G_IO_ERROR_FAILED,
+                                "%s", startError.toUtf8().constData());
         return false;
     }
 
@@ -355,11 +399,12 @@ bool PolkitAgentApp::beginAuthenticationRequest(const QString &actionId,
         g_object_ref(m_pendingCancellable);
         m_pendingCancelHandler = g_cancellable_connect(asCancellable(m_pendingCancellable),
                                                        G_CALLBACK(onPendingCancelled),
-                                                       this,
-                                                       nullptr);
+                                                       this, nullptr);
     }
+    m_requestTimeout.start();
 
-    qInfo().noquote() << "[slm-polkit-agent] auth request accepted action=" << actionId << "identity=" << identityLabel;
+    qInfo().noquote() << "[slm-polkit-agent] auth request started action=" << actionId
+                      << "identity=" << identityLabel;
     return true;
 }
 
@@ -368,6 +413,8 @@ void PolkitAgentApp::completeAuthenticationRequest(bool gainedAuthorization, con
     if (!m_pendingTask) {
         return;
     }
+
+    m_requestTimeout.stop();
 
     if (m_authSession->isActive()) {
         m_authSession->cancel();
@@ -388,10 +435,69 @@ void PolkitAgentApp::completeAuthenticationRequest(bool gainedAuthorization, con
     if (gainedAuthorization) {
         g_task_return_boolean(task, TRUE);
     } else {
-        const QByteArray utf8 = errorMessage.isEmpty() ? QByteArray("authentication-failed") : errorMessage.toUtf8();
+        const QByteArray utf8 = errorMessage.isEmpty()
+                ? QByteArray("authentication-failed")
+                : errorMessage.toUtf8();
         g_task_return_new_error(task, G_IO_ERROR, G_IO_ERROR_FAILED, "%s", utf8.constData());
     }
     g_object_unref(task);
+
+    // Start the next queued request (if any) now that the slot is free.
+    processNextRequest();
+}
+
+void PolkitAgentApp::processNextRequest()
+{
+    if (m_requestQueue.isEmpty()) {
+        return;
+    }
+
+    QueuedRequest req = m_requestQueue.dequeue();
+
+    // If the caller already cancelled this request while it was in the queue,
+    // fail it immediately and try the next one.
+    if (req.cancellable && g_cancellable_is_cancelled(asCancellable(req.cancellable))) {
+        qInfo().noquote() << "[slm-polkit-agent] queued request was already cancelled action="
+                          << req.actionId;
+        g_object_unref(req.identity);
+        g_object_unref(req.cancellable);
+        g_task_return_new_error(asTask(req.task), G_IO_ERROR, G_IO_ERROR_CANCELLED,
+                                "request-cancelled-while-queued");
+        g_object_unref(req.task);
+        processNextRequest();
+        return;
+    }
+
+    m_dialogController->beginRequest(req.actionId, req.message, req.identityLabel);
+
+    QString startError;
+    if (!m_authSession->start(req.identity, req.cookie, &startError)) {
+        g_object_unref(req.identity);
+        if (req.cancellable) {
+            g_object_unref(req.cancellable);
+        }
+        m_dialogController->endRequest();
+        g_task_return_new_error(asTask(req.task), G_IO_ERROR, G_IO_ERROR_FAILED,
+                                "%s", startError.toUtf8().constData());
+        g_object_unref(req.task);
+        processNextRequest();
+        return;
+    }
+
+    // AuthSession holds the identity via polkit_agent_session_new; release our ref.
+    g_object_unref(req.identity);
+
+    m_pendingTask        = req.task;
+    m_pendingCancellable = req.cancellable;
+    if (m_pendingCancellable) {
+        m_pendingCancelHandler = g_cancellable_connect(asCancellable(m_pendingCancellable),
+                                                       G_CALLBACK(onPendingCancelled),
+                                                       this, nullptr);
+    }
+    m_requestTimeout.start();
+
+    qInfo().noquote() << "[slm-polkit-agent] queued auth request started action=" << req.actionId
+                      << "remaining-queue=" << m_requestQueue.size();
 }
 #endif
 

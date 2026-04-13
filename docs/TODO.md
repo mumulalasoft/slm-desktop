@@ -47,20 +47,20 @@
 ---
 
 ## Program desktop-appd (Ringkas)
-- [ ] Selesaikan skeleton service + DBus contract `org.desktop.Apps` minimal.
-- [ ] Stabilkan lifecycle registry app-centric (bukan PID-centric).
-- [ ] Implement exposure policy agar Dock/Switcher hanya menampilkan app yang valid UX.
-- [ ] Tambah contract test untuk signal granular (`AppAdded/Removed/StateChanged/FocusChanged`).
+- [x] Selesaikan skeleton service + DBus contract `org.desktop.Apps` minimal.
+- [x] Stabilkan lifecycle registry app-centric (bukan PID-centric).
+- [x] Implement exposure policy agar Dock/Switcher hanya menampilkan app yang valid UX.
+- [x] Tambah contract test untuk signal granular (`AppAdded/Removed/StateChanged/FocusChanged`).
 
 ## Program Notification (Ringkas)
-- [ ] Finalisasi policy banner vs center + Do Not Disturb.
+- [x] Finalisasi policy banner vs center + Do Not Disturb.
 - [ ] Hardening multi-monitor behavior.
-- [ ] Persistensi history + recovery state dasar.
+- [x] Persistensi history + recovery state dasar.
 
 ## Program Polkit Agent (Ringkas)
-- [ ] Finalisasi state machine multi-request + timeout/cancel path.
-- [ ] Hardening security (no password logging, secure buffer wipe, restart-safe).
-- [ ] Tambah integration test runtime session.
+- [x] Finalisasi state machine multi-request + timeout/cancel path.
+- [x] Hardening security (no password logging, secure buffer wipe, restart-safe).
+- [x] Tambah integration test runtime session.
 
 ---
 

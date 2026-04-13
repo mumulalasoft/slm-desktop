@@ -1957,6 +1957,40 @@ target_link_libraries(storage_automount_contract_test
 
 add_test(NAME storage_automount_contract_test COMMAND storage_automount_contract_test)
 
+qt_add_executable(appd_signal_contract_test
+    tests/appd_signal_contract_test.cpp
+)
+
+target_compile_definitions(appd_signal_contract_test
+    PRIVATE
+        DESKTOP_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\"
+)
+
+target_link_libraries(appd_signal_contract_test
+    PRIVATE
+        Qt6::Core
+        Qt6::Test
+)
+
+add_test(NAME appd_signal_contract_test COMMAND appd_signal_contract_test)
+
+qt_add_executable(polkit_agent_contract_test
+    tests/polkit_agent_contract_test.cpp
+)
+
+target_compile_definitions(polkit_agent_contract_test
+    PRIVATE
+        DESKTOP_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\"
+)
+
+target_link_libraries(polkit_agent_contract_test
+    PRIVATE
+        Qt6::Core
+        Qt6::Test
+)
+
+add_test(NAME polkit_agent_contract_test COMMAND polkit_agent_contract_test)
+
 qt_add_executable(storagepolicystore_migration_test
     src/services/storage/storagepolicystore.cpp
     src/services/storage/storagepolicystore.h
