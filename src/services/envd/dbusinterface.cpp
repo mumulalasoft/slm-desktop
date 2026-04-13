@@ -190,6 +190,11 @@ QVariantMap DbusInterface::UnsetSessionVar(const QString &key)
                : err(m_service->lastError());
 }
 
+QVariantList DbusInterface::GetSessionVars()
+{
+    return m_service->sessionVars();
+}
+
 // ── Per-app ───────────────────────────────────────────────────────────────────
 //
 // Sandboxed callers may only write overrides for their own app ID (the value

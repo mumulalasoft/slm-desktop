@@ -44,6 +44,7 @@ public:
     bool setSessionVar(const QString &key, const QString &value,
                        const QString &mergeMode = QStringLiteral("replace"));
     bool unsetSessionVar(const QString &key);
+    QVariantList sessionVars() const;
 
     // ── Per-app operations ───────────────────────────────────────────────────
 

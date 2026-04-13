@@ -45,6 +45,7 @@ public slots:
     QVariantMap SetSessionVar(const QString &key, const QString &value,
                               const QString &mergeMode);
     QVariantMap UnsetSessionVar(const QString &key);
+    QVariantList GetSessionVars();
 
     // ── Per-app scope ────────────────────────────────────────────────────────
     QVariantMap AddAppVar(const QString &appId, const QString &key,

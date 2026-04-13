@@ -158,6 +158,13 @@ bool EnvServiceClient::unsetSessionVar(const QString &key)
     return r.isValid() && callOk(r.value());
 }
 
+QVariantList EnvServiceClient::getSessionVars()
+{
+    if (!ensureIface()) return {};
+    QDBusReply<QVariantList> r = m_iface->call(QStringLiteral("GetSessionVars"));
+    return r.isValid() ? r.value() : QVariantList{};
+}
+
 // ── Per-app overrides ─────────────────────────────────────────────────────────
 
 bool EnvServiceClient::addAppVar(const QString &appId, const QString &key,

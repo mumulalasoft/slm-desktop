@@ -152,6 +152,23 @@ bool EnvService::unsetSessionVar(const QString &key)
     return m_sessionStore.unsetVar(key);
 }
 
+QVariantList EnvService::sessionVars() const
+{
+    QVariantList result;
+    for (const EnvEntry &e : m_sessionStore.entries()) {
+        QVariantMap m;
+        m[QStringLiteral("key")] = e.key;
+        m[QStringLiteral("value")] = e.value;
+        m[QStringLiteral("enabled")] = e.enabled;
+        m[QStringLiteral("comment")] = e.comment;
+        m[QStringLiteral("mergeMode")] = e.mergeMode;
+        m[QStringLiteral("modifiedAt")] = e.modifiedAt.toString(Qt::ISODate);
+        m[QStringLiteral("scope")] = QStringLiteral("session");
+        result.append(m);
+    }
+    return result;
+}
+
 // ── Per-app ───────────────────────────────────────────────────────────────────
 
 bool EnvService::addAppVar(const QString &appId, const QString &key,
