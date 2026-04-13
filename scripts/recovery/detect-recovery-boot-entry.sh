@@ -13,6 +13,9 @@ set -euo pipefail
 
 ENTRY_HINT_RAW="${1:-recovery}"
 ENTRY_HINT="$(echo "$ENTRY_HINT_RAW" | tr '[:upper:]' '[:lower:]' | xargs)"
+LOADER_ENTRY_DIRS="${SLM_RECOVERY_LOADER_ENTRY_DIRS:-/boot/loader/entries:/boot/efi/loader/entries:/efi/loader/entries}"
+GRUB_CFG_PATHS="${SLM_RECOVERY_GRUB_CFG_PATHS:-/boot/grub/grub.cfg:/boot/grub2/grub.cfg}"
+BOOTLOADER_HINT="${SLM_RECOVERY_BOOTLOADER_HINT:-auto}" # auto|systemd-boot|grub
 
 log() { echo "[detect-recovery-entry] $*" >&2; }
 die() { echo "[detect-recovery-entry][FAIL] $*" >&2; exit 1; }
@@ -50,11 +53,8 @@ choose_with_hint() {
 }
 
 detect_systemd_boot_entry() {
-  local dirs=(
-    "/boot/loader/entries"
-    "/boot/efi/loader/entries"
-    "/efi/loader/entries"
-  )
+  local dirs=()
+  IFS=':' read -r -a dirs <<< "$LOADER_ENTRY_DIRS"
   local d ids=() f
 
   for d in "${dirs[@]}"; do
@@ -73,13 +73,16 @@ detect_systemd_boot_entry() {
 
 detect_grub_entry() {
   local cfg=""
-  if [[ -f "/boot/grub/grub.cfg" ]]; then
-    cfg="/boot/grub/grub.cfg"
-  elif [[ -f "/boot/grub2/grub.cfg" ]]; then
-    cfg="/boot/grub2/grub.cfg"
-  else
-    return 1
-  fi
+  local paths=()
+  IFS=':' read -r -a paths <<< "$GRUB_CFG_PATHS"
+  local p
+  for p in "${paths[@]}"; do
+    if [[ -f "$p" ]]; then
+      cfg="$p"
+      break
+    fi
+  done
+  [[ -n "$cfg" ]] || return 1
 
   local titles=()
   while IFS= read -r line; do
@@ -93,14 +96,14 @@ detect_grub_entry() {
   choose_with_hint "$ENTRY_HINT" "${titles[@]}"
 }
 
-if command -v bootctl >/dev/null 2>&1; then
+if [[ "$BOOTLOADER_HINT" == "auto" || "$BOOTLOADER_HINT" == "systemd-boot" ]]; then
   if entry="$(detect_systemd_boot_entry)"; then
     echo "$entry"
     exit 0
   fi
 fi
 
-if command -v grub-reboot >/dev/null 2>&1 || [[ -f "/boot/grub/grub.cfg" || -f "/boot/grub2/grub.cfg" ]]; then
+if [[ "$BOOTLOADER_HINT" == "auto" || "$BOOTLOADER_HINT" == "grub" ]]; then
   if entry="$(detect_grub_entry)"; then
     echo "$entry"
     exit 0

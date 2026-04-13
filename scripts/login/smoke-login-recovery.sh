@@ -26,4 +26,7 @@ echo "[smoke-login-recovery] session mode parser sanity"
 "${BUILD_DIR}/slm-session-broker" --help >/dev/null
 "${BUILD_DIR}/slm-session-broker" --mode safe --help >/dev/null || true
 
+echo "[smoke-login-recovery] recovery partition pipeline smoke"
+scripts/recovery/smoke-recovery-partition-pipeline.sh
+
 echo "[smoke-login-recovery] done"

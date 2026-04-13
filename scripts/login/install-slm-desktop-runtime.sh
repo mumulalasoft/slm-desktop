@@ -86,6 +86,8 @@ install -m755 "$ROOT_DIR/scripts/recovery/build-recovery-partition-image.sh" \
   "$SLM_LIBEXEC_DIR/build-recovery-partition-image.sh"
 install -m755 "$ROOT_DIR/scripts/recovery/deploy-recovery-partition.sh" \
   "$SLM_LIBEXEC_DIR/deploy-recovery-partition.sh"
+install -m755 "$ROOT_DIR/scripts/recovery/smoke-recovery-partition-pipeline.sh" \
+  "$SLM_LIBEXEC_DIR/smoke-recovery-partition-pipeline.sh"
 echo "[install-slm-runtime][OK] recovery helpers installed at $SLM_LIBEXEC_DIR"
 
 if [[ -n "$TARGET_USER" ]]; then

@@ -99,3 +99,20 @@ Opsional untuk aksi UI Safe Mode:
 Jika helper tidak diset:
 - `Repair System` fallback ke `fsck -A -T -p`.
 - `Reinstall System` menulis request flag `~/.config/slm-desktop/flags/reinstall-system-request.flag`.
+
+## 5. Non-Destructive Smoke
+
+Script:
+- `scripts/recovery/smoke-recovery-partition-pipeline.sh`
+
+Cakupan:
+- validasi helper scripts executable,
+- validasi auto-detect recovery entry dengan fixture,
+- build artifact recovery menggunakan dummy binaries,
+- verifikasi manifest + template root spec.
+
+Contoh:
+
+```bash
+scripts/recovery/smoke-recovery-partition-pipeline.sh
+```
