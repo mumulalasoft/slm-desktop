@@ -58,9 +58,10 @@
 - [~] `slm-recoveryd` bootloader hook added (optional helper via `SLM_RECOVERY_BOOTLOADER_HELPER`).
 - [~] Contract test baseline added (`tests/recoveryservice_contract_test.cpp`).
 - [~] Initial architecture output document added: `docs/architecture/HYBRID_RECOVERY_ARCHITECTURE.md`.
+- [~] In-system Safe Mode page integrated (`Qml/recovery/SafeModePage.qml`) with simple-clean action UI and wired backend actions (restart/reset/disable-extension/reset-graphics/terminal/network/snapshot routing).
 - [ ] Recovery partition image/build pipeline and bootloader fallback selector automation.
 - [ ] Full safe-mode/recovery UI flow completion per strict action list.
-- [ ] Snapshot diff preview and guarded rollback execution from UI.
+- [~] Snapshot diff preview and guarded rollback execution from UI (`RecoveryApp.previewSnapshotDiff`, confirmation-gated restore flow in `Qml/recovery/SnapshotPage.qml`).
 
 ### TITLE
 Design and Implement a Hybrid Recovery System for an "Unbreakable" Wayland Desktop OS

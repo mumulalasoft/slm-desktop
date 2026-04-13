@@ -5,12 +5,63 @@
 #include <QDBusInterface>
 #include <QDBusReply>
 #include <QDir>
+#include <QFile>
+#include <QFileInfo>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonArray>
+#include <QSaveFile>
 #include <QProcess>
+#include <QSet>
+#include <QStandardPaths>
 
 #include "src/login/libslmlogin/slmconfigmanager.h"
 #include "src/login/libslmlogin/slmsessionstate.h"
 
 namespace Slm::Login {
+
+namespace {
+
+QJsonObject readJsonObjectFile(const QString &path)
+{
+    QFile file(path);
+    if (!file.exists() || !file.open(QIODevice::ReadOnly)) {
+        return {};
+    }
+    const QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
+    if (!doc.isObject()) {
+        return {};
+    }
+    return doc.object();
+}
+
+QString toDisplayString(const QJsonValue &value)
+{
+    if (value.isUndefined()) {
+        return QStringLiteral("(missing)");
+    }
+    if (value.isNull()) {
+        return QStringLiteral("null");
+    }
+    if (value.isString()) {
+        return value.toString();
+    }
+    if (value.isBool()) {
+        return value.toBool() ? QStringLiteral("true") : QStringLiteral("false");
+    }
+    if (value.isDouble()) {
+        return QString::number(value.toDouble());
+    }
+    if (value.isArray()) {
+        return QString::fromUtf8(QJsonDocument(value.toArray()).toJson(QJsonDocument::Compact));
+    }
+    if (value.isObject()) {
+        return QString::fromUtf8(QJsonDocument(value.toObject()).toJson(QJsonDocument::Compact));
+    }
+    return QStringLiteral("(unsupported)");
+}
+
+} // namespace
 
 RecoveryApp::RecoveryApp(QObject *parent)
     : QObject(parent)
@@ -102,6 +153,157 @@ bool RecoveryApp::factoryReset()
     return true;
 }
 
+bool RecoveryApp::restartDesktop()
+{
+    qInfo("slm-recovery-app: restart desktop requested");
+    QCoreApplication::quit();
+    return true;
+}
+
+bool RecoveryApp::disableExtensions()
+{
+    const bool ok = writeFlagFile(QStringLiteral("disable-extensions.flag"));
+    if (!ok) {
+        qWarning("slm-recovery-app: disableExtensions failed");
+        return false;
+    }
+    qInfo("slm-recovery-app: disable extensions flag written");
+    return true;
+}
+
+bool RecoveryApp::resetGraphicsStack()
+{
+    // Force next session onto software rendering profile.
+    const bool ok1 = writeFlagFile(QStringLiteral("force-software-rendering.flag"));
+    const bool ok2 = writeFlagFile(QStringLiteral("disable-effects.flag"));
+    if (!ok1 || !ok2) {
+        qWarning("slm-recovery-app: resetGraphicsStack failed");
+        return false;
+    }
+    qInfo("slm-recovery-app: graphics reset flags written");
+    return true;
+}
+
+bool RecoveryApp::openTerminal()
+{
+    const QStringList candidates{
+        QStringLiteral("x-terminal-emulator"),
+        QStringLiteral("konsole"),
+        QStringLiteral("gnome-terminal"),
+        QStringLiteral("xfce4-terminal"),
+        QStringLiteral("xterm"),
+    };
+
+    for (const QString &bin : candidates) {
+        if (QStandardPaths::findExecutable(bin).isEmpty()) {
+            continue;
+        }
+        if (QProcess::startDetached(bin, {})) {
+            qInfo("slm-recovery-app: terminal started via %s", qUtf8Printable(bin));
+            return true;
+        }
+    }
+
+    qWarning("slm-recovery-app: openTerminal failed (no terminal binary)");
+    return false;
+}
+
+bool RecoveryApp::networkRepair()
+{
+    // Best-effort in user session: turn networking/radios on.
+    if (!QStandardPaths::findExecutable(QStringLiteral("nmcli")).isEmpty()) {
+        QProcess nmOn;
+        nmOn.start(QStringLiteral("nmcli"), {QStringLiteral("networking"), QStringLiteral("on")});
+        nmOn.waitForFinished(2000);
+        QProcess radioOn;
+        radioOn.start(QStringLiteral("nmcli"), {QStringLiteral("radio"), QStringLiteral("all"), QStringLiteral("on")});
+        radioOn.waitForFinished(2000);
+        const bool ok = (nmOn.exitCode() == 0 && radioOn.exitCode() == 0);
+        qInfo("slm-recovery-app: networkRepair nmcli result=%s", ok ? "ok" : "partial");
+        return ok;
+    }
+
+    // Fallback (may require permission, still useful when available).
+    if (QStandardPaths::findExecutable(QStringLiteral("systemctl")).isEmpty()) {
+        qWarning("slm-recovery-app: networkRepair failed (no nmcli/systemctl)");
+        return false;
+    }
+    QProcess p;
+    p.start(QStringLiteral("systemctl"), {QStringLiteral("restart"), QStringLiteral("NetworkManager.service")});
+    if (!p.waitForFinished(3000)) {
+        p.kill();
+        qWarning("slm-recovery-app: networkRepair timeout");
+        return false;
+    }
+    return p.exitCode() == 0;
+}
+
+QVariantMap RecoveryApp::previewSnapshotDiff(const QString &snapshotId) const
+{
+    QVariantMap out{
+        {QStringLiteral("snapshotId"), snapshotId},
+        {QStringLiteral("exists"), false},
+        {QStringLiteral("rowCount"), 0},
+        {QStringLiteral("changedCount"), 0},
+        {QStringLiteral("rows"), QVariantList{}},
+    };
+
+    const QString path = ConfigManager::snapshotPath(snapshotId);
+    if (!QFile::exists(path)) {
+        out.insert(QStringLiteral("error"),
+                   QStringLiteral("snapshot not found: ") + snapshotId);
+        return out;
+    }
+    out.insert(QStringLiteral("exists"), true);
+
+    ConfigManager config;
+    config.load();
+    const QJsonObject active = config.currentConfig();
+    const QJsonObject snapshot = readJsonObjectFile(path);
+    QSet<QString> keys;
+    for (auto it = active.begin(); it != active.end(); ++it) {
+        keys.insert(it.key());
+    }
+    for (auto it = snapshot.begin(); it != snapshot.end(); ++it) {
+        keys.insert(it.key());
+    }
+
+    QStringList orderedKeys = keys.values();
+    orderedKeys.sort();
+
+    QVariantList rows;
+    int changedCount = 0;
+    for (const QString &key : orderedKeys) {
+        const QJsonValue a = active.value(key);
+        const QJsonValue b = snapshot.value(key);
+        const bool inActive = !a.isUndefined();
+        const bool inSnapshot = !b.isUndefined();
+        QString status;
+        if (inActive && inSnapshot) {
+            status = (a == b) ? QStringLiteral("same") : QStringLiteral("changed");
+        } else if (inActive) {
+            status = QStringLiteral("removed");
+        } else {
+            status = QStringLiteral("added");
+        }
+        if (status != QLatin1String("same")) {
+            ++changedCount;
+        }
+
+        rows.append(QVariantMap{
+            {QStringLiteral("key"), key},
+            {QStringLiteral("status"), status},
+            {QStringLiteral("active"), toDisplayString(a)},
+            {QStringLiteral("snapshot"), toDisplayString(b)},
+        });
+    }
+
+    out.insert(QStringLiteral("rows"), rows);
+    out.insert(QStringLiteral("rowCount"), rows.size());
+    out.insert(QStringLiteral("changedCount"), changedCount);
+    return out;
+}
+
 QString RecoveryApp::logSummary() const
 {
     // Attempt to pull recent slm-related journal entries.
@@ -139,6 +341,24 @@ void RecoveryApp::exitToDesktop()
 {
     qInfo("slm-recovery-app: user requested exit to desktop");
     QCoreApplication::quit();
+}
+
+bool RecoveryApp::writeFlagFile(const QString &name, const QByteArray &value) const
+{
+    const QString flagDir = ConfigManager::configDir() + QStringLiteral("/flags");
+    if (!QDir().mkpath(flagDir)) {
+        return false;
+    }
+
+    QSaveFile file(flagDir + QStringLiteral("/") + name);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        return false;
+    }
+    if (file.write(value) != value.size()) {
+        file.cancelWriting();
+        return false;
+    }
+    return file.commit();
 }
 
 } // namespace Slm::Login

@@ -28,11 +28,18 @@ public:
     Q_INVOKABLE bool rollbackToPrevious();
     Q_INVOKABLE bool restoreSnapshot(const QString &snapshotId);
     Q_INVOKABLE bool factoryReset();
+    Q_INVOKABLE bool restartDesktop();
+    Q_INVOKABLE bool disableExtensions();
+    Q_INVOKABLE bool resetGraphicsStack();
+    Q_INVOKABLE bool openTerminal();
+    Q_INVOKABLE bool networkRepair();
+    Q_INVOKABLE QVariantMap previewSnapshotDiff(const QString &snapshotId) const;
     Q_INVOKABLE QString logSummary() const;
     Q_INVOKABLE QVariantMap daemonHealthSnapshot() const;
     Q_INVOKABLE void    exitToDesktop();
 
 private:
+    bool writeFlagFile(const QString &name, const QByteArray &value = QByteArray("1\n")) const;
     QString     m_recoveryReason;
     QString     m_lastBootStatus;
     int         m_crashCount      = 0;

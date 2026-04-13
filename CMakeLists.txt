@@ -5035,6 +5035,7 @@ qt_add_qml_module(slm-recovery-app
     RESOURCE_PREFIX "/qt/qml"
     QML_FILES
         Qml/recovery/Main.qml
+        Qml/recovery/SafeModePage.qml
         Qml/recovery/ResetPage.qml
         Qml/recovery/SnapshotPage.qml
         Qml/recovery/LogPage.qml

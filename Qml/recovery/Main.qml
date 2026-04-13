@@ -211,6 +211,27 @@ Window {
             background: Rectangle { color: "#222" }
 
             TabButton {
+                text: qsTr("Safe Mode")
+                width: implicitWidth
+                contentItem: Text {
+                    text: parent.text
+                    color: parent.checked ? "white" : "#aaa"
+                    font.pixelSize: 13
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                }
+                background: Rectangle {
+                    color: parent.checked ? "#333" : "transparent"
+                    Rectangle {
+                        anchors.bottom: parent.bottom
+                        width: parent.width; height: 2
+                        color: "#c0392b"
+                        visible: parent.parent.checked
+                    }
+                }
+            }
+
+            TabButton {
                 text: qsTr("Reset")
                 width: implicitWidth
                 contentItem: Text {
@@ -281,6 +302,9 @@ Window {
             Layout.fillHeight: true
             currentIndex: tabBar.currentIndex
 
+            SafeModePage {
+                openSnapshotsPage: function() { tabBar.currentIndex = 2 }
+            }
             ResetPage {}
             SnapshotPage {}
             LogPage {}
