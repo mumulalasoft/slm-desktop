@@ -83,6 +83,13 @@ if(COMMAND qt_policy)
 endif()
 
 include(cmake/Sources.cmake)
+include(cmake/StructureGuard.cmake)
+slm_require_project_paths(
+    Qml/DockController.qml
+    src/core/wayland/layershell/docklayerwindow.cpp
+    src/core/wayland/layershell/docklayerwindow.h
+    tests/docksystem_render_contract_test.cpp
+)
 
 # FileManager integration mode:
 # - default (OFF/OFF): build in-tree core target dan link langsung.
