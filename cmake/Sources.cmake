@@ -734,3 +734,16 @@ set(SLM_FIREWALLD_SOURCES
     src/services/firewall/appidentityclient.cpp
     src/services/firewall/appidentityclient.h
 )
+
+set(SLM_RECOVERYD_SOURCES
+    src/daemon/recoveryd/recoveryd_main.cpp
+    src/daemon/recoveryd/recoveryservice.cpp
+    src/daemon/recoveryd/recoveryservice.h
+    src/daemon/recoveryd/recoverydbusadaptor.cpp
+    src/daemon/recoveryd/recoverydbusadaptor.h
+    src/login/libslmlogin/slmlogindefs.h
+    src/login/libslmlogin/slmsessionstate.h
+    src/login/libslmlogin/slmsessionstate.cpp
+    src/login/libslmlogin/slmconfigmanager.h
+    src/login/libslmlogin/slmconfigmanager.cpp
+)

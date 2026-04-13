@@ -535,6 +535,10 @@ qt_add_executable(slm-firewalld
     ${SLM_FIREWALLD_SOURCES}
 )
 
+qt_add_executable(slm-recoveryd
+    ${SLM_RECOVERYD_SOURCES}
+)
+
 qt_add_executable(slm-secretd
     src/daemon/secretd/secretd_main.cpp
     src/services/secret/secretservice.cpp
@@ -685,6 +689,13 @@ target_link_libraries(slm-firewalld
         Qt6::DBus
 )
 target_include_directories(slm-firewalld PRIVATE ${CMAKE_SOURCE_DIR})
+
+target_link_libraries(slm-recoveryd
+    PRIVATE
+        Qt6::Core
+        Qt6::DBus
+)
+target_include_directories(slm-recoveryd PRIVATE ${CMAKE_SOURCE_DIR})
 
 target_link_libraries(slm-secretd
     PRIVATE
@@ -1231,6 +1242,10 @@ install(TARGETS slm-settingsd
 )
 
 install(TARGETS slm-firewalld
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
+install(TARGETS slm-recoveryd
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
