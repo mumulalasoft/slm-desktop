@@ -30,6 +30,7 @@ check_exec "/usr/local/libexec/slm/recovery/request-bootloader-recovery.sh"
 check_exec "/usr/local/libexec/slm/recovery/detect-recovery-boot-entry.sh"
 check_exec "/usr/local/libexec/slm/recovery/install-recovery-boot-entry.sh"
 check_exec "/usr/local/libexec/slm/recovery/build-recovery-partition-image.sh"
+check_exec "/usr/local/libexec/slm/recovery/deploy-recovery-partition.sh"
 
 for opt in /usr/local/bin/slm-shell /usr/local/bin/desktopd /usr/local/bin/slm-svcmgrd \
            /usr/local/bin/slm-loggerd /usr/local/bin/slm-portald /usr/local/bin/slm-fileopsd \

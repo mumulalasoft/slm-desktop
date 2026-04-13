@@ -11,6 +11,7 @@ WORK_DIR=""
 IMAGE_NAME="${SLM_RECOVERY_IMAGE_NAME:-slm-recovery-rootfs.squashfs}"
 KERNEL_PATH="${SLM_RECOVERY_KERNEL_PATH:-/vmlinuz-linux}"
 INITRD_PATH="${SLM_RECOVERY_INITRD_PATH:-/initramfs-linux.img}"
+ROOT_SPEC="${SLM_RECOVERY_ROOT_SPEC:-@ROOT_SPEC@}"
 APPEND_CMDLINE="${SLM_RECOVERY_APPEND_CMDLINE:-quiet systemd.unit=multi-user.target slm.recovery=1}"
 
 log() { echo "[build-recovery-partition] $*"; }
@@ -27,6 +28,7 @@ Options:
   --image-name NAME     Output image file name (default: $IMAGE_NAME)
   --kernel PATH         Kernel path for boot entry template (default: $KERNEL_PATH)
   --initrd PATH         Initrd path for boot entry template (default: $INITRD_PATH)
+  --root-spec SPEC      Root spec for boot entry (e.g. PARTUUID=xxxx, default placeholder)
   --append-cmdline STR  Extra kernel command line (default set for recovery)
   --help
 EOF
@@ -40,6 +42,7 @@ while [[ $# -gt 0 ]]; do
     --image-name) IMAGE_NAME="$2"; shift 2 ;;
     --kernel) KERNEL_PATH="$2"; shift 2 ;;
     --initrd) INITRD_PATH="$2"; shift 2 ;;
+    --root-spec) ROOT_SPEC="$2"; shift 2 ;;
     --append-cmdline) APPEND_CMDLINE="$2"; shift 2 ;;
     --help|-h) usage; exit 0 ;;
     *) die "unknown argument: $1" ;;
@@ -149,12 +152,12 @@ cat > "$OUT_DIR/slm-recovery-systemd-boot.conf.template" <<EOF
 title   SLM Recovery
 linux   $KERNEL_PATH
 initrd  $INITRD_PATH
-options root=LABEL=SLM_RECOVERY rootfstype=squashfs ro $APPEND_CMDLINE
+options root=$ROOT_SPEC rootfstype=squashfs ro $APPEND_CMDLINE
 EOF
 
 cat > "$OUT_DIR/slm-recovery-grub.cfg.template" <<EOF
 menuentry 'SLM Recovery' {
-    linux $KERNEL_PATH root=LABEL=SLM_RECOVERY rootfstype=squashfs ro $APPEND_CMDLINE
+    linux $KERNEL_PATH root=$ROOT_SPEC rootfstype=squashfs ro $APPEND_CMDLINE
     initrd $INITRD_PATH
 }
 EOF

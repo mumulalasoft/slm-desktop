@@ -41,6 +41,26 @@ sudo scripts/recovery/install-recovery-boot-entry.sh \
 Script akan:
 - systemd-boot: install entry `.conf` ke `loader/entries`.
 - GRUB: generate snippet `/etc/grub.d/42_slm_recovery` lalu regenerate grub config.
+- Root spec wajib diberikan (`--root-spec`) atau auto-resolve dari device (`--root-device`).
+
+## 2b. Deploy ke Recovery Partition (Root, Destructive)
+
+Script:
+- `scripts/recovery/deploy-recovery-partition.sh`
+
+Contoh:
+
+```bash
+sudo scripts/recovery/deploy-recovery-partition.sh \
+  --device /dev/nvme0n1p8 \
+  --image build/recovery-partition/slm-recovery-rootfs.squashfs \
+  --artifact-dir build/recovery-partition
+```
+
+Perilaku:
+- menulis image ke partisi target dengan `dd` (destruktif),
+- deteksi `PARTUUID`/`UUID` target,
+- install/update boot entry dengan root spec yang sesuai.
 
 ## 3. Next-Boot Selector Automation
 
