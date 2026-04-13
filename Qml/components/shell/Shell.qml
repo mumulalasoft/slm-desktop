@@ -21,9 +21,17 @@ Item {
     property bool contextMenuOnly: false
     property real dockTopY: -1
     property int maxShortcuts: 24
+    property int startupSlotCap: 8
+    property bool startupSlotsExpanded: false
     // Keep startup instantiation bounded. Building full-screen empty slot delegates
     // (often >100) is expensive and blocks the first shell completion path.
-    property int totalSlots: Math.max(modelCount(), Math.min(maxShortcuts, gridColumns() * visibleRows()))
+    property int totalSlots: {
+        var viewportSlots = gridColumns() * visibleRows()
+        var slotBudget = startupSlotsExpanded
+                ? maxShortcuts
+                : Math.min(startupSlotCap, maxShortcuts)
+        return Math.max(modelCount(), Math.min(slotBudget, viewportSlots))
+    }
     property int cellWidth: 104
     property int cellHeight: 122
     property int tileWidth: 96
@@ -527,7 +535,21 @@ Item {
             startupQmlMark("shell.deferredShortcuts.end",
                            "count=" + String(modelCount()))
         })
+        startupSlotExpandTimer.restart()
         startupQmlMark("shell.onCompleted.end")
+    }
+
+    Timer {
+        id: startupSlotExpandTimer
+        interval: 350
+        repeat: false
+        onTriggered: {
+            if (!root.startupSlotsExpanded) {
+                root.startupSlotsExpanded = true
+                root.startupQmlMark("shell.startupSlots.expanded",
+                                    "budget=" + String(root.maxShortcuts))
+            }
+        }
     }
 
     Connections {

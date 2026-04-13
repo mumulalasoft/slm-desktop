@@ -14,6 +14,7 @@ private slots:
     void firewallQuickBlockUi_contract();
     void firewallPendingPromptBlockUi_contract();
     void firewallResetUi_contract();
+    void firewallRuntimePromptUi_contract();
 };
 
 void SecuritySettingsRoutingJsTest::deepLinkForCapability_contract()
@@ -121,6 +122,37 @@ void SecuritySettingsRoutingJsTest::firewallResetUi_contract()
     QVERIFY(text.contains(QStringLiteral("Reset Configuration")));
     QVERIFY(text.contains(QStringLiteral("Reset Firewall")));
     QVERIFY(text.contains(QStringLiteral("Reset Firewall Configuration?")));
+}
+
+void SecuritySettingsRoutingJsTest::firewallRuntimePromptUi_contract()
+{
+    const QString mainPath = QStringLiteral(DESKTOP_SOURCE_DIR)
+                             + QStringLiteral("/Main.qml");
+    QVERIFY2(QFileInfo::exists(mainPath), "Main.qml is missing");
+
+    QFile mainFile(mainPath);
+    QVERIFY2(mainFile.open(QIODevice::ReadOnly | QIODevice::Text),
+             "cannot open Main.qml");
+    const QString mainText = QString::fromUtf8(mainFile.readAll());
+    QVERIFY(mainText.contains(QStringLiteral("OverlayComp.FirewallPromptDialog")));
+    QVERIFY(mainText.contains(QStringLiteral("hostRoot: root")));
+
+    const QString dialogPath = QStringLiteral(DESKTOP_SOURCE_DIR)
+                               + QStringLiteral("/Qml/components/overlay/FirewallPromptDialog.qml");
+    QVERIFY2(QFileInfo::exists(dialogPath), "FirewallPromptDialog.qml is missing");
+
+    QFile dialogFile(dialogPath);
+    QVERIFY2(dialogFile.open(QIODevice::ReadOnly | QIODevice::Text),
+             "cannot open FirewallPromptDialog.qml");
+    const QString dialogText = QString::fromUtf8(dialogFile.readAll());
+    QVERIFY(dialogText.contains(QStringLiteral("FirewallServiceClient.pendingPrompts")));
+    QVERIFY(dialogText.contains(QStringLiteral("resolvePendingPrompt(0")));
+    QVERIFY(dialogText.contains(QStringLiteral("Only local network")));
+    QVERIFY(dialogText.contains(QStringLiteral("Remember this decision")));
+    QVERIFY(dialogText.contains(QStringLiteral("Incoming Connection Request")));
+    QVERIFY(dialogText.contains(QStringLiteral("Outgoing Connection Request")));
+    QVERIFY(dialogText.contains(QStringLiteral("Block IP")));
+    QVERIFY(dialogText.contains(QStringLiteral("setIpPolicyDetailed")));
 }
 
 QTEST_GUILESS_MAIN(SecuritySettingsRoutingJsTest)

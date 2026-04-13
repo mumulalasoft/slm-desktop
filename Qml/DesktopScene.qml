@@ -49,6 +49,7 @@ Item {
     property bool spaceSwitchHudVisible: MultitaskingController.spaceSwitchHudVisible
     property string spaceSwitchHudText: MultitaskingController.spaceSwitchHudText
     property int spaceSwitchDirection: MultitaskingController.spaceSwitchDirection
+    readonly property bool startupTraceEnabled: (typeof StartupTraceEnabled !== "undefined") ? !!StartupTraceEnabled : false
     readonly property bool dockModeNoHide: dockHideMode === "no_hide"
     readonly property bool dockModeDurationHide: dockHideMode === "duration_hide"
     readonly property bool dockModeSmartHide: dockHideMode === "smart_hide"
@@ -86,6 +87,16 @@ Item {
                                                 dockModeNoHide ||
                                                 (dockSmartRevealAllowed && dockUserRevealWanted)
                                             )
+    function startupQmlMark(phase, detail) {
+        if (!startupTraceEnabled)
+            return
+        var text = "[startup-qml] phase=" + String(phase || "")
+        if (detail !== undefined && detail !== null && String(detail).length > 0) {
+            text += " detail=" + String(detail)
+        }
+        text += " t=" + Date.now()
+        console.warn(text)
+    }
     // Note: launchpadVisible is intentionally excluded from dockRevealWanted.
     // DockWindow (z=200) is above LaunchpadWindow (z=190) in the scene graph —
     // the dock renders on top of the launchpad without any exclusion zone.
@@ -228,22 +239,28 @@ Item {
     onDockShownYChanged: refreshDockSmartOcclusion()
 
     Component.onCompleted: {
-        syncDockHidePrefs()
-        root.dockShownState = true
-        if (typeof WindowingBackend !== "undefined" && WindowingBackend && WindowingBackend.sendCommand) {
-            WindowingBackend.sendCommand("shellpopup off")
-        }
-        refreshShellPointerBlock()
-        if (typeof ThemeIconController !== "undefined" && ThemeIconController &&
-                ThemeIconController.applyForDarkMode) {
-            ThemeIconController.applyForDarkMode(Theme.darkMode)
-        }
-        syncNotificationPrefs()
-        root.pushSpaceToCompositor()
-        root.pushWorkspaceVisibilityToCompositor()
-        root.syncWorkspaceLifecycleState()
-        root.pushLaunchpadToCompositor()
-        root.lastKnownActiveSpace = Number(SpacesManager && SpacesManager.activeSpace ? SpacesManager.activeSpace : 1)
+        startupQmlMark("desktopScene.onCompleted.begin")
+        Qt.callLater(function() {
+            startupQmlMark("desktopScene.deferredInit.begin")
+            syncDockHidePrefs()
+            root.dockShownState = true
+            if (typeof WindowingBackend !== "undefined" && WindowingBackend && WindowingBackend.sendCommand) {
+                WindowingBackend.sendCommand("shellpopup off")
+            }
+            refreshShellPointerBlock()
+            if (typeof ThemeIconController !== "undefined" && ThemeIconController &&
+                    ThemeIconController.applyForDarkMode) {
+                ThemeIconController.applyForDarkMode(Theme.darkMode)
+            }
+            syncNotificationPrefs()
+            root.pushSpaceToCompositor()
+            root.pushWorkspaceVisibilityToCompositor()
+            root.syncWorkspaceLifecycleState()
+            root.pushLaunchpadToCompositor()
+            root.lastKnownActiveSpace = Number(SpacesManager && SpacesManager.activeSpace ? SpacesManager.activeSpace : 1)
+            startupQmlMark("desktopScene.deferredInit.end")
+        })
+        startupQmlMark("desktopScene.onCompleted.end")
     }
     Component.onDestruction: {
         if (root.workspaceLifecycleActive &&

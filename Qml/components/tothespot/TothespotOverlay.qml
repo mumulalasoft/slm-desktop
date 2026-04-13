@@ -16,6 +16,11 @@ Item {
     property var telemetryLast: ({})
     property var providerStats: ({})
     property var previewData: ({})
+    property bool showPreviewPane: true
+    readonly property bool hasPreviewContent: !!(previewData
+                                                 && (previewData.name
+                                                     || previewData.kind
+                                                     || previewData.path))
 
     signal queryTextChangedRequest(string text)
     signal resultActivated(int index)
@@ -875,9 +880,13 @@ Item {
                     }
 
                     Rectangle {
-                        Layout.preferredWidth: root.compactWindow ? 220 : 180
+                        Layout.preferredWidth: root.compactWindow ? 220 : 260
                         Layout.fillHeight: true
                         visible: root.compactWindow
+                                 ? true
+                                 : (root.showPreviewPane
+                                    && root.selectedIndex >= 0
+                                    && root.hasPreviewContent)
                         radius: Theme.radiusCard
                         color: Theme.color("tothespotPreviewBg")
                         border.width: Theme.borderWidthThin
@@ -889,6 +898,7 @@ Item {
                             spacing: 8
 
                             Label {
+                                visible: root.compactWindow
                                 text: "Preview"
                                 font.pixelSize: Theme.fontSize("small")
                                 font.weight: Theme.fontWeight("bold")
