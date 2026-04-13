@@ -84,3 +84,4 @@ CMakeLists.txt.user*
 
 # Local assistant workspace metadata
 .claude/
+.codex
