@@ -69,6 +69,7 @@ install_if_exists "$BUILD_DIR/slm-devicesd" "$BIN_DIR/slm-devicesd"
 install_if_exists "$BUILD_DIR/slm-clipboardd" "$BIN_DIR/slm-clipboardd"
 install_if_exists "$BUILD_DIR/slm-polkit-agent" "$BIN_DIR/slm-polkit-agent"
 install_if_exists "$BUILD_DIR/slm-envd" "$BIN_DIR/slm-envd"
+install_if_exists "$BUILD_DIR/slm-recoveryd" "$BIN_DIR/slm-recoveryd"
 
 install -Dm644 "$ROOT_DIR/sessions/slm.desktop" "$SESSION_DIR/slm.desktop"
 echo "[install-slm-runtime][OK] $SESSION_DIR/slm.desktop"
@@ -100,16 +101,18 @@ if [[ -n "$TARGET_USER" ]]; then
   install_user_unit "$ROOT_DIR/scripts/systemd/slm-clipboardd.service" "slm-clipboardd.service" "$BIN_DIR/slm-clipboardd"
   install_user_unit "$ROOT_DIR/scripts/systemd/slm-polkit-agent.service" "slm-polkit-agent.service" "$BIN_DIR/slm-polkit-agent"
   install_user_unit "$ROOT_DIR/scripts/systemd/slm-envd.service" "slm-envd.service" "$BIN_DIR/slm-envd"
+  install_user_unit "$ROOT_DIR/scripts/systemd/slm-recoveryd.service" "slm-recoveryd.service" "$BIN_DIR/slm-recoveryd"
 
   if [[ "$ENABLE_USER_UNITS" == "1" ]]; then
     if runuser -u "$TARGET_USER" -- systemctl --user daemon-reload >/dev/null 2>&1; then
       runuser -u "$TARGET_USER" -- systemctl --user enable --now \
         slm-desktopd.service slm-portald.service slm-fileopsd.service \
-        slm-devicesd.service slm-clipboardd.service slm-polkit-agent.service slm-envd.service || true
+        slm-devicesd.service slm-clipboardd.service slm-polkit-agent.service slm-envd.service \
+        slm-recoveryd.service || true
       echo "[install-slm-runtime][OK] attempted to enable user units"
     else
       echo "[install-slm-runtime][WARN] cannot access user systemd manager now; units installed but not started"
-      echo "[install-slm-runtime][HINT] login as ${TARGET_USER} and run: systemctl --user daemon-reload && systemctl --user enable --now slm-desktopd.service slm-portald.service slm-fileopsd.service slm-devicesd.service slm-clipboardd.service slm-polkit-agent.service slm-envd.service"
+      echo "[install-slm-runtime][HINT] login as ${TARGET_USER} and run: systemctl --user daemon-reload && systemctl --user enable --now slm-desktopd.service slm-portald.service slm-fileopsd.service slm-devicesd.service slm-clipboardd.service slm-polkit-agent.service slm-envd.service slm-recoveryd.service"
     fi
   fi
 else

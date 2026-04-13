@@ -49,6 +49,11 @@ Rules:
   - boot-stage helper reads marker and selects recovery entry for next boot.
 - Normal flow keeps default entry to main OS.
 
+Operational helper in repo:
+- `scripts/recovery/request-bootloader-recovery.sh`
+  - systemd-boot: `bootctl set-oneshot <entry>`
+  - GRUB: `grub-reboot <entry>`
+
 ## 4) systemd Services
 
 Main session:
