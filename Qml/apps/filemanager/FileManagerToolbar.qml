@@ -4,7 +4,6 @@ import QtQuick.Layouts 1.15
 import QtQuick.Window 2.15
 import Slm_Desktop
 import SlmStyle as DSStyle
-import "../../components/style" as StyleComp
 
 Rectangle {
     id: toolbar
@@ -34,7 +33,7 @@ Rectangle {
                                           : false
 
     function titleButtonIcon(kind, hovered, pressed) {
-        var base = "qrc:/icons/titlebuttons/"
+        var base = "qrc:/qt/qml/SlmStyle/icons/titlebuttons/"
         var active = windowActive
         if (kind === "close") {
             if (!active) {
@@ -131,7 +130,7 @@ Rectangle {
         Row {
             spacing: 0
             Layout.alignment: Qt.AlignVCenter
-            StyleComp.WindowControlsCapsule {
+            DSStyle.WindowControlsCapsule {
                 spacing: 0
                 iconProvider: function(kind, hovered, pressed) {
                     return toolbar.titleButtonIcon(kind, hovered, pressed)

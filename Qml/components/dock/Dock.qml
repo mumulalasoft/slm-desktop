@@ -636,8 +636,6 @@ Rectangle {
 
     DockItem {
         id: launchpadItem
-            itemId: "launchpad"
-            dockHostName: root.hostName
             label: "Launchpad"
             iconPath: "qrc:/icons/launchpad.svg"
             baseSlotWidth: root.iconSlotWidth

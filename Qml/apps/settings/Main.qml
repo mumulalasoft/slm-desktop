@@ -3,7 +3,6 @@ import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import QtQuick.Window 2.15
 import Slm_Desktop
-import SlmSettings 1.0 as SettingsComp
 import SlmStyle as DSStyle
 
 ApplicationWindow {
@@ -94,7 +93,7 @@ ApplicationWindow {
     }
 
     function titleButtonIcon(kind, hovered, pressed) {
-        var base = "qrc:/icons/titlebuttons/"
+        var base = "qrc:/qt/qml/SlmStyle/icons/titlebuttons/"
         var active = window.active
         if (kind === "close") {
             if (!active) {
@@ -200,7 +199,7 @@ ApplicationWindow {
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: 0
 
-                SettingsComp.WindowControlsCapsule {
+                DSStyle.WindowControlsCapsule {
                     spacing: 0
                     iconProvider: function(kind, hovered, pressed) {
                         return window.titleButtonIcon(kind, hovered, pressed)

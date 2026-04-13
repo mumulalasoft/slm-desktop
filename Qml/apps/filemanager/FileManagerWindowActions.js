@@ -1,7 +1,7 @@
 .pragma library
 
 function titleButtonIcon(root, kind, hovered, pressed) {
-    var base = "qrc:/icons/titlebuttons/"
+    var base = "qrc:/qt/qml/SlmStyle/icons/titlebuttons/"
     var active = !!root.windowActive
     if (kind === "close") {
         if (!active) {
