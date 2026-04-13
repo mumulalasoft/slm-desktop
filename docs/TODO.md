@@ -11,18 +11,18 @@
 
 ### 2) Startup Performance Desktop
 - [ ] Turunkan waktu `qml.load.begin -> main.onCompleted` dengan profiling terarah per komponen.
-- [ ] Pertahankan target UX saat ini: shell cepat tampil, komponen non-kritis deferred.
-- [ ] Tambah guard regression sederhana (log phase + budget threshold) agar startup tidak melambat lagi.
+- [x] Pertahankan target UX saat ini: shell cepat tampil, komponen non-kritis deferred.
+- [x] Tambah guard regression sederhana (log phase + budget threshold) agar startup tidak melambat lagi.
 
 ### 3) Migrasi UI Preference -> settingsd (SSOT)
-- [ ] Fix regresi: perubahan tema dari Settings belum apply konsisten runtime.
-- [ ] Audit binding Theme/Appearance yang masih membaca sumber lama.
-- [ ] Tutup migrasi: pastikan seluruh preferensi UI utama membaca/menulis ke settingsd.
+- [x] Fix regresi: perubahan tema dari Settings belum apply konsisten runtime.
+- [x] Audit binding Theme/Appearance yang masih membaca sumber lama.
+- [x] Tutup migrasi: pastikan seluruh preferensi UI utama membaca/menulis ke settingsd.
 
 ### 4) FileManager UX Stabilization
-- [ ] Pastikan aksi context menu `Open Drive` selalu mengganti current directory content view.
-- [ ] Final pass menu/submenu density + alignment consistency.
-- [ ] Tambah regression check untuk flow mount -> open -> browse.
+- [x] Pastikan aksi context menu `Open Drive` selalu mengganti current directory content view.
+- [x] Final pass menu/submenu density + alignment consistency.
+- [x] Tambah regression check untuk flow mount -> open -> browse.
 
 ---
 

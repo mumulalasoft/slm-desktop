@@ -293,6 +293,7 @@ Rectangle {
     function sidebarContextCanMount() { return FileManagerSidebarContextOps.sidebarContextCanMount(root) }
     function sidebarContextCanUnmount() { return FileManagerSidebarContextOps.sidebarContextCanUnmount(root) }
     function sidebarContextMount() { FileManagerSidebarContextOps.sidebarContextMount(root, fileManagerApiRef) }
+    function sidebarContextMountDevice(deviceValue) { FileManagerSidebarContextOps.sidebarContextMountDevice(root, fileManagerApiRef, deviceValue) }
     function sidebarContextUnmount() { FileManagerSidebarContextOps.sidebarContextUnmount(root, fileManagerApiRef) }
     function sidebarContextRevealInFileManager() { FileManagerSidebarContextOps.sidebarContextRevealInFileManager(root, fileManagerApiRef) }
     function sidebarContextCopyPath() { FileManagerSidebarContextOps.sidebarContextCopyPath(root, fileManagerApiRef) }

@@ -89,6 +89,19 @@ function sidebarContextMount(root, fileManagerApi) {
     if (!sidebarContextCanMount(root)) {
         return
     }
+    sidebarContextMountDevice(root, fileManagerApi, String(root.sidebarContextDevice || ""))
+}
+
+// Mount a specific device by path (snapshot-safe: does not re-read live sidebar state).
+function sidebarContextMountDevice(root, fileManagerApi, deviceValue) {
+    var dev = String(deviceValue || "").trim()
+    if (dev.length <= 0) {
+        root.notifyResult("Open Drive", {
+                              "ok": false,
+                              "error": "volume-not-available"
+                          })
+        return
+    }
     if (!fileManagerApi || !fileManagerApi.startMountStorageDevice) {
         root.notifyResult("Open Drive", {
                               "ok": false,
@@ -96,8 +109,8 @@ function sidebarContextMount(root, fileManagerApi) {
                           })
         return
     }
-    root.pendingMountDevice = String(root.sidebarContextDevice || "")
-    var res = fileManagerApi.startMountStorageDevice(root.pendingMountDevice)
+    root.pendingMountDevice = dev
+    var res = fileManagerApi.startMountStorageDevice(dev)
     if (!res || !res.ok) {
         root.pendingMountDevice = ""
         root.notifyResult("Open Drive", res)

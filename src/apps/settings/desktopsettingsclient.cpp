@@ -135,6 +135,7 @@ int DesktopSettingsClient::dockDragThresholdTouchpad() const { return m_dockDrag
 QString DesktopSettingsClient::dockIconSize() const { return m_dockIconSize; }
 bool DesktopSettingsClient::dockMagnificationEnabled() const { return m_dockMagnificationEnabled; }
 bool DesktopSettingsClient::windowingAnimationEnabled() const { return m_windowingAnimationEnabled; }
+QString DesktopSettingsClient::animationMode() const { return m_animationMode; }
 QString DesktopSettingsClient::windowControlsSide() const { return m_windowControlsSide; }
 QString DesktopSettingsClient::printPdfFallbackPrinterId() const { return m_printPdfFallbackPrinterId; }
 QString DesktopSettingsClient::defaultFont() const { return m_defaultFont; }
@@ -832,6 +833,16 @@ void DesktopSettingsClient::onSettingChanged(const QString &path, const QDBusVar
             m_windowingAnimationEnabled = v;
             emit windowingAnimationEnabledChanged();
         }
+    } else if (path == QLatin1String("globalAppearance.animationPreset")) {
+        // Map settingsd animationPreset → Theme animationMode: balanced→full, minimal, reduced pass through.
+        const QString raw = rawValue.toString().trimmed().toLower();
+        const QString mode = (raw == QLatin1String("minimal"))  ? QStringLiteral("minimal")
+                           : (raw == QLatin1String("reduced"))  ? QStringLiteral("reduced")
+                                                                : QStringLiteral("full");
+        if (m_animationMode != mode) {
+            m_animationMode = mode;
+            emit animationModeChanged();
+        }
     } else if (path == QLatin1String("windowing.controlsSide")) {
         const QString v = rawValue.toString().trimmed().toLower() == QLatin1String("left")
                 ? QStringLiteral("left")
@@ -981,6 +992,18 @@ void DesktopSettingsClient::loadFromService()
     if (m_highContrast != highContrastValue) {
         m_highContrast = highContrastValue;
         emit highContrastChanged();
+    }
+
+    {
+        const QString preset = appearance.value(QStringLiteral("animationPreset"),
+                                                QStringLiteral("balanced")).toString().trimmed().toLower();
+        const QString mode = (preset == QLatin1String("minimal"))  ? QStringLiteral("minimal")
+                           : (preset == QLatin1String("reduced"))  ? QStringLiteral("reduced")
+                                                                   : QStringLiteral("full");
+        if (m_animationMode != mode) {
+            m_animationMode = mode;
+            emit animationModeChanged();
+        }
     }
 
     setThemeModeLocal(appearance.value(QStringLiteral("colorMode"), QStringLiteral("dark"))

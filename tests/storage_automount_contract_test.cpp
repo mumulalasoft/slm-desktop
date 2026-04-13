@@ -309,6 +309,85 @@ private slots:
         QVERIFY(apiConnectionsText.contains(QStringLiteral("function onStorageUnmountFinished(devicePath, ok, error)")));
         QVERIFY(apiConnectionsText.contains(QStringLiteral("notifyResult(\"Eject\"")));
     }
+
+    // Regression guard: mount → open → browse flow must remain fully wired.
+    // Any break in this chain would silently prevent "Open Drive" from navigating
+    // after async mount completes.
+    void mountOpenBrowse_flowIsFullyWired()
+    {
+        const QString contextOpsPath = QStringLiteral(DESKTOP_SOURCE_DIR)
+                + QStringLiteral("/Qml/apps/filemanager/FileManagerSidebarContextOps.js");
+        const QString apiConnectionsPath = QStringLiteral(DESKTOP_SOURCE_DIR)
+                + QStringLiteral("/Qml/apps/filemanager/FileManagerApiConnections.qml");
+        const QString contextMenuPath = QStringLiteral(DESKTOP_SOURCE_DIR)
+                + QStringLiteral("/Qml/apps/filemanager/FileManagerSidebarContextMenu.qml");
+        const QString windowPath = QStringLiteral(DESKTOP_SOURCE_DIR)
+                + QStringLiteral("/Qml/apps/filemanager/FileManagerWindow.qml");
+
+        const QString contextOpsText = readTextFile(contextOpsPath);
+        const QString apiConnectionsText = readTextFile(apiConnectionsPath);
+        const QString contextMenuText = readTextFile(contextMenuPath);
+        const QString windowText = readTextFile(windowPath);
+
+        QVERIFY2(!contextOpsText.isEmpty(), qPrintable(QStringLiteral("failed to read %1").arg(contextOpsPath)));
+        QVERIFY2(!apiConnectionsText.isEmpty(), qPrintable(QStringLiteral("failed to read %1").arg(apiConnectionsPath)));
+        QVERIFY2(!contextMenuText.isEmpty(), qPrintable(QStringLiteral("failed to read %1").arg(contextMenuPath)));
+        QVERIFY2(!windowText.isEmpty(), qPrintable(QStringLiteral("failed to read %1").arg(windowPath)));
+
+        // Step 1: context ops must set pendingMountDevice BEFORE calling startMountStorageDevice
+        // so the async completion handler can match the right device.
+        const QString mountFn = functionSlice(contextOpsText,
+                                              QStringLiteral("function sidebarContextMountDevice("),
+                                              QStringLiteral("\nfunction "));
+        QVERIFY2(!mountFn.isEmpty(), "sidebarContextMountDevice not found in FileManagerSidebarContextOps.js");
+        const int pendingSet  = mountFn.indexOf(QStringLiteral("pendingMountDevice = dev"));
+        const int mountCall   = mountFn.indexOf(QStringLiteral("startMountStorageDevice(dev)"));
+        QVERIFY2(pendingSet >= 0,  "pendingMountDevice must be set before startMountStorageDevice");
+        QVERIFY2(mountCall >= 0,   "startMountStorageDevice(dev) must be called");
+        QVERIFY2(pendingSet < mountCall, "pendingMountDevice must be set BEFORE startMountStorageDevice call");
+
+        // Step 1b: error path must clear pendingMountDevice and surface notifyResult
+        QVERIFY(mountFn.contains(QStringLiteral("pendingMountDevice = \"\"")));
+        QVERIFY(mountFn.contains(QStringLiteral("notifyResult(\"Open Drive\"")));
+
+        // Step 2: storageMountFinished handler must navigate on success and clear pending state
+        const QString mountFinishedFn = functionSlice(apiConnectionsText,
+                                                      QStringLiteral("function onStorageMountFinished("),
+                                                      QStringLiteral("function on"));
+        QVERIFY2(!mountFinishedFn.isEmpty(), "onStorageMountFinished not found in FileManagerApiConnections.qml");
+        QVERIFY(mountFinishedFn.contains(QStringLiteral("pendingMountDevice")));
+        QVERIFY(mountFinishedFn.contains(QStringLiteral("resolveMountedPathForDevice(")));
+        QVERIFY(mountFinishedFn.contains(QStringLiteral("openPath(")));
+        // Must clear pending before navigating (prevents double-open on storageLocationsUpdated)
+        const int pendingClear = mountFinishedFn.indexOf(QStringLiteral("pendingMountDevice = \"\""));
+        const int openPathCall = mountFinishedFn.indexOf(QStringLiteral("openPath("));
+        QVERIFY2(pendingClear >= 0, "pendingMountDevice must be cleared in onStorageMountFinished");
+        QVERIFY2(openPathCall >= 0, "openPath must be called in onStorageMountFinished on success");
+        QVERIFY2(pendingClear < openPathCall, "pendingMountDevice must be cleared BEFORE openPath call");
+        // Error path: must also clear pending and call notifyResult
+        QVERIFY(mountFinishedFn.contains(QStringLiteral("notifyResult(\"Open Drive\"")));
+
+        // Step 3: storageLocationsUpdated fallback must handle deferred navigation
+        // (covers the race where storageMountFinished fires before the sidebar row is ready)
+        const QString locationsUpdatedFn = functionSlice(apiConnectionsText,
+                                                         QStringLiteral("function onStorageLocationsUpdated("),
+                                                         QStringLiteral("function on"));
+        QVERIFY2(!locationsUpdatedFn.isEmpty(), "onStorageLocationsUpdated not found");
+        QVERIFY(locationsUpdatedFn.contains(QStringLiteral("pendingMountDevice")));
+        QVERIFY(locationsUpdatedFn.contains(QStringLiteral("resolveMountedPathForDevice(")));
+        QVERIFY(locationsUpdatedFn.contains(QStringLiteral("openPath(")));
+
+        // Step 4: context menu must capture a device snapshot at menu-open time so that
+        // a sidebar update between right-click and "Open Drive" click cannot corrupt the target.
+        QVERIFY(contextMenuText.contains(QStringLiteral("property string contextDeviceSnapshot")));
+        QVERIFY(contextMenuText.contains(QStringLiteral("contextDeviceSnapshot = String(hostRoot.sidebarContextDevice")));
+        QVERIFY(contextMenuText.contains(QStringLiteral("sidebarContextMountDevice(root.contextDeviceSnapshot)")));
+
+        // Step 5: FileManagerWindow must expose sidebarContextMountDevice wrapper
+        // so the context menu can call back into the ops layer.
+        QVERIFY(windowText.contains(QStringLiteral("function sidebarContextMountDevice(")));
+        QVERIFY(windowText.contains(QStringLiteral("FileManagerSidebarContextOps.sidebarContextMountDevice(")));
+    }
 };
 
 QTEST_MAIN(StorageAutomountContractTest)

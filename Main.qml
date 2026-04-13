@@ -34,6 +34,7 @@ ApplicationWindow {
     }
     property bool styleDarkMode: Theme.darkMode
     readonly property bool startupTraceEnabled: (typeof StartupTraceEnabled !== "undefined") ? !!StartupTraceEnabled : false
+    property real startupT0: 0
     property bool startupNonCriticalWindowsReady: false
     property bool startupTopbarBootstrapReady: false
     property bool startupTopbarItemsReady: false
@@ -290,15 +291,41 @@ ApplicationWindow {
         DSStyle.Theme.userAccentColor = String(DesktopSettings.accentColor || "")
         DSStyle.Theme.userFontScale = Number(DesktopSettings.fontScale || 1.0)
     }
+    // Phase-budget map (ms from startupT0). Exceeding these logs a regression warning.
+    // Only covers phases that are emitted through Main.qml's startupQmlMark.
+    readonly property var startupPhaseBudgets: ({
+        "main.deferredInit.begin":      50,
+        "main.topbarBootstrap.ready":   400,
+        "main.dockLoader.activated":    300,
+        "main.deferredInit.end":        200,
+        "main.nonCriticalWindows.ready": 2000
+    })
+
     function startupQmlMark(phase, detail) {
+        var now = Date.now()
+        if (phase === "main.onCompleted.begin" && startupT0 <= 0) {
+            startupT0 = now
+        }
         if (!startupTraceEnabled)
             return
+        var elapsed = (startupT0 > 0) ? (now - startupT0) : -1
         var text = "[startup-qml] phase=" + String(phase || "")
         if (detail !== undefined && detail !== null && String(detail).length > 0) {
             text += " detail=" + String(detail)
         }
-        text += " t=" + Date.now()
+        if (elapsed >= 0) {
+            text += " elapsed=" + elapsed + "ms"
+        }
+        text += " t=" + now
         console.warn(text)
+        if (elapsed >= 0 && startupPhaseBudgets[phase] !== undefined) {
+            var budget = Number(startupPhaseBudgets[phase] || 0)
+            if (elapsed > budget) {
+                console.warn("[startup-qml] BUDGET-WARN phase=" + String(phase || "")
+                             + " elapsed=" + elapsed + "ms budget=" + budget + "ms"
+                             + " over=" + (elapsed - budget) + "ms")
+            }
+        }
     }
 
     onPortalChooserSelectedPathsChanged: {
@@ -364,6 +391,10 @@ ApplicationWindow {
         function onThemeModeChanged() { root.syncStyleThemeFromPreferences() }
         function onAccentColorChanged() { root.syncStyleThemeFromPreferences() }
         function onFontScaleChanged() { root.syncStyleThemeFromPreferences() }
+        function onAnimationModeChanged() {
+            // Re-sync motion controller scale when animation mode changes at runtime.
+            ShellUtils.applyMotionTimeScale(root)
+        }
     }
 
     GlobalMenuComp.GlobalMenuActionRouter {

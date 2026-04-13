@@ -11,15 +11,19 @@ DSStyle.Menu {
     property string contextLabelSnapshot: ""
     property string contextRowTypeSnapshot: ""
     property bool contextMountedSnapshot: false
+    property string contextDeviceSnapshot: ""
 
     function openAt(px, py) {
         contextPathSnapshot = String(hostRoot.sidebarContextPath || "")
         contextLabelSnapshot = String(hostRoot.sidebarContextLabel || "")
         contextRowTypeSnapshot = String(hostRoot.sidebarContextRowType || "")
         contextMountedSnapshot = !!hostRoot.sidebarContextMounted
+        contextDeviceSnapshot = String(hostRoot.sidebarContextDevice || "")
         console.log("[fm-sidebar-menu] openAt path=", contextPathSnapshot,
                     "label=", contextLabelSnapshot,
-                    "rowType=", contextRowTypeSnapshot)
+                    "rowType=", contextRowTypeSnapshot,
+                    "device=", contextDeviceSnapshot,
+                    "mounted=", contextMountedSnapshot)
         x = px
         y = py
         open()
@@ -58,9 +62,12 @@ DSStyle.Menu {
 
     DSStyle.MenuItem {
         text: "Open Drive"
+        // Only show when the first "Open" item can't already handle mounting
+        // (i.e., path has no __mount__: prefix but device is known).
         visible: hostRoot.sidebarContextCanMount()
+                 && !hostRoot.sidebarContextCanOpenPath()
         enabled: visible
-        onTriggered: hostRoot.sidebarContextMount()
+        onTriggered: hostRoot.sidebarContextMountDevice(root.contextDeviceSnapshot)
     }
 
     DSStyle.MenuItem {

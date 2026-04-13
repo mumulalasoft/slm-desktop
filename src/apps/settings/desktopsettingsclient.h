@@ -41,6 +41,7 @@ class DesktopSettingsClient : public QObject
     Q_PROPERTY(QString dockIconSize READ dockIconSize NOTIFY dockIconSizeChanged)
     Q_PROPERTY(bool dockMagnificationEnabled READ dockMagnificationEnabled NOTIFY dockMagnificationEnabledChanged)
     Q_PROPERTY(bool windowingAnimationEnabled READ windowingAnimationEnabled NOTIFY windowingAnimationEnabledChanged)
+    Q_PROPERTY(QString animationMode READ animationMode NOTIFY animationModeChanged)
     Q_PROPERTY(QString windowControlsSide READ windowControlsSide NOTIFY windowControlsSideChanged)
     Q_PROPERTY(QString printPdfFallbackPrinterId READ printPdfFallbackPrinterId NOTIFY printPdfFallbackPrinterIdChanged)
     Q_PROPERTY(QString defaultFont READ defaultFont NOTIFY defaultFontChanged)
@@ -82,6 +83,7 @@ public:
     QString dockIconSize() const;
     bool dockMagnificationEnabled() const;
     bool windowingAnimationEnabled() const;
+    QString animationMode() const;
     QString windowControlsSide() const;
     QString printPdfFallbackPrinterId() const;
     QString defaultFont() const;
@@ -165,6 +167,7 @@ signals:
     void dockIconSizeChanged();
     void dockMagnificationEnabledChanged();
     void windowingAnimationEnabledChanged();
+    void animationModeChanged();
     void windowControlsSideChanged();
     void printPdfFallbackPrinterIdChanged();
     void defaultFontChanged();
@@ -224,6 +227,7 @@ private:
     QString m_dockIconSize = QStringLiteral("medium");
     bool m_dockMagnificationEnabled = true;
     bool m_windowingAnimationEnabled = true;
+    QString m_animationMode = QStringLiteral("full");
     QString m_windowControlsSide = QStringLiteral("right");
     QString m_printPdfFallbackPrinterId;
     QString m_defaultFont;

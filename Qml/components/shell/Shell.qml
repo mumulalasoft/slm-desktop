@@ -6,6 +6,7 @@ import SlmStyle as DSStyle
 Item {
     id: root
     readonly property bool startupTraceEnabled: (typeof StartupTraceEnabled !== "undefined") ? !!StartupTraceEnabled : false
+    property real _startupT0: 0
     property bool shortcutsBootstrapped: false
 
     property string wallpaperSource: {
@@ -77,13 +78,21 @@ Item {
     signal shellContextMenuRequested(real x, real y)
 
     function startupQmlMark(phase, detail) {
+        var now = Date.now()
+        if (phase === "shell.onCompleted.begin" && _startupT0 <= 0) {
+            _startupT0 = now
+        }
         if (!startupTraceEnabled)
             return
+        var elapsed = (_startupT0 > 0) ? (now - _startupT0) : -1
         var text = "[startup-qml] phase=" + String(phase || "")
         if (detail !== undefined && detail !== null && String(detail).length > 0) {
             text += " detail=" + String(detail)
         }
-        text += " t=" + Date.now()
+        if (elapsed >= 0) {
+            text += " elapsed=" + elapsed + "ms"
+        }
+        text += " t=" + now
         console.warn(text)
     }
 
@@ -557,6 +566,7 @@ Item {
         function onThemeModeChanged() { root.syncThemePreferences() }
         function onAccentColorChanged() { root.syncThemePreferences() }
         function onFontScaleChanged() { root.syncThemePreferences() }
+        function onHighContrastChanged() { root.syncThemePreferences() }
     }
 
     Connections {
