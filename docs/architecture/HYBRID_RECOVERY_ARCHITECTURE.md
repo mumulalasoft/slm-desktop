@@ -53,6 +53,9 @@ Operational helper in repo:
 - `scripts/recovery/request-bootloader-recovery.sh`
   - systemd-boot: `bootctl set-oneshot <entry>`
   - GRUB: `grub-reboot <entry>`
+- `slm-recoveryd` optional hook:
+  - `SLM_RECOVERY_BOOTLOADER_HELPER=/path/to/request-bootloader-recovery.sh`
+  - `SLM_RECOVERY_BOOT_ENTRY=recovery`
 
 ## 4) systemd Services
 

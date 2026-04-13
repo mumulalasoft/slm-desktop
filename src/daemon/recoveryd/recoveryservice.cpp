@@ -5,6 +5,7 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QProcess>
 #include <QSaveFile>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -208,6 +209,11 @@ QVariantMap RecoveryService::RequestRecoveryPartition(const QString &reason)
             ? QStringLiteral("manual-recovery-partition")
             : reason.trimmed();
     const bool ok = writeRecoveryPartitionRequest(why, &error);
+    QString bootloaderError;
+    bool bootloaderTriggered = false;
+    if (ok) {
+        bootloaderTriggered = triggerBootloaderRecovery(why, &bootloaderError);
+    }
     if (ok) {
         m_recoveryPartitionRequested = true;
         m_lastReason = why;
@@ -216,6 +222,8 @@ QVariantMap RecoveryService::RequestRecoveryPartition(const QString &reason)
     QVariantMap status = composeStatus(QStringLiteral("request-recovery-partition"));
     status.insert(QStringLiteral("ok"), ok);
     status.insert(QStringLiteral("error"), error);
+    status.insert(QStringLiteral("bootloaderTriggered"), bootloaderTriggered);
+    status.insert(QStringLiteral("bootloaderError"), bootloaderError);
     emit RecoveryStateChanged(status);
     return status;
 }
@@ -358,6 +366,56 @@ bool RecoveryService::writeRecoveryPartitionRequest(const QString &reason, QStri
     return true;
 }
 
+bool RecoveryService::triggerBootloaderRecovery(const QString &reason, QString *error) const
+{
+    if (error) {
+        error->clear();
+    }
+
+    const QString helper = qEnvironmentVariable(QStringLiteral("SLM_RECOVERY_BOOTLOADER_HELPER")).trimmed();
+    if (helper.isEmpty()) {
+        return false;
+    }
+    if (!QFileInfo::exists(helper)) {
+        if (error) {
+            *error = QStringLiteral("bootloader-helper-not-found");
+        }
+        return false;
+    }
+    if (!QFileInfo(helper).isExecutable()) {
+        if (error) {
+            *error = QStringLiteral("bootloader-helper-not-executable");
+        }
+        return false;
+    }
+
+    const QString entryHint = qEnvironmentVariable(QStringLiteral("SLM_RECOVERY_BOOT_ENTRY"), QStringLiteral("recovery")).trimmed();
+    const QString arg = entryHint.isEmpty() ? QStringLiteral("recovery") : entryHint;
+    QProcess proc;
+    proc.setProgram(helper);
+    proc.setArguments(QStringList{arg});
+    proc.start();
+    if (!proc.waitForFinished(8000)) {
+        proc.kill();
+        if (error) {
+            *error = QStringLiteral("bootloader-helper-timeout");
+        }
+        return false;
+    }
+    if (proc.exitCode() != 0) {
+        if (error) {
+            const QString stderr = QString::fromUtf8(proc.readAllStandardError()).trimmed();
+            *error = stderr.isEmpty()
+                    ? QStringLiteral("bootloader-helper-exit-%1").arg(proc.exitCode())
+                    : stderr;
+        }
+        return false;
+    }
+
+    Q_UNUSED(reason)
+    return true;
+}
+
 QVariantMap RecoveryService::composeStatus(const QString &action) const
 {
     int unhealthyCriticalCount = 0;
@@ -388,6 +446,8 @@ QVariantMap RecoveryService::composeStatus(const QString &action) const
         {QStringLiteral("autoRecoveryAttempts"), m_autoRecoveryAttempts},
         {QStringLiteral("recoveryPartitionRequested"), m_recoveryPartitionRequested},
         {QStringLiteral("lastReason"), m_lastReason},
+        {QStringLiteral("bootloaderHelper"),
+         qEnvironmentVariable(QStringLiteral("SLM_RECOVERY_BOOTLOADER_HELPER"))},
         {QStringLiteral("unhealthyCriticalProbes"), unhealthyCriticalCount},
         {QStringLiteral("probes"), probes},
         {QStringLiteral("crashCounts10s"), crashStats},

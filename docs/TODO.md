@@ -55,6 +55,7 @@
 - [~] User service assets added (`scripts/systemd/slm-recoveryd.service`, `scripts/install-recoveryd-user-service.sh`).
 - [~] Escalation wiring integrated in login stack (`session-broker` reads recovery marker; `watchdog` clears stale recovery flags on healthy session).
 - [~] Recovery ops tooling added (`scripts/recovery/recoveryctl.sh`, `scripts/recovery/request-bootloader-recovery.sh`).
+- [~] `slm-recoveryd` bootloader hook added (optional helper via `SLM_RECOVERY_BOOTLOADER_HELPER`).
 - [~] Contract test baseline added (`tests/recoveryservice_contract_test.cpp`).
 - [~] Initial architecture output document added: `docs/architecture/HYBRID_RECOVERY_ARCHITECTURE.md`.
 - [ ] Recovery partition image/build pipeline and bootloader fallback selector automation.

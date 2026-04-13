@@ -7,6 +7,7 @@
 #include <QDateTime>
 #include <QHash>
 #include <QObject>
+#include <QStringList>
 #include <QVariantMap>
 
 class RecoveryService : public QObject
@@ -53,6 +54,7 @@ private:
     int crashCountInWindow(const QString &component) const;
     bool setSafeModeForced(bool enabled, const QString &reason, QString *error = nullptr) const;
     bool writeRecoveryPartitionRequest(const QString &reason, QString *error = nullptr) const;
+    bool triggerBootloaderRecovery(const QString &reason, QString *error = nullptr) const;
     QVariantMap composeStatus(const QString &action = QString()) const;
 
     bool m_serviceRegistered = false;
