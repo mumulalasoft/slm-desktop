@@ -71,3 +71,11 @@ Unit `slm-recoveryd.service` mengatur env:
 - `SLM_RECOVERY_BOOT_ENTRY_HINT=recovery`
 
 Dengan konfigurasi ini, saat `RequestRecoveryPartition` dipanggil, daemon akan menulis marker recovery dan mencoba set next boot entry secara otomatis.
+
+Opsional untuk aksi UI Safe Mode:
+- `SLM_RECOVERY_REPAIR_HELPER=/path/to/repair-script`
+- `SLM_RECOVERY_REINSTALL_HELPER=/path/to/reinstall-script`
+
+Jika helper tidak diset:
+- `Repair System` fallback ke `fsck -A -T -p`.
+- `Reinstall System` menulis request flag `~/.config/slm-desktop/flags/reinstall-system-request.flag`.

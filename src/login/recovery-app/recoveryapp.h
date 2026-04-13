@@ -33,6 +33,8 @@ public:
     Q_INVOKABLE bool resetGraphicsStack();
     Q_INVOKABLE bool openTerminal();
     Q_INVOKABLE bool networkRepair();
+    Q_INVOKABLE bool repairSystem();
+    Q_INVOKABLE bool reinstallSystem();
     Q_INVOKABLE QVariantMap previewSnapshotDiff(const QString &snapshotId) const;
     Q_INVOKABLE QString logSummary() const;
     Q_INVOKABLE QVariantMap daemonHealthSnapshot() const;

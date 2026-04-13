@@ -1,6 +1,7 @@
 #include "recoveryapp.h"
 
 #include <QCoreApplication>
+#include <QDateTime>
 #include <QDBusConnection>
 #include <QDBusInterface>
 #include <QDBusReply>
@@ -236,6 +237,77 @@ bool RecoveryApp::networkRepair()
         return false;
     }
     return p.exitCode() == 0;
+}
+
+bool RecoveryApp::repairSystem()
+{
+    // Optional external helper for distro-specific repair flow.
+    const QString helper = qEnvironmentVariable(QStringLiteral("SLM_RECOVERY_REPAIR_HELPER")).trimmed();
+    if (!helper.isEmpty()) {
+        if (!QFileInfo::exists(helper) || !QFileInfo(helper).isExecutable()) {
+            qWarning("slm-recovery-app: repairSystem helper invalid: %s", qUtf8Printable(helper));
+            return false;
+        }
+        QProcess p;
+        p.start(helper, {});
+        if (!p.waitForFinished(30000)) {
+            p.kill();
+            qWarning("slm-recovery-app: repairSystem helper timeout");
+            return false;
+        }
+        return p.exitCode() == 0;
+    }
+
+    // Generic fallback: non-interactive filesystem preen.
+    if (QStandardPaths::findExecutable(QStringLiteral("fsck")).isEmpty()) {
+        qWarning("slm-recovery-app: repairSystem failed (fsck not found)");
+        return false;
+    }
+    QProcess fsck;
+    fsck.start(QStringLiteral("fsck"), {QStringLiteral("-A"), QStringLiteral("-T"), QStringLiteral("-p")});
+    if (!fsck.waitForFinished(30000)) {
+        fsck.kill();
+        qWarning("slm-recovery-app: repairSystem fsck timeout");
+        return false;
+    }
+    const int code = fsck.exitCode();
+    // fsck exit code 0/1/2 are generally success with or without fixes.
+    const bool ok = (code == 0 || code == 1 || code == 2);
+    if (!ok) {
+        qWarning("slm-recovery-app: repairSystem fsck exit=%d", code);
+    }
+    return ok;
+}
+
+bool RecoveryApp::reinstallSystem()
+{
+    // Optional external helper for installer/reimage integration.
+    const QString helper = qEnvironmentVariable(QStringLiteral("SLM_RECOVERY_REINSTALL_HELPER")).trimmed();
+    if (!helper.isEmpty()) {
+        if (!QFileInfo::exists(helper) || !QFileInfo(helper).isExecutable()) {
+            qWarning("slm-recovery-app: reinstallSystem helper invalid: %s", qUtf8Printable(helper));
+            return false;
+        }
+        QProcess p;
+        p.start(helper, {});
+        if (!p.waitForFinished(30000)) {
+            p.kill();
+            qWarning("slm-recovery-app: reinstallSystem helper timeout");
+            return false;
+        }
+        return p.exitCode() == 0;
+    }
+
+    const QByteArray payload = QByteArrayLiteral("requested=1\nrequestedAt=")
+                               + QDateTime::currentDateTimeUtc().toString(Qt::ISODate).toUtf8()
+                               + QByteArrayLiteral("\n");
+    const bool ok = writeFlagFile(QStringLiteral("reinstall-system-request.flag"), payload);
+    if (!ok) {
+        qWarning("slm-recovery-app: reinstallSystem failed writing request flag");
+        return false;
+    }
+    qInfo("slm-recovery-app: reinstallSystem request flag written");
+    return true;
 }
 
 QVariantMap RecoveryApp::previewSnapshotDiff(const QString &snapshotId) const

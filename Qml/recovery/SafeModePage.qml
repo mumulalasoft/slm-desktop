@@ -124,6 +124,29 @@ Item {
                 }
             }
 
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+
+                Button {
+                    text: qsTr("Repair System")
+                    onClicked: {
+                        const ok = RecoveryApp.repairSystem()
+                        root.setStatus(ok, ok ? qsTr("Repair command executed.")
+                                              : qsTr("Repair failed. Run from Recovery Partition or with elevated privileges."))
+                    }
+                }
+
+                Button {
+                    text: qsTr("Reinstall System")
+                    onClicked: {
+                        const ok = RecoveryApp.reinstallSystem()
+                        root.setStatus(ok, ok ? qsTr("Reinstall request registered.")
+                                              : qsTr("Failed to register reinstall request."))
+                    }
+                }
+            }
+
             Rectangle {
                 Layout.fillWidth: true
                 radius: 6
