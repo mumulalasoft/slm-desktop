@@ -1,6 +1,6 @@
 # CI Tier Mapping (PR / Nightly / Weekly)
 
-Last updated: 2026-03-28
+Last updated: 2026-04-12
 Source of truth workflow: `.github/workflows/ci.yml`
 
 ## Purpose
@@ -44,6 +44,7 @@ Primary jobs:
 - `portal-interop-nightly`
 - `tothespot-quick`
 - `tothespot-full`
+- `storage-runtime-hardware-smoke` (weekly scheduled + manual dogfooding lane on self-hosted `storage-hw`)
 
 Coverage intent:
 - full build + test suite and integration checks
@@ -62,6 +63,10 @@ Local mirror commands:
 - `scripts/test-filemanager-integration-modes.sh <build-dir>`
 - `scripts/test-filemanager-dbus-gates.sh --build-dir <build-dir> --strict`
 - `scripts/test.sh secret-consent <build-dir>` (or `scripts/test-secret-consent-suite.sh <build-dir>`)
+- `scripts/test-storage-runtime-suite.sh <build-dir>` (set `SLM_STORAGE_RUNTIME_HARDWARE_MODE=required` for strict hardware dogfooding)
+  - strict mode juga mengaktifkan `SLM_STORAGE_SMOKE_REQUIRE_POLICY_PERSISTENCE=1` untuk check write/read/restore policy via DBus.
+  - pada lane hardware mingguan, strict mode juga mengaktifkan `SLM_STORAGE_SMOKE_REQUIRE_SERVICE_RESTART=1` dan menjalankan phased persistence check:
+    - phase `prepare` (write policy marker) -> restart `slm-devicesd.service` -> phase `verify` (read marker + restore).
 
 Notes:
 - `scripts/test.sh nightly` supports:
@@ -73,6 +78,8 @@ Notes:
   - `SLM_TEST_NIGHTLY_POLICY_CORE_MODE=required|auto|skip` -> control stable settings policy lane (`policy-core`).
   - `SLM_TEST_NIGHTLY_POLICY_CORE_SKIP_BUILD=1|0` -> default `1` for test-only fast path in nightly policy-core lane.
   - `SLM_TEST_NIGHTLY_SECRET_CONSENT_SKIP_BUILD=1|0` -> default `1` for test-only fast path in nightly.
+  - `SLM_TEST_NIGHTLY_STORAGE_RUNTIME_MODE=required|auto|skip` -> control storage runtime smoke lane (`storage-smoke` label).
+  - `SLM_TEST_NIGHTLY_STORAGE_RUNTIME_SKIP_BUILD=1|0` -> default `1` for test-only fast path.
 - Current CI nightly (`build-and-test`) sets:
   - `SLM_TEST_SKIP_UI_LINT=1`
   - `SLM_TEST_SKIP_CAPABILITY_MATRIX_LINT=1`
@@ -89,7 +96,7 @@ Notes:
 ## Tier-3: Weekly Required (soak / stress)
 
 Trigger:
-- Scheduled weekly workflow (recommended to add explicit cron lane) or manual run.
+- Scheduled weekly workflow tersedia (cron `0 3 * * 0`) + manual run.
 
 Target coverage:
 - soak and long-running stability checks

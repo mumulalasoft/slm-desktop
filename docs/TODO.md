@@ -52,160 +52,11 @@
 
 ## Program (Storage & Automount UX: Per-Partition, GIO/GVfs, Modern Linux Desktop)
 
-### Guardrails Wajib
-- [x] Jangan gunakan `mount/umount` command langsung di semua path runtime.
-- [x] Semua operasi mount/unmount harus lewat GIO/GVfs (`GVolumeMonitor`, `GVolume`, `GMount`).
-- [x] Semua policy berbasis partisi (`UUID`/fallback `PARTUUID`), bukan disk global.
-- [x] System partitions (EFI/MSR/swap/recovery/LVM raw) tidak tampil di UI user biasa.
-- [~] Notifikasi wajib satu per device attach event (tidak boleh spam per partition).
-  - [x] Producer notifikasi dipindah ke service-layer global (`StorageAttachNotifier`) via `org.slm.Desktop.Storage` signal, grouped by `deviceGroupKey` + cooldown + action `[ Open ] [ Eject ]`.
+Status: implementasi utama Storage & Automount sudah selesai. Task selesai sudah dihapus dari backlog detail.
 
-### Phase 1 — Device Detection Layer (GIO/GVfs)
-- [~] Buat `StorageManager` core service (desktopd/fileopsd integration point) untuk event storage.
-  - [ ] Promote ke service-layer terpisah (`StorageManager`) agar reusable lintas FileManager/desktop notifications.
-- [~] Wire `GVolumeMonitor` signals:
-  - `volume-added`
-  - `volume-removed`
-  - `mount-added`
-  - `mount-removed`
-  - [~] Coalescer per device baseline aktif (debounce 4s, grouped by `deviceGroupKey`), lanjut refinement multi-monitor/session edge cases.
-- [~] Tambahkan aggregator event per physical device untuk grouping partitions.
-  - [x] Baseline grouping di sidebar berdasarkan `deviceGroupKey` (`Devices -> Drive -> child volumes`).
-- [~] Tambahkan loading/settling state agar scan partisi tidak menghasilkan UI jitter.
-  - [x] Baseline settle timer UI (`storageSidebarSettleMs` + `storageSettleTimer`) untuk menahan repaint sidebar saat burst event `StorageLocationsUpdated`.
-
-### Phase 2 — Policy Engine (UUID-Based, Per Partition)
-- [ ] Definisikan model input policy:
-  - `uuid`, `partuuid`, `fstype`, `is_removable`, `is_system`, `is_encrypted`.
-- [ ] Definisikan model output policy:
-  - `action` (`mount|ignore|ask`), `auto_open`, `visible`, `read_only`, `exec`.
-- [ ] Implement default policy:
-  - EFI/MSR/recovery -> `hidden + ignore`
-  - swap/LVM raw -> `hidden`
-  - internal data -> `automount`, no auto-open
-  - USB removable -> `automount`, no auto-open
-  - SD card -> `automount`, optional auto-open
-  - encrypted -> wait unlock
-  - unknown fs -> no automount
-- [ ] Tambahkan override resolution order:
-  - `uuid` -> `partuuid` -> `device-serial + partition-index`.
-
-### Phase 3 — Mount Executor (No Shell Mount)
-  - `src/apps/filemanager/filemanagerapi_storage.cpp`
-  - `src/daemon/devicesd/devicesmanager.cpp` (Mount/Eject path)
-- [x] Tambahkan error mapping non-teknis untuk state:
-  - locked, busy, unsupported, permission denied.
-- [x] Tambahkan timeout + cancellation path untuk operasi mount/unmount panjang.
-
-### Phase 4 — Notification & Volume Selector UX
-- [~] Implement notification coalescer per device attach.
-  - [~] UI polish + localization microcopy + selector keyboard navigation.
-    - [x] Baseline keyboard navigation untuk volume selector (`Enter`/`Return` + hover-to-select).
-- [~] Format notifikasi multi-partition:
-  - `"External Drive connected"`
-  - `"X volume tersedia"`
-  - actions: `[ Open ] [ Eject ]`
-- [~] Action `Open`:
-  - jika 1 volume: buka langsung (single window)
-  - jika >1 volume: tampilkan volume selector, jangan auto-open multiple windows.
-- [~] Pastikan tidak pernah ada multiple notification per partition attach.
-
-### Phase 5 — Sidebar Device UI
-- [x] Render struktur:
-  - `Devices`
-  - `Drive Name`
-  - child entries `Volume A/B/...`
-- [x] Sembunyikan semua system partitions dari mode user biasa.
-- [x] Gunakan microcopy non-teknis:
-  - Mount -> `Open Drive`
-  - Unmount -> `Eject`
-  - Volume -> `Drive`
-- [x] Tambahkan loading skeleton/state saat mount scan berjalan.
-
-### Phase 6 — Properties Panel (Mount Behavior)
-- [~] Tambahkan panel `Mount Behavior` per partition:
-  - [x] Mount otomatis
-  - [x] Mount otomatis + buka
-  - [x] Tanya setiap kali
-  - [x] Jangan pernah mount otomatis
-  - [x] `storagePolicyForPath(path)` load on open (service API + FileManagerApi bridge).
-  - [x] `setStoragePolicyForPath(path, patch)` save realtime (service API + FileManagerApi bridge).
-  - control baseline: automount/ask, auto-open, visible, read-only, allow-exec
-- [~] Tambahkan section `Visibility`:
-  - tampilkan/simpan di sidebar
-- [~] Tambahkan section `Access`:
-  - read-write/read-only/allow exec
-- [ ] Tambahkan section `Scope`:
-  - partisi ini saja / semua partisi pada device ini.
-  - [x] Baseline scope backend tersedia (`partition`/`device` via `setStoragePolicyForPath(..., scope)` + `policyScope`).
-  - [~] Baseline UI wiring tersedia di Properties dialog tab `Mount` (scope + policy toggles).
-    - [x] Tab tetap dapat dibuka saat policy belum tersedia + status/loading/error messaging.
-    - [x] Polish copy/layout + state disabled granular (busy/updating/automount/read-only) untuk control Mount tab.
-    - [x] Guard state baseline: `auto_open` otomatis off saat `automount=false`.
-    - [x] Error text di Mount tab dinormalisasi non-teknis (locked/busy/unsupported/permission) tanpa expose kode mentah.
-
-### Phase 7 — Policy Storage & Persistence
-- [~] Simpan policy JSON per partition:
-  - `uuid`, `automount`, `auto_open`, `visible`, `read_only`, `exec`.
-    - `storagePolicyForPath(path)`
-    - `setStoragePolicyForPath(path, policy)`
-    - JSON store: `${AppConfigLocation}/storage-policies.json`
-  - [~] Extracted persistence/migration into shared module `src/services/storage/StoragePolicyStore` (consumed by FileManagerApi).
-  - [~] Dedicated runtime `StorageManager` kini aktif untuk monitor storage event + snapshot query/policy resolve shared.
-  - [~] Baseline DBus façade tersedia via `org.slm.Desktop.Devices.GetStorageLocations` (powered by shared `StorageManager`).
-  - [~] Endpoint façade dedicated `org.slm.Desktop.Storage` sudah ada:
-    - `Ping`, `GetCapabilities`, `GetStorageLocations`, `StoragePolicyForPath`, `SetStoragePolicyForPath`, `Mount`, `Eject`, `ConnectServer`
-    - signal `StorageLocationsChanged` tersedia dari `devicesd`
-  - [ ] Lengkapi adopsi lintas shell/settings/filemanager + kontrak event real-time penuh dari façade dedicated.
-- [~] Implement migration + fallback key chain (`uuid` -> `partuuid` -> serial+index).
-  - [x] Runtime fallback chain aktif: `uuid` -> `partuuid` -> `serial-index` -> `device` -> `group`.
-  - [x] Persisted-key migrator baseline aktif di `StoragePolicyStore` (schema v3, canonical key rewrite `uuid/partuuid/serial-index` saat load).
-  - [x] Migrasi runtime-assisted `device/group` -> `serial-index` baseline aktif di `StorageManager` (promotion copy saat snapshot media tersedia).
-  - [~] Cleanup migrasi lanjut (opsional): pruning key legacy `device/group` setelah periode kompatibilitas.
-    - [x] Baseline prune opsional ditambahkan (gated env `SLM_STORAGE_POLICY_PRUNE_LEGACY_KEYS=1`), hanya hapus key legacy bila policy sama persis dengan `serial-index` target.
-- [~] Tambahkan schema versioning + safe recovery untuk file policy corrupt.
-  - [x] Migrator bertahap schema <= 3 ditambahkan (`migratePolicyEntriesForSchema`).
-  - [~] Perluas pipeline migrator untuk schema selanjutnya + telemetry hasil migrasi.
-    - [x] Baseline telemetry migrasi ditambahkan di `StoragePolicyStore::loadPolicyMap()` (debug log ringkas berbasis count: loaded/normalized/canonicalized/collisions/dropped/save status, tanpa expose key/path sensitif).
-
-### Phase 8 — Special States UX
-- [~] Locked state:
-  - `"Drive terkunci"` + action `[ Unlock ]`.
-  - [x] Baseline messaging non-teknis untuk error open/eject: `"Drive terkunci..."`.
-- [~] Busy state:
-  - `"Drive sedang digunakan"` + actions `[ Force Eject ] [ Cancel ]`.
-  - [x] Baseline messaging non-teknis untuk error open/eject: `"Drive sedang digunakan..."`.
-- [~] Unsupported state:
-  - `"Drive tidak dikenali"` + actions `[ Mount Read-only ] [ Ignore ]`.
-  - [x] Baseline messaging non-teknis untuk error open/eject: `"Drive tidak dikenali."`.
-- [~] Pastikan messaging tanpa `/dev/sdX`, UUID, atau istilah teknis mentah.
-  - [x] Sanitizer baseline di `FileManagerWindowActions.notifyResult()` untuk jalur storage (`Open Drive`/`Eject`) menghapus detail `/dev/*` dan UUID mentah.
-  - [x] Mapper error storage dipusatkan di `FileManagerWindowActions` (`isStorageAction` + `nonTechnicalStorageError`) untuk normalisasi locked/busy/unsupported/permission/timeout/service-unavailable/not-found/cancelled secara konsisten lintas caller.
-
-### Phase 9 — Integration & Hardening
-- [ ] Integrasi penuh ke FileManager sidebar + notification system + device properties panel.
-- [~] Tambahkan contract test:
-  - [x] no shell mount usage
-  - [x] no per-partition notification spam
-  - [x] system partition hidden by default
-  - [x] single-open behavior for multi-volume device.
-  - baseline: `tests/storage_automount_contract_test.cpp`.
-  - [x] persistence migration/canonicalization test: `tests/storagepolicystore_migration_test.cpp`.
-- [~] Tambahkan smoke test runtime untuk USB multi-partition dan encrypted media.
-  - [x] Baseline DBus smoke test ditambahkan: `tests/storage_runtime_smoke_test.cpp` (shape + optional hardware checks via env).
-  - [x] Tambahkan lane hardware CI/dogfooding (manual `workflow_dispatch` + self-hosted label `storage-hw`) yang mengaktifkan env strict via `scripts/test-storage-runtime-suite.sh`:
-    - `SLM_STORAGE_SMOKE_REQUIRE_SERVICE=1`
-    - `SLM_STORAGE_SMOKE_REQUIRE_MULTI_PARTITION=1`
-    - `SLM_STORAGE_SMOKE_REQUIRE_ENCRYPTED=1`
-- [~] Tambahkan observability log ringkas (debug mode only) tanpa leak info sensitif.
-  - [x] Baseline log migrasi policy `device/group -> serial-index` (jumlah entry promotion per snapshot-save).
-
-### Acceptance Criteria
-- [ ] Satu device attach menghasilkan satu notification.
-- [ ] Multi-partition tidak auto-open multi-window.
-- [ ] Semua mount/unmount lewat GIO/GVfs API.
-- [ ] Policy per partition berjalan konsisten lintas reboot/session.
-- [ ] UI tetap non-teknis, responsif, dan aman untuk user umum.
+### Sisa Tugas Storage
+- [ ] Tambah skenario persistence lintas reboot host/session login penuh (cold restart), bukan hanya service restart.
+- [ ] Lanjut QA manual lintas kondisi media (locked/busy/unsupported/multi-partition burst attach).
 
 ## Program (UX Animation System: State-Driven, macOS-like, Non-Patent)
 - [ ] Tetapkan prinsip sistem animasi global:
@@ -1824,9 +1675,8 @@ Tujuan utama:
 - [ ] SSOT tetap pusat tunggal; tidak ada sumber kebenaran kedua.
 
 Dock status:
-- [x] Dock state saat ini ditandai sebagai **last good**.
-- [x] Instruksi tugas/roadmap Dock lama dibersihkan dari TODO aktif.
-- [ ] Lanjut validasi Dock hanya di environment uji final (QEMU/target compositor), bukan dari host test yang tidak stabil.
+- Dock state saat ini ditetapkan sebagai **last good**.
+- Tidak ada tugas aktif Dock sampai pengujian lanjutan dibuka kembali.
 
 ## Program: Context Awareness (Adaptive UI) — `desktop-contextd`
 

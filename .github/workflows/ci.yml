@@ -7,7 +7,14 @@ on:
   pull_request:
   schedule:
     - cron: "0 19 * * *"
+    - cron: "0 3 * * 0"
   workflow_dispatch:
+    inputs:
+      run_storage_hardware_smoke:
+        description: "Run storage hardware smoke lane (requires self-hosted runner with real media)"
+        required: false
+        type: boolean
+        default: false
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
@@ -227,6 +234,8 @@ jobs:
           SLM_TEST_SKIP_CAPABILITY_MATRIX_LINT: "1"
           SLM_TEST_NIGHTLY_POLKIT_RUNTIME_MODE: auto
           SLM_TEST_NIGHTLY_PACKAGE_POLICY_WRAPPER_MODE: auto
+          SLM_TEST_NIGHTLY_STORAGE_RUNTIME_MODE: skip
+          SLM_TEST_NIGHTLY_STORAGE_RUNTIME_SKIP_BUILD: "1"
           SLM_TEST_NIGHTLY_FULL_EXCLUDE_LABELS: "baseline-flaky;secret-consent;policy-core"
           SLM_TEST_NIGHTLY_SECRET_CONSENT_MODE: required
           SLM_TEST_NIGHTLY_POLICY_CORE_MODE: required
@@ -314,6 +323,55 @@ jobs:
           SLM_PACKAGE_POLICY_SOURCE_POLICIES_DIR: "${{ github.workspace }}/config/package-policy/source-policies"
         run: |
           scripts/smoke-package-policy-wrapper.sh
+
+  storage-runtime-hardware-smoke:
+    if: |
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.run_storage_hardware_smoke == 'true') ||
+      (github.event_name == 'schedule' && github.event.schedule == '0 3 * * 0')
+    runs-on: [self-hosted, linux, x64, storage-hw]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            ninja-build \
+            pkg-config \
+            meson \
+            libxkbcommon-dev \
+            libglib2.0-dev \
+            libwayland-dev \
+            wayland-protocols
+
+      - name: Install Qt 6.10
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.10.0'
+          host: 'linux'
+          target: 'desktop'
+          modules: 'qtshadertools'
+          cache: true
+
+      - name: Configure
+        run: cmake -S . -B build -G Ninja
+
+      - name: Build storage runtime smoke target
+        run: cmake --build build --target storage_runtime_smoke_test -j
+
+      - name: Run storage runtime hardware smoke (strict)
+        env:
+          SLM_STORAGE_RUNTIME_HARDWARE_MODE: required
+          SLM_STORAGE_SMOKE_SKIP_BUILD: "1"
+          SLM_STORAGE_SMOKE_MIN_TESTS: "1"
+          SLM_STORAGE_SMOKE_STRICT_NAMES: "1"
+          SLM_STORAGE_SMOKE_EXPECTED_TESTS: "storage_runtime_smoke_test"
+          SLM_STORAGE_SMOKE_REQUIRE_SERVICE_RESTART: "1"
+        run: scripts/test-storage-runtime-suite.sh build
 
   filemanager-integration-modes:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
