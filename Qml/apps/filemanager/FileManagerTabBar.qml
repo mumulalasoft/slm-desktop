@@ -23,7 +23,7 @@ Rectangle {
         Rectangle {
             id: addTabPill
             Layout.preferredWidth: 24
-            Layout.preferredHeight: 20
+            Layout.preferredHeight: Theme.controlHeightCompact
             radius: Theme.radiusMd
             color: addTabMouse.containsMouse ? Theme.color("fileManagerTabCloseHover") : Theme.color("fileManagerControlBg")
             border.width: Theme.borderWidthNone

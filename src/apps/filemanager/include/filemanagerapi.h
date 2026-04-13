@@ -132,6 +132,10 @@ public:
     Q_INVOKABLE QVariantMap startMountStorageDevice(const QString &devicePath);
     Q_INVOKABLE QVariantMap startUnmountStorageDevice(const QString &devicePath);
     Q_INVOKABLE QVariantMap startConnectServer(const QString &serverUri);
+    Q_INVOKABLE QVariantMap storagePolicyForPath(const QString &path) const;
+    Q_INVOKABLE QVariantMap setStoragePolicyForPath(const QString &path,
+                                                    const QVariantMap &policyPatch,
+                                                    const QString &scope = QString());
     Q_INVOKABLE QString startPortalFileChooser(const QVariantMap &options,
                                                const QString &requestId = QString());
     QVariantMap mountStorageDevice(const QString &devicePath) const;
@@ -369,6 +373,7 @@ private:
 
 private slots:
     void onBatchTaskProgress(qlonglong baseBytes, qlonglong currentBytes, qlonglong totalBytes);
+    void onStorageLocationsChanged();
     void onDaemonFileOpProgress(const QString &id, int percent);
     void onDaemonFileOpProgressDetail(const QString &id, int current, int total);
     void onDaemonFileOpFinished(const QString &id);

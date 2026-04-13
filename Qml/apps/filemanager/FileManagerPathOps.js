@@ -16,7 +16,7 @@ function openPath(root, fileManagerApi, pathValue) {
             return
         }
         if (!fileManagerApi || !fileManagerApi.startMountStorageDevice) {
-            root.notifyResult("Mount Storage", {
+            root.notifyResult("Open Drive", {
                                   "ok": false,
                                   "error": "mount-api-unavailable"
                               })
@@ -26,7 +26,7 @@ function openPath(root, fileManagerApi, pathValue) {
         var mountRes = fileManagerApi.startMountStorageDevice(device)
         if (!mountRes || !mountRes.ok) {
             root.pendingMountDevice = ""
-            root.notifyResult("Mount Storage", mountRes)
+            root.notifyResult("Open Drive", mountRes)
         }
         return
     }

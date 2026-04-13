@@ -90,7 +90,7 @@ function sidebarContextMount(root, fileManagerApi) {
         return
     }
     if (!fileManagerApi || !fileManagerApi.startMountStorageDevice) {
-        root.notifyResult("Mount Storage", {
+        root.notifyResult("Open Drive", {
                               "ok": false,
                               "error": "mount-api-unavailable"
                           })
@@ -100,7 +100,7 @@ function sidebarContextMount(root, fileManagerApi) {
     var res = fileManagerApi.startMountStorageDevice(root.pendingMountDevice)
     if (!res || !res.ok) {
         root.pendingMountDevice = ""
-        root.notifyResult("Mount Storage", res)
+        root.notifyResult("Open Drive", res)
     }
 }
 
@@ -109,7 +109,7 @@ function sidebarContextUnmount(root, fileManagerApi) {
         return
     }
     if (!fileManagerApi || !fileManagerApi.startUnmountStorageDevice) {
-        root.notifyResult("Unmount Storage", {
+        root.notifyResult("Eject", {
                               "ok": false,
                               "error": "unmount-api-unavailable"
                           })
@@ -118,7 +118,7 @@ function sidebarContextUnmount(root, fileManagerApi) {
     var res = fileManagerApi.startUnmountStorageDevice(
                 String(root.sidebarContextDevice || ""))
     if (!res || !res.ok) {
-        root.notifyResult("Unmount Storage", res)
+        root.notifyResult("Eject", res)
     }
 }
 
@@ -223,7 +223,7 @@ function toggleStorageMount(root, fileManagerApi, rowPath, rowDevice, mounted) {
         }
         var unmountRes = fileManagerApi.startUnmountStorageDevice(deviceValue)
         if (!unmountRes || !unmountRes.ok) {
-            root.notifyResult("Unmount Storage", unmountRes)
+            root.notifyResult("Eject", unmountRes)
         }
         return
     }
@@ -239,6 +239,6 @@ function toggleStorageMount(root, fileManagerApi, rowPath, rowDevice, mounted) {
     var mountRes = fileManagerApi.startMountStorageDevice(deviceValue)
     if (!mountRes || !mountRes.ok) {
         root.pendingMountDevice = ""
-        root.notifyResult("Mount Storage", mountRes)
+        root.notifyResult("Open Drive", mountRes)
     }
 }

@@ -17,6 +17,7 @@ Item {
     property alias compressDialogRef: compressDialog
     property alias openWithDialogRef: openWithDialog
     property alias folderShareDialogRef: folderShareDialog
+    property alias storageVolumeSelectorDialogRef: storageVolumeSelectorDialog
     property var shareSheetRef: shareSheet
 
 
@@ -72,6 +73,11 @@ Item {
 
     FileManagerFolderShareDialog {
         id: folderShareDialog
+        hostRoot: root.hostRoot
+    }
+
+    FileManagerStorageVolumeSelectorDialog {
+        id: storageVolumeSelectorDialog
         hostRoot: root.hostRoot
     }
 

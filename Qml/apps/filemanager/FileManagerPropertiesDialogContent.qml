@@ -27,6 +27,56 @@ Item {
     function formatDateTimeHuman(v) { return hostRoot.formatDateTimeHuman(v) }
     function locationDisplay(stat, entry) { return hostRoot.locationDisplay(stat, entry) }
     function applyPropertiesOpenWithSelection(index) { hostRoot.applyPropertiesOpenWithSelection(index) }
+    function mountPolicyErrorText(rawError) {
+        var code = String(rawError || "").trim()
+        if (code.length <= 0) {
+            return "Terjadi kendala saat memperbarui pengaturan mount."
+        }
+        var key = code.toLowerCase()
+        if (key.indexOf("lock") >= 0 || key.indexOf("encrypted") >= 0) {
+            return "Drive terkunci. Buka kunci lalu coba lagi."
+        }
+        if (key.indexOf("busy") >= 0 || key.indexOf("in use") >= 0) {
+            return "Drive sedang digunakan. Tutup file yang masih dipakai lalu coba lagi."
+        }
+        if (key.indexOf("unsupported") >= 0 || key.indexOf("unknown-fs") >= 0) {
+            return "Drive tidak dikenali."
+        }
+        if (key.indexOf("permission") >= 0 || key.indexOf("denied") >= 0) {
+            return "Akses ke drive ditolak."
+        }
+        if (key === "path-not-found") {
+            return "Lokasi tidak ditemukan."
+        }
+        if (key === "mount-not-found" || key === "volume-not-available") {
+            return "Drive tidak ditemukan."
+        }
+        if (key === "policy-update-failed") {
+            return "Perubahan belum tersimpan. Coba lagi."
+        }
+        if (key === "daemon-unavailable") {
+            return "Layanan penyimpanan belum tersedia."
+        }
+        if (key === "daemon-timeout") {
+            return "Layanan penyimpanan tidak merespons tepat waktu."
+        }
+        if (key === "daemon-dbus-error") {
+            return "Terjadi gangguan komunikasi dengan layanan penyimpanan."
+        }
+        if (key === "invalid-path" || key === "invalid-target") {
+            return "Lokasi penyimpanan tidak valid."
+        }
+        return "Terjadi kendala saat memperbarui pengaturan mount."
+    }
+    readonly property bool mountPolicyBusyOrUpdating: !!hostRoot.propertiesStoragePolicyBusy
+                                                      || !!hostRoot.propertiesStoragePolicyUpdating
+    readonly property bool mountPolicyCanEdit: !!hostRoot.propertiesStoragePolicySupported
+                                               && !mountPolicyBusyOrUpdating
+    readonly property bool mountPolicyAutoOpenEnabled: mountPolicyCanEdit
+                                                       && !!hostRoot.propertiesStorageAutomount
+    readonly property bool mountPolicyExecEnabled: mountPolicyCanEdit
+                                                   && !hostRoot.propertiesStorageReadOnly
+    readonly property string mountPolicyAction: String(hostRoot.propertiesStorageAction || "mount")
 
 ColumnLayout {
     anchors.fill: parent
@@ -161,6 +211,31 @@ ColumnLayout {
                     anchors.fill: parent
                     enabled: parent.enabled
                     onClicked: hostRoot.propertiesTabIndex = 2
+                }
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                radius: Theme.radiusMd
+                color: hostRoot.propertiesTabIndex === 3 ? Theme.color(
+                                                           "selectedItem") : "transparent"
+                enabled: true
+                opacity: 1.0
+
+                DSStyle.Label {
+                    anchors.centerIn: parent
+                    text: "Mount"
+                    color: hostRoot.propertiesTabIndex
+                           === 3 ? Theme.color(
+                                       "selectedItemText") : Theme.color(
+                                       "textPrimary")
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    enabled: parent.enabled
+                    onClicked: hostRoot.propertiesTabIndex = 3
                 }
             }
         }
@@ -880,6 +955,341 @@ ColumnLayout {
                             var fixed = hostRoot.repairFolderSharingEnvironment()
                             hostRoot.notifyResult("Bagikan Folder", fixed)
                         }
+                    }
+                }
+            }
+        }
+
+        Item {
+            ColumnLayout {
+                anchors.fill: parent
+                spacing: 8
+
+                DSStyle.Label {
+                    text: "Mount Behavior"
+                    color: Theme.color("textSecondary")
+                    font.pixelSize: Theme.fontSize("body")
+                    font.weight: Theme.fontWeight("medium")
+                }
+
+                DSStyle.Label {
+                    visible: !hostRoot.propertiesStoragePolicySupported
+                    Layout.fillWidth: true
+                    text: hostRoot.propertiesStoragePolicyBusy
+                          ? "Memuat kebijakan mount..."
+                          : (hostRoot.propertiesStoragePolicyError.length > 0
+                             ? ("Kebijakan mount tidak tersedia: "
+                                + mountPolicyErrorText(
+                                    hostRoot.propertiesStoragePolicyError))
+                             : "Kebijakan mount hanya tersedia untuk volume penyimpanan.")
+                    color: Theme.color("textSecondary")
+                    wrapMode: Text.WordWrap
+                }
+
+                ColumnLayout {
+                    visible: hostRoot.propertiesStoragePolicySupported
+                    spacing: 6
+
+                    DSStyle.Label {
+                        Layout.fillWidth: true
+                        text: hostRoot.propertiesStoragePolicyScope === "device"
+                              ? "Perubahan akan diterapkan untuk semua partisi pada perangkat ini."
+                              : "Perubahan hanya diterapkan untuk partisi ini."
+                        color: Theme.color("textSecondary")
+                        font.pixelSize: Theme.fontSize("small")
+                        wrapMode: Text.WordWrap
+                    }
+
+                    RowLayout {
+                        spacing: 8
+                        DSStyle.Label {
+                            text: "Scope"
+                            color: Theme.color("textSecondary")
+                            Layout.preferredWidth: 84
+                        }
+                        ButtonGroup {
+                            id: mountScopeGroup
+                        }
+                        DSStyle.RadioButton {
+                            text: "Partisi ini"
+                            checked: hostRoot.propertiesStoragePolicyScope === "partition"
+                            ButtonGroup.group: mountScopeGroup
+                            enabled: mountPolicyCanEdit
+                            onToggled: if (checked && !hostRoot.propertiesStoragePolicyUpdating) {
+                                           hostRoot.applyPropertiesStorageScope("partition")
+                                       }
+                        }
+                        DSStyle.RadioButton {
+                            text: "Perangkat ini"
+                            checked: hostRoot.propertiesStoragePolicyScope === "device"
+                            ButtonGroup.group: mountScopeGroup
+                            enabled: mountPolicyCanEdit
+                            onToggled: if (checked && !hostRoot.propertiesStoragePolicyUpdating) {
+                                           hostRoot.applyPropertiesStorageScope("device")
+                                       }
+                        }
+                    }
+
+                    DSStyle.Label {
+                        Layout.fillWidth: true
+                        text: "Mode"
+                        color: Theme.color("textSecondary")
+                    }
+
+                    GridLayout {
+                        Layout.fillWidth: true
+                        columns: 2
+                        rowSpacing: 6
+                        columnSpacing: 10
+
+                        ButtonGroup {
+                            id: mountActionGroup
+                        }
+
+                        DSStyle.RadioButton {
+                            text: "Mount otomatis"
+                            checked: mountPolicyAction === "mount" && !hostRoot.propertiesStorageAutoOpen
+                            ButtonGroup.group: mountActionGroup
+                            enabled: mountPolicyCanEdit
+                            onToggled: if (checked && !hostRoot.propertiesStoragePolicyUpdating) {
+                                           hostRoot.applyPropertiesStoragePolicyPatch({
+                                                                                           "action": "mount",
+                                                                                           "automount": true,
+                                                                                           "auto_open": false
+                                                                                       })
+                                       }
+                        }
+
+                        DSStyle.RadioButton {
+                            text: "Mount + buka"
+                            checked: mountPolicyAction === "mount" && !!hostRoot.propertiesStorageAutoOpen
+                            ButtonGroup.group: mountActionGroup
+                            enabled: mountPolicyCanEdit
+                            onToggled: if (checked && !hostRoot.propertiesStoragePolicyUpdating) {
+                                           hostRoot.applyPropertiesStoragePolicyPatch({
+                                                                                           "action": "mount",
+                                                                                           "automount": true,
+                                                                                           "auto_open": true
+                                                                                       })
+                                       }
+                        }
+
+                        DSStyle.RadioButton {
+                            text: "Tanya setiap kali"
+                            checked: mountPolicyAction === "ask"
+                            ButtonGroup.group: mountActionGroup
+                            enabled: mountPolicyCanEdit
+                            onToggled: if (checked && !hostRoot.propertiesStoragePolicyUpdating) {
+                                           hostRoot.applyPropertiesStoragePolicyPatch({
+                                                                                           "action": "ask",
+                                                                                           "automount": false,
+                                                                                           "auto_open": false
+                                                                                       })
+                                       }
+                        }
+
+                        DSStyle.RadioButton {
+                            text: "Jangan mount otomatis"
+                            checked: mountPolicyAction === "ignore"
+                            ButtonGroup.group: mountActionGroup
+                            enabled: mountPolicyCanEdit
+                            onToggled: if (checked && !hostRoot.propertiesStoragePolicyUpdating) {
+                                           hostRoot.applyPropertiesStoragePolicyPatch({
+                                                                                           "action": "ignore",
+                                                                                           "automount": false,
+                                                                                           "auto_open": false
+                                                                                       })
+                                       }
+                        }
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        radius: Theme.radiusMd
+                        color: Theme.color("fileManagerSearchBg")
+                        border.width: Theme.borderWidthThin
+                        border.color: Theme.color("fileManagerControlBorder")
+                        implicitHeight: 44
+                        opacity: mountPolicyCanEdit ? 1.0 : 0.7
+
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.leftMargin: 10
+                            anchors.rightMargin: 10
+
+                            DSStyle.Label {
+                                Layout.fillWidth: true
+                                text: "Mount otomatis"
+                                color: Theme.color("textPrimary")
+                            }
+                            DSStyle.Switch {
+                                checked: !!hostRoot.propertiesStorageAutomount
+                                enabled: mountPolicyCanEdit
+                                onToggled: if (!hostRoot.propertiesStoragePolicyUpdating) {
+                                               hostRoot.applyPropertiesStoragePolicyPatch({
+                                                                                               "action": checked ? "mount" : "ask",
+                                                                                               "automount": checked
+                                                                                           })
+                                           }
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        radius: Theme.radiusMd
+                        color: Theme.color("fileManagerSearchBg")
+                        border.width: Theme.borderWidthThin
+                        border.color: Theme.color("fileManagerControlBorder")
+                        implicitHeight: 44
+                        opacity: mountPolicyAutoOpenEnabled ? 1.0 : 0.7
+
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.leftMargin: 10
+                            anchors.rightMargin: 10
+
+                            DSStyle.Label {
+                                Layout.fillWidth: true
+                                text: "Buka setelah mount"
+                                color: Theme.color("textPrimary")
+                            }
+                            DSStyle.Switch {
+                                checked: !!hostRoot.propertiesStorageAutoOpen
+                                enabled: mountPolicyAutoOpenEnabled
+                                onToggled: if (!hostRoot.propertiesStoragePolicyUpdating) {
+                                               hostRoot.applyPropertiesStoragePolicyPatch({
+                                                                                               "auto_open": checked
+                                                                                           })
+                                           }
+                            }
+                        }
+                    }
+
+                    DSStyle.Label {
+                        visible: !hostRoot.propertiesStorageAutomount
+                        text: "Aktifkan mount otomatis untuk membuka drive setelah mount."
+                        color: Theme.color("textSecondary")
+                        font.pixelSize: Theme.fontSize("small")
+                        wrapMode: Text.WordWrap
+                        Layout.fillWidth: true
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        radius: Theme.radiusMd
+                        color: Theme.color("fileManagerSearchBg")
+                        border.width: Theme.borderWidthThin
+                        border.color: Theme.color("fileManagerControlBorder")
+                        implicitHeight: 44
+                        opacity: mountPolicyCanEdit ? 1.0 : 0.7
+
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.leftMargin: 10
+                            anchors.rightMargin: 10
+
+                            DSStyle.Label {
+                                Layout.fillWidth: true
+                                text: "Tampilkan di sidebar"
+                                color: Theme.color("textPrimary")
+                            }
+                            DSStyle.Switch {
+                                checked: !!hostRoot.propertiesStorageVisible
+                                enabled: mountPolicyCanEdit
+                                onToggled: if (!hostRoot.propertiesStoragePolicyUpdating) {
+                                               hostRoot.applyPropertiesStoragePolicyPatch({
+                                                                                               "visible": checked
+                                                                                           })
+                                           }
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        radius: Theme.radiusMd
+                        color: Theme.color("fileManagerSearchBg")
+                        border.width: Theme.borderWidthThin
+                        border.color: Theme.color("fileManagerControlBorder")
+                        implicitHeight: 44
+                        opacity: mountPolicyCanEdit ? 1.0 : 0.7
+
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.leftMargin: 10
+                            anchors.rightMargin: 10
+
+                            DSStyle.Label {
+                                Layout.fillWidth: true
+                                text: "Mode read-only"
+                                color: Theme.color("textPrimary")
+                            }
+                            DSStyle.Switch {
+                                checked: !!hostRoot.propertiesStorageReadOnly
+                                enabled: mountPolicyCanEdit
+                                onToggled: if (!hostRoot.propertiesStoragePolicyUpdating) {
+                                               hostRoot.applyPropertiesStoragePolicyPatch({
+                                                                                               "read_only": checked
+                                                                                           })
+                                           }
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        radius: Theme.radiusMd
+                        color: Theme.color("fileManagerSearchBg")
+                        border.width: Theme.borderWidthThin
+                        border.color: Theme.color("fileManagerControlBorder")
+                        implicitHeight: 44
+                        opacity: mountPolicyExecEnabled ? 1.0 : 0.7
+
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.leftMargin: 10
+                            anchors.rightMargin: 10
+
+                            DSStyle.Label {
+                                Layout.fillWidth: true
+                                text: "Izinkan executable"
+                                color: Theme.color("textPrimary")
+                            }
+                            DSStyle.Switch {
+                                checked: !!hostRoot.propertiesStorageExec
+                                enabled: mountPolicyExecEnabled
+                                onToggled: if (!hostRoot.propertiesStoragePolicyUpdating) {
+                                               hostRoot.applyPropertiesStoragePolicyPatch({
+                                                                                               "exec": checked
+                                                                                           })
+                                           }
+                            }
+                        }
+                    }
+
+                    DSStyle.Label {
+                        visible: !!hostRoot.propertiesStorageReadOnly
+                        Layout.fillWidth: true
+                        text: "Mode read-only aktif: izin executable dinonaktifkan."
+                        color: Theme.color("textSecondary")
+                        font.pixelSize: Theme.fontSize("small")
+                        wrapMode: Text.WordWrap
+                    }
+
+                    DSStyle.Label {
+                        visible: hostRoot.propertiesStoragePolicyBusy
+                        text: hostRoot.propertiesStoragePolicyUpdating ? "Menyimpan perubahan..." : "Memuat kebijakan mount..."
+                        color: Theme.color("textSecondary")
+                    }
+
+                    DSStyle.Label {
+                        visible: hostRoot.propertiesStoragePolicyError.length > 0
+                        Layout.fillWidth: true
+                        text: "Gagal menyimpan: " + mountPolicyErrorText(
+                                  hostRoot.propertiesStoragePolicyError)
+                        color: Theme.color("error")
+                        wrapMode: Text.WordWrap
                     }
                 }
             }

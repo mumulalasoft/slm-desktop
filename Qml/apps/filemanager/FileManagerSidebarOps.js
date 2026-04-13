@@ -10,7 +10,8 @@ function appendSidebarSection(sidebarModel, label) {
                             "mounted": true,
                             "browsable": false,
                             "bytesTotal": -1,
-                            "bytesAvailable": -1
+                            "bytesAvailable": -1,
+                            "depth": 0
                         })
 }
 
@@ -67,18 +68,51 @@ function appendSidebarItem(sidebarModel, label, path, iconName) {
                             "mounted": true,
                             "browsable": true,
                             "bytesTotal": -1,
-                            "bytesAvailable": -1
+                            "bytesAvailable": -1,
+                            "depth": 0
                         })
 }
 
-function loadStorageSidebarItems(root, sidebarModel, fileManagerApi) {
+function loadStorageSidebarItems(root, sidebarModel, fileManagerApi, rowsOverride) {
     if (!fileManagerApi || !fileManagerApi.storageLocations) {
+        root.storageScanInProgress = true
+        sidebarModel.append({
+                                "rowType": "storage-status",
+                                "label": "Memindai drive...",
+                                "path": "",
+                                "iconName": "drive-harddisk-symbolic",
+                                "device": "",
+                                "mounted": true,
+                                "browsable": false,
+                                "bytesTotal": -1,
+                                "bytesAvailable": -1,
+                                "depth": 0
+                            })
         return
     }
-    var rows = fileManagerApi.storageLocations()
+    root.storageScanInProgress = true
+    var rows = rowsOverride
     if (!rows || typeof rows.length === "undefined") {
+        rows = fileManagerApi.storageLocations()
+    }
+    if (!rows || typeof rows.length === "undefined") {
+        root.storageScanInProgress = true
+        sidebarModel.append({
+                                "rowType": "storage-status",
+                                "label": "Memindai drive...",
+                                "path": "",
+                                "iconName": "drive-harddisk-symbolic",
+                                "device": "",
+                                "mounted": true,
+                                "browsable": false,
+                                "bytesTotal": -1,
+                                "bytesAvailable": -1,
+                                "depth": 0
+                            })
         return
     }
+    root.storageSnapshotReady = true
+    root.storageScanInProgress = false
     var byKey = ({})
     for (var i = 0; i < rows.length; ++i) {
         var row = rows[i]
@@ -109,6 +143,8 @@ function loadStorageSidebarItems(root, sidebarModel, fileManagerApi) {
             byKey[key] = {
                 "key": key,
                 "label": label,
+                "groupKey": String(row.deviceGroupKey || key),
+                "groupLabel": String(row.deviceGroupLabel || label || "Drive"),
                 "path": p,
                 "iconName": iconName,
                 "device": device,
@@ -125,6 +161,9 @@ function loadStorageSidebarItems(root, sidebarModel, fileManagerApi) {
                 prev.iconName = iconName
                 prev.device = device
                 prev.mounted = true
+            }
+            if (String(prev.groupLabel || "").length <= 0) {
+                prev.groupLabel = String(row.deviceGroupLabel || label || "Drive")
             }
             var totalNow = Number(
                         row.bytesTotal !== undefined ? row.bytesTotal : -1)
@@ -145,36 +184,6 @@ function loadStorageSidebarItems(root, sidebarModel, fileManagerApi) {
         entries.push(byKey[keys[k]])
     }
 
-    var byLabel = ({})
-    for (var m = 0; m < entries.length; ++m) {
-        var rowM = entries[m]
-        var labelKey = String(rowM.label || "").trim().toLowerCase()
-        if (labelKey.length <= 0) {
-            continue
-        }
-        var prevM = byLabel[labelKey]
-        if (!prevM || (!!rowM.mounted && !prevM.mounted)) {
-            byLabel[labelKey] = rowM
-        }
-    }
-    var dedupEntries = []
-    var seenEntry = ({})
-    for (var n0 = 0; n0 < entries.length; ++n0) {
-        var rowE = entries[n0]
-        var lk = String(rowE.label || "").trim().toLowerCase()
-        if (lk.length > 0 && byLabel[lk] && byLabel[lk] !== rowE
-                && !rowE.mounted) {
-            continue
-        }
-        var sig = String(rowE.key || "") + "|" + String(
-                    rowE.path || "") + "|" + String(rowE.device || "")
-        if (seenEntry[sig]) {
-            continue
-        }
-        seenEntry[sig] = true
-        dedupEntries.push(rowE)
-    }
-    entries = dedupEntries
     entries.sort(function (a, b) {
         var oa = storageOrderForKey(root, String(a.key || ""))
         var ob = storageOrderForKey(root, String(b.key || ""))
@@ -190,57 +199,108 @@ function loadStorageSidebarItems(root, sidebarModel, fileManagerApi) {
         return 0
     })
 
+    if (entries.length <= 0) {
+        root.storageScanInProgress = false
+        sidebarModel.append({
+                                "rowType": "storage-status",
+                                "label": root.storageScanInProgress
+                                         ? "Memindai drive..."
+                                         : "Tidak ada drive terdeteksi",
+                                "path": "",
+                                "iconName": "drive-harddisk-symbolic",
+                                "device": "",
+                                "mounted": true,
+                                "browsable": false,
+                                "bytesTotal": -1,
+                                "bytesAvailable": -1,
+                                "depth": 0
+                            })
+        return
+    }
+
+    var groupMap = ({})
+    var groupOrder = []
     for (var n = 0; n < entries.length; ++n) {
         var e = entries[n]
-        if (!!e.mounted) {
-            if (String(e.path || "").length <= 0) {
-                continue
+        var gk = String(e.groupKey || e.key || "")
+        if (gk.length <= 0) {
+            gk = "__group__" + String(n)
+        }
+        if (!groupMap[gk]) {
+            groupMap[gk] = {
+                "label": String(e.groupLabel || e.label || "Drive"),
+                "entries": []
             }
+            groupOrder.push(gk)
+        }
+        groupMap[gk].entries.push(e)
+    }
+
+    for (var gi = 0; gi < groupOrder.length; ++gi) {
+        var groupKey = groupOrder[gi]
+        var group = groupMap[groupKey]
+        var groupEntries = group.entries || []
+        if (groupEntries.length <= 0) {
+            continue
+        }
+
+        var showGroupHeader = groupEntries.length > 1
+        if (showGroupHeader) {
             sidebarModel.append({
-                                    "rowType": "storage",
-                                    "label": String(e.label || "Storage"),
-                                    "path": String(e.path || ""),
-                                    "iconName": String(
-                                                    e.iconName
-                                                    || "drive-harddisk-symbolic"),
-                                    "device": String(e.device || ""),
+                                    "rowType": "storage-group",
+                                    "label": String(group.label || "Drive"),
+                                    "path": "",
+                                    "iconName": "drive-harddisk-symbolic",
+                                    "device": "",
                                     "mounted": true,
-                                    "browsable": true,
-                                    "bytesTotal": Number(
-                                                      e.bytesTotal
-                                                      !== undefined ? e.bytesTotal : -1),
-                                    "bytesAvailable": Number(
-                                                          e.bytesAvailable
-                                                          !== undefined ? e.bytesAvailable : -1)
+                                    "browsable": false,
+                                    "bytesTotal": -1,
+                                    "bytesAvailable": -1,
+                                    "depth": 0
                                 })
-        } else {
-            var dev = String(e.device || "")
-            if (dev.length <= 0) {
-                continue
+        }
+
+        for (var si = 0; si < groupEntries.length; ++si) {
+            var entry = groupEntries[si]
+            var rowPath = ""
+            var rowDevice = String(entry.device || "")
+            var rowMounted = !!entry.mounted
+            if (rowMounted) {
+                rowPath = String(entry.path || "")
+                if (rowPath.length <= 0) {
+                    continue
+                }
+            } else {
+                if (rowDevice.length <= 0) {
+                    continue
+                }
+                rowPath = "__mount__:" + encodeURIComponent(rowDevice)
             }
+
             sidebarModel.append({
                                     "rowType": "storage",
-                                    "label": String(e.label || "Storage"),
-                                    "path": "__mount__:" + encodeURIComponent(
-                                                dev),
+                                    "label": String(entry.label || "Drive"),
+                                    "path": rowPath,
                                     "iconName": String(
-                                                    e.iconName
+                                                    entry.iconName
                                                     || "drive-harddisk-symbolic"),
-                                    "device": dev,
-                                    "mounted": false,
-                                    "browsable": false,
+                                    "device": rowDevice,
+                                    "mounted": rowMounted,
+                                    "browsable": rowMounted,
                                     "bytesTotal": Number(
-                                                      e.bytesTotal
-                                                      !== undefined ? e.bytesTotal : -1),
+                                                      entry.bytesTotal
+                                                      !== undefined ? entry.bytesTotal : -1),
                                     "bytesAvailable": Number(
-                                                          e.bytesAvailable
-                                                          !== undefined ? e.bytesAvailable : -1)
+                                                          entry.bytesAvailable
+                                                          !== undefined ? entry.bytesAvailable : -1),
+                                    "depth": showGroupHeader ? 1 : 0
                                 })
         }
     }
+    root.storageScanInProgress = false
 }
 
-function rebuildSidebarItems(root, sidebarModel, fileManagerApi) {
+function rebuildSidebarItems(root, sidebarModel, fileManagerApi, rowsOverride) {
     sidebarModel.clear()
     appendSidebarSection(sidebarModel, "Bookmarks")
     appendSidebarItem(sidebarModel, "Home", "~", "go-home-symbolic")
@@ -255,8 +315,8 @@ function rebuildSidebarItems(root, sidebarModel, fileManagerApi) {
     appendSidebarItem(sidebarModel, "Desktop", "~/Desktop", "user-desktop-symbolic")
     appendSidebarItem(sidebarModel, "Trash", "~/.local/share/Trash/files",
                       "user-trash-symbolic")
-    appendSidebarSection(sidebarModel, "Storage")
-    loadStorageSidebarItems(root, sidebarModel, fileManagerApi)
+    appendSidebarSection(sidebarModel, "Devices")
+    loadStorageSidebarItems(root, sidebarModel, fileManagerApi, rowsOverride)
     appendSidebarSection(sidebarModel, "Network")
     appendSidebarItem(sidebarModel, "Entire Network", "__network__",
                       "network-workgroup-symbolic")

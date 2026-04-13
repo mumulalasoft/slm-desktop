@@ -14,6 +14,9 @@ namespace {
 constexpr const char kFileOpsService[] = "org.slm.Desktop.FileOperations";
 constexpr const char kFileOpsPath[] = "/org/slm/Desktop/FileOperations";
 constexpr const char kFileOpsIface[] = "org.slm.Desktop.FileOperations";
+constexpr const char kStorageService[] = "org.slm.Desktop.Storage";
+constexpr const char kStoragePath[] = "/org/slm/Desktop/Storage";
+constexpr const char kStorageIface[] = "org.slm.Desktop.Storage";
 
 } // namespace
 
@@ -70,6 +73,12 @@ FileManagerApi::FileManagerApi(QObject *parent)
                                           QStringLiteral("ErrorDetail"),
                                           this,
                                           SLOT(onDaemonFileOpErrorDetail(QString,QString,QString)));
+    QDBusConnection::sessionBus().connect(QString::fromLatin1(kStorageService),
+                                          QString::fromLatin1(kStoragePath),
+                                          QString::fromLatin1(kStorageIface),
+                                          QStringLiteral("StorageLocationsChanged"),
+                                          this,
+                                          SLOT(onStorageLocationsChanged()));
 
     if (QDBusConnection::sessionBus().isConnected()) {
         auto *fileOpsWatcher = new QDBusServiceWatcher(QString::fromLatin1(kFileOpsService),
@@ -87,6 +96,11 @@ FileManagerApi::FileManagerApi(QObject *parent)
 }
 
 FileManagerApi::~FileManagerApi() = default;
+
+void FileManagerApi::onStorageLocationsChanged()
+{
+    refreshStorageLocationsAsync();
+}
 
 QVariantMap FileManagerApi::makeResult(bool ok, const QString &error, const QVariantMap &extra)
 {

@@ -1101,6 +1101,9 @@ function showPropertiesForSelection(root, fileManagerApi, propertiesDialog) {
     root.propertiesOpenWithCurrentIndex = -1
     root.propertiesOpenWithRequestId = ""
     root.propertiesOpenWithPath = ""
+    if (root.resetPropertiesStoragePolicyState) {
+        root.resetPropertiesStoragePolicyState()
+    }
     root.propertiesSharePath = String(entry.path || "")
     var appRow = root.contextDefaultOpenWithEntry()
     var appName = String((appRow && appRow.name) ? appRow.name : "")
@@ -1117,6 +1120,9 @@ function showPropertiesForSelection(root, fileManagerApi, propertiesDialog) {
         root.refreshPropertiesOpenWithApps(String(entry.path || ""))
     } else if (root.folderShareInfoForPath) {
         root.folderShareInfoForPath(String(entry.path || ""))
+    }
+    if (root.loadPropertiesStoragePolicy) {
+        root.loadPropertiesStoragePolicy(String(entry.path || ""))
     }
     if (propertiesDialog && propertiesDialog.open) {
         propertiesDialog.open()

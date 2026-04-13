@@ -13,6 +13,7 @@ Usage:
   $0 filemanager-smoke [build_dir]
   $0 secret-consent [build_dir]
   $0 policy-core [build_dir]
+  $0 storage-smoke [build_dir]
   $0 baseline-flaky [build_dir]
   $0 nightly [build_dir]
 
@@ -23,8 +24,9 @@ Modes:
   filemanager-smoke  Run FileManager smoke+regression subset in isolated DBus session.
   secret-consent     Run Secret consent contract suite (label: secret-consent).
   policy-core        Run stable settings policy suite (label: policy-core).
+  storage-smoke      Run storage runtime smoke suite (label: storage-smoke).
   baseline-flaky     Run baseline-flaky labeled tests explicitly.
-  nightly    Run default suite plus runtime smoke lanes (polkit + package-policy wrapper + secret-consent + policy-core).
+  nightly    Run default suite plus runtime smoke lanes (polkit + package-policy wrapper + secret-consent + policy-core + storage-smoke).
 EOF
 }
 
@@ -152,7 +154,12 @@ run_secret_consent_suite() {
 
 run_policy_core_suite() {
   local build_dir="$1"
-  exec "${ROOT_DIR}/scripts/test-policy-core-suite.sh" "${build_dir}"
+  "${ROOT_DIR}/scripts/test-policy-core-suite.sh" "${build_dir}"
+}
+
+run_storage_smoke_suite() {
+  local build_dir="$1"
+  "${ROOT_DIR}/scripts/test-storage-runtime-suite.sh" "${build_dir}"
 }
 
 run_baseline_flaky_suite() {
@@ -248,6 +255,18 @@ if [[ "${1:-}" == "policy-core" ]]; then
   fi
   echo "[test] mode=policy-core build_dir=${BUILD_DIR}"
   run_policy_core_suite "${BUILD_DIR}"
+  exit 0
+fi
+
+if [[ "${1:-}" == "storage-smoke" ]]; then
+  BUILD_DIR="${2:-${DEFAULT_BUILD_DIR}}"
+  if [[ ! -d "${BUILD_DIR}" ]]; then
+    echo "Build directory not found: ${BUILD_DIR}" >&2
+    echo "Usage: $0 storage-smoke [build_dir]" >&2
+    exit 2
+  fi
+  echo "[test] mode=storage-smoke build_dir=${BUILD_DIR}"
+  run_storage_smoke_suite "${BUILD_DIR}"
   exit 0
 fi
 
@@ -386,6 +405,37 @@ if [[ "${1:-}" == "nightly" ]]; then
       ;;
     *)
       echo "[test] invalid SLM_TEST_NIGHTLY_POLICY_CORE_MODE='${POLICY_CORE_MODE}' (expected required|auto|skip)" >&2
+      exit 2
+      ;;
+  esac
+  STORAGE_SMOKE_MODE="${SLM_TEST_NIGHTLY_STORAGE_RUNTIME_MODE:-skip}"
+  STORAGE_SMOKE_SKIP_BUILD="${SLM_TEST_NIGHTLY_STORAGE_RUNTIME_SKIP_BUILD:-1}"
+  if [[ "${STORAGE_SMOKE_SKIP_BUILD}" != "0" && "${STORAGE_SMOKE_SKIP_BUILD}" != "1" ]]; then
+    echo "[test] invalid SLM_TEST_NIGHTLY_STORAGE_RUNTIME_SKIP_BUILD='${STORAGE_SMOKE_SKIP_BUILD}' (expected 0|1)" >&2
+    exit 2
+  fi
+  case "${STORAGE_SMOKE_MODE}" in
+    required)
+      echo "[test] running nightly storage runtime smoke (required, skip_build=${STORAGE_SMOKE_SKIP_BUILD})"
+      SLM_STORAGE_RUNTIME_HARDWARE_MODE=required \
+      SLM_STORAGE_SMOKE_SKIP_BUILD="${STORAGE_SMOKE_SKIP_BUILD}" \
+      run_storage_smoke_suite "${BUILD_DIR}"
+      ;;
+    auto)
+      if [[ -x "${ROOT_DIR}/scripts/test-storage-runtime-suite.sh" ]]; then
+        echo "[test] running nightly storage runtime smoke (auto:enabled, skip_build=${STORAGE_SMOKE_SKIP_BUILD})"
+        SLM_STORAGE_RUNTIME_HARDWARE_MODE=optional \
+        SLM_STORAGE_SMOKE_SKIP_BUILD="${STORAGE_SMOKE_SKIP_BUILD}" \
+        run_storage_smoke_suite "${BUILD_DIR}"
+      else
+        echo "[test] skipping nightly storage runtime smoke (auto:runner-not-found)"
+      fi
+      ;;
+    skip)
+      echo "[test] skipping nightly storage runtime smoke (mode=skip)"
+      ;;
+    *)
+      echo "[test] invalid SLM_TEST_NIGHTLY_STORAGE_RUNTIME_MODE='${STORAGE_SMOKE_MODE}' (expected required|auto|skip)" >&2
       exit 2
       ;;
   esac

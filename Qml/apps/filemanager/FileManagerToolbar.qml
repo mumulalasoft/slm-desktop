@@ -144,7 +144,7 @@ Rectangle {
 
         Rectangle {
             Layout.preferredWidth: 98
-            height: 36
+            height: Theme.controlHeightLarge
             radius: Theme.radiusXxl
             color: Theme.color("fileManagerControlBg")
             border.width: Theme.borderWidthThin
@@ -184,7 +184,7 @@ Rectangle {
 
         Rectangle {
             Layout.preferredWidth: 86
-            height: 36
+            height: Theme.controlHeightLarge
             radius: Theme.radiusXxl
             color: Theme.color("fileManagerControlBg")
             border.width: Theme.borderWidthThin
@@ -262,8 +262,8 @@ Rectangle {
         }
 
         Rectangle {
-            Layout.preferredWidth: 36
-            height: 36
+            Layout.preferredWidth: Theme.controlHeightLarge
+            height: Theme.controlHeightLarge
             radius: Theme.radiusXxl
             color: Theme.color("fileManagerControlBg")
             border.width: Theme.borderWidthThin
@@ -286,7 +286,7 @@ Rectangle {
         Rectangle {
             visible: toolbar.showIndexControls
             Layout.preferredWidth: 92
-            height: 36
+            height: Theme.controlHeightLarge
             radius: Theme.radiusXxl
             color: Theme.color("fileManagerControlBg")
             border.width: Theme.borderWidthThin

@@ -534,6 +534,33 @@ Rectangle {
                            }))
         }
     }
+    function resolveMountedPathForDevice(deviceValue, mountedPathValue) {
+        var dev = String(deviceValue || "").trim()
+        var mountedPath = String(mountedPathValue || "").trim()
+        if (mountedPath.length > 0 && mountedPath.indexOf("/dev/") !== 0) {
+            return mountedPath
+        }
+        if (!fileManagerApiRef || !fileManagerApiRef.storageLocations) {
+            return mountedPath
+        }
+        var rows = fileManagerApiRef.storageLocations() || []
+        for (var i = 0; i < rows.length; ++i) {
+            var row = rows[i] || ({})
+            if (!row.mounted) {
+                continue
+            }
+            var rowDevice = String(row.device || "").trim()
+            if (dev.length > 0 && rowDevice !== dev) {
+                continue
+            }
+            var rowPath = String(row.path || row.rootPath || "").trim()
+            if (rowPath.length > 0 && rowPath.indexOf("__mount__:") !== 0
+                    && rowPath.indexOf("/dev/") !== 0) {
+                return rowPath
+            }
+        }
+        return mountedPath
+    }
     function handleStorageLocationsUpdated(rowsValue) {
         var rows = rowsValue || []
         storagePendingSidebarRows = rows

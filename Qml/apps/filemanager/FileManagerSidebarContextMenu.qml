@@ -29,7 +29,9 @@ DSStyle.Menu {
     closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside | Popup.CloseOnPressOutsideParent
 
     DSStyle.MenuItem {
-        text: "Open"
+        text: String(hostRoot.sidebarContextRowType || "") === "storage"
+              ? "Open Drive"
+              : "Open"
         enabled: hostRoot.sidebarContextCanOpenPath()
         onTriggered: hostRoot.openPath(root.contextPathSnapshot)
     }
@@ -55,14 +57,14 @@ DSStyle.Menu {
     }
 
     DSStyle.MenuItem {
-        text: "Mount"
+        text: "Open Drive"
         visible: hostRoot.sidebarContextCanMount()
         enabled: visible
         onTriggered: hostRoot.sidebarContextMount()
     }
 
     DSStyle.MenuItem {
-        text: "Unmount"
+        text: "Eject"
         visible: hostRoot.sidebarContextCanUnmount()
         enabled: visible
         onTriggered: hostRoot.sidebarContextUnmount()

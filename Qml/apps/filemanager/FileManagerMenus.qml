@@ -509,6 +509,8 @@ Item {
     Component {
         id: slmNativeSubmenuComponent
         DSStyle.Menu {
+            compact: true
+            itemIconSize: 20
             property var menuRow: ({})
             property bool _slmIsNativeMenu: true
             property var _slmDynamicItems: []
@@ -548,15 +550,17 @@ Item {
             readonly property bool rowActiveHover: (shareActionItem.highlighted || shareActionItem.hovered)
             text: String((menuRow && menuRow.name) ? menuRow.name : actionId)
             hoverEnabled: true
-            leftPadding: 10
-            rightPadding: 10
+            leftPadding: (menu && menu.itemHorizontalPadding !== undefined)
+                         ? Number(menu.itemHorizontalPadding) : 8
+            rightPadding: (menu && menu.itemHorizontalPadding !== undefined)
+                          ? Number(menu.itemHorizontalPadding) : 8
             contentItem: Row {
-                spacing: 8
-                leftPadding: 2
+                spacing: 6
 
                 Image {
-                    width: 16
-                    height: 16
+                    width: (shareActionItem.menu && shareActionItem.menu.itemIconSize !== undefined)
+                           ? Number(shareActionItem.menu.itemIconSize) : 20
+                    height: width
                     anchors.verticalCenter: parent.verticalCenter
                     fillMode: Image.PreserveAspectFit
                     asynchronous: true
@@ -605,6 +609,8 @@ Item {
 
     DSStyle.Menu {
         id: fileEntryMenu
+        compact: true
+        itemIconSize: 20
         modal: false
         property var _slmInjectedObjects: []
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside | Popup.CloseOnPressOutsideParent
@@ -625,23 +631,15 @@ Item {
 
         DSStyle.Menu {
             title: "Open with"
+            compact: true
+            itemIconSize: 20
             // NOTE: Avoid toggling Menu.visible during component finalization.
             // Qt 6.10 can crash in QQuickMenu::setVisible() for submenu bindings.
             // Keep submenu always present and gate interactions via enabled state.
             enabled: root.hostRoot.contextEntryIndex >= 0 && !root.hostRoot.contextEntryIsArchive
-            readonly property var defaultRow: root.hostRoot.contextDefaultOpenWithEntry()
-            readonly property string defaultAppId: String((defaultRow && defaultRow.id) ? defaultRow.id : "")
             readonly property var recommendedRows: root.hostRoot.contextRecommendedOpenWithEntries()
             function computedRows() {
                 var rows = []
-                if (defaultAppId.length > 0) {
-                    rows.push({
-                        "separator": false,
-                        "appId": defaultAppId,
-                        "name": "Default: " + String((defaultRow && defaultRow.name) ? defaultRow.name : defaultAppId),
-                        "iconName": String((defaultRow && defaultRow.iconName) ? defaultRow.iconName : "")
-                    })
-                }
                 for (var i = 0; i < recommendedRows.length; ++i) {
                     var r = recommendedRows[i] || ({})
                     var rid = String((r && r.id) ? r.id : "")
@@ -863,6 +861,8 @@ Item {
 
     DSStyle.Menu {
         id: folderEntryMenu
+        compact: true
+        itemIconSize: 20
         modal: false
         property var _slmInjectedObjects: []
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside | Popup.CloseOnPressOutsideParent
@@ -882,20 +882,12 @@ Item {
 
         DSStyle.Menu {
             title: "Open in"
+            compact: true
+            itemIconSize: 20
             enabled: String(root.hostRoot.contextEntryPath || "").length > 0
-            readonly property var defaultRow: root.hostRoot.contextDefaultOpenWithEntry()
-            readonly property string defaultAppId: String((defaultRow && defaultRow.id) ? defaultRow.id : "")
             readonly property var recommendedRows: root.hostRoot.contextRecommendedOpenWithEntries()
             function computedRows() {
                 var rows = []
-                if (defaultAppId.length > 0) {
-                    rows.push({
-                        "separator": false,
-                        "appId": defaultAppId,
-                        "name": "Default: " + String((defaultRow && defaultRow.name) ? defaultRow.name : defaultAppId),
-                        "iconName": String((defaultRow && defaultRow.iconName) ? defaultRow.iconName : "")
-                    })
-                }
                 for (var i = 0; i < recommendedRows.length; ++i) {
                     var r = recommendedRows[i] || ({})
                     var rid = String((r && r.id) ? r.id : "")
@@ -1118,6 +1110,8 @@ Item {
 
     DSStyle.Menu {
         id: multiSelectionMenu
+        compact: true
+        itemIconSize: 20
         modal: false
         property var _slmInjectedObjects: []
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside | Popup.CloseOnPressOutsideParent
@@ -1241,6 +1235,8 @@ Item {
 
     DSStyle.Menu {
         id: trashEntryMenu
+        compact: true
+        itemIconSize: 20
         modal: false
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside | Popup.CloseOnPressOutsideParent
 

@@ -180,7 +180,6 @@ void FileManagerShellBridge::onFmServiceVanished(const QString &)
 
 void FileManagerShellBridge::onFileOpsServiceAppeared(const QString &service)
 {
-    qCDebug(logFmBridge) << "FileOps service appeared:" << service;
     delete m_fileOpsIface;
     m_fileOpsIface = new QDBusInterface(
         service,
