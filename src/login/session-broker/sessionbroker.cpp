@@ -4,6 +4,8 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QStandardPaths>
 #include <QThread>
 #include <sys/types.h>
@@ -125,6 +127,14 @@ void SessionBroker::readState()
 StartupMode SessionBroker::evaluateMode(const PlatformStatus &platform)
 {
     // Priority: forced > crash loop > platform failure > requested > normal.
+    QString partitionReason;
+    if (hasRecoveryPartitionRequest(&partitionReason)) {
+        m_state.recoveryReason = partitionReason.isEmpty()
+                ? QStringLiteral("recovery-partition-requested")
+                : partitionReason;
+        return StartupMode::Recovery;
+    }
+
     if (m_state.safeModeForced) {
         return StartupMode::Safe;
     }
@@ -138,6 +148,45 @@ StartupMode SessionBroker::evaluateMode(const PlatformStatus &platform)
         return StartupMode::Safe;
     }
     return m_requestedMode;
+}
+
+bool SessionBroker::hasRecoveryPartitionRequest(QString *reason) const
+{
+    if (reason) {
+        reason->clear();
+    }
+
+    const QString markerPath = ConfigManager::configDir()
+            + QStringLiteral("/recovery-partition-request.json");
+    QFile marker(markerPath);
+    if (!marker.exists()) {
+        return false;
+    }
+
+    if (!marker.open(QIODevice::ReadOnly)) {
+        if (reason) {
+            *reason = QStringLiteral("recovery-partition-request-unreadable");
+        }
+        return true;
+    }
+
+    const QByteArray payload = marker.readAll();
+    marker.close();
+    const QJsonDocument doc = QJsonDocument::fromJson(payload);
+    if (!doc.isObject()) {
+        if (reason) {
+            *reason = QStringLiteral("recovery-partition-request-invalid");
+        }
+        return true;
+    }
+
+    const QJsonObject obj = doc.object();
+    const QString fileReason = obj.value(QStringLiteral("reason")).toString().trimmed();
+    if (reason) {
+        *reason = fileReason;
+    }
+    const bool requested = obj.value(QStringLiteral("requested")).toBool(true);
+    return requested;
 }
 
 void SessionBroker::performRollback(StartupMode mode)

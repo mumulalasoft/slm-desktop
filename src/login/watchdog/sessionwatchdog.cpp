@@ -1,6 +1,7 @@
 #include "sessionwatchdog.h"
 
 #include <QCoreApplication>
+#include <QFile>
 #include <QFileInfo>
 #include <QProcess>
 #include <QStandardPaths>
@@ -83,6 +84,7 @@ void SessionWatchdog::markSessionHealthy()
 
     state.crashCount     = 0;
     state.configPending  = false;
+    state.safeModeForced = false;
     state.lastBootStatus = QStringLiteral("healthy");
     state.recoveryReason.clear();
     state.lastUpdated    = QDateTime::currentDateTimeUtc();
@@ -112,6 +114,13 @@ void SessionWatchdog::markSessionHealthy()
         qWarning("slm-watchdog: could not save healthy state: %s", qUtf8Printable(err));
     } else {
         qInfo("slm-watchdog: session marked healthy (crash_count reset to 0)");
+    }
+
+    const QString markerPath = ConfigManager::configDir()
+            + QStringLiteral("/recovery-partition-request.json");
+    if (QFileInfo::exists(markerPath) && !QFile::remove(markerPath)) {
+        qWarning("slm-watchdog: could not clear recovery marker: %s",
+                 qUtf8Printable(markerPath));
     }
 }
 

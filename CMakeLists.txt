@@ -2876,6 +2876,30 @@ target_link_libraries(firewallserviceclient_dbus_signal_flow_test
 
 add_test(NAME firewallserviceclient_dbus_signal_flow_test COMMAND firewallserviceclient_dbus_signal_flow_test)
 
+qt_add_executable(recoveryservice_contract_test
+    src/daemon/recoveryd/recoveryservice.cpp
+    src/daemon/recoveryd/recoveryservice.h
+    src/daemon/recoveryd/recoverydbusadaptor.cpp
+    src/daemon/recoveryd/recoverydbusadaptor.h
+    src/login/libslmlogin/slmlogindefs.h
+    src/login/libslmlogin/slmsessionstate.h
+    src/login/libslmlogin/slmsessionstate.cpp
+    src/login/libslmlogin/slmconfigmanager.h
+    src/login/libslmlogin/slmconfigmanager.cpp
+    tests/recoveryservice_contract_test.cpp
+)
+
+target_include_directories(recoveryservice_contract_test PRIVATE ${CMAKE_SOURCE_DIR})
+
+target_link_libraries(recoveryservice_contract_test
+    PRIVATE
+        Qt6::Core
+        Qt6::DBus
+        Qt6::Test
+)
+
+add_test(NAME recoveryservice_contract_test COMMAND recoveryservice_contract_test)
+
 qt_add_executable(settings_searchengine_context_ranking_test
     src/apps/settings/moduleloader.cpp
     src/apps/settings/moduleloader.h
