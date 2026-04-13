@@ -1,13 +1,73 @@
 #include "nftablesadapter.h"
 
+#include <QByteArray>
+#include <QDebug>
+#include <QProcess>
+
 namespace Slm::Firewall {
+
+namespace {
+// Run nft with rules piped via stdin (-f -).
+// Each rule must be a complete nftables statement on its own line.
+// Returns true on exit code 0; populates error with stderr otherwise.
+bool runNft(const QStringList &rules, QString *error)
+{
+    if (rules.isEmpty()) {
+        return true;
+    }
+
+    const QByteArray script = (rules.join(QLatin1Char('\n')) + QLatin1Char('\n')).toUtf8();
+
+    QProcess proc;
+    proc.setProgram(QStringLiteral("nft"));
+    proc.setArguments({QStringLiteral("-f"), QStringLiteral("-")});
+    proc.start();
+
+    if (!proc.waitForStarted(3000)) {
+        const QString msg = QStringLiteral("nft-start-failed: %1").arg(proc.errorString());
+        qWarning() << "[firewall/nft]" << msg;
+        if (error) {
+            *error = msg;
+        }
+        return false;
+    }
+
+    proc.write(script);
+    proc.closeWriteChannel();
+
+    if (!proc.waitForFinished(10000)) {
+        proc.kill();
+        const QString msg = QStringLiteral("nft-timeout");
+        qWarning() << "[firewall/nft]" << msg;
+        if (error) {
+            *error = msg;
+        }
+        return false;
+    }
+
+    if (proc.exitCode() != 0) {
+        const QString stderr = QString::fromUtf8(proc.readAllStandardError()).trimmed();
+        const QString msg = stderr.isEmpty()
+                ? QStringLiteral("nft-exit=%1").arg(proc.exitCode())
+                : stderr;
+        qWarning() << "[firewall/nft] error:" << msg;
+        if (error) {
+            *error = msg;
+        }
+        return false;
+    }
+
+    return true;
+}
+} // namespace
 
 bool NftablesAdapter::ensureBaseRules(QString *error)
 {
-    if (error) {
-        error->clear();
-    }
-    return true;
+    // Ensure the slm_firewall table exists.  A no-op if already present.
+    const QStringList probe{
+        QStringLiteral("add table inet slm_firewall"),
+    };
+    return runNft(probe, error);
 }
 
 bool NftablesAdapter::applyBasePolicy(const QVariantMap &state, QString *error)
@@ -21,16 +81,20 @@ bool NftablesAdapter::applyAtomicBatch(const QStringList &rules, QString *error)
     if (error) {
         error->clear();
     }
+    if (!runNft(rules, error)) {
+        return false;
+    }
     m_lastBatch = rules;
     return true;
 }
 
-bool NftablesAdapter::reconcileState(QString *error)
+bool NftablesAdapter::reconcileState(const QStringList &fullRuleSet, QString *error)
 {
-    if (error) {
-        error->clear();
-    }
-    return true;
+    // Full reconciliation: the caller provides the complete desired rule set
+    // (base flush + base rules + all active IP block rules). We re-apply it
+    // atomically. This is the correct way to remove rules from nftables without
+    // per-rule handle tracking — flush the table and rebuild from scratch.
+    return applyAtomicBatch(fullRuleSet, error);
 }
 
 QStringList NftablesAdapter::lastAppliedBatch() const

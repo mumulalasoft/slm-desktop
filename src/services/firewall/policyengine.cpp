@@ -947,7 +947,7 @@ QVariantMap PolicyEngine::clearIpPolicies()
 
     if (m_nft) {
         QString nftError;
-        if (!m_nft->reconcileState(&nftError)) {
+        if (!reconcileWithNft(QVariantList{}, &nftError)) {
             return {
                 {QStringLiteral("ok"), false},
                 {QStringLiteral("error"), nftError.isEmpty() ? QStringLiteral("nft-reconcile-failed") : nftError},
@@ -1007,7 +1007,7 @@ QVariantMap PolicyEngine::removeIpPolicy(const QString &policyId)
 
     if (m_nft) {
         QString nftError;
-        if (!m_nft->reconcileState(&nftError)) {
+        if (!reconcileWithNft(kept, &nftError)) {
             return {
                 {QStringLiteral("ok"), false},
                 {QStringLiteral("error"), nftError.isEmpty() ? QStringLiteral("nft-reconcile-failed") : nftError},
@@ -1056,7 +1056,7 @@ QVariantList PolicyEngine::pruneExpiredIpPolicies() const
 
     if (m_nft) {
         QString nftError;
-        m_nft->reconcileState(&nftError);
+        reconcileWithNft(kept, &nftError);
     }
 
     return kept;
@@ -1193,6 +1193,78 @@ QVariantList PolicyEngine::listConnections() const
     }
 
     return result;
+}
+
+QVariantMap PolicyEngine::buildBaseStateFromStore() const
+{
+    if (!m_store) {
+        return {
+            {QStringLiteral("enabled"),               true},
+            {QStringLiteral("mode"),                  QStringLiteral("home")},
+            {QStringLiteral("defaultIncomingPolicy"), QStringLiteral("deny")},
+            {QStringLiteral("defaultOutgoingPolicy"), QStringLiteral("allow")},
+        };
+    }
+    return {
+        {QStringLiteral("enabled"),
+         m_store->value(QStringLiteral("firewall.enabled"), true)},
+        {QStringLiteral("mode"),
+         m_store->value(QStringLiteral("firewall.mode"), QStringLiteral("home"))},
+        {QStringLiteral("defaultIncomingPolicy"),
+         m_store->value(QStringLiteral("firewall.defaultIncomingPolicy"), QStringLiteral("deny"))},
+        {QStringLiteral("defaultOutgoingPolicy"),
+         m_store->value(QStringLiteral("firewall.defaultOutgoingPolicy"), QStringLiteral("allow"))},
+    };
+}
+
+// Full reconciliation: flush+rebuild base, then re-add each active IP policy.
+// nftables doesn't support removing individual rules by value without handles,
+// so the correct approach after any remove/clear is a full flush+rebuild.
+QStringList PolicyEngine::buildFullRuleSet(const QVariantList &activeIpEntries) const
+{
+    // We don't literally return the rule set here; the reconciliation is driven
+    // through reconcileWithNft() which sequences the nft calls correctly.
+    // This method exists to satisfy the compiler; use reconcileWithNft() instead.
+    Q_UNUSED(activeIpEntries)
+    return {};
+}
+
+bool PolicyEngine::reconcileWithNft(const QVariantList &activeIpEntries, QString *error) const
+{
+    if (!m_nft) {
+        if (error) {
+            *error = QStringLiteral("nft-unavailable");
+        }
+        return false;
+    }
+
+    // Step 1: flush the table and rebuild base chains/policy.
+    const QVariantMap state = buildBaseStateFromStore();
+    QString baseError;
+    if (!m_nft->applyBasePolicy(state, &baseError)) {
+        if (error) {
+            *error = baseError.isEmpty() ? QStringLiteral("nft-base-failed") : baseError;
+        }
+        return false;
+    }
+
+    // Step 2: re-add remaining IP block rules on top of the fresh base.
+    for (const QVariant &entry : activeIpEntries) {
+        const QStringList ipRules = buildIpBlockRules(entry.toMap());
+        if (ipRules.isEmpty()) {
+            continue;
+        }
+        QString ipError;
+        if (!m_nft->applyAtomicBatch(ipRules, &ipError)) {
+            qWarning() << "[firewall/reconcile] ip rule apply failed:" << ipError;
+            // Non-fatal: continue applying remaining rules; report first error.
+            if (error && error->isEmpty()) {
+                *error = ipError;
+            }
+        }
+    }
+
+    return error ? error->isEmpty() : true;
 }
 
 } // namespace Slm::Firewall

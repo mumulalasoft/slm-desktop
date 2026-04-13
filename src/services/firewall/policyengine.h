@@ -46,6 +46,12 @@ private:
     static qint64 parseDurationSeconds(const QString &rawDuration);
     static bool isIpPolicyExpired(const QVariantMap &policy, const QDateTime &nowUtc);
 
+    // Build the complete nftables rule set from the current store state.
+    // Used for full reconciliation after remove/clear operations.
+    QVariantMap buildBaseStateFromStore() const;
+    QStringList buildFullRuleSet(const QVariantList &activeIpEntries) const;
+    bool reconcileWithNft(const QVariantList &activeIpEntries, QString *error = nullptr) const;
+
     PolicyStore *m_store = nullptr;
     NftablesAdapter *m_nft = nullptr;
     AppIdentityClient *m_identity = nullptr;

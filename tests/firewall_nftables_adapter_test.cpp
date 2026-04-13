@@ -20,7 +20,7 @@ private slots:
         };
         QVERIFY(adapter.applyAtomicBatch(batch, &error));
         QCOMPARE(adapter.lastAppliedBatch(), batch);
-        QVERIFY(adapter.reconcileState(&error));
+        QVERIFY(adapter.reconcileState(batch, &error));
     }
 
     void base_policy_contract()
