@@ -1,0 +1,14 @@
+[Unit]
+Description=SLM App Lifecycle Daemon
+Documentation=man:systemd.service(5)
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/Development/Qt/Desktop_Shell/build/desktop-appd
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=default.target
