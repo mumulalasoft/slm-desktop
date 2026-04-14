@@ -31,36 +31,108 @@ QtObject {
     }
 
     function _resolveStorageDeviceTarget() {
+        var out = {
+            "device": "",
+            "path": "",
+            "mounted": false,
+            "row": null
+        }
         if (!fileManagerContent) {
+            return out
+        }
+        function decodeMountPath(pathValue) {
+            var p = String(pathValue || "")
+            if (p.indexOf("__mount__:") === 0) {
+                return decodeURIComponent(p.slice(10))
+            }
             return ""
         }
-        var contextDevice = String(fileManagerContent.sidebarContextDevice || "").trim()
-        if (contextDevice.length > 0) {
-            return contextDevice
+        function normalizePath(pathValue) {
+            return String(pathValue || "").trim()
         }
-        var currentPath = (fileManagerContent.fileModel && fileManagerContent.fileModel.currentPath)
-                ? String(fileManagerContent.fileModel.currentPath) : ""
-        if (currentPath.indexOf("__mount__:") === 0) {
-            return decodeURIComponent(currentPath.slice(10))
+        function storageRows() {
+            if (fileManagerContent.fileManagerApiRef
+                    && fileManagerContent.fileManagerApiRef.storageLocations) {
+                return fileManagerContent.fileManagerApiRef.storageLocations() || []
+            }
+            return []
         }
-        if (currentPath.indexOf("/dev/") === 0) {
-            return currentPath
-        }
-        if (fileManagerContent.fileManagerApiRef && fileManagerContent.fileManagerApiRef.storageLocations) {
-            var rows = fileManagerContent.fileManagerApiRef.storageLocations() || []
+        function matchRowByPath(rows, needle) {
+            var n = normalizePath(needle)
+            if (n.length <= 0) {
+                return null
+            }
             for (var i = 0; i < rows.length; ++i) {
                 var row = rows[i] || ({})
-                var rowPath = String(row.path || row.rootPath || "").trim()
-                var rowDevice = String(row.device || "").trim()
-                if (rowDevice.length <= 0) {
-                    continue
+                var rowPath = normalizePath(row.path || row.rootPath || "")
+                if (rowPath.length > 0 && rowPath === n) {
+                    return row
                 }
-                if (rowPath.length > 0 && rowPath === currentPath) {
-                    return rowDevice
+            }
+            return null
+        }
+
+        var rows = storageRows()
+        var contextDevice = normalizePath(fileManagerContent.sidebarContextDevice || "")
+        var contextPath = normalizePath(fileManagerContent.sidebarContextPath || "")
+        var selectedSidebarPath = normalizePath(fileManagerContent.selectedSidebarPath || "")
+        var currentPath = (fileManagerContent.fileModel && fileManagerContent.fileModel.currentPath)
+                ? normalizePath(fileManagerContent.fileModel.currentPath) : ""
+
+        var row = null
+        if (contextPath.length > 0) {
+            row = matchRowByPath(rows, contextPath)
+        }
+        if (!row && selectedSidebarPath.length > 0) {
+            row = matchRowByPath(rows, selectedSidebarPath)
+        }
+        if (!row && currentPath.length > 0) {
+            row = matchRowByPath(rows, currentPath)
+        }
+        if (!row && contextDevice.length > 0) {
+            for (var ci = 0; ci < rows.length; ++ci) {
+                var crow = rows[ci] || ({})
+                if (normalizePath(crow.device || "") === contextDevice) {
+                    row = crow
+                    break
                 }
             }
         }
-        return ""
+
+        if (row) {
+            out.row = row
+            out.device = normalizePath(row.device || "")
+            out.path = normalizePath(row.path || row.rootPath || "")
+            out.mounted = !!row.mounted
+            if (out.device.length > 0) {
+                return out
+            }
+        }
+
+        if (contextDevice.length > 0) {
+            out.device = contextDevice
+            out.path = contextPath
+            out.mounted = !!fileManagerContent.sidebarContextMounted
+            return out
+        }
+        var selectedMountDevice = decodeMountPath(selectedSidebarPath)
+        if (selectedMountDevice.length > 0) {
+            out.device = selectedMountDevice
+            out.path = selectedSidebarPath
+            return out
+        }
+        var currentMountDevice = decodeMountPath(currentPath)
+        if (currentMountDevice.length > 0) {
+            out.device = currentMountDevice
+            out.path = currentPath
+            return out
+        }
+        if (currentPath.indexOf("/dev/") === 0) {
+            out.device = currentPath
+            out.path = currentPath
+            return out
+        }
+        return out
     }
 
     function handleMenuItem(menuId, itemId, label, context) {
@@ -214,7 +286,12 @@ QtObject {
             if (!fileManagerContent) {
                 return
             }
-            var deviceTarget = _resolveStorageDeviceTarget()
+            var target = _resolveStorageDeviceTarget()
+            var deviceTarget = String(target.device || "").trim()
+            if (item === 1 && target.row && fileManagerContent.openStorageVolumeChoice) {
+                fileManagerContent.openStorageVolumeChoice(target.row)
+                return
+            }
             if (item === 1 && deviceTarget.length > 0) {
                 var mountRes = _routeOrWarn("storage.mount",
                                             { "devicePath": deviceTarget },
@@ -224,7 +301,8 @@ QtObject {
                         && fileManagerContent.openStorageVolumeChoice) {
                     fileManagerContent.openStorageVolumeChoice({
                                                                    "device": deviceTarget,
-                                                                   "mounted": false
+                                                                   "path": String(target.path || ""),
+                                                                   "mounted": !!target.mounted
                                                                })
                 }
                 return
@@ -241,6 +319,7 @@ QtObject {
                 }
                 return
             }
+            requestHelpMessage("No storage target selected")
         } else if (menu === 2006) { // Help
             requestHelpMessage("SLM Desktop Help: use top bar menu and shortcuts.")
             return
