@@ -46,6 +46,8 @@ private slots:
 
     void initTestCase()
     {
+        qputenv("SLM_FILEOPS_BYPASS_PERMISSION", QByteArrayLiteral("1"));
+
         // Resolve binary fileopsd dari env override atau PATH
         QString fileopsdBin = qEnvironmentVariable("SLM_FILEOPSD_BINARY");
         if (fileopsdBin.isEmpty())

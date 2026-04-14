@@ -10,6 +10,11 @@ class FirewallPolicyEngineContractTest : public QObject
     Q_OBJECT
 
 private slots:
+    void initTestCase()
+    {
+        qputenv("SLM_FIREWALL_ALLOW_DRYRUN", QByteArrayLiteral("1"));
+    }
+
     void evaluate_connection_returns_decision()
     {
         Slm::Firewall::PolicyStore store;

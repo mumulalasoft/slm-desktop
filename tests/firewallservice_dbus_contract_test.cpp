@@ -12,6 +12,11 @@ class FirewallServiceDbusContractTest : public QObject
     Q_OBJECT
 
 private slots:
+    void initTestCase()
+    {
+        qputenv("SLM_FIREWALL_ALLOW_DRYRUN", QByteArrayLiteral("1"));
+    }
+
     void init()
     {
         const QString testName = QString::fromLatin1(QTest::currentTestFunction());

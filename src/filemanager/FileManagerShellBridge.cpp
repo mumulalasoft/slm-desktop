@@ -362,17 +362,41 @@ QString FileManagerShellBridge::startCopy(const QStringList &sources,
 {
     const QString reqId = newReqId();
     qCDebug(logFmBridge) << "[req:" << reqId << "] startCopy" << sources.count() << "→" << dest;
+
+    const auto startLocalFallback = [this, reqId, sources, dest]() -> QString {
+        if (!m_api) {
+            return {};
+        }
+        const QString localOpId = QStringLiteral("local-copy-%1").arg(reqId);
+        QTimer::singleShot(0, this, [this, localOpId, sources, dest]() {
+            QVariantList src;
+            src.reserve(sources.size());
+            for (const QString &path : sources) {
+                src.push_back(path);
+            }
+            const QVariantMap out = m_api->copyPaths(src, dest, false);
+            const bool ok = out.value(QStringLiteral("ok")).toBool();
+            const QString err = out.value(QStringLiteral("error")).toString();
+            emit operationFinished(localOpId, ok, err);
+        });
+        return localOpId;
+    };
+
     if (!m_fileOpsIface || !m_fileOpsIface->isValid()) {
         qCWarning(logFmBridge) << "[req:" << reqId << "] startCopy: fileopsd tidak tersedia";
-        return {};
+        return startLocalFallback();
     }
     QDBusReply<QString> reply = m_fileOpsIface->call(
         QStringLiteral("Copy"), sources, dest);
     if (!reply.isValid()) {
         qCWarning(logFmBridge) << "[req:" << reqId << "] startCopy error:" << reply.error().message();
-        return {};
+        return startLocalFallback();
     }
-    return reply.value();
+    const QString opId = reply.value().trimmed();
+    if (opId.isEmpty()) {
+        return startLocalFallback();
+    }
+    return opId;
 }
 
 QString FileManagerShellBridge::startMove(const QStringList &sources,

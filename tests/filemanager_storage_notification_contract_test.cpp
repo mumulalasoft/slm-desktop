@@ -32,7 +32,10 @@ private slots:
         QVERIFY(text.contains(QStringLiteral("StorageLocationsChanged")));
         QVERIFY(text.contains(QStringLiteral("External Drive connected")));
         QVERIFY(text.contains(QStringLiteral("%1 volume tersedia")));
-        QVERIFY(text.contains(QStringLiteral("\"open\", \"Open\", \"eject\", \"Eject\"")));
+        QVERIFY(text.contains(QStringLiteral("QStringLiteral(\"open\")")));
+        QVERIFY(text.contains(QStringLiteral("QStringLiteral(\"Open\")")));
+        QVERIFY(text.contains(QStringLiteral("QStringLiteral(\"eject\")")));
+        QVERIFY(text.contains(QStringLiteral("QStringLiteral(\"Eject\")")));
     }
 
     void storageLocationsUpdated_forwardsRowsToAttachHandler()

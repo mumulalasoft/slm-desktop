@@ -24,10 +24,10 @@ private slots:
         const QString text = readTextFile(path);
         QVERIFY2(!text.isEmpty(), qPrintable(QStringLiteral("failed to read %1").arg(path)));
 
-        QVERIFY(text.contains(QStringLiteral("phase: \"idle\"")));
-        QVERIFY(text.contains(QStringLiteral("enteringLaunchpad")));
+        QVERIFY(text.contains(QStringLiteral("readonly property string shellMode")));
         QVERIFY(text.contains(QStringLiteral("launchpadActive")));
-        QVERIFY(text.contains(QStringLiteral("leavingLaunchpad")));
+        QVERIFY(text.contains(QStringLiteral("readonly property bool dockVisible")));
+        QVERIFY(text.contains(QStringLiteral("function resolveNearestPinnedModelIndex")));
     }
 
     void dockRenderer_usesGlobalResolvers()
@@ -38,27 +38,22 @@ private slots:
 
         QVERIFY(text.contains(QStringLiteral("DockSystem.resolveNearestPinnedModelIndex")));
         QVERIFY(text.contains(QStringLiteral("DockSystem.resolveInsertionPinnedPos")));
-        QVERIFY(text.contains(QStringLiteral("DockSystem.resolveMagnificationInfluence")));
         QVERIFY(text.contains(QStringLiteral("signal iconRectsChanged")));
     }
 
     void dockHosts_publishRectsAndUseSharedLayout()
     {
         const QString base = QStringLiteral(DESKTOP_SOURCE_DIR);
-        const QString shellHostPath = base + QStringLiteral("/Qml/components/overlay/ShellDockHost.qml");
-        const QString launchpadHostPath = base + QStringLiteral("/Qml/components/overlay/LaunchpadDockHost.qml");
-        const QString shellHost = readTextFile(shellHostPath);
-        const QString launchpadHost = readTextFile(launchpadHostPath);
-        QVERIFY2(!shellHost.isEmpty(), qPrintable(QStringLiteral("failed to read %1").arg(shellHostPath)));
-        QVERIFY2(!launchpadHost.isEmpty(), qPrintable(QStringLiteral("failed to read %1").arg(launchpadHostPath)));
+        const QString dockWindowPath = base + QStringLiteral("/Qml/components/overlay/DockWindow.qml");
+        const QString dockWindow = readTextFile(dockWindowPath);
+        QVERIFY2(!dockWindow.isEmpty(), qPrintable(QStringLiteral("failed to read %1").arg(dockWindowPath)));
 
-        QVERIFY(shellHost.contains(QStringLiteral("onIconRectsChanged: DockSystem.updateHostIconRects")));
-        QVERIFY(launchpadHost.contains(QStringLiteral("onIconRectsChanged: DockSystem.updateHostIconRects")));
-        QVERIFY(shellHost.contains(QStringLiteral("DockSystem.dockLayoutState")));
-        QVERIFY(launchpadHost.contains(QStringLiteral("DockSystem.dockLayoutState")));
+        QVERIFY(dockWindow.contains(QStringLiteral("onIconRectsChanged: function(rects)")));
+        QVERIFY(dockWindow.contains(QStringLiteral("DockSystem.updateIconRects(rects)")));
+        QVERIFY(dockWindow.contains(QStringLiteral("DockSystem.dockLayoutState")));
+        QVERIFY(dockWindow.contains(QStringLiteral("DockSystem.registerDockItem(item)")));
     }
 };
 
 QTEST_MAIN(DockSystemRenderContractTest)
 #include "docksystem_render_contract_test.moc"
-

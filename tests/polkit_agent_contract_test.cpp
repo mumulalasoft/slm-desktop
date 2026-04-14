@@ -116,7 +116,7 @@ private slots:
         QVERIFY(text.contains(QStringLiteral("volatile char *")));
         // Must be called after the response is sent (respondPassword calls it).
         const int responseIdx = text.indexOf(QStringLiteral("polkit_agent_session_response("));
-        const int wipeIdx     = text.indexOf(QStringLiteral("clearByteArray("));
+        const int wipeIdx     = text.lastIndexOf(QStringLiteral("clearByteArray("));
         QVERIFY2(responseIdx >= 0, "polkit_agent_session_response not found in authsession.cpp");
         QVERIFY2(wipeIdx >= 0,     "clearByteArray not called in authsession.cpp");
         QVERIFY2(wipeIdx > responseIdx,

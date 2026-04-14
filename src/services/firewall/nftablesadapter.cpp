@@ -2,6 +2,7 @@
 
 #include <QByteArray>
 #include <QDebug>
+#include <QProcessEnvironment>
 #include <QProcess>
 
 namespace Slm::Firewall {
@@ -82,6 +83,17 @@ bool NftablesAdapter::applyAtomicBatch(const QStringList &rules, QString *error)
         error->clear();
     }
     if (!runNft(rules, error)) {
+        const bool allowDryRun = QProcessEnvironment::systemEnvironment().value(
+                                     QStringLiteral("SLM_FIREWALL_ALLOW_DRYRUN"))
+                                         == QStringLiteral("1");
+        if (allowDryRun) {
+            qWarning() << "[firewall/nft] apply failed; dry-run mode active, keeping in-memory batch only";
+            m_lastBatch = rules;
+            if (error) {
+                error->clear();
+            }
+            return true;
+        }
         return false;
     }
     m_lastBatch = rules;
