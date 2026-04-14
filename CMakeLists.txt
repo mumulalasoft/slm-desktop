@@ -2412,6 +2412,43 @@ set_tests_properties(globalmenumanager_cache_test PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
+qt_add_executable(globalmenuadaptivecontroller_test
+    src/services/globalmenu/globalmenuadaptivecontroller.cpp
+    src/services/globalmenu/globalmenuadaptivecontroller.h
+    tests/globalmenuadaptivecontroller_test.cpp
+)
+
+target_link_libraries(globalmenuadaptivecontroller_test
+    PRIVATE
+        Qt6::Core
+        Qt6::Test
+)
+
+add_test(NAME globalmenuadaptivecontroller_test COMMAND globalmenuadaptivecontroller_test)
+
+qt_add_executable(globalmenususpendbridge_test
+    src/services/globalmenu/globalmenususpendbridge.cpp
+    src/services/globalmenu/globalmenususpendbridge.h
+    globalmenumanager.cpp
+    globalmenumanager.h
+    tests/globalmenususpendbridge_test.cpp
+)
+
+target_include_directories(globalmenususpendbridge_test PRIVATE ${CMAKE_SOURCE_DIR})
+
+target_link_libraries(globalmenususpendbridge_test
+    PRIVATE
+        Qt6::Core
+        Qt6::DBus
+        Qt6::Gui
+        Qt6::Test
+)
+
+add_test(NAME globalmenususpendbridge_test COMMAND globalmenususpendbridge_test)
+set_tests_properties(globalmenususpendbridge_test PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
 qt_add_executable(statusnotifierhost_test
     src/services/indicator/statusnotifierhost.cpp
     src/services/indicator/statusnotifierhost.h

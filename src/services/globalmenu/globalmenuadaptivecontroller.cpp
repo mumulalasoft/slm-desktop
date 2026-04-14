@@ -19,6 +19,7 @@ QString GlobalMenuAdaptiveController::userOverride() const
 void GlobalMenuAdaptiveController::setUserOverride(const QString &override)
 {
     const QString v = override.trimmed().toLower();
+    const bool hadOverride = !m_userOverride.isEmpty();
     if (v == m_userOverride)
         return;
     m_userOverride = (v == QLatin1String("full")
@@ -26,6 +27,9 @@ void GlobalMenuAdaptiveController::setUserOverride(const QString &override)
                       || v == QLatin1String("focus"))
                          ? v
                          : QString{};
+    if (hadOverride && m_userOverride.isEmpty()) {
+        recompute();
+    }
     emit modeChanged();
 }
 

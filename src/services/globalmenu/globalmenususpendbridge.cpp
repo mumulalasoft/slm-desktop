@@ -1,5 +1,5 @@
 #include "globalmenususpendbridge.h"
-#include "../../globalmenumanager.h"
+#include "../../../globalmenumanager.h"
 
 #include <QDBusConnection>
 #include <QDBusMessage>
