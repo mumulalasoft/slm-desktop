@@ -372,7 +372,7 @@ bool RecoveryService::triggerBootloaderRecovery(const QString &reason, QString *
         error->clear();
     }
 
-    const QString helper = qEnvironmentVariable(QStringLiteral("SLM_RECOVERY_BOOTLOADER_HELPER")).trimmed();
+    const QString helper = qEnvironmentVariable("SLM_RECOVERY_BOOTLOADER_HELPER").trimmed();
     if (helper.isEmpty()) {
         return false;
     }
@@ -389,7 +389,7 @@ bool RecoveryService::triggerBootloaderRecovery(const QString &reason, QString *
         return false;
     }
 
-    const QString entryHint = qEnvironmentVariable(QStringLiteral("SLM_RECOVERY_BOOT_ENTRY"), QStringLiteral("recovery")).trimmed();
+    const QString entryHint = qEnvironmentVariable("SLM_RECOVERY_BOOT_ENTRY", QStringLiteral("recovery")).trimmed();
     const QString arg = entryHint.isEmpty() ? QStringLiteral("recovery") : entryHint;
     QProcess proc;
     proc.setProgram(helper);
@@ -447,7 +447,7 @@ QVariantMap RecoveryService::composeStatus(const QString &action) const
         {QStringLiteral("recoveryPartitionRequested"), m_recoveryPartitionRequested},
         {QStringLiteral("lastReason"), m_lastReason},
         {QStringLiteral("bootloaderHelper"),
-         qEnvironmentVariable(QStringLiteral("SLM_RECOVERY_BOOTLOADER_HELPER"))},
+         qEnvironmentVariable("SLM_RECOVERY_BOOTLOADER_HELPER")},
         {QStringLiteral("unhealthyCriticalProbes"), unhealthyCriticalCount},
         {QStringLiteral("probes"), probes},
         {QStringLiteral("crashCounts10s"), crashStats},

@@ -1,118 +1,242 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <!--?xml version="1.0" encoding="UTF-8"?-->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024" aria-labelledby="title">
-  <title id="title">Launchpad-style 3x3 icon (SVG)</title>
-  <defs>
-    <!-- soft background blur/glow -->
-    <filter id="bgShadow" x="-50%" y="-50%" width="200%" height="200%">
-      <feGaussianBlur stdDeviation="18" result="b"></feGaussianBlur>
-      <feComposite in="b" in2="SourceGraphic" operator="over"></feComposite>
-    </filter>
 
-    <!-- tile drop shadow -->
-    <filter id="tileShadow" x="-50%" y="-50%" width="200%" height="200%">
-      <feGaussianBlur in="SourceAlpha" stdDeviation="10" result="blur"></feGaussianBlur>
-      <feOffset dx="0" dy="10" result="off"></feOffset>
-      <feComposite in="off" in2="SourceAlpha" operator="out" result="shadowDiff"></feComposite>
-      <feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.35 0" in="shadowDiff" result="shadow"></feColorMatrix>
-      <feBlend in="shadow" in2="SourceGraphic" mode="normal"></feBlend>
-    </filter>
-
-    <!-- subtle inner highlight on tiles -->
-    <linearGradient id="tileHighlight" x1="0" x2="0" y1="0" y2="1">
-      <stop offset="0" stop-color="#ffffff" stop-opacity="0.55"></stop>
-      <stop offset="0.25" stop-color="#ffffff" stop-opacity="0.15"></stop>
-      <stop offset="1" stop-color="#ffffff" stop-opacity="0"></stop>
+<svg
+   viewBox="0 0 1024 1024"
+   width="1024"
+   height="1024"
+   aria-labelledby="title"
+   version="1.1"
+   id="svg142"
+   sodipodi:docname="launchpad.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview144"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     showgrid="false" />
+  <title
+     id="title">Launchpad-style 3x3 icon (SVG)</title>
+  <defs
+     id="defs76">
+    <linearGradient
+       inkscape:collect="always"
+       id="linearGradient4093">
+      <stop
+         style="stop-color:#4fc3ff;stop-opacity:1;"
+         offset="0"
+         id="stop4089" />
+      <stop
+         style="stop-color:#0f8aca;stop-opacity:0.86856973;"
+         offset="1"
+         id="stop4091" />
     </linearGradient>
-
+    <linearGradient
+       inkscape:collect="always"
+       id="linearGradient4085">
+      <stop
+         style="stop-color:#9b59ff;stop-opacity:1;"
+         offset="0"
+         id="stop4081" />
+      <stop
+         style="stop-color:#621ccd;stop-opacity:0.87167466;"
+         offset="1"
+         id="stop4083" />
+    </linearGradient>
+    <linearGradient
+       inkscape:collect="always"
+       id="linearGradient4077">
+      <stop
+         style="stop-color:#ff5b88;stop-opacity:1;"
+         offset="0"
+         id="stop4073" />
+      <stop
+         style="stop-color:#c11443;stop-opacity:0.92439902;"
+         offset="1"
+         id="stop4075" />
+    </linearGradient>
+    <linearGradient
+       inkscape:collect="always"
+       id="linearGradient4061">
+      <stop
+         style="stop-color:#65e465;stop-opacity:1;"
+         offset="0"
+         id="stop4057" />
+      <stop
+         style="stop-color:#0c931c;stop-opacity:0.9291867;"
+         offset="1"
+         id="stop4059" />
+    </linearGradient>
+    <linearGradient
+       inkscape:collect="always"
+       id="linearGradient3983">
+      <stop
+         style="stop-color:#ff9a3c;stop-opacity:1;"
+         offset="0"
+         id="stop3979" />
+      <stop
+         style="stop-color:#ff0000;stop-opacity:1"
+         offset="1"
+         id="stop3981" />
+    </linearGradient>
+    <!-- soft background blur/glow -->
+    <filter
+       id="bgShadow"
+       x="-0.050446428"
+       y="-0.050446428"
+       width="1.1008929"
+       height="1.1008929">
+      <feGaussianBlur
+         stdDeviation="18"
+         result="b"
+         id="feGaussianBlur3" />
+      <feComposite
+         in="b"
+         in2="SourceGraphic"
+         operator="over"
+         id="feComposite5" />
+    </filter>
+    <!-- tile drop shadow -->
+    <!-- subtle inner highlight on tiles -->
     <!-- gradients for each tile color -->
-    <linearGradient id="gGreen" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#4fe04f"></stop><stop offset="1" stop-color="#1aa82a"></stop></linearGradient>
-    <linearGradient id="gYellow" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#ffd24a"></stop><stop offset="1" stop-color="#f0a400"></stop></linearGradient>
-    <linearGradient id="gOrange" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#ff9a3c"></stop><stop offset="1" stop-color="#e85f11"></stop></linearGradient>
-    <linearGradient id="gRed" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#ff4040"></stop><stop offset="1" stop-color="#c51616"></stop></linearGradient>
-    <linearGradient id="gGray" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#e6ebef"></stop><stop offset="1" stop-color="#9aa0a6"></stop></linearGradient>
-    <linearGradient id="gPink" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#ff5b88"></stop><stop offset="1" stop-color="#e3366e"></stop></linearGradient>
-    <linearGradient id="gPurple" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#9b59ff"></stop><stop offset="1" stop-color="#6b20d6"></stop></linearGradient>
-    <linearGradient id="gBlue" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#4fc3ff"></stop><stop offset="1" stop-color="#1a7fe0"></stop></linearGradient>
-    <linearGradient id="gTeal" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#57e3c0"></stop><stop offset="1" stop-color="#11b48a"></stop></linearGradient>
-
     <!-- subtle vignette -->
-    <radialGradient id="vignette" cx="50%" cy="50%" r="75%">
-      <stop offset="0" stop-color="#000" stop-opacity="0"></stop>
-      <stop offset="1" stop-color="#000" stop-opacity="0.18"></stop>
+    <radialGradient
+       id="vignette"
+       cx="512"
+       cy="512"
+       r="672"
+       fx="512"
+       fy="512"
+       gradientUnits="userSpaceOnUse">
+      <stop
+         offset="0"
+         stop-color="#000"
+         stop-opacity="0"
+         id="stop71" />
+      <stop
+         offset="1"
+         stop-color="#000"
+         stop-opacity="0.18"
+         id="stop73" />
     </radialGradient>
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient3983"
+       id="linearGradient3985"
+       x1="681.63098"
+       y1="270.01804"
+       x2="537.09418"
+       y2="570.13678"
+       gradientUnits="userSpaceOnUse" />
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient4061"
+       id="linearGradient4063"
+       x1="288.23227"
+       y1="320.1445"
+       x2="498.43097"
+       y2="581.78583"
+       gradientUnits="userSpaceOnUse" />
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient4077"
+       id="linearGradient4079"
+       x1="759.35486"
+       y1="598.9729"
+       x2="546.08002"
+       y2="598.26062"
+       gradientUnits="userSpaceOnUse" />
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient4085"
+       id="linearGradient4087"
+       x1="291.25677"
+       y1="671.68518"
+       x2="505.97162"
+       y2="611.44257"
+       gradientUnits="userSpaceOnUse" />
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient4093"
+       id="linearGradient4095"
+       x1="526.13678"
+       y1="786.80255"
+       x2="524.77936"
+       y2="628.66064"
+       gradientUnits="userSpaceOnUse" />
   </defs>
-
   <!-- outer rounded square background -->
-  <g filter="url(#bgShadow)">
-    <rect x="64" y="64" width="896" height="896" rx="160" ry="160" fill="#f8f9fb" stroke="#e6e9ec" stroke-width="4"></rect>
+  <g
+     filter="url(#bgShadow)"
+     id="g80">
+    <rect
+       x="64"
+       y="64"
+       width="896"
+       height="896"
+       rx="160"
+       ry="160"
+       fill="#f8f9fb"
+       stroke="#e6e9ec"
+       stroke-width="4"
+       id="rect78" />
   </g>
-
   <!-- soft outer vignette overlay (subtle) -->
-  <rect x="64" y="64" width="896" height="896" rx="160" fill="url(#vignette)" opacity="0.28"></rect>
-
+  <rect
+     x="64"
+     y="64"
+     width="896"
+     height="896"
+     rx="160"
+     fill="url(#vignette)"
+     opacity="0.28"
+     id="rect82"
+     style="fill:url(#vignette)" />
+  <g
+     id="g4102">
+    <path
+       style="fill:url(#linearGradient4087);fill-opacity:1;stroke:none;stroke-width:19.5183;stroke-dasharray:none"
+       d="M 506.91711,605.95575 354.38376,562.24706 a 98.25682,98.25682 0 0 0 -124.81515,104.43415 103.67709,103.67709 0 0 0 184.61596,46.53534 z"
+       id="path7" />
+    <path
+       style="fill:url(#linearGradient4095);fill-opacity:1;stroke:none;stroke-width:19.1118;stroke-dasharray:none"
+       d="m 522.34,618.44137 c 83.596,68.36503 67.3509,163.13641 -40.24157,217.3277 a 193.50591,181.72943 89.999998 0 0 30.76909,-172.38462 l 7.91392,-44.33783 c 0.16783,-0.9386 0.84822,-1.18648 1.55856,-0.6055 z"
+       id="path8" />
+    <path
+       style="fill:url(#linearGradient4063);fill-opacity:1;stroke:none;stroke-width:19.5195"
+       d="M 509.23334,588.81502 477.0073,351.09363 a 148.55404,148.55404 0 0 0 -220.44664,-109.2896 156.74893,156.74893 0 0 0 47.81762,283.85128 z"
+       id="path13" />
+    <path
+       style="fill:url(#linearGradient3985);fill-opacity:1;stroke:none;stroke-width:19.5183;stroke-dasharray:none"
+       d="M 528.80472,580.55916 732.98353,454.61885 A 148.55404,148.55404 0 0 0 743.38944,208.78835 156.74893,156.74893 0 0 0 503.3797,367.7016 Z"
+       id="path14" />
+    <path
+       style="fill:url(#linearGradient4079);fill-opacity:1;stroke:none;stroke-width:19.348;stroke-dasharray:none"
+       d="m 531.65011,600.15994 143.45193,-83.24059 a 98.06084,104.26564 88.852721 0 1 157.34369,66.57531 103.4703,110.01738 88.852721 0 1 -175.43926,94.63228 z"
+       id="path16" />
+  </g>
   <!-- grid parameters -->
   <!-- positions computed to center a grid: first tile at (176,176), tile size 160, gap 96 -->
   <!-- helper group for tiles -->
-  <g transform="translate(0,0)">
-    <!-- row 0 -->
-    <g filter="url(#tileShadow)">
-      <!-- Green -->
-      <rect x="176" y="176" width="160" height="160" rx="28" ry="28" fill="url(#gGreen)"></rect>
-      <rect x="176" y="176" width="160" height="160" rx="28" ry="28" fill="url(#tileHighlight)" style="mix-blend-mode:screen"></rect>
-    </g>
-
-    <g filter="url(#tileShadow)">
-      <!-- Yellow -->
-      <rect x="432" y="176" width="160" height="160" rx="28" ry="28" fill="url(#gYellow)"></rect>
-      <rect x="432" y="176" width="160" height="160" rx="28" ry="28" fill="url(#tileHighlight)" style="mix-blend-mode:screen"></rect>
-    </g>
-
-    <g filter="url(#tileShadow)">
-      <!-- Orange -->
-      <rect x="688" y="176" width="160" height="160" rx="28" ry="28" fill="url(#gOrange)"></rect>
-      <rect x="688" y="176" width="160" height="160" rx="28" ry="28" fill="url(#tileHighlight)" style="mix-blend-mode:screen"></rect>
-    </g>
-
-    <!-- row 1 -->
-    <g filter="url(#tileShadow)">
-      <!-- Red -->
-      <rect x="176" y="432" width="160" height="160" rx="28" ry="28" fill="url(#gRed)"></rect>
-      <rect x="176" y="432" width="160" height="160" rx="28" ry="28" fill="url(#tileHighlight)" style="mix-blend-mode:screen"></rect>
-    </g>
-
-    <g filter="url(#tileShadow)">
-      <!-- Gray (center) -->
-      <rect x="432" y="432" width="160" height="160" rx="28" ry="28" fill="url(#gGray)"></rect>
-      <rect x="432" y="432" width="160" height="160" rx="28" ry="28" fill="url(#tileHighlight)" style="mix-blend-mode:screen" opacity="0.9"></rect>
-    </g>
-
-    <g filter="url(#tileShadow)">
-      <!-- Pink -->
-      <rect x="688" y="432" width="160" height="160" rx="28" ry="28" fill="url(#gPink)"></rect>
-      <rect x="688" y="432" width="160" height="160" rx="28" ry="28" fill="url(#tileHighlight)" style="mix-blend-mode:screen"></rect>
-    </g>
-
-    <!-- row 2 -->
-    <g filter="url(#tileShadow)">
-      <!-- Purple -->
-      <rect x="176" y="688" width="160" height="160" rx="28" ry="28" fill="url(#gPurple)"></rect>
-      <rect x="176" y="688" width="160" height="160" rx="28" ry="28" fill="url(#tileHighlight)" style="mix-blend-mode:screen"></rect>
-    </g>
-
-    <g filter="url(#tileShadow)">
-      <!-- Blue -->
-      <rect x="432" y="688" width="160" height="160" rx="28" ry="28" fill="url(#gBlue)"></rect>
-      <rect x="432" y="688" width="160" height="160" rx="28" ry="28" fill="url(#tileHighlight)" style="mix-blend-mode:screen"></rect>
-    </g>
-
-    <g filter="url(#tileShadow)">
-      <!-- Teal -->
-      <rect x="688" y="688" width="160" height="160" rx="28" ry="28" fill="url(#gTeal)"></rect>
-      <rect x="688" y="688" width="160" height="160" rx="28" ry="28" fill="url(#tileHighlight)" style="mix-blend-mode:screen"></rect>
-    </g>
-  </g>
-
   <!-- slight inner rim to emulate soft 3D container edge -->
-  <rect x="92" y="92" width="840" height="840" rx="140" fill="none" stroke="#ffffff" stroke-opacity="0.5" stroke-width="6"></rect>
-
+  <rect
+     x="92"
+     y="92"
+     width="840"
+     height="840"
+     rx="140"
+     fill="none"
+     stroke="#ffffff"
+     stroke-opacity="0.5"
+     stroke-width="6"
+     id="rect140" />
 </svg>

@@ -767,6 +767,12 @@ add_custom_target(lint_capability_matrix
     COMMENT "Checking SLM capability matrix sync"
 )
 
+add_custom_target(lint_integration_contracts
+    COMMAND ${CMAKE_SOURCE_DIR}/scripts/check-integration-contracts.sh
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    COMMENT "Checking desktop integration contracts"
+)
+
 add_custom_target(lint_topbar_popup_contract
     COMMAND ${CMAKE_SOURCE_DIR}/scripts/check-topbar-popup-contract.sh
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
@@ -850,6 +856,10 @@ set(DESKTOP_SHELL_QML_FILES
     Qml/components/notification/NotificationGroup.qml
     Qml/components/notification/NotificationManagerWindow.qml
     Qml/components/notification/NotificationBubble.qml
+    Qml/components/contextmenu/ContextMenu.qml
+    Qml/components/contextmenu/DesktopContextMenu.qml
+    Qml/components/contextmenu/WindowContextMenu.qml
+    Qml/components/contextmenu/NotificationContextMenu.qml
     # Qml/components/BatteryIndicator.qml
     Qml/components/topbar/TopBar.qml
     Qml/components/indicators/IndicatorManager.qml
@@ -1954,6 +1964,125 @@ target_link_libraries(docksystem_render_contract_test
 )
 
 add_test(NAME docksystem_render_contract_test COMMAND docksystem_render_contract_test)
+
+qt_add_executable(desktopscene_launchpad_ssot_contract_test
+    tests/desktopscene_launchpad_ssot_contract_test.cpp
+)
+
+target_compile_definitions(desktopscene_launchpad_ssot_contract_test
+    PRIVATE
+        DESKTOP_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\"
+)
+
+target_link_libraries(desktopscene_launchpad_ssot_contract_test
+    PRIVATE
+        Qt6::Core
+        Qt6::Test
+)
+
+add_test(NAME desktopscene_launchpad_ssot_contract_test COMMAND desktopscene_launchpad_ssot_contract_test)
+
+qt_add_executable(main_search_ssot_contract_test
+    tests/main_search_ssot_contract_test.cpp
+)
+
+target_compile_definitions(main_search_ssot_contract_test
+    PRIVATE
+        DESKTOP_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\"
+)
+
+target_link_libraries(main_search_ssot_contract_test
+    PRIVATE
+        Qt6::Core
+        Qt6::Test
+)
+
+add_test(NAME main_search_ssot_contract_test COMMAND main_search_ssot_contract_test)
+
+qt_add_executable(dockcontroller_ssot_contract_test
+    tests/dockcontroller_ssot_contract_test.cpp
+)
+
+target_compile_definitions(dockcontroller_ssot_contract_test
+    PRIVATE
+        DESKTOP_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\"
+)
+
+target_link_libraries(dockcontroller_ssot_contract_test
+    PRIVATE
+        Qt6::Core
+        Qt6::Test
+)
+
+add_test(NAME dockcontroller_ssot_contract_test COMMAND dockcontroller_ssot_contract_test)
+
+qt_add_executable(drag_session_broker_contract_test
+    tests/drag_session_broker_contract_test.cpp
+)
+
+target_compile_definitions(drag_session_broker_contract_test
+    PRIVATE
+        DESKTOP_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\"
+)
+
+target_link_libraries(drag_session_broker_contract_test
+    PRIVATE
+        Qt6::Core
+        Qt6::Test
+)
+
+add_test(NAME drag_session_broker_contract_test COMMAND drag_session_broker_contract_test)
+
+qt_add_executable(activation_routing_contract_test
+    tests/activation_routing_contract_test.cpp
+)
+
+target_compile_definitions(activation_routing_contract_test
+    PRIVATE
+        DESKTOP_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\"
+)
+
+target_link_libraries(activation_routing_contract_test
+    PRIVATE
+        Qt6::Core
+        Qt6::Test
+)
+
+add_test(NAME activation_routing_contract_test COMMAND activation_routing_contract_test)
+
+qt_add_executable(notification_input_region_contract_test
+    tests/notification_input_region_contract_test.cpp
+)
+
+target_compile_definitions(notification_input_region_contract_test
+    PRIVATE
+        DESKTOP_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\"
+)
+
+target_link_libraries(notification_input_region_contract_test
+    PRIVATE
+        Qt6::Core
+        Qt6::Test
+)
+
+add_test(NAME notification_input_region_contract_test COMMAND notification_input_region_contract_test)
+
+qt_add_executable(notification_progress_badge_contract_test
+    tests/notification_progress_badge_contract_test.cpp
+)
+
+target_compile_definitions(notification_progress_badge_contract_test
+    PRIVATE
+        DESKTOP_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\"
+)
+
+target_link_libraries(notification_progress_badge_contract_test
+    PRIVATE
+        Qt6::Core
+        Qt6::Test
+)
+
+add_test(NAME notification_progress_badge_contract_test COMMAND notification_progress_badge_contract_test)
 
 qt_add_executable(filemanager_storage_notification_contract_test
     tests/filemanager_storage_notification_contract_test.cpp

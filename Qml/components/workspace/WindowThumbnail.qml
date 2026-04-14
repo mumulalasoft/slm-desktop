@@ -1,6 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import Slm_Desktop
+import "../contextmenu" as ContextMenuComp
 
 Item {
     id: root
@@ -193,11 +194,63 @@ Item {
 
     MouseArea {
         anchors.fill: parent
+        acceptedButtons: Qt.LeftButton | Qt.RightButton
         onPressed: root.wasDragged = false
-        onClicked: {
+        onClicked: function(mouse) {
+            if (mouse.button === Qt.RightButton) {
+                var vid = root.dragViewId
+                var aid = String((windowData && windowData.appId) || "")
+                var gp = mapToGlobal(mouse.x, mouse.y)
+                windowCtxMenu.popup(vid, aid, gp.x, gp.y)
+                return
+            }
             if (!root.wasDragged) {
                 root.activated(root.dragViewId)
             }
+        }
+    }
+
+    ContextMenuComp.WindowContextMenu {
+        id: windowCtxMenu
+        onMinimize: function(windowId) {
+            if (typeof WorkspaceManager !== "undefined" && WorkspaceManager)
+                WorkspaceManager.MinimizeWindow(windowId)
+        }
+        onMaximize: function(windowId) {
+            if (typeof WorkspaceManager !== "undefined" && WorkspaceManager)
+                WorkspaceManager.MaximizeWindow(windowId)
+        }
+        onFullscreen: function(windowId) {
+            if (typeof WorkspaceManager !== "undefined" && WorkspaceManager)
+                WorkspaceManager.FullscreenWindow(windowId)
+        }
+        onMoveToWorkspace: function(windowId) {
+            // Opens workspace switcher; compositor handles target selection.
+            if (typeof MultitaskingController !== "undefined" && MultitaskingController)
+                MultitaskingController.requestMoveWindowToWorkspace(windowId)
+        }
+        onMoveToDisplay: function(windowId) {
+            if (typeof WorkspaceManager !== "undefined" && WorkspaceManager)
+                WorkspaceManager.MoveWindowToDisplay(windowId)
+        }
+        onAlwaysOnTop: function(windowId) {
+            if (typeof WorkspaceManager !== "undefined" && WorkspaceManager)
+                WorkspaceManager.SetWindowAlwaysOnTop(windowId)
+        }
+        onFocusApp: function(appId) {
+            if (typeof AppStateClient !== "undefined" && AppStateClient)
+                AppStateClient.activateApp(appId)
+        }
+        onRevealInDock: function(appId) {
+            if (typeof DockController !== "undefined" && DockController)
+                DockController.revealAppInDock(appId)
+        }
+        onPinToDock: function(appId) {
+            if (typeof DockModel !== "undefined" && DockModel)
+                DockModel.addDesktopEntry(appId)
+        }
+        onClose: function(windowId) {
+            root.closeRequested(windowId)
         }
     }
 

@@ -242,7 +242,7 @@ bool RecoveryApp::networkRepair()
 bool RecoveryApp::repairSystem()
 {
     // Optional external helper for distro-specific repair flow.
-    const QString helper = qEnvironmentVariable(QStringLiteral("SLM_RECOVERY_REPAIR_HELPER")).trimmed();
+    const QString helper = qEnvironmentVariable("SLM_RECOVERY_REPAIR_HELPER").trimmed();
     if (!helper.isEmpty()) {
         if (!QFileInfo::exists(helper) || !QFileInfo(helper).isExecutable()) {
             qWarning("slm-recovery-app: repairSystem helper invalid: %s", qUtf8Printable(helper));
@@ -282,7 +282,7 @@ bool RecoveryApp::repairSystem()
 bool RecoveryApp::reinstallSystem()
 {
     // Optional external helper for installer/reimage integration.
-    const QString helper = qEnvironmentVariable(QStringLiteral("SLM_RECOVERY_REINSTALL_HELPER")).trimmed();
+    const QString helper = qEnvironmentVariable("SLM_RECOVERY_REINSTALL_HELPER").trimmed();
     if (!helper.isEmpty()) {
         if (!QFileInfo::exists(helper) || !QFileInfo(helper).isExecutable()) {
             qWarning("slm-recovery-app: reinstallSystem helper invalid: %s", qUtf8Printable(helper));

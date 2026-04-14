@@ -162,6 +162,8 @@ set(SLM_ACTION_FRAMEWORK_SOURCES
 )
 
 set(DESKTOP_SHELL_SERVICES
+    src/services/contextmenu/contextmenuservice.cpp
+    src/services/contextmenu/contextmenuservice.h
     src/services/network/networkmanager.cpp
     src/services/network/networkmanager.h
     src/apps/settings/modules/network/firewallserviceclient.cpp

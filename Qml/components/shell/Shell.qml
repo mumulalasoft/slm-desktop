@@ -2,6 +2,7 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import Slm_Desktop
 import SlmStyle as DSStyle
+import "../contextmenu" as ContextMenuComp
 
 Item {
     id: root
@@ -583,6 +584,49 @@ Item {
     DesktopBackground {
         anchors.fill: parent
         imageSource: root.wallpaperSource
+    }
+
+    ContextMenuComp.DesktopContextMenu {
+        id: desktopCtxMenu
+        anchors.fill: parent
+        desktopPath: {
+            if (typeof DesktopSettings !== "undefined" && DesktopSettings
+                    && DesktopSettings.desktopPath)
+                return DesktopSettings.desktopPath
+            return ""
+        }
+
+        onNewFolder: {
+            if (typeof FileManagerApi !== "undefined" && FileManagerApi
+                    && FileManagerApi.createFolder)
+                FileManagerApi.createFolder(desktopPath, "")
+        }
+        onNewTextFile: {
+            if (typeof FileManagerApi !== "undefined" && FileManagerApi
+                    && FileManagerApi.createFile)
+                FileManagerApi.createFile(desktopPath, "New File.txt")
+        }
+        onPaste: {
+            if (typeof FileManagerApi !== "undefined" && FileManagerApi
+                    && FileManagerApi.pasteClipboard)
+                FileManagerApi.pasteClipboard(desktopPath)
+        }
+        onChangeWallpaper: {
+            if (typeof AppCommandRouter !== "undefined" && AppCommandRouter)
+                AppCommandRouter.route("settings.open", {"page": "appearance"}, "desktop-ctx")
+        }
+        onOpenAppearance: {
+            if (typeof AppCommandRouter !== "undefined" && AppCommandRouter)
+                AppCommandRouter.route("settings.open", {"page": "appearance"}, "desktop-ctx")
+        }
+        onOpenSettings: {
+            if (typeof AppCommandRouter !== "undefined" && AppCommandRouter)
+                AppCommandRouter.route("settings.open", {}, "desktop-ctx")
+        }
+        onOpenTerminal: {
+            if (typeof AppExecutionGate !== "undefined" && AppExecutionGate)
+                AppExecutionGate.launchTerminalAt(desktopPath)
+        }
     }
 
     Flickable {

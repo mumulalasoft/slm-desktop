@@ -26,15 +26,40 @@ QtObject {
     // With a single renderer it is always "dock".
     readonly property string inputOwnerHost: "dock"
 
+    function _syncDockStateToShell() {
+        if (typeof ShellStateController === "undefined" || !ShellStateController) {
+            return
+        }
+        if (ShellStateController.setDockHoveredItem) {
+            ShellStateController.setDockHoveredItem(String(hoveredItemId || ""))
+        }
+        if (ShellStateController.setDockExpandedItem) {
+            // Context menu owner acts as expanded item state.
+            ShellStateController.setDockExpandedItem(String(contextItemId || ""))
+        }
+    }
+
+    function _syncDockStateFromShell() {
+        if (typeof ShellStateController === "undefined" || !ShellStateController) {
+            return
+        }
+        hoveredItemId = String(ShellStateController.dockHoveredItem || "")
+        contextItemId = String(ShellStateController.dockExpandedItem || "")
+    }
+
     function setInputOwner(hostName) {
         // No-op: single renderer always owns input.
         void hostName
     }
 
+    onHoveredItemIdChanged: _syncDockStateToShell()
+    onContextItemIdChanged: _syncDockStateToShell()
+
     function onHover(itemId, position, hostName) {
         hoveredItemId     = String(itemId || "")
         lastHoverPosition = Number(position || 0)
         hoverX            = Number(position || 0)
+        _syncDockStateToShell()
     }
 
     function onPress(itemId, hostName) {
@@ -50,17 +75,57 @@ QtObject {
 
     function onActivate(itemId, hostName) {
         activeItemId = String(itemId || "")
+        if (contextItemId.length > 0) {
+            contextItemId = ""
+            _syncDockStateToShell()
+        }
     }
 
     function onDragStart(itemId, hostName) {
         dragItemId   = String(itemId || "")
         dragActive   = true
         dragPosition = 0
+        if (typeof ShellStateController !== "undefined" && ShellStateController
+                && ShellStateController.setDragSession) {
+            ShellStateController.setDragSession({
+                "source": "dock",
+                "source_component": "dock",
+                "object_type": "app_entry",
+                "item_id": dragItemId,
+                "mime": ["application/x-desktop-entry"],
+                "capabilities": ["launch", "reorder"],
+                "allowed_operations": ["move"],
+                "preferred_action": "move",
+                "target_hints": {
+                    "host": String(hostName || "dock")
+                },
+                "active": true,
+                "position": Number(dragPosition || 0)
+            })
+        }
     }
 
     function onDragMove(deltaX, hostName) {
         if (dragActive) {
             dragPosition = Number(dragPosition || 0) + Number(deltaX || 0)
+            if (typeof ShellStateController !== "undefined" && ShellStateController
+                    && ShellStateController.setDragSession) {
+                ShellStateController.setDragSession({
+                    "source": "dock",
+                    "source_component": "dock",
+                    "object_type": "app_entry",
+                    "item_id": String(dragItemId || ""),
+                    "mime": ["application/x-desktop-entry"],
+                    "capabilities": ["launch", "reorder"],
+                    "allowed_operations": ["move"],
+                    "preferred_action": "move",
+                    "target_hints": {
+                        "host": String(hostName || "dock")
+                    },
+                    "active": true,
+                    "position": Number(dragPosition || 0)
+                })
+            }
         }
     }
 
@@ -68,15 +133,35 @@ QtObject {
         dragActive   = false
         dragItemId   = ""
         dragPosition = 0
+        if (typeof ShellStateController !== "undefined" && ShellStateController) {
+            if (ShellStateController.clearDragSession) {
+                ShellStateController.clearDragSession()
+            } else if (ShellStateController.setDragSession) {
+                ShellStateController.setDragSession({})
+            }
+        }
     }
 
     function onContextMenu(itemId, hostName) {
         contextItemId = String(itemId || "")
+        _syncDockStateToShell()
     }
 
     function onLeave(hostName) {
         hoveredItemId = ""
         pressedItemId = ""
         dockHovered   = false
+        contextItemId = ""
+        _syncDockStateToShell()
+    }
+
+    Component.onCompleted: {
+        _syncDockStateFromShell()
+        if (typeof ShellStateController !== "undefined" && ShellStateController) {
+            try {
+                ShellStateController.dockHoveredItemChanged.connect(root._syncDockStateFromShell)
+                ShellStateController.dockExpandedItemChanged.connect(root._syncDockStateFromShell)
+            } catch (e) {}
+        }
     }
 }

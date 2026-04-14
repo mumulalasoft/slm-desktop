@@ -1,4 +1,5 @@
 #include "appstartupbridge.h"
+#include "../services/contextmenu/contextmenuservice.h"
 #include "../services/power/powerbridge.h"
 
 #include <QQmlContext>
@@ -142,9 +143,10 @@ void registerCoreContext(QQmlContext *context,
                          ShellStateController *shellStateController,
                          ShellInputRouter *shellInputRouter,
                          ShellLayerWatchdog *shellLayerWatchdog,
-                         PowerBridge *powerBridge)
+                         PowerBridge *powerBridge,
+                         Slm::ContextMenu::ContextMenuService *contextMenuService)
 {
-    const std::array<std::pair<const char *, QObject *>, 36> entries{{
+    const std::array<std::pair<const char *, QObject *>, 37> entries{{
         {"AppModel", appModel},
         {"AppManager", appModel},
         {"ShortcutModel", shortcutModel},
@@ -182,6 +184,7 @@ void registerCoreContext(QQmlContext *context,
         {"ShellInputRouter", shellInputRouter},
         {"ShellLayerWatchdog", shellLayerWatchdog},
         {"PowerBridge", powerBridge},
+        {"ContextMenuService", contextMenuService},
     }};
     setContextObjects(context, entries);
 }

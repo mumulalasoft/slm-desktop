@@ -44,7 +44,7 @@ void onStorageMonitorSignal(GVolumeMonitor *, gpointer, gpointer userData)
     QMetaObject::invokeMethod(self, "queueStorageChanged", Qt::QueuedConnection);
 }
 
-QString gfileToPathOrUriStorageLocal(GFile *file);
+static QString gfileToPathOrUriStorageLocal(GFile *file);
 
 enum class DbusFailure {
     None,

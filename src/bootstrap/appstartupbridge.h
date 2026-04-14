@@ -51,6 +51,9 @@ class ShellStateController;
 class ShellInputRouter;
 class ShellLayerWatchdog;
 class PowerBridge;
+namespace Slm::ContextMenu {
+class ContextMenuService;
+}
 
 namespace AppStartupBridge {
 void registerTopBarIndicatorContext(QQmlContext *context,
@@ -99,7 +102,8 @@ void registerCoreContext(QQmlContext *context,
                          ShellStateController *shellStateController,
                          ShellInputRouter *shellInputRouter,
                          ShellLayerWatchdog *shellLayerWatchdog,
-                         PowerBridge *powerBridge);
+                         PowerBridge *powerBridge,
+                         Slm::ContextMenu::ContextMenuService *contextMenuService);
 
 void setStartupWindowContext(QQmlContext *context,
                              bool appStartWindowed,

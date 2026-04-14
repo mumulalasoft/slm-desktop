@@ -231,7 +231,7 @@ Item {
             width: root.iconGlyph
             height: root.iconGlyph
             fillMode: Image.PreserveAspectFit
-            source: Theme.darkMode ? "qrc:/icons/logo_white.svg" : "qrc:/icons/logo.svg"
+            source: Theme.darkMode ? "qrc:/icons/dark/logo.svg" : "qrc:/icons/light/logo.svg"
         }
 
         Label {

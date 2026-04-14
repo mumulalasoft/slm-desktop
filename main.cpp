@@ -52,6 +52,7 @@
 #include "resourcepaths.h"
 #include "src/services/sound/soundmanager.h"
 #include "src/services/indicator/statusnotifierhost.h"
+#include "src/services/contextmenu/contextmenuservice.h"
 #include "src/services/portal/screencastprivacymodel.h"
 #include "src/services/portal/inputcaptureprivacymodel.h"
 #include "externalindicatorregistry.h"
@@ -377,6 +378,7 @@ int main(int argc, char *argv[])
     ShellInputRouter shellInputRouter(&shellStateController);
     ShellLayerWatchdog shellLayerWatchdog(&shellStateController);
     PowerBridge powerBridge;
+    Slm::ContextMenu::ContextMenuService contextMenuService;
     Slm::System::MissingComponentController missingComponentController;
 #ifdef SLM_HAVE_WAYLANDCLIENT
     DockBootstrapState dockBootstrapState;
@@ -455,7 +457,8 @@ int main(int argc, char *argv[])
     appModel.setDesktopSettings(&desktopSettings);
     AppCommandRouter appCommandRouter(&appExecutionGate,
                                       &screenshotManager,
-                                      &desktopSettings);
+                                      &desktopSettings,
+                                      &workspaceManager);
     const QString envBackend = qEnvironmentVariable("DS_WINDOWING_BACKEND").trimmed();
     const QString prefBackend = desktopSettings.settingValue(QStringLiteral("windowing.backend"),
                                                              QStringLiteral("kwin-wayland")).toString();
@@ -534,7 +537,8 @@ int main(int argc, char *argv[])
                                           &shellStateController,
                                           &shellInputRouter,
                                           &shellLayerWatchdog,
-                                          &powerBridge);
+                                          &powerBridge,
+                                          &contextMenuService);
     AppStartupBridge::setStartupWindowContext(engine.rootContext(),
                                               startupArgs.startWindowed,
                                               startupArgs.windowWidth,
