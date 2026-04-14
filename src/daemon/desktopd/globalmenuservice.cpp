@@ -4,6 +4,7 @@
 
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
+#include <utility>
 
 namespace {
 constexpr const char kService[] = "org.slm.Desktop.GlobalMenu";
@@ -13,9 +14,19 @@ constexpr int kDefaultBaseId = 2000;
 constexpr int kFileId = kDefaultBaseId + 1;
 constexpr int kEditId = kDefaultBaseId + 2;
 constexpr int kViewId = kDefaultBaseId + 3;
-constexpr int kGoId = kDefaultBaseId + 4;
-constexpr int kWindowId = kDefaultBaseId + 5;
+constexpr int kToolsId = kDefaultBaseId + 4;
+constexpr int kWorkspaceId = kDefaultBaseId + 5;
 constexpr int kHelpId = kDefaultBaseId + 6;
+
+constexpr int kGoId = 2101;
+constexpr int kDevicesId = 2102;
+constexpr int kTabsId = 2201;
+constexpr int kHistoryId = 2202;
+constexpr int kProfilesId = 2203;
+constexpr int kProjectId = 2301;
+constexpr int kRunId = 2302;
+constexpr int kDebugId = 2303;
+constexpr int kGitId = 2304;
 }
 
 GlobalMenuService::GlobalMenuService(QObject *parent)
@@ -58,7 +69,7 @@ QVariantMap GlobalMenuService::Ping() const
 
 QVariantList GlobalMenuService::GetTopLevelMenus() const
 {
-    return m_menus;
+    return effectiveMenus();
 }
 
 QVariantList GlobalMenuService::GetMenuItems(int menuId) const
@@ -207,32 +218,32 @@ QVariantList GlobalMenuService::defaultMenus()
 {
     return {
         QVariantMap{
-            {QStringLiteral("id"), kDefaultBaseId + 1},
+            {QStringLiteral("id"), kFileId},
             {QStringLiteral("label"), QStringLiteral("File")},
             {QStringLiteral("enabled"), true},
         },
         QVariantMap{
-            {QStringLiteral("id"), kDefaultBaseId + 2},
+            {QStringLiteral("id"), kEditId},
             {QStringLiteral("label"), QStringLiteral("Edit")},
             {QStringLiteral("enabled"), true},
         },
         QVariantMap{
-            {QStringLiteral("id"), kDefaultBaseId + 3},
+            {QStringLiteral("id"), kViewId},
             {QStringLiteral("label"), QStringLiteral("View")},
             {QStringLiteral("enabled"), true},
         },
         QVariantMap{
-            {QStringLiteral("id"), kDefaultBaseId + 4},
-            {QStringLiteral("label"), QStringLiteral("Go")},
+            {QStringLiteral("id"), kToolsId},
+            {QStringLiteral("label"), QStringLiteral("Tools")},
             {QStringLiteral("enabled"), true},
         },
         QVariantMap{
-            {QStringLiteral("id"), kDefaultBaseId + 5},
-            {QStringLiteral("label"), QStringLiteral("Window")},
+            {QStringLiteral("id"), kWorkspaceId},
+            {QStringLiteral("label"), QStringLiteral("Workspace")},
             {QStringLiteral("enabled"), true},
         },
         QVariantMap{
-            {QStringLiteral("id"), kDefaultBaseId + 6},
+            {QStringLiteral("id"), kHelpId},
             {QStringLiteral("label"), QStringLiteral("Help")},
             {QStringLiteral("enabled"), true},
         },
@@ -259,7 +270,8 @@ int GlobalMenuService::normalizeMenuId(const QVariantMap &row, int fallbackId) c
 
 QString GlobalMenuService::labelForId(int menuId) const
 {
-    for (const QVariant &v : m_menus) {
+    const QVariantList menus = effectiveMenus();
+    for (const QVariant &v : menus) {
         const QVariantMap row = v.toMap();
         if (row.value(QStringLiteral("id")).toInt() == menuId) {
             return row.value(QStringLiteral("label")).toString();
@@ -316,6 +328,19 @@ QVariantList GlobalMenuService::defaultMenuItemsFor(int menuId) const
                 sep(),
                 mk(4, QStringLiteral("Show Sidebar")),
                 mk(5, QStringLiteral("Show Status Bar"))};
+    case kToolsId:
+        return {mk(1, QStringLiteral("Extensions Manager")),
+                mk(2, QStringLiteral("Automation Scripts")),
+                mk(3, QStringLiteral("Open Terminal Here")),
+                sep(),
+                mk(4, QStringLiteral("Permissions"))};
+    case kWorkspaceId:
+        return {mk(1, QStringLiteral("Move to Workspace 1")),
+                mk(2, QStringLiteral("Move to Workspace 2")),
+                mk(3, QStringLiteral("Split View Left")),
+                mk(4, QStringLiteral("Split View Right")),
+                sep(),
+                mk(5, QStringLiteral("Pin to All Workspaces"))};
     case kGoId:
         return {mk(1, QStringLiteral("Back")),
                 mk(2, QStringLiteral("Forward")),
@@ -323,11 +348,35 @@ QVariantList GlobalMenuService::defaultMenuItemsFor(int menuId) const
                 mk(4, QStringLiteral("Documents")),
                 mk(5, QStringLiteral("Downloads")),
                 mk(6, QStringLiteral("Pictures"))};
-    case kWindowId:
-        return {mk(1, QStringLiteral("Minimize")),
-                mk(2, QStringLiteral("Zoom")),
+    case kDevicesId:
+        return {mk(1, QStringLiteral("Mount Storage")),
+                mk(2, QStringLiteral("Unmount Storage")),
                 sep(),
-                mk(3, QStringLiteral("Bring All to Front"))};
+                mk(3, QStringLiteral("Send to Device"))};
+    case kTabsId:
+        return {mk(1, QStringLiteral("New Tab")),
+                mk(2, QStringLiteral("Close Tab")),
+                mk(3, QStringLiteral("Reopen Closed Tab"))};
+    case kHistoryId:
+        return {mk(1, QStringLiteral("Back")),
+                mk(2, QStringLiteral("Forward")),
+                mk(3, QStringLiteral("Show Full History"))};
+    case kProfilesId:
+        return {mk(1, QStringLiteral("Switch Profile")),
+                mk(2, QStringLiteral("Manage Profiles"))};
+    case kProjectId:
+        return {mk(1, QStringLiteral("Open Project")),
+                mk(2, QStringLiteral("Recent Projects"))};
+    case kRunId:
+        return {mk(1, QStringLiteral("Run")),
+                mk(2, QStringLiteral("Run Configuration"))};
+    case kDebugId:
+        return {mk(1, QStringLiteral("Start Debugging")),
+                mk(2, QStringLiteral("Attach to Process"))};
+    case kGitId:
+        return {mk(1, QStringLiteral("Commit")),
+                mk(2, QStringLiteral("Push")),
+                mk(3, QStringLiteral("Pull"))};
     case kHelpId:
         return {mk(1, QStringLiteral("SLM Help Center")),
                 mk(2, QStringLiteral("Keyboard Shortcuts")),
@@ -350,6 +399,63 @@ QString GlobalMenuService::labelForMenuItem(int menuId, int itemId) const
         }
     }
     return QString();
+}
+
+bool GlobalMenuService::contextHasToken(const QString &token) const
+{
+    const QString ctx = m_context.trimmed().toLower();
+    const QString tk = token.trimmed().toLower();
+    return !ctx.isEmpty() && !tk.isEmpty() && ctx.contains(tk);
+}
+
+QVariantList GlobalMenuService::contextualMenusForContext() const
+{
+    auto menu = [](int id, const QString &label) {
+        return QVariantMap{
+            {QStringLiteral("id"), id},
+            {QStringLiteral("label"), label},
+            {QStringLiteral("enabled"), true},
+        };
+    };
+
+    QVariantList out;
+    if (contextHasToken(QStringLiteral("browser"))) {
+        out << menu(kTabsId, QStringLiteral("Tabs"))
+            << menu(kHistoryId, QStringLiteral("History"))
+            << menu(kProfilesId, QStringLiteral("Profiles"));
+    }
+    if (contextHasToken(QStringLiteral("ide")) || contextHasToken(QStringLiteral("code"))) {
+        out << menu(kProjectId, QStringLiteral("Project"))
+            << menu(kRunId, QStringLiteral("Run"))
+            << menu(kDebugId, QStringLiteral("Debug"))
+            << menu(kGitId, QStringLiteral("Git"));
+    }
+    if (contextHasToken(QStringLiteral("filemanager")) || contextHasToken(QStringLiteral("files"))) {
+        out << menu(kGoId, QStringLiteral("Go"))
+            << menu(kDevicesId, QStringLiteral("Devices"));
+    }
+    return out;
+}
+
+QVariantList GlobalMenuService::effectiveMenus() const
+{
+    QVariantList out = m_menus;
+    const QVariantList contextual = contextualMenusForContext();
+    for (const QVariant &v : contextual) {
+        const QVariantMap row = v.toMap();
+        const int id = row.value(QStringLiteral("id")).toInt();
+        bool exists = false;
+        for (const QVariant &existing : std::as_const(out)) {
+            if (existing.toMap().value(QStringLiteral("id")).toInt() == id) {
+                exists = true;
+                break;
+            }
+        }
+        if (!exists) {
+            out << row;
+        }
+    }
+    return out;
 }
 
 void GlobalMenuService::registerDbusService()

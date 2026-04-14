@@ -12,6 +12,8 @@ class NotificationManager;
 class BatteryManager;
 class ExternalIndicatorRegistry;
 class GlobalMenuManager;
+class GlobalMenuAdaptiveController;
+class GlobalMenuSuspendBridge;
 class StatusNotifierHost;
 class ScreencastPrivacyModel;
 class InputCapturePrivacyModel;
@@ -65,6 +67,8 @@ void registerTopBarIndicatorContext(QQmlContext *context,
                                     BatteryManager *batteryManager,
                                     ExternalIndicatorRegistry *externalIndicatorRegistry,
                                     GlobalMenuManager *globalMenuManager,
+                                    GlobalMenuAdaptiveController *globalMenuAdaptiveController,
+                                    GlobalMenuSuspendBridge *globalMenuSuspendBridge,
                                     StatusNotifierHost *statusNotifierHost,
                                     ScreencastPrivacyModel *screencastPrivacyModel,
                                     InputCapturePrivacyModel *inputCapturePrivacyModel);

@@ -16,6 +16,8 @@ class GlobalMenuManager : public QObject {
     Q_PROPERTY(bool available READ available NOTIFY changed)
     Q_PROPERTY(QVariantList topLevelMenus READ topLevelMenus NOTIFY changed)
     Q_PROPERTY(QString activeMenuService READ activeMenuService NOTIFY changed)
+    Q_PROPERTY(QString activeAppId READ activeAppId NOTIFY appSwitched)
+    Q_PROPERTY(bool appSwitching READ appSwitching NOTIFY appSwitchingChanged)
 
 public:
     explicit GlobalMenuManager(QObject *parent = nullptr);
@@ -23,8 +25,11 @@ public:
     bool available() const;
     QVariantList topLevelMenus() const;
     QString activeMenuService() const;
+    QString activeAppId() const;
+    bool appSwitching() const;
 
     Q_INVOKABLE void refresh();
+    Q_INVOKABLE void resetAfterResume();
     Q_INVOKABLE bool activateMenu(int menuId);
     Q_INVOKABLE QVariantList menuItemsFor(int menuId) const;
     Q_INVOKABLE bool activateMenuItem(int menuId, int itemId);
@@ -39,6 +44,8 @@ public:
 
 signals:
     void changed();
+    void appSwitched(QString appId);
+    void appSwitchingChanged();
     void overrideMenuActivated(int menuId, QString label, QString context);
     void overrideMenuItemActivated(int menuId, int itemId, QString label, QString context);
     void dbusMenuChanged(const QString &service, const QString &path);
@@ -85,6 +92,8 @@ private slots:
 
 private:
     bool m_available = false;
+    bool m_appSwitching = false;
+    QTimer *m_appSwitchTimer = nullptr;
     QVariantList m_topLevelMenus;
     QString m_activeMenuService;
     QString m_activeMenuPath;

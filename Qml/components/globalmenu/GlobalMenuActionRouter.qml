@@ -95,7 +95,42 @@ QtObject {
                 return
             }
             return
-        } else if (menu === 2004) { // Go
+        } else if (menu === 2004) { // Tools
+            if (!fileManagerContent) {
+                return
+            }
+            if (item === 3 && fileManagerContent.openInTerminal) {
+                fileManagerContent.openInTerminal()
+                return
+            }
+            if (item === 4) {
+                requestFocusTothespot()
+                return
+            }
+            return
+        } else if (menu === 2005) { // Workspace
+            if (item === 1 && WorkspaceManager && WorkspaceManager.PresentView) {
+                WorkspaceManager.PresentView("1")
+                return
+            }
+            if (item === 2 && WorkspaceManager && WorkspaceManager.PresentView) {
+                WorkspaceManager.PresentView("2")
+                return
+            }
+            if (item === 3 && WindowingBackend && WindowingBackend.sendCommand) {
+                WindowingBackend.sendCommand("workspace split-left")
+                return
+            }
+            if (item === 4 && WindowingBackend && WindowingBackend.sendCommand) {
+                WindowingBackend.sendCommand("workspace split-right")
+                return
+            }
+            if (item === 5 && WindowingBackend && WindowingBackend.sendCommand) {
+                WindowingBackend.sendCommand("workspace pin-current")
+                return
+            }
+            return
+        } else if (menu === 2101) { // Go (file-manager contextual)
             if (!fileManagerContent) {
                 return
             }
@@ -123,17 +158,16 @@ QtObject {
                 fileManagerContent.openPath("~/Pictures")
                 return
             }
-        } else if (menu === 2005) { // Window
-            if (item === 1 && rootWindow && rootWindow.detachedFileManagerVisible && detachedFileManagerWindow && detachedFileManagerWindow.showMinimized) {
-                detachedFileManagerWindow.showMinimized()
+        } else if (menu === 2102) { // Devices (file-manager contextual)
+            if (!fileManagerContent) {
                 return
             }
-            if (item === 2 && rootWindow && rootWindow.detachedFileManagerVisible && detachedFileManagerWindow && detachedFileManagerWindow.toggleMaximizeRestore) {
-                detachedFileManagerWindow.toggleMaximizeRestore()
+            if (item === 1 && fileManagerContent.mountSelectedStorage) {
+                fileManagerContent.mountSelectedStorage()
                 return
             }
-            if (item === 3 && rootWindow && rootWindow.detachedFileManagerVisible && detachedFileManagerWindow && detachedFileManagerWindow.requestActivate) {
-                detachedFileManagerWindow.requestActivate()
+            if (item === 2 && fileManagerContent.unmountSelectedStorage) {
+                fileManagerContent.unmountSelectedStorage()
                 return
             }
         } else if (menu === 2006) { // Help

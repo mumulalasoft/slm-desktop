@@ -893,6 +893,9 @@ set(DESKTOP_SHELL_QML_FILES
     Qml/components/notification/NotificationBubbleWindow.qml
     Qml/components/shell/ShellContextWindow.qml
     Qml/components/globalmenu/GlobalMenuActionRouter.qml
+    Qml/components/globalmenu/GlobalMenuAppIdentity.qml
+    Qml/components/globalmenu/GlobalMenuCategoryButton.qml
+    Qml/components/globalmenu/GlobalMenuDropdown.qml
     Qml/components/topbar/TopBarBrandSection.qml
     Qml/components/topbar/TopBarAnchoredMenu.qml
     Qml/components/topbar/TopBarAnchoredPopup.qml

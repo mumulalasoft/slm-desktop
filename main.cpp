@@ -57,6 +57,8 @@
 #include "src/services/portal/inputcaptureprivacymodel.h"
 #include "externalindicatorregistry.h"
 #include "globalmenumanager.h"
+#include "src/services/globalmenu/globalmenuadaptivecontroller.h"
+#include "src/services/globalmenu/globalmenususpendbridge.h"
 #include "src/core/workspace/windowingbackendmanager.h"
 #include "src/core/workspace/compositorinputcapturebackendservice.h"
 #include "src/core/workspace/compositorinputcaptureprimitiveservice.h"
@@ -341,6 +343,8 @@ int main(int argc, char *argv[])
     ScreencastPrivacyModel screencastPrivacyModel;
     InputCapturePrivacyModel inputCapturePrivacyModel;
     GlobalMenuManager globalMenuManager;
+    GlobalMenuAdaptiveController globalMenuAdaptiveController;
+    GlobalMenuSuspendBridge globalMenuSuspendBridge;
     BatteryManager batteryManager;
     BluetoothManager bluetoothManager;
     SoundManager soundManager;
@@ -418,6 +422,22 @@ int main(int argc, char *argv[])
         themeIconController.applyForDarkMode(darkMode);
     };
     applyIconThemePref();
+    globalMenuSuspendBridge.setMenuManager(&globalMenuManager);
+    const auto applyGlobalMenuModePref = [&]() {
+        const QString mode = desktopSettings.settingValue(QStringLiteral("globalmenu.mode"),
+                                                          QStringLiteral("auto"))
+                                 .toString()
+                                 .trimmed()
+                                 .toLower();
+        if (mode == QStringLiteral("full")
+            || mode == QStringLiteral("compact")
+            || mode == QStringLiteral("focus")) {
+            globalMenuAdaptiveController.setUserOverride(mode);
+        } else {
+            globalMenuAdaptiveController.setUserOverride(QString());
+        }
+    };
+    applyGlobalMenuModePref();
 
     const QString sessionMode = qEnvironmentVariable("SLM_SESSION_MODE").trimmed().toLower();
     const bool safeModeActive = (sessionMode == QStringLiteral("safe")
@@ -439,6 +459,11 @@ int main(int argc, char *argv[])
     QObject::connect(&desktopSettings, &DesktopSettingsClient::settingChanged, &app, [&](const QString &path) {
         if (path == QLatin1String("animation.mode")) {
             applyAnimationMode();
+            return;
+        }
+        if (path == QLatin1String("globalmenu.mode")
+            || path == QLatin1String("globalMenu.mode")) {
+            applyGlobalMenuModePref();
         }
     });
     QObject::connect(&desktopSettings, &DesktopSettingsClient::themeModeChanged, &app, [&]() {
@@ -451,6 +476,12 @@ int main(int argc, char *argv[])
     });
     QObject::connect(&desktopSettings, &DesktopSettingsClient::gtkIconThemeDarkChanged, &app, [&]() {
         applyIconThemePref();
+    });
+    QObject::connect(&app, &QGuiApplication::focusWindowChanged, &app, [&](QWindow *window) {
+        globalMenuAdaptiveController.setWindowFullscreen(window && window->visibility() == QWindow::FullScreen);
+        if (window) {
+            globalMenuAdaptiveController.setAvailableWidth(window->width());
+        }
     });
     AppExecutionGate appExecutionGate(&dockModel, &shortcutModel, &desktopSettings);
     appModel.setExecutionGate(&appExecutionGate);
@@ -501,6 +532,8 @@ int main(int argc, char *argv[])
                                                      &batteryManager,
                                                      &externalIndicatorRegistry,
                                                      &globalMenuManager,
+                                                     &globalMenuAdaptiveController,
+                                                     &globalMenuSuspendBridge,
                                                      &statusNotifierHost,
                                                      &screencastPrivacyModel,
                                                      &inputCapturePrivacyModel);
@@ -543,6 +576,21 @@ int main(int argc, char *argv[])
                                               startupArgs.startWindowed,
                                               startupArgs.windowWidth,
                                               startupArgs.windowHeight);
+    QObject::connect(&engine, &QQmlApplicationEngine::objectCreated, &app,
+                     [&](QObject *object, const QUrl &) {
+        auto *window = qobject_cast<QQuickWindow *>(object);
+        if (!window) {
+            return;
+        }
+        globalMenuAdaptiveController.setAvailableWidth(window->width());
+        globalMenuAdaptiveController.setWindowFullscreen(window->visibility() == QWindow::FullScreen);
+        QObject::connect(window, &QQuickWindow::widthChanged, &app, [&, window]() {
+            globalMenuAdaptiveController.setAvailableWidth(window->width());
+        });
+        QObject::connect(window, &QQuickWindow::visibilityChanged, &app, [&, window](QWindow::Visibility) {
+            globalMenuAdaptiveController.setWindowFullscreen(window->visibility() == QWindow::FullScreen);
+        });
+    });
     engine.rootContext()->setContextProperty(QStringLiteral("FileManagerShellBridge"),
                                              &fileManagerShellBridge);
     // Recent files tersedia via FileManagerApi.recentFiles(limit) dari QML.

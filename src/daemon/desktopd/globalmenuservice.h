@@ -49,6 +49,9 @@ private:
     QString labelForId(int menuId) const;
     QVariantList defaultMenuItemsFor(int menuId) const;
     QString labelForMenuItem(int menuId, int itemId) const;
+    bool contextHasToken(const QString &token) const;
+    QVariantList contextualMenusForContext() const;
+    QVariantList effectiveMenus() const;
     void registerDbusService();
     void setupSecurity();
     bool checkPermission(Slm::Permissions::Capability capability, const QString &methodName);

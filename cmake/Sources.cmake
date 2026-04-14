@@ -202,6 +202,10 @@ set(DESKTOP_SHELL_SERVICES
     externalindicatorregistry.h
     globalmenumanager.cpp
     globalmenumanager.h
+    src/services/globalmenu/globalmenuadaptivecontroller.cpp
+    src/services/globalmenu/globalmenuadaptivecontroller.h
+    src/services/globalmenu/globalmenususpendbridge.cpp
+    src/services/globalmenu/globalmenususpendbridge.h
     src/core/workspace/kwinwaylandipcclient.cpp
     src/core/workspace/kwinwaylandipcclient.h
     src/core/workspace/kwinwaylandstatemodel.cpp

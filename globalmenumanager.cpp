@@ -248,6 +248,16 @@ QString GlobalMenuManager::activeMenuService() const
     return m_activeMenuService;
 }
 
+QString GlobalMenuManager::activeAppId() const
+{
+    return m_lastActiveAppId;
+}
+
+bool GlobalMenuManager::appSwitching() const
+{
+    return m_appSwitching;
+}
+
 void GlobalMenuManager::refresh()
 {
     const bool oldAvailable = m_available;
@@ -384,6 +394,31 @@ void GlobalMenuManager::refresh()
         }
     }
     updatePollingInterval();
+}
+
+void GlobalMenuManager::resetAfterResume()
+{
+    // Resume recovery path:
+    // clear transient caches + bindings first, then rebind from active window.
+    unbindActiveMenuSignals();
+    m_connectionPidCache.clear();
+    m_registeredMenus.clear();
+    m_menuItemsCache.clear();
+    m_pendingExternalMenuKeys.clear();
+    for (auto it = m_externalMenuProxies.begin(); it != m_externalMenuProxies.end(); ++it) {
+        if (!it.value().isNull()) {
+            it.value()->deleteLater();
+        }
+    }
+    m_externalMenuProxies.clear();
+
+    m_available = false;
+    m_topLevelMenus.clear();
+    m_activeMenuService.clear();
+    m_activeMenuPath.clear();
+    m_activeWindowId = 0;
+    emit changed();
+    refresh();
 }
 
 void GlobalMenuManager::updatePollingInterval()
@@ -629,6 +664,26 @@ void GlobalMenuManager::onSessionActiveAppChanged(const QString &appId)
         return;
     }
     m_lastActiveAppId = normalized;
+
+    // Signal app-switching state for QML transition animations.
+    if (!m_appSwitching) {
+        m_appSwitching = true;
+        emit appSwitchingChanged();
+    }
+    if (!m_appSwitchTimer) {
+        m_appSwitchTimer = new QTimer(this);
+        m_appSwitchTimer->setSingleShot(true);
+        m_appSwitchTimer->setInterval(160);
+        connect(m_appSwitchTimer, &QTimer::timeout, this, [this]() {
+            if (m_appSwitching) {
+                m_appSwitching = false;
+                emit appSwitchingChanged();
+            }
+        });
+    }
+    m_appSwitchTimer->start();
+
+    emit appSwitched(m_lastActiveAppId);
     refresh();
 }
 

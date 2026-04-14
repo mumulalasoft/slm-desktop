@@ -31,6 +31,84 @@ function _tothespotService(shell) {
     return null
 }
 
+function _globalMenuSearchRows(queryText, limit) {
+    if (typeof GlobalMenuManager === "undefined" || !GlobalMenuManager) {
+        return []
+    }
+    if (!GlobalMenuManager.available || !GlobalMenuManager.topLevelMenus || !GlobalMenuManager.menuItemsFor) {
+        return []
+    }
+    var menus = GlobalMenuManager.topLevelMenus
+    if (!menus || menus.length <= 0) {
+        return []
+    }
+    var q = String(queryText || "").trim().toLowerCase()
+    var maxRows = Number(limit || 24)
+    if (maxRows <= 0) {
+        maxRows = 24
+    }
+    var rows = []
+    var activeAppId = String(GlobalMenuManager.activeAppId || "").trim()
+    for (var mi = 0; mi < menus.length; ++mi) {
+        if (rows.length >= maxRows) {
+            break
+        }
+        var menu = menus[mi] || ({})
+        var menuId = Number(menu.id || -1)
+        var menuLabel = String(menu.label || "").trim()
+        if (menuId <= 0 || menuLabel.length <= 0) {
+            continue
+        }
+        var items = GlobalMenuManager.menuItemsFor(menuId)
+        if (!items || items.length <= 0) {
+            continue
+        }
+        for (var ii = 0; ii < items.length; ++ii) {
+            if (rows.length >= maxRows) {
+                break
+            }
+            var item = items[ii] || ({})
+            var itemId = Number(item.id || -1)
+            var itemLabel = String(item.label || "").trim()
+            if (itemId <= 0 || itemLabel.length <= 0 || itemLabel === "-") {
+                continue
+            }
+            var haystack = (menuLabel + " " + itemLabel + " " + activeAppId).toLowerCase()
+            if (q.length > 0 && haystack.indexOf(q) < 0) {
+                continue
+            }
+            rows.push({
+                          "resultId": "",
+                          "provider": "global_menu",
+                          "type": "action",
+                          "isAction": true,
+                          "resultKind": "action",
+                          "sectionTitle": "Actions",
+                          "name": itemLabel,
+                          "path": menuLabel,
+                          "intent": menuLabel + " > " + itemLabel,
+                          "actionId": "globalmenu:" + menuId + ":" + itemId,
+                          "menuId": menuId,
+                          "menuItemId": itemId,
+                          "iconName": "view-list-symbolic",
+                          "score": 170
+                      })
+        }
+    }
+    return rows
+}
+
+function _setSearchVisible(shell, visible) {
+    if (!shell) {
+        return
+    }
+    if (shell.setSearchVisible) {
+        shell.setSearchVisible(visible)
+        return
+    }
+    shell.tothespotVisible = !!visible
+}
+
 function refreshProfileMeta(shell) {
     var svc = _tothespotService(shell)
     if (!svc || !svc.activeSearchProfileMeta) {
@@ -397,6 +475,10 @@ function refreshResults(shell, resultsModel, forceReload) {
         }
     }
     var rows = svc.query(q, {}, 24)
+    var globalMenuRows = _globalMenuSearchRows(q, 40)
+    if (globalMenuRows.length > 0) {
+        rows = rows.concat(globalMenuRows)
+    }
     if (generation !== Number(shell.tothespotQueryGeneration || 0)) {
         return
     }
@@ -409,6 +491,7 @@ function refreshResults(shell, resultsModel, forceReload) {
     var dedupedRows = ({})
     function providerPriority(providerValue) {
         var pv = String(providerValue || "")
+        if (pv === "global_menu") return 4
         if (pv === "apps") return 3
         if (pv === "recent") return 2
         return 1
@@ -423,7 +506,9 @@ function refreshResults(shell, resultsModel, forceReload) {
         var rowProvider = String(row.provider || "")
         var rowAbsPath = String(row.absolutePath || row.path || "")
         var rowIsApp = rowType === "app" || rowProvider === "apps"
-        var rowIsAction = rowType === "action" || rowProvider === "slm_actions"
+        var rowIsAction = rowType === "action"
+                          || rowProvider === "slm_actions"
+                          || rowProvider === "global_menu"
         var rowIsSettings = rowType === "settings"
                             || rowType === "module"
                             || rowType === "setting"
@@ -517,6 +602,8 @@ function refreshResults(shell, resultsModel, forceReload) {
             "deepLink": synthesizedDeepLink,
             "intent": String(row.intent || row.path || ""),
             "actionId": String(row.actionId || ""),
+            "menuId": Number(row.menuId || -1),
+            "menuItemId": Number(row.menuItemId || -1),
             "iconName": normalizedIconName,
             "isDir": normalizedIsDir,
             "desktopId": String(row.desktopId || ""),
@@ -665,6 +752,7 @@ function refreshPreview(shell, resultsModel) {
                    || !!item.isAction
                    || String(item.type || "") === "action"
                    || String(item.provider || "") === "slm_actions"
+                   || String(item.provider || "") === "global_menu"
     var isSettings = kind === "settings"
                      || String(item.type || "") === "settings"
                      || String(item.type || "") === "module"
@@ -688,6 +776,8 @@ function refreshPreview(shell, resultsModel) {
             "intent": String(item.intent || item.path || ""),
             "iconName": String(item.iconName || "system-run-symbolic"),
             "actionId": String(item.actionId || ""),
+            "menuId": Number(item.menuId || -1),
+            "menuItemId": Number(item.menuItemId || -1),
             "desktopId": String(item.desktopId || ""),
             "desktopFile": String(item.desktopFile || "")
         }
@@ -740,7 +830,7 @@ function focusFromMenu(shell, tothespotWindow) {
     if (!shell) {
         return
     }
-    shell.tothespotVisible = true
+    _setSearchVisible(shell, true)
     Qt.callLater(function() {
         if (tothespotWindow && tothespotWindow.focusSearchField) {
             tothespotWindow.focusSearchField()
@@ -758,13 +848,44 @@ function activateResult(shell, resultsModel, indexValue) {
         return
     }
     var rid = String(item.resultId || "")
+    var provider = String(item.provider || "")
+    if (provider === "global_menu") {
+        var menuId = Number(item.menuId || -1)
+        var menuItemId = Number(item.menuItemId || -1)
+        if (menuId > 0 && menuItemId > 0
+                && typeof GlobalMenuManager !== "undefined"
+                && GlobalMenuManager
+                && GlobalMenuManager.activateMenuItem) {
+            _setSearchVisible(shell, false)
+            GlobalMenuManager.activateMenuItem(menuId, menuItemId)
+            var nowIso = (new Date()).toISOString()
+            shell.tothespotTelemetryLast = ({
+                                                "when": nowIso,
+                                                "provider": "global_menu",
+                                                "action": "invoke",
+                                                "resultType": "action",
+                                                "name": String(item.name || ""),
+                                                "intent": String(item.intent || ""),
+                                                "menuId": menuId,
+                                                "menuItemId": menuItemId
+                                            })
+            var prevPs = shell.tothespotProviderStats ? shell.tothespotProviderStats : ({})
+            var nextPs = ({})
+            for (var pKey in prevPs) {
+                nextPs[pKey] = prevPs[pKey]
+            }
+            var ga = Number(nextPs.globalMenuActivations || 0)
+            nextPs.globalMenuActivations = ga + 1
+            shell.tothespotProviderStats = nextPs
+            return
+        }
+    }
     if (rid.length > 0
             && typeof TothespotService !== "undefined"
             && TothespotService
             && TothespotService.activateResult) {
-        var provider = String(item.provider || "")
         if (provider === "clipboard" && TothespotService.resolveClipboardResult) {
-            shell.tothespotVisible = false
+            _setSearchVisible(shell, false)
             var resolveReply = TothespotService.resolveClipboardResult(rid, {
                                                                            "query": String(shell.tothespotQuery || ""),
                                                                            "provider": provider,
@@ -810,7 +931,7 @@ function activateResult(shell, resultsModel, indexValue) {
         if (resolvedPath.length > 0) {
             contextUris = [resolvedPath]
         }
-        shell.tothespotVisible = false
+        _setSearchVisible(shell, false)
         TothespotService.activateResult(rid, {
                                             "query": String(shell.tothespotQuery || ""),
                                             "provider": provider,
@@ -828,7 +949,7 @@ function activateResult(shell, resultsModel, indexValue) {
         return
     }
     if (String(item.type || "") === "app") {
-        shell.tothespotVisible = false
+        _setSearchVisible(shell, false)
         if (typeof AppCommandRouter !== "undefined" && AppCommandRouter && AppCommandRouter.route) {
             AppCommandRouter.route("app.entry", {
                                        "type": "desktop",
@@ -846,7 +967,7 @@ function activateResult(shell, resultsModel, indexValue) {
     if (p.length === 0) {
         return
     }
-    shell.tothespotVisible = false
+    _setSearchVisible(shell, false)
     if (!!item.isDir) {
         ShellUtils.openDetachedFileManager(shell, p)
         return
@@ -961,7 +1082,7 @@ function activateContextAction(shell, resultsModel, indexValue, action) {
         if (slashPosProps > 0) {
             propParent = propPath.substring(0, slashPosProps)
         }
-        shell.tothespotVisible = false
+        _setSearchVisible(shell, false)
         ShellUtils.openDetachedFileManager(shell, propParent)
         ShellUtils.requestDetachedProperties(shell, propPath)
         return
@@ -977,6 +1098,6 @@ function activateContextAction(shell, resultsModel, indexValue, action) {
     }
     var lastSlash = Math.max(p.lastIndexOf("/"), p.lastIndexOf("\\"))
     var parentDir = (lastSlash > 0) ? p.substring(0, lastSlash) : "~"
-    shell.tothespotVisible = false
+    _setSearchVisible(shell, false)
     ShellUtils.openDetachedFileManager(shell, parentDir)
 }

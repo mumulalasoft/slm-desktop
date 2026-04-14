@@ -15,6 +15,8 @@
 #include "../services/power/batterymanager.h"
 #include "../../externalindicatorregistry.h"
 #include "../../globalmenumanager.h"
+#include "../services/globalmenu/globalmenuadaptivecontroller.h"
+#include "../services/globalmenu/globalmenususpendbridge.h"
 #include "../services/indicator/statusnotifierhost.h"
 #include "../services/portal/screencastprivacymodel.h"
 #include "../services/portal/inputcaptureprivacymodel.h"
@@ -90,11 +92,13 @@ void registerTopBarIndicatorContext(QQmlContext *context,
                                     BatteryManager *batteryManager,
                                     ExternalIndicatorRegistry *externalIndicatorRegistry,
                                     GlobalMenuManager *globalMenuManager,
+                                    GlobalMenuAdaptiveController *globalMenuAdaptiveController,
+                                    GlobalMenuSuspendBridge *globalMenuSuspendBridge,
                                     StatusNotifierHost *statusNotifierHost,
                                     ScreencastPrivacyModel *screencastPrivacyModel,
                                     InputCapturePrivacyModel *inputCapturePrivacyModel)
 {
-    const std::array<std::pair<const char *, QObject *>, 11> entries{{
+    const std::array<std::pair<const char *, QObject *>, 13> entries{{
         {"NetworkManager", networkManager},
         {"BluetoothManager", bluetoothManager},
         {"SoundManager", soundManager},
@@ -103,6 +107,8 @@ void registerTopBarIndicatorContext(QQmlContext *context,
         {"BatteryManager", batteryManager},
         {"ExternalIndicatorRegistry", externalIndicatorRegistry},
         {"GlobalMenuManager", globalMenuManager},
+        {"GlobalMenuAdaptiveController", globalMenuAdaptiveController},
+        {"GlobalMenuSuspendBridge", globalMenuSuspendBridge},
         {"StatusNotifierHost", statusNotifierHost},
         {"ScreencastPrivacyModel", screencastPrivacyModel},
         {"InputCapturePrivacyModel", inputCapturePrivacyModel},
