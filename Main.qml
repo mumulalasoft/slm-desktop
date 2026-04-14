@@ -182,11 +182,21 @@ ApplicationWindow {
     property var portalChooserEntriesModelRef: portalChooserEntries
     property var portalChooserPlacesModelRef: portalChooserPlacesModel
     property var portalChooserApiRef: portalChooserApi
-    property bool tothespotVisible: false
+    property bool _searchVisibleLocal: false
+    readonly property bool searchVisible: (typeof ShellStateController !== "undefined" && ShellStateController)
+                                          ? !!ShellStateController.searchVisible
+                                          : _searchVisibleLocal
+    // Compatibility alias while older callsites still use tothespot naming.
+    readonly property bool tothespotVisible: searchVisible
     property bool clipboardOverlayVisible: false
     property bool lockScreenVisible: false
     property double tothespotLastCloseMs: 0
-    property string tothespotQuery: ""
+    property string _searchQueryLocal: ""
+    readonly property string searchQuery: (typeof ShellStateController !== "undefined" && ShellStateController)
+                                          ? String(ShellStateController.searchQuery || "")
+                                          : _searchQueryLocal
+    // Compatibility alias while older callsites still use tothespot naming.
+    readonly property string tothespotQuery: searchQuery
     property string tothespotLastLoadedQuery: ""
     property int tothespotQueryGeneration: 0
     property int tothespotAppliedGeneration: -1
@@ -204,13 +214,30 @@ ApplicationWindow {
     property int tothespotSavedWidth: Number(readSetting("tothespot.windowWidth", -1))
     property int tothespotSavedHeight: Number(readSetting("tothespot.windowHeight", -1))
     property bool tothespotRestoringGeometry: false
-    onTothespotVisibleChanged: {
-        if (typeof ShellStateController !== "undefined" && ShellStateController) ShellStateController.setToTheSpotVisible(tothespotVisible)
-        if (lockScreenVisible && tothespotVisible) {
-            tothespotVisible = false
+    function setSearchVisible(visible) {
+        var v = !!visible
+        if (typeof ShellStateController !== "undefined" && ShellStateController
+                && ShellStateController.setToTheSpotVisible) {
+            ShellStateController.setToTheSpotVisible(v)
+        } else {
+            _searchVisibleLocal = v
+        }
+    }
+    function setSearchQuery(query) {
+        var text = String(query || "")
+        if (typeof ShellStateController !== "undefined" && ShellStateController
+                && ShellStateController.setSearchQuery) {
+            ShellStateController.setSearchQuery(text)
+        } else {
+            _searchQueryLocal = text
+        }
+    }
+    onSearchVisibleChanged: {
+        if (lockScreenVisible && searchVisible) {
+            setSearchVisible(false)
             return
         }
-        if (!tothespotVisible) {
+        if (!searchVisible) {
             tothespotLastCloseMs = Date.now()
             return
         }
@@ -229,7 +256,7 @@ ApplicationWindow {
         if (!lockScreenVisible) {
             return
         }
-        tothespotVisible = false
+        setSearchVisible(false)
         clipboardOverlayVisible = false
         shellContextMenuOpen = false
         if (desktopScene) {
@@ -404,7 +431,32 @@ ApplicationWindow {
         detachedFileManagerWindow: detachedFileManagerWindow
         onRequestFocusTothespot: TothespotController.focusFromMenu(root, tothespotWindowLoader ? tothespotWindowLoader.item : null)
         onRequestHelpMessage: function(message) {
-            ScreenshotController.showResultNotification(root, true, "", String(message || ""))
+            if (typeof NotificationManager !== "undefined" && NotificationManager && NotificationManager.Notify) {
+                NotificationManager.Notify("Slm Desktop",
+                                           0,
+                                           "dialog-information-symbolic",
+                                           "Global Menu",
+                                           String(message || ""),
+                                           [],
+                                           { "source": "global-menu" },
+                                           2600)
+            }
+        }
+        onRequestMenuNotification: function(ok, summary, body, iconName) {
+            if (typeof NotificationManager !== "undefined" && NotificationManager && NotificationManager.Notify) {
+                NotificationManager.Notify("Slm Desktop",
+                                           0,
+                                           String(iconName || (ok ? "dialog-information-symbolic"
+                                                                  : "dialog-error-symbolic")),
+                                           String(summary || "Global Menu"),
+                                           String(body || ""),
+                                           [],
+                                           {
+                                               "source": "global-menu",
+                                               "ok": !!ok
+                                           },
+                                           2600)
+            }
         }
     }
 
@@ -444,7 +496,7 @@ ApplicationWindow {
         sequence: root.tothespotBind
         onActivated: {
             if (typeof ShellInputRouter !== "undefined" && !ShellInputRouter.canDispatch("shell.tothespot")) return
-            root.tothespotVisible = !root.tothespotVisible
+            root.setSearchVisible(!root.tothespotVisible)
             if (root.tothespotVisible) {
                 root.clipboardOverlayVisible = false
             }
@@ -466,7 +518,7 @@ ApplicationWindow {
             if (typeof ShellInputRouter !== "undefined" && !ShellInputRouter.canDispatch("shell.clipboard")) return
             root.clipboardOverlayVisible = !root.clipboardOverlayVisible
             if (root.clipboardOverlayVisible) {
-                root.tothespotVisible = false
+                root.setSearchVisible(false)
             }
         }
     }
@@ -935,13 +987,13 @@ ApplicationWindow {
         onLauncherRequested: desktopScene.launchpadVisible = !desktopScene.launchpadVisible
         onTothespotRequested: {
             if (root.tothespotVisible) {
-                root.tothespotVisible = false
+                root.setSearchVisible(false)
                 return
             }
             if ((Date.now() - Number(root.tothespotLastCloseMs || 0)) < 220) {
                 return
             }
-            root.tothespotVisible = true
+            root.setSearchVisible(true)
         }
         onScreenshotCaptureRequested: function(mode, delaySec, grabPointer, concealText) {
             ScreenshotController.startFromTopBar(root, mode, delaySec, grabPointer, concealText)
@@ -1035,7 +1087,7 @@ ApplicationWindow {
             TothespotDismissWindow {
                 rootWindow: root
                 overlayVisible: root.tothespotVisible
-                onDismissRequested: root.tothespotVisible = false
+                onDismissRequested: root.setSearchVisible(false)
             }
         }
     }
@@ -1078,9 +1130,9 @@ ApplicationWindow {
                 selectedIndex: root.tothespotSelectedIndex
                 onGeometryEdited: ShellUtils.saveTothespotGeometry(root)
                 onOpeningRequested: ShellUtils.restoreTothespotGeometry(root)
-                onDismissRequested: root.tothespotVisible = false
+                onDismissRequested: root.setSearchVisible(false)
                 onQueryTextChangedRequest: function(text) {
-                    root.tothespotQuery = String(text || "")
+                    root.setSearchQuery(text)
                     root.tothespotQueryGeneration = Number(root.tothespotQueryGeneration || 0) + 1
                     tothespotDebounce.restart()
                 }
@@ -1099,7 +1151,7 @@ ApplicationWindow {
         onStatusChanged: {
             if (status === Loader.Error) {
                 console.error("[shell] TothespotWindow failed to load:", errorString())
-                root.tothespotVisible = false
+                root.setSearchVisible(false)
                 if (typeof ShellStateController !== "undefined" && ShellStateController) {
                     ShellStateController.setToTheSpotVisible(false)
                 }

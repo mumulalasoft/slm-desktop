@@ -10,6 +10,7 @@ QtObject {
 
     signal requestFocusTothespot()
     signal requestHelpMessage(string message)
+    signal requestMenuNotification(bool ok, string summary, string body, string iconName)
 
     function _route(action, payload, source) {
         if (typeof AppCommandRouter === "undefined" || !AppCommandRouter || !AppCommandRouter.routeWithResult) {
@@ -61,6 +62,13 @@ QtObject {
             }
         }
         return res
+    }
+
+    function _notify(ok, summary, body, iconName) {
+        requestMenuNotification(!!ok,
+                                String(summary || "Global Menu"),
+                                String(body || ""),
+                                String(iconName || "dialog-information-symbolic"))
     }
 
     function _resolveStorageDeviceTarget() {
@@ -323,6 +331,10 @@ QtObject {
             var deviceTarget = String(target.device || "").trim()
             if (item === 1 && target.row && fileManagerContent.openStorageVolumeChoice) {
                 fileManagerContent.openStorageVolumeChoice(target.row)
+                _notify(true,
+                        "Drive opened",
+                        String(target.row.label || target.row.name || "Storage"),
+                        "drive-removable-media-symbolic")
                 return
             }
             if (item === 1 && deviceTarget.length > 0) {
@@ -330,6 +342,9 @@ QtObject {
                                             { "devicePath": deviceTarget },
                                             "global-menu",
                                             "Storage mount failed")
+                if (mountRes && mountRes.ok) {
+                    _notify(true, "Drive mounted", deviceTarget, "drive-removable-media-symbolic")
+                }
                 if ((!mountRes || !mountRes.ok)
                         && fileManagerContent.openStorageVolumeChoice) {
                     fileManagerContent.openStorageVolumeChoice({
@@ -345,6 +360,9 @@ QtObject {
                                               { "devicePath": deviceTarget },
                                               "global-menu",
                                               "Storage unmount failed")
+                if (unmountRes && unmountRes.ok) {
+                    _notify(true, "Drive ejected", deviceTarget, "media-eject-symbolic")
+                }
                 if ((!unmountRes || !unmountRes.ok)
                         && fileManagerContent.fileManagerApiRef
                         && fileManagerContent.fileManagerApiRef.startUnmountStorageDevice) {
