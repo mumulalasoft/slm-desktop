@@ -13,6 +13,49 @@
 #include <QJsonObject>
 #include <QtGlobal>
 
+namespace {
+bool parseGlobalMenuMeta(const QVariantMap &payload, const QString &source, int &menuIdOut, int &itemIdOut)
+{
+    menuIdOut = payload.value(QStringLiteral("__menuId"), -1).toInt();
+    itemIdOut = payload.value(QStringLiteral("__itemId"), -1).toInt();
+    if (menuIdOut >= 0 || itemIdOut >= 0) {
+        return true;
+    }
+
+    if (!source.startsWith(QStringLiteral("global-menu"))) {
+        return false;
+    }
+
+    QString suffix = source.mid(QStringLiteral("global-menu").size());
+    if (suffix.startsWith(QLatin1Char(':'))) {
+        suffix.remove(0, 1);
+    }
+    if (suffix.isEmpty()) {
+        return false;
+    }
+
+    const QStringList parts = suffix.split(QLatin1Char(':'), Qt::SkipEmptyParts);
+    if (parts.size() >= 1) {
+        menuIdOut = parts.at(0).toInt();
+    }
+    if (parts.size() >= 2) {
+        itemIdOut = parts.at(1).toInt();
+    }
+    return menuIdOut >= 0 || itemIdOut >= 0;
+}
+
+QString globalMenuTelemetryCategory(int menuId, int itemId)
+{
+    if (menuId >= 0 && itemId >= 0) {
+        return QStringLiteral("menu:%1:%2").arg(menuId).arg(itemId);
+    }
+    if (menuId >= 0) {
+        return QStringLiteral("menu:%1").arg(menuId);
+    }
+    return QString();
+}
+} // namespace
+
 AppCommandRouter::AppCommandRouter(AppExecutionGate *gate,
                                    ScreenshotManager *screenshotManager,
                                    QObject *desktopSettings,
@@ -71,6 +114,16 @@ QVariantMap AppCommandRouter::routeWithResult(const QString &action, const QVari
     result.insert(QStringLiteral("source"), source);
     result.insert(QStringLiteral("ok"), false);
     result.insert(QStringLiteral("error"), QString());
+    int globalMenuId = -1;
+    int globalMenuItemId = -1;
+    if (parseGlobalMenuMeta(payload, source, globalMenuId, globalMenuItemId)) {
+        if (globalMenuId >= 0) {
+            result.insert(QStringLiteral("menuId"), globalMenuId);
+        }
+        if (globalMenuItemId >= 0) {
+            result.insert(QStringLiteral("itemId"), globalMenuItemId);
+        }
+    }
     const bool knownAction = isSupportedAction(op);
     if (!knownAction) {
         if (verboseLoggingEnabled()) {
@@ -78,7 +131,7 @@ QVariantMap AppCommandRouter::routeWithResult(const QString &action, const QVari
                                  << "source=" << source;
         }
         const qint64 durationMs = timer.elapsed();
-        recordEvent(op, source, false, QStringLiteral("unknown-action"), durationMs);
+        recordEvent(op, source, false, QStringLiteral("unknown-action"), durationMs, payload);
         emit routed(op, source, false);
         result.insert(QStringLiteral("error"), QStringLiteral("unknown-action"));
         result.insert(QStringLiteral("durationMs"), durationMs);
@@ -145,7 +198,7 @@ QVariantMap AppCommandRouter::routeWithResult(const QString &action, const QVari
                               << "detail=" << detail;
         }
         const qint64 durationMs = timer.elapsed();
-        recordEvent(op, source, false, detail, durationMs);
+        recordEvent(op, source, false, detail, durationMs, payload);
         emit routed(op, source, false);
         result.insert(QStringLiteral("error"), detail);
         result.insert(QStringLiteral("durationMs"), durationMs);
@@ -155,7 +208,7 @@ QVariantMap AppCommandRouter::routeWithResult(const QString &action, const QVari
 
     if (op.startsWith(QStringLiteral("screenshot.")) && m_screenshotManager == nullptr) {
         const qint64 durationMs = timer.elapsed();
-        recordEvent(op, source, false, QStringLiteral("screenshot-manager-unavailable"), durationMs);
+        recordEvent(op, source, false, QStringLiteral("screenshot-manager-unavailable"), durationMs, payload);
         emit routed(op, source, false);
         result.insert(QStringLiteral("error"), QStringLiteral("screenshot-manager-unavailable"));
         result.insert(QStringLiteral("durationMs"), durationMs);
@@ -175,7 +228,7 @@ QVariantMap AppCommandRouter::routeWithResult(const QString &action, const QVari
         op != QStringLiteral("storage.mount") &&
         op != QStringLiteral("storage.unmount")) {
         const qint64 durationMs = timer.elapsed();
-        recordEvent(op, source, false, QStringLiteral("gate-unavailable"), durationMs);
+        recordEvent(op, source, false, QStringLiteral("gate-unavailable"), durationMs, payload);
         emit routed(op, source, false);
         result.insert(QStringLiteral("error"), QStringLiteral("gate-unavailable"));
         result.insert(QStringLiteral("durationMs"), durationMs);
@@ -321,7 +374,7 @@ QVariantMap AppCommandRouter::routeWithResult(const QString &action, const QVari
                           << "detail=" << detail;
     }
     const qint64 durationMs = timer.elapsed();
-    recordEvent(op, source, ok, detail, durationMs);
+    recordEvent(op, source, ok, detail, durationMs, payload);
     emit routed(op, source, ok);
     result.insert(QStringLiteral("ok"), ok);
     result.insert(QStringLiteral("error"), detail);
@@ -378,6 +431,15 @@ QVariantList AppCommandRouter::recentEvents() const
         row.insert(QStringLiteral("detail"), e.detail);
         row.insert(QStringLiteral("epochMs"), e.epochMs);
         row.insert(QStringLiteral("durationMs"), e.durationMs);
+        if (e.menuId >= 0) {
+            row.insert(QStringLiteral("menuId"), e.menuId);
+        }
+        if (e.itemId >= 0) {
+            row.insert(QStringLiteral("itemId"), e.itemId);
+        }
+        if (!e.telemetryCategory.isEmpty()) {
+            row.insert(QStringLiteral("telemetryCategory"), e.telemetryCategory);
+        }
         row.insert(QStringLiteral("isoTime"),
                    QDateTime::fromMSecsSinceEpoch(e.epochMs).toString(Qt::ISODateWithMs));
         out.push_back(row);
@@ -403,6 +465,15 @@ QVariantList AppCommandRouter::recentFailures(int maxItems) const
         row.insert(QStringLiteral("detail"), e.detail);
         row.insert(QStringLiteral("epochMs"), e.epochMs);
         row.insert(QStringLiteral("durationMs"), e.durationMs);
+        if (e.menuId >= 0) {
+            row.insert(QStringLiteral("menuId"), e.menuId);
+        }
+        if (e.itemId >= 0) {
+            row.insert(QStringLiteral("itemId"), e.itemId);
+        }
+        if (!e.telemetryCategory.isEmpty()) {
+            row.insert(QStringLiteral("telemetryCategory"), e.telemetryCategory);
+        }
         row.insert(QStringLiteral("isoTime"),
                    QDateTime::fromMSecsSinceEpoch(e.epochMs).toString(Qt::ISODateWithMs));
         out.push_back(row);
@@ -434,6 +505,35 @@ QVariantMap AppCommandRouter::actionStats() const
     return stats;
 }
 
+QVariantMap AppCommandRouter::globalMenuStats() const
+{
+    QVariantMap stats;
+    for (const RouterEvent &e : m_recentEvents) {
+        if (e.telemetryCategory.isEmpty()) {
+            continue;
+        }
+        QVariantMap row = stats.value(e.telemetryCategory).toMap();
+        const int total = row.value(QStringLiteral("total")).toInt() + 1;
+        const int success = row.value(QStringLiteral("success")).toInt() + (e.success ? 1 : 0);
+        const int failure = row.value(QStringLiteral("failure")).toInt() + (e.success ? 0 : 1);
+        const qint64 durationTotalMs = row.value(QStringLiteral("durationTotalMs")).toLongLong()
+                                       + e.durationMs;
+        row.insert(QStringLiteral("menuId"), e.menuId);
+        row.insert(QStringLiteral("itemId"), e.itemId);
+        row.insert(QStringLiteral("total"), total);
+        row.insert(QStringLiteral("success"), success);
+        row.insert(QStringLiteral("failure"), failure);
+        row.insert(QStringLiteral("durationTotalMs"), durationTotalMs);
+        row.insert(QStringLiteral("durationAvgMs"), total > 0 ? (durationTotalMs / total) : 0);
+        row.insert(QStringLiteral("lastAction"), e.action);
+        row.insert(QStringLiteral("lastSource"), e.source);
+        row.insert(QStringLiteral("lastDetail"), e.detail);
+        row.insert(QStringLiteral("lastSuccess"), e.success);
+        stats.insert(e.telemetryCategory, row);
+    }
+    return stats;
+}
+
 QVariantMap AppCommandRouter::diagnosticSnapshot() const
 {
     QVariantMap out;
@@ -447,6 +547,7 @@ QVariantMap AppCommandRouter::diagnosticSnapshot() const
     out.insert(QStringLiteral("lastError"), lastError());
     out.insert(QStringLiteral("lastEvent"), lastEvent());
     out.insert(QStringLiteral("actionStats"), actionStats());
+    out.insert(QStringLiteral("globalMenuStats"), globalMenuStats());
     out.insert(QStringLiteral("recentFailures"), recentFailures(10));
     return out;
 }
@@ -465,7 +566,7 @@ void AppCommandRouter::clearRecentEvents()
 }
 
 void AppCommandRouter::recordEvent(const QString &action, const QString &source, bool success,
-                                   const QString &detail, qint64 durationMs)
+                                   const QString &detail, qint64 durationMs, const QVariantMap &payload)
 {
     RouterEvent e;
     e.action = action;
@@ -474,6 +575,12 @@ void AppCommandRouter::recordEvent(const QString &action, const QString &source,
     e.detail = detail;
     e.epochMs = QDateTime::currentMSecsSinceEpoch();
     e.durationMs = qMax<qint64>(0, durationMs);
+    int menuId = -1;
+    int itemId = -1;
+    parseGlobalMenuMeta(payload, source, menuId, itemId);
+    e.menuId = menuId;
+    e.itemId = itemId;
+    e.telemetryCategory = globalMenuTelemetryCategory(menuId, itemId);
     m_recentEvents.push_back(e);
     static constexpr int kMaxRecentEvents = 120;
     if (m_recentEvents.size() > kMaxRecentEvents) {
@@ -496,6 +603,15 @@ QVariantMap AppCommandRouter::lastEvent() const
     out.insert(QStringLiteral("detail"), e.detail);
     out.insert(QStringLiteral("epochMs"), e.epochMs);
     out.insert(QStringLiteral("durationMs"), e.durationMs);
+    if (e.menuId >= 0) {
+        out.insert(QStringLiteral("menuId"), e.menuId);
+    }
+    if (e.itemId >= 0) {
+        out.insert(QStringLiteral("itemId"), e.itemId);
+    }
+    if (!e.telemetryCategory.isEmpty()) {
+        out.insert(QStringLiteral("telemetryCategory"), e.telemetryCategory);
+    }
     out.insert(QStringLiteral("isoTime"),
                QDateTime::fromMSecsSinceEpoch(e.epochMs).toString(Qt::ISODateWithMs));
     return out;

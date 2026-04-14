@@ -40,6 +40,7 @@ public:
     Q_INVOKABLE QVariantList recentEvents() const;
     Q_INVOKABLE QVariantList recentFailures(int maxItems = 20) const;
     Q_INVOKABLE QVariantMap actionStats() const;
+    Q_INVOKABLE QVariantMap globalMenuStats() const;
     Q_INVOKABLE QVariantMap diagnosticSnapshot() const;
     Q_INVOKABLE QString diagnosticsJson(bool pretty = false) const;
     Q_INVOKABLE void clearRecentEvents();
@@ -56,7 +57,8 @@ signals:
 private:
     void recordEvent(const QString &action, const QString &source, bool success,
                      const QString &detail = QString(),
-                     qint64 durationMs = 0);
+                     qint64 durationMs = 0,
+                     const QVariantMap &payload = QVariantMap());
     bool verboseLoggingEnabled() const;
 
     struct RouterEvent {
@@ -66,6 +68,9 @@ private:
         QString detail;
         qint64 epochMs = 0;
         qint64 durationMs = 0;
+        int menuId = -1;
+        int itemId = -1;
+        QString telemetryCategory;
     };
 
     AppExecutionGate *m_gate = nullptr;

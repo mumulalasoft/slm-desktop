@@ -158,13 +158,35 @@ private slots:
     {
         AppCommandRouter router(nullptr, nullptr);
         QVERIFY(!router.route(QStringLiteral("app.entry"), QVariantMap{}, QStringLiteral("s1")));
+        QVERIFY(!router.routeWithResult(QStringLiteral("workspace.split_left"),
+                                        QVariantMap{
+                                            {QStringLiteral("__menuId"), 2005},
+                                            {QStringLiteral("__itemId"), 3},
+                                        },
+                                        QStringLiteral("global-menu"))
+                     .value(QStringLiteral("ok")).toBool());
         const QVariantMap snap = router.diagnosticSnapshot();
         QVERIFY(snap.contains(QStringLiteral("eventCount")));
         QVERIFY(snap.contains(QStringLiteral("failureCount")));
         QVERIFY(snap.contains(QStringLiteral("lastError")));
         QVERIFY(snap.contains(QStringLiteral("lastEvent")));
         QVERIFY(snap.contains(QStringLiteral("actionStats")));
+        QVERIFY(snap.contains(QStringLiteral("globalMenuStats")));
         QVERIFY(snap.contains(QStringLiteral("recentFailures")));
+
+        const QVariantMap last = snap.value(QStringLiteral("lastEvent")).toMap();
+        QCOMPARE(last.value(QStringLiteral("menuId")).toInt(), 2005);
+        QCOMPARE(last.value(QStringLiteral("itemId")).toInt(), 3);
+        QCOMPARE(last.value(QStringLiteral("telemetryCategory")).toString(),
+                 QStringLiteral("menu:2005:3"));
+
+        const QVariantMap gm = snap.value(QStringLiteral("globalMenuStats")).toMap();
+        QVERIFY(gm.contains(QStringLiteral("menu:2005:3")));
+        const QVariantMap gmRow = gm.value(QStringLiteral("menu:2005:3")).toMap();
+        QCOMPARE(gmRow.value(QStringLiteral("total")).toInt(), 1);
+        QCOMPARE(gmRow.value(QStringLiteral("failure")).toInt(), 1);
+        QCOMPARE(gmRow.value(QStringLiteral("menuId")).toInt(), 2005);
+        QCOMPARE(gmRow.value(QStringLiteral("itemId")).toInt(), 3);
     }
 
     void diagnosticsJson_isValid()

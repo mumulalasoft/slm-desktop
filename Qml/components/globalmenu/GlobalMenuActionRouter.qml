@@ -21,6 +21,19 @@ QtObject {
                                                 String(source || "global-menu"))
     }
 
+    function _withMenuMeta(payload, menuId, itemId) {
+        var out = {}
+        var src = payload ? payload : ({})
+        for (var k in src) {
+            if (Object.prototype.hasOwnProperty.call(src, k)) {
+                out[k] = src[k]
+            }
+        }
+        out.__menuId = Number(menuId || 0)
+        out.__itemId = Number(itemId || 0)
+        return out
+    }
+
     function _friendlyStorageError(errorCode) {
         var k = String(errorCode || "").toLowerCase()
         if (k.length <= 0) {
@@ -275,23 +288,38 @@ QtObject {
             return
         } else if (menu === 2005) { // Workspace
             if (item === 1) {
-                _routeOrWarn("workspace.presentview", { "viewId": "1" }, "global-menu", "Workspace action failed")
+                _routeOrWarn("workspace.presentview",
+                             _withMenuMeta({ "viewId": "1" }, menu, item),
+                             "global-menu",
+                             "Workspace action failed")
                 return
             }
             if (item === 2) {
-                _routeOrWarn("workspace.presentview", { "viewId": "2" }, "global-menu", "Workspace action failed")
+                _routeOrWarn("workspace.presentview",
+                             _withMenuMeta({ "viewId": "2" }, menu, item),
+                             "global-menu",
+                             "Workspace action failed")
                 return
             }
             if (item === 3) {
-                _routeOrWarn("workspace.split_left", {}, "global-menu", "Workspace split failed")
+                _routeOrWarn("workspace.split_left",
+                             _withMenuMeta({}, menu, item),
+                             "global-menu",
+                             "Workspace split failed")
                 return
             }
             if (item === 4) {
-                _routeOrWarn("workspace.split_right", {}, "global-menu", "Workspace split failed")
+                _routeOrWarn("workspace.split_right",
+                             _withMenuMeta({}, menu, item),
+                             "global-menu",
+                             "Workspace split failed")
                 return
             }
             if (item === 5) {
-                _routeOrWarn("workspace.pin_current", {}, "global-menu", "Workspace pin failed")
+                _routeOrWarn("workspace.pin_current",
+                             _withMenuMeta({}, menu, item),
+                             "global-menu",
+                             "Workspace pin failed")
                 return
             }
             return
@@ -339,7 +367,7 @@ QtObject {
             }
             if (item === 1 && deviceTarget.length > 0) {
                 var mountRes = _routeOrWarn("storage.mount",
-                                            { "devicePath": deviceTarget },
+                                            _withMenuMeta({ "devicePath": deviceTarget }, menu, item),
                                             "global-menu",
                                             "Storage mount failed")
                 if (mountRes && mountRes.ok) {
@@ -357,7 +385,7 @@ QtObject {
             }
             if (item === 2 && deviceTarget.length > 0) {
                 var unmountRes = _routeOrWarn("storage.unmount",
-                                              { "devicePath": deviceTarget },
+                                              _withMenuMeta({ "devicePath": deviceTarget }, menu, item),
                                               "global-menu",
                                               "Storage unmount failed")
                 if (unmountRes && unmountRes.ok) {
