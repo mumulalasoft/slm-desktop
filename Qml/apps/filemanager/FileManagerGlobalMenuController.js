@@ -62,7 +62,9 @@ function handleMenu(shell, menuId, fileManagerContent) {
         return
     }
     if (id === 2005) { // Workspace
-        if (typeof WindowingBackend !== "undefined" && WindowingBackend && WindowingBackend.sendCommand) {
+        if (typeof AppCommandRouter !== "undefined" && AppCommandRouter && AppCommandRouter.route) {
+            AppCommandRouter.route("workspace.toggle", {}, "filemanager-global-menu")
+        } else if (typeof WindowingBackend !== "undefined" && WindowingBackend && WindowingBackend.sendCommand) {
             WindowingBackend.sendCommand("workspace toggle")
         }
         return

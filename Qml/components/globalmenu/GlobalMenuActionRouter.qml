@@ -11,11 +11,53 @@ QtObject {
     signal requestFocusTothespot()
     signal requestHelpMessage(string message)
 
+    function _route(action, payload, source) {
+        if (typeof AppCommandRouter === "undefined" || !AppCommandRouter || !AppCommandRouter.routeWithResult) {
+            return { "ok": false, "error": "router-unavailable" }
+        }
+        return AppCommandRouter.routeWithResult(String(action || ""),
+                                                payload ? payload : ({}),
+                                                String(source || "global-menu"))
+    }
+
+    function _resolveStorageDeviceTarget() {
+        if (!fileManagerContent) {
+            return ""
+        }
+        var contextDevice = String(fileManagerContent.sidebarContextDevice || "").trim()
+        if (contextDevice.length > 0) {
+            return contextDevice
+        }
+        var currentPath = (fileManagerContent.fileModel && fileManagerContent.fileModel.currentPath)
+                ? String(fileManagerContent.fileModel.currentPath) : ""
+        if (currentPath.indexOf("__mount__:") === 0) {
+            return decodeURIComponent(currentPath.slice(10))
+        }
+        if (currentPath.indexOf("/dev/") === 0) {
+            return currentPath
+        }
+        if (fileManagerContent.fileManagerApiRef && fileManagerContent.fileManagerApiRef.storageLocations) {
+            var rows = fileManagerContent.fileManagerApiRef.storageLocations() || []
+            for (var i = 0; i < rows.length; ++i) {
+                var row = rows[i] || ({})
+                var rowPath = String(row.path || row.rootPath || "").trim()
+                var rowDevice = String(row.device || "").trim()
+                if (rowDevice.length <= 0) {
+                    continue
+                }
+                if (rowPath.length > 0 && rowPath === currentPath) {
+                    return rowDevice
+                }
+            }
+        }
+        return ""
+    }
+
     function handleMenuItem(menuId, itemId, label, context) {
         var menu = Number(menuId || 0)
         var item = Number(itemId || 0)
         var ctx = String(context || "")
-        if (ctx !== "slm-dbus-menu") {
+        if (ctx.length <= 0) {
             return
         }
 
@@ -109,24 +151,24 @@ QtObject {
             }
             return
         } else if (menu === 2005) { // Workspace
-            if (item === 1 && WorkspaceManager && WorkspaceManager.PresentView) {
-                WorkspaceManager.PresentView("1")
+            if (item === 1) {
+                _route("workspace.presentview", { "viewId": "1" }, "global-menu")
                 return
             }
-            if (item === 2 && WorkspaceManager && WorkspaceManager.PresentView) {
-                WorkspaceManager.PresentView("2")
+            if (item === 2) {
+                _route("workspace.presentview", { "viewId": "2" }, "global-menu")
                 return
             }
-            if (item === 3 && WindowingBackend && WindowingBackend.sendCommand) {
-                WindowingBackend.sendCommand("workspace split-left")
+            if (item === 3) {
+                _route("workspace.split_left", {}, "global-menu")
                 return
             }
-            if (item === 4 && WindowingBackend && WindowingBackend.sendCommand) {
-                WindowingBackend.sendCommand("workspace split-right")
+            if (item === 4) {
+                _route("workspace.split_right", {}, "global-menu")
                 return
             }
-            if (item === 5 && WindowingBackend && WindowingBackend.sendCommand) {
-                WindowingBackend.sendCommand("workspace pin-current")
+            if (item === 5) {
+                _route("workspace.pin_current", {}, "global-menu")
                 return
             }
             return
@@ -162,12 +204,29 @@ QtObject {
             if (!fileManagerContent) {
                 return
             }
-            if (item === 1 && fileManagerContent.mountSelectedStorage) {
-                fileManagerContent.mountSelectedStorage()
+            var deviceTarget = _resolveStorageDeviceTarget()
+            if (item === 1 && deviceTarget.length > 0) {
+                var mountRes = _route("storage.mount",
+                                      { "devicePath": deviceTarget },
+                                      "global-menu")
+                if ((!mountRes || !mountRes.ok)
+                        && fileManagerContent.openStorageVolumeChoice) {
+                    fileManagerContent.openStorageVolumeChoice({
+                                                                   "device": deviceTarget,
+                                                                   "mounted": false
+                                                               })
+                }
                 return
             }
-            if (item === 2 && fileManagerContent.unmountSelectedStorage) {
-                fileManagerContent.unmountSelectedStorage()
+            if (item === 2 && deviceTarget.length > 0) {
+                var unmountRes = _route("storage.unmount",
+                                        { "devicePath": deviceTarget },
+                                        "global-menu")
+                if ((!unmountRes || !unmountRes.ok)
+                        && fileManagerContent.fileManagerApiRef
+                        && fileManagerContent.fileManagerApiRef.startUnmountStorageDevice) {
+                    fileManagerContent.fileManagerApiRef.startUnmountStorageDevice(deviceTarget)
+                }
                 return
             }
         } else if (menu === 2006) { // Help

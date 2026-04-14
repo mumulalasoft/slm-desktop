@@ -5,6 +5,8 @@
 
 #include "../src/core/execution/appcommandrouter.h"
 #include "../src/core/execution/appexecutiongate.h"
+#include "../src/core/workspace/workspacemanager.h"
+#include "../src/core/workspace/windowingbackendmanager.h"
 
 // Stub methods required by appcommandrouter.cpp link-time references.
 bool AppExecutionGate::launchDesktopEntry(const QString &, const QString &, const QString &,
@@ -33,6 +35,20 @@ bool AppExecutionGate::launchFromTerminal(const QString &, const QString &)
     return false;
 }
 
+bool WorkspaceManager::PresentView(const QString &)
+{
+    return false;
+}
+
+void WorkspaceManager::ToggleWorkspace()
+{
+}
+
+bool WindowingBackendManager::sendCommand(const QString &)
+{
+    return false;
+}
+
 class AppCommandRouterTest : public QObject {
     Q_OBJECT
 
@@ -46,6 +62,13 @@ private slots:
         QVERIFY(actions.contains(QStringLiteral("app.desktopid")));
         QVERIFY(actions.contains(QStringLiteral("app.entry")));
         QVERIFY(actions.contains(QStringLiteral("app.desktopentry")));
+        QVERIFY(actions.contains(QStringLiteral("workspace.presentview")));
+        QVERIFY(actions.contains(QStringLiteral("workspace.toggle")));
+        QVERIFY(actions.contains(QStringLiteral("workspace.split_left")));
+        QVERIFY(actions.contains(QStringLiteral("workspace.split_right")));
+        QVERIFY(actions.contains(QStringLiteral("workspace.pin_current")));
+        QVERIFY(actions.contains(QStringLiteral("storage.mount")));
+        QVERIFY(actions.contains(QStringLiteral("storage.unmount")));
         QVERIFY(router.isSupportedAction(QStringLiteral("APP.ENTRY")));
         QVERIFY(!router.isSupportedAction(QStringLiteral("app.unknown")));
     }
@@ -107,6 +130,26 @@ private slots:
         const QVariantMap sigMissing = detailedSpy.takeFirst().at(0).toMap();
         QCOMPARE(sigMissing.value(QStringLiteral("error")).toString(), QStringLiteral("missing-target"));
         QCOMPARE(router.lastError(), QStringLiteral("missing-target"));
+
+        const QVariantMap missingView = router.routeWithResult(QStringLiteral("workspace.presentview"),
+                                                               QVariantMap{},
+                                                               QStringLiteral("x"));
+        QCOMPARE(missingView.value(QStringLiteral("ok")).toBool(), false);
+        QCOMPARE(missingView.value(QStringLiteral("error")).toString(), QStringLiteral("missing-viewid"));
+        QCOMPARE(detailedSpy.count(), 1);
+        const QVariantMap sigMissingView = detailedSpy.takeFirst().at(0).toMap();
+        QCOMPARE(sigMissingView.value(QStringLiteral("error")).toString(), QStringLiteral("missing-viewid"));
+        QCOMPARE(router.lastError(), QStringLiteral("missing-viewid"));
+
+        const QVariantMap missingDevice = router.routeWithResult(QStringLiteral("storage.mount"),
+                                                                 QVariantMap{},
+                                                                 QStringLiteral("x"));
+        QCOMPARE(missingDevice.value(QStringLiteral("ok")).toBool(), false);
+        QCOMPARE(missingDevice.value(QStringLiteral("error")).toString(), QStringLiteral("missing-device-path"));
+        QCOMPARE(detailedSpy.count(), 1);
+        const QVariantMap sigMissingDevice = detailedSpy.takeFirst().at(0).toMap();
+        QCOMPARE(sigMissingDevice.value(QStringLiteral("error")).toString(), QStringLiteral("missing-device-path"));
+        QCOMPARE(router.lastError(), QStringLiteral("missing-device-path"));
     }
 
     void diagnosticSnapshot_hasCoreFields()

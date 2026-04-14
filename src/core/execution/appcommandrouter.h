@@ -8,6 +8,8 @@
 
 class AppExecutionGate;
 class ScreenshotManager;
+class WorkspaceManager;
+class WindowingBackendManager;
 
 class AppCommandRouter : public QObject {
     Q_OBJECT
@@ -19,6 +21,8 @@ public:
     explicit AppCommandRouter(AppExecutionGate *gate,
                               ScreenshotManager *screenshotManager = nullptr,
                               QObject *desktopSettings = nullptr,
+                              WorkspaceManager *workspaceManager = nullptr,
+                              WindowingBackendManager *windowingBackend = nullptr,
                               QObject *parent = nullptr);
 
     Q_INVOKABLE bool route(const QString &action, const QVariantMap &payload = QVariantMap(),
@@ -65,5 +69,7 @@ private:
     AppExecutionGate *m_gate = nullptr;
     QObject *m_desktopSettings = nullptr;
     ScreenshotManager *m_screenshotManager = nullptr;
+    WorkspaceManager *m_workspaceManager = nullptr;
+    WindowingBackendManager *m_windowingBackend = nullptr;
     QVector<RouterEvent> m_recentEvents;
 };

@@ -489,7 +489,8 @@ int main(int argc, char *argv[])
     AppCommandRouter appCommandRouter(&appExecutionGate,
                                       &screenshotManager,
                                       &desktopSettings,
-                                      &workspaceManager);
+                                      &workspaceManager,
+                                      &windowingBackendManager);
     const QString envBackend = qEnvironmentVariable("DS_WINDOWING_BACKEND").trimmed();
     const QString prefBackend = desktopSettings.settingValue(QStringLiteral("windowing.backend"),
                                                              QStringLiteral("kwin-wayland")).toString();

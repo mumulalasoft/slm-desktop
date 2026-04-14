@@ -178,8 +178,8 @@ Row {
     function _activateFallback(menuId, itemId) {
         var m = Number(menuId || -1)
         var i = Number(itemId || -1)
-        if (m === 9001 && i === 1 && WindowingBackend && WindowingBackend.sendCommand) {
-            WindowingBackend.sendCommand("workspace toggle")
+        if (m === 9001 && i === 1 && AppCommandRouter && AppCommandRouter.route) {
+            AppCommandRouter.route("workspace.toggle", {}, "global-menu-fallback")
             return
         }
         if (m === 9001 && i === 2 && SessionStateClient && SessionStateClient.lock) {
@@ -208,8 +208,8 @@ Row {
             AppCommandRouter.route("filemanager.open", { "target": "~" }, "global-menu-fallback")
             return
         }
-        if (m === 9103 && i === 1 && WindowingBackend && WindowingBackend.sendCommand) {
-            WindowingBackend.sendCommand("workspace toggle")
+        if (m === 9103 && i === 1 && AppCommandRouter && AppCommandRouter.route) {
+            AppCommandRouter.route("workspace.toggle", {}, "global-menu-fallback")
             return
         }
     }

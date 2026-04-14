@@ -1,20 +1,28 @@
 #include "appcommandrouter.h"
 
 #include "appexecutiongate.h"
+#include "../workspace/workspacemanager.h"
+#include "../workspace/windowingbackendmanager.h"
 #include "../../../screenshotmanager.h"
 
 #include <QDebug>
+#include <QDBusInterface>
+#include <QDBusReply>
 #include <QJsonDocument>
 #include <QJsonObject>
 
 AppCommandRouter::AppCommandRouter(AppExecutionGate *gate,
                                    ScreenshotManager *screenshotManager,
                                    QObject *desktopSettings,
+                                   WorkspaceManager *workspaceManager,
+                                   WindowingBackendManager *windowingBackend,
                                    QObject *parent)
     : QObject(parent)
     , m_gate(gate)
     , m_desktopSettings(desktopSettings)
     , m_screenshotManager(screenshotManager)
+    , m_workspaceManager(workspaceManager)
+    , m_windowingBackend(windowingBackend)
 {
 }
 
@@ -26,6 +34,13 @@ QStringList AppCommandRouter::supportedActions() const
         QStringLiteral("app.desktopid"),
         QStringLiteral("app.entry"),
         QStringLiteral("app.desktopentry"),
+        QStringLiteral("workspace.presentview"),
+        QStringLiteral("workspace.toggle"),
+        QStringLiteral("workspace.split_left"),
+        QStringLiteral("workspace.split_right"),
+        QStringLiteral("workspace.pin_current"),
+        QStringLiteral("storage.mount"),
+        QStringLiteral("storage.unmount"),
         QStringLiteral("screenshot.fullscreen"),
         QStringLiteral("screenshot.window"),
         QStringLiteral("screenshot.area"),
@@ -87,6 +102,16 @@ QVariantMap AppCommandRouter::routeWithResult(const QString &action, const QVari
         if (desktopFile.isEmpty() && executable.isEmpty()) {
             detail = QStringLiteral("missing-desktopfile-and-executable");
         }
+    } else if (op == QStringLiteral("workspace.presentview")) {
+        const QString viewId = payload.value(QStringLiteral("viewId")).toString().trimmed();
+        if (viewId.isEmpty()) {
+            detail = QStringLiteral("missing-viewid");
+        }
+    } else if (op == QStringLiteral("storage.mount") || op == QStringLiteral("storage.unmount")) {
+        const QString devicePath = payload.value(QStringLiteral("devicePath")).toString().trimmed();
+        if (devicePath.isEmpty()) {
+            detail = QStringLiteral("missing-device-path");
+        }
     } else if (op == QStringLiteral("screenshot.window")) {
         const int width = payload.value(QStringLiteral("width")).toInt();
         const int height = payload.value(QStringLiteral("height")).toInt();
@@ -131,7 +156,14 @@ QVariantMap AppCommandRouter::routeWithResult(const QString &action, const QVari
     if (!m_gate &&
         op != QStringLiteral("screenshot.fullscreen") &&
         op != QStringLiteral("screenshot.window") &&
-        op != QStringLiteral("screenshot.area")) {
+        op != QStringLiteral("screenshot.area") &&
+        op != QStringLiteral("workspace.presentview") &&
+        op != QStringLiteral("workspace.toggle") &&
+        op != QStringLiteral("workspace.split_left") &&
+        op != QStringLiteral("workspace.split_right") &&
+        op != QStringLiteral("workspace.pin_current") &&
+        op != QStringLiteral("storage.mount") &&
+        op != QStringLiteral("storage.unmount")) {
         recordEvent(op, source, false, QStringLiteral("gate-unavailable"));
         emit routed(op, source, false);
         result.insert(QStringLiteral("error"), QStringLiteral("gate-unavailable"));
@@ -156,6 +188,73 @@ QVariantMap AppCommandRouter::routeWithResult(const QString &action, const QVari
                                         payload.value(QStringLiteral("iconName")).toString(),
                                         payload.value(QStringLiteral("iconSource")).toString(),
                                         source);
+    } else if (op == QStringLiteral("workspace.presentview")) {
+        if (m_workspaceManager && m_workspaceManager->PresentView(
+                    payload.value(QStringLiteral("viewId")).toString().trimmed())) {
+            ok = true;
+        } else {
+            detail = QStringLiteral("workspace-manager-unavailable");
+        }
+    } else if (op == QStringLiteral("workspace.toggle")) {
+        if (m_workspaceManager) {
+            m_workspaceManager->ToggleWorkspace();
+            ok = true;
+        } else if (m_windowingBackend) {
+            ok = m_windowingBackend->sendCommand(QStringLiteral("workspace toggle"))
+                 || m_windowingBackend->sendCommand(QStringLiteral("overview toggle"));
+            if (!ok) {
+                detail = QStringLiteral("workspace-command-failed");
+            }
+        } else {
+            detail = QStringLiteral("workspace-manager-unavailable");
+        }
+    } else if (op == QStringLiteral("workspace.split_left")
+               || op == QStringLiteral("workspace.split_right")
+               || op == QStringLiteral("workspace.pin_current")) {
+        if (!m_windowingBackend) {
+            detail = QStringLiteral("windowing-backend-unavailable");
+        } else {
+            QString command;
+            if (op == QStringLiteral("workspace.split_left")) {
+                command = QStringLiteral("workspace split-left");
+            } else if (op == QStringLiteral("workspace.split_right")) {
+                command = QStringLiteral("workspace split-right");
+            } else {
+                command = QStringLiteral("workspace pin-current");
+            }
+            ok = m_windowingBackend->sendCommand(command);
+            if (!ok) {
+                detail = QStringLiteral("workspace-command-failed");
+            }
+        }
+    } else if (op == QStringLiteral("storage.mount")
+               || op == QStringLiteral("storage.unmount")) {
+        static const QString service = QStringLiteral("org.slm.Desktop.Storage");
+        static const QString path = QStringLiteral("/org/slm/Desktop/Storage");
+        static const QString ifaceName = QStringLiteral("org.slm.Desktop.Storage");
+        QDBusInterface storageIface(service, path, ifaceName, QDBusConnection::sessionBus());
+        if (!storageIface.isValid()) {
+            detail = QStringLiteral("storage-service-unavailable");
+        } else {
+            const QString dev = payload.value(QStringLiteral("devicePath")).toString().trimmed();
+            const QString method = (op == QStringLiteral("storage.mount"))
+                                       ? QStringLiteral("Mount")
+                                       : QStringLiteral("Eject");
+            QDBusReply<QVariantMap> reply = storageIface.call(method, dev);
+            if (!reply.isValid()) {
+                detail = QStringLiteral("storage-dbus-error");
+            } else {
+                const QVariantMap map = reply.value();
+                ok = map.value(QStringLiteral("ok")).toBool();
+                if (!ok) {
+                    detail = map.value(QStringLiteral("error")).toString().trimmed();
+                    if (detail.isEmpty()) {
+                        detail = QStringLiteral("storage-action-failed");
+                    }
+                }
+                result.insert(QStringLiteral("payload"), map);
+            }
+        }
     } else if (op == QStringLiteral("screenshot.fullscreen")) {
         const QVariantMap shot = m_screenshotManager->captureFullscreen(
             payload.value(QStringLiteral("outputPath")).toString());
