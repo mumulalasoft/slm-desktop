@@ -116,9 +116,11 @@ private slots:
         QCOMPARE(unknown.value(QStringLiteral("ok")).toBool(), false);
         QCOMPARE(unknown.value(QStringLiteral("error")).toString(), QStringLiteral("unknown-action"));
         QCOMPARE(unknown.value(QStringLiteral("action")).toString(), QStringLiteral("app.unknown"));
+        QVERIFY(unknown.contains(QStringLiteral("durationMs")));
         QCOMPARE(detailedSpy.count(), 1);
         const QVariantMap sigUnknown = detailedSpy.takeFirst().at(0).toMap();
         QCOMPARE(sigUnknown.value(QStringLiteral("error")).toString(), QStringLiteral("unknown-action"));
+        QVERIFY(sigUnknown.contains(QStringLiteral("durationMs")));
         QCOMPARE(router.lastError(), QStringLiteral("unknown-action"));
 
         const QVariantMap missing = router.routeWithResult(QStringLiteral("filemanager.open"),

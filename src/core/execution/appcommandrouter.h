@@ -55,7 +55,8 @@ signals:
 
 private:
     void recordEvent(const QString &action, const QString &source, bool success,
-                     const QString &detail = QString());
+                     const QString &detail = QString(),
+                     qint64 durationMs = 0);
     bool verboseLoggingEnabled() const;
 
     struct RouterEvent {
@@ -64,6 +65,7 @@ private:
         bool success = false;
         QString detail;
         qint64 epochMs = 0;
+        qint64 durationMs = 0;
     };
 
     AppExecutionGate *m_gate = nullptr;

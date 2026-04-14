@@ -20,6 +20,16 @@ QtObject {
                                                 String(source || "global-menu"))
     }
 
+    function _routeOrWarn(action, payload, source, hint) {
+        var res = _route(action, payload, source)
+        if (!res || !res.ok) {
+            var err = String((res && res.error) ? res.error : "action-failed")
+            var label = String(hint || "Global Menu action failed")
+            requestHelpMessage(label + ": " + err)
+        }
+        return res
+    }
+
     function _resolveStorageDeviceTarget() {
         if (!fileManagerContent) {
             return ""
@@ -152,23 +162,23 @@ QtObject {
             return
         } else if (menu === 2005) { // Workspace
             if (item === 1) {
-                _route("workspace.presentview", { "viewId": "1" }, "global-menu")
+                _routeOrWarn("workspace.presentview", { "viewId": "1" }, "global-menu", "Workspace action failed")
                 return
             }
             if (item === 2) {
-                _route("workspace.presentview", { "viewId": "2" }, "global-menu")
+                _routeOrWarn("workspace.presentview", { "viewId": "2" }, "global-menu", "Workspace action failed")
                 return
             }
             if (item === 3) {
-                _route("workspace.split_left", {}, "global-menu")
+                _routeOrWarn("workspace.split_left", {}, "global-menu", "Workspace split failed")
                 return
             }
             if (item === 4) {
-                _route("workspace.split_right", {}, "global-menu")
+                _routeOrWarn("workspace.split_right", {}, "global-menu", "Workspace split failed")
                 return
             }
             if (item === 5) {
-                _route("workspace.pin_current", {}, "global-menu")
+                _routeOrWarn("workspace.pin_current", {}, "global-menu", "Workspace pin failed")
                 return
             }
             return
@@ -206,9 +216,10 @@ QtObject {
             }
             var deviceTarget = _resolveStorageDeviceTarget()
             if (item === 1 && deviceTarget.length > 0) {
-                var mountRes = _route("storage.mount",
-                                      { "devicePath": deviceTarget },
-                                      "global-menu")
+                var mountRes = _routeOrWarn("storage.mount",
+                                            { "devicePath": deviceTarget },
+                                            "global-menu",
+                                            "Storage mount failed")
                 if ((!mountRes || !mountRes.ok)
                         && fileManagerContent.openStorageVolumeChoice) {
                     fileManagerContent.openStorageVolumeChoice({
@@ -219,9 +230,10 @@ QtObject {
                 return
             }
             if (item === 2 && deviceTarget.length > 0) {
-                var unmountRes = _route("storage.unmount",
-                                        { "devicePath": deviceTarget },
-                                        "global-menu")
+                var unmountRes = _routeOrWarn("storage.unmount",
+                                              { "devicePath": deviceTarget },
+                                              "global-menu",
+                                              "Storage unmount failed")
                 if ((!unmountRes || !unmountRes.ok)
                         && fileManagerContent.fileManagerApiRef
                         && fileManagerContent.fileManagerApiRef.startUnmountStorageDevice) {

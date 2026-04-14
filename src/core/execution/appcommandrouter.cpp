@@ -8,8 +8,10 @@
 #include <QDebug>
 #include <QDBusInterface>
 #include <QDBusReply>
+#include <QElapsedTimer>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QtGlobal>
 
 AppCommandRouter::AppCommandRouter(AppExecutionGate *gate,
                                    ScreenshotManager *screenshotManager,
@@ -61,6 +63,8 @@ bool AppCommandRouter::route(const QString &action, const QVariantMap &payload, 
 QVariantMap AppCommandRouter::routeWithResult(const QString &action, const QVariantMap &payload,
                                               const QString &source)
 {
+    QElapsedTimer timer;
+    timer.start();
     QVariantMap result;
     const QString op = action.trimmed().toLower();
     result.insert(QStringLiteral("action"), op);
@@ -73,9 +77,11 @@ QVariantMap AppCommandRouter::routeWithResult(const QString &action, const QVari
             qWarning().noquote() << "AppCommandRouter.route: unknown action=" << op
                                  << "source=" << source;
         }
-        recordEvent(op, source, false, QStringLiteral("unknown-action"));
+        const qint64 durationMs = timer.elapsed();
+        recordEvent(op, source, false, QStringLiteral("unknown-action"), durationMs);
         emit routed(op, source, false);
         result.insert(QStringLiteral("error"), QStringLiteral("unknown-action"));
+        result.insert(QStringLiteral("durationMs"), durationMs);
         emit routedDetailed(result);
         return result;
     }
@@ -138,17 +144,21 @@ QVariantMap AppCommandRouter::routeWithResult(const QString &action, const QVari
                               << "ok=" << false
                               << "detail=" << detail;
         }
-        recordEvent(op, source, false, detail);
+        const qint64 durationMs = timer.elapsed();
+        recordEvent(op, source, false, detail, durationMs);
         emit routed(op, source, false);
         result.insert(QStringLiteral("error"), detail);
+        result.insert(QStringLiteral("durationMs"), durationMs);
         emit routedDetailed(result);
         return result;
     }
 
     if (op.startsWith(QStringLiteral("screenshot.")) && m_screenshotManager == nullptr) {
-        recordEvent(op, source, false, QStringLiteral("screenshot-manager-unavailable"));
+        const qint64 durationMs = timer.elapsed();
+        recordEvent(op, source, false, QStringLiteral("screenshot-manager-unavailable"), durationMs);
         emit routed(op, source, false);
         result.insert(QStringLiteral("error"), QStringLiteral("screenshot-manager-unavailable"));
+        result.insert(QStringLiteral("durationMs"), durationMs);
         emit routedDetailed(result);
         return result;
     }
@@ -164,9 +174,11 @@ QVariantMap AppCommandRouter::routeWithResult(const QString &action, const QVari
         op != QStringLiteral("workspace.pin_current") &&
         op != QStringLiteral("storage.mount") &&
         op != QStringLiteral("storage.unmount")) {
-        recordEvent(op, source, false, QStringLiteral("gate-unavailable"));
+        const qint64 durationMs = timer.elapsed();
+        recordEvent(op, source, false, QStringLiteral("gate-unavailable"), durationMs);
         emit routed(op, source, false);
         result.insert(QStringLiteral("error"), QStringLiteral("gate-unavailable"));
+        result.insert(QStringLiteral("durationMs"), durationMs);
         emit routedDetailed(result);
         return result;
     }
@@ -308,10 +320,12 @@ QVariantMap AppCommandRouter::routeWithResult(const QString &action, const QVari
                           << "ok=" << ok
                           << "detail=" << detail;
     }
-    recordEvent(op, source, ok, detail);
+    const qint64 durationMs = timer.elapsed();
+    recordEvent(op, source, ok, detail, durationMs);
     emit routed(op, source, ok);
     result.insert(QStringLiteral("ok"), ok);
     result.insert(QStringLiteral("error"), detail);
+    result.insert(QStringLiteral("durationMs"), durationMs);
     emit routedDetailed(result);
     return result;
 }
@@ -363,6 +377,7 @@ QVariantList AppCommandRouter::recentEvents() const
         row.insert(QStringLiteral("success"), e.success);
         row.insert(QStringLiteral("detail"), e.detail);
         row.insert(QStringLiteral("epochMs"), e.epochMs);
+        row.insert(QStringLiteral("durationMs"), e.durationMs);
         row.insert(QStringLiteral("isoTime"),
                    QDateTime::fromMSecsSinceEpoch(e.epochMs).toString(Qt::ISODateWithMs));
         out.push_back(row);
@@ -387,6 +402,7 @@ QVariantList AppCommandRouter::recentFailures(int maxItems) const
         row.insert(QStringLiteral("success"), e.success);
         row.insert(QStringLiteral("detail"), e.detail);
         row.insert(QStringLiteral("epochMs"), e.epochMs);
+        row.insert(QStringLiteral("durationMs"), e.durationMs);
         row.insert(QStringLiteral("isoTime"),
                    QDateTime::fromMSecsSinceEpoch(e.epochMs).toString(Qt::ISODateWithMs));
         out.push_back(row);
@@ -405,9 +421,14 @@ QVariantMap AppCommandRouter::actionStats() const
         const int total = row.value(QStringLiteral("total")).toInt() + 1;
         const int success = row.value(QStringLiteral("success")).toInt() + (e.success ? 1 : 0);
         const int failure = row.value(QStringLiteral("failure")).toInt() + (e.success ? 0 : 1);
+        const qint64 durationTotalMs = row.value(QStringLiteral("durationTotalMs")).toLongLong()
+                                       + e.durationMs;
         row.insert(QStringLiteral("total"), total);
         row.insert(QStringLiteral("success"), success);
         row.insert(QStringLiteral("failure"), failure);
+        row.insert(QStringLiteral("durationTotalMs"), durationTotalMs);
+        row.insert(QStringLiteral("durationAvgMs"),
+                   total > 0 ? (durationTotalMs / total) : 0);
         stats.insert(e.action, row);
     }
     return stats;
@@ -444,7 +465,7 @@ void AppCommandRouter::clearRecentEvents()
 }
 
 void AppCommandRouter::recordEvent(const QString &action, const QString &source, bool success,
-                                   const QString &detail)
+                                   const QString &detail, qint64 durationMs)
 {
     RouterEvent e;
     e.action = action;
@@ -452,6 +473,7 @@ void AppCommandRouter::recordEvent(const QString &action, const QString &source,
     e.success = success;
     e.detail = detail;
     e.epochMs = QDateTime::currentMSecsSinceEpoch();
+    e.durationMs = qMax<qint64>(0, durationMs);
     m_recentEvents.push_back(e);
     static constexpr int kMaxRecentEvents = 120;
     if (m_recentEvents.size() > kMaxRecentEvents) {
@@ -473,6 +495,7 @@ QVariantMap AppCommandRouter::lastEvent() const
     out.insert(QStringLiteral("success"), e.success);
     out.insert(QStringLiteral("detail"), e.detail);
     out.insert(QStringLiteral("epochMs"), e.epochMs);
+    out.insert(QStringLiteral("durationMs"), e.durationMs);
     out.insert(QStringLiteral("isoTime"),
                QDateTime::fromMSecsSinceEpoch(e.epochMs).toString(Qt::ISODateWithMs));
     return out;
