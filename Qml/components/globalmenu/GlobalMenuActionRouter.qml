@@ -20,12 +20,45 @@ QtObject {
                                                 String(source || "global-menu"))
     }
 
+    function _friendlyStorageError(errorCode) {
+        var k = String(errorCode || "").toLowerCase()
+        if (k.length <= 0) {
+            return "Operasi drive gagal."
+        }
+        if (k === "missing-device-path" || k === "mount-not-found" || k === "volume-not-available") {
+            return "Drive tidak ditemukan."
+        }
+        if (k === "storage-service-unavailable" || k === "storage-dbus-error") {
+            return "Layanan drive tidak tersedia."
+        }
+        if (k.indexOf("busy") >= 0 || k.indexOf("in-use") >= 0) {
+            return "Drive sedang digunakan."
+        }
+        if (k.indexOf("permission") >= 0 || k.indexOf("denied") >= 0) {
+            return "Akses ke drive ditolak."
+        }
+        if (k.indexOf("timeout") >= 0) {
+            return "Drive tidak merespons tepat waktu."
+        }
+        if (k.indexOf("lock") >= 0 || k.indexOf("encrypted") >= 0) {
+            return "Drive terkunci."
+        }
+        if (k.indexOf("unsupported") >= 0 || k.indexOf("unknown") >= 0) {
+            return "Drive tidak dikenali."
+        }
+        return "Operasi drive gagal."
+    }
+
     function _routeOrWarn(action, payload, source, hint) {
         var res = _route(action, payload, source)
         if (!res || !res.ok) {
             var err = String((res && res.error) ? res.error : "action-failed")
             var label = String(hint || "Global Menu action failed")
-            requestHelpMessage(label + ": " + err)
+            if (String(action || "").indexOf("storage.") === 0) {
+                requestHelpMessage(_friendlyStorageError(err))
+            } else {
+                requestHelpMessage(label + ": " + err)
+            }
         }
         return res
     }
@@ -319,7 +352,7 @@ QtObject {
                 }
                 return
             }
-            requestHelpMessage("No storage target selected")
+            requestHelpMessage("Pilih drive di sidebar terlebih dahulu.")
         } else if (menu === 2006) { // Help
             requestHelpMessage("SLM Desktop Help: use top bar menu and shortcuts.")
             return
