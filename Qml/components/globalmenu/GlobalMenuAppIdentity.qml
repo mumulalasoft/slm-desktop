@@ -17,6 +17,18 @@ Item {
     signal requestPermissions()
     signal requestRestartApp()
     signal requestQuitApp()
+    signal identityMenuOpened()
+
+    // Set true from parent when a category menu is open — closes this dropdown.
+    property bool menuGroupActive: false
+    onMenuGroupActiveChanged: { if (menuGroupActive && identityDropdown.visible) identityDropdown.close() }
+
+    function openMenu() {
+        if (!identityDropdown.visible) {
+            identityDropdown.open()
+            identityMenuOpened()
+        }
+    }
 
     // ── resolved app info ─────────────────────────────────────────────────────
     readonly property string _appId: {
@@ -104,7 +116,14 @@ Item {
     }
 
     TapHandler {
-        onTapped: identityDropdown.visible ? identityDropdown.close() : identityDropdown.open()
+        onTapped: {
+            if (identityDropdown.visible) {
+                identityDropdown.close()
+            } else {
+                identityDropdown.open()
+                root.identityMenuOpened()
+            }
+        }
     }
 
     // ── dropdown ───────────────────────────────────────────────────────────────

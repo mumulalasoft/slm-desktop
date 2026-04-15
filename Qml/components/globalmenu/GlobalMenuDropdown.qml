@@ -107,7 +107,9 @@ Popup {
 
         Column {
             id: contentColumn
-            width: root.width
+            // Use parent.width (contentItem), not root.width, to avoid a direct
+            // cross-component binding that triggers a QQuickItem::polish() loop.
+            width: parent.width
             topPadding: Theme.metric("spacingSm")
             bottomPadding: Theme.metric("spacingSm")
 
@@ -117,7 +119,7 @@ Popup {
                 delegate: Loader {
                     required property var modelData
                     required property int index
-                    width: root.width
+                    width: parent.width
 
                     sourceComponent: (modelData && modelData.separator) ? sepComp : itemComp
 
@@ -140,6 +142,14 @@ Popup {
                             id: itemRow
                             width: parent ? parent.width : 0
                             implicitHeight: Theme.metric("controlHeightCompact")
+                            implicitWidth: {
+                                var lp = Theme.metric("spacingMd") + 14 + Theme.metric("spacingXs")
+                                var rp = Theme.metric("spacingMd")
+                                var iw = itemIcon.visible ? (itemIcon.width + Theme.metric("spacingXs")) : 0
+                                var sw = shortcutLabel.text.length > 0
+                                         ? (Theme.metric("spacingMd") + shortcutLabel.implicitWidth) : 0
+                                return Math.max(160, lp + iw + labelText.implicitWidth + sw + rp)
+                            }
 
                         readonly property bool isFocused: root._focusedIndex === index
                         readonly property bool isEnabled: modelData ? modelData.enabled !== false : false
@@ -183,6 +193,7 @@ Popup {
 
                         // Label
                         Text {
+                            id: labelText
                             anchors.left: itemIcon.visible ? itemIcon.right : checkMark.right
                             anchors.leftMargin: Theme.metric("spacingXs")
                             anchors.right: shortcutLabel.left

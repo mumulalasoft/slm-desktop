@@ -40,35 +40,16 @@ Item {
         }
     }
 
-    // ── underline ────────────────────────────────────────────────────────────
+    // ── pill highlight ────────────────────────────────────────────────────────
     Rectangle {
-        id: underline
-        anchors.bottom: parent.bottom
-        anchors.bottomMargin: 2
-        anchors.horizontalCenter: parent.horizontalCenter
-
-        height: root.active ? 2 : 1
-        width: root.active
-               ? label.width + Theme.metric("spacingSm")
-               : (hoverHandler.hovered ? label.width : 0)
-
-        radius: Theme.radiusHairline
-        color: root.active
-               ? Theme.color("accent")
-               : Theme.color("textOnGlass")
-        opacity: root.active ? 1.0 : (hoverHandler.hovered ? 0.55 : 0)
-
-        Behavior on width {
-            NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingDecelerate }
-        }
-        Behavior on height {
-            NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault }
-        }
+        anchors.fill: parent
+        anchors.topMargin: 3
+        anchors.bottomMargin: 3
+        radius: Theme.radiusSm
+        color: Theme.color("accentSoft")
+        opacity: root.active ? 1.0 : (hoverHandler.hovered ? 0.65 : 0)
         Behavior on opacity {
             NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault }
-        }
-        Behavior on color {
-            ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault }
         }
     }
 
