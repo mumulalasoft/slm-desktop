@@ -6,6 +6,10 @@ import "../globalmenu" as GlobalMenuComp
 Row {
     id: root
     spacing: 4
+    // In focus mode, keep a small hover target so the menu can be revealed.
+    readonly property int _focusRevealHitWidth: Math.max(20, Theme.metric("spacingXl") * 2)
+    width: _menuVisible ? implicitWidth : _focusRevealHitWidth
+    height: (implicitHeight > 0) ? implicitHeight : (parent ? parent.height : Theme.metric("topBarHeight"))
     property var fileManagerContent: null
     property bool _focusReveal: false
     readonly property string _adaptiveMode: (typeof GlobalMenuAdaptiveController !== "undefined"
@@ -17,6 +21,11 @@ Row {
                                             && GlobalMenuManager.activeAppId)
                                            ? String(GlobalMenuManager.activeAppId) : ""
     readonly property bool _hasActiveApp: _activeAppId.length > 0
+    // Keep system fallback menu visible when desktop/shell has focus.
+    // Focus mode is only meaningful when a real app is active.
+    readonly property string _effectiveAdaptiveMode: (_adaptiveMode === "focus" && !_hasActiveApp)
+                                                     ? "full"
+                                                     : _adaptiveMode
     readonly property bool _resumePending: (typeof GlobalMenuSuspendBridge !== "undefined"
                                             && GlobalMenuSuspendBridge
                                             && GlobalMenuSuspendBridge.resumePending)
@@ -72,7 +81,7 @@ Row {
 
     function _effectiveMenus() {
         var menus = _rawMenus()
-        if (_adaptiveMode === "compact") {
+        if (_effectiveAdaptiveMode === "compact") {
             var keep = []
             var haveFile = false
             var haveEdit = false
@@ -261,7 +270,7 @@ Row {
         sequence: "Meta+Alt+M"
         context: Qt.ApplicationShortcut
         onActivated: {
-            if (root._adaptiveMode !== "focus") {
+            if (root._effectiveAdaptiveMode !== "focus") {
                 return
             }
             root._focusReveal = !root._focusReveal
@@ -276,7 +285,7 @@ Row {
     HoverHandler {
         id: revealHover
         onHoveredChanged: {
-            if (root._adaptiveMode !== "focus") {
+            if (root._effectiveAdaptiveMode !== "focus") {
                 return
             }
             root._focusReveal = hovered
@@ -288,13 +297,13 @@ Row {
         }
     }
 
-    readonly property bool _menuVisible: _adaptiveMode !== "focus" || _focusReveal || _resumePending
+    readonly property bool _menuVisible: _effectiveAdaptiveMode !== "focus" || _focusReveal || _resumePending
 
     Connections {
         target: (typeof GlobalMenuSuspendBridge !== "undefined") ? GlobalMenuSuspendBridge : null
         ignoreUnknownSignals: true
         function onResumePendingChanged() {
-            if (root._adaptiveMode === "focus" && root._resumePending) {
+            if (root._effectiveAdaptiveMode === "focus" && root._resumePending) {
                 root._focusReveal = true
                 focusHideTimer.restart()
             }

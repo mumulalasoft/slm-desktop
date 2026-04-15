@@ -304,8 +304,7 @@ void StorageAttachNotifier::refreshSnapshot(bool notifyOnAttach)
             if (lastMs > 0 && (nowMs - lastMs) < m_attachCooldownMs) {
                 continue;
             }
-            const QStringList actions{QStringLiteral("open"), QStringLiteral("Open"),
-                                      QStringLiteral("eject"), QStringLiteral("Eject")};
+            const QStringList actions{QStringLiteral("open"), QStringLiteral("Open"), QStringLiteral("eject"), QStringLiteral("Eject")};
             uint id = 0;
             const bool invoked = QMetaObject::invokeMethod(
                 m_notificationManager,

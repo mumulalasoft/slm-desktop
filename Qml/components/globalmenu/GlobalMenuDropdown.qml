@@ -23,7 +23,7 @@ Popup {
 
     padding: 0
     modal: false
-    focus: false
+    focus: true
     dim: false
     closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
 
@@ -50,22 +50,6 @@ Popup {
     // ── keyboard navigation ───────────────────────────────────────────────────
     property int _focusedIndex: -1
 
-    Keys.onPressed: function(event) {
-        if (event.key === Qt.Key_Down) {
-            _moveFocus(1)
-            event.accepted = true
-        } else if (event.key === Qt.Key_Up) {
-            _moveFocus(-1)
-            event.accepted = true
-        } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-            _activateFocused()
-            event.accepted = true
-        } else if (event.key === Qt.Key_Escape) {
-            close()
-            event.accepted = true
-        }
-    }
-
     function _moveFocus(delta) {
         var count = root.menuItems.length
         if (count === 0) return
@@ -91,40 +75,71 @@ Popup {
         root.itemActivated(root.menuId, Number(it.id || 0))
     }
 
+    onOpened: {
+        if (keyScope) {
+            keyScope.forceActiveFocus()
+        }
+    }
+
     // ── content ───────────────────────────────────────────────────────────────
-    contentItem: Column {
-        id: contentColumn
-        topPadding: Theme.metric("spacingSm")
-        bottomPadding: Theme.metric("spacingSm")
+    contentItem: Item {
+        id: keyScope
+        focus: true
 
-        Repeater {
-            model: root.menuItems
+        Keys.onPressed: function(event) {
+            if (event.key === Qt.Key_Down) {
+                _moveFocus(1)
+                event.accepted = true
+            } else if (event.key === Qt.Key_Up) {
+                _moveFocus(-1)
+                event.accepted = true
+            } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+                _activateFocused()
+                event.accepted = true
+            } else if (event.key === Qt.Key_Escape) {
+                close()
+                event.accepted = true
+            }
+        }
 
-            delegate: Loader {
-                required property var modelData
-                required property int index
-                width: root.width
+        implicitWidth: contentColumn.implicitWidth
+        implicitHeight: contentColumn.implicitHeight
 
-                sourceComponent: (modelData && modelData.separator) ? sepComp : itemComp
+        Column {
+            id: contentColumn
+            width: root.width
+            topPadding: Theme.metric("spacingSm")
+            bottomPadding: Theme.metric("spacingSm")
 
-                Component {
-                    id: sepComp
-                    Rectangle {
-                        width: parent ? parent.width : 0
-                        height: 1
-                        color: Theme.color("divider")
-                        opacity: Theme.opacitySeparator
-                        leftInset: Theme.metric("spacingMd")
-                        rightInset: Theme.metric("spacingMd")
+            Repeater {
+                model: root.menuItems
+
+                delegate: Loader {
+                    required property var modelData
+                    required property int index
+                    width: root.width
+
+                    sourceComponent: (modelData && modelData.separator) ? sepComp : itemComp
+
+                    Component {
+                        id: sepComp
+                        Rectangle {
+                            anchors.left: parent ? parent.left : undefined
+                            anchors.right: parent ? parent.right : undefined
+                            anchors.leftMargin: Theme.metric("spacingMd")
+                            anchors.rightMargin: Theme.metric("spacingMd")
+                            height: 1
+                            color: Theme.color("divider")
+                            opacity: Theme.opacitySeparator
+                        }
                     }
-                }
 
-                Component {
-                    id: itemComp
-                    Item {
-                        id: itemRow
-                        width: parent ? parent.width : 0
-                        implicitHeight: Theme.metric("controlHeightCompact")
+                    Component {
+                        id: itemComp
+                        Item {
+                            id: itemRow
+                            width: parent ? parent.width : 0
+                            implicitHeight: Theme.metric("controlHeightCompact")
 
                         readonly property bool isFocused: root._focusedIndex === index
                         readonly property bool isEnabled: modelData ? modelData.enabled !== false : false
@@ -206,10 +221,11 @@ Popup {
                         }
 
                         // Update keyboard focus on hover
-                        Connections {
-                            target: hov
-                            function onHoveredChanged() {
-                                if (hov.hovered) root._focusedIndex = index
+                            Connections {
+                                target: hov
+                                function onHoveredChanged() {
+                                    if (hov.hovered) root._focusedIndex = index
+                                }
                             }
                         }
                     }
