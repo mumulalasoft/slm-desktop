@@ -19,6 +19,80 @@ constexpr const char *kFreedesktopNotificationService = "org.freedesktop.Notific
 constexpr const char *kFreedesktopNotificationPath = "/org/freedesktop/Notifications";
 constexpr const char *kDesktopNotificationService = "org.example.Desktop.Notification";
 constexpr const char *kDesktopNotificationPath = "/org/example/Desktop/Notification";
+
+QString normalizedAppIdToken(const QString &value)
+{
+    QString s = value.trimmed().toLower();
+    if (s.isEmpty()) {
+        return {};
+    }
+    if (s.contains(QLatin1Char('/'))) {
+        s = QFileInfo(s).fileName();
+    }
+    if (s.endsWith(QStringLiteral(".desktop"))) {
+        s.chop(8);
+    }
+    s.replace(QLatin1Char(' '), QLatin1Char('.'));
+    QString out;
+    out.reserve(s.size());
+    for (QChar ch : s) {
+        const bool ok = ch.isLetterOrNumber()
+                || ch == QLatin1Char('.')
+                || ch == QLatin1Char('-')
+                || ch == QLatin1Char('_');
+        if (ok) {
+            out.push_back(ch);
+        } else {
+            out.push_back(QLatin1Char('.'));
+        }
+    }
+    while (out.contains(QStringLiteral(".."))) {
+        out.replace(QStringLiteral(".."), QStringLiteral("."));
+    }
+    while (out.startsWith(QLatin1Char('.'))) {
+        out.remove(0, 1);
+    }
+    while (out.endsWith(QLatin1Char('.'))) {
+        out.chop(1);
+    }
+    return out;
+}
+
+QString displayNameFromAppId(const QString &appId)
+{
+    QString id = normalizedAppIdToken(appId);
+    if (id.isEmpty()) {
+        return QStringLiteral("Application");
+    }
+    const int dot = id.lastIndexOf(QLatin1Char('.'));
+    QString tail = (dot >= 0 && dot + 1 < id.size()) ? id.mid(dot + 1) : id;
+    if (tail.isEmpty()) {
+        tail = id;
+    }
+    tail.replace(QLatin1Char('-'), QLatin1Char(' '));
+    tail.replace(QLatin1Char('_'), QLatin1Char(' '));
+    if (!tail.isEmpty()) {
+        tail[0] = tail[0].toUpper();
+    }
+    return tail;
+}
+
+QString appIdFromNotifyPayload(const QString &appName, const QVariantMap &hints)
+{
+    const QStringList candidates = {
+        hints.value(QStringLiteral("app-id")).toString(),
+        hints.value(QStringLiteral("desktop-entry")).toString(),
+        hints.value(QStringLiteral("desktop-file")).toString(),
+        appName
+    };
+    for (const QString &candidate : candidates) {
+        const QString id = normalizedAppIdToken(candidate);
+        if (!id.isEmpty()) {
+            return id;
+        }
+    }
+    return QStringLiteral("unknown.app");
+}
 }
 
 NotificationListModel::NotificationListModel(QObject *parent)
@@ -178,9 +252,9 @@ int NotificationListModel::unreadCount() const
     return unread;
 }
 
-int NotificationListModel::unreadCountForApp(const QString &appName) const
+int NotificationListModel::unreadCountForAppId(const QString &appId) const
 {
-    const QString wanted = appName.trimmed();
+    const QString wanted = appId.trimmed();
     if (wanted.isEmpty()) {
         return 0;
     }
@@ -189,11 +263,51 @@ int NotificationListModel::unreadCountForApp(const QString &appName) const
         if (entry.read) {
             continue;
         }
-        if (entry.appName == wanted) {
+        if (entry.appId == wanted) {
             ++unread;
         }
     }
     return unread;
+}
+
+int NotificationListModel::unreadCountForGroup(const QString &groupId) const
+{
+    const QString wanted = groupId.trimmed();
+    if (wanted.isEmpty()) {
+        return 0;
+    }
+    int unread = 0;
+    for (const NotificationEntry &entry : m_items) {
+        if (entry.read) {
+            continue;
+        }
+        if (entry.groupId == wanted) {
+            ++unread;
+        }
+    }
+    return unread;
+}
+
+QString NotificationListModel::displayNameForGroup(const QString &groupId) const
+{
+    const QString wanted = groupId.trimmed();
+    if (wanted.isEmpty()) {
+        return QStringLiteral("Application");
+    }
+    for (const NotificationEntry &entry : m_items) {
+        if (entry.groupId != wanted) {
+            continue;
+        }
+        const QString name = entry.appName.trimmed();
+        if (!name.isEmpty()) {
+            return name;
+        }
+        const QString id = entry.appId.trimmed();
+        if (!id.isEmpty()) {
+            return id;
+        }
+    }
+    return wanted;
 }
 
 int NotificationListModel::countForAppId(const QString &appId, uint excludeId) const
@@ -277,9 +391,19 @@ int NotificationManager::unreadCount() const
     return m_model ? m_model->unreadCount() : 0;
 }
 
-int NotificationManager::unreadCountForApp(const QString &appName) const
+int NotificationManager::unreadCountForAppId(const QString &appId) const
 {
-    return m_model ? m_model->unreadCountForApp(appName) : 0;
+    return m_model ? m_model->unreadCountForAppId(appId) : 0;
+}
+
+int NotificationManager::unreadCountForGroup(const QString &groupId) const
+{
+    return m_model ? m_model->unreadCountForGroup(groupId) : 0;
+}
+
+QString NotificationManager::groupDisplayName(const QString &groupId) const
+{
+    return m_model ? m_model->displayNameForGroup(groupId) : QStringLiteral("Application");
 }
 
 bool NotificationManager::doNotDisturb() const
@@ -421,8 +545,11 @@ uint NotificationManager::Notify(const QString &appName,
 {
     NotificationEntry entry;
     entry.id = replacesId > 0 ? replacesId : m_nextId++;
-    entry.appName = appName.trimmed().isEmpty() ? QStringLiteral("Application") : appName.trimmed();
-    entry.appId = entry.appName;
+    entry.appId = appIdFromNotifyPayload(appName, hints);
+    const QString trimmedAppName = appName.trimmed();
+    entry.appName = trimmedAppName.isEmpty()
+            ? displayNameFromAppId(entry.appId)
+            : trimmedAppName;
     entry.appIcon = appIcon.trimmed();
     entry.summary = summary;
     entry.body = body;
@@ -453,8 +580,11 @@ uint NotificationManager::NotifyModern(const QString &appId,
 {
     NotificationEntry entry;
     entry.id = m_nextId++;
-    entry.appId = appId.trimmed().isEmpty() ? QStringLiteral("unknown.app") : appId.trimmed();
-    entry.appName = entry.appId;
+    entry.appId = normalizedAppIdToken(appId);
+    if (entry.appId.isEmpty()) {
+        entry.appId = QStringLiteral("unknown.app");
+    }
+    entry.appName = displayNameFromAppId(entry.appId);
     entry.appIcon = icon.trimmed();
     entry.summary = title;
     entry.body = body;

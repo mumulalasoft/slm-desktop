@@ -60,6 +60,10 @@ public:
     Q_INVOKABLE QVariantMap appUsage(const QString &desktopId,
                                      const QString &desktopFile,
                                      const QString &executable) const;
+    Q_INVOKABLE QString canonicalAppIdentity(const QString &desktopId,
+                                             const QString &desktopFile,
+                                             const QString &executable,
+                                             const QString &name = QString()) const;
     Q_INVOKABLE QVariantList frequentApps(int limit = 24) const;
     Q_INVOKABLE QVariantList topApps(int limit = 24) const; // compatibility alias
     Q_INVOKABLE QVariantList slmQuickActions(const QString &scope) const;

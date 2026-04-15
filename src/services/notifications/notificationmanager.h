@@ -59,7 +59,9 @@ public:
     void clear();
     int count() const;
     int unreadCount() const;
-    int unreadCountForApp(const QString &appName) const;
+    int unreadCountForAppId(const QString &appId) const;
+    int unreadCountForGroup(const QString &groupId) const;
+    QString displayNameForGroup(const QString &groupId) const;
     int countForAppId(const QString &appId, uint excludeId = 0) const;
 
 private:
@@ -112,7 +114,9 @@ public:
     Q_INVOKABLE void markAllRead();
     Q_INVOKABLE bool markRead(uint id, bool read = true);
     Q_INVOKABLE void invokeAction(uint id, const QString &actionKey = QStringLiteral("default"));
-    Q_INVOKABLE int unreadCountForApp(const QString &appName) const;
+    Q_INVOKABLE int unreadCountForAppId(const QString &appId) const;
+    Q_INVOKABLE int unreadCountForGroup(const QString &groupId) const;
+    Q_INVOKABLE QString groupDisplayName(const QString &groupId) const;
 
 public slots:
     QStringList GetCapabilities() const;

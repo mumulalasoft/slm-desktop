@@ -113,7 +113,7 @@ Item {
                 highlightMoveDuration: 140
                 highlightMoveVelocity: -1
                 highlightResizeDuration: 140
-                section.property: "appName"
+                section.property: "groupId"
                 section.criteria: ViewSection.FullString
                 onCountChanged: root.ensureCurrentIndex()
                 onModelChanged: root.ensureCurrentIndex()
@@ -141,10 +141,16 @@ Item {
                                                        ? Number(root.notificationManager.unreadCount || 0) : 0
                     readonly property int unreadInSection: {
                         var _tick = _unreadTick
-                        if (!root.notificationManager || !root.notificationManager.unreadCountForApp) {
+                        if (!root.notificationManager || !root.notificationManager.unreadCountForGroup) {
                             return 0
                         }
-                        return Number(root.notificationManager.unreadCountForApp(String(section || "")) || 0)
+                        return Number(root.notificationManager.unreadCountForGroup(String(section || "")) || 0)
+                    }
+                    readonly property string sectionTitle: {
+                        if (!root.notificationManager || !root.notificationManager.groupDisplayName) {
+                            return String(section || "")
+                        }
+                        return String(root.notificationManager.groupDisplayName(String(section || "")) || String(section || ""))
                     }
                     width: centerList.width
                     height: 28
@@ -157,7 +163,7 @@ Item {
                         anchors.verticalCenter: parent.verticalCenter
                         anchors.left: parent.left
                         anchors.leftMargin: 8
-                        text: section
+                        text: parent.sectionTitle
                         color: Theme.color("textSecondary")
                         font.family: Theme.fontFamilyUi
                         font.pixelSize: Theme.fontSize("small")

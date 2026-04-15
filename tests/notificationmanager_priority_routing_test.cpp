@@ -193,6 +193,52 @@ private slots:
         QCOMPARE(manager.latestNotification().value(QStringLiteral("id")).toUInt(), id);
     }
 
+    void freedesktopDesktopEntry_normalizesAppId_forUnreadLookup()
+    {
+        NotificationManager manager;
+        auto *all = qobject_cast<NotificationListModel *>(manager.notifications());
+        QVERIFY(all);
+
+        QVariantMap hints;
+        hints.insert(QStringLiteral("desktop-entry"), QStringLiteral("org.SLM.FileManager.desktop"));
+        const uint id = manager.Notify(QStringLiteral("Desktop File Manager"),
+                                       0,
+                                       QString(),
+                                       QStringLiteral("Mounted"),
+                                       QStringLiteral("Body"),
+                                       {},
+                                       hints,
+                                       -1);
+        QVERIFY(id > 0);
+        QCOMPARE(all->rowCount(), 1);
+        const QModelIndex idx = all->index(0, 0);
+        QVERIFY(idx.isValid());
+        QCOMPARE(all->data(idx, NotificationListModel::AppIdRole).toString(),
+                 QStringLiteral("org.slm.filemanager"));
+        QCOMPARE(manager.unreadCountForAppId(QStringLiteral("org.slm.filemanager")), 1);
+    }
+
+    void notifyModern_normalizesAppId_and_usesStableLookupKey()
+    {
+        NotificationManager manager;
+        auto *all = qobject_cast<NotificationListModel *>(manager.notifications());
+        QVERIFY(all);
+
+        const uint id = manager.NotifyModern(QStringLiteral("Org.SLM.FileManager.desktop"),
+                                             QStringLiteral("Sync"),
+                                             QStringLiteral("Body"),
+                                             QString(),
+                                             {},
+                                             QStringLiteral("normal"));
+        QVERIFY(id > 0);
+        QCOMPARE(all->rowCount(), 1);
+        const QModelIndex idx = all->index(0, 0);
+        QVERIFY(idx.isValid());
+        QCOMPARE(all->data(idx, NotificationListModel::AppIdRole).toString(),
+                 QStringLiteral("org.slm.filemanager"));
+        QCOMPARE(manager.unreadCountForAppId(QStringLiteral("org.slm.filemanager")), 1);
+    }
+
     void openingCenter_marksReadAndClearsTransientBanners()
     {
         NotificationManager manager;

@@ -7,6 +7,10 @@ Item {
     property var notificationManager: (typeof NotificationManager !== "undefined") ? NotificationManager : null
     readonly property int bannerRightMargin: 16
     readonly property int bannerTopMargin: 18
+    readonly property bool centerOpen: !!(root.notificationManager && root.notificationManager.centerVisible)
+    readonly property int bannerSurfaceWidth: Math.max(1, Math.ceil(banners.width + root.bannerRightMargin))
+    readonly property int bannerSurfaceHeight: Math.max(1, Math.ceil(banners.implicitHeight + root.bannerTopMargin))
+    readonly property bool bannerVisible: Number(banners.implicitHeight || 0) > 1
 
     function dismissBannerOnly(id) {
         if (!root.notificationManager) {

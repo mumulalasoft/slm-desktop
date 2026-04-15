@@ -505,6 +505,40 @@ QString normalizedExecKey(const QString &exec)
     return QFileInfo(firstToken).fileName().toLower();
 }
 
+QString normalizedIdentityToken(const QString &value)
+{
+    QString s = value.trimmed().toLower();
+    if (s.isEmpty()) {
+        return {};
+    }
+    if (s.contains(QLatin1Char('/'))) {
+        s = QFileInfo(s).fileName();
+    }
+    if (s.endsWith(QStringLiteral(".desktop"))) {
+        s.chop(8);
+    }
+    s.replace(QLatin1Char(' '), QLatin1Char('.'));
+    QString out;
+    out.reserve(s.size());
+    for (QChar ch : s) {
+        const bool ok = ch.isLetterOrNumber()
+                || ch == QLatin1Char('.')
+                || ch == QLatin1Char('-')
+                || ch == QLatin1Char('_');
+        out.push_back(ok ? ch : QLatin1Char('.'));
+    }
+    while (out.contains(QStringLiteral(".."))) {
+        out.replace(QStringLiteral(".."), QStringLiteral("."));
+    }
+    while (out.startsWith(QLatin1Char('.'))) {
+        out.remove(0, 1);
+    }
+    while (out.endsWith(QLatin1Char('.'))) {
+        out.chop(1);
+    }
+    return out;
+}
+
 QString launchHistoryPath()
 {
     QString base = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
@@ -1609,6 +1643,27 @@ QVariantMap DesktopAppModel::appUsage(const QString &desktopId,
                      .toString(Qt::ISODateWithMs)
                : QString());
     return out;
+}
+
+QString DesktopAppModel::canonicalAppIdentity(const QString &desktopId,
+                                              const QString &desktopFile,
+                                              const QString &executable,
+                                              const QString &name) const
+{
+    Q_UNUSED(name);
+    const QString id = normalizedIdentityToken(desktopId);
+    if (!id.isEmpty()) {
+        return id;
+    }
+    const QString desktopBase = normalizedIdentityToken(QFileInfo(desktopFile.trimmed()).fileName());
+    if (!desktopBase.isEmpty()) {
+        return desktopBase;
+    }
+    const QString execKey = normalizedIdentityToken(normalizedExecKey(executable));
+    if (!execKey.isEmpty()) {
+        return execKey;
+    }
+    return QStringLiteral("unknown.app");
 }
 
 QVariantList DesktopAppModel::frequentApps(int limit) const
