@@ -110,7 +110,11 @@ Window {
             anchors.bottom: parent.bottom
             z: 0
             enabled: root.dismissArmed
-            onClicked: desktopScene.launchpadVisible = false
+            onClicked: {
+                if (desktopScene && desktopScene.setLaunchpadVisible) {
+                    desktopScene.setLaunchpadVisible(false)
+                }
+            }
         }
 
         LaunchpadComp.Launchpad {
@@ -122,9 +126,15 @@ Window {
             topSafeInset: root.panelHeight
             revealProgress: 1.0
             bottomSafeInset: root.bottomSafeInset
-            onDismissRequested: desktopScene.launchpadVisible = false
+            onDismissRequested: {
+                if (desktopScene && desktopScene.setLaunchpadVisible) {
+                    desktopScene.setLaunchpadVisible(false)
+                }
+            }
             onAppChosen: function(appData) {
-                desktopScene.launchpadVisible = false
+                if (desktopScene && desktopScene.setLaunchpadVisible) {
+                    desktopScene.setLaunchpadVisible(false)
+                }
                 root.appChosen(appData)
             }
             onAddToDockRequested: function(appData) { root.addToDockRequested(appData) }

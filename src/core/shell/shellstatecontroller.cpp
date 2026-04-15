@@ -9,11 +9,15 @@ ShellStateController::ShellStateController(QObject *parent)
 bool ShellStateController::launchpadVisible() const        { return m_launchpadVisible; }
 bool ShellStateController::workspaceOverviewVisible() const { return m_workspaceOverviewVisible; }
 bool ShellStateController::toTheSpotVisible() const        { return m_toTheSpotVisible; }
+QString ShellStateController::searchQuery() const           { return m_searchQuery; }
 bool ShellStateController::styleGalleryVisible() const     { return m_styleGalleryVisible; }
 bool ShellStateController::showDesktop() const             { return m_showDesktop; }
 bool ShellStateController::lockScreenActive() const        { return m_lockScreenActive; }
 bool ShellStateController::notificationsVisible() const    { return m_notificationsVisible; }
 bool ShellStateController::focusMode() const               { return m_focusMode; }
+QString ShellStateController::dockHoveredItem() const      { return m_dockHoveredItem; }
+QString ShellStateController::dockExpandedItem() const     { return m_dockExpandedItem; }
+QVariantMap ShellStateController::dragSession() const       { return m_dragSession; }
 
 qreal ShellStateController::topBarOpacity() const              { return m_topBarOpacity; }
 qreal ShellStateController::dockOpacity() const                { return m_dockOpacity; }
@@ -43,7 +47,16 @@ void ShellStateController::setToTheSpotVisible(bool visible)
     if (m_toTheSpotVisible == visible) return;
     m_toTheSpotVisible = visible;
     emit toTheSpotVisibleChanged(visible);
+    emit searchVisibleChanged(visible);
     recomputeDerivedState();
+}
+
+void ShellStateController::setSearchQuery(const QString &query)
+{
+    const QString normalized = query;
+    if (m_searchQuery == normalized) return;
+    m_searchQuery = normalized;
+    emit searchQueryChanged(m_searchQuery);
 }
 
 void ShellStateController::setStyleGalleryVisible(bool visible)
@@ -83,6 +96,36 @@ void ShellStateController::setFocusMode(bool active)
     if (m_focusMode == active) return;
     m_focusMode = active;
     emit focusModeChanged(active);
+}
+
+void ShellStateController::setDockHoveredItem(const QString &itemId)
+{
+    const QString normalized = itemId;
+    if (m_dockHoveredItem == normalized) return;
+    m_dockHoveredItem = normalized;
+    emit dockHoveredItemChanged(m_dockHoveredItem);
+}
+
+void ShellStateController::setDockExpandedItem(const QString &itemId)
+{
+    const QString normalized = itemId;
+    if (m_dockExpandedItem == normalized) return;
+    m_dockExpandedItem = normalized;
+    emit dockExpandedItemChanged(m_dockExpandedItem);
+}
+
+void ShellStateController::setDragSession(const QVariantMap &session)
+{
+    if (m_dragSession == session) return;
+    m_dragSession = session;
+    emit dragSessionChanged(m_dragSession);
+}
+
+void ShellStateController::clearDragSession()
+{
+    if (m_dragSession.isEmpty()) return;
+    m_dragSession.clear();
+    emit dragSessionChanged(m_dragSession);
 }
 
 void ShellStateController::toggleLaunchpad()

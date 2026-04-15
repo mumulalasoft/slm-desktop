@@ -9,7 +9,12 @@ Item {
     signal shellContextMenuRequested(real x, real y)
 
     property var dockItem: null
-    property bool launchpadVisible: false
+    // launchpadVisible owner: ShellStateController (SSOT).
+    // Keep a local fallback only when controller is unavailable.
+    property bool _launchpadVisibleLocal: false
+    readonly property bool launchpadVisible: ShellStateController
+                                            ? !!ShellStateController.launchpadVisible
+                                            : _launchpadVisibleLocal
     property bool styleGalleryVisible: false
     property bool workspaceVisible: MultitaskingController.workspaceVisible
     // Compatibility alias during rebrand (overview -> workspace).
@@ -337,8 +342,8 @@ Item {
         ignoreUnknownSignals: true
         function onWidthChanged() { root.refreshDockSmartOcclusion() }
         function onHeightChanged() { root.refreshDockSmartOcclusion() }
-        function onAppActivated() { root.launchpadVisible = false }
-        function onLaunchpadRequested() { root.launchpadVisible = !root.launchpadVisible }
+        function onAppActivated() { root.setLaunchpadVisible(false) }
+        function onLaunchpadRequested() { root.setLaunchpadVisible(!root.launchpadVisible) }
     }
 
     Rectangle {
@@ -469,10 +474,10 @@ Item {
                 root.workspaceVisible = !root.workspaceVisible
             } else if (event === "launchpad-open") {
                 root.lastPushedLaunchpadState = 1
-                root.launchpadVisible = true
+                root.setLaunchpadVisible(true)
             } else if (event === "launchpad-close") {
                 root.lastPushedLaunchpadState = 0
-                root.launchpadVisible = false
+                root.setLaunchpadVisible(false)
             }
         }
     }
@@ -555,12 +560,11 @@ Item {
             console.info("LAUNCHPAD show requested")
             if (!dockLayerReady) {
                 console.info("LAUNCHPAD show allowed dockReady=false")
-                launchpadVisible = false
+                root.setLaunchpadVisible(false)
                 return
             }
             console.info("LAUNCHPAD show allowed dockReady=true")
         }
-        if (ShellStateController) ShellStateController.setLaunchpadVisible(launchpadVisible)
         pushLaunchpadToCompositor()
     }
     onWorkspaceVisibleChanged: {
@@ -910,6 +914,15 @@ Item {
             if (WindowingBackend.sendCommand("launchpad " + (root.launchpadVisible ? "on" : "off"))) {
                 root.lastPushedLaunchpadState = state
             }
+        }
+    }
+
+    function setLaunchpadVisible(visible) {
+        var v = !!visible
+        if (ShellStateController && ShellStateController.setLaunchpadVisible) {
+            ShellStateController.setLaunchpadVisible(v)
+        } else {
+            root._launchpadVisibleLocal = v
         }
     }
 

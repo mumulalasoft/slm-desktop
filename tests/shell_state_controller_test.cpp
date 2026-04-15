@@ -40,14 +40,14 @@ private slots:
 
         QVERIFY(ctrl.launchpadVisible());
         QVERIFY(ctrl.anyOverlayVisible());
-        QCOMPARE(ctrl.topBarOpacity(), 0.72);
-        QCOMPARE(ctrl.dockOpacity(), 0.0);
+        QCOMPARE(ctrl.topBarOpacity(), 0.0);
+        QCOMPARE(ctrl.dockOpacity(), 1.0);
         QVERIFY(ctrl.workspaceBlurred());
         QCOMPARE(ctrl.workspaceBlurAlpha(), 0.50);
         QVERIFY(ctrl.workspaceInteractionBlocked());
 
         QCOMPARE(topBarSpy.count(), 1);
-        QCOMPARE(dockSpy.count(), 1);
+        QCOMPARE(dockSpy.count(), 0);
         QCOMPARE(blurSpy.count(), 1);
         QCOMPARE(blockSpy.count(), 1);
         QCOMPARE(overlaySpy.count(), 1);
@@ -156,6 +156,100 @@ private slots:
         ctrl.setLaunchpadVisible(true);
         // Launchpad has higher blur intensity than show-desktop
         QCOMPARE(ctrl.workspaceBlurAlpha(), 0.50);
+    }
+
+    void searchVisible_aliasesToTheSpotVisibility()
+    {
+        ShellStateController ctrl;
+        QSignalSpy searchSpy(&ctrl, &ShellStateController::searchVisibleChanged);
+        QSignalSpy toTheSpotSpy(&ctrl, &ShellStateController::toTheSpotVisibleChanged);
+
+        ctrl.setToTheSpotVisible(true);
+        QVERIFY(ctrl.toTheSpotVisible());
+        QCOMPARE(searchSpy.count(), 1);
+        QCOMPARE(toTheSpotSpy.count(), 1);
+
+        ctrl.setToTheSpotVisible(false);
+        QVERIFY(!ctrl.toTheSpotVisible());
+        QCOMPARE(searchSpy.count(), 2);
+        QCOMPARE(toTheSpotSpy.count(), 2);
+    }
+
+    void searchQuery_roundTrips()
+    {
+        ShellStateController ctrl;
+        QSignalSpy spy(&ctrl, &ShellStateController::searchQueryChanged);
+
+        ctrl.setSearchQuery(QStringLiteral("firewall"));
+        QCOMPARE(ctrl.searchQuery(), QStringLiteral("firewall"));
+        QCOMPARE(spy.count(), 1);
+
+        ctrl.setSearchQuery(QStringLiteral("firewall"));
+        QCOMPARE(spy.count(), 1);
+
+        ctrl.setSearchQuery(QStringLiteral(""));
+        QCOMPARE(ctrl.searchQuery(), QStringLiteral(""));
+        QCOMPARE(spy.count(), 2);
+    }
+
+    void dockHoveredItem_roundTrips()
+    {
+        ShellStateController ctrl;
+        QSignalSpy spy(&ctrl, &ShellStateController::dockHoveredItemChanged);
+
+        ctrl.setDockHoveredItem(QStringLiteral("launchpad"));
+        QCOMPARE(ctrl.dockHoveredItem(), QStringLiteral("launchpad"));
+        QCOMPARE(spy.count(), 1);
+
+        ctrl.setDockHoveredItem(QStringLiteral("launchpad"));
+        QCOMPARE(spy.count(), 1);
+
+        ctrl.setDockHoveredItem(QStringLiteral(""));
+        QCOMPARE(ctrl.dockHoveredItem(), QStringLiteral(""));
+        QCOMPARE(spy.count(), 2);
+    }
+
+    void dockExpandedItem_roundTrips()
+    {
+        ShellStateController ctrl;
+        QSignalSpy spy(&ctrl, &ShellStateController::dockExpandedItemChanged);
+
+        ctrl.setDockExpandedItem(QStringLiteral("org.example.App.desktop"));
+        QCOMPARE(ctrl.dockExpandedItem(), QStringLiteral("org.example.App.desktop"));
+        QCOMPARE(spy.count(), 1);
+
+        ctrl.setDockExpandedItem(QStringLiteral("org.example.App.desktop"));
+        QCOMPARE(spy.count(), 1);
+
+        ctrl.setDockExpandedItem(QStringLiteral(""));
+        QCOMPARE(ctrl.dockExpandedItem(), QStringLiteral(""));
+        QCOMPARE(spy.count(), 2);
+    }
+
+    void dragSession_roundTripsAndClears()
+    {
+        ShellStateController ctrl;
+        QSignalSpy spy(&ctrl, &ShellStateController::dragSessionChanged);
+
+        QVariantMap session{
+            {QStringLiteral("source"), QStringLiteral("dock")},
+            {QStringLiteral("item_id"), QStringLiteral("org.example.App.desktop")},
+            {QStringLiteral("active"), true},
+            {QStringLiteral("position"), 12.0},
+        };
+        ctrl.setDragSession(session);
+        QCOMPARE(ctrl.dragSession().value(QStringLiteral("source")).toString(),
+                 QStringLiteral("dock"));
+        QCOMPARE(ctrl.dragSession().value(QStringLiteral("item_id")).toString(),
+                 QStringLiteral("org.example.App.desktop"));
+        QCOMPARE(spy.count(), 1);
+
+        ctrl.setDragSession(session);
+        QCOMPARE(spy.count(), 1);
+
+        ctrl.clearDragSession();
+        QVERIFY(ctrl.dragSession().isEmpty());
+        QCOMPARE(spy.count(), 2);
     }
 };
 
