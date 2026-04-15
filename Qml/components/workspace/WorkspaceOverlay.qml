@@ -15,6 +15,7 @@ Item {
     property real workspaceSwitchOffset: 0
     property var activeWindows: []
     property bool dragInProgress: false
+    property string dragViewId: ""
     property real dragCenterX: -1
     property real dragCenterY: -1
     property int dragEdgeDirection: 0 // -1: left, +1: right
@@ -99,6 +100,16 @@ Item {
         if (!id.length) {
             return
         }
+        if (typeof AppCommandRouter !== "undefined" && AppCommandRouter
+                && AppCommandRouter.routeWithResult) {
+            var focusRes = AppCommandRouter.routeWithResult("workspace.presentview",
+                                                            { "viewId": id },
+                                                            "workspace-overview")
+            if (focusRes && focusRes.ok) {
+                root.dismissed()
+                return
+            }
+        }
         if (typeof WorkspaceManager !== "undefined" && WorkspaceManager &&
                 WorkspaceManager.PresentView) {
             WorkspaceManager.PresentView(id)
@@ -158,8 +169,30 @@ Item {
 
     function beginWindowDrag(viewId, centerPoint) {
         dragInProgress = true
+        dragViewId = String(viewId || "")
         dragCenterX = Number(centerPoint ? centerPoint.x : -1)
         dragCenterY = Number(centerPoint ? centerPoint.y : -1)
+        if (typeof ShellStateController !== "undefined" && ShellStateController &&
+                ShellStateController.setDragSession) {
+            ShellStateController.setDragSession({
+                "source": "workspace",
+                "source_component": "workspace.overview",
+                "object_type": "window",
+                "item_id": dragViewId,
+                "mime": ["application/x-wayland-window"],
+                "capabilities": ["move_to_workspace", "activate"],
+                "allowed_operations": ["move"],
+                "preferred_action": "move",
+                "target_hints": {
+                    "edge_direction": Number(dragEdgeDirection || 0)
+                },
+                "active": true,
+                "position": {
+                    "x": dragCenterX,
+                    "y": dragCenterY
+                }
+            })
+        }
         updateDragEdgeState()
     }
 
@@ -170,10 +203,32 @@ Item {
         dragCenterX = Number(centerPoint ? centerPoint.x : dragCenterX)
         dragCenterY = Number(centerPoint ? centerPoint.y : dragCenterY)
         updateDragEdgeState()
+        if (typeof ShellStateController !== "undefined" && ShellStateController &&
+                ShellStateController.setDragSession) {
+            ShellStateController.setDragSession({
+                "source": "workspace",
+                "source_component": "workspace.overview",
+                "object_type": "window",
+                "item_id": dragViewId,
+                "mime": ["application/x-wayland-window"],
+                "capabilities": ["move_to_workspace", "activate"],
+                "allowed_operations": ["move"],
+                "preferred_action": "move",
+                "target_hints": {
+                    "edge_direction": Number(dragEdgeDirection || 0)
+                },
+                "active": true,
+                "position": {
+                    "x": dragCenterX,
+                    "y": dragCenterY
+                }
+            })
+        }
     }
 
     function endWindowDrag() {
         dragInProgress = false
+        dragViewId = ""
         dragCenterX = -1
         dragCenterY = -1
         dragEdgeDirection = 0
@@ -182,6 +237,13 @@ Item {
         autoSwitchRightDelayTimer.stop()
         autoSwitchLeftTimer.stop()
         autoSwitchRightTimer.stop()
+        if (typeof ShellStateController !== "undefined" && ShellStateController) {
+            if (ShellStateController.clearDragSession) {
+                ShellStateController.clearDragSession()
+            } else if (ShellStateController.setDragSession) {
+                ShellStateController.setDragSession({})
+            }
+        }
     }
 
     function updateDragEdgeState() {

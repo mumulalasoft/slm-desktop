@@ -22,6 +22,28 @@ function beginContentDrag(root, contentView, dndSidebarSpringOpenTimer, index, p
                                                        srcPath))
     root.dndGhostX = Number(sceneX || 0)
     root.dndGhostY = Number(sceneY || 0)
+    if (root.setGlobalDragSession) {
+        root.setGlobalDragSession({
+            "source": "filemanager",
+            "source_component": "filemanager.content",
+            "object_type": "file_object",
+            "item_id": srcPath,
+            "uris": selected.slice(0),
+            "mime": ["text/uri-list"],
+            "capabilities": ["copy", "move", "trash"],
+            "allowed_operations": ["copy", "move"],
+            "preferred_action": root.dndCopyMode ? "copy" : "move",
+            "target_hints": {
+                "hover_path": "",
+                "hover_kind": ""
+            },
+            "active": true,
+            "position": {
+                "x": root.dndGhostX,
+                "y": root.dndGhostY
+            }
+        })
+    }
     if (contentView) {
         contentView.dndActive = true
     }
@@ -49,6 +71,28 @@ function updateContentDrag(root, sidebarDropTargetAt, dndSidebarSpringOpenTimer,
             }
         }
     }
+    if (root.setGlobalDragSession) {
+        root.setGlobalDragSession({
+            "source": "filemanager",
+            "source_component": "filemanager.content",
+            "object_type": "file_object",
+            "item_id": root.dndSourcePaths.length > 0 ? String(root.dndSourcePaths[0] || "") : "",
+            "uris": root.dndSourcePaths ? root.dndSourcePaths.slice(0) : [],
+            "mime": ["text/uri-list"],
+            "capabilities": ["copy", "move", "trash"],
+            "allowed_operations": ["copy", "move"],
+            "preferred_action": root.dndCopyMode ? "copy" : "move",
+            "target_hints": {
+                "hover_path": nextHover,
+                "hover_kind": nextHover === "__trash__" ? "trash" : "path"
+            },
+            "active": true,
+            "position": {
+                "x": root.dndGhostX,
+                "y": root.dndGhostY
+            }
+        })
+    }
 }
 
 function finishContentDrag(root, contentView, dndSidebarSpringOpenTimer, fileManagerApi) {
@@ -70,6 +114,9 @@ function finishContentDrag(root, contentView, dndSidebarSpringOpenTimer, fileMan
     root.dndGhostLabel = ""
     if (contentView) {
         contentView.dndActive = false
+    }
+    if (root.clearGlobalDragSession) {
+        root.clearGlobalDragSession()
     }
 
     if (targetPath.length <= 0 || sourcePaths.length <= 0 || !fileManagerApi) {

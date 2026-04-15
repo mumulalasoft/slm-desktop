@@ -369,6 +369,26 @@ Rectangle {
 
     function finishContentDrag() { FileManagerContentDnd.finishContentDrag(root, windowBody && windowBody.mainPaneRef ? windowBody.mainPaneRef.contentViewRef : null, dndSidebarSpringOpenTimer, fileManagerApiRef) }
 
+    function setGlobalDragSession(session) {
+        if (typeof ShellStateController === "undefined" || !ShellStateController) {
+            return
+        }
+        if (ShellStateController.setDragSession) {
+            ShellStateController.setDragSession(session || {})
+        }
+    }
+
+    function clearGlobalDragSession() {
+        if (typeof ShellStateController === "undefined" || !ShellStateController) {
+            return
+        }
+        if (ShellStateController.clearDragSession) {
+            ShellStateController.clearDragSession()
+        } else if (ShellStateController.setDragSession) {
+            ShellStateController.setDragSession({})
+        }
+    }
+
     function applySelectionRect(indexesValue, modifiers, anchorIndex) { FileManagerSelection.applySelectionRect(root, Qt, indexesValue, modifiers, anchorIndex) }
     function handleTypeToSelect(textValue) { return FileManagerSelection.handleTypeToSelect(root, textValue, quickTypeClearTimer, windowBody && windowBody.mainPaneRef ? windowBody.mainPaneRef.contentViewRef : null) }
     function syncDeepSearchBusyCursor() { FileManagerBatch.syncDeepSearchBusyCursor(root, cursorControllerRef) }
