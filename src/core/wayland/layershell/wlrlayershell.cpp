@@ -73,8 +73,11 @@ bool WlrLayerShell::configureAsLayerSurface(QWindow *window,
     zwlr_layer_surface_v1_set_anchor(layerSurface, static_cast<uint32_t>(anchors));
     zwlr_layer_surface_v1_set_exclusive_zone(layerSurface, exclusiveZone);
     zwlr_layer_surface_v1_set_margin(layerSurface, 0, 0, 0, 0);
-    // Size 0,0 lets the compositor determine the dimensions from anchors.
-    zwlr_layer_surface_v1_set_size(layerSurface, 0, 0);
+    // Use explicit window size so the layer surface does not expand to a
+    // fullscreen transparent input region on some compositors.
+    const uint32_t width = static_cast<uint32_t>(qMax(1, window->width()));
+    const uint32_t height = static_cast<uint32_t>(qMax(1, window->height()));
+    zwlr_layer_surface_v1_set_size(layerSurface, width, height);
 
     // Initial empty commit is required by layer-shell before compositor sends
     // the first configure. Do this explicitly so bootstrap does not depend on

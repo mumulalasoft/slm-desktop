@@ -450,11 +450,23 @@ Rectangle {
         var s = state || {}
         var focusedViewId = String(s.preferredViewId || "")
         if (focusedViewId.length > 0 &&
+                typeof AppCommandRouter !== "undefined" &&
+                AppCommandRouter &&
+                AppCommandRouter.routeWithResult) {
+            var focusRes = AppCommandRouter.routeWithResult("workspace.presentview", {
+                                                                "viewId": focusedViewId
+                                                            }, "dock")
+            if (focusRes && focusRes.ok) {
+                return "focus"
+            }
+        }
+        if (focusedViewId.length > 0 &&
                 typeof WorkspaceManager !== "undefined" &&
                 WorkspaceManager &&
                 WorkspaceManager.PresentView) {
-            WorkspaceManager.PresentView(focusedViewId)
-            return "focus"
+            if (WorkspaceManager.PresentView(focusedViewId)) {
+                return "focus"
+            }
         }
         if (typeof AppCommandRouter !== "undefined" && AppCommandRouter &&
                 AppCommandRouter.route) {

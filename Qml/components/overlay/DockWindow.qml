@@ -45,10 +45,25 @@ Window {
     // exists and compositor can deliver first configure.
     visible: DockSystem.dockHostVisible && (root.dockLayerReady || root.bootstrapSurfaceVisible)
 
-    // Initial size: full screen width, tall enough for dock + zoom headroom.
-    // The compositor may override width via layer-shell configure.
+    // Keep the LayerTop surface constrained to the dock strip only.
+    // A fullscreen transparent LayerTop surface can steal pointer events from
+    // TopBar and other shell surfaces.
+    readonly property int dockSurfaceHeight: Math.max(
+                                                 140,
+                                                 Math.ceil(
+                                                     (dockLoader.item ? dockLoader.item.height : 120)
+                                                     + Number(DockSystem.zoomHeadroom || 56)
+                                                     + 16
+                                                 )
+                                             )
+
+    // Width follows root window; height is only dock strip + headroom.
+    // The compositor may still override geometry via layer-shell configure.
     width:  rootWindow ? rootWindow.width  : Screen.width
-    height: rootWindow ? rootWindow.height : Screen.height
+    height: dockSurfaceHeight
+    x: rootWindow ? rootWindow.x : 0
+    y: rootWindow ? (rootWindow.y + rootWindow.height - height)
+                  : (Screen.height - height)
 
     opacity: root.dockLayerReady ? 1.0 : 0.0
 

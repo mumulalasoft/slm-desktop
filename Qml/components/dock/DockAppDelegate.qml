@@ -27,13 +27,63 @@ DockItem {
                                         ? (isPinned === true)
                                         : ((typeof pinned !== "undefined") ? (pinned === true) : false)
 
-    // Bind badge count from BadgeService using desktopFile or name as the key.
+    function _desktopBase(file) {
+        var f = String(file || "").toLowerCase()
+        if (f.length === 0) return ""
+        if (f.indexOf("/") >= 0) {
+            var parts = f.split("/")
+            f = parts[parts.length - 1]
+        }
+        if (f.endsWith(".desktop")) {
+            return f.slice(0, f.length - 8)
+        }
+        return f
+    }
+
+    function _canonicalIdentity() {
+        var did = (typeof desktopId !== "undefined") ? String(desktopId || "") : ""
+        var dfile = String(desktopFile || "")
+        var exec = String(executable || "")
+        var nm = String(name || "")
+        if (typeof AppModel !== "undefined" && AppModel && AppModel.canonicalAppIdentity) {
+            var appId = String(AppModel.canonicalAppIdentity(did, dfile, exec, nm) || "")
+            if (appId.length > 0) {
+                return appId
+            }
+        }
+        var fallback = _desktopBase(did)
+        if (fallback.length > 0) return fallback
+        fallback = _desktopBase(dfile)
+        if (fallback.length > 0) return fallback
+        fallback = String(exec || "").toLowerCase()
+        if (fallback.length > 0) return fallback
+        return "unknown.app"
+    }
+
+    function _dockBadgeFromService() {
+        if (typeof BadgeService === "undefined" || !BadgeService || !BadgeService.getBadge) {
+            return 0
+        }
+        return Number(BadgeService.getBadge(_canonicalIdentity()) || 0)
+    }
+
+    function _dockBadgeFromNotifications() {
+        if (typeof NotificationManager === "undefined" || !NotificationManager) {
+            return 0
+        }
+        var canonical = _canonicalIdentity()
+        if (NotificationManager.unreadCountForAppId) {
+            return Number(NotificationManager.unreadCountForAppId(canonical) || 0)
+        }
+        return 0
+    }
+
+    // Badge source is global and canonical-only: app identity from AppModel.
     badgeCount: {
-        var _sink = (typeof BadgeService !== "undefined" && BadgeService) ? BadgeService._counts : null
-        if (typeof BadgeService === "undefined" || !BadgeService) return 0
-        var key = String(desktopFile || name || "")
-        if (key.length === 0) return 0
-        return BadgeService.getBadge(key)
+        var _badgeSink = (typeof BadgeService !== "undefined" && BadgeService) ? BadgeService._counts : null
+        var _notifSink = (typeof NotificationManager !== "undefined" && NotificationManager)
+                         ? Number(NotificationManager.unreadCount || 0) : 0
+        return Math.max(_dockBadgeFromService(), _dockBadgeFromNotifications())
     }
 
     label: name
@@ -158,7 +208,7 @@ DockItem {
             if (typeof AppModel !== "undefined" && AppModel
                     && AppModel.slmQuickActionsForEntry) {
                 quickRows = AppModel.slmQuickActionsForEntry("dock", {
-                    "desktopId": String(desktopId || ""),
+                    "desktopId": ((typeof desktopId !== "undefined") ? String(desktopId || "") : ""),
                     "desktopFile": String(desktopFile || ""),
                     "executable": String(executable || ""),
                     "iconName": String(iconName || ""),
@@ -208,7 +258,7 @@ DockItem {
                         "scope": "dock",
                         "selection_count": 0,
                         "source_app": "org.slm.dock",
-                        "desktop_id": String(desktopId || ""),
+                        "desktop_id": ((typeof desktopId !== "undefined") ? String(desktopId || "") : ""),
                         "desktop_file": String(desktopFile || ""),
                         "executable": String(executable || "")
                     })
@@ -233,6 +283,15 @@ DockItem {
                 onTriggered: {
                     var vid = String(winData.viewId || "")
                     if (vid.length === 0) return
+                    if (typeof AppCommandRouter !== "undefined" && AppCommandRouter
+                            && AppCommandRouter.routeWithResult) {
+                        var focusRes = AppCommandRouter.routeWithResult("workspace.presentview",
+                                                                        { "viewId": vid },
+                                                                        "dock-context")
+                        if (focusRes && focusRes.ok) {
+                            return
+                        }
+                    }
                     if (typeof WorkspaceManager !== "undefined" && WorkspaceManager
                             && WorkspaceManager.PresentView) {
                         WorkspaceManager.PresentView(vid)
