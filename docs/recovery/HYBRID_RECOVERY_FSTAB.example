@@ -1,0 +1,9 @@
+# Hybrid Recovery fstab baseline (UEFI + Btrfs + Recovery partition)
+# Replace UUID placeholders with actual values from blkid.
+
+UUID=<BTRFS-UUID>  /            btrfs  subvol=@root,compress=zstd,noatime,space_cache=v2  0  0
+UUID=<BTRFS-UUID>  /home        btrfs  subvol=@home,compress=zstd,noatime,space_cache=v2  0  0
+UUID=<BTRFS-UUID>  /var         btrfs  subvol=@var,compress=zstd,noatime,space_cache=v2   0  0
+UUID=<BTRFS-UUID>  /.snapshots  btrfs  subvol=@snapshots,compress=zstd,noatime,space_cache=v2 0 0
+UUID=<ESP-UUID>    /boot/efi    vfat   umask=0077                                         0  2
+UUID=<REC-UUID>    /recovery    ext4   defaults,noatime                                    0  2

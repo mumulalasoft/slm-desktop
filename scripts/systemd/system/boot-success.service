@@ -1,0 +1,12 @@
+[Unit]
+Description=Mark Successful Graphical Boot
+After=graphical.target
+Wants=graphical.target
+ConditionPathExists=/boot
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/slm-recovery/bootcount-guard.sh success
+
+[Install]
+WantedBy=graphical.target
