@@ -7,6 +7,7 @@ MAPPING_FILE="${SLM_PACKAGE_POLICY_MAPPING_FILE:-/etc/slm/package-policy/package
 WRAPPER_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DISABLE_REPOS_SCRIPT="${SLM_PACKAGE_POLICY_DISABLE_REPOS_SCRIPT:-$WRAPPER_ROOT/disable-external-repos.sh}"
 SAFE_MODE_SCRIPT="${SLM_PACKAGE_POLICY_SAFE_MODE_SCRIPT:-$WRAPPER_ROOT/trigger-safe-mode-recovery.sh}"
+POST_UPDATE_VERIFY_SCRIPT="${SLM_PACKAGE_POLICY_POST_UPDATE_VERIFY_SCRIPT:-$WRAPPER_ROOT/post-update-verify.sh}"
 
 SNAP_ID=""
 if [[ "${1:-}" == "--snapshot-id" ]]; then
@@ -121,6 +122,17 @@ if [[ "$fail_count" -gt 0 ]]; then
   echo "slm-package-policy: review report: $REPORT_FILE" >&2
   echo "slm-package-policy: run recovery helper: scripts/package-policy/recover-last-snapshot.sh" >&2
   exit 1
+fi
+
+if [[ -x "$POST_UPDATE_VERIFY_SCRIPT" ]]; then
+  if ! "$POST_UPDATE_VERIFY_SCRIPT" --snapshot-id "$SNAP_ID" >> "$REPORT_FILE" 2>&1; then
+    log "[health][fail] post-update verification failed"
+    echo "slm-package-policy: post-update verification failed." >&2
+    echo "slm-package-policy: review report: $REPORT_FILE" >&2
+    exit 121
+  fi
+else
+  log "[health][warn] post-update verify script missing: $POST_UPDATE_VERIFY_SCRIPT"
 fi
 
 log "[health][result] ok"

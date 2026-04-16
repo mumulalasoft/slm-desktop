@@ -60,4 +60,32 @@ tar -C / -cf "$SNAP_DIR/desktop-critical.tar" \
 printf '%s\n' "$SNAP_ID" > "$STATE_DIR/latest-snapshot"
 printf '%s\n' "$SNAP_DIR" > "$STATE_DIR/latest-snapshot-path"
 
+# Optional Btrfs read-only snapshot for fast rollback path.
+create_btrfs_snapshot() {
+  if ! command -v btrfs >/dev/null 2>&1; then
+    return 0
+  fi
+  local root_fs
+  root_fs="$(findmnt -no FSTYPE / 2>/dev/null || true)"
+  if [[ "$root_fs" != "btrfs" ]]; then
+    return 0
+  fi
+  if [[ ! -d /.snapshots ]]; then
+    return 0
+  fi
+
+  local reason
+  reason="$(printf '%s' "$TOOL" | tr -cd '[:alnum:]._:-')"
+  [[ -n "$reason" ]] || reason="pkg"
+
+  local btrfs_id
+  btrfs_id="$(date -u +%Y%m%d-%H%M%S)-auto-${reason}"
+  if btrfs subvolume snapshot -r / "/.snapshots/$btrfs_id" >/dev/null 2>&1; then
+    printf '%s\n' "$btrfs_id" > "$SNAP_DIR/btrfs-snapshot-id.txt"
+    printf '%s\n' "/.snapshots/$btrfs_id" > "$SNAP_DIR/btrfs-snapshot-path.txt"
+  fi
+}
+
+create_btrfs_snapshot
+
 echo "$SNAP_ID"

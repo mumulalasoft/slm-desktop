@@ -1,0 +1,9 @@
+[Unit]
+Description=Trigger SLM Post-Update Verification on dpkg status changes
+
+[Path]
+PathChanged=/var/lib/dpkg/status
+Unit=slm-post-update-verify.service
+
+[Install]
+WantedBy=multi-user.target

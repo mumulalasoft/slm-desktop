@@ -29,6 +29,7 @@ fi
 mkdir -p "$ROOT_DIR" "$WRAPPER_DIR" "$BIN_DIR"
 install -m 0755 "$(dirname "$0")/pre-transaction-snapshot.sh" "$ROOT_DIR/pre-transaction-snapshot.sh"
 install -m 0755 "$(dirname "$0")/post-transaction-health-check.sh" "$ROOT_DIR/post-transaction-health-check.sh"
+install -m 0755 "$(dirname "$0")/post-update-verify.sh" "$ROOT_DIR/post-update-verify.sh"
 install -m 0755 "$(dirname "$0")/recover-last-snapshot.sh" "$ROOT_DIR/recover-last-snapshot.sh"
 install -m 0755 "$(dirname "$0")/disable-external-repos.sh" "$ROOT_DIR/disable-external-repos.sh"
 install -m 0755 "$(dirname "$0")/trigger-safe-mode-recovery.sh" "$ROOT_DIR/trigger-safe-mode-recovery.sh"
