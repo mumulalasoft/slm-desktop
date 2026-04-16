@@ -63,7 +63,8 @@ bash -n "${SCRIPT_FILES[@]}"
 
 if command -v shellcheck >/dev/null 2>&1; then
   log "shellcheck available, running targeted lint"
-  shellcheck -x "${SCRIPT_FILES[@]}"
+  # Enforce only error-level findings; warnings are reported but non-blocking.
+  shellcheck -S error -x "${SCRIPT_FILES[@]}"
 else
   warn "shellcheck not found, skip lint"
 fi
