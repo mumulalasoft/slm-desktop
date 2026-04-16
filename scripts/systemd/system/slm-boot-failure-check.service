@@ -1,0 +1,14 @@
+[Unit]
+Description=SLM Boot Failure Check and Recovery Trigger
+DefaultDependencies=no
+After=slm-boot-attempt.service
+Before=graphical.target
+ConditionPathExists=/boot
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/slm-recovery/trigger-recovery-on-boot-failure.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=graphical.target
