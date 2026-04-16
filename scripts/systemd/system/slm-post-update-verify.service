@@ -1,0 +1,10 @@
+[Unit]
+Description=SLM Post-Update Verification
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/slm-package-policy/post-update-verify.sh
+
+[Install]
+WantedBy=multi-user.target
