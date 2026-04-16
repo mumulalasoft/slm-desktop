@@ -14,6 +14,7 @@ Usage:
   $0 secret-consent [build_dir]
   $0 policy-core [build_dir]
   $0 storage-smoke [build_dir]
+  $0 recovery-smoke
   $0 baseline-flaky [build_dir]
   $0 nightly [build_dir]
 
@@ -25,6 +26,7 @@ Modes:
   secret-consent     Run Secret consent contract suite (label: secret-consent).
   policy-core        Run stable settings policy suite (label: policy-core).
   storage-smoke      Run storage runtime smoke suite (label: storage-smoke).
+  recovery-smoke     Run recovery runtime smoke checks (scripts/units/CLI dispatch).
   baseline-flaky     Run baseline-flaky labeled tests explicitly.
   nightly    Run default suite plus runtime smoke lanes (polkit + package-policy wrapper + secret-consent + policy-core + storage-smoke).
 EOF
@@ -162,6 +164,10 @@ run_storage_smoke_suite() {
   "${ROOT_DIR}/scripts/test-storage-runtime-suite.sh" "${build_dir}"
 }
 
+run_recovery_smoke_suite() {
+  "${ROOT_DIR}/scripts/test-recovery-runtime-suite.sh"
+}
+
 run_baseline_flaky_suite() {
   local build_dir="$1"
   echo "[test] run baseline-flaky label suite"
@@ -267,6 +273,12 @@ if [[ "${1:-}" == "storage-smoke" ]]; then
   fi
   echo "[test] mode=storage-smoke build_dir=${BUILD_DIR}"
   run_storage_smoke_suite "${BUILD_DIR}"
+  exit 0
+fi
+
+if [[ "${1:-}" == "recovery-smoke" ]]; then
+  echo "[test] mode=recovery-smoke"
+  run_recovery_smoke_suite
   exit 0
 fi
 

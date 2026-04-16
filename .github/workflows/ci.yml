@@ -66,6 +66,18 @@ jobs:
             exit 1
           fi
 
+  recovery-runtime-smoke:
+    if: github.event_name == 'push' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Recovery runtime smoke checks
+        run: |
+          chmod +x scripts/test-recovery-runtime-suite.sh
+          scripts/test.sh recovery-smoke
+
   policy-core-only:
     if: github.event_name == 'push' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
