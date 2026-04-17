@@ -1,0 +1,11 @@
+[Unit]
+Description=SLM Btrfs Snapshot Retention
+After=local-fs.target
+ConditionPathExists=/.snapshots
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/slm-recovery/prune-btrfs-snapshots.sh --keep-auto 10
+
+[Install]
+WantedBy=multi-user.target

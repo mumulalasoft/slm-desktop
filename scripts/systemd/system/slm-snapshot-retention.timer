@@ -1,0 +1,11 @@
+[Unit]
+Description=Run SLM Btrfs Snapshot Retention Daily
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+RandomizedDelaySec=300
+Unit=slm-snapshot-retention.service
+
+[Install]
+WantedBy=timers.target
