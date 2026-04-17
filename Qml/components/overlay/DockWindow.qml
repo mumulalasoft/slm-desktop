@@ -36,7 +36,7 @@ Window {
     // ── Window setup ──────────────────────────────────────────────────────────
 
     color:           "transparent"
-    flags:           Qt.FramelessWindowHint | Qt.WindowDoesNotAcceptFocus
+    flags:           Qt.FramelessWindowHint | Qt.WindowDoesNotAcceptFocus | Qt.WindowStaysOnTopHint
     // Layer-shell surfaces must not have a transient parent.
     transientParent: null
     title:           "SLM Dock Surface"
@@ -70,6 +70,13 @@ Window {
     // ── Layer-shell configuration ─────────────────────────────────────────────
 
     property bool layerConfigured: false
+
+    function _sendOverlayCommand(cmd) {
+        if (typeof WindowingBackend === "undefined" || !WindowingBackend || !WindowingBackend.sendCommand) {
+            return false
+        }
+        return !!WindowingBackend.sendCommand(String(cmd || ""))
+    }
 
     // Exclusive zone = dock rendered height so the compositor reserves that
     // strip at the bottom for the dock and doesn't place windows over it.
@@ -159,11 +166,35 @@ Window {
         if (bootstrap && bootstrap.setVisibleToUser) {
             bootstrap.setVisibleToUser(visible && root.dockLayerReady)
         }
+        if (visible && !root.layerShellSupported) {
+            Qt.callLater(function() { root.raise() })
+        }
+    }
+
+    Connections {
+        target: root.desktopScene ? root.desktopScene : null
+        ignoreUnknownSignals: true
+        function onLaunchpadVisibleChanged() {
+            if (!root.visible || root.layerShellSupported) {
+                return
+            }
+            // Fallback path (no layer-shell): keep dock above launchpad/app windows.
+            Qt.callLater(function() { root.raise() })
+        }
     }
 
     Component.onCompleted: {
         console.info("[DockWindow] DOCK_CREATED ptr=" + root)
         DockSystem.bindContext(rootWindow, desktopScene)
         root.tryConfigureLayerShell()
+        root._sendOverlayCommand("overlay register dock slm-dock")
+        root._sendOverlayCommand("overlay restack")
+        if (!root.layerShellSupported) {
+            Qt.callLater(function() { root.raise() })
+        }
+    }
+
+    Component.onDestruction: {
+        root._sendOverlayCommand("overlay unregister dock")
     }
 }

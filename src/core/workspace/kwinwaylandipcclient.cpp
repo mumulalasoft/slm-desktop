@@ -11,6 +11,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonParseError>
+#include <QMetaType>
 #include <QProcessEnvironment>
 #include <QTimer>
 
@@ -25,6 +26,8 @@ constexpr auto kWindowIfaceA = "org.kde.KWin.Window";
 constexpr auto kWindowIfaceB = "org.kde.kwin.Window";
 constexpr auto kInputCaptureBridgePath = "/org/slm/Compositor/InputCapture";
 constexpr auto kInputCaptureBridgeIface = "org.slm.Compositor.InputCapture";
+constexpr auto kOverlayBridgePath = "/org/slm/Compositor/Overlay";
+constexpr auto kOverlayBridgeIface = "org.slm.Compositor.Overlay";
 }
 
 KWinWaylandIpcClient::KWinWaylandIpcClient(QObject *parent)
@@ -98,9 +101,63 @@ bool KWinWaylandIpcClient::sendCommand(const QString &command)
                                 QStringLiteral("Overview"),
                                 QStringLiteral("Present Windows")},
                                &error);
+    } else if (cmd.startsWith(QStringLiteral("overlay "))) {
+        const QStringList parts = cmd.split(QLatin1Char(' '), Qt::SkipEmptyParts);
+        if (parts.size() < 2) {
+            error = QStringLiteral("missing-overlay-operation");
+            ok = false;
+        } else {
+            const QString op = parts.at(1).trimmed().toLower();
+            QVariantMap overlayResult;
+            if (op == QStringLiteral("register")) {
+                if (parts.size() < 4) {
+                    error = QStringLiteral("missing-overlay-register-args");
+                    ok = false;
+                } else {
+                    const QString role = parts.at(2).trimmed().toLower();
+                    const QString token = parts.at(3).trimmed();
+                    ok = invokeOverlayBridge(QStringLiteral("register"),
+                                             QStringList{role, token},
+                                             &error,
+                                             &overlayResult);
+                    if (ok) {
+                        m_overlayRoles.insert(role, token);
+                    }
+                }
+            } else if (op == QStringLiteral("unregister")) {
+                if (parts.size() < 3) {
+                    error = QStringLiteral("missing-overlay-unregister-role");
+                    ok = false;
+                } else {
+                    const QString role = parts.at(2).trimmed().toLower();
+                    ok = invokeOverlayBridge(QStringLiteral("unregister"),
+                                             QStringList{role},
+                                             &error,
+                                             &overlayResult);
+                    if (ok) {
+                        m_overlayRoles.remove(role);
+                    }
+                }
+            } else if (op == QStringLiteral("restack")) {
+                ok = invokeOverlayBridge(QStringLiteral("restack"),
+                                         {},
+                                         &error,
+                                         &overlayResult);
+            } else {
+                error = QStringLiteral("unsupported-overlay-operation");
+                ok = false;
+            }
+        }
     } else if (cmd.startsWith(QStringLiteral("launchpad "))) {
-        // KWin has no direct Launchpad equivalent; keep command accepted to avoid noisy retries.
-        ok = true;
+        const QString state = cmd.mid(QStringLiteral("launchpad ").size()).trimmed().toLower();
+        if (state != QStringLiteral("on") && state != QStringLiteral("off")) {
+            error = QStringLiteral("invalid-launchpad-state");
+            ok = false;
+        } else {
+            ok = invokeOverlayBridge(QStringLiteral("set-state"),
+                                     QStringList{QStringLiteral("launchpad"), state},
+                                     &error);
+        }
     } else if (cmd == QStringLiteral("show-desktop")) {
         ok = invokeAnyShortcut({QStringLiteral("Show Desktop"),
                                 QStringLiteral("MinimizeAll")},
@@ -194,10 +251,21 @@ bool KWinWaylandIpcClient::sendCommand(const QString &command)
             ok = false;
         }
     } else if (cmd == QStringLiteral("progress hide")
-               || cmd.startsWith(QStringLiteral("shellpopup "))
-               || cmd.startsWith(QStringLiteral("dock mode "))) {
+               || cmd.startsWith(QStringLiteral("shellpopup "))) {
         // Managed by shell UI state; not a compositor capability on KWin path.
         ok = true;
+    } else if (cmd.startsWith(QStringLiteral("dock mode "))) {
+        const QString mode = cmd.mid(QStringLiteral("dock mode ").size()).trimmed().toLower();
+        if (mode != QStringLiteral("no_hide")
+                && mode != QStringLiteral("duration_hide")
+                && mode != QStringLiteral("smart_hide")) {
+            error = QStringLiteral("invalid-dock-mode");
+            ok = false;
+        } else {
+            ok = invokeOverlayBridge(QStringLiteral("dock-mode"),
+                                     QStringList{mode},
+                                     &error);
+        }
     } else if (cmd.startsWith(QStringLiteral("inputcapture "))) {
         const QString rest = cmd.mid(QStringLiteral("inputcapture ").size()).trimmed();
         const int space = rest.indexOf(' ');
@@ -222,6 +290,23 @@ bool KWinWaylandIpcClient::supportsInputCaptureCommands() const
         return false;
     }
     const QString service = inputCaptureBridgeService();
+    if (service.isEmpty()) {
+        return false;
+    }
+    QDBusConnectionInterface *iface = QDBusConnection::sessionBus().interface();
+    if (!iface) {
+        return false;
+    }
+    const QDBusReply<bool> reply = iface->isServiceRegistered(service);
+    return reply.isValid() && reply.value();
+}
+
+bool KWinWaylandIpcClient::supportsOverlayCommands() const
+{
+    if (!QDBusConnection::sessionBus().isConnected()) {
+        return false;
+    }
+    const QString service = overlayBridgeService();
     if (service.isEmpty()) {
         return false;
     }
@@ -515,6 +600,92 @@ bool KWinWaylandIpcClient::invokeInputCaptureBridge(const QString &operation,
     return ok;
 }
 
+bool KWinWaylandIpcClient::invokeOverlayBridge(const QString &operation,
+                                               const QStringList &args,
+                                               QString *errorOut,
+                                               QVariantMap *resultOut)
+{
+    if (errorOut) {
+        errorOut->clear();
+    }
+    if (resultOut) {
+        resultOut->clear();
+    }
+    const QString op = operation.trimmed().toLower();
+    if (op.isEmpty()) {
+        if (errorOut) {
+            *errorOut = QStringLiteral("missing-overlay-operation");
+        }
+        return false;
+    }
+
+    QVariantMap result;
+    if (op == QStringLiteral("register")) {
+        if (args.size() < 2) {
+            if (errorOut) {
+                *errorOut = QStringLiteral("missing-overlay-register-args");
+            }
+            return false;
+        }
+        result = callOverlayBridge(QStringLiteral("RegisterSurface"),
+                                   QVariantList{args.at(0), args.at(1)});
+    } else if (op == QStringLiteral("unregister")) {
+        if (args.isEmpty()) {
+            if (errorOut) {
+                *errorOut = QStringLiteral("missing-overlay-unregister-role");
+            }
+            return false;
+        }
+        result = callOverlayBridge(QStringLiteral("UnregisterRole"),
+                                   QVariantList{args.at(0)});
+    } else if (op == QStringLiteral("restack")) {
+        QVariantMap rolesPayload;
+        for (auto it = m_overlayRoles.constBegin(); it != m_overlayRoles.constEnd(); ++it) {
+            rolesPayload.insert(it.key(), it.value());
+        }
+        result = callOverlayBridge(QStringLiteral("Restack"),
+                                   QVariantList{rolesPayload});
+    } else if (op == QStringLiteral("set-state")) {
+        if (args.size() < 2) {
+            if (errorOut) {
+                *errorOut = QStringLiteral("missing-overlay-state-args");
+            }
+            return false;
+        }
+        const bool enabled = args.at(1).trimmed().toLower() == QStringLiteral("on")
+            || args.at(1).trimmed() == QStringLiteral("1")
+            || args.at(1).trimmed().toLower() == QStringLiteral("true");
+        result = callOverlayBridge(QStringLiteral("SetOverlayState"),
+                                   QVariantList{args.at(0), enabled});
+    } else if (op == QStringLiteral("dock-mode")) {
+        if (args.isEmpty()) {
+            if (errorOut) {
+                *errorOut = QStringLiteral("missing-dock-mode");
+            }
+            return false;
+        }
+        result = callOverlayBridge(QStringLiteral("SetDockMode"),
+                                   QVariantList{args.at(0)});
+    } else {
+        if (errorOut) {
+            *errorOut = QStringLiteral("unsupported-overlay-operation");
+        }
+        return false;
+    }
+
+    if (resultOut) {
+        *resultOut = result;
+    }
+    const bool ok = result.value(QStringLiteral("ok"), false).toBool();
+    if (!ok && errorOut) {
+        *errorOut = result.value(QStringLiteral("reason")).toString().trimmed();
+        if (errorOut->isEmpty()) {
+            *errorOut = QStringLiteral("overlay-bridge-denied");
+        }
+    }
+    return ok;
+}
+
 QVariantMap KWinWaylandIpcClient::callInputCaptureBridge(const QString &methodName,
                                                          const QVariantList &args)
 {
@@ -575,6 +746,67 @@ QVariantMap KWinWaylandIpcClient::callInputCaptureBridge(const QString &methodNa
     return value;
 }
 
+QVariantMap KWinWaylandIpcClient::callOverlayBridge(const QString &methodName,
+                                                    const QVariantList &args)
+{
+    const QString method = methodName.trimmed();
+    if (method.isEmpty()) {
+        return {
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("reason"), QStringLiteral("missing-method")},
+        };
+    }
+    const QString service = overlayBridgeService();
+    const QString path = overlayBridgePath();
+    const QString ifaceName = overlayBridgeInterface();
+    if (service.isEmpty() || path.isEmpty() || ifaceName.isEmpty()) {
+        return {
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("reason"), QStringLiteral("overlay-bridge-not-configured")},
+        };
+    }
+
+    QDBusInterface bridge(service, path, ifaceName, QDBusConnection::sessionBus());
+    if (!bridge.isValid()) {
+        return {
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("reason"), QStringLiteral("overlay-bridge-interface-invalid")},
+        };
+    }
+    const QDBusMessage reply = bridge.callWithArgumentList(QDBus::Block, method, args);
+    if (reply.type() != QDBusMessage::ReplyMessage) {
+        return {
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("reason"), reply.errorMessage().trimmed().isEmpty()
+                                           ? QStringLiteral("overlay-bridge-call-failed")
+                                           : reply.errorMessage().trimmed()},
+        };
+    }
+    if (reply.arguments().isEmpty()) {
+        return {
+            {QStringLiteral("ok"), true},
+            {QStringLiteral("results"), QVariantMap{}},
+        };
+    }
+    const QVariant first = reply.arguments().constFirst();
+    if (first.canConvert<QVariantMap>()) {
+        const QVariantMap value = first.toMap();
+        return value.isEmpty()
+            ? QVariantMap{{QStringLiteral("ok"), true}, {QStringLiteral("results"), QVariantMap{}}}
+            : value;
+    }
+    if (first.metaType().id() == QMetaType::Bool) {
+        return {
+            {QStringLiteral("ok"), first.toBool()},
+            {QStringLiteral("results"), QVariantMap{}},
+        };
+    }
+    return {
+        {QStringLiteral("ok"), true},
+        {QStringLiteral("results"), QVariantMap{{QStringLiteral("value"), first}}},
+    };
+}
+
 QString KWinWaylandIpcClient::inputCaptureBridgeService() const
 {
     const QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
@@ -594,6 +826,28 @@ QString KWinWaylandIpcClient::inputCaptureBridgeInterface() const
     const QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
     return env.value(QStringLiteral("SLM_INPUTCAPTURE_COMPOSITOR_IFACE"),
                      QString::fromLatin1(kInputCaptureBridgeIface))
+        .trimmed();
+}
+
+QString KWinWaylandIpcClient::overlayBridgeService() const
+{
+    const QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+    return env.value(QStringLiteral("SLM_OVERLAY_COMPOSITOR_SERVICE")).trimmed();
+}
+
+QString KWinWaylandIpcClient::overlayBridgePath() const
+{
+    const QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+    return env.value(QStringLiteral("SLM_OVERLAY_COMPOSITOR_PATH"),
+                     QString::fromLatin1(kOverlayBridgePath))
+        .trimmed();
+}
+
+QString KWinWaylandIpcClient::overlayBridgeInterface() const
+{
+    const QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+    return env.value(QStringLiteral("SLM_OVERLAY_COMPOSITOR_IFACE"),
+                     QString::fromLatin1(kOverlayBridgeIface))
         .trimmed();
 }
 

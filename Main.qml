@@ -367,6 +367,13 @@ ApplicationWindow {
         }
     }
 
+    function sendOverlayCommand(cmd) {
+        if (typeof WindowingBackend === "undefined" || !WindowingBackend || !WindowingBackend.sendCommand) {
+            return false
+        }
+        return !!WindowingBackend.sendCommand(String(cmd || ""))
+    }
+
     onPortalChooserSelectedPathsChanged: {
         if (portalChooserApi) {
             portalChooserApi.portalChooserUpdatePreviewPath()
@@ -375,6 +382,7 @@ ApplicationWindow {
 
     Component.onCompleted: {
         startupQmlMark("main.onCompleted.begin")
+        root.sendOverlayCommand("overlay register shell slm-shell-main")
         syncStyleThemeFromPreferences()
         Qt.callLater(function() {
             startupQmlMark("main.deferredInit.begin")
@@ -405,6 +413,10 @@ ApplicationWindow {
             startupQmlMark("main.deferredInit.end")
         })
         startupQmlMark("main.onCompleted.end")
+    }
+
+    Component.onDestruction: {
+        root.sendOverlayCommand("overlay unregister shell")
     }
 
     Timer {
@@ -1120,6 +1132,20 @@ ApplicationWindow {
                     ShellLayerWatchdog.reportOverlayLoadError("launchpad")
                 }
             }
+        }
+    }
+
+    Connections {
+        target: desktopScene
+        ignoreUnknownSignals: true
+        function onLaunchpadVisibleChanged() {
+            root.sendOverlayCommand("overlay restack")
+            if (!dockWindowLoader || !dockWindowLoader.item || !dockWindowLoader.item.visible) {
+                return
+            }
+            // Keep overlay order deterministic in non-layer-shell environments:
+            // app windows < launchpad < dock
+            Qt.callLater(function() { dockWindowLoader.item.raise() })
         }
     }
 

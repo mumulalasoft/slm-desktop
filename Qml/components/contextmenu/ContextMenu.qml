@@ -55,8 +55,13 @@ Menu {
     function _syncModel() {
         // Clear existing dynamic items (keep only statically declared ones,
         // which there are none here).
-        while (root.count > 0)
-            root.removeItem(root.itemAt(0))
+        while (root.count > 0) {
+            var existing = root.itemAt(0)
+            root.removeItem(existing)
+            if (existing && existing.destroy) {
+                existing.destroy()
+            }
+        }
 
         _buildLevel(root, root._items)
     }
@@ -68,29 +73,35 @@ Menu {
                 continue
 
             if (it.isSeparator === true) {
-                var sep = separatorComponent.createObject(parent)
-                parent.addItem(sep)
+                var sep = separatorComponent.createObject(null)
+                if (sep) {
+                    parent.addItem(sep)
+                }
                 continue
             }
 
             var children = it.children || []
             if (children.length > 0) {
                 // Submenu — Menu has no icon property; title only.
-                var sub = submenuComponent.createObject(parent, {
+                var sub = submenuComponent.createObject(null, {
                     "title": it.label || "",
                     "_itemData": it
                 })
-                _buildLevel(sub, children)
-                parent.addMenu(sub)
+                if (sub) {
+                    _buildLevel(sub, children)
+                    parent.addMenu(sub)
+                }
             } else {
                 // Leaf item
-                var leaf = menuItemComponent.createObject(parent, {
+                var leaf = menuItemComponent.createObject(null, {
                     "text": it.label || "",
                     "iconName": it.icon || "",
                     "enabled": it.enabled !== false,
                     "_itemData": it
                 })
-                parent.addItem(leaf)
+                if (leaf) {
+                    parent.addItem(leaf)
+                }
             }
         }
     }

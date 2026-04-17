@@ -43,6 +43,12 @@ QVariantMap kwinWaylandCapabilities()
         { QStringLiteral("command.inputcapture.disable"), false },
         { QStringLiteral("command.inputcapture.release"), false },
         { QStringLiteral("command.inputcapture.set-barriers"), false },
+        { QStringLiteral("command.overlay.register"), false },
+        { QStringLiteral("command.overlay.unregister"), false },
+        { QStringLiteral("command.overlay.restack"), false },
+        { QStringLiteral("command.overlay.set-state"), false },
+        { QStringLiteral("command.dock-mode"), false },
+        { QStringLiteral("command.launchpad"), false },
         { QStringLiteral("command.progress-hide"), false },
     };
 }
@@ -144,10 +150,17 @@ QVariantMap WindowingBackendManager::capabilities() const
 {
     QVariantMap caps = baseCapabilitiesForBackend(m_backend);
     const bool inputCaptureSupported = m_kwinIpc && m_kwinIpc->supportsInputCaptureCommands();
+    const bool overlaySupported = m_kwinIpc && m_kwinIpc->supportsOverlayCommands();
     caps.insert(QStringLiteral("command.inputcapture.set-barriers"), inputCaptureSupported);
     caps.insert(QStringLiteral("command.inputcapture.enable"), inputCaptureSupported);
     caps.insert(QStringLiteral("command.inputcapture.disable"), inputCaptureSupported);
     caps.insert(QStringLiteral("command.inputcapture.release"), inputCaptureSupported);
+    caps.insert(QStringLiteral("command.overlay.register"), overlaySupported);
+    caps.insert(QStringLiteral("command.overlay.unregister"), overlaySupported);
+    caps.insert(QStringLiteral("command.overlay.restack"), overlaySupported);
+    caps.insert(QStringLiteral("command.overlay.set-state"), overlaySupported);
+    caps.insert(QStringLiteral("command.dock-mode"), overlaySupported);
+    caps.insert(QStringLiteral("command.launchpad"), overlaySupported);
     return caps;
 }
 

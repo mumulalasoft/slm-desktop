@@ -53,6 +53,13 @@ Window {
     signal addToDockRequested(var appData)
     signal addToDesktopRequested(var appData)
 
+    function _sendOverlayCommand(cmd) {
+        if (typeof WindowingBackend === "undefined" || !WindowingBackend || !WindowingBackend.sendCommand) {
+            return false
+        }
+        return !!WindowingBackend.sendCommand(String(cmd || ""))
+    }
+
     // Keep behavior deterministic across compositors: map only when active.
     visible: !!rootWindow && !!desktopScene && rootWindow.visible && dockLayerReady && root.isActive
     flags:   Qt.FramelessWindowHint
@@ -143,9 +150,15 @@ Window {
     }
 
     Component.onCompleted: {
+        root._sendOverlayCommand("overlay register launchpad slm-launchpad")
+        root._sendOverlayCommand("overlay restack")
         if (isActive) {
             dismissArmTimer.restart()
         }
+    }
+
+    Component.onDestruction: {
+        root._sendOverlayCommand("overlay unregister launchpad")
     }
 
     Timer {

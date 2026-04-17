@@ -920,6 +920,7 @@ Item {
         if (typeof WindowingBackend !== "undefined" && WindowingBackend && WindowingBackend.sendCommand) {
             if (WindowingBackend.sendCommand("launchpad " + (root.launchpadVisible ? "on" : "off"))) {
                 root.lastPushedLaunchpadState = state
+                WindowingBackend.sendCommand("overlay restack")
             }
         }
     }
