@@ -14,9 +14,6 @@ QtObject {
         "selectionTypes": []
     })
 
-    signal selectionChanged(var selection)
-    signal directoryChanged(string path)
-
     function _isExecutable(row) {
         var mime = String(row && row.mimeType ? row.mimeType : "").toLowerCase()
         if (mime.indexOf("application/x-executable") >= 0) {
@@ -65,7 +62,6 @@ QtObject {
             return
         }
         path = next
-        directoryChanged(path)
     }
 
     function setItems(rows) {
@@ -89,6 +85,5 @@ QtObject {
             "selectionCount": Number(out.length || 0),
             "selectionTypes": _selectionTypes(out)
         }
-        selectionChanged(selection)
     }
 }

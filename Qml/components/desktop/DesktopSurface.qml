@@ -344,46 +344,51 @@ Item {
         }
     }
 
-    FM.FileManagerContentView {
-        id: contentView
+    Loader {
+        id: contentLoader
         anchors.fill: parent
-        anchors.topMargin: 42
-        anchors.leftMargin: 20
-        anchors.rightMargin: 20
-        anchors.bottomMargin: 20
-        fileModel: root.fileModel
-        viewMode: root.viewMode
-        searchText: root.toolbarSearchText
-        contentLoading: root.contentLoading
-        trashView: root.trashView
-        selectedIndex: root.selectedEntryIndex
-        selectedIndexes: root.selectedEntryIndexes
-        thumbnailsEnabled: true
-        hostItem: root
+        active: !!root.fileModel && Number(root.fileModel.count || 0) > 0
+        sourceComponent: FM.FileManagerContentView {
+            id: contentView
+            anchors.fill: parent
+            anchors.topMargin: 42
+            anchors.leftMargin: 20
+            anchors.rightMargin: 20
+            anchors.bottomMargin: 20
+            fileModel: root.fileModel
+            viewMode: root.viewMode
+            searchText: root.toolbarSearchText
+            contentLoading: root.contentLoading
+            trashView: root.trashView
+            selectedIndex: root.selectedEntryIndex
+            selectedIndexes: root.selectedEntryIndexes
+            thumbnailsEnabled: true
+            hostItem: root
 
-        onSelectedIndexRequested: function(index, modifiers) {
-            root.applySelectionRequest(index, modifiers)
+            onSelectedIndexRequested: function(index, modifiers) {
+                root.applySelectionRequest(index, modifiers)
+            }
+            onActivateRequested: function(index) {
+                root.applySelectionRequest(index, Qt.NoModifier)
+                root.openSelection()
+            }
+            onBackgroundContextRequested: function(x, y) {
+                root.clearSelection()
+                var p = contentView.mapToItem(root, x, y)
+                desktopCtxMenu.openFolderMenu(p.x, p.y)
+            }
+            onContextMenuRequested: function(index, x, y) {
+                root.applySelectionRequest(index, Qt.NoModifier)
+                var p = contentView.mapToItem(root, x, y)
+                desktopCtxMenu.openFolderMenu(p.x, p.y)
+            }
+            onSelectionRectRequested: function(indexes, modifiers, anchorIndex) {
+                root.applySelectionRect(indexes, modifiers, anchorIndex)
+            }
+            onClearSelectionRequested: root.clearSelection()
+            onCreateFolderRequested: root.createNewFolder()
+            onOpenHomeRequested: root.openHomePath()
         }
-        onActivateRequested: function(index) {
-            root.applySelectionRequest(index, Qt.NoModifier)
-            root.openSelection()
-        }
-        onBackgroundContextRequested: function(x, y) {
-            root.clearSelection()
-            var p = contentView.mapToItem(root, x, y)
-            desktopCtxMenu.openFolderMenu(p.x, p.y)
-        }
-        onContextMenuRequested: function(index, x, y) {
-            root.applySelectionRequest(index, Qt.NoModifier)
-            var p = contentView.mapToItem(root, x, y)
-            desktopCtxMenu.openFolderMenu(p.x, p.y)
-        }
-        onSelectionRectRequested: function(indexes, modifiers, anchorIndex) {
-            root.applySelectionRect(indexes, modifiers, anchorIndex)
-        }
-        onClearSelectionRequested: root.clearSelection()
-        onCreateFolderRequested: root.createNewFolder()
-        onOpenHomeRequested: root.openHomePath()
     }
 
     ContextMenuComp.DesktopContextMenu {
