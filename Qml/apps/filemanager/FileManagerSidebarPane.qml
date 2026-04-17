@@ -4,6 +4,7 @@ import QtQuick.Layouts 1.15
 import QtQuick.Window 2.15
 import Slm_Desktop
 import SlmStyle
+import "../../components/style" as ShellStyle
 
 Rectangle {
     id: root
@@ -63,7 +64,7 @@ Rectangle {
             anchors.verticalCenter: parent.verticalCenter
             spacing: 0
 
-            WindowControlsCapsule {
+            ShellStyle.WindowControlsCapsule {
                 spacing: 0
                 iconProvider: function(kind, hovered, pressed) {
                     return hostRoot.titleButtonIcon(kind, hovered, pressed)

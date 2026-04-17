@@ -866,7 +866,7 @@ set(DESKTOP_SHELL_QML_FILES
     Qml/components/indicators/AppIndicatorItem.qml
     Qml/components/indicators/IndicatorMenu.qml
 
-    third_party/slm-style/qml/SlmStyle/WindowControlsCapsule.qml
+    Qml/components/style/WindowControlsCapsule.qml
     Qml/components/shell/Shell.qml
     Qml/components/screenshot/ScreenshotSaveDialog.qml
     Qml/components/screenshot/ScreenshotOverwriteDialog.qml
@@ -1129,75 +1129,6 @@ qt_add_resources(slm-settings "slm_desktop_theme_shim_theme"
     PREFIX "/qt/qml/Slm_Desktop"
     BASE "${CMAKE_SOURCE_DIR}/third_party/slm-style/qml/SlmStyle"
     FILES "${CMAKE_SOURCE_DIR}/third_party/slm-style/qml/SlmStyle/Theme.qml"
-)
-qt_add_resources(slm-desktop "slm_style_window_controls"
-    PREFIX "/qt/qml/SlmStyle"
-    BASE "${CMAKE_SOURCE_DIR}/third_party/slm-style/qml/SlmStyle"
-    FILES
-        third_party/slm-style/qml/SlmStyle/WindowControlsCapsule.qml
-        third_party/slm-style/qml/SlmStyle/icons/titlebuttons/titlebutton-backdrop.svg
-        third_party/slm-style/qml/SlmStyle/icons/titlebuttons/titlebutton-close-active.svg
-        third_party/slm-style/qml/SlmStyle/icons/titlebuttons/titlebutton-close-backdrop-active.svg
-        third_party/slm-style/qml/SlmStyle/icons/titlebuttons/titlebutton-close-backdrop.svg
-        third_party/slm-style/qml/SlmStyle/icons/titlebuttons/titlebutton-close-hover.svg
-        third_party/slm-style/qml/SlmStyle/icons/titlebuttons/titlebutton-close.svg
-        third_party/slm-style/qml/SlmStyle/icons/titlebuttons/titlebutton-maximize-active.svg
-        third_party/slm-style/qml/SlmStyle/icons/titlebuttons/titlebutton-maximize-backdrop-active.svg
-        third_party/slm-style/qml/SlmStyle/icons/titlebuttons/titlebutton-maximize-backdrop.svg
-        third_party/slm-style/qml/SlmStyle/icons/titlebuttons/titlebutton-maximize-hover.svg
-        third_party/slm-style/qml/SlmStyle/icons/titlebuttons/titlebutton-maximize.svg
-        third_party/slm-style/qml/SlmStyle/icons/titlebuttons/titlebutton-menu-active.svg
-        third_party/slm-style/qml/SlmStyle/icons/titlebuttons/titlebutton-menu-backdrop-active.svg
-        third_party/slm-style/qml/SlmStyle/icons/titlebuttons/titlebutton-menu-backdrop.svg
-        third_party/slm-style/qml/SlmStyle/icons/titlebuttons/titlebutton-menu-hover.svg
-        third_party/slm-style/qml/SlmStyle/icons/titlebuttons/titlebutton-menu.svg
-        third_party/slm-style/qml/SlmStyle/icons/titlebuttons/titlebutton-minimize-active.svg
-        third_party/slm-style/qml/SlmStyle/icons/titlebuttons/titlebutton-minimize-backdrop-active.svg
-        third_party/slm-style/qml/SlmStyle/icons/titlebuttons/titlebutton-minimize-backdrop.svg
-        third_party/slm-style/qml/SlmStyle/icons/titlebuttons/titlebutton-minimize-hover.svg
-        third_party/slm-style/qml/SlmStyle/icons/titlebuttons/titlebutton-minimize.svg
-        third_party/slm-style/qml/SlmStyle/icons/titlebuttons/titlebutton-shade-active.svg
-        third_party/slm-style/qml/SlmStyle/icons/titlebuttons/titlebutton-shade-backdrop-active.svg
-        third_party/slm-style/qml/SlmStyle/icons/titlebuttons/titlebutton-shade-backdrop.svg
-        third_party/slm-style/qml/SlmStyle/icons/titlebuttons/titlebutton-shade-hover.svg
-        third_party/slm-style/qml/SlmStyle/icons/titlebuttons/titlebutton-shade.svg
-        third_party/slm-style/qml/SlmStyle/icons/titlebuttons/titlebutton-unmaximize-active.svg
-        third_party/slm-style/qml/SlmStyle/icons/titlebuttons/titlebutton-unmaximize-backdrop-active.svg
-        third_party/slm-style/qml/SlmStyle/icons/titlebuttons/titlebutton-unmaximize-backdrop.svg
-        third_party/slm-style/qml/SlmStyle/icons/titlebuttons/titlebutton-unmaximize-hover.svg
-        third_party/slm-style/qml/SlmStyle/icons/titlebuttons/titlebutton-unmaximize.svg
-        third_party/slm-style/qml/SlmStyle/icons/titlebuttons/titlebutton-unshade-active.svg
-        third_party/slm-style/qml/SlmStyle/icons/titlebuttons/titlebutton-unshade-backdrop-active.svg
-        third_party/slm-style/qml/SlmStyle/icons/titlebuttons/titlebutton-unshade-backdrop.svg
-        third_party/slm-style/qml/SlmStyle/icons/titlebuttons/titlebutton-unshade-hover.svg
-        third_party/slm-style/qml/SlmStyle/icons/titlebuttons/titlebutton-unshade.svg
-)
-qt_add_resources(slm-settings "slm_style_window_controls_settings"
-    PREFIX "/qt/qml/SlmStyle"
-    BASE "${CMAKE_SOURCE_DIR}/third_party/slm-style/qml/SlmStyle"
-    FILES
-        third_party/slm-style/qml/SlmStyle/WindowControlsCapsule.qml
-        third_party/slm-style/qml/SlmStyle/icons/titlebuttons/titlebutton-backdrop.svg
-        third_party/slm-style/qml/SlmStyle/icons/titlebuttons/titlebutton-close-active.svg
-        third_party/slm-style/qml/SlmStyle/icons/titlebuttons/titlebutton-close-backdrop-active.svg
-        third_party/slm-style/qml/SlmStyle/icons/titlebuttons/titlebutton-close-backdrop.svg
-        third_party/slm-style/qml/SlmStyle/icons/titlebuttons/titlebutton-close-hover.svg
-        third_party/slm-style/qml/SlmStyle/icons/titlebuttons/titlebutton-close.svg
-        third_party/slm-style/qml/SlmStyle/icons/titlebuttons/titlebutton-maximize-active.svg
-        third_party/slm-style/qml/SlmStyle/icons/titlebuttons/titlebutton-maximize-backdrop-active.svg
-        third_party/slm-style/qml/SlmStyle/icons/titlebuttons/titlebutton-maximize-backdrop.svg
-        third_party/slm-style/qml/SlmStyle/icons/titlebuttons/titlebutton-maximize-hover.svg
-        third_party/slm-style/qml/SlmStyle/icons/titlebuttons/titlebutton-maximize.svg
-        third_party/slm-style/qml/SlmStyle/icons/titlebuttons/titlebutton-minimize-active.svg
-        third_party/slm-style/qml/SlmStyle/icons/titlebuttons/titlebutton-minimize-backdrop-active.svg
-        third_party/slm-style/qml/SlmStyle/icons/titlebuttons/titlebutton-minimize-backdrop.svg
-        third_party/slm-style/qml/SlmStyle/icons/titlebuttons/titlebutton-minimize-hover.svg
-        third_party/slm-style/qml/SlmStyle/icons/titlebuttons/titlebutton-minimize.svg
-        third_party/slm-style/qml/SlmStyle/icons/titlebuttons/titlebutton-unmaximize-active.svg
-        third_party/slm-style/qml/SlmStyle/icons/titlebuttons/titlebutton-unmaximize-backdrop-active.svg
-        third_party/slm-style/qml/SlmStyle/icons/titlebuttons/titlebutton-unmaximize-backdrop.svg
-        third_party/slm-style/qml/SlmStyle/icons/titlebuttons/titlebutton-unmaximize-hover.svg
-        third_party/slm-style/qml/SlmStyle/icons/titlebuttons/titlebutton-unmaximize.svg
 )
 target_include_directories(slm-settings PRIVATE
     ${CMAKE_SOURCE_DIR}/src/apps/settings

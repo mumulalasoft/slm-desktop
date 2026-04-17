@@ -4,6 +4,7 @@ import QtQuick.Layouts 1.15
 import QtQuick.Window 2.15
 import Slm_Desktop
 import SlmStyle as DSStyle
+import "../../components/style" as ShellStyle
 
 ApplicationWindow {
     id: window
@@ -199,7 +200,7 @@ ApplicationWindow {
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: 0
 
-                DSStyle.WindowControlsCapsule {
+                ShellStyle.WindowControlsCapsule {
                     spacing: 0
                     iconProvider: function(kind, hovered, pressed) {
                         return window.titleButtonIcon(kind, hovered, pressed)

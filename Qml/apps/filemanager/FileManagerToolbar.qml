@@ -4,6 +4,7 @@ import QtQuick.Layouts 1.15
 import QtQuick.Window 2.15
 import Slm_Desktop
 import SlmStyle as DSStyle
+import "../../components/style" as ShellStyle
 
 Rectangle {
     id: toolbar
@@ -130,7 +131,7 @@ Rectangle {
         Row {
             spacing: 0
             Layout.alignment: Qt.AlignVCenter
-            DSStyle.WindowControlsCapsule {
+            ShellStyle.WindowControlsCapsule {
                 spacing: 0
                 iconProvider: function(kind, hovered, pressed) {
                     return toolbar.titleButtonIcon(kind, hovered, pressed)
