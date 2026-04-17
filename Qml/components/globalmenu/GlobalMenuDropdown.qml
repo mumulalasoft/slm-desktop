@@ -18,14 +18,20 @@ Popup {
     signal itemActivated(int menuId, int itemId)
 
     // ── geometry ─────────────────────────────────────────────────────────────
-    width: Math.max(200, contentColumn.implicitWidth + Theme.metric("spacingMd") * 2)
-    height: contentColumn.implicitHeight + Theme.metric("spacingSm") * 2
+    readonly property int minPopupWidth: 244
+    readonly property int popupHPadding: Theme.metric("spacingXs") * 2
+    readonly property int popupVPadding: Theme.metric("spacingXs") * 2
+    implicitWidth: Math.max(minPopupWidth, Math.round(Number(contentColumn.childrenRect.width || 0) + popupHPadding))
+    width: implicitWidth
+    implicitHeight: Math.max(1, Math.round(Number(contentColumn.implicitHeight || 0) + popupVPadding))
+    height: implicitHeight
 
     padding: 0
     modal: false
     focus: true
     dim: false
-    closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+    // Prevent the opening click gesture from immediately closing this popup.
+    closePolicy: Popup.CloseOnEscape
 
     // ── enter / exit transitions ──────────────────────────────────────────────
     enter: Transition {
@@ -42,9 +48,13 @@ Popup {
 
     // ── background ────────────────────────────────────────────────────────────
     background: DSStyle.PopupSurface {
-        implicitWidth: root.width
-        implicitHeight: root.height
+        implicitWidth: root.implicitWidth
+        implicitHeight: root.implicitHeight
+        popupRadius: Theme.radiusWindowAlt
+        popupColor: Theme.color("menuBg")
+        popupBorderColor: Theme.color("menuBorder")
         popupOpacity: Theme.popupSurfaceOpacityStrong
+        elevation: "high"
     }
 
     // ── keyboard navigation ───────────────────────────────────────────────────
@@ -102,16 +112,14 @@ Popup {
             }
         }
 
-        implicitWidth: contentColumn.implicitWidth
+        implicitWidth: contentColumn.childrenRect.width
         implicitHeight: contentColumn.implicitHeight
 
         Column {
             id: contentColumn
-            // Use parent.width (contentItem), not root.width, to avoid a direct
-            // cross-component binding that triggers a QQuickItem::polish() loop.
-            width: parent.width
-            topPadding: Theme.metric("spacingSm")
-            bottomPadding: Theme.metric("spacingSm")
+            width: childrenRect.width
+            topPadding: Theme.metric("spacingXs")
+            bottomPadding: Theme.metric("spacingXs")
 
             Repeater {
                 model: root.menuItems
@@ -119,19 +127,14 @@ Popup {
                 delegate: Loader {
                     required property var modelData
                     required property int index
-                    width: parent.width
-
                     sourceComponent: (modelData && modelData.separator) ? sepComp : itemComp
 
                     Component {
                         id: sepComp
                         Rectangle {
-                            anchors.left: parent ? parent.left : undefined
-                            anchors.right: parent ? parent.right : undefined
-                            anchors.leftMargin: Theme.metric("spacingMd")
-                            anchors.rightMargin: Theme.metric("spacingMd")
+                            width: Math.max(160, Number(contentColumn.childrenRect.width || 0))
                             height: 1
-                            color: Theme.color("divider")
+                            color: Theme.color("menuSeparator")
                             opacity: Theme.opacitySeparator
                         }
                     }
@@ -140,7 +143,7 @@ Popup {
                         id: itemComp
                         Item {
                             id: itemRow
-                            width: parent ? parent.width : 0
+                            width: implicitWidth
                             implicitHeight: Theme.metric("controlHeightCompact")
                             implicitWidth: {
                                 var lp = Theme.metric("spacingMd") + 14 + Theme.metric("spacingXs")
@@ -160,10 +163,10 @@ Popup {
                             anchors.leftMargin: Theme.metric("spacingXs")
                             anchors.rightMargin: Theme.metric("spacingXs")
                             radius: Theme.radiusSm
-                            color: Theme.color("accent")
-                            opacity: (itemRow.isFocused || hov.hovered) && itemRow.isEnabled ? 0.12 : 0
-                            Behavior on opacity {
-                                NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault }
+                            color: (itemRow.isFocused || hov.hovered) && itemRow.isEnabled
+                                   ? Theme.color("menuHover") : "transparent"
+                            Behavior on color {
+                                ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault }
                             }
                         }
 
@@ -175,8 +178,14 @@ Popup {
                             anchors.verticalCenter: parent.verticalCenter
                             width: 14
                             text: (modelData && modelData.checked) ? "\u2713" : ""
-                            color: Theme.color("accent")
-                            font.pixelSize: Theme.fontSize("bodySmall")
+                            color: itemRow.isEnabled
+                                   ? ((itemRow.isFocused || hov.hovered)
+                                      ? Theme.color("selectedItemText")
+                                      : Theme.color("textSecondary"))
+                                   : Theme.color("textDisabled")
+                            font.family: Theme.fontFamilyUi
+                            font.pixelSize: Theme.fontSize("menu")
+                            font.weight: Theme.fontWeight("bold")
                         }
 
                         // Icon
@@ -196,27 +205,53 @@ Popup {
                             id: labelText
                             anchors.left: itemIcon.visible ? itemIcon.right : checkMark.right
                             anchors.leftMargin: Theme.metric("spacingXs")
-                            anchors.right: shortcutLabel.left
+                            anchors.right: shortcutBadge.visible ? shortcutBadge.left : parent.right
                             anchors.rightMargin: Theme.metric("spacingSm")
                             anchors.verticalCenter: parent.verticalCenter
                             text: modelData ? (modelData.label || "") : ""
                             color: itemRow.isEnabled
-                                   ? Theme.color("textPrimary")
+                                   ? ((itemRow.isFocused || hov.hovered)
+                                      ? Theme.color("selectedItemText")
+                                      : Theme.color("textPrimary"))
                                    : Theme.color("textDisabled")
-                            font.pixelSize: Theme.fontSize("bodyLarge")
+                            font.family: Theme.fontFamilyUi
+                            font.pixelSize: Theme.fontSize("menu")
+                            font.weight: (itemRow.isFocused || hov.hovered)
+                                         ? Theme.fontWeight("medium")
+                                         : Theme.fontWeight("normal")
                             elide: Text.ElideRight
                         }
 
                         // Shortcut hint
-                        Text {
-                            id: shortcutLabel
+                        Rectangle {
+                            id: shortcutBadge
                             anchors.right: parent.right
                             anchors.rightMargin: Theme.metric("spacingMd")
                             anchors.verticalCenter: parent.verticalCenter
-                            text: (modelData && modelData.shortcutText) ? modelData.shortcutText : ""
-                            color: Theme.color("textSecondary")
-                            font.pixelSize: Theme.fontSize("bodySmall")
-                            opacity: Theme.opacityMuted
+                            visible: shortcutLabel.text.length > 0
+                            implicitWidth: shortcutLabel.implicitWidth + 10
+                            implicitHeight: Math.max(16, shortcutLabel.implicitHeight + 2)
+                            radius: Theme.radiusSm
+                            color: (itemRow.isFocused || hov.hovered)
+                                   ? Qt.rgba(1, 1, 1, Theme.darkMode ? 0.22 : 0.28)
+                                   : Theme.color("controlBg")
+                            border.width: Theme.borderWidthThin
+                            border.color: (itemRow.isFocused || hov.hovered)
+                                          ? Qt.rgba(1, 1, 1, Theme.darkMode ? 0.45 : 0.38)
+                                          : Theme.color("panelBorder")
+
+                            Text {
+                                id: shortcutLabel
+                                anchors.centerIn: parent
+                                text: (modelData && modelData.shortcutText) ? modelData.shortcutText : ""
+                                color: itemRow.isEnabled
+                                       ? ((itemRow.isFocused || hov.hovered)
+                                          ? Theme.color("selectedItemText")
+                                          : Theme.color("textSecondary"))
+                                       : Theme.color("textDisabled")
+                                font.family: Theme.fontFamilyUi
+                                font.pixelSize: Theme.fontSize("tiny")
+                            }
                         }
 
                         HoverHandler { id: hov }

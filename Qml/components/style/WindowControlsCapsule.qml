@@ -47,7 +47,7 @@ Row {
             Image {
                 anchors.fill: parent
                 source: iconSource
-                visible: source.length > 0
+                visible: String(iconSource || "").length > 0
                 smooth: true
                 fillMode: Image.PreserveAspectFit
             }

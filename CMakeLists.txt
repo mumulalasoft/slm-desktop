@@ -1004,6 +1004,7 @@ qt_add_qml_module(slm-settings
         Qml/apps/settings/StylePreviewGallery.qml
         Qml/apps/settings/Sidebar.qml
         Qml/apps/settings/ContentPanel.qml
+        Qml/components/style/WindowControlsCapsule.qml
         Qml/apps/settings/components/SettingCard.qml
         Qml/apps/settings/components/SettingToggle.qml
         Qml/apps/settings/components/SettingGroup.qml
@@ -5217,6 +5218,19 @@ qt_add_resources(slm-polkit-agent "slm_polkit_agent_slmstyle_module"
     PREFIX "/qt/qml/SlmStyle"
     BASE "${CMAKE_SOURCE_DIR}/third_party/slm-style/qml/SlmStyle"
     FILES ${SLM_STYLE_MODULE_FILES}
+)
+file(GLOB SLM_TITLEBUTTON_ICON_FILES
+    "${CMAKE_SOURCE_DIR}/assets/icons/titlebuttons/*.svg"
+)
+qt_add_resources(slm-desktop "slm_desktop_titlebutton_icons"
+    PREFIX "/qt/qml/SlmStyle/icons/titlebuttons"
+    BASE "${CMAKE_SOURCE_DIR}/assets/icons/titlebuttons"
+    FILES ${SLM_TITLEBUTTON_ICON_FILES}
+)
+qt_add_resources(slm-settings "slm_settings_titlebutton_icons"
+    PREFIX "/qt/qml/SlmStyle/icons/titlebuttons"
+    BASE "${CMAKE_SOURCE_DIR}/assets/icons/titlebuttons"
+    FILES ${SLM_TITLEBUTTON_ICON_FILES}
 )
 target_link_libraries(slm-polkit-agent
     PRIVATE

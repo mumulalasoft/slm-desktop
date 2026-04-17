@@ -42,7 +42,7 @@ Item {
 
     Item {
         anchors.fill: parent
-        clip: true
+        clip: !root.anyPopupOpen
 
         TopBarComp.TopBar {
             id: topBarSurface

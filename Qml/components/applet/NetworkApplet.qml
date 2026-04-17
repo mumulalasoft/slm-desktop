@@ -14,7 +14,7 @@ Item {
     property bool popupHint: false
     property double lastMenuCloseMs: 0
     readonly property int iconSize: 22
-    readonly property int popupGap: Theme.metric("spacingXs")
+    readonly property int popupGap: Theme.metric("spacingSm")
     readonly property int rowGap: Theme.metric("spacingMd")
     readonly property bool popupOpen: popupHint || networkMenu.opened
 
@@ -46,7 +46,7 @@ Item {
         }
         root.popupHint = true
         popupHintTimer.restart()
-        Qt.callLater(function() { networkMenu.open() })
+        Qt.callLater(function() { networkMenu.togglePopup() })
     }
 
     function isConcreteSsid(name) {

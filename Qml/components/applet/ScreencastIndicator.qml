@@ -46,7 +46,7 @@ Item {
             if (menu.opened || menu.visible) {
                 menu.close()
             } else {
-                menu.open()
+                menu.togglePopup()
             }
         }
 
@@ -101,7 +101,7 @@ Item {
     IndicatorMenu {
         id: menu
         anchorItem: button
-        popupGap: Theme.metric("spacingXs")
+        popupGap: Theme.metric("spacingSm")
         popupWidth: Theme.metric("popupWidthM")
 
         MenuItem {

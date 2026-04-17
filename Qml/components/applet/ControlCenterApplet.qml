@@ -17,7 +17,8 @@ Item {
     property double lastMenuCloseMs: 0
     property real brightnessValue: 72
     readonly property int iconSize: 22
-    readonly property int popupGap: Theme.metric("spacingXs")
+    readonly property int popupGap: Theme.metric("spacingSm")
+    readonly property int popupDropExtra: 0
     readonly property int sectionGap: Theme.metric("spacingSm")
     readonly property int itemGap: Theme.metric("spacingXs")
     readonly property int popupWidth: 336
@@ -128,6 +129,7 @@ Item {
         anchorItem: indicatorButton
         popupHost: root.popupHost
         popupGap: root.popupGap
+        popupDropExtra: root.popupDropExtra
         popupWidth: root.popupWidth
         padding: Theme.metric("spacingXs")
         onAboutToShow: {

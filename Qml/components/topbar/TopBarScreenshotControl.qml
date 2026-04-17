@@ -131,6 +131,7 @@ Item {
 
         Popup {
             id: screenshotPopup
+            popupType: Popup.Window
             parent: root.popupHost ? root.popupHost : null
             modal: false
             focus: false

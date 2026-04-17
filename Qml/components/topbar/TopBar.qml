@@ -38,6 +38,7 @@ Rectangle {
     readonly property bool mainMenuPopupOpen: !!(mainMenuControlLoader.item && mainMenuControlLoader.item.popupOpen)
     readonly property bool screenshotPopupOpen: !!(screenshotControlLoader.item && screenshotControlLoader.item.popupOpen)
     readonly property bool indicatorPopupOpen: !!(indicatorManagerLoader.item && indicatorManagerLoader.item.itemPopupOpen)
+    readonly property bool globalMenuPopupOpen: !!brandSection && !!brandSection.anyPopupOpen
     readonly property bool startupItemsReady: !!deferredReady
                                              && !!indicatorsRegistered
                                              && mainMenuControlLoader.status === Loader.Ready
@@ -47,6 +48,7 @@ Rectangle {
                                         || mainMenuPopupOpen
                                         || screenshotPopupOpen
                                         || indicatorPopupOpen
+                                        || globalMenuPopupOpen
 
     Timer {
         id: popupHintTimer
@@ -382,6 +384,7 @@ Rectangle {
             }
         }
         TB.TopBarBrandSection {
+            id: brandSection
             fileManagerContent: root.fileManagerContent
         }
 

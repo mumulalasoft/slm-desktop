@@ -183,7 +183,7 @@ Item {
                     if (rows && rows.length > 0) {
                         root.trayMenuRows = rows
                         trayMenuPopup.x = Math.round(button.mapToGlobal(0, 0).x)
-                        trayMenuPopup.y = Math.round(button.mapToGlobal(0, button.height + Theme.metric("spacingXs")).y)
+                        trayMenuPopup.y = Math.round(button.mapToGlobal(0, button.height + Theme.metric("spacingSm")).y)
                         trayMenuPopup.open()
                     } else {
                         root.host.contextMenu(root.itemId, gx, gy)
@@ -219,6 +219,7 @@ Item {
     Menu {
         id: trayMenuPopup
         property var quickRows: []
+        popupType: Popup.Window
         modal: false
         focus: false
         dim: false
@@ -330,6 +331,7 @@ Item {
             property int parentMenuId: -1
             property var rows: []
 
+            popupType: Popup.Window
             modal: false
             focus: false
             dim: false

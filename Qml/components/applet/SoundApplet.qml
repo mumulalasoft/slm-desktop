@@ -14,7 +14,7 @@ Item {
     property bool popupHint: false
     property double lastMenuCloseMs: 0
     readonly property int iconSize: 22
-    readonly property int popupGap: Theme.metric("spacingXs")
+    readonly property int popupGap: Theme.metric("spacingSm")
     readonly property int rowGap: Theme.metric("spacingMd")
     readonly property int sectionGap: Theme.metric("spacingSm")
     readonly property bool popupOpen: popupHint || menu.opened
@@ -45,7 +45,7 @@ Item {
         }
         root.popupHint = true
         popupHintTimer.restart()
-        Qt.callLater(function() { menu.open() })
+        Qt.callLater(function() { menu.togglePopup() })
     }
 
     function iconSourceByName(name) {

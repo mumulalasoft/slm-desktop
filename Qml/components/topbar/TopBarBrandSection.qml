@@ -16,6 +16,7 @@ Row {
 
     // -1 = no category menu open; ≥0 = menuId of the open category dropdown.
     property int menuBarOpenId: -1
+    readonly property bool anyPopupOpen: menuBarOpenId >= 0 || (appIdentity ? appIdentity.menuOpen : false)
 
     readonly property string _adaptiveMode: (typeof GlobalMenuAdaptiveController !== "undefined"
                                              && GlobalMenuAdaptiveController
@@ -35,11 +36,14 @@ Row {
 
     // ── fallback menu definitions ─────────────────────────────────────────────
 
-    function _systemFallbackMenus() {
+    function _desktopFallbackMenus() {
         return [
-            { "id": 9001, "label": "Session",  "enabled": true, "source": "fallback-system" },
-            { "id": 9002, "label": "Apps",      "enabled": true, "source": "fallback-system" },
-            { "id": 9003, "label": "Settings",  "enabled": true, "source": "fallback-system" }
+            { "id": 9201, "label": "File",      "enabled": true, "source": "fallback-desktop" },
+            { "id": 9202, "label": "Edit",      "enabled": true, "source": "fallback-desktop" },
+            { "id": 9203, "label": "Go",        "enabled": true, "source": "fallback-desktop" },
+            { "id": 9204, "label": "Workspace", "enabled": true, "source": "fallback-desktop" },
+            { "id": 9205, "label": "Tools",     "enabled": true, "source": "fallback-desktop" },
+            { "id": 9206, "label": "Help",      "enabled": true, "source": "fallback-desktop" }
         ]
     }
 
@@ -54,14 +58,39 @@ Row {
         ]
     }
 
+    function _sanitizeTopLevelMenus(rows) {
+        var out = []
+        if (!rows || rows.length === undefined) {
+            return out
+        }
+        for (var i = 0; i < rows.length; ++i) {
+            var row = rows[i]
+            if (!row) {
+                continue
+            }
+            var label = String(row.label || "").trim()
+            var menuId = Number(row.id || -1)
+            if (label.length <= 0 || menuId <= 0) {
+                continue
+            }
+            out.push({
+                "id": menuId,
+                "label": label,
+                "enabled": row.enabled !== false
+            })
+        }
+        return out
+    }
+
     function _rawMenus() {
         if (typeof GlobalMenuManager !== "undefined" && GlobalMenuManager
-                && GlobalMenuManager.available
-                && GlobalMenuManager.topLevelMenus
-                && GlobalMenuManager.topLevelMenus.length > 0) {
-            return GlobalMenuManager.topLevelMenus
+                && GlobalMenuManager.topLevelMenus) {
+            var sanitized = _sanitizeTopLevelMenus(GlobalMenuManager.topLevelMenus)
+            if (sanitized.length > 0) {
+                return sanitized
+            }
         }
-        return _hasActiveApp ? _appFallbackMenus() : _systemFallbackMenus()
+        return _hasActiveApp ? _appFallbackMenus() : _desktopFallbackMenus()
     }
 
     function _moreCompactRows(menus) {
@@ -85,12 +114,15 @@ Row {
         if (_effectiveAdaptiveMode === "compact") {
             var keep = []
             var haveFile = false, haveEdit = false, haveView = false
+            var haveGo = false, haveWorkspace = false
             for (var i = 0; i < menus.length; ++i) {
                 var row = menus[i] || ({})
                 var label = String(row.label || "").toLowerCase()
                 if (!haveFile  && label === "file")  { keep.push(row); haveFile  = true; continue }
                 if (!haveEdit  && label === "edit")  { keep.push(row); haveEdit  = true; continue }
                 if (!haveView  && label === "view")  { keep.push(row); haveView  = true; continue }
+                if (!haveGo && label === "go") { keep.push(row); haveGo = true; continue }
+                if (!haveWorkspace && label === "workspace") { keep.push(row); haveWorkspace = true; continue }
             }
             var more = _moreCompactRows(menus)
             if (more.length > 0) {
@@ -106,25 +138,41 @@ Row {
 
     function _fallbackMenuItems(menuId) {
         var id = Number(menuId || -1)
-        if (id === 9001) {
+        if (id === 9001 || id === 9201) {
+            return [
+                { "id": 1, "label": "Open…", "enabled": true },
+                { "id": -1, "separator": true },
+                { "id": 2, "label": "New Window", "enabled": true }
+            ]
+        }
+        if (id === 9002 || id === 9202) {
+            return [
+                { "id": 1, "label": "Copy", "enabled": true },
+                { "id": 2, "label": "Paste", "enabled": true },
+                { "id": -1, "separator": true },
+                { "id": 3, "label": "Select All", "enabled": true }
+            ]
+        }
+        if (id === 9003 || id === 9203) {
+            return [
+                { "id": 1, "label": "Home", "enabled": true },
+                { "id": 2, "label": "Documents", "enabled": true }
+            ]
+        }
+        if (id === 9204) {
             return [
                 { "id": 1, "label": "Workspace Overview", "enabled": true },
-                { "id": -1, "separator": true },
-                { "id": 2, "label": "Lock Screen", "enabled": true }
+                { "id": 2, "label": "Move to New Workspace", "enabled": true }
             ]
         }
-        if (id === 9002) {
+        if (id === 9205) {
             return [
-                { "id": 1, "label": "Open Launchpad", "enabled": true },
-                { "id": 2, "label": "Open Files",     "enabled": true },
-                { "id": -1, "separator": true },
-                { "id": 3, "label": "Settings",       "enabled": true }
+                { "id": 1, "label": "Open Settings", "enabled": true }
             ]
         }
-        if (id === 9003) {
+        if (id === 9206) {
             return [
-                { "id": 1, "label": "Open Settings",      "enabled": true },
-                { "id": 2, "label": "Firewall & Security", "enabled": true }
+                { "id": 1, "label": "Help Center", "enabled": true }
             ]
         }
         if (id === 9101) {
@@ -176,6 +224,19 @@ Row {
         return []
     }
 
+    function _rowsCount(rows) {
+        if (!rows) {
+            return 0
+        }
+        if (rows.length !== undefined) {
+            return Math.max(0, Number(rows.length || 0))
+        }
+        if (rows.count !== undefined) {
+            return Math.max(0, Number(rows.count || 0))
+        }
+        return 0
+    }
+
     // ── fallback activation ───────────────────────────────────────────────────
 
     function _activateFallback(menuId, itemId) {
@@ -201,6 +262,26 @@ Row {
         }
         if ((m === 9103 || m === 9105) && i === 1 && router) {
             router.route("workspace.toggle", {}, "global-menu-fallback")
+        }
+        if (m === 9201) {
+            if (i === 1 && shell)  { shell.setToTheSpotVisible(true); return }
+            if (i === 2 && router) { router.route("filemanager.open", { "target": "~" }, "global-menu-fallback"); return }
+        }
+        if (m === 9203 && i === 1 && router) {
+            router.route("filemanager.open", { "target": "~" }, "global-menu-fallback")
+            return
+        }
+        if (m === 9204 && i === 1 && router) {
+            router.route("workspace.toggle", {}, "global-menu-fallback")
+            return
+        }
+        if (m === 9205 && i === 1 && router) {
+            router.route("app.desktopid", { "desktopId": "slm-settings.desktop" }, "global-menu-fallback")
+            return
+        }
+        if (m === 9206 && i === 1 && router) {
+            router.route("app.desktopid", { "desktopId": "slm-settings.desktop" }, "global-menu-fallback")
+            return
         }
     }
 
@@ -232,6 +313,23 @@ Row {
         }
     }
 
+    function _positionCategoryDropdown(dropdownObj, anchorObj) {
+        if (!dropdownObj || !anchorObj) {
+            return
+        }
+        if (dropdownObj.popupType === Popup.Window) {
+            if (!anchorObj.mapToGlobal) {
+                return
+            }
+            var g = anchorObj.mapToGlobal(0, anchorObj.height + Theme.metric("spacingSm"))
+            dropdownObj.x = Math.round(Number(g.x || 0))
+            dropdownObj.y = Math.round(Number(g.y || 0))
+            return
+        }
+        dropdownObj.x = 0
+        dropdownObj.y = Math.round(anchorObj.height + Theme.metric("spacingSm"))
+    }
+
     // ── focus-mode reveal ─────────────────────────────────────────────────────
 
     Timer {
@@ -261,7 +359,9 @@ Row {
         }
     }
 
-    readonly property bool _menuVisible: _effectiveAdaptiveMode !== "focus" || _focusReveal || _resumePending
+    // Keep category menu bar deterministic and always visible.
+    // Focus/compact modes may alter content density, but not visibility.
+    readonly property bool _menuVisible: true
 
     Connections {
         target: (typeof GlobalMenuSuspendBridge !== "undefined") ? GlobalMenuSuspendBridge : null
@@ -310,6 +410,7 @@ Row {
 
     Row {
         visible: root._menuVisible
+        height: root.height
         spacing: 2
 
         Repeater {
@@ -324,7 +425,7 @@ Row {
                 property bool popupOpen: dropdown.visible
 
                 width: categoryButton.implicitWidth
-                height: parent ? parent.height : 28
+                height: root.height
 
                 // ── button ────────────────────────────────────────────────────
                 GlobalMenuComp.GlobalMenuCategoryButton {
@@ -337,16 +438,26 @@ Row {
                     onClicked: {
                         if (root.menuBarOpenId === categoryItem._myMenuId) {
                             root.menuBarOpenId = -1
+                            openRetryTimer.stop()
                         } else {
                             var rows = root._menuItemsFor(modelData)
-                            if (!rows || rows.length === 0) {
+                            if (root._rowsCount(rows) <= 0) {
                                 if (typeof GlobalMenuManager !== "undefined" && GlobalMenuManager
                                         && GlobalMenuManager.activateMenu) {
                                     GlobalMenuManager.activateMenu(categoryItem._myMenuId)
                                 }
+                                dropdown.menuItems = [
+                                    { "id": -999001, "label": "Loading menu...", "enabled": false }
+                                ]
+                                root._positionCategoryDropdown(dropdown, categoryItem)
+                                root.menuBarOpenId = categoryItem._myMenuId
+                                openRetryAttempts = 0
+                                openRetryTimer.restart()
                                 return
                             }
+                            openRetryTimer.stop()
                             dropdown.menuItems = rows
+                            root._positionCategoryDropdown(dropdown, categoryItem)
                             root.menuBarOpenId = categoryItem._myMenuId
                         }
                     }
@@ -360,9 +471,37 @@ Row {
                             return
                         }
                         var rows = root._menuItemsFor(modelData)
-                        if (rows && rows.length > 0) {
+                        if (root._rowsCount(rows) > 0) {
+                            openRetryTimer.stop()
                             dropdown.menuItems = rows
+                            root._positionCategoryDropdown(dropdown, categoryItem)
                             root.menuBarOpenId = categoryItem._myMenuId
+                        }
+                    }
+                }
+
+                property int openRetryAttempts: 0
+                Timer {
+                    id: openRetryTimer
+                    interval: 80
+                    repeat: true
+                    running: false
+                    onTriggered: {
+                        if (root.menuBarOpenId >= 0 && root.menuBarOpenId !== categoryItem._myMenuId) {
+                            stop()
+                            return
+                        }
+                        var lateRows = root._menuItemsFor(modelData)
+                        if (root._rowsCount(lateRows) > 0) {
+                            dropdown.menuItems = lateRows
+                            root._positionCategoryDropdown(dropdown, categoryItem)
+                            root.menuBarOpenId = categoryItem._myMenuId
+                            stop()
+                            return
+                        }
+                        openRetryAttempts += 1
+                        if (openRetryAttempts >= 8) {
+                            stop()
                         }
                     }
                 }
@@ -370,8 +509,8 @@ Row {
                 // ── dropdown ──────────────────────────────────────────────────
                 GlobalMenuComp.GlobalMenuDropdown {
                     id: dropdown
-                    x: 0
-                    y: categoryItem.height + Theme.metric("spacingXs")
+                    parent: categoryItem
+                    popupType: Popup.Item
                     menuId: categoryItem._myMenuId
                     menuItems: []
 
@@ -391,11 +530,21 @@ Row {
                     target: root
                     function onMenuBarOpenIdChanged() {
                         if (root.menuBarOpenId === categoryItem._myMenuId) {
-                            if (!dropdown.visible && dropdown.menuItems.length > 0) {
-                                dropdown.open()
+                            if (!dropdown.visible && root._rowsCount(dropdown.menuItems) > 0) {
+                                Qt.callLater(function() {
+                                    if (root.menuBarOpenId === categoryItem._myMenuId
+                                            && !dropdown.visible
+                                            && root._rowsCount(dropdown.menuItems) > 0) {
+                                        root._positionCategoryDropdown(dropdown, categoryItem)
+                                        dropdown.open()
+                                    }
+                                })
                             }
                         } else if (dropdown.visible) {
+                            openRetryTimer.stop()
                             dropdown.close()
+                        } else {
+                            openRetryTimer.stop()
                         }
                     }
                 }

@@ -110,11 +110,14 @@ Item {
         if (!opMenu || !indicatorButton) {
             return
         }
-        var pt = opMenu.parent
-                ? indicatorButton.mapToItem(opMenu.parent, 0, indicatorButton.height + root.spaceXs)
-                : Qt.point(0, indicatorButton.height + root.spaceXs)
-        opMenu.x = Math.round(pt.x + (indicatorButton.width - opMenu.width) * 0.5)
-        opMenu.y = Math.round(pt.y)
+        var pt = Qt.point(0, indicatorButton.height + root.spaceXs)
+        if (opMenu.popupType === Popup.Window && indicatorButton.mapToGlobal) {
+            pt = indicatorButton.mapToGlobal(0, indicatorButton.height + root.spaceSm)
+        } else if (opMenu.parent) {
+            pt = indicatorButton.mapToItem(opMenu.parent, 0, indicatorButton.height + root.spaceSm)
+        }
+        opMenu.x = Math.round(Number(pt.x || 0) + (indicatorButton.width - opMenu.width) * 0.5)
+        opMenu.y = Math.round(Number(pt.y || 0))
     }
 
     function openOpMenu() {
@@ -598,6 +601,7 @@ Item {
 
     Popup {
         id: opMenu
+        popupType: Popup.Window
         parent: Overlay.overlay
         modal: false
         focus: false
