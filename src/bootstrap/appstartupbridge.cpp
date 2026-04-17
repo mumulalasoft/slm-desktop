@@ -1,4 +1,6 @@
 #include "appstartupbridge.h"
+#include "../services/contextmenu/contextmenuservice.h"
+#include "../services/power/powerbridge.h"
 
 #include <QQmlContext>
 #include <QTimer>
@@ -13,6 +15,8 @@
 #include "../services/power/batterymanager.h"
 #include "../../externalindicatorregistry.h"
 #include "../../globalmenumanager.h"
+#include "../services/globalmenu/globalmenuadaptivecontroller.h"
+#include "../services/globalmenu/globalmenususpendbridge.h"
 #include "../services/indicator/statusnotifierhost.h"
 #include "../services/portal/screencastprivacymodel.h"
 #include "../services/portal/inputcaptureprivacymodel.h"
@@ -24,7 +28,6 @@
 #include "../core/execution/appcommandrouter.h"
 #include "../../cursorcontroller.h"
 #include "../core/icons/themeiconcontroller.h"
-#include "../core/prefs/uipreferences.h"
 #include "../core/workspace/windowingbackendmanager.h"
 #include "../core/workspace/workspacemanager.h"
 #include "../core/workspace/workspacestripmodel.h"
@@ -45,6 +48,9 @@
 #include "../../metadataindexserver.h"
 #include "../services/clipboard/ClipboardServiceClient.h"
 #include "../core/motion/slmmotioncontroller.h"
+#include "../core/shell/shellstatecontroller.h"
+#include "../core/shell/shellinputrouter.h"
+#include "../core/shell/shelllayerwatchdog.h"
 
 namespace {
 template <std::size_t N>
@@ -86,11 +92,13 @@ void registerTopBarIndicatorContext(QQmlContext *context,
                                     BatteryManager *batteryManager,
                                     ExternalIndicatorRegistry *externalIndicatorRegistry,
                                     GlobalMenuManager *globalMenuManager,
+                                    GlobalMenuAdaptiveController *globalMenuAdaptiveController,
+                                    GlobalMenuSuspendBridge *globalMenuSuspendBridge,
                                     StatusNotifierHost *statusNotifierHost,
                                     ScreencastPrivacyModel *screencastPrivacyModel,
                                     InputCapturePrivacyModel *inputCapturePrivacyModel)
 {
-    const std::array<std::pair<const char *, QObject *>, 11> entries{{
+    const std::array<std::pair<const char *, QObject *>, 13> entries{{
         {"NetworkManager", networkManager},
         {"BluetoothManager", bluetoothManager},
         {"SoundManager", soundManager},
@@ -99,6 +107,8 @@ void registerTopBarIndicatorContext(QQmlContext *context,
         {"BatteryManager", batteryManager},
         {"ExternalIndicatorRegistry", externalIndicatorRegistry},
         {"GlobalMenuManager", globalMenuManager},
+        {"GlobalMenuAdaptiveController", globalMenuAdaptiveController},
+        {"GlobalMenuSuspendBridge", globalMenuSuspendBridge},
         {"StatusNotifierHost", statusNotifierHost},
         {"ScreencastPrivacyModel", screencastPrivacyModel},
         {"InputCapturePrivacyModel", inputCapturePrivacyModel},
@@ -115,7 +125,7 @@ void registerCoreContext(QQmlContext *context,
                          AppCommandRouter *appCommandRouter,
                          CursorController *cursorController,
                          ThemeIconController *themeIconController,
-                         UIPreferences *uiPreferences,
+                         QObject *desktopSettings,
                          WindowingBackendManager *windowingBackendManager,
                          WorkspaceManager *workspaceManager,
                          WorkspaceStripModel *workspaceStripModel,
@@ -135,9 +145,14 @@ void registerCoreContext(QQmlContext *context,
                          TothespotTextHighlighter *tothespotTextHighlighter,
                          MetadataIndexServer *metadataIndexServer,
                          Slm::Clipboard::ClipboardServiceClient *clipboardServiceClient,
-                         Slm::Motion::MotionController *motionController)
+                         Slm::Motion::MotionController *motionController,
+                         ShellStateController *shellStateController,
+                         ShellInputRouter *shellInputRouter,
+                         ShellLayerWatchdog *shellLayerWatchdog,
+                         PowerBridge *powerBridge,
+                         Slm::ContextMenu::ContextMenuService *contextMenuService)
 {
-    const std::array<std::pair<const char *, QObject *>, 32> entries{{
+    const std::array<std::pair<const char *, QObject *>, 37> entries{{
         {"AppModel", appModel},
         {"AppManager", appModel},
         {"ShortcutModel", shortcutModel},
@@ -147,7 +162,7 @@ void registerCoreContext(QQmlContext *context,
         {"AppCommandRouter", appCommandRouter},
         {"CursorController", cursorController},
         {"ThemeIconController", themeIconController},
-        {"UIPreferences", uiPreferences},
+        {"DesktopSettings", desktopSettings},
         {"WindowingBackend", windowingBackendManager},
         {"CompositorStateModel",
          windowingBackendManager ? windowingBackendManager->compositorStateObject() : nullptr},
@@ -171,6 +186,11 @@ void registerCoreContext(QQmlContext *context,
         {"MetadataIndexServer", metadataIndexServer},
         {"ClipboardServiceClient", clipboardServiceClient},
         {"MotionController", motionController},
+        {"ShellStateController", shellStateController},
+        {"ShellInputRouter", shellInputRouter},
+        {"ShellLayerWatchdog", shellLayerWatchdog},
+        {"PowerBridge", powerBridge},
+        {"ContextMenuService", contextMenuService},
     }};
     setContextObjects(context, entries);
 }

@@ -1,0 +1,13 @@
+[Unit]
+Description=SLM Settings SSOT Daemon
+After=graphical-session.target dbus.service
+
+[Service]
+Type=simple
+ExecStart=%h/Development/Qt/Desktop_Shell/build/slm-settingsd
+Restart=on-failure
+RestartSec=1
+Environment=QT_LOGGING_RULES=qt.qpa.*=false
+
+[Install]
+WantedBy=default.target

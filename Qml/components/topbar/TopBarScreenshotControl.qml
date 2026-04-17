@@ -1,7 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import Slm_Desktop
-import Style as DSStyle
+import SlmStyle as DSStyle
 
 Item {
     id: root
@@ -9,6 +9,7 @@ Item {
     property int iconButtonW: Theme.metric("controlHeightRegular")
     property int iconButtonH: Theme.metric("controlHeightCompact")
     property int iconGlyph: 18
+    property var popupHost: null
     property int popupInset: Theme.metric("spacingLg")
     property int popupGap: Theme.metric("spacingSm")
     property int popupControlH: Theme.metric("controlHeightLarge")
@@ -23,23 +24,33 @@ Item {
 
     property double lastCloseMs: 0
 
+    function microAnimationAllowed() {
+        if (!Theme.animationsEnabled) {
+            return false
+        }
+        if (typeof MotionController === "undefined" || !MotionController || !MotionController.allowMotionPriority) {
+            return true
+        }
+        return MotionController.allowMotionPriority(MotionController.LowPriority)
+    }
+
     function recentlyClosed(debounceMs) {
         var d = debounceMs === undefined ? 220 : debounceMs
         return (Date.now() - Number(lastCloseMs || 0)) < d
     }
 
     function loadScreenshotPrefs() {
-        if (typeof UIPreferences === "undefined" || !UIPreferences || !UIPreferences.getPreference) {
+        if (typeof DesktopSettings === "undefined" || !DesktopSettings || !DesktopSettings.settingValue) {
             return
         }
-        var modeValue = String(UIPreferences.getPreference("screenshot.mode", "screen"))
+        var modeValue = String(DesktopSettings.settingValue("screenshot.mode", "screen"))
         if (modeValue !== "screen" && modeValue !== "window" && modeValue !== "area") {
             modeValue = "screen"
         }
         screenshotPopup.mode = modeValue
-        screenshotPopup.grabPointer = !!UIPreferences.getPreference("screenshot.grabPointer", false)
-        screenshotPopup.concealText = !!UIPreferences.getPreference("screenshot.concealText", false)
-        var delayValue = Number(UIPreferences.getPreference("screenshot.delaySec", 0))
+        screenshotPopup.grabPointer = !!DesktopSettings.settingValue("screenshot.grabPointer", false)
+        screenshotPopup.concealText = !!DesktopSettings.settingValue("screenshot.concealText", false)
+        var delayValue = Number(DesktopSettings.settingValue("screenshot.delaySec", 0))
         if (isNaN(delayValue)) {
             delayValue = 0
         }
@@ -47,13 +58,13 @@ Item {
     }
 
     function saveScreenshotPrefs() {
-        if (typeof UIPreferences === "undefined" || !UIPreferences || !UIPreferences.setPreference) {
+        if (typeof DesktopSettings === "undefined" || !DesktopSettings || !DesktopSettings.setSettingValue) {
             return
         }
-        UIPreferences.setPreference("screenshot.mode", String(screenshotPopup.mode || "screen"))
-        UIPreferences.setPreference("screenshot.grabPointer", !!screenshotPopup.grabPointer)
-        UIPreferences.setPreference("screenshot.concealText", !!screenshotPopup.concealText)
-        UIPreferences.setPreference("screenshot.delaySec", Math.max(0, Math.min(30, Number(screenshotPopup.delaySec || 0))))
+        DesktopSettings.setSettingValue("screenshot.mode", String(screenshotPopup.mode || "screen"))
+        DesktopSettings.setSettingValue("screenshot.grabPointer", !!screenshotPopup.grabPointer)
+        DesktopSettings.setSettingValue("screenshot.concealText", !!screenshotPopup.concealText)
+        DesktopSettings.setSettingValue("screenshot.delaySec", Math.max(0, Math.min(30, Number(screenshotPopup.delaySec || 0))))
     }
 
     function openPopup() {
@@ -71,6 +82,10 @@ Item {
         anchors.fill: parent
         radius: Theme.radiusControl
         color: screenshotMouse.containsMouse ? Theme.color("accentSoft") : "transparent"
+        Behavior on color {
+            enabled: root.microAnimationAllowed()
+            ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault }
+        }
 
         Image {
             id: screenshotIcon
@@ -116,7 +131,7 @@ Item {
 
         Popup {
             id: screenshotPopup
-            popupType: Popup.Window
+            parent: root.popupHost ? root.popupHost : null
             modal: false
             focus: false
             dim: false

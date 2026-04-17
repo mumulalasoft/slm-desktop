@@ -1,0 +1,11 @@
+# DBus session service activation file untuk SLM FileManager.
+# Install ke: ~/.local/share/dbus-1/services/  (user session)
+#         atau /usr/share/dbus-1/services/       (system install)
+#
+# DBus akan otomatis start binary ini saat pertama kali ada caller yang
+# memanggil org.slm.Desktop.FileManager1.
+
+[D-BUS Service]
+Name=org.slm.Desktop.FileManager1
+Exec=/usr/bin/slm-filemanager --dbus-activate
+SystemdService=slm-filemanager.service

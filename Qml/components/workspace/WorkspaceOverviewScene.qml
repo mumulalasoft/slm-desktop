@@ -103,6 +103,34 @@ Item {
             onDragStarted: function(viewId, center) { root.windowDragStarted(viewId, center) }
             onDragMoved: function(center) { root.windowDragMoved(center) }
             onDragEnded: root.windowDragEnded()
+
+            // Entrance animation for windows appearing while the overview is already open
+            // (new window created / unminimized). Skipped during the initial overview-open
+            // transition (transitionActive = true) since that is handled by WorkspaceOverlay.
+            opacity: 0
+            scale: 0.96
+            Component.onCompleted: {
+                if (Theme.animationsEnabled && !root.transitionActive) {
+                    thumbEntranceAnim.start()
+                } else {
+                    thumbnail.opacity = 1.0
+                    thumbnail.scale = 1.0
+                }
+            }
+
+            ParallelAnimation {
+                id: thumbEntranceAnim
+                NumberAnimation {
+                    target: thumbnail; property: "opacity"
+                    from: 0.0; to: 1.0
+                    duration: Theme.durationNormal; easing.type: Theme.easingDecelerate
+                }
+                NumberAnimation {
+                    target: thumbnail; property: "scale"
+                    from: 0.96; to: 1.0
+                    duration: Theme.durationNormal; easing.type: Theme.easingDecelerate
+                }
+            }
         }
     }
 }

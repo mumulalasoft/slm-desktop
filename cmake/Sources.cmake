@@ -31,6 +31,10 @@ set(DESKTOP_SHELL_MODELS_AND_RUNTIME
     src/core/execution/appexecutiongate.h
     src/core/execution/appruntimeregistry.cpp
     src/core/execution/appruntimeregistry.h
+    src/core/launcher/applauncher.cpp
+    src/core/launcher/applauncher.h
+    src/core/launcher/launchenvresolver.cpp
+    src/core/launcher/launchenvresolver.h
     src/core/workspace/spacesmanager.cpp
     src/core/workspace/spacesmanager.h
     src/core/workspace/workspacemanager.cpp
@@ -59,6 +63,12 @@ set(DESKTOP_SHELL_MODELS_AND_RUNTIME
     src/core/motion/slmgesturebinding.h
     src/core/motion/slmmotioncontroller.cpp
     src/core/motion/slmmotioncontroller.h
+    src/core/shell/shellstatecontroller.cpp
+    src/core/shell/shellstatecontroller.h
+    src/core/shell/shellinputrouter.cpp
+    src/core/shell/shellinputrouter.h
+    src/core/shell/shelllayerwatchdog.cpp
+    src/core/shell/shelllayerwatchdog.h
     src/daemon/desktopd/daemonhealthmonitor.cpp
     src/daemon/desktopd/daemonhealthmonitor.h
     src/daemon/desktopd/desktopdaemonservice.cpp
@@ -81,6 +91,7 @@ set(FILEMANAGER_APP_SOURCES
     src/apps/filemanager/filemanagerapi_listing.cpp
     src/apps/filemanager/filemanagerapi_io.cpp
     src/apps/filemanager/filemanagerapi_metadata.cpp
+    src/apps/filemanager/filemanagerapi_sharing.cpp
     src/apps/filemanager/filemanagerapi_portal.cpp
     src/apps/filemanager/filemanagerapi_daemon_transfer.cpp
     src/apps/filemanager/filemanagerapi_daemon_state.cpp
@@ -110,15 +121,67 @@ set(FILEMANAGER_PROGRESS_SOURCES
     src/apps/filemanager/ops/globalprogresscenter.h
 )
 
+set(SLM_ACTION_FRAMEWORK_SOURCES
+    src/core/actions/slmactiontypes.cpp
+    src/core/actions/slmactiontypes.h
+    src/core/actions/slmactioncondition.cpp
+    src/core/actions/slmactioncondition.h
+    src/core/actions/slmdesktopactionparser.cpp
+    src/core/actions/slmdesktopactionparser.h
+    src/core/actions/slmactiondiscovery.cpp
+    src/core/actions/slmactiondiscovery.h
+    src/core/actions/slmactionregistry.cpp
+    src/core/actions/slmactionregistry.h
+    src/core/actions/framework/slmdesktopentryscanner.cpp
+    src/core/actions/framework/slmdesktopentryscanner.h
+    src/core/actions/framework/slmframeworktypes.h
+    src/core/actions/framework/acl/slmacllexer.cpp
+    src/core/actions/framework/acl/slmacllexer.h
+    src/core/actions/framework/acl/slmaclparser.cpp
+    src/core/actions/framework/acl/slmaclparser.h
+    src/core/actions/framework/slmdesktopentryparsermodule.cpp
+    src/core/actions/framework/slmdesktopentryparsermodule.h
+    src/core/actions/framework/slmmetadataparser.cpp
+    src/core/actions/framework/slmmetadataparser.h
+    src/core/actions/framework/slmactionregistryindex.cpp
+    src/core/actions/framework/slmactionregistryindex.h
+    src/core/actions/framework/slmactioncachelayer.cpp
+    src/core/actions/framework/slmactioncachelayer.h
+    src/core/actions/framework/slmcachemanager.cpp
+    src/core/actions/framework/slmcachemanager.h
+    src/core/actions/framework/slmcapabilityresolverlayer.cpp
+    src/core/actions/framework/slmcapabilityresolverlayer.h
+    src/core/actions/framework/slmcapabilitybuilders.cpp
+    src/core/actions/framework/slmcapabilitybuilders.h
+    src/core/actions/framework/slmgrouptreebuilder.cpp
+    src/core/actions/framework/slmgrouptreebuilder.h
+    src/core/actions/framework/slmactioninvoker.cpp
+    src/core/actions/framework/slmactioninvoker.h
+    src/core/actions/framework/slmactionframework.cpp
+    src/core/actions/framework/slmactionframework.h
+)
+
 set(DESKTOP_SHELL_SERVICES
+    src/services/contextmenu/contextmenuservice.cpp
+    src/services/contextmenu/contextmenuservice.h
     src/services/network/networkmanager.cpp
     src/services/network/networkmanager.h
+    src/apps/settings/modules/network/firewallserviceclient.cpp
+    src/apps/settings/modules/network/firewallserviceclient.h
+    src/apps/settings/desktopsettingsclient.cpp
+    src/apps/settings/desktopsettingsclient.h
     src/services/power/batterymanager.cpp
     src/services/power/batterymanager.h
+    src/services/power/powerbridge.cpp
+    src/services/power/powerbridge.h
     src/services/bluetooth/bluetoothmanager.cpp
     src/services/bluetooth/bluetoothmanager.h
     src/services/notifications/notificationmanager.cpp
     src/services/notifications/notificationmanager.h
+    src/services/notifications/desktopnotificationadaptor.cpp
+    src/services/notifications/desktopnotificationadaptor.h
+    src/services/storage/storageattachnotifier.cpp
+    src/services/storage/storageattachnotifier.h
     src/services/sound/soundmanager.cpp
     src/services/sound/soundmanager.h
     src/services/media/mediasessionmanager.cpp
@@ -131,8 +194,6 @@ set(DESKTOP_SHELL_SERVICES
     src/services/portal/inputcaptureprivacymodel.h
     cursorcontroller.cpp
     cursorcontroller.h
-    src/core/prefs/uipreferences.cpp
-    src/core/prefs/uipreferences.h
     src/core/icons/themeiconprovider.cpp
     src/core/icons/themeiconprovider.h
     src/core/icons/themeiconcontroller.cpp
@@ -141,6 +202,10 @@ set(DESKTOP_SHELL_SERVICES
     externalindicatorregistry.h
     globalmenumanager.cpp
     globalmenumanager.h
+    src/services/globalmenu/globalmenuadaptivecontroller.cpp
+    src/services/globalmenu/globalmenuadaptivecontroller.h
+    src/services/globalmenu/globalmenususpendbridge.cpp
+    src/services/globalmenu/globalmenususpendbridge.h
     src/core/workspace/kwinwaylandipcclient.cpp
     src/core/workspace/kwinwaylandipcclient.h
     src/core/workspace/kwinwaylandstatemodel.cpp
@@ -156,6 +221,12 @@ set(DESKTOP_SHELL_SERVICES
     src/core/workspace/workspacepreviewmanager.cpp
     src/core/workspace/workspacepreviewmanager.h
     src/core/workspace/overviewpreviewmanager.h
+    src/core/system/componentregistry.cpp
+    src/core/system/componentregistry.h
+    src/core/system/dependencyguard.cpp
+    src/core/system/dependencyguard.h
+    src/core/system/missingcomponentcontroller.cpp
+    src/core/system/missingcomponentcontroller.h
     src/core/permissions/Capability.cpp
     src/core/permissions/Capability.h
     src/core/permissions/CallerIdentity.cpp
@@ -196,43 +267,11 @@ set(DESKTOP_SHELL_SERVICES
     tothespottexthighlighter.h
     ${FILEMANAGER_APP_SOURCES}
     ${FILEMANAGER_PROGRESS_SOURCES}
-    src/core/actions/slmactiontypes.cpp
-    src/core/actions/slmactiontypes.h
-    src/core/actions/slmactioncondition.cpp
-    src/core/actions/slmactioncondition.h
-    src/core/actions/slmdesktopactionparser.cpp
-    src/core/actions/slmdesktopactionparser.h
-    src/core/actions/slmactiondiscovery.cpp
-    src/core/actions/slmactiondiscovery.h
-    src/core/actions/slmactionregistry.cpp
-    src/core/actions/slmactionregistry.h
-    src/core/actions/framework/slmdesktopentryscanner.cpp
-    src/core/actions/framework/slmdesktopentryscanner.h
-    src/core/actions/framework/slmframeworktypes.h
-    src/core/actions/framework/acl/slmacllexer.cpp
-    src/core/actions/framework/acl/slmacllexer.h
-    src/core/actions/framework/acl/slmaclparser.cpp
-    src/core/actions/framework/acl/slmaclparser.h
-    src/core/actions/framework/slmdesktopentryparsermodule.cpp
-    src/core/actions/framework/slmdesktopentryparsermodule.h
-    src/core/actions/framework/slmmetadataparser.cpp
-    src/core/actions/framework/slmmetadataparser.h
-    src/core/actions/framework/slmactionregistryindex.cpp
-    src/core/actions/framework/slmactionregistryindex.h
-    src/core/actions/framework/slmactioncachelayer.cpp
-    src/core/actions/framework/slmactioncachelayer.h
-    src/core/actions/framework/slmcachemanager.cpp
-    src/core/actions/framework/slmcachemanager.h
-    src/core/actions/framework/slmcapabilityresolverlayer.cpp
-    src/core/actions/framework/slmcapabilityresolverlayer.h
-    src/core/actions/framework/slmcapabilitybuilders.cpp
-    src/core/actions/framework/slmcapabilitybuilders.h
-    src/core/actions/framework/slmgrouptreebuilder.cpp
-    src/core/actions/framework/slmgrouptreebuilder.h
-    src/core/actions/framework/slmactioninvoker.cpp
-    src/core/actions/framework/slmactioninvoker.h
-    src/core/actions/framework/slmactionframework.cpp
-    src/core/actions/framework/slmactionframework.h
+    src/filemanager/FileManagerShellBridge.cpp
+    src/filemanager/FileManagerShellBridge.h
+    src/filemanager/ThumbnailImageProvider.cpp
+    src/filemanager/ThumbnailImageProvider.h
+    ${SLM_ACTION_FRAMEWORK_SOURCES}
     src/services/clipboard/clipboardtypes.h
     src/services/clipboard/contentclassifier.cpp
     src/services/clipboard/contentclassifier.h
@@ -269,6 +308,33 @@ set(DESKTOP_SHELL_SERVICES
     src/printing/core/PrinterCapabilityProvider.h
     src/printing/core/PrinterManager.cpp
     src/printing/core/PrinterManager.h
+    src/printing/preview/IPdfRenderer.h
+    src/printing/preview/FallbackPdfRenderer.h
+    src/printing/preview/FallbackPdfRenderer.cpp
+    src/printing/preview/PopplerPdfRenderer.h
+    src/printing/preview/PopplerPdfRenderer.cpp
+    src/printing/preview/PrintPreviewCache.h
+    src/printing/preview/PrintPreviewCache.cpp
+    src/printing/qml/PrintDialogController.h
+    src/printing/qml/PrintDialogController.cpp
+    src/printing/plugin/PluginFieldDescriptor.h
+    src/printing/plugin/PluginDescriptorValidator.h
+    src/printing/plugin/PluginDescriptorValidator.cpp
+    src/printing/plugin/PluginFeatureResolver.h
+    src/printing/plugin/PluginFeatureResolver.cpp
+    src/printing/persistence/PrinterSettingsStore.h
+    src/printing/persistence/PrinterSettingsStore.cpp
+    src/printing/core/IBackendAdapter.h
+    src/printing/core/PrintQueueModel.h
+    src/printing/core/PrintQueueModel.cpp
+    src/printing/core/CupsStatusWatcher.h
+    src/printing/core/CupsStatusWatcher.cpp
+    src/printing/core/PrinterAdminService.h
+    src/printing/core/PrinterAdminService.cpp
+    src/printing/adapter/CupsErrorTranslator.h
+    src/printing/adapter/CupsErrorTranslator.cpp
+    src/printing/adapter/CupsAdapter.h
+    src/printing/adapter/CupsAdapter.cpp
     src/services/clipboard/WaylandClipboardWatcher.cpp
     src/services/clipboard/WaylandClipboardWatcher.h
     ${CMAKE_BINARY_DIR}/wayland-protocol.c
@@ -305,43 +371,13 @@ set(DESKTOPD_SOURCES
     src/core/execution/appexecutiongate.h
     src/core/execution/appruntimeregistry.cpp
     src/core/execution/appruntimeregistry.h
-    src/core/actions/slmactiontypes.cpp
-    src/core/actions/slmactiontypes.h
-    src/core/actions/slmactioncondition.cpp
-    src/core/actions/slmactioncondition.h
-    src/core/actions/slmdesktopactionparser.cpp
-    src/core/actions/slmdesktopactionparser.h
-    src/core/actions/slmactiondiscovery.cpp
-    src/core/actions/slmactiondiscovery.h
-    src/core/actions/slmactionregistry.cpp
-    src/core/actions/slmactionregistry.h
-    src/core/actions/framework/slmdesktopentryscanner.cpp
-    src/core/actions/framework/slmdesktopentryscanner.h
-    src/core/actions/framework/slmframeworktypes.h
-    src/core/actions/framework/acl/slmacllexer.cpp
-    src/core/actions/framework/acl/slmacllexer.h
-    src/core/actions/framework/acl/slmaclparser.cpp
-    src/core/actions/framework/acl/slmaclparser.h
-    src/core/actions/framework/slmdesktopentryparsermodule.cpp
-    src/core/actions/framework/slmdesktopentryparsermodule.h
-    src/core/actions/framework/slmmetadataparser.cpp
-    src/core/actions/framework/slmmetadataparser.h
-    src/core/actions/framework/slmactionregistryindex.cpp
-    src/core/actions/framework/slmactionregistryindex.h
-    src/core/actions/framework/slmactioncachelayer.cpp
-    src/core/actions/framework/slmactioncachelayer.h
-    src/core/actions/framework/slmcachemanager.cpp
-    src/core/actions/framework/slmcachemanager.h
-    src/core/actions/framework/slmcapabilityresolverlayer.cpp
-    src/core/actions/framework/slmcapabilityresolverlayer.h
-    src/core/actions/framework/slmcapabilitybuilders.cpp
-    src/core/actions/framework/slmcapabilitybuilders.h
-    src/core/actions/framework/slmgrouptreebuilder.cpp
-    src/core/actions/framework/slmgrouptreebuilder.h
-    src/core/actions/framework/slmactioninvoker.cpp
-    src/core/actions/framework/slmactioninvoker.h
-    src/core/actions/framework/slmactionframework.cpp
-    src/core/actions/framework/slmactionframework.h
+    src/core/launcher/applauncher.cpp
+    src/core/launcher/applauncher.h
+    src/core/launcher/launchenvresolver.cpp
+    src/core/launcher/launchenvresolver.h
+    src/apps/settings/modules/developer/envserviceclient.cpp
+    src/apps/settings/modules/developer/envserviceclient.h
+    ${SLM_ACTION_FRAMEWORK_SOURCES}
     src/core/permissions/Capability.cpp
     src/core/permissions/Capability.h
     src/core/permissions/CallerIdentity.cpp
@@ -397,14 +433,14 @@ set(DESKTOPD_SOURCES
     src/daemon/desktopd/screencaststreambackend.h
     src/daemon/desktopd/capturestreamingestor.cpp
     src/daemon/desktopd/capturestreamingestor.h
+    src/daemon/desktopd/foldersharingservice.cpp
+    src/daemon/desktopd/foldersharingservice.h
     src/core/workspace/workspacecompatservice.cpp
     src/core/workspace/workspacecompatservice.h
     src/core/workspace/workspacemanager.cpp
     src/core/workspace/workspacemanager.h
     src/core/workspace/spacesmanager.cpp
     src/core/workspace/spacesmanager.h
-    src/core/prefs/uipreferences.cpp
-    src/core/prefs/uipreferences.h
     src/core/workspace/windowingbackendmanager.cpp
     src/core/workspace/windowingbackendmanager.h
     src/core/workspace/kwinwaylandipcclient.cpp
@@ -427,6 +463,11 @@ set(DESKTOPD_SOURCES
     src/printing/core/PrintSession.h
     src/printing/core/PrintPreviewModel.cpp
     src/printing/core/PrintPreviewModel.h
+    src/printing/preview/IPdfRenderer.h
+    src/printing/preview/FallbackPdfRenderer.h
+    src/printing/preview/FallbackPdfRenderer.cpp
+    src/printing/preview/PrintPreviewCache.h
+    src/printing/preview/PrintPreviewCache.cpp
     src/printing/core/PrintJobBuilder.cpp
     src/printing/core/PrintJobBuilder.h
     src/printing/core/JobSubmitter.cpp
@@ -470,6 +511,12 @@ set(SLM_DEVICESD_SOURCES
     src/daemon/devicesd/devicesmanager.h
     src/daemon/devicesd/devicesservice.cpp
     src/daemon/devicesd/devicesservice.h
+    src/services/storage/storagemanager.cpp
+    src/services/storage/storagemanager.h
+    src/services/storage/storageattachnotifier.cpp
+    src/services/storage/storageattachnotifier.h
+    src/services/storage/storagepolicystore.cpp
+    src/services/storage/storagepolicystore.h
     src/daemon/devicesd/devicescompatservice.cpp
     src/daemon/devicesd/devicescompatservice.h
     src/core/permissions/Capability.cpp
@@ -528,6 +575,8 @@ set(SLM_PORTALD_SOURCES
     src/daemon/portald/portal-adapter/PortalAppContextResolver.h
     src/daemon/portald/portal-adapter/PortalBackendService.cpp
     src/daemon/portald/portal-adapter/PortalBackendService.h
+    src/daemon/portald/portal-adapter/PortalSecretBridge.cpp
+    src/daemon/portald/portal-adapter/PortalSecretBridge.h
     src/core/permissions/Capability.cpp
     src/core/permissions/Capability.h
     src/core/permissions/CallerIdentity.cpp
@@ -595,4 +644,112 @@ set(SLM_CLIPBOARDD_SOURCES
     src/core/permissions/PermissionBroker.h
     src/core/permissions/DBusSecurityGuard.cpp
     src/core/permissions/DBusSecurityGuard.h
+)
+
+# ── Login / Session Stack ─────────────────────────────────────────────────────
+
+set(SLM_LOGIN_LIB_SOURCES
+    src/login/libslmlogin/slmlogindefs.h
+    src/login/libslmlogin/slmsessionstate.h
+    src/login/libslmlogin/slmsessionstate.cpp
+    src/login/libslmlogin/slmconfigmanager.h
+    src/login/libslmlogin/slmconfigmanager.cpp
+    src/login/libslmlogin/slmplatformcheck.h
+    src/login/libslmlogin/slmplatformcheck.cpp
+)
+
+set(SLM_SESSION_BROKER_SOURCES
+    src/login/session-broker/main.cpp
+    src/login/session-broker/sessionbroker.h
+    src/login/session-broker/sessionbroker.cpp
+)
+
+set(SLM_WATCHDOG_SOURCES
+    src/login/watchdog/main.cpp
+    src/login/watchdog/sessionwatchdog.h
+    src/login/watchdog/sessionwatchdog.cpp
+)
+
+set(SLM_GREETER_SOURCES
+    src/login/greeter/main.cpp
+    src/login/greeter/greetdclient.h
+    src/login/greeter/greetdclient.cpp
+    src/login/greeter/greeterapp.h
+    src/login/greeter/greeterapp.cpp
+    src/core/system/componentregistry.cpp
+    src/core/system/componentregistry.h
+    src/core/system/dependencyguard.cpp
+    src/core/system/dependencyguard.h
+    src/core/system/missingcomponentcontroller.cpp
+    src/core/system/missingcomponentcontroller.h
+)
+
+set(SLM_RECOVERY_APP_SOURCES
+    src/login/recovery-app/main.cpp
+    src/login/recovery-app/recoveryapp.h
+    src/login/recovery-app/recoveryapp.cpp
+    src/core/system/componentregistry.cpp
+    src/core/system/componentregistry.h
+    src/core/system/dependencyguard.cpp
+    src/core/system/dependencyguard.h
+    src/core/system/missingcomponentcontroller.cpp
+    src/core/system/missingcomponentcontroller.h
+)
+
+set(SLM_POLKIT_AGENT_SOURCES
+    src/login/polkit-agent/main.cpp
+    src/login/polkit-agent/polkitagentapp.h
+    src/login/polkit-agent/polkitagentapp.cpp
+)
+
+# ── Settings / Context Daemons ───────────────────────────────────────────────
+
+set(SLM_SETTINGSD_SOURCES
+    src/daemon/settingsd/settingsd_main.cpp
+    src/services/settingsd/settingsservice.cpp
+    src/services/settingsd/settingsservice.h
+    src/services/settingsd/settingsstore.cpp
+    src/services/settingsd/settingsstore.h
+    src/services/theme-policy/appthemeclassifier.cpp
+    src/services/theme-policy/appthemeclassifier.h
+    src/services/theme-policy/themepolicyengine.cpp
+    src/services/theme-policy/themepolicyengine.h
+)
+
+set(SLM_CONTEXTD_SOURCES
+    src/daemon/contextd/contextd_main.cpp
+    src/services/context/contextservice.cpp
+    src/services/context/contextservice.h
+    src/services/context/ruleengine.cpp
+    src/services/context/ruleengine.h
+)
+
+set(SLM_FIREWALLD_SOURCES
+    src/daemon/firewalld/firewalld_main.cpp
+    src/daemon/firewalld/firewallservice.cpp
+    src/daemon/firewalld/firewallservice.h
+    src/daemon/firewalld/firewalldbusadaptor.cpp
+    src/daemon/firewalld/firewalldbusadaptor.h
+    src/daemon/firewalld/firewalltypes.h
+    src/services/firewall/policyengine.cpp
+    src/services/firewall/policyengine.h
+    src/services/firewall/policystore.cpp
+    src/services/firewall/policystore.h
+    src/services/firewall/nftablesadapter.cpp
+    src/services/firewall/nftablesadapter.h
+    src/services/firewall/appidentityclient.cpp
+    src/services/firewall/appidentityclient.h
+)
+
+set(SLM_RECOVERYD_SOURCES
+    src/daemon/recoveryd/recoveryd_main.cpp
+    src/daemon/recoveryd/recoveryservice.cpp
+    src/daemon/recoveryd/recoveryservice.h
+    src/daemon/recoveryd/recoverydbusadaptor.cpp
+    src/daemon/recoveryd/recoverydbusadaptor.h
+    src/login/libslmlogin/slmlogindefs.h
+    src/login/libslmlogin/slmsessionstate.h
+    src/login/libslmlogin/slmsessionstate.cpp
+    src/login/libslmlogin/slmconfigmanager.h
+    src/login/libslmlogin/slmconfigmanager.cpp
 )

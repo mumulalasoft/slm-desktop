@@ -1,0 +1,7 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+  <qresource prefix="/qt/qml/Slm_Desktop">
+    <file alias="qmldir">resources/qmldir</file>
+    <file alias="Theme.qml">../../../Qml/Theme.qml</file>
+  </qresource>
+</RCC>

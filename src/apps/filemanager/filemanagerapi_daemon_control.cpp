@@ -1,12 +1,45 @@
 #include "filemanagerapi.h"
 #include "filemanagerapi_daemon_common.h"
 
+#include <QDBusInterface>
+#include <QDBusReply>
 #include <QTimer>
+
+namespace {
+constexpr const char kArchiveService[] = "org.slm.Desktop.Archive";
+constexpr const char kArchivePath[] = "/org/slm/Desktop/Archive";
+constexpr const char kArchiveIface[] = "org.slm.Desktop.Archive";
+
+static bool cancelArchiveJob(const QString &jobId)
+{
+    QDBusInterface iface(QString::fromLatin1(kArchiveService),
+                         QString::fromLatin1(kArchivePath),
+                         QString::fromLatin1(kArchiveIface),
+                         QDBusConnection::sessionBus());
+    if (!iface.isValid()) {
+        return false;
+    }
+    QDBusReply<bool> reply = iface.call(QStringLiteral("CancelJob"), jobId);
+    return reply.isValid() && reply.value();
+}
+} // namespace
 
 QVariantMap FileManagerApi::cancelActiveBatchOperation(const QString &mode)
 {
     if (!batchOperationActive()) {
         return makeResult(false, QStringLiteral("no-active-batch"));
+    }
+    if (m_batchKind == BatchKind::Extract || m_batchKind == BatchKind::Compress) {
+        if (m_daemonFileOpJobId.trimmed().isEmpty()) {
+            return makeResult(false, QStringLiteral("cancel-not-supported"));
+        }
+        const bool ok = cancelArchiveJob(m_daemonFileOpJobId);
+        if (ok) {
+            m_batchState = BatchState::Cancelling;
+            emit batchOperationStateChanged();
+        }
+        return makeResult(ok, ok ? QString() : QStringLiteral("cancel-failed"),
+                          {{QStringLiteral("id"), m_daemonFileOpJobId}});
     }
     if (!m_daemonFileOpJobId.isEmpty()) {
         Q_UNUSED(mode)
@@ -33,6 +66,9 @@ QVariantMap FileManagerApi::pauseActiveBatchOperation()
 {
     if (!batchOperationActive() || m_batchState == BatchState::Preparing) {
         return makeResult(false, QStringLiteral("no-active-batch"));
+    }
+    if (m_batchKind == BatchKind::Extract || m_batchKind == BatchKind::Compress) {
+        return makeResult(false, QStringLiteral("pause-not-supported"));
     }
     if (!m_daemonFileOpJobId.isEmpty()) {
         bool ok = false;
@@ -62,6 +98,9 @@ QVariantMap FileManagerApi::resumeActiveBatchOperation()
 {
     if (!batchOperationActive() || m_batchState == BatchState::Preparing) {
         return makeResult(false, QStringLiteral("no-active-batch"));
+    }
+    if (m_batchKind == BatchKind::Extract || m_batchKind == BatchKind::Compress) {
+        return makeResult(false, QStringLiteral("pause-not-supported"));
     }
     if (!m_daemonFileOpJobId.isEmpty()) {
         bool ok = false;

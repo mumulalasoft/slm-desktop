@@ -2,7 +2,8 @@
 
 #include "../../../dockmodel.h"
 #include "../../../shortcutmodel.h"
-#include "../prefs/uipreferences.h"
+#include "../../core/launcher/applauncher.h"
+#include "../../core/launcher/launchenvresolver.h"
 
 #include <QFileInfo>
 #include <QFile>
@@ -65,12 +66,18 @@ bool launchDesktopFileViaGio(const QString &desktopFilePath,
 }
 
 AppExecutionGate::AppExecutionGate(DockModel *dockModel, ShortcutModel *shortcutModel,
-                                   UIPreferences *uiPreferences, QObject *parent)
+                                   QObject *desktopSettings,
+                                   QObject *parent)
     : QObject(parent)
     , m_dockModel(dockModel)
     , m_shortcutModel(shortcutModel)
-    , m_uiPreferences(uiPreferences)
+    , m_desktopSettings(desktopSettings)
 {
+}
+
+void AppExecutionGate::setLaunchEnvResolver(LaunchEnvResolver *resolver)
+{
+    m_envResolver = resolver;
 }
 
 bool AppExecutionGate::launchDesktopEntry(const QString &desktopFilePath, const QString &executable,
@@ -85,7 +92,18 @@ bool AppExecutionGate::launchDesktopEntry(const QString &desktopFilePath, const 
     if (m_dockModel) {
         ok = m_dockModel->activateOrLaunch(desktopFilePath, executable, displayName);
     } else if (!desktopFilePath.trimmed().isEmpty()) {
-        ok = launchDesktopFileViaGio(desktopFilePath, &resolvedName, &resolvedExec, &resolvedIcon);
+        if (m_envResolver) {
+            // Inject resolved environment via GAppLaunchContext.
+            const QString appId = AppLauncher::appIdFromDesktopFile(desktopFilePath);
+            const QProcessEnvironment env = m_envResolver->resolve(appId);
+            const AppLaunchResult r = AppLauncher::launchDesktopFile(desktopFilePath, env);
+            ok = r.ok;
+            if (!r.displayName.isEmpty()) resolvedName = r.displayName;
+            if (!r.executable.isEmpty())  resolvedExec = r.executable;
+            if (!r.iconName.isEmpty())    resolvedIcon = r.iconName;
+        } else {
+            ok = launchDesktopFileViaGio(desktopFilePath, &resolvedName, &resolvedExec, &resolvedIcon);
+        }
     }
     if (ok && m_dockModel) {
         m_dockModel->noteLaunchedEntry(desktopFilePath, executable, displayName, iconName, iconSource);
@@ -234,13 +252,19 @@ bool AppExecutionGate::launchCommand(const QString &command, const QString &work
         return false;
     }
 
+    bool ok = false;
     qint64 pid = -1;
-    const QString shell = QStringLiteral("/bin/bash");
-    const QStringList args{QStringLiteral("-lc"), cmd};
-    const bool ok = QProcess::startDetached(shell, args,
-                                            workingDirectory.trimmed().isEmpty() ? QString()
-                                                                                  : workingDirectory.trimmed(),
-                                            &pid);
+    if (m_envResolver) {
+        const QProcessEnvironment env = m_envResolver->resolve(QString{});
+        ok = AppLauncher::launchCommand(cmd, workingDirectory, env);
+    } else {
+        const QString shell = QStringLiteral("/bin/bash");
+        const QStringList args{QStringLiteral("-lc"), cmd};
+        ok = QProcess::startDetached(shell, args,
+                                     workingDirectory.trimmed().isEmpty() ? QString()
+                                                                          : workingDirectory.trimmed(),
+                                     &pid);
+    }
     if (verboseLoggingEnabled()) {
         qInfo().noquote() << "AppExecutionGate.launchCommand:"
                           << "source=" << source
@@ -379,5 +403,15 @@ bool AppExecutionGate::launchFromTerminal(const QString &command, const QString 
 
 bool AppExecutionGate::verboseLoggingEnabled() const
 {
-    return m_uiPreferences ? m_uiPreferences->verboseLogging() : false;
+    if (m_desktopSettings) {
+        QVariant v;
+        const bool okInvoke = QMetaObject::invokeMethod(m_desktopSettings, "settingValue",
+                                                         Q_RETURN_ARG(QVariant, v),
+                                                         Q_ARG(QString, QStringLiteral("debug.verboseLogging")),
+                                                         Q_ARG(QVariant, false));
+        if (okInvoke) {
+            return v.toBool();
+        }
+    }
+    return false;
 }

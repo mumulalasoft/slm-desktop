@@ -4,14 +4,15 @@
 #include <QVariantMap>
 
 class DockModel;
+class LaunchEnvResolver;
 class ShortcutModel;
-class UIPreferences;
 
 class AppExecutionGate : public QObject {
     Q_OBJECT
 public:
     explicit AppExecutionGate(DockModel *dockModel, ShortcutModel *shortcutModel,
-                              UIPreferences *uiPreferences, QObject *parent = nullptr);
+                              QObject *desktopSettings = nullptr,
+                              QObject *parent = nullptr);
 
     Q_INVOKABLE bool launchDesktopEntry(const QString &desktopFilePath, const QString &executable,
                                         const QString &displayName, const QString &iconName = QString(),
@@ -34,13 +35,18 @@ public:
     Q_INVOKABLE bool launchFromTerminal(const QString &command,
                                         const QString &workingDirectory = QString());
 
+    // Attach an env resolver so all subsequent launches inject the effective
+    // environment from slm-envd.  Pass nullptr to disable.
+    void setLaunchEnvResolver(LaunchEnvResolver *resolver);
+
 signals:
     void appExecutionRecorded(QString source, QString name, QString desktopFile, QString executable, bool success);
 
 private:
     bool verboseLoggingEnabled() const;
 
-    DockModel *m_dockModel = nullptr;
-    ShortcutModel *m_shortcutModel = nullptr;
-    UIPreferences *m_uiPreferences = nullptr;
+    DockModel          *m_dockModel       = nullptr;
+    ShortcutModel      *m_shortcutModel   = nullptr;
+    QObject           *m_desktopSettings  = nullptr;
+    LaunchEnvResolver  *m_envResolver     = nullptr;
 };

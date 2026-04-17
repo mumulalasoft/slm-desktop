@@ -1,7 +1,23 @@
 .pragma library
 
+function fallbackPathFromSidebarLabel(root) {
+    var label = String(root.sidebarContextLabel || "").trim().toLowerCase()
+    if (label === "home") return "~"
+    if (label === "documents") return "~/Documents"
+    if (label === "music") return "~/Music"
+    if (label === "pictures") return "~/Pictures"
+    if (label === "videos") return "~/Videos"
+    if (label === "downloads") return "~/Downloads"
+    if (label === "desktop") return "~/Desktop"
+    if (label === "trash") return root.trashFilesPath
+    return ""
+}
+
 function openSidebarContextPath(root, pathValue) {
     var p = String(pathValue || root.sidebarContextPath || "")
+    if (p.length <= 0) {
+        p = fallbackPathFromSidebarLabel(root)
+    }
     if (p.length <= 0) {
         return
     }
@@ -11,6 +27,9 @@ function openSidebarContextPath(root, pathValue) {
 function openSidebarContextPathInNewTab(root, pathValue) {
     var p = String(pathValue || root.sidebarContextPath || "")
     if (p.length <= 0) {
+        p = fallbackPathFromSidebarLabel(root)
+    }
+    if (p.length <= 0) {
         return
     }
     root.openPathInNewTab(p)
@@ -18,6 +37,9 @@ function openSidebarContextPathInNewTab(root, pathValue) {
 
 function openSidebarContextPathInNewWindow(root, pathValue) {
     var p = String(pathValue || root.sidebarContextPath || "")
+    if (p.length <= 0) {
+        p = fallbackPathFromSidebarLabel(root)
+    }
     if (p.length <= 0) {
         return
     }
@@ -67,18 +89,31 @@ function sidebarContextMount(root, fileManagerApi) {
     if (!sidebarContextCanMount(root)) {
         return
     }
+    sidebarContextMountDevice(root, fileManagerApi, String(root.sidebarContextDevice || ""))
+}
+
+// Mount a specific device by path (snapshot-safe: does not re-read live sidebar state).
+function sidebarContextMountDevice(root, fileManagerApi, deviceValue) {
+    var dev = String(deviceValue || "").trim()
+    if (dev.length <= 0) {
+        root.notifyResult("Open Drive", {
+                              "ok": false,
+                              "error": "volume-not-available"
+                          })
+        return
+    }
     if (!fileManagerApi || !fileManagerApi.startMountStorageDevice) {
-        root.notifyResult("Mount Storage", {
+        root.notifyResult("Open Drive", {
                               "ok": false,
                               "error": "mount-api-unavailable"
                           })
         return
     }
-    root.pendingMountDevice = String(root.sidebarContextDevice || "")
-    var res = fileManagerApi.startMountStorageDevice(root.pendingMountDevice)
+    root.pendingMountDevice = dev
+    var res = fileManagerApi.startMountStorageDevice(dev)
     if (!res || !res.ok) {
         root.pendingMountDevice = ""
-        root.notifyResult("Mount Storage", res)
+        root.notifyResult("Open Drive", res)
     }
 }
 
@@ -87,7 +122,7 @@ function sidebarContextUnmount(root, fileManagerApi) {
         return
     }
     if (!fileManagerApi || !fileManagerApi.startUnmountStorageDevice) {
-        root.notifyResult("Unmount Storage", {
+        root.notifyResult("Eject", {
                               "ok": false,
                               "error": "unmount-api-unavailable"
                           })
@@ -96,7 +131,7 @@ function sidebarContextUnmount(root, fileManagerApi) {
     var res = fileManagerApi.startUnmountStorageDevice(
                 String(root.sidebarContextDevice || ""))
     if (!res || !res.ok) {
-        root.notifyResult("Unmount Storage", res)
+        root.notifyResult("Eject", res)
     }
 }
 
@@ -201,7 +236,7 @@ function toggleStorageMount(root, fileManagerApi, rowPath, rowDevice, mounted) {
         }
         var unmountRes = fileManagerApi.startUnmountStorageDevice(deviceValue)
         if (!unmountRes || !unmountRes.ok) {
-            root.notifyResult("Unmount Storage", unmountRes)
+            root.notifyResult("Eject", unmountRes)
         }
         return
     }
@@ -217,6 +252,6 @@ function toggleStorageMount(root, fileManagerApi, rowPath, rowDevice, mounted) {
     var mountRes = fileManagerApi.startMountStorageDevice(deviceValue)
     if (!mountRes || !mountRes.ok) {
         root.pendingMountDevice = ""
-        root.notifyResult("Mount Storage", mountRes)
+        root.notifyResult("Open Drive", mountRes)
     }
 }

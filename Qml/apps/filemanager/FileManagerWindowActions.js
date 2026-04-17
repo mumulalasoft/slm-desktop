@@ -1,7 +1,7 @@
 .pragma library
 
 function titleButtonIcon(root, kind, hovered, pressed) {
-    var base = "qrc:/icons/titlebuttons/"
+    var base = "qrc:/qt/qml/SlmStyle/icons/titlebuttons/"
     var active = !!root.windowActive
     if (kind === "close") {
         if (!active) {
@@ -87,6 +87,90 @@ function toggleMaximizeWindow(hostWindow, windowMaximized, windowType) {
     }
 }
 
+function isStorageAction(actionValue) {
+    var actionName = String(actionValue || "")
+    return actionName === "Open Drive" || actionName === "Eject"
+}
+
+function storageStateMessage(storageKey) {
+    var k = String(storageKey || "").toLowerCase()
+    if (k.length <= 0) {
+        return ""
+    }
+    if (k.indexOf("lock") >= 0 || k.indexOf("encrypted") >= 0
+            || k.indexOf("drive-locked") >= 0) {
+        return "Drive terkunci. Buka kunci lalu coba lagi."
+    }
+    if (k.indexOf("busy") >= 0 || k.indexOf("in-use") >= 0
+            || k.indexOf("in use") >= 0) {
+        return "Drive sedang digunakan. Tutup file yang masih dipakai lalu coba lagi."
+    }
+    if (k.indexOf("unsupported") >= 0 || k.indexOf("unknown-fs") >= 0
+            || k.indexOf("unknown filesystem") >= 0) {
+        return "Drive tidak dikenali."
+    }
+    if (k.indexOf("permission") >= 0 || k.indexOf("denied") >= 0) {
+        return "Akses ke drive ditolak."
+    }
+    if (k.indexOf("timeout") >= 0 || k.indexOf("timed out") >= 0) {
+        return "Drive tidak merespons tepat waktu."
+    }
+    if (k === "mount-not-found" || k === "volume-not-available") {
+        return "Drive tidak ditemukan."
+    }
+    if (k === "mount-path-unavailable") {
+        return "Drive berhasil di-mount, tetapi folder mount tidak ditemukan."
+    }
+    if (k === "daemon-unavailable"
+            || k === "mount-api-unavailable"
+            || k === "unmount-api-unavailable"
+            || k === "eject-api-unavailable") {
+        return "Layanan drive tidak tersedia."
+    }
+    if (k === "daemon-timeout") {
+        return "Layanan drive tidak merespons tepat waktu."
+    }
+    if (k === "operation-cancelled" || k === "cancelled" || k === "canceled") {
+        return "Operasi dibatalkan."
+    }
+    return ""
+}
+
+function sanitizeStorageRaw(raw) {
+    var text = String(raw || "").trim()
+    if (text.length <= 0) {
+        return ""
+    }
+    text = text.replace(/\/dev\/[A-Za-z0-9._-]+/g, "drive")
+    text = text.replace(/\b(part)?uuid[:= ]*[A-Fa-f0-9-]{6,}\b/g, "id")
+    text = text.replace(/org\.freedesktop\.[A-Za-z0-9._-]+/g, "")
+    text = text.replace(/GDBus\.Error:[^:]+:/g, "")
+    text = text.replace(/\s+/g, " ").trim()
+    return text
+}
+
+function nonTechnicalStorageError(actionValue, payload) {
+    var actionName = String(actionValue || "")
+    var rawError = String((payload && payload.error) ? payload.error : "")
+    var code = String((payload && payload.errorCode) ? payload.errorCode : "")
+    var key = (code.length > 0 ? code : rawError).toLowerCase()
+
+    var mapped = storageStateMessage(key)
+    if (mapped.length > 0) {
+        return mapped
+    }
+    var safe = sanitizeStorageRaw(rawError)
+    if (safe.length > 0) {
+        if (actionName === "Open Drive") {
+            return "Tidak bisa membuka drive: " + safe
+        }
+        return "Tidak bisa mengeluarkan drive: " + safe
+    }
+    return actionName === "Open Drive"
+            ? "Tidak bisa membuka drive."
+            : "Tidak bisa mengeluarkan drive."
+}
+
 function notifyResult(notificationManager, title, resultValue) {
     if (!notificationManager || !notificationManager.Notify) {
         return
@@ -103,9 +187,41 @@ function notifyResult(notificationManager, title, resultValue) {
             return
         }
     }
-    var body = ok ? "Success" : String(
-                        (resultValue && resultValue.error)
-                        ? resultValue.error : "Operation failed")
+    function normalizedError(actionValue, payload) {
+        var actionName = String(actionValue || "")
+        var rawError = String((payload && payload.error) ? payload.error : "")
+        var code = String((payload && payload.errorCode) ? payload.errorCode : "")
+        var key = (code.length > 0 ? code : rawError).toLowerCase()
+
+        if (actionName === "Extract") {
+            if (key === "err_not_found" || key === "not-found") return "Archive file was not found."
+            if (key === "err_unsupported_or_corrupt") return "Archive is unsupported or corrupted."
+            if (key === "err_timeout" || key === "archive-job-timeout") return "Extraction timed out."
+            if (key === "err_cancelled") return "Extraction was cancelled."
+            if (key === "err_resource_limit") return "Extraction was blocked by safety limits."
+            if (key === "err_name_conflict") return "Destination folder already exists."
+            if (key === "extract-tool-unavailable" || key === "err_extract_tool_unavailable")
+                return "No archive extractor tool is installed."
+            if (key === "extract-failed" || key === "err_extract_failed" || key === "archive-job-failed")
+                return "Could not extract this archive."
+            if (key === "archive-service-unavailable" || key === "archive-api-unavailable") return "Archive service is unavailable."
+            if (key === "async-extract-api-unavailable") return "Extract API is unavailable."
+            if (key === "missing-destination") return "Destination folder is required."
+            if (rawError.length > 0) return "Extract failed: " + rawError
+            return "Extract failed."
+        }
+
+        if (isStorageAction(actionName)) {
+            return nonTechnicalStorageError(actionName, payload)
+        }
+
+        if (rawError.length > 0) {
+            return rawError
+        }
+        return "Operation failed"
+    }
+
+    var body = ok ? "Success" : normalizedError(action, resultValue || ({}))
     notificationManager.Notify(
                 action, 0,
                 ok ? "dialog-information-symbolic" : "dialog-error-symbolic",
@@ -174,6 +290,23 @@ function openContextEntry(root, fileModel, appCommandRouter, fileManagerApi) {
     }
     root.selectedEntryIndex = root.contextEntryIndex
     var res = fileModel.activate(root.contextEntryIndex)
+    if (res && res.ok && res.type === "archive") {
+        if (!fileManagerApi || !fileManagerApi.startExtractArchive) {
+            root.notifyResult("Extract", {
+                                  "ok": false,
+                                  "error": "archive-api-unavailable"
+                              })
+            return
+        }
+        var extractRes = fileManagerApi.startExtractArchive(String(res.path || ""), "")
+        if (!extractRes || !extractRes.ok) {
+            root.notifyResult("Extract", extractRes || {
+                                  "ok": false,
+                                  "error": "extract-failed"
+                              })
+        }
+        return
+    }
     if (res && res.ok && res.type === "file") {
         var launchRes = openTargetViaExecutionGate(
                     root, appCommandRouter, fileManagerApi, String(res.path || ""),

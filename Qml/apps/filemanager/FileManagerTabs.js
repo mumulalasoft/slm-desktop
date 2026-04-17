@@ -1,5 +1,9 @@
 .pragma library
 
+function listModel(root) {
+    return root.tabModel || root.tabModelRef || null
+}
+
 function tabTitleFromPath(root, pathValue) {
     var p = String(pathValue || "")
     if (p.length === 0 || p === "~") {
@@ -16,21 +20,24 @@ function tabTitleFromPath(root, pathValue) {
 }
 
 function tabCount(root) {
-    return root.tabModel ? Number(root.tabModel.count || 0) : 0
+    var model = listModel(root)
+    return model ? Number(model.count || 0) : 0
 }
 
 function tabPathAt(root, indexValue) {
     var index = Number(indexValue)
-    if (!(index >= 0) || !root.tabModel || index >= root.tabModel.count) {
+    var model = listModel(root)
+    if (!(index >= 0) || !model || index >= model.count) {
         return "~"
     }
-    var row = root.tabModel.get(index)
+    var row = model.get(index)
     return String((row && row.path) ? row.path : "~")
 }
 
 function tabModelRefAt(root, indexValue) {
     var index = Number(indexValue)
-    if (!(index >= 0) || !root.tabModel || index >= root.tabModel.count) {
+    var model = listModel(root)
+    if (!(index >= 0) || !model || index >= model.count) {
         return null
     }
     var refs = root.tabModelRefs || []
@@ -38,7 +45,6 @@ function tabModelRefAt(root, indexValue) {
 }
 
 function createOwnedTabModel(root, fileManagerModelFactory, pathValue) {
-    var p = String(pathValue || "~")
     var modelObj = null
     if (fileManagerModelFactory && fileManagerModelFactory.createModel) {
         modelObj = fileManagerModelFactory.createModel(root)
@@ -55,9 +61,6 @@ function createOwnedTabModel(root, fileManagerModelFactory, pathValue) {
                 && root.primaryFileModel.directoriesFirst !== undefined) {
             modelObj.directoriesFirst = !!root.primaryFileModel.directoriesFirst
         }
-    }
-    if (modelObj.currentPath !== undefined) {
-        modelObj.currentPath = p
     }
     var list = root.ownedTabModels ? root.ownedTabModels.slice(0) : []
     list.push(modelObj)
@@ -90,11 +93,12 @@ function destroyOwnedTabModel(root, fileManagerModelFactory, modelObj) {
 
 function updateTabPath(root, uiPreferences, indexValue, pathValue) {
     var index = Number(indexValue)
-    if (!(index >= 0) || !root.tabModel || index >= root.tabModel.count) {
+    var model = listModel(root)
+    if (!(index >= 0) || !model || index >= model.count) {
         return
     }
     var p = String(pathValue || "~")
-    root.tabModel.setProperty(index, "path", p)
+    model.setProperty(index, "path", p)
     var modelObj = tabModelRefAt(root, index)
     if (modelObj && modelObj.currentPath !== undefined && String(
                 modelObj.currentPath || "") !== p) {
@@ -104,7 +108,8 @@ function updateTabPath(root, uiPreferences, indexValue, pathValue) {
 }
 
 function addTab(root, fileManagerModelFactory, uiPreferences, pathValue, activate) {
-    if (!root.tabModel || root.tabModel.count <= 0) {
+    var model = listModel(root)
+    if (!model || model.count <= 0) {
         root.initSingleTab(root.selectedSidebarPath)
     }
     var p = String(pathValue || "")
@@ -115,17 +120,15 @@ function addTab(root, fileManagerModelFactory, uiPreferences, pathValue, activat
     if (p.length === 0) {
         p = "~"
     }
-    if (!root.tabModel) {
+    model = listModel(root)
+    if (!model) {
         return
     }
     var modelObj = createOwnedTabModel(root, fileManagerModelFactory, p)
     if (!modelObj) {
         modelObj = root.fileModel || root.primaryFileModel
-        if (modelObj && modelObj.currentPath !== undefined) {
-            modelObj.currentPath = p
-        }
     }
-    root.tabModel.append({
+    model.append({
                              "path": p
                          })
     var refs = root.tabModelRefs ? root.tabModelRefs.slice(0) : []
@@ -138,7 +141,8 @@ function addTab(root, fileManagerModelFactory, uiPreferences, pathValue, activat
 }
 
 function openPathInNewTab(root, fileManagerModelFactory, uiPreferences, pathValue) {
-    if (!root.tabModel || root.tabModel.count <= 0) {
+    var model = listModel(root)
+    if (!model || model.count <= 0) {
         root.initSingleTab(root.selectedSidebarPath)
     }
     var p = String(pathValue || "")
@@ -151,31 +155,32 @@ function openPathInNewTab(root, fileManagerModelFactory, uiPreferences, pathValu
     if (p === "__trash__") {
         p = root.trashFilesPath
     }
-    if (!root.tabModel) {
+    console.log("[fm-tabs] openPathInNewTab raw=", String(pathValue || ""), "normalized=", p)
+    model = listModel(root)
+    if (!model) {
         return
     }
     var modelObj = createOwnedTabModel(root, fileManagerModelFactory, p)
     if (!modelObj) {
         modelObj = root.fileModel || root.primaryFileModel
-        if (modelObj && modelObj.currentPath !== undefined) {
-            modelObj.currentPath = p
-        }
     }
-    var insertIndex = root.tabModel.count
-    root.tabModel.insert(insertIndex, {
+    var insertIndex = model.count
+    model.insert(insertIndex, {
                              "path": p
                          })
     var refs = root.tabModelRefs ? root.tabModelRefs.slice(0) : []
     refs.splice(insertIndex, 0, modelObj)
     root.tabModelRefs = refs
     root.activeTabIndex = insertIndex
+    console.log("[fm-tabs] inserted index=", insertIndex, "tabCount=", Number(model.count || 0))
     saveTabState(root, uiPreferences)
     switchToTab(root, insertIndex)
 }
 
 function switchToTab(root, indexValue) {
     var index = Number(indexValue)
-    if (!(index >= 0) || !root.tabModel || index >= root.tabModel.count) {
+    var model = listModel(root)
+    if (!(index >= 0) || !model || index >= model.count) {
         return
     }
     var nextModel = tabModelRefAt(root, index)
@@ -187,17 +192,20 @@ function switchToTab(root, indexValue) {
     }
     root.activeTabIndex = index
     var tabPath = tabPathAt(root, index)
+    console.log("[fm-tabs] switchToTab index=", index, "tabPath=", tabPath)
     root.openPath(tabPath)
 }
 
 function closeTab(root, fileManagerModelFactory, uiPreferences, indexValue) {
     var index = Number(indexValue)
-    if (!(index >= 0) || !root.tabModel || index >= root.tabModel.count) {
+    var model = listModel(root)
+    if (!(index >= 0) || !model || index >= model.count) {
         return
     }
-    if (root.tabModel.count <= 1) {
+    if (model.count <= 1) {
         return
     }
+    var oldActiveIndex = Number(root.activeTabIndex || 0)
     var modelObj = tabModelRefAt(root, index)
     if (modelObj && modelObj !== root.primaryFileModel) {
         destroyOwnedTabModel(root, fileManagerModelFactory, modelObj)
@@ -207,11 +215,17 @@ function closeTab(root, fileManagerModelFactory, uiPreferences, indexValue) {
         refs.splice(index, 1)
     }
     root.tabModelRefs = refs
-    root.tabModel.remove(index)
-    if (root.activeTabIndex >= root.tabModel.count) {
-        root.activeTabIndex = root.tabModel.count - 1
-    } else if (index <= root.activeTabIndex) {
-        root.activeTabIndex = Math.max(0, root.activeTabIndex - 1)
+    model.remove(index)
+    var nextCount = Number(model.count || 0)
+    if (nextCount <= 0) {
+        return
+    }
+    if (index < oldActiveIndex) {
+        root.activeTabIndex = Math.max(0, oldActiveIndex - 1)
+    } else if (index === oldActiveIndex) {
+        root.activeTabIndex = Math.min(index, nextCount - 1)
+    } else {
+        root.activeTabIndex = Math.min(oldActiveIndex, nextCount - 1)
     }
     saveTabState(root, uiPreferences)
     switchToTab(root, root.activeTabIndex)
@@ -235,7 +249,7 @@ function saveTabState(root, uiPreferences) {
     uiPreferences.setPreference("filemanager.tabs.activeIndex", safeIndex)
 }
 
-function restoreTabState(root, defaultPath) {
+function restoreTabState(root, uiPreferences, defaultPath) {
     root.initSingleTab(defaultPath)
 }
 
@@ -251,5 +265,6 @@ function openContextEntryInNewTab(root, fileManagerModelFactory, uiPreferences) 
 }
 
 function indexOfLastTab(root) {
-    return root.tabModel ? (root.tabModel.count - 1) : -1
+    var model = listModel(root)
+    return model ? (model.count - 1) : -1
 }

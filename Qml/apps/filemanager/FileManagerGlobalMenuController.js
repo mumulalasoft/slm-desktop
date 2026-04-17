@@ -17,8 +17,10 @@ function applyOverride(enabled) {
                                            { "id": 2001, "label": "File", "enabled": true },
                                            { "id": 2002, "label": "Edit", "enabled": true },
                                            { "id": 2003, "label": "View", "enabled": true },
-                                           { "id": 2004, "label": "Go", "enabled": true },
-                                           { "id": 2005, "label": "Window", "enabled": true },
+                                           { "id": 2004, "label": "Tools", "enabled": true },
+                                           { "id": 2005, "label": "Workspace", "enabled": true },
+                                           { "id": 2101, "label": "Go", "enabled": true },
+                                           { "id": 2102, "label": "Devices", "enabled": true },
                                            { "id": 2006, "label": "Help", "enabled": true }
                                        ], "filemanager")
     }
@@ -53,13 +55,27 @@ function handleMenu(shell, menuId, fileManagerContent) {
         fileManagerContent.viewMode = (fileManagerContent.viewMode === "grid") ? "list" : "grid"
         return
     }
-    if (id === 2004) { // Go
+    if (id === 2004) { // Tools
+        if (fileManagerContent.openInTerminal) {
+            fileManagerContent.openInTerminal()
+        }
+        return
+    }
+    if (id === 2005) { // Workspace
+        if (typeof AppCommandRouter !== "undefined" && AppCommandRouter && AppCommandRouter.route) {
+            AppCommandRouter.route("workspace.toggle", {}, "filemanager-global-menu")
+        } else if (typeof WindowingBackend !== "undefined" && WindowingBackend && WindowingBackend.sendCommand) {
+            WindowingBackend.sendCommand("workspace toggle")
+        }
+        return
+    }
+    if (id === 2101) { // Go
         if (fileManagerContent.fileModel && fileManagerContent.fileModel.goUp) {
             fileManagerContent.fileModel.goUp()
         }
         return
     }
-    if (id === 2005) { // Window
+    if (id === 2102) { // Devices
         ShellUtils.openDetachedFileManager(shell,
                                            fileManagerContent.fileModel && fileManagerContent.fileModel.currentPath
                                            ? String(fileManagerContent.fileModel.currentPath)

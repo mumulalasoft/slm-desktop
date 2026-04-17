@@ -1,8 +1,9 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
+import QtQuick.Controls.impl 2.15
 import QtQuick.Layouts 1.15
 import Slm_Desktop
-import Style
+import SlmStyle
 
 Item {
     id: root
@@ -17,6 +18,16 @@ Item {
     visible: active
     implicitWidth: active ? button.implicitWidth : 0
     implicitHeight: button.implicitHeight
+
+    function microAnimationAllowed() {
+        if (!Theme.animationsEnabled) {
+            return false
+        }
+        if (typeof MotionController === "undefined" || !MotionController || !MotionController.allowMotionPriority) {
+            return true
+        }
+        return MotionController.allowMotionPriority(MotionController.LowPriority)
+    }
 
     ToolButton {
         id: button
@@ -36,14 +47,20 @@ Item {
             opacity: button.hovered ? 1.0 : (root.active ? 0.2 : 0.0)
             border.width: Theme.borderWidthThin
             border.color: button.hovered ? Theme.color("panelBorder") : "transparent"
-            Behavior on color { ColorAnimation { duration: Theme.durationSm; easing.type: Easing.OutCubic } }
-            Behavior on opacity { NumberAnimation { duration: Theme.durationSm; easing.type: Easing.OutCubic } }
+            Behavior on color {
+                enabled: root.microAnimationAllowed()
+                ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault }
+            }
+            Behavior on opacity {
+                enabled: root.microAnimationAllowed()
+                NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault }
+            }
         }
 
         contentItem: Item {
             implicitWidth: root.iconSize
             implicitHeight: root.iconSize
-            Image {
+            IconImage {
                 anchors.centerIn: parent
                 width: root.iconSize
                 height: root.iconSize
@@ -51,13 +68,14 @@ Item {
                 source: "image://themeicon/input-mouse-symbolic?v=" +
                         ((typeof ThemeIconController !== "undefined" && ThemeIconController)
                          ? ThemeIconController.revision : 0)
+                color: Theme.color("textOnGlass")
             }
             Rectangle {
                 visible: root.active
                 width: 8
                 height: 8
-                radius: 4
-                color: "#FF9F1A"
+                radius: height * 0.5
+                color: Theme.color("warning")
                 anchors.right: parent.right
                 anchors.top: parent.top
                 anchors.margins: 1
@@ -152,4 +170,3 @@ Item {
         }
     }
 }
-

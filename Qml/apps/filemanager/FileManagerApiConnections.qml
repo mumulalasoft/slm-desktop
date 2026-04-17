@@ -11,8 +11,22 @@ Item {
         target: root.fileManagerApi
         ignoreUnknownSignals: true
 
-        function onStorageLocationsUpdated() {
-            root.hostRoot.rebuildSidebarItems()
+        function onStorageLocationsUpdated(rows) {
+            if (root.hostRoot.handleStorageLocationsUpdated) {
+                root.hostRoot.handleStorageLocationsUpdated(rows || [])
+            } else {
+                root.hostRoot.rebuildSidebarItems()
+            }
+            if (String(root.hostRoot.pendingMountDevice || "").length > 0
+                    && root.hostRoot.resolveMountedPathForDevice) {
+                var deferredPath = root.hostRoot.resolveMountedPathForDevice(
+                            String(root.hostRoot.pendingMountDevice || ""), "")
+                if (String(deferredPath || "").length > 0
+                        && String(deferredPath || "").indexOf("/dev/") !== 0) {
+                    root.hostRoot.pendingMountDevice = ""
+                    root.hostRoot.openPath(String(deferredPath || ""))
+                }
+            }
         }
 
         function onStorageMountFinished(devicePath, ok, mountedPath, error) {
@@ -20,11 +34,17 @@ Item {
             var dev = String(devicePath || "")
             if (root.hostRoot.pendingMountDevice.length > 0
                     && dev === root.hostRoot.pendingMountDevice) {
-                root.hostRoot.pendingMountDevice = ""
-                if (!!ok && String(mountedPath || "").length > 0) {
-                    root.hostRoot.openPath(String(mountedPath || ""))
+                if (!!ok) {
+                    var resolvedPath = root.hostRoot.resolveMountedPathForDevice(
+                                dev, String(mountedPath || ""))
+                    if (String(resolvedPath || "").length > 0
+                            && String(resolvedPath || "").indexOf("/dev/") !== 0) {
+                        root.hostRoot.pendingMountDevice = ""
+                        root.hostRoot.openPath(String(resolvedPath || ""))
+                    }
                 } else if (!ok) {
-                    root.hostRoot.notifyResult("Mount Storage", {
+                    root.hostRoot.pendingMountDevice = ""
+                    root.hostRoot.notifyResult("Open Drive", {
                                                    "ok": false,
                                                    "error": String(
                                                                 error
@@ -34,8 +54,15 @@ Item {
             }
         }
 
-        function onStorageUnmountFinished() {
+        function onStorageUnmountFinished(devicePath, ok, error) {
             root.hostRoot.rebuildSidebarItems()
+            if (!ok) {
+                root.hostRoot.notifyResult("Eject", {
+                                               "ok": false,
+                                               "error": String(error || "eject-failed"),
+                                               "devicePath": String(devicePath || "")
+                                           })
+            }
         }
 
         function onConnectServerFinished(serverUri, ok, mountedPath, error) {

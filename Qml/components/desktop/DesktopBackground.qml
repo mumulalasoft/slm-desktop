@@ -10,7 +10,7 @@ Rectangle {
     Behavior on color {
         ColorAnimation {
             duration: Theme.transitionDuration
-            easing.type: Easing.InOutQuad
+            easing.type: Theme.easingStandard
         }
     }
 
@@ -18,6 +18,8 @@ Rectangle {
         anchors.fill: parent
         source: root.imageSource
         fillMode: Image.PreserveAspectCrop
+        asynchronous: true
+        cache: true
         smooth: true
         mipmap: true
     }
@@ -29,7 +31,7 @@ Rectangle {
         Behavior on color {
             ColorAnimation {
                 duration: Theme.transitionDuration
-                easing.type: Easing.InOutQuad
+                easing.type: Theme.easingStandard
             }
         }
     }

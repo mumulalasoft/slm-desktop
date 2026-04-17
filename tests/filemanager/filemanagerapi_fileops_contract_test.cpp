@@ -80,6 +80,28 @@ private slots:
         QVERIFY(dstStat.value(QStringLiteral("ok")).toBool());
         QCOMPARE(readFile(targetPath), QByteArray("new-content"));
     }
+
+    void folderSharingEnvironment_contractShape()
+    {
+        FileManagerApi api;
+        const QVariantMap env = api.folderSharingEnvironment();
+        QVERIFY(env.contains(QStringLiteral("ok")));
+        QVERIFY(env.contains(QStringLiteral("ready")));
+        QVERIFY(env.contains(QStringLiteral("issues")));
+        QVERIFY(env.value(QStringLiteral("issues")).canConvert<QVariantList>());
+    }
+
+    void repairFolderSharingEnvironment_contractShape()
+    {
+        FileManagerApi api;
+        const QVariantMap fixed = api.repairFolderSharingEnvironment();
+        QVERIFY(fixed.contains(QStringLiteral("ok")));
+        QVERIFY(fixed.contains(QStringLiteral("ready")));
+        QVERIFY(fixed.contains(QStringLiteral("issues")));
+        QVERIFY(fixed.contains(QStringLiteral("actions")));
+        QVERIFY(fixed.value(QStringLiteral("issues")).canConvert<QVariantList>());
+        QVERIFY(fixed.value(QStringLiteral("actions")).canConvert<QVariantList>());
+    }
 };
 
 QTEST_MAIN(FileManagerApiFileOpsContractTest)

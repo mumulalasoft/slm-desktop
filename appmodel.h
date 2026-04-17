@@ -13,7 +13,6 @@ typedef struct _GFile GFile;
 typedef struct _GFileMonitor GFileMonitor;
 
 class AppExecutionGate;
-class UIPreferences;
 class QTimer;
 
 struct DesktopAppEntry {
@@ -53,11 +52,18 @@ public:
     QHash<int, QByteArray> roleNames() const override;
 
     Q_INVOKABLE void refresh();
+    // Non-blocking variant: heavy GIO + filesystem work runs on a thread-pool
+    // thread. The model is updated on the main thread when the scan completes.
+    Q_INVOKABLE void refreshAsync();
     Q_INVOKABLE int countMatching(const QString &searchText) const;
     Q_INVOKABLE QVariantList page(int pageIndex, int pageSize, const QString &searchText) const;
     Q_INVOKABLE QVariantMap appUsage(const QString &desktopId,
                                      const QString &desktopFile,
                                      const QString &executable) const;
+    Q_INVOKABLE QString canonicalAppIdentity(const QString &desktopId,
+                                             const QString &desktopFile,
+                                             const QString &executable,
+                                             const QString &name = QString()) const;
     Q_INVOKABLE QVariantList frequentApps(int limit = 24) const;
     Q_INVOKABLE QVariantList topApps(int limit = 24) const; // compatibility alias
     Q_INVOKABLE QVariantList slmQuickActions(const QString &scope) const;
@@ -66,7 +72,7 @@ public:
     Q_INVOKABLE QVariantMap invokeSlmQuickAction(const QString &actionId,
                                                  const QVariantMap &context = QVariantMap{});
     void setExecutionGate(AppExecutionGate *gate);
-    void setUIPreferences(UIPreferences *preferences);
+    void setDesktopSettings(QObject *desktopSettings);
 
 signals:
     void appScoresChanged();
@@ -94,14 +100,16 @@ private:
     static QStringList keysFromUsageRecord(const QString &appName, const QString &appExec);
     void reloadScoringWeights();
     int effectiveScore(int launchCount, int fileOpenCount, qint64 lastLaunchMs) const;
+    static QVector<DesktopAppEntry> computeAppsFromSystem();
 
 private slots:
     void onAppExecutionRecorded(QString source, QString name, QString desktopFile, QString executable, bool success);
-    void onPreferenceChanged(QString key, QVariant value);
+    void onDesktopSettingChanged(QString path);
 
 private:
+    bool m_refreshRunning = false;
     AppExecutionGate *m_gate = nullptr;
-    UIPreferences *m_preferences = nullptr;
+    QObject *m_desktopSettings = nullptr;
     QVector<DesktopAppEntry> m_apps;
     void *m_appInfoMonitor = nullptr;
     QVector<void *> m_appDirMonitors;

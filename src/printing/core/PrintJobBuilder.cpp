@@ -11,10 +11,10 @@ PrintTicket applyCapabilityConstraints(PrintTicket ticket, const QVariantMap &ra
     const QStringList qualityModes = rawCapability.value(QStringLiteral("qualityModes")).toStringList();
 
     if (!supportsColor) {
-        ticket.colorMode = ColorMode::Monochrome;
+        ticket.colorMode = ColorMode::Grayscale;
     }
     if (!supportsDuplex) {
-        ticket.duplex = DuplexMode::OneSided;
+        ticket.duplex = DuplexMode::Off;
     }
     if (!paperSizes.isEmpty() && !paperSizes.contains(ticket.paperSize)) {
         ticket.paperSize = paperSizes.first();
@@ -63,7 +63,7 @@ QVariantMap PrintJobBuilder::build(const PrintSession *session)
     result.insert(QStringLiteral("documentTitle"), session->documentTitle());
     result.insert(QStringLiteral("printerId"), ticket.printerId);
     result.insert(QStringLiteral("ticket"), PrintTicketSerializer::toVariantMap(ticket));
-    result.insert(QStringLiteral("ippAttributes"), PrintTicketSerializer::toIppAttributes(ticket));
+    result.insert(QStringLiteral("jobAttributes"), PrintTicketSerializer::toIppAttributes(ticket));
     return result;
 }
 

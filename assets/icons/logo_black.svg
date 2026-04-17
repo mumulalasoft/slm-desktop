@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   version="1.1"
+   id="svg1"
+   width="53.135033"
+   height="53.183182"
+   viewBox="0 0 53.135033 53.183182"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs1" />
+  <g
+     id="g1"
+     transform="translate(-115.97576,-66.366104)">
+    <g
+       id="g4102"
+       transform="matrix(0.07328479,0,0,0.07328479,104.77148,55.555064)"
+       style="fill:#000000">
+      <path
+         style="fill:#000000;fill-opacity:1;stroke:none;stroke-width:19.5183;stroke-dasharray:none"
+         d="M 506.91711,605.95575 354.38376,562.24706 a 98.25682,98.25682 0 0 0 -124.81515,104.43415 103.67709,103.67709 0 0 0 184.61596,46.53534 z"
+         id="path7" />
+      <path
+         style="fill:#000000;fill-opacity:1;stroke:none;stroke-width:19.1118;stroke-dasharray:none"
+         d="m 522.34,618.44137 c 83.596,68.36503 67.3509,163.13641 -40.24157,217.3277 a 193.50591,181.72943 89.999998 0 0 30.76909,-172.38462 l 7.91392,-44.33783 c 0.16783,-0.9386 0.84822,-1.18648 1.55856,-0.6055 z"
+         id="path8" />
+      <path
+         style="fill:#000000;fill-opacity:1;stroke:none;stroke-width:19.5195"
+         d="M 509.23334,588.81502 477.0073,351.09363 a 148.55404,148.55404 0 0 0 -220.44664,-109.2896 156.74893,156.74893 0 0 0 47.81762,283.85128 z"
+         id="path13" />
+      <path
+         style="fill:#000000;fill-opacity:1;stroke:none;stroke-width:19.5183;stroke-dasharray:none"
+         d="M 528.80472,580.55916 732.98353,454.61885 A 148.55404,148.55404 0 0 0 743.38944,208.78835 156.74893,156.74893 0 0 0 503.3797,367.7016 Z"
+         id="path14" />
+      <path
+         style="fill:#000000;fill-opacity:1;stroke:none;stroke-width:19.348;stroke-dasharray:none"
+         d="m 531.65011,600.15994 143.45193,-83.24059 a 98.06084,104.26564 88.852721 0 1 157.34369,66.57531 103.4703,110.01738 88.852721 0 1 -175.43926,94.63228 z"
+         id="path16" />
+    </g>
+  </g>
+</svg>

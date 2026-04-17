@@ -8,8 +8,7 @@
 #include <QFileInfo>
 #include <QMetaObject>
 #include <QMutexLocker>
-#include <QProcess>
-#include <QRegularExpression>
+#include <QPointer>
 #include <QSet>
 #include <QStorageInfo>
 #include <QVariantMap>
@@ -26,6 +25,9 @@ namespace {
 constexpr const char kDevicesService[] = "org.slm.Desktop.Devices";
 constexpr const char kDevicesPath[] = "/org/slm/Desktop/Devices";
 constexpr const char kDevicesIface[] = "org.slm.Desktop.Devices";
+constexpr const char kStorageService[] = "org.slm.Desktop.Storage";
+constexpr const char kStoragePath[] = "/org/slm/Desktop/Storage";
+constexpr const char kStorageIface[] = "org.slm.Desktop.Storage";
 constexpr const char kLegacyDevicesService[] = "org.desktop_shell.Desktop.Devices";
 constexpr const char kLegacyDevicesPath[] = "/org/desktop_shell/Desktop/Devices";
 constexpr const char kLegacyDevicesIface[] = "org.desktop_shell.Desktop.Devices";
@@ -131,6 +133,35 @@ static bool callDevicesServiceStorage(const QString &method,
     return legacyOk;
 }
 
+static bool callStorageServiceStorage(const QString &method,
+                                      const QVariantList &args,
+                                      QVariantMap *resultOut,
+                                      QString *failureCodeOut = nullptr)
+{
+    QDBusInterface iface(QString::fromLatin1(kStorageService),
+                         QString::fromLatin1(kStoragePath),
+                         QString::fromLatin1(kStorageIface),
+                         QDBusConnection::sessionBus());
+    if (!iface.isValid()) {
+        if (failureCodeOut) {
+            *failureCodeOut = QString::fromLatin1(kErrDaemonUnavailable);
+        }
+        return false;
+    }
+    iface.setTimeout(kDbusTimeoutMs);
+    QDBusReply<QVariantMap> reply = iface.callWithArgumentList(QDBus::Block, method, args);
+    if (!reply.isValid()) {
+        if (failureCodeOut) {
+            *failureCodeOut = dbusFailureCodeStorage(classifyDbusReplyErrorStorage(reply));
+        }
+        return false;
+    }
+    if (resultOut) {
+        *resultOut = reply.value();
+    }
+    return true;
+}
+
 static QString iconNameFromGIconStorageLocal(GIcon *icon)
 {
     if (icon == nullptr) {
@@ -164,11 +195,382 @@ static QString gfileToPathOrUriStorageLocal(GFile *file)
     return out;
 }
 
+struct GioOpState {
+    GMainLoop *loop = nullptr;
+    bool ok = false;
+    bool timedOut = false;
+    QString error;
+    QString path;
+    QString timeoutError;
+    GCancellable *cancellable = nullptr;
+    guint timeoutSourceId = 0;
+};
+
+constexpr int kGioMountTimeoutMs = 15000;
+constexpr int kGioUnmountTimeoutMs = 15000;
+
+static gboolean onGioOperationTimeoutStorage(gpointer userData)
+{
+    auto *state = static_cast<GioOpState *>(userData);
+    if (!state) {
+        return G_SOURCE_REMOVE;
+    }
+    state->timedOut = true;
+    state->error = state->timeoutError.isEmpty() ? QStringLiteral("operation-timeout")
+                                                  : state->timeoutError;
+    state->timeoutSourceId = 0;
+    if (state->cancellable) {
+        g_cancellable_cancel(state->cancellable);
+    }
+    if (state->loop) {
+        g_main_loop_quit(state->loop);
+    }
+    return G_SOURCE_REMOVE;
+}
+
+static void initGioOpStateStorage(GioOpState *state, int timeoutMs, const QString &timeoutError)
+{
+    if (!state) {
+        return;
+    }
+    state->loop = g_main_loop_new(nullptr, false);
+    state->cancellable = g_cancellable_new();
+    state->timedOut = false;
+    state->error.clear();
+    state->timeoutError = timeoutError.trimmed();
+    if (timeoutMs > 0) {
+        state->timeoutSourceId = g_timeout_add(timeoutMs, onGioOperationTimeoutStorage, state);
+    }
+}
+
+static void cleanupGioOpStateStorage(GioOpState *state)
+{
+    if (!state) {
+        return;
+    }
+    if (state->timeoutSourceId > 0) {
+        g_source_remove(state->timeoutSourceId);
+        state->timeoutSourceId = 0;
+    }
+    if (state->cancellable) {
+        g_object_unref(state->cancellable);
+        state->cancellable = nullptr;
+    }
+    if (state->loop) {
+        g_main_loop_unref(state->loop);
+        state->loop = nullptr;
+    }
+}
+
+static bool stringEqualsInsensitiveStorage(const QString &a, const QString &b)
+{
+    return a.compare(b, Qt::CaseInsensitive) == 0;
+}
+
+static QString volumeIdStorage(GVolume *volume, const char *kind)
+{
+    if (!volume || !kind) {
+        return QString();
+    }
+    gchar *raw = g_volume_get_identifier(volume, kind);
+    const QString id = QString::fromUtf8(raw ? raw : "").trimmed();
+    if (raw) {
+        g_free(raw);
+    }
+    return id;
+}
+
+static bool volumeMatchesTargetStorage(GVolume *volume, const QString &target)
+{
+    if (!volume) {
+        return false;
+    }
+    const QString t = target.trimmed();
+    if (t.isEmpty()) {
+        return false;
+    }
+    if (stringEqualsInsensitiveStorage(volumeIdStorage(volume, G_VOLUME_IDENTIFIER_KIND_UNIX_DEVICE), t)
+            || stringEqualsInsensitiveStorage(volumeIdStorage(volume, G_VOLUME_IDENTIFIER_KIND_UUID), t)
+            || stringEqualsInsensitiveStorage(volumeIdStorage(volume, G_VOLUME_IDENTIFIER_KIND_LABEL), t)) {
+        return true;
+    }
+    gchar *uuidRaw = g_volume_get_uuid(volume);
+    const QString uuid = QString::fromUtf8(uuidRaw ? uuidRaw : "").trimmed();
+    if (uuidRaw) {
+        g_free(uuidRaw);
+    }
+    return stringEqualsInsensitiveStorage(uuid, t);
+}
+
+static bool mountMatchesTargetStorage(GMount *mount, const QString &target)
+{
+    if (!mount) {
+        return false;
+    }
+    const QString t = target.trimmed();
+    if (t.isEmpty()) {
+        return false;
+    }
+    GFile *root = g_mount_get_root(mount);
+    const QString rootPath = gfileToPathOrUriStorageLocal(root);
+    if (root) {
+        g_object_unref(root);
+    }
+    if (stringEqualsInsensitiveStorage(rootPath, t)) {
+        return true;
+    }
+    gchar *uuidRaw = g_mount_get_uuid(mount);
+    const QString uuid = QString::fromUtf8(uuidRaw ? uuidRaw : "").trimmed();
+    if (uuidRaw) {
+        g_free(uuidRaw);
+    }
+    if (stringEqualsInsensitiveStorage(uuid, t)) {
+        return true;
+    }
+    GVolume *volume = g_mount_get_volume(mount);
+    const bool matchByVolume = volumeMatchesTargetStorage(volume, t);
+    if (volume) {
+        g_object_unref(volume);
+    }
+    return matchByVolume;
+}
+
+static void onVolumeMountFinishedStorage(GObject *sourceObject,
+                                         GAsyncResult *result,
+                                         gpointer userData)
+{
+    auto *state = static_cast<GioOpState *>(userData);
+    GError *error = nullptr;
+    const gboolean ok = g_volume_mount_finish(G_VOLUME(sourceObject), result, &error);
+    state->ok = ok;
+    if (!ok) {
+        if (!state->timedOut) {
+            state->error = QString::fromUtf8(error && error->message ? error->message : "mount-failed");
+        }
+    } else {
+        GMount *mount = g_volume_get_mount(G_VOLUME(sourceObject));
+        if (mount) {
+            GFile *root = g_mount_get_root(mount);
+            state->path = gfileToPathOrUriStorageLocal(root);
+            if (root) {
+                g_object_unref(root);
+            }
+            g_object_unref(mount);
+        }
+    }
+    if (error) {
+        g_error_free(error);
+    }
+    if (state->loop) {
+        g_main_loop_quit(state->loop);
+    }
+}
+
+static void onFileMountEnclosingFinishedStorage(GObject *sourceObject,
+                                                GAsyncResult *result,
+                                                gpointer userData)
+{
+    auto *state = static_cast<GioOpState *>(userData);
+    GError *error = nullptr;
+    const gboolean ok = g_file_mount_enclosing_volume_finish(G_FILE(sourceObject), result, &error);
+    state->ok = ok;
+    if (!ok) {
+        if (!state->timedOut) {
+            state->error = QString::fromUtf8(error && error->message ? error->message : "mount-failed");
+        }
+    } else {
+        GError *findErr = nullptr;
+        GMount *mount = g_file_find_enclosing_mount(G_FILE(sourceObject), nullptr, &findErr);
+        if (mount) {
+            GFile *root = g_mount_get_root(mount);
+            state->path = gfileToPathOrUriStorageLocal(root);
+            if (root) {
+                g_object_unref(root);
+            }
+            g_object_unref(mount);
+        } else if (findErr) {
+            if (!state->timedOut) {
+                state->error = QString::fromUtf8(findErr->message ? findErr->message : "mount-failed");
+            }
+            state->ok = false;
+            g_error_free(findErr);
+        }
+    }
+    if (error) {
+        g_error_free(error);
+    }
+    if (state->loop) {
+        g_main_loop_quit(state->loop);
+    }
+}
+
+static void onMountUnmountFinishedStorage(GObject *sourceObject,
+                                          GAsyncResult *result,
+                                          gpointer userData)
+{
+    auto *state = static_cast<GioOpState *>(userData);
+    GError *error = nullptr;
+    const gboolean ok = g_mount_unmount_with_operation_finish(G_MOUNT(sourceObject), result, &error);
+    state->ok = ok;
+    if (!ok) {
+        if (!state->timedOut) {
+            state->error = QString::fromUtf8(error && error->message ? error->message : "eject-failed");
+        }
+    }
+    if (error) {
+        g_error_free(error);
+    }
+    if (state->loop) {
+        g_main_loop_quit(state->loop);
+    }
+}
+
+static QVariantMap mountWithGioStorage(const QString &target)
+{
+    const QString t = target.trimmed();
+    if (t.isEmpty()) {
+        return {{QStringLiteral("ok"), false}, {QStringLiteral("error"), QStringLiteral("invalid-device")}};
+    }
+    if (t.contains(QStringLiteral("://"))) {
+        GFile *file = g_file_new_for_uri(t.toUtf8().constData());
+        if (!file) {
+            return {{QStringLiteral("ok"), false}, {QStringLiteral("error"), QStringLiteral("invalid-uri")}};
+        }
+        GioOpState state;
+        initGioOpStateStorage(&state, kGioMountTimeoutMs, QStringLiteral("mount-timeout"));
+        g_file_mount_enclosing_volume(file,
+                                      G_MOUNT_MOUNT_NONE,
+                                      nullptr,
+                                      state.cancellable,
+                                      onFileMountEnclosingFinishedStorage,
+                                      &state);
+        g_main_loop_run(state.loop);
+        cleanupGioOpStateStorage(&state);
+        g_object_unref(file);
+        if (!state.ok) {
+            return {{QStringLiteral("ok"), false},
+                    {QStringLiteral("error"), state.error.isEmpty() ? QStringLiteral("mount-failed")
+                                                                    : state.error}};
+        }
+        return {{QStringLiteral("ok"), true},
+                {QStringLiteral("path"), state.path.isEmpty() ? t : state.path},
+                {QStringLiteral("mountPath"), state.path.isEmpty() ? t : state.path}};
+    }
+
+    GVolumeMonitor *monitor = g_volume_monitor_get();
+    if (!monitor) {
+        return {{QStringLiteral("ok"), false}, {QStringLiteral("error"), QStringLiteral("gio-monitor-unavailable")}};
+    }
+    GList *volumes = g_volume_monitor_get_volumes(monitor);
+    GVolume *match = nullptr;
+    for (GList *it = volumes; it != nullptr; it = it->next) {
+        GVolume *volume = G_VOLUME(it->data);
+        if (volumeMatchesTargetStorage(volume, t)) {
+            match = G_VOLUME(g_object_ref(volume));
+            break;
+        }
+    }
+    g_list_free_full(volumes, g_object_unref);
+    if (!match) {
+        return {{QStringLiteral("ok"), false}, {QStringLiteral("error"), QStringLiteral("volume-not-found")}};
+    }
+
+    GMount *alreadyMounted = g_volume_get_mount(match);
+    if (alreadyMounted) {
+        GFile *root = g_mount_get_root(alreadyMounted);
+        const QString mountedPath = gfileToPathOrUriStorageLocal(root);
+        if (root) {
+            g_object_unref(root);
+        }
+        g_object_unref(alreadyMounted);
+        g_object_unref(match);
+        return {{QStringLiteral("ok"), true},
+                {QStringLiteral("path"), mountedPath.isEmpty() ? t : mountedPath},
+                {QStringLiteral("mountPath"), mountedPath.isEmpty() ? t : mountedPath}};
+    }
+
+    GioOpState state;
+    initGioOpStateStorage(&state, kGioMountTimeoutMs, QStringLiteral("mount-timeout"));
+    g_volume_mount(match,
+                   G_MOUNT_MOUNT_NONE,
+                   nullptr,
+                   state.cancellable,
+                   onVolumeMountFinishedStorage,
+                   &state);
+    g_main_loop_run(state.loop);
+    cleanupGioOpStateStorage(&state);
+    g_object_unref(match);
+    if (!state.ok) {
+        return {{QStringLiteral("ok"), false},
+                {QStringLiteral("error"), state.error.isEmpty() ? QStringLiteral("mount-failed")
+                                                                : state.error}};
+    }
+    return {{QStringLiteral("ok"), true},
+            {QStringLiteral("path"), state.path.isEmpty() ? t : state.path},
+            {QStringLiteral("mountPath"), state.path.isEmpty() ? t : state.path}};
+}
+
+static QVariantMap unmountWithGioStorage(const QString &target)
+{
+    const QString t = target.trimmed();
+    if (t.isEmpty()) {
+        return {{QStringLiteral("ok"), false}, {QStringLiteral("error"), QStringLiteral("invalid-device")}};
+    }
+    GVolumeMonitor *monitor = g_volume_monitor_get();
+    if (!monitor) {
+        return {{QStringLiteral("ok"), false}, {QStringLiteral("error"), QStringLiteral("gio-monitor-unavailable")}};
+    }
+    GList *mounts = g_volume_monitor_get_mounts(monitor);
+    GMount *match = nullptr;
+    for (GList *it = mounts; it != nullptr; it = it->next) {
+        GMount *mount = G_MOUNT(it->data);
+        if (mountMatchesTargetStorage(mount, t)) {
+            match = G_MOUNT(g_object_ref(mount));
+            break;
+        }
+    }
+    g_list_free_full(mounts, g_object_unref);
+    if (!match) {
+        return {{QStringLiteral("ok"), false}, {QStringLiteral("error"), QStringLiteral("mount-not-found")}};
+    }
+
+    GioOpState state;
+    initGioOpStateStorage(&state, kGioUnmountTimeoutMs, QStringLiteral("eject-timeout"));
+    g_mount_unmount_with_operation(match,
+                                   G_MOUNT_UNMOUNT_NONE,
+                                   nullptr,
+                                   state.cancellable,
+                                   onMountUnmountFinishedStorage,
+                                   &state);
+    g_main_loop_run(state.loop);
+    cleanupGioOpStateStorage(&state);
+    g_object_unref(match);
+    if (!state.ok) {
+        return {{QStringLiteral("ok"), false},
+                {QStringLiteral("error"), state.error.isEmpty() ? QStringLiteral("eject-failed")
+                                                                : state.error}};
+    }
+    return {{QStringLiteral("ok"), true}};
+}
+
 } // namespace
 
 QVariantList FileManagerApi::queryStorageLocationsSync(int lsblkTimeoutMs) const
 {
     Q_UNUSED(lsblkTimeoutMs)
+    QVariantMap serviceReply;
+    if (callStorageServiceStorage(QStringLiteral("GetStorageLocations"), {}, &serviceReply, nullptr)) {
+        if (serviceReply.value(QStringLiteral("ok")).toBool()) {
+            return serviceReply.value(QStringLiteral("rows")).toList();
+        }
+    }
+    QVariantMap devicesReply;
+    if (callDevicesServiceStorage(QStringLiteral("GetStorageLocations"), {}, &devicesReply, nullptr)) {
+        if (devicesReply.value(QStringLiteral("ok")).toBool()) {
+            return devicesReply.value(QStringLiteral("rows")).toList();
+        }
+    }
+
     QVariantList out;
     QSet<QString> seenKeys;
     QSet<QString> seenMountPaths;
@@ -395,13 +797,36 @@ QVariantList FileManagerApi::storageLocations() const
 
 void FileManagerApi::refreshStorageLocationsAsync()
 {
-    QVariantList rows = queryStorageLocationsSync(800);
     {
         QMutexLocker locker(&m_storageCacheMutex);
-        m_storageLocationsCache = rows;
-        m_storageLocationsCacheMs = QDateTime::currentMSecsSinceEpoch();
+        if (m_storageRefreshPending) {
+            return;
+        }
+        m_storageRefreshPending = true;
     }
-    emit storageLocationsUpdated(rows);
+
+    QPointer<FileManagerApi> self(this);
+    std::thread([self]() {
+        if (!self) {
+            return;
+        }
+        const QVariantList rows = self->queryStorageLocationsSync(800);
+        if (!self) {
+            return;
+        }
+        QMetaObject::invokeMethod(self.data(), [self, rows]() {
+            if (!self) {
+                return;
+            }
+            {
+                QMutexLocker locker(&self->m_storageCacheMutex);
+                self->m_storageLocationsCache = rows;
+                self->m_storageLocationsCacheMs = QDateTime::currentMSecsSinceEpoch();
+                self->m_storageRefreshPending = false;
+            }
+            emit self->storageLocationsUpdated(rows);
+        }, Qt::QueuedConnection);
+    }).detach();
 }
 
 QVariantMap FileManagerApi::mountStorageDevice(const QString &devicePath) const
@@ -409,6 +834,20 @@ QVariantMap FileManagerApi::mountStorageDevice(const QString &devicePath) const
     const QString dev = devicePath.trimmed();
     if (dev.isEmpty()) {
         return makeResult(false, QStringLiteral("invalid-device"));
+    }
+
+    QVariantMap storageReply;
+    QString storageError;
+    if (callStorageServiceStorage(QStringLiteral("Mount"), {dev}, &storageReply, &storageError)) {
+        const bool ok = storageReply.value(QStringLiteral("ok")).toBool();
+        const QString error = storageReply.value(QStringLiteral("error")).toString().trimmed();
+        const QString mountedPath = storageReply.value(QStringLiteral("mountPath")).toString().trimmed();
+        if (!ok) {
+            return makeResult(false, error.isEmpty() ? QStringLiteral("mount-failed") : error);
+        }
+        return makeResult(true, QString(),
+                          {{QStringLiteral("device"), dev},
+                           {QStringLiteral("path"), mountedPath.isEmpty() ? dev : mountedPath}});
     }
 
     QVariantMap devicesReply;
@@ -425,30 +864,16 @@ QVariantMap FileManagerApi::mountStorageDevice(const QString &devicePath) const
                            {QStringLiteral("path"), mountedPath.isEmpty() ? dev : mountedPath}});
     }
 
-    QProcess p;
-    if (dev.contains(QStringLiteral("://"))) {
-        p.start(QStringLiteral("gio"), QStringList{QStringLiteral("mount"), dev});
-    } else {
-        p.start(QStringLiteral("udisksctl"), QStringList{QStringLiteral("mount"), QStringLiteral("-b"), dev});
-    }
-    p.waitForFinished(15000);
-    const QString stdoutText = QString::fromUtf8(p.readAllStandardOutput()).trimmed();
-    const QString stderrText = QString::fromUtf8(p.readAllStandardError()).trimmed();
-    if (p.exitStatus() != QProcess::NormalExit || p.exitCode() != 0) {
+    const QVariantMap gioResult = mountWithGioStorage(dev);
+    if (!gioResult.value(QStringLiteral("ok")).toBool()) {
+        const QString err = gioResult.value(QStringLiteral("error")).toString().trimmed();
+        const QString fallbackError = daemonError.isEmpty() ? storageError : daemonError;
         return makeResult(false,
-                          stderrText.isEmpty()
-                              ? (daemonError.isEmpty() ? QStringLiteral("mount-failed") : daemonError)
-                              : stderrText);
+                          err.isEmpty()
+                              ? (fallbackError.isEmpty() ? QStringLiteral("mount-failed") : fallbackError)
+                              : err);
     }
-    QString mountedPath;
-    QRegularExpression re(QStringLiteral("\\bat\\s+(.+?)(?:\\.|$)"));
-    QRegularExpressionMatch m = re.match(stdoutText);
-    if (m.hasMatch()) {
-        mountedPath = m.captured(1).trimmed();
-    }
-    if (mountedPath.isEmpty() && dev.contains(QStringLiteral("://"))) {
-        mountedPath = dev;
-    }
+    const QString mountedPath = gioResult.value(QStringLiteral("path")).toString().trimmed();
     return makeResult(true, QString(),
                       {{QStringLiteral("device"), dev},
                        {QStringLiteral("path"), mountedPath}});
@@ -459,6 +884,17 @@ QVariantMap FileManagerApi::unmountStorageDevice(const QString &devicePath) cons
     const QString dev = devicePath.trimmed();
     if (dev.isEmpty()) {
         return makeResult(false, QStringLiteral("invalid-device"));
+    }
+
+    QVariantMap storageReply;
+    QString storageError;
+    if (callStorageServiceStorage(QStringLiteral("Eject"), {dev}, &storageReply, &storageError)) {
+        const bool ok = storageReply.value(QStringLiteral("ok")).toBool();
+        const QString error = storageReply.value(QStringLiteral("error")).toString().trimmed();
+        if (!ok) {
+            return makeResult(false, error.isEmpty() ? QStringLiteral("eject-failed") : error);
+        }
+        return makeResult(true, QString(), {{QStringLiteral("device"), dev}});
     }
 
     QVariantMap devicesReply;
@@ -472,21 +908,64 @@ QVariantMap FileManagerApi::unmountStorageDevice(const QString &devicePath) cons
         return makeResult(true, QString(), {{QStringLiteral("device"), dev}});
     }
 
-    QProcess p;
-    if (dev.contains(QStringLiteral("://"))) {
-        p.start(QStringLiteral("gio"), QStringList{QStringLiteral("mount"), QStringLiteral("-u"), dev});
-    } else {
-        p.start(QStringLiteral("udisksctl"), QStringList{QStringLiteral("unmount"), QStringLiteral("-b"), dev});
-    }
-    p.waitForFinished(15000);
-    const QString stderrText = QString::fromUtf8(p.readAllStandardError()).trimmed();
-    if (p.exitStatus() != QProcess::NormalExit || p.exitCode() != 0) {
+    const QVariantMap gioResult = unmountWithGioStorage(dev);
+    if (!gioResult.value(QStringLiteral("ok")).toBool()) {
+        const QString err = gioResult.value(QStringLiteral("error")).toString().trimmed();
+        const QString fallbackError = daemonError.isEmpty() ? storageError : daemonError;
         return makeResult(false,
-                          stderrText.isEmpty()
-                              ? (daemonError.isEmpty() ? QStringLiteral("eject-failed") : daemonError)
-                              : stderrText);
+                          err.isEmpty()
+                              ? (fallbackError.isEmpty() ? QStringLiteral("eject-failed") : fallbackError)
+                              : err);
     }
     return makeResult(true, QString(), {{QStringLiteral("device"), dev}});
+}
+
+QVariantMap FileManagerApi::storagePolicyForPath(const QString &path) const
+{
+    const QString target = path.trimmed();
+    if (target.isEmpty()) {
+        return makeResult(false, QStringLiteral("invalid-path"));
+    }
+
+    QVariantMap reply;
+    QString daemonError;
+    if (!callStorageServiceStorage(QStringLiteral("StoragePolicyForPath"), {target}, &reply, &daemonError)) {
+        return makeResult(false, daemonError.isEmpty() ? QStringLiteral("daemon-unavailable") : daemonError);
+    }
+    if (!reply.value(QStringLiteral("ok")).toBool()) {
+        return makeResult(false,
+                          reply.value(QStringLiteral("error")).toString().trimmed().isEmpty()
+                              ? QStringLiteral("policy-query-failed")
+                              : reply.value(QStringLiteral("error")).toString().trimmed());
+    }
+    return reply;
+}
+
+QVariantMap FileManagerApi::setStoragePolicyForPath(const QString &path,
+                                                    const QVariantMap &policyPatch,
+                                                    const QString &scope)
+{
+    const QString target = path.trimmed();
+    if (target.isEmpty()) {
+        return makeResult(false, QStringLiteral("invalid-path"));
+    }
+
+    QVariantMap reply;
+    QString daemonError;
+    if (!callStorageServiceStorage(QStringLiteral("SetStoragePolicyForPath"),
+                                   {target, policyPatch, scope.trimmed()},
+                                   &reply,
+                                   &daemonError)) {
+        return makeResult(false, daemonError.isEmpty() ? QStringLiteral("daemon-unavailable") : daemonError);
+    }
+    if (!reply.value(QStringLiteral("ok")).toBool()) {
+        return makeResult(false,
+                          reply.value(QStringLiteral("error")).toString().trimmed().isEmpty()
+                              ? QStringLiteral("policy-update-failed")
+                              : reply.value(QStringLiteral("error")).toString().trimmed());
+    }
+    refreshStorageLocationsAsync();
+    return reply;
 }
 
 QVariantMap FileManagerApi::startMountStorageDevice(const QString &devicePath)

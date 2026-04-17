@@ -10,13 +10,14 @@ Item {
     property string searchText: ""
     property int currentPage: 0
     property int maxColumns: 7
-    property int maxRowsPerPage: 5
+    property int maxRowsPerPage: 4
+    property int topSafeInset: 0
     property int bottomSafeInset: 144
-    property int minColumns: 4
-    property int minRowsPerPage: 3
+    property int minColumns: 7
+    property int minRowsPerPage: 4
     readonly property int effectiveColumns: Math.max(minColumns,
                                                      Math.min(maxColumns,
-                                                              Math.floor((appsGrid.width + gridSpacing)
+                                                              Math.floor((appsFlick.width + gridSpacing)
                                                                          / (minCellWidth + gridSpacing))))
     readonly property int effectiveRowsPerPage: Math.max(minRowsPerPage,
                                                          Math.min(maxRowsPerPage,
@@ -29,6 +30,10 @@ Item {
     property real pageTransitionDotsOffset: 0
     property int pageTransitionDirection: 1
     property bool pageTransitionPending: false
+    // Reveal progress (0..1) driven by MotionController for stagger-in animation.
+    // 0 = fully hidden, 1 = fully visible. Set externally by LaunchpadWindow.
+    property real revealProgress: 1.0
+    readonly property real staggerDelayPerRow: 0.07
     property int filteredCount: 0
     property int totalPages: 1
     property var pagedApps: []
@@ -42,12 +47,19 @@ Item {
     signal addToDockRequested(var appData)
     signal addToDesktopRequested(var appData)
 
+    readonly property string wallpaperSource: {
+        const uri = String((typeof DesktopSettings !== "undefined" && DesktopSettings)
+                           ? (DesktopSettings.wallpaperUri || "") : "")
+        return uri.length > 0 ? uri : "qrc:/images/wallpaper.jpeg"
+    }
+
     readonly property real gridSpacing: 16
     readonly property real minCellWidth: 122
     readonly property real appLabelHeight: Math.ceil(Theme.fontSize("menu") * 1.8)
-    readonly property real appCellMinHeight: 114 + 10 + appLabelHeight + 8
+    readonly property real iconPlateSize: Math.min(86, Math.floor(gridCellWidth * 0.55))
+    readonly property real appCellMinHeight: iconPlateSize + 8 + appLabelHeight + 8
     readonly property real gridCellWidth: Math.max(minCellWidth,
-                                                   Math.floor((appsGrid.width - (gridSpacing * (effectiveColumns - 1)))
+                                                   Math.floor((appsFlick.width - (gridSpacing * (effectiveColumns - 1)))
                                                               / Math.max(1, effectiveColumns)))
     readonly property real gridCellHeight: Math.max(appCellMinHeight,
                                                     Math.floor((appsFlick.height
@@ -55,10 +67,10 @@ Item {
                                                                / Math.max(1, effectiveRowsPerPage)))
 
     function prefBool(key, fallback) {
-        if (typeof UIPreferences === "undefined" || !UIPreferences || !UIPreferences.getPreference) {
+        if (typeof DesktopSettings === "undefined" || !DesktopSettings || !DesktopSettings.settingValue) {
             return !!fallback
         }
-        return !!UIPreferences.getPreference(key, fallback)
+        return !!DesktopSettings.settingValue(String(key || ""), fallback)
     }
 
     function refreshCompositorBlurPrefs() {
@@ -231,7 +243,26 @@ Item {
         if (currentPage < 0) {
             currentPage = 0
         }
-        pagedApps = appsModel.page(currentPage, pageSize, searchText)
+        var rawPage = appsModel.page(currentPage, pageSize, searchText)
+        var normalized = []
+        if (rawPage && rawPage.length !== undefined) {
+            for (var i = 0; i < rawPage.length; ++i) {
+                var entry = rawPage[i] || {}
+                normalized.push({
+                    "name": String(entry.name || ""),
+                    "iconSource": String(entry.iconSource || ""),
+                    "iconName": String(entry.iconName || ""),
+                    "desktopId": String(entry.desktopId || ""),
+                    "desktopFile": String(entry.desktopFile || ""),
+                    "executable": String(entry.executable || ""),
+                    "score": Number(entry.score || 0),
+                    "launchCount7d": Number(entry.launchCount7d || 0),
+                    "fileOpenCount7d": Number(entry.fileOpenCount7d || 0),
+                    "lastLaunch": String(entry.lastLaunch || "")
+                })
+            }
+        }
+        pagedApps = normalized
         clampSelectedIndex()
     }
 
@@ -256,9 +287,6 @@ Item {
     }
 
     onVisibleChanged: {
-        if (visible && appsModel && appsModel.refresh) {
-            appsModel.refresh()
-        }
         refreshCompositorBlurPrefs()
         if (visible) {
             recomputePaging()
@@ -268,27 +296,17 @@ Item {
 
     Keys.onPressed: function(event) { root.handleNavigationKey(event) }
 
-    Rectangle {
+    // Wallpaper as base layer — same source as the desktop background.
+    // Fills the full frame so the dock (visible below via ApplicationWindow)
+    // appears seamlessly over the same wallpaper image.
+    Image {
         anchors.fill: parent
-        color: Theme.color("launchpadOrbTop")
-        opacity: root.compositorBlurActive ? Theme.opacityFaint : Theme.cardSurfaceOpacity
+        source: root.wallpaperSource
+        fillMode: Image.PreserveAspectCrop
+        smooth: true
+        mipmap: true
     }
 
-    Rectangle {
-        anchors.fill: parent
-        gradient: Gradient {
-            GradientStop { position: 0.0; color: Theme.color("launchpadSearchBg") }
-            GradientStop { position: 0.55; color: Theme.color("launchpadOrbTop") }
-            GradientStop { position: 1.0; color: Theme.color("launchpadOrbBottom") }
-        }
-        opacity: root.compositorBlurActive ? Theme.opacitySubtle : Theme.opacityMuted
-    }
-
-    Rectangle {
-        anchors.fill: parent
-        color: Theme.color("overlay")
-        opacity: root.compositorBlurActive ? Theme.opacitySubtle : Theme.opacityFaint
-    }
 
     MouseArea {
         anchors.fill: parent
@@ -353,43 +371,52 @@ Item {
     Item {
         id: contentLayer
         anchors.fill: parent
-        anchors.topMargin: Math.max(18, parent.height * 0.02)
-        anchors.bottomMargin: Math.max(Math.max(20, parent.height * 0.02), bottomSafeInset)
-        anchors.leftMargin: Math.max(36, parent.width * 0.035)
-        anchors.rightMargin: Math.max(36, parent.width * 0.035)
+        anchors.topMargin: Math.max(root.topSafeInset + 6, 14)
+        anchors.bottomMargin: Math.max(
+                                  8,
+                                  Math.min(Math.round(parent.height * 0.28),
+                                           Math.max(Math.round(parent.height * 0.01),
+                                                    bottomSafeInset))
+                              )
+        anchors.leftMargin: Math.max(56, parent.width * 0.07)
+        anchors.rightMargin: Math.max(56, parent.width * 0.07)
 
         Column {
             anchors.fill: parent
-            spacing: 16
+            spacing: 8
 
             Rectangle {
                 id: searchShell
-                width: Math.min(640, parent.width * 0.58)
-                height: 56
+                width: Math.min(240, parent.width * 0.22)
+                height: 34
                 anchors.horizontalCenter: parent.horizontalCenter
-                radius: Theme.radiusXl
+                radius: height * 0.5
                 color: Theme.color("launchpadSearchBg")
-                opacity: root.compositorBlurActive ? Theme.opacityIconMuted : Theme.opacityGhost
+                opacity: root.compositorBlurActive ? Theme.opacityMuted : 0.22
                 border.width: Theme.borderWidthThin
-                border.color: Theme.color("launchpadSearchBorder")
+                border.color: Qt.rgba(1, 1, 1, 0.18)
                 transform: Translate { x: root.pageTransitionHeaderOffset }
 
-                Label {
-                    text: "\u2315"
+                Image {
                     anchors.verticalCenter: parent.verticalCenter
                     anchors.left: parent.left
-                    anchors.leftMargin: 16
-                    font.pixelSize: Theme.fontSize("title")
-                    color: Theme.color("textSecondary")
+                    anchors.leftMargin: 10
+                    width: 13
+                    height: 13
+                    source: "image://themeicon/edit-find-symbolic?v="
+                            + ((typeof ThemeIconController !== "undefined" && ThemeIconController)
+                               ? ThemeIconController.revision : 0)
+                    fillMode: Image.PreserveAspectFit
+                    opacity: Theme.opacitySeparator
                 }
 
                 TextInput {
                     id: searchField
                     anchors.fill: parent
-                    anchors.leftMargin: 44
-                    anchors.rightMargin: 16
+                    anchors.leftMargin: 28
+                    anchors.rightMargin: 8
                     verticalAlignment: TextInput.AlignVCenter
-                    font.pixelSize: Theme.fontSize("title")
+                    font.pixelSize: Theme.fontSize("small")
                     color: Theme.color("textPrimary")
                     selectionColor: Theme.color("accent")
                     selectedTextColor: Theme.color("accentText")
@@ -403,9 +430,9 @@ Item {
                     visible: searchField.text.length === 0
                     anchors.verticalCenter: parent.verticalCenter
                     anchors.left: parent.left
-                    anchors.leftMargin: 44
+                    anchors.leftMargin: 28
                     text: "Search"
-                    font.pixelSize: Theme.fontSize("title")
+                    font.pixelSize: Theme.fontSize("small")
                     color: Theme.color("textSecondary")
                     opacity: Theme.opacityMuted
                 }
@@ -413,7 +440,7 @@ Item {
 
             Item {
                 width: parent.width
-                height: parent.height - searchShell.height - pageDots.height - 16
+                height: Math.max(160, parent.height - searchShell.height - pageDots.height - 16)
 
                 Flickable {
                     id: appsFlick
@@ -439,12 +466,23 @@ Item {
                                 width: root.gridCellWidth
                                 height: root.gridCellHeight
                                 readonly property var appEntry: modelData
+                                // Per-row stagger: row N starts revealing after row (N-1) is underway.
+                                readonly property int rowIndex: Math.floor(index / Math.max(1, root.effectiveColumns))
+                                readonly property real rowDelay: rowIndex * root.staggerDelayPerRow
+                                readonly property real rowProgress: rowDelay >= 1.0 ? 0.0
+                                    : Math.max(0.0, Math.min(1.0,
+                                          (root.revealProgress - rowDelay) / (1.0 - rowDelay)))
+                                opacity: rowProgress
+                                transform: Translate {
+                                    y: (1.0 - rowProgress) * 18
+                                }
 
                                 Rectangle {
                                     id: iconPlate
-                                    width: 114
-                                    height: 114
+                                    width: root.iconPlateSize
+                                    height: width
                                     anchors.horizontalCenter: parent.horizontalCenter
+                                    y: Math.max(0, Math.round((parent.height - root.iconPlateSize - 8 - root.appLabelHeight) * 0.5))
                                     radius: Theme.radiusMax
                                     readonly property bool selected: root.selectedIndex === index
                                     color: (selected || appMouse.containsMouse) ? Theme.color("launchpadSegmentActive") : "transparent"
@@ -454,16 +492,16 @@ Item {
 
                                     Behavior on scale {
                                         NumberAnimation {
-                                            duration: 120
-                                            easing.type: Easing.OutQuad
+                                            duration: Theme.durationFast
+                                            easing.type: Theme.easingLight
                                         }
                                     }
 
                                     Image {
                                         id: appIcon
                                         anchors.centerIn: parent
-                                        width: 86
-                                        height: 86
+                                        width: Math.round(parent.width * 0.88)
+                                        height: width
                                         source: (appEntry.iconName && appEntry.iconName.length > 0)
                                                 ? ("image://themeicon/" + appEntry.iconName + "?v=" +
                                                    ((typeof ThemeIconController !== "undefined" && ThemeIconController)
@@ -487,7 +525,7 @@ Item {
 
                                 Label {
                                     anchors.top: iconPlate.bottom
-                                    anchors.topMargin: 10
+                                    anchors.topMargin: 8
                                     anchors.horizontalCenter: iconPlate.horizontalCenter
                                     width: parent.width
                                     height: root.appLabelHeight
@@ -622,11 +660,12 @@ Item {
         function onAppScoresChanged() { root.recomputePaging() }
     }
 
+
     Connections {
-        target: (typeof UIPreferences !== "undefined" && UIPreferences) ? UIPreferences : null
+        target: (typeof DesktopSettings !== "undefined" && DesktopSettings) ? DesktopSettings : null
         ignoreUnknownSignals: true
-        function onPreferenceChanged(key, value) {
-            var k = String(key || "").toLowerCase()
+        function onSettingChanged(path) {
+            var k = String(path || "").toLowerCase()
             if (k === "launchpad/compositorblurhint"
                     || k === "launchpad.compositorblurhint"
                     || k === "windowing/scenefxenabled"
@@ -642,29 +681,29 @@ Item {
             target: root
             property: "pageTransitionOffset"
             to: 0
-            duration: 190
-            easing.type: Easing.OutCubic
+            duration: Theme.durationMd
+            easing.type: Theme.easingDefault
         }
         NumberAnimation {
             target: root
             property: "pageTransitionOpacity"
             to: 1
-            duration: 170
-            easing.type: Easing.OutQuad
+            duration: Theme.durationMd
+            easing.type: Theme.easingLight
         }
         NumberAnimation {
             target: root
             property: "pageTransitionHeaderOffset"
             to: 0
-            duration: 210
-            easing.type: Easing.OutCubic
+            duration: Theme.durationNormal
+            easing.type: Theme.easingDefault
         }
         NumberAnimation {
             target: root
             property: "pageTransitionDotsOffset"
             to: 0
-            duration: 210
-            easing.type: Easing.OutCubic
+            duration: Theme.durationNormal
+            easing.type: Theme.easingDefault
         }
     }
 

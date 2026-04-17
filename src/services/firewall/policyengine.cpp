@@ -1,0 +1,1270 @@
+#include "policyengine.h"
+
+#include "appidentityclient.h"
+#include "nftablesadapter.h"
+#include "policystore.h"
+
+#include <QDateTime>
+#include <QFileInfo>
+#include <QProcess>
+#include <QRegularExpression>
+#include <QUuid>
+
+namespace Slm::Firewall {
+
+namespace {
+QString normalizedString(const QVariant &value)
+{
+    return value.toString().trimmed();
+}
+
+QString normalizeScope(const QVariant &value)
+{
+    const QString scope = normalizedString(value).toLower();
+    if (scope == QLatin1String("incoming")
+            || scope == QLatin1String("outgoing")
+            || scope == QLatin1String("both")) {
+        return scope;
+    }
+    return QStringLiteral("both");
+}
+
+QString normalizeDirection(const QVariant &value)
+{
+    const QString direction = normalizedString(value).toLower();
+    if (direction == QLatin1String("incoming") || direction == QLatin1String("outgoing")) {
+        return direction;
+    }
+    return QStringLiteral("incoming");
+}
+
+QString normalizeType(const QVariantMap &policy)
+{
+    const QString explicitType = normalizedString(policy.value(QStringLiteral("type"))).toLower();
+    if (!explicitType.isEmpty()) {
+        return explicitType;
+    }
+    if (policy.contains(QStringLiteral("cidr"))) {
+        return QStringLiteral("subnet");
+    }
+    if (policy.contains(QStringLiteral("addresses"))) {
+        return QStringLiteral("list");
+    }
+    return QStringLiteral("ip");
+}
+
+QString normalizeDecision(const QVariant &value)
+{
+    const QString decision = normalizedString(value).toLower();
+    if (decision == QLatin1String("allow")
+            || decision == QLatin1String("deny")
+            || decision == QLatin1String("prompt")) {
+        return decision;
+    }
+    return QStringLiteral("prompt");
+}
+
+QString normalizeTargetScope(const QVariant &value)
+{
+    const QString scope = normalizedString(value).toLower();
+    if (scope == QLatin1String("local") || scope == QLatin1String("local_only")) {
+        return QStringLiteral("local");
+    }
+    return QStringLiteral("any");
+}
+
+QVariantMap normalizeAppPolicy(const QVariantMap &policy, QString *error)
+{
+    if (error) {
+        *error = QString();
+    }
+    const QString appId = normalizedString(policy.value(QStringLiteral("appId")));
+    if (appId.isEmpty()) {
+        if (error) {
+            *error = QStringLiteral("app-policy-missing-app-id");
+        }
+        return {};
+    }
+    const QString appName = normalizedString(policy.value(QStringLiteral("appName")));
+    return {
+        {QStringLiteral("policyId"), QUuid::createUuid().toString(QUuid::WithoutBraces)},
+        {QStringLiteral("createdAt"), QDateTime::currentDateTimeUtc().toString(Qt::ISODate)},
+        {QStringLiteral("appId"), appId},
+        {QStringLiteral("appName"), appName},
+        {QStringLiteral("direction"), normalizeScope(policy.value(QStringLiteral("direction")))},
+        {QStringLiteral("decision"), normalizeDecision(policy.value(QStringLiteral("decision")))},
+        {QStringLiteral("targetScope"), normalizeTargetScope(policy.value(QStringLiteral("targetScope")))},
+        {QStringLiteral("remember"), policy.value(QStringLiteral("remember"), true).toBool()},
+        {QStringLiteral("enabled"), true},
+    };
+}
+
+QVariantMap normalizeIpBlockPolicy(const QVariantMap &policy, QString *error)
+{
+    if (error) {
+        error->clear();
+    }
+
+    const QString type = normalizeType(policy);
+    QStringList targets;
+    if (type == QLatin1String("ip")) {
+        const QString ip = normalizedString(policy.value(QStringLiteral("ip")));
+        if (ip.isEmpty()) {
+            if (error) {
+                *error = QStringLiteral("ip-policy-missing-ip");
+            }
+            return {};
+        }
+        targets << ip;
+    } else if (type == QLatin1String("subnet")) {
+        const QString cidr = normalizedString(policy.value(QStringLiteral("cidr")));
+        if (cidr.isEmpty() || !cidr.contains(QLatin1Char('/'))) {
+            if (error) {
+                *error = QStringLiteral("ip-policy-invalid-cidr");
+            }
+            return {};
+        }
+        targets << cidr;
+    } else if (type == QLatin1String("list")) {
+        const QVariantList raw = policy.value(QStringLiteral("addresses")).toList();
+        for (const QVariant &item : raw) {
+            const QString value = normalizedString(item);
+            if (!value.isEmpty()) {
+                targets << value;
+            }
+        }
+        if (targets.isEmpty()) {
+            if (error) {
+                *error = QStringLiteral("ip-policy-empty-list");
+            }
+            return {};
+        }
+    } else {
+        if (error) {
+            *error = QStringLiteral("ip-policy-invalid-type");
+        }
+        return {};
+    }
+
+    const bool temporary = policy.value(QStringLiteral("temporary"), false).toBool();
+    const QString duration = normalizedString(policy.value(QStringLiteral("duration")));
+    const QString reason = normalizedString(policy.value(QStringLiteral("reason")));
+    const QString note = normalizedString(policy.value(QStringLiteral("note")));
+
+    return {
+        {QStringLiteral("policyId"), QUuid::createUuid().toString(QUuid::WithoutBraces)},
+        {QStringLiteral("createdAt"), QDateTime::currentDateTimeUtc().toString(Qt::ISODate)},
+        {QStringLiteral("type"), type},
+        {QStringLiteral("scope"), normalizeScope(policy.value(QStringLiteral("scope")))},
+        {QStringLiteral("targets"), targets},
+        {QStringLiteral("temporary"), temporary},
+        {QStringLiteral("duration"), temporary ? (duration.isEmpty() ? QStringLiteral("1h") : duration) : QString()},
+        {QStringLiteral("reason"), reason},
+        {QStringLiteral("note"), note},
+        {QStringLiteral("hitCount"), 0},
+        {QStringLiteral("enabled"), true},
+    };
+}
+
+QStringList buildIpBlockRules(const QVariantMap &normalizedPolicy)
+{
+    const QString scope = normalizedPolicy.value(QStringLiteral("scope"), QStringLiteral("both")).toString();
+    const QStringList targets = normalizedPolicy.value(QStringLiteral("targets")).toStringList();
+    QStringList rules;
+    for (const QString &target : targets) {
+        if (scope == QLatin1String("incoming") || scope == QLatin1String("both")) {
+            rules << QStringLiteral("add rule inet slm_firewall input ip saddr %1 drop").arg(target);
+        }
+        if (scope == QLatin1String("outgoing") || scope == QLatin1String("both")) {
+            rules << QStringLiteral("add rule inet slm_firewall output ip daddr %1 drop").arg(target);
+        }
+    }
+    return rules;
+}
+
+qint64 extractPidFromProcessField(const QString &processField)
+{
+    static const QRegularExpression pidRx(QStringLiteral("pid=(\\d+)"));
+    const QRegularExpressionMatch match = pidRx.match(processField);
+    if (!match.hasMatch()) {
+        return -1;
+    }
+    return match.captured(1).toLongLong();
+}
+
+bool scopeMatchesDirection(const QString &scope, const QString &direction)
+{
+    if (scope == QLatin1String("both")) {
+        return true;
+    }
+    return scope == direction;
+}
+
+bool readFirewallEnabled(const PolicyStore *store)
+{
+    if (!store) {
+        return true;
+    }
+    if (store->snapshot().contains(QStringLiteral("firewall.enabled"))) {
+        return store->value(QStringLiteral("firewall.enabled"), true).toBool();
+    }
+    const QVariantMap nested = store->value(QStringLiteral("firewall"), QVariantMap{}).toMap();
+    return nested.value(QStringLiteral("enabled"), true).toBool();
+}
+
+QString readDefaultPolicy(const PolicyStore *store, const QString &direction)
+{
+    if (!store) {
+        return direction == QLatin1String("outgoing") ? QStringLiteral("allow") : QStringLiteral("deny");
+    }
+
+    const QString key = direction == QLatin1String("outgoing")
+        ? QStringLiteral("firewall.defaultOutgoingPolicy")
+        : QStringLiteral("firewall.defaultIncomingPolicy");
+    const QString nestedKey = direction == QLatin1String("outgoing")
+        ? QStringLiteral("defaultOutgoingPolicy")
+        : QStringLiteral("defaultIncomingPolicy");
+    const QString fallback = direction == QLatin1String("outgoing")
+        ? QStringLiteral("allow")
+        : QStringLiteral("deny");
+
+    if (store->snapshot().contains(key)) {
+        return normalizeDecision(store->value(key, fallback));
+    }
+    const QVariantMap nested = store->value(QStringLiteral("firewall"), QVariantMap{}).toMap();
+    return normalizeDecision(nested.value(nestedKey, fallback));
+}
+
+int readPromptCooldownSeconds(const PolicyStore *store)
+{
+    if (!store) {
+        return 20;
+    }
+    const int raw = store->value(QStringLiteral("firewall.promptCooldownSeconds"), 20).toInt();
+    if (raw < 1) {
+        return 1;
+    }
+    if (raw > 300) {
+        return 300;
+    }
+    return raw;
+}
+
+QString classifyProcessKind(const QVariantMap &identity)
+{
+    const QString executable = identity.value(QStringLiteral("executable")).toString();
+    const QString exeBase = QFileInfo(executable).fileName().toLower();
+
+    if (exeBase == QLatin1String("apt")
+            || exeBase == QLatin1String("apt-get")
+            || exeBase == QLatin1String("dpkg")
+            || exeBase == QLatin1String("systemd")
+            || exeBase == QLatin1String("systemd-resolved")
+            || exeBase == QLatin1String("networkmanager")) {
+        return QStringLiteral("system");
+    }
+
+    if (exeBase == QLatin1String("git")
+            || exeBase == QLatin1String("npm")
+            || exeBase == QLatin1String("node")
+            || exeBase == QLatin1String("cargo")
+            || exeBase == QLatin1String("pip")
+            || exeBase == QLatin1String("python")
+            || exeBase == QLatin1String("python3")) {
+        return QStringLiteral("developer");
+    }
+
+    if (exeBase == QLatin1String("curl")
+            || exeBase == QLatin1String("wget")
+            || exeBase == QLatin1String("ssh")) {
+        return QStringLiteral("network_tools");
+    }
+
+    const QString context = identity.value(QStringLiteral("context")).toString();
+    if (context == QLatin1String("interpreter")) {
+        return QStringLiteral("interpreter");
+    }
+
+    return QStringLiteral("unknown");
+}
+
+QString requestIpForDirection(const QVariantMap &request, const QString &direction)
+{
+    const QString preferred = direction == QLatin1String("incoming")
+        ? normalizedString(request.value(QStringLiteral("sourceIp")))
+        : normalizedString(request.value(QStringLiteral("destinationIp")));
+    if (!preferred.isEmpty()) {
+        return preferred;
+    }
+
+    const QString remoteIp = normalizedString(request.value(QStringLiteral("remoteIp")));
+    if (!remoteIp.isEmpty()) {
+        return remoteIp;
+    }
+
+    return normalizedString(request.value(QStringLiteral("ip")));
+}
+
+bool targetMatchesIp(const QString &target, const QString &ip)
+{
+    const QString normalizedTarget = target.trimmed();
+    if (normalizedTarget.isEmpty() || ip.isEmpty()) {
+        return false;
+    }
+
+    auto parseIpv4 = [](const QString &raw, quint32 *out) -> bool {
+        if (!out) {
+            return false;
+        }
+        const QStringList parts = raw.trimmed().split(QLatin1Char('.'));
+        if (parts.size() != 4) {
+            return false;
+        }
+        quint32 value = 0;
+        for (const QString &part : parts) {
+            bool ok = false;
+            const int octet = part.toInt(&ok);
+            if (!ok || octet < 0 || octet > 255) {
+                return false;
+            }
+            value = (value << 8) | static_cast<quint32>(octet);
+        }
+        *out = value;
+        return true;
+    };
+
+    quint32 candidate = 0;
+    if (!parseIpv4(ip, &candidate)) {
+        return false;
+    }
+
+    if (normalizedTarget.contains(QLatin1Char('/'))) {
+        const QStringList subnetParts = normalizedTarget.split(QLatin1Char('/'));
+        if (subnetParts.size() != 2) {
+            return false;
+        }
+        quint32 network = 0;
+        if (!parseIpv4(subnetParts.at(0), &network)) {
+            return false;
+        }
+        bool ok = false;
+        const int prefix = subnetParts.at(1).toInt(&ok);
+        if (!ok || prefix < 0 || prefix > 32) {
+            return false;
+        }
+        const quint32 mask = prefix == 0 ? 0 : (0xFFFFFFFFu << (32 - prefix));
+        return (candidate & mask) == (network & mask);
+    }
+
+    quint32 single = 0;
+    if (!parseIpv4(normalizedTarget, &single)) {
+        return false;
+    }
+    return candidate == single;
+}
+
+QVariantMap requestTargetMeta(const QVariantMap &request)
+{
+    QVariantMap target;
+    const QString ip = normalizedString(request.value(QStringLiteral("destinationIp")));
+    const QString sourceIp = normalizedString(request.value(QStringLiteral("sourceIp")));
+    const QString fallbackIp = normalizedString(request.value(QStringLiteral("ip")));
+    const QString host = normalizedString(request.value(QStringLiteral("destinationHost")));
+    const QString fallbackHost = normalizedString(request.value(QStringLiteral("host")));
+    const int port = request.value(QStringLiteral("destinationPort"),
+                                   request.value(QStringLiteral("port"), 0)).toInt();
+    if (!ip.isEmpty()) {
+        target.insert(QStringLiteral("ip"), ip);
+    } else if (!sourceIp.isEmpty()) {
+        target.insert(QStringLiteral("ip"), sourceIp);
+    } else if (!fallbackIp.isEmpty()) {
+        target.insert(QStringLiteral("ip"), fallbackIp);
+    }
+    if (!host.isEmpty()) {
+        target.insert(QStringLiteral("host"), host);
+    } else if (!fallbackHost.isEmpty()) {
+        target.insert(QStringLiteral("host"), fallbackHost);
+    }
+    if (port > 0) {
+        target.insert(QStringLiteral("port"), port);
+    }
+    return target;
+}
+
+bool isPrivateOrLocalIpv4(const QString &ip)
+{
+    quint32 value = 0;
+    const QStringList parts = ip.trimmed().split(QLatin1Char('.'));
+    if (parts.size() != 4) {
+        return false;
+    }
+    for (const QString &part : parts) {
+        bool ok = false;
+        const int octet = part.toInt(&ok);
+        if (!ok || octet < 0 || octet > 255) {
+            return false;
+        }
+        value = (value << 8) | static_cast<quint32>(octet);
+    }
+    const int o1 = static_cast<int>((value >> 24) & 0xFF);
+    const int o2 = static_cast<int>((value >> 16) & 0xFF);
+    if (o1 == 10) {
+        return true;
+    }
+    if (o1 == 172 && o2 >= 16 && o2 <= 31) {
+        return true;
+    }
+    if (o1 == 192 && o2 == 168) {
+        return true;
+    }
+    if (o1 == 127) {
+        return true;
+    }
+    if (o1 == 169 && o2 == 254) {
+        return true;
+    }
+    return false;
+}
+
+bool isLocalHostName(const QString &host)
+{
+    const QString normalized = host.trimmed().toLower();
+    return normalized == QLatin1String("localhost")
+            || normalized == QLatin1String("localhost.localdomain");
+}
+
+QVariantMap requestActorMeta(const QVariantMap &identity)
+{
+    QVariantMap actor;
+    const QString scriptTarget = normalizedString(identity.value(QStringLiteral("script_target")));
+    const QString executable = normalizedString(identity.value(QStringLiteral("executable")));
+    const QString appName = normalizedString(identity.value(QStringLiteral("app_name")));
+    if (!appName.isEmpty()) {
+        actor.insert(QStringLiteral("appName"), appName);
+    }
+    if (!scriptTarget.isEmpty()) {
+        actor.insert(QStringLiteral("scriptTarget"), scriptTarget);
+    }
+    if (!executable.isEmpty()) {
+        actor.insert(QStringLiteral("executable"), executable);
+    }
+    const QVariantMap contextMeta = identity.value(QStringLiteral("context_meta")).toMap();
+    const QString cwd = normalizedString(contextMeta.value(QStringLiteral("cwd")));
+    const QString tty = normalizedString(contextMeta.value(QStringLiteral("tty")));
+    if (!cwd.isEmpty()) {
+        actor.insert(QStringLiteral("cwd"), cwd);
+    }
+    if (!tty.isEmpty()) {
+        actor.insert(QStringLiteral("tty"), tty);
+    }
+    return actor;
+}
+} // namespace
+
+PolicyEngine::PolicyEngine(PolicyStore *store,
+                           NftablesAdapter *nft,
+                           AppIdentityClient *identity)
+    : m_store(store)
+    , m_nft(nft)
+    , m_identity(identity)
+{
+}
+
+QVariantMap PolicyEngine::evaluateConnection(const QVariantMap &request) const
+{
+    const QString direction = normalizeDirection(request.value(QStringLiteral("direction")));
+    const QString requestIp = requestIpForDirection(request, direction);
+    const qint64 pid = request.value(QStringLiteral("pid"), -1).toLongLong();
+    const QVariantMap identity = m_identity ? m_identity->resolveByPid(pid) : QVariantMap{};
+    const QString appId = normalizedString(identity.value(QStringLiteral("app_id")));
+    const QVariantMap targetMeta = requestTargetMeta(request);
+    const QVariantMap actorMeta = requestActorMeta(identity);
+
+    if (!readFirewallEnabled(m_store)) {
+        return {
+            {QStringLiteral("ok"), true},
+            {QStringLiteral("decision"), policyDecisionToString(PolicyDecision::Allow)},
+            {QStringLiteral("direction"), direction},
+            {QStringLiteral("source"), QStringLiteral("firewall-disabled")},
+            {QStringLiteral("identity"), identity},
+            {QStringLiteral("target"), targetMeta},
+            {QStringLiteral("actor"), actorMeta},
+        };
+    }
+
+    if (!requestIp.isEmpty()) {
+        const QVariantList ipEntries = listIpPolicies();
+        for (auto it = ipEntries.crbegin(); it != ipEntries.crend(); ++it) {
+            const QVariantMap entry = it->toMap();
+            if (!entry.value(QStringLiteral("enabled"), true).toBool()) {
+                continue;
+            }
+            if (!scopeMatchesDirection(normalizeScope(entry.value(QStringLiteral("scope"))), direction)) {
+                continue;
+            }
+            const QStringList targets = entry.value(QStringLiteral("targets")).toStringList();
+            for (const QString &target : targets) {
+                if (!targetMatchesIp(target, requestIp)) {
+                    continue;
+                }
+                const QString policyId = entry.value(QStringLiteral("policyId")).toString();
+                incrementIpPolicyHitCount(policyId, target, QDateTime::currentDateTimeUtc());
+                return {
+                    {QStringLiteral("ok"), true},
+                    {QStringLiteral("decision"), QStringLiteral("deny")},
+                    {QStringLiteral("direction"), direction},
+                    {QStringLiteral("source"), QStringLiteral("ip-policy")},
+                    {QStringLiteral("policyId"), policyId},
+                    {QStringLiteral("matchedTarget"), target},
+                    {QStringLiteral("matchedIp"), requestIp},
+                    {QStringLiteral("identity"), identity},
+                    {QStringLiteral("target"), targetMeta},
+                    {QStringLiteral("actor"), actorMeta},
+                };
+            }
+        }
+    }
+
+    const QVariantList appEntries = listAppPolicies();
+    for (auto it = appEntries.crbegin(); it != appEntries.crend(); ++it) {
+        const QVariantMap entry = it->toMap();
+        if (!entry.value(QStringLiteral("enabled"), true).toBool()) {
+            continue;
+        }
+        if (normalizedString(entry.value(QStringLiteral("appId"))) != appId) {
+            continue;
+        }
+        if (!scopeMatchesDirection(normalizeScope(entry.value(QStringLiteral("direction"))), direction)) {
+            continue;
+        }
+        const QString decision = normalizeDecision(entry.value(QStringLiteral("decision")));
+        const QString targetScope = normalizeTargetScope(entry.value(QStringLiteral("targetScope")));
+        if (decision == QLatin1String("prompt")) {
+            return applyPromptCooldown(identity, direction, QStringLiteral("app-policy"));
+        }
+        if (decision == QLatin1String("allow") && targetScope == QLatin1String("local")) {
+            const QString targetIp = normalizedString(targetMeta.value(QStringLiteral("ip")));
+            const QString targetHost = normalizedString(targetMeta.value(QStringLiteral("host")));
+            const bool localTarget = (!targetIp.isEmpty() && isPrivateOrLocalIpv4(targetIp))
+                    || (!targetHost.isEmpty() && isLocalHostName(targetHost));
+            if (!localTarget) {
+                return {
+                    {QStringLiteral("ok"), true},
+                    {QStringLiteral("decision"), QStringLiteral("deny")},
+                    {QStringLiteral("direction"), direction},
+                    {QStringLiteral("source"), QStringLiteral("app-policy-local-only")},
+                    {QStringLiteral("policyId"), entry.value(QStringLiteral("policyId")).toString()},
+                    {QStringLiteral("targetScope"), targetScope},
+                    {QStringLiteral("identity"), identity},
+                    {QStringLiteral("target"), targetMeta},
+                    {QStringLiteral("actor"), actorMeta},
+                };
+            }
+        }
+        return {
+            {QStringLiteral("ok"), true},
+            {QStringLiteral("decision"), decision},
+            {QStringLiteral("direction"), direction},
+            {QStringLiteral("source"), QStringLiteral("app-policy")},
+            {QStringLiteral("policyId"), entry.value(QStringLiteral("policyId")).toString()},
+            {QStringLiteral("targetScope"), targetScope},
+            {QStringLiteral("identity"), identity},
+            {QStringLiteral("target"), targetMeta},
+            {QStringLiteral("actor"), actorMeta},
+        };
+    }
+
+    const QString defaultDecision = readDefaultPolicy(m_store, direction);
+    if (direction == QLatin1String("outgoing") && defaultDecision == QLatin1String("allow")) {
+        const QString processKind = classifyProcessKind(identity);
+        const QString destinationIp = normalizedString(targetMeta.value(QStringLiteral("ip")));
+        const bool localTarget = !destinationIp.isEmpty() && isPrivateOrLocalIpv4(destinationIp);
+        if (processKind == QLatin1String("system") || processKind == QLatin1String("developer")) {
+            return {
+                {QStringLiteral("ok"), true},
+                {QStringLiteral("decision"), QStringLiteral("allow")},
+                {QStringLiteral("direction"), direction},
+                {QStringLiteral("source"), QStringLiteral("cli-default-allow")},
+                {QStringLiteral("processKind"), processKind},
+                {QStringLiteral("identity"), identity},
+                {QStringLiteral("target"), targetMeta},
+                {QStringLiteral("actor"), actorMeta},
+            };
+        }
+        if (processKind == QLatin1String("network_tools")
+                || processKind == QLatin1String("interpreter")
+                || processKind == QLatin1String("unknown")) {
+            if (localTarget) {
+                return {
+                    {QStringLiteral("ok"), true},
+                    {QStringLiteral("decision"), QStringLiteral("allow")},
+                    {QStringLiteral("direction"), direction},
+                    {QStringLiteral("source"), QStringLiteral("cli-local-target-allow")},
+                    {QStringLiteral("processKind"), processKind},
+                    {QStringLiteral("identity"), identity},
+                    {QStringLiteral("target"), targetMeta},
+                    {QStringLiteral("actor"), actorMeta},
+                };
+            }
+            QVariantMap result = applyPromptCooldown(identity, direction, QStringLiteral("cli-default-prompt"));
+            result.insert(QStringLiteral("processKind"), processKind);
+            result.insert(QStringLiteral("target"), targetMeta);
+            result.insert(QStringLiteral("actor"), actorMeta);
+            return result;
+        }
+    }
+
+    if (defaultDecision == QLatin1String("prompt")) {
+        return applyPromptCooldown(identity,
+                                   direction,
+                                   direction == QLatin1String("outgoing")
+                                       ? QStringLiteral("default-outgoing")
+                                       : QStringLiteral("default-incoming"));
+    }
+
+    return {
+        {QStringLiteral("ok"), true},
+        {QStringLiteral("decision"), defaultDecision},
+        {QStringLiteral("direction"), direction},
+        {QStringLiteral("source"), direction == QLatin1String("outgoing")
+             ? QStringLiteral("default-outgoing")
+             : QStringLiteral("default-incoming")},
+        {QStringLiteral("identity"), identity},
+        {QStringLiteral("target"), targetMeta},
+        {QStringLiteral("actor"), actorMeta},
+    };
+}
+
+QVariantMap PolicyEngine::applyPromptCooldown(const QVariantMap &identity,
+                                              const QString &direction,
+                                              const QString &source) const
+{
+    const QString appId = normalizedString(identity.value(QStringLiteral("app_id")));
+    const QString key = QStringLiteral("%1|%2").arg(appId.isEmpty() ? QStringLiteral("unknown") : appId,
+                                                   direction);
+    const int cooldownSeconds = readPromptCooldownSeconds(m_store);
+    const QDateTime now = QDateTime::currentDateTimeUtc();
+    const QDateTime last = m_lastPromptAt.value(key);
+    if (last.isValid()) {
+        const qint64 elapsed = last.secsTo(now);
+        if (elapsed >= 0 && elapsed < cooldownSeconds) {
+            return {
+                {QStringLiteral("ok"), true},
+                {QStringLiteral("decision"), QStringLiteral("deny")},
+                {QStringLiteral("direction"), direction},
+                {QStringLiteral("source"), QStringLiteral("prompt-cooldown")},
+                {QStringLiteral("promptSuppressed"), true},
+                {QStringLiteral("cooldownRemainingSec"), cooldownSeconds - static_cast<int>(elapsed)},
+                {QStringLiteral("identity"), identity},
+            };
+        }
+    }
+    m_lastPromptAt.insert(key, now);
+    return {
+        {QStringLiteral("ok"), true},
+        {QStringLiteral("decision"), QStringLiteral("prompt")},
+        {QStringLiteral("direction"), direction},
+        {QStringLiteral("source"), source},
+        {QStringLiteral("promptSuppressed"), false},
+        {QStringLiteral("identity"), identity},
+    };
+}
+
+QVariantMap PolicyEngine::resolveConnectionDecision(const QVariantMap &request,
+                                                    const QString &decision,
+                                                    bool remember)
+{
+    const QString normalized = normalizeDecision(decision);
+    if (normalized == QLatin1String("prompt")) {
+        return {
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), QStringLiteral("decision-must-be-allow-or-deny")},
+        };
+    }
+
+    const QVariantMap evaluation = evaluateConnection(request);
+    const QVariantMap identity = evaluation.value(QStringLiteral("identity")).toMap();
+    const QString direction = normalizeDirection(request.value(QStringLiteral("direction")));
+    const bool localOnlyRequested = request.value(QStringLiteral("localOnly"), false).toBool()
+            && normalized == QLatin1String("allow");
+    const QVariantMap targetMeta = requestTargetMeta(request);
+    const QString targetIp = normalizedString(targetMeta.value(QStringLiteral("ip")));
+    const QString targetHost = normalizedString(targetMeta.value(QStringLiteral("host")));
+    const bool localTarget = (!targetIp.isEmpty() && isPrivateOrLocalIpv4(targetIp))
+            || (!targetHost.isEmpty() && isLocalHostName(targetHost));
+    const QString effectiveDecision = (localOnlyRequested && !localTarget)
+            ? QStringLiteral("deny")
+            : normalized;
+
+    QVariantMap result{
+        {QStringLiteral("ok"), true},
+        {QStringLiteral("decision"), effectiveDecision},
+        {QStringLiteral("remember"), remember},
+        {QStringLiteral("persisted"), false},
+        {QStringLiteral("targetScope"), localOnlyRequested ? QStringLiteral("local") : QStringLiteral("any")},
+    };
+
+    if (!remember) {
+        return result;
+    }
+
+    const QString appId = normalizedString(identity.value(QStringLiteral("app_id")));
+    if (appId.isEmpty()) {
+        return {
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), QStringLiteral("identity-app-id-missing")},
+        };
+    }
+
+    const QVariantMap persist = setAppPolicy(QVariantMap{
+        {QStringLiteral("appId"), appId},
+        {QStringLiteral("appName"), identity.value(QStringLiteral("app_name")).toString()},
+        {QStringLiteral("decision"), normalized},
+        {QStringLiteral("direction"), direction},
+        {QStringLiteral("targetScope"), localOnlyRequested ? QStringLiteral("local") : QStringLiteral("any")},
+        {QStringLiteral("remember"), true},
+    });
+    if (!persist.value(QStringLiteral("ok"), false).toBool()) {
+        return persist;
+    }
+
+    result.insert(QStringLiteral("persisted"), true);
+    result.insert(QStringLiteral("policy"), persist.value(QStringLiteral("policy")).toMap());
+    return result;
+}
+
+QVariantMap PolicyEngine::applyBasePolicy(const QVariantMap &state)
+{
+    if (!m_nft) {
+        return {
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), QStringLiteral("nft-unavailable")},
+        };
+    }
+    QString error;
+    const bool ok = m_nft->applyBasePolicy(state, &error);
+    return {
+        {QStringLiteral("ok"), ok},
+        {QStringLiteral("error"), error},
+    };
+}
+
+QVariantMap PolicyEngine::setAppPolicy(const QVariantMap &policy)
+{
+    if (!m_store) {
+        return {
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), QStringLiteral("store-unavailable")},
+        };
+    }
+    QString normalizeError;
+    const QVariantMap normalizedPolicy = normalizeAppPolicy(policy, &normalizeError);
+    if (normalizedPolicy.isEmpty()) {
+        return {
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), normalizeError.isEmpty() ? QStringLiteral("app-policy-invalid") : normalizeError},
+        };
+    }
+
+    QVariantList entries = m_store->value(QStringLiteral("firewall.rules.apps.entries"), QVariantList{}).toList();
+    QVariantList nextEntries;
+    bool replaced = false;
+    for (const QVariant &entry : entries) {
+        const QVariantMap map = entry.toMap();
+        const bool sameApp = normalizedString(map.value(QStringLiteral("appId")))
+                == normalizedString(normalizedPolicy.value(QStringLiteral("appId")));
+        const bool sameDirection = normalizeScope(map.value(QStringLiteral("direction")))
+                == normalizeScope(normalizedPolicy.value(QStringLiteral("direction")));
+        if (!replaced && sameApp && sameDirection) {
+            QVariantMap updated = normalizedPolicy;
+            const QString existingPolicyId = map.value(QStringLiteral("policyId")).toString();
+            if (!existingPolicyId.isEmpty()) {
+                updated.insert(QStringLiteral("policyId"), existingPolicyId);
+            }
+            const QString createdAt = map.value(QStringLiteral("createdAt")).toString();
+            if (!createdAt.isEmpty()) {
+                updated.insert(QStringLiteral("createdAt"), createdAt);
+            }
+            nextEntries.append(updated);
+            replaced = true;
+            continue;
+        }
+        nextEntries.append(map);
+    }
+    if (!replaced) {
+        nextEntries.append(normalizedPolicy);
+    }
+
+    QString error;
+    const bool ok = m_store->setValue(QStringLiteral("firewall.rules.apps.entries"), nextEntries, &error)
+        && m_store->setValue(QStringLiteral("firewall.rules.apps.last"), normalizedPolicy, &error);
+    return {
+        {QStringLiteral("ok"), ok},
+        {QStringLiteral("error"), error},
+        {QStringLiteral("policy"), normalizedPolicy},
+    };
+}
+
+QVariantList PolicyEngine::listAppPolicies() const
+{
+    if (!m_store) {
+        return {};
+    }
+    return m_store->value(QStringLiteral("firewall.rules.apps.entries"), QVariantList{}).toList();
+}
+
+QVariantMap PolicyEngine::clearAppPolicies()
+{
+    if (!m_store) {
+        return {
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), QStringLiteral("store-unavailable")},
+        };
+    }
+
+    QString error;
+    const bool ok = m_store->setValue(QStringLiteral("firewall.rules.apps.entries"), QVariantList{}, &error);
+    return {
+        {QStringLiteral("ok"), ok},
+        {QStringLiteral("error"), error},
+    };
+}
+
+QVariantMap PolicyEngine::removeAppPolicy(const QString &policyId)
+{
+    if (!m_store) {
+        return {
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), QStringLiteral("store-unavailable")},
+        };
+    }
+
+    const QString id = policyId.trimmed();
+    if (id.isEmpty()) {
+        return {
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), QStringLiteral("policy-id-empty")},
+        };
+    }
+
+    const QVariantList entries = m_store->value(QStringLiteral("firewall.rules.apps.entries"), QVariantList{}).toList();
+    QVariantList kept;
+    bool removed = false;
+    for (const QVariant &entry : entries) {
+        const QVariantMap map = entry.toMap();
+        if (!removed && map.value(QStringLiteral("policyId")).toString() == id) {
+            removed = true;
+            continue;
+        }
+        kept.append(map);
+    }
+
+    if (!removed) {
+        return {
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), QStringLiteral("policy-id-not-found")},
+        };
+    }
+
+    QString error;
+    const bool ok = m_store->setValue(QStringLiteral("firewall.rules.apps.entries"), kept, &error);
+    return {
+        {QStringLiteral("ok"), ok},
+        {QStringLiteral("error"), error},
+    };
+}
+
+QVariantMap PolicyEngine::setIpPolicy(const QVariantMap &policy)
+{
+    if (!m_store) {
+        return {
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), QStringLiteral("store-unavailable")},
+        };
+    }
+    QString normalizeError;
+    const QVariantMap normalizedPolicy = normalizeIpBlockPolicy(policy, &normalizeError);
+    if (normalizedPolicy.isEmpty()) {
+        return {
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), normalizeError.isEmpty() ? QStringLiteral("ip-policy-invalid") : normalizeError},
+        };
+    }
+
+    QVariantList entries = pruneExpiredIpPolicies();
+    entries.append(normalizedPolicy);
+
+    QString error;
+    const bool ok = m_store->setValue(QStringLiteral("firewall.rules.ipBlocks.entries"), entries, &error);
+    if (ok && m_nft) {
+        const QStringList rules = buildIpBlockRules(normalizedPolicy);
+        QString nftError;
+        if (!m_nft->applyAtomicBatch(rules, &nftError)) {
+            return {
+                {QStringLiteral("ok"), false},
+                {QStringLiteral("error"), nftError.isEmpty() ? QStringLiteral("nft-apply-failed") : nftError},
+            };
+        }
+        return {
+            {QStringLiteral("ok"), true},
+            {QStringLiteral("error"), QString()},
+            {QStringLiteral("appliedRules"), rules.size()},
+            {QStringLiteral("policy"), normalizedPolicy},
+        };
+    }
+    return {
+        {QStringLiteral("ok"), ok},
+        {QStringLiteral("error"), error},
+        {QStringLiteral("policy"), normalizedPolicy},
+    };
+}
+
+QVariantList PolicyEngine::listIpPolicies() const
+{
+    if (!m_store) {
+        return {};
+    }
+    return pruneExpiredIpPolicies();
+}
+
+QVariantMap PolicyEngine::clearIpPolicies()
+{
+    if (!m_store) {
+        return {
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), QStringLiteral("store-unavailable")},
+        };
+    }
+
+    QString error;
+    const bool ok = m_store->setValue(QStringLiteral("firewall.rules.ipBlocks.entries"), QVariantList{}, &error);
+    if (!ok) {
+        return {
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), error},
+        };
+    }
+
+    if (m_nft) {
+        QString nftError;
+        if (!reconcileWithNft(QVariantList{}, &nftError)) {
+            return {
+                {QStringLiteral("ok"), false},
+                {QStringLiteral("error"), nftError.isEmpty() ? QStringLiteral("nft-reconcile-failed") : nftError},
+            };
+        }
+    }
+
+    return {
+        {QStringLiteral("ok"), true},
+        {QStringLiteral("error"), QString()},
+    };
+}
+
+QVariantMap PolicyEngine::removeIpPolicy(const QString &policyId)
+{
+    if (!m_store) {
+        return {
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), QStringLiteral("store-unavailable")},
+        };
+    }
+
+    const QString id = policyId.trimmed();
+    if (id.isEmpty()) {
+        return {
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), QStringLiteral("policy-id-empty")},
+        };
+    }
+
+    const QVariantList entries = pruneExpiredIpPolicies();
+    QVariantList kept;
+    bool removed = false;
+    for (const QVariant &entry : entries) {
+        const QVariantMap map = entry.toMap();
+        if (!removed && map.value(QStringLiteral("policyId")).toString() == id) {
+            removed = true;
+            continue;
+        }
+        kept.append(map);
+    }
+
+    if (!removed) {
+        return {
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), QStringLiteral("policy-id-not-found")},
+        };
+    }
+
+    QString error;
+    if (!m_store->setValue(QStringLiteral("firewall.rules.ipBlocks.entries"), kept, &error)) {
+        return {
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), error},
+        };
+    }
+
+    if (m_nft) {
+        QString nftError;
+        if (!reconcileWithNft(kept, &nftError)) {
+            return {
+                {QStringLiteral("ok"), false},
+                {QStringLiteral("error"), nftError.isEmpty() ? QStringLiteral("nft-reconcile-failed") : nftError},
+            };
+        }
+    }
+
+    return {
+        {QStringLiteral("ok"), true},
+        {QStringLiteral("error"), QString()},
+    };
+}
+
+QVariantList PolicyEngine::pruneExpiredIpPolicies() const
+{
+    if (!m_store) {
+        return {};
+    }
+
+    const QVariantList entries = m_store->value(QStringLiteral("firewall.rules.ipBlocks.entries"), QVariantList{}).toList();
+    if (entries.isEmpty()) {
+        return entries;
+    }
+
+    const QDateTime now = QDateTime::currentDateTimeUtc();
+    QVariantList kept;
+    kept.reserve(entries.size());
+    bool changed = false;
+    for (const QVariant &entry : entries) {
+        const QVariantMap map = entry.toMap();
+        if (isIpPolicyExpired(map, now)) {
+            changed = true;
+            continue;
+        }
+        kept.append(map);
+    }
+
+    if (!changed) {
+        return entries;
+    }
+
+    QString error;
+    if (!m_store->setValue(QStringLiteral("firewall.rules.ipBlocks.entries"), kept, &error)) {
+        return kept;
+    }
+
+    if (m_nft) {
+        QString nftError;
+        reconcileWithNft(kept, &nftError);
+    }
+
+    return kept;
+}
+
+void PolicyEngine::incrementIpPolicyHitCount(const QString &policyId,
+                                             const QString &matchedTarget,
+                                             const QDateTime &hitAtUtc) const
+{
+    if (!m_store) {
+        return;
+    }
+    const QString id = policyId.trimmed();
+    if (id.isEmpty()) {
+        return;
+    }
+
+    QVariantList entries = pruneExpiredIpPolicies();
+    bool updated = false;
+    for (int i = 0; i < entries.size(); ++i) {
+        QVariantMap map = entries.at(i).toMap();
+        if (map.value(QStringLiteral("policyId")).toString() != id) {
+            continue;
+        }
+        map.insert(QStringLiteral("hitCount"), map.value(QStringLiteral("hitCount"), 0).toInt() + 1);
+        map.insert(QStringLiteral("lastHitAt"), hitAtUtc.toString(Qt::ISODate));
+        if (!matchedTarget.trimmed().isEmpty()) {
+            map.insert(QStringLiteral("lastMatchedTarget"), matchedTarget.trimmed());
+        }
+        entries[i] = map;
+        updated = true;
+        break;
+    }
+
+    if (!updated) {
+        return;
+    }
+
+    QString error;
+    m_store->setValue(QStringLiteral("firewall.rules.ipBlocks.entries"), entries, &error);
+}
+
+qint64 PolicyEngine::parseDurationSeconds(const QString &rawDuration)
+{
+    const QString value = rawDuration.trimmed().toLower();
+    if (value.isEmpty()) {
+        return -1;
+    }
+
+    static const QRegularExpression rx(QStringLiteral("^(\\d+)\\s*([smhd]?)$"));
+    const QRegularExpressionMatch match = rx.match(value);
+    if (!match.hasMatch()) {
+        return -1;
+    }
+
+    bool ok = false;
+    const qint64 amount = match.captured(1).toLongLong(&ok);
+    if (!ok || amount <= 0) {
+        return -1;
+    }
+
+    const QString unit = match.captured(2);
+    if (unit == QLatin1String("m")) {
+        return amount * 60;
+    }
+    if (unit == QLatin1String("h")) {
+        return amount * 3600;
+    }
+    if (unit == QLatin1String("d")) {
+        return amount * 86400;
+    }
+    return amount;
+}
+
+bool PolicyEngine::isIpPolicyExpired(const QVariantMap &policy, const QDateTime &nowUtc)
+{
+    if (!policy.value(QStringLiteral("temporary"), false).toBool()) {
+        return false;
+    }
+
+    const QString createdAtRaw = policy.value(QStringLiteral("createdAt")).toString();
+    const QDateTime createdAt = QDateTime::fromString(createdAtRaw, Qt::ISODate);
+    if (!createdAt.isValid()) {
+        return false;
+    }
+
+    qint64 durationSeconds = parseDurationSeconds(policy.value(QStringLiteral("duration")).toString());
+    if (durationSeconds <= 0) {
+        durationSeconds = 3600;
+    }
+
+    return createdAt.addSecs(durationSeconds) <= nowUtc;
+}
+
+QVariantList PolicyEngine::listConnections() const
+{
+    QProcess proc;
+    proc.start(QStringLiteral("ss"),
+               QStringList{
+                   QStringLiteral("-tunp"),
+                   QStringLiteral("-H"),
+               });
+    if (!proc.waitForFinished(1000) || proc.exitStatus() != QProcess::NormalExit || proc.exitCode() != 0) {
+        return {};
+    }
+
+    const QString output = QString::fromUtf8(proc.readAllStandardOutput());
+    const QStringList lines = output.split(QLatin1Char('\n'), Qt::SkipEmptyParts);
+    QVariantList result;
+    for (const QString &rawLine : lines) {
+        const QString line = rawLine.simplified();
+        const QStringList parts = line.split(QLatin1Char(' '), Qt::SkipEmptyParts);
+        if (parts.size() < 6) {
+            continue;
+        }
+
+        const QString protocol = parts.value(0);
+        const QString state = parts.value(1);
+        const QString localAddress = parts.value(4);
+        const QString remoteAddress = parts.value(5);
+        const QString processField = parts.mid(6).join(QLatin1Char(' '));
+        const qint64 pid = extractPidFromProcessField(processField);
+        const QVariantMap identity = (pid > 0 && m_identity) ? m_identity->resolveByPid(pid) : QVariantMap{};
+
+        result.append(QVariantMap{
+            {QStringLiteral("protocol"), protocol},
+            {QStringLiteral("state"), state},
+            {QStringLiteral("local"), localAddress},
+            {QStringLiteral("remote"), remoteAddress},
+            {QStringLiteral("pid"), pid},
+            {QStringLiteral("process"), processField},
+            {QStringLiteral("identity"), identity},
+        });
+    }
+
+    return result;
+}
+
+QVariantMap PolicyEngine::buildBaseStateFromStore() const
+{
+    if (!m_store) {
+        return {
+            {QStringLiteral("enabled"),               true},
+            {QStringLiteral("mode"),                  QStringLiteral("home")},
+            {QStringLiteral("defaultIncomingPolicy"), QStringLiteral("deny")},
+            {QStringLiteral("defaultOutgoingPolicy"), QStringLiteral("allow")},
+        };
+    }
+    return {
+        {QStringLiteral("enabled"),
+         m_store->value(QStringLiteral("firewall.enabled"), true)},
+        {QStringLiteral("mode"),
+         m_store->value(QStringLiteral("firewall.mode"), QStringLiteral("home"))},
+        {QStringLiteral("defaultIncomingPolicy"),
+         m_store->value(QStringLiteral("firewall.defaultIncomingPolicy"), QStringLiteral("deny"))},
+        {QStringLiteral("defaultOutgoingPolicy"),
+         m_store->value(QStringLiteral("firewall.defaultOutgoingPolicy"), QStringLiteral("allow"))},
+    };
+}
+
+// Full reconciliation: flush+rebuild base, then re-add each active IP policy.
+// nftables doesn't support removing individual rules by value without handles,
+// so the correct approach after any remove/clear is a full flush+rebuild.
+QStringList PolicyEngine::buildFullRuleSet(const QVariantList &activeIpEntries) const
+{
+    // We don't literally return the rule set here; the reconciliation is driven
+    // through reconcileWithNft() which sequences the nft calls correctly.
+    // This method exists to satisfy the compiler; use reconcileWithNft() instead.
+    Q_UNUSED(activeIpEntries)
+    return {};
+}
+
+bool PolicyEngine::reconcileWithNft(const QVariantList &activeIpEntries, QString *error) const
+{
+    if (!m_nft) {
+        if (error) {
+            *error = QStringLiteral("nft-unavailable");
+        }
+        return false;
+    }
+
+    // Step 1: flush the table and rebuild base chains/policy.
+    const QVariantMap state = buildBaseStateFromStore();
+    QString baseError;
+    if (!m_nft->applyBasePolicy(state, &baseError)) {
+        if (error) {
+            *error = baseError.isEmpty() ? QStringLiteral("nft-base-failed") : baseError;
+        }
+        return false;
+    }
+
+    // Step 2: re-add remaining IP block rules on top of the fresh base.
+    for (const QVariant &entry : activeIpEntries) {
+        const QStringList ipRules = buildIpBlockRules(entry.toMap());
+        if (ipRules.isEmpty()) {
+            continue;
+        }
+        QString ipError;
+        if (!m_nft->applyAtomicBatch(ipRules, &ipError)) {
+            qWarning() << "[firewall/reconcile] ip rule apply failed:" << ipError;
+            // Non-fatal: continue applying remaining rules; report first error.
+            if (error && error->isEmpty()) {
+                *error = ipError;
+            }
+        }
+    }
+
+    return error ? error->isEmpty() : true;
+}
+
+} // namespace Slm::Firewall

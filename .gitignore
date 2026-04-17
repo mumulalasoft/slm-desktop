@@ -80,3 +80,8 @@ CMakeLists.txt.user*
 .rcc/
 .uic/
 /build*/
+/Testing/
+
+# Local assistant workspace metadata
+.claude/
+.codex

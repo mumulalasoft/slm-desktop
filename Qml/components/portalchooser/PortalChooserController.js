@@ -719,6 +719,12 @@ function formatBytes(bytesValue) {
 }
 
 function loadUiPreferences(shell) {
+    var prefGet = function(key, fallbackValue) {
+        if (typeof DesktopSettings !== "undefined" && DesktopSettings && DesktopSettings.settingValue) {
+            return DesktopSettings.settingValue(String(key || ""), fallbackValue)
+        }
+        return fallbackValue
+    }
     var mode = String(shell.portalChooserMode || "open")
     var widthKey = "portalChooser." + mode + ".width"
     var heightKey = "portalChooser." + mode + ".height"
@@ -731,40 +737,43 @@ function loadUiPreferences(shell) {
     var defW = defaultWidth(shell)
     var defH = defaultHeight(shell)
 
-    var savedW = Number(UIPreferences.getPreference(widthKey, defW))
-    var savedH = Number(UIPreferences.getPreference(heightKey, defH))
+    var savedW = Number(prefGet(widthKey, defW))
+    var savedH = Number(prefGet(heightKey, defH))
     shell.portalChooserWindowWidth = Math.max(760, Math.min(Number(shell.width || 0) - 24, isNaN(savedW) ? defW : savedW))
     shell.portalChooserWindowHeight = Math.max(500, Math.min(Number(shell.height || 0) - 24, isNaN(savedH) ? defH : savedH))
 
-    shell.portalChooserSortKey = String(UIPreferences.getPreference(sortKeyKey, "name") || "name")
-    shell.portalChooserSortDescending = !!UIPreferences.getPreference(sortDescKey, false)
-    shell.portalChooserShowHidden = !!UIPreferences.getPreference(showHiddenKey, false)
-    shell.portalChooserDateColumnWidth = Number(UIPreferences.getPreference(dateColKey, 140) || 140)
-    shell.portalChooserKindColumnWidth = Number(UIPreferences.getPreference(kindColKey, 92) || 92)
+    shell.portalChooserSortKey = String(prefGet(sortKeyKey, "name") || "name")
+    shell.portalChooserSortDescending = !!prefGet(sortDescKey, false)
+    shell.portalChooserShowHidden = !!prefGet(showHiddenKey, false)
+    shell.portalChooserDateColumnWidth = Number(prefGet(dateColKey, 140) || 140)
+    shell.portalChooserKindColumnWidth = Number(prefGet(kindColKey, 92) || 92)
     clampColumns(shell, shell.portalChooserWindowWidth - 20)
-    return String(UIPreferences.getPreference(folderKey, "~") || "~")
+    return String(prefGet(folderKey, "~") || "~")
 }
 
 function saveUiPreferences(shell) {
-    if (!UIPreferences || !UIPreferences.setPreference) {
+    if (typeof DesktopSettings === "undefined" || !DesktopSettings || !DesktopSettings.setSettingValue) {
         return
     }
     var mode = String(shell.portalChooserMode || "open")
-    UIPreferences.setPreference("portalChooser." + mode + ".sortKey", String(shell.portalChooserSortKey || "name"))
-    UIPreferences.setPreference("portalChooser." + mode + ".sortDescending", !!shell.portalChooserSortDescending)
-    UIPreferences.setPreference("portalChooser." + mode + ".showHidden", !!shell.portalChooserShowHidden)
-    UIPreferences.setPreference("portalChooser." + mode + ".lastFolder", String(shell.portalChooserCurrentDir || "~"))
-    UIPreferences.setPreference("portalChooser." + mode + ".dateColWidth", Number(shell.portalChooserDateColumnWidth || 140))
-    UIPreferences.setPreference("portalChooser." + mode + ".kindColWidth", Number(shell.portalChooserKindColumnWidth || 92))
+    DesktopSettings.setSettingValue("portalChooser." + mode + ".sortKey", String(shell.portalChooserSortKey || "name"))
+    DesktopSettings.setSettingValue("portalChooser." + mode + ".sortDescending", !!shell.portalChooserSortDescending)
+    DesktopSettings.setSettingValue("portalChooser." + mode + ".showHidden", !!shell.portalChooserShowHidden)
+    DesktopSettings.setSettingValue("portalChooser." + mode + ".lastFolder", String(shell.portalChooserCurrentDir || "~"))
+    DesktopSettings.setSettingValue("portalChooser." + mode + ".dateColWidth", Number(shell.portalChooserDateColumnWidth || 140))
+    DesktopSettings.setSettingValue("portalChooser." + mode + ".kindColWidth", Number(shell.portalChooserKindColumnWidth || 92))
 }
 
 function saveWindowSize(shell) {
-    if (!UIPreferences || !UIPreferences.setPreference || !shell.portalFileChooserVisible) {
+    if (typeof DesktopSettings === "undefined"
+            || !DesktopSettings
+            || !DesktopSettings.setSettingValue
+            || !shell.portalFileChooserVisible) {
         return
     }
     var mode = String(shell.portalChooserMode || "open")
-    UIPreferences.setPreference("portalChooser." + mode + ".width", Number(shell.portalChooserWindowWidth || 0))
-    UIPreferences.setPreference("portalChooser." + mode + ".height", Number(shell.portalChooserWindowHeight || 0))
+    DesktopSettings.setSettingValue("portalChooser." + mode + ".width", Number(shell.portalChooserWindowWidth || 0))
+    DesktopSettings.setSettingValue("portalChooser." + mode + ".height", Number(shell.portalChooserWindowHeight || 0))
 }
 
 function wildcardToRegExp(pattern) {

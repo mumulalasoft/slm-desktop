@@ -2,6 +2,7 @@ import QtQuick 2.15
 import Slm_Desktop
 import "../shell/TothespotController.js" as TothespotController
 import "../shell/ShellUtils.js" as ShellUtils
+import "SecuritySettingsRouting.js" as SecuritySettingsRouting
 
 Item {
     id: root
@@ -12,7 +13,7 @@ Item {
     property var fileManagerApi: null
     property var tothespotService: null
     property var tothespotResultsModel: null
-    property var uiPreferences: null
+    property var desktopSettings: null
     property bool consentDialogVisible: false
     property string consentRequestPath: ""
     property var consentPayload: ({})
@@ -66,6 +67,26 @@ Item {
 
     function cancelConsent() {
         submitConsentDecision("cancelled", false, "session", "cancelled-by-user")
+    }
+
+    function openConsentSettings() {
+        if (typeof AppExecutionGate === "undefined" || !AppExecutionGate) {
+            return
+        }
+        var capability = String((root.consentPayload && root.consentPayload.capability)
+                                ? root.consentPayload.capability : "")
+        var deepLink = SecuritySettingsRouting.deepLinkForCapability(capability)
+        var cmd = "slm-settings --deep-link " + deepLink
+        var opened = AppExecutionGate.launchCommand(cmd, "", "portal-consent-open-settings")
+        if (!opened && typeof AppBinaryDir !== "undefined" && String(AppBinaryDir || "").length > 0) {
+            var localSettingsBin = String(AppBinaryDir) + "/slm-settings"
+            opened = AppExecutionGate.launchCommand(localSettingsBin + " --deep-link " + deepLink,
+                                                    "",
+                                                    "portal-consent-open-settings-local")
+        }
+        if (!opened) {
+            AppExecutionGate.launchDesktopId("slm-settings.desktop", "portal-consent-open-settings")
+        }
     }
 
     Connections {
@@ -126,27 +147,33 @@ Item {
     }
 
     Connections {
-        target: root.uiPreferences
+        target: root.desktopSettings
         ignoreUnknownSignals: true
-        function onPreferenceChanged(key, value) {
-            var k = String(key || "")
-            if (k === "debug/verboseLogging" || k === "debug.verboseLogging") {
-                root.shellApi.tothespotShowDebug = !!value
-            } else if (k === "motion/debugOverlay" || k === "motion.debugOverlay") {
-                root.shellApi.motionDebugOverlayEnabled = !!value
+        function onSettingChanged(path) {
+            var k = String(path || "")
+            if (k === "debug.verboseLogging") {
+                root.shellApi.tothespotShowDebug = !!root.desktopSettings.settingValue(
+                            "debug.verboseLogging", false)
+            } else if (k === "motion.debugOverlay") {
+                root.shellApi.motionDebugOverlayEnabled = !!root.desktopSettings.settingValue(
+                            "motion.debugOverlay", false)
                 ShellUtils.refreshMotionDebugRows(root.shellApi)
-            } else if (k === "motion/timeScale" || k === "motion.timescale") {
-                root.shellApi.motionTimeScale = Number(value)
+            } else if (k === "motion.timeScale") {
+                root.shellApi.motionTimeScale = Number(root.desktopSettings.settingValue(
+                                                           "motion.timeScale", 1.0))
                 ShellUtils.applyMotionTimeScale(root.shellApi)
-            } else if (k === "motion/reduced" || k === "motion.reduced") {
-                root.shellApi.motionReducedEnabled = !!value
+            } else if (k === "motion.reduced") {
+                root.shellApi.motionReducedEnabled = !!root.desktopSettings.settingValue(
+                            "motion.reduced", false)
                 ShellUtils.applyMotionTimeScale(root.shellApi)
-            } else if (k === "ui/fontScale" || k === "ui.fontScale") {
-                Theme.userFontScale = ShellUtils.normalizedUserFontScale(value)
-            } else if (k === "tothespot/notifyClipboardResolveSuccess"
-                       || k === "tothespot.notifyClipboardResolveSuccess") {
-                root.shellApi.tothespotNotifyClipboardResolveSuccess = !!value
+            } else if (k === "globalAppearance.uiScale") {
+                Theme.userFontScale = ShellUtils.normalizedUserFontScale(
+                            root.desktopSettings.settingValue("globalAppearance.uiScale", 1.0))
+            } else if (k === "tothespot.notifyClipboardResolveSuccess") {
+                root.shellApi.tothespotNotifyClipboardResolveSuccess = !!root.desktopSettings.settingValue(
+                            "tothespot.notifyClipboardResolveSuccess", true)
             }
         }
     }
+
 }

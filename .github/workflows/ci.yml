@@ -2,17 +2,29 @@ name: CI
 
 on:
   push:
+    branches:
+      - main
   pull_request:
   schedule:
     - cron: "0 19 * * *"
+    - cron: "0 3 * * 0"
   workflow_dispatch:
+    inputs:
+      run_storage_hardware_smoke:
+        description: "Run storage hardware smoke lane (requires self-hosted runner with real media)"
+        required: false
+        type: boolean
+        default: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
   runtime-manifest-report:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Runtime manifest report
         run: |
@@ -23,7 +35,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Core governance files exist
         run: |
@@ -35,7 +47,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Shell syntax lint for scripts
         run: |
@@ -43,6 +55,9 @@ jobs:
           for f in scripts/*.sh scripts/xdg-desktop-portal/*.sh; do
             bash -n "$f"
           done
+
+      - name: Animation token lint (QML)
+        run: scripts/check-animation-token-usage.sh
 
       - name: Rebrand guard (no legacy desktop shell naming)
         run: |
@@ -56,21 +71,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Recovery runtime smoke checks
         run: |
           chmod +x scripts/test-recovery-runtime-suite.sh
-          scripts/test-recovery-runtime-suite.sh
+          scripts/test.sh recovery-smoke
 
-  desktop-runtime-smoke:
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+  policy-core-only:
+    if: github.event_name == 'push' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
 
-      - name: Install dependencies
+      - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -78,38 +95,90 @@ jobs:
             ninja-build \
             pkg-config \
             meson \
-            qt6-base-dev \
-            qt6-declarative-dev \
-            qt6-shadertools-dev \
+            libxkbcommon-dev \
             libglib2.0-dev \
             libwayland-dev \
             wayland-protocols
+
+      - name: Install Qt 6.10
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.10.0'
+          host: 'linux'
+          target: 'desktop'
+          modules: 'qtshadertools'
+          cache: true
+
+      - name: Configure
+        run: cmake -S . -B build -G Ninja
+
+      - name: Build policy-core suite target
+        run: cmake --build build --target policy_core_test_suite -j
+
+      - name: Run policy-core suite (strict)
+        env:
+          SLM_POLICY_CORE_SKIP_BUILD: "1"
+          SLM_POLICY_CORE_MIN_TESTS: "1"
+          SLM_POLICY_CORE_STRICT_NAMES: "1"
+          SLM_POLICY_CORE_EXPECTED_TESTS: "settingsapp_policy_core_test"
+        run: scripts/test-policy-core-suite.sh build
+
+  desktop-runtime-smoke:
+    if: github.event_name == 'push' || github.event_name == 'pull_request' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            ninja-build \
+            pkg-config \
+            meson \
+            libxkbcommon-dev \
+            libglib2.0-dev \
+            libwayland-dev \
+            wayland-protocols
+
+      - name: Install Qt 6.10
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.10.0'
+          host: 'linux'
+          target: 'desktop'
+          modules: 'qtshadertools'
+          cache: true
 
       - name: Configure
         run: cmake -S . -B build -G Ninja
 
       - name: Build desktop runtime target
-        run: cmake --build build --target appSlm_Desktop -j
+        run: cmake --build build --target slm-desktop -j
 
       - name: Smoke runtime
         env:
           QT_QPA_PLATFORM: offscreen
         run: |
-          scripts/smoke-runtime.sh --build-dir build --app-bin build/appSlm_Desktop
+          scripts/smoke-runtime.sh --build-dir build --app-bin build/slm-desktop
 
       - name: Smoke backends
         env:
           QT_QPA_PLATFORM: offscreen
           DS_WINDOWING_AUTOROLLBACK: "1"
         run: |
-          scripts/smoke-backends.sh --build-dir build --app-bin build/appSlm_Desktop
+          scripts/smoke-backends.sh --build-dir build --app-bin build/slm-desktop
 
       - name: Smoke tothespot
         env:
           QT_QPA_PLATFORM: offscreen
           SLM_SMOKE_BUILD: "0"
         run: |
-          scripts/smoke-tothespot-contextmenu.sh --build-dir build --app-bin build/appSlm_Desktop
+          scripts/smoke-tothespot-contextmenu.sh --build-dir build --app-bin build/slm-desktop
 
   build-and-test:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
@@ -122,9 +191,11 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
 
-      - name: Install dependencies
+      - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -132,10 +203,19 @@ jobs:
             ninja-build \
             pkg-config \
             meson \
-            qt6-base-dev \
-            qt6-declarative-dev \
-            qt6-shadertools-dev \
-            libglib2.0-dev
+            libxkbcommon-dev \
+            libglib2.0-dev \
+            libwayland-dev \
+            wayland-protocols
+
+      - name: Install Qt 6.10
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.10.0'
+          host: 'linux'
+          target: 'desktop'
+          modules: 'qtshadertools'
+          cache: true
 
       - name: Prepare external FileManager package (staging default)
         run: |
@@ -154,11 +234,39 @@ jobs:
       - name: UI style lint
         run: cmake --build build --target lint_ui_style
 
+      - name: Animation token lint
+        run: cmake --build build --target lint_animation_tokens
+
       - name: Build
         run: cmake --build build -j
 
-      - name: Run headless tests
-        run: scripts/test.sh build
+      - name: Run headless tests (nightly lane)
+        env:
+          SLM_TEST_SKIP_UI_LINT: "1"
+          SLM_TEST_SKIP_CAPABILITY_MATRIX_LINT: "1"
+          SLM_TEST_NIGHTLY_POLKIT_RUNTIME_MODE: auto
+          SLM_TEST_NIGHTLY_PACKAGE_POLICY_WRAPPER_MODE: auto
+          SLM_TEST_NIGHTLY_STORAGE_RUNTIME_MODE: skip
+          SLM_TEST_NIGHTLY_STORAGE_RUNTIME_SKIP_BUILD: "1"
+          SLM_TEST_NIGHTLY_FULL_EXCLUDE_LABELS: "baseline-flaky;secret-consent;policy-core"
+          SLM_TEST_NIGHTLY_SECRET_CONSENT_MODE: required
+          SLM_TEST_NIGHTLY_POLICY_CORE_MODE: required
+          SLM_TEST_NIGHTLY_POLICY_CORE_SKIP_BUILD: "1"
+          SLM_POLICY_CORE_SKIP_BUILD: "1"
+          SLM_POLICY_CORE_MIN_TESTS: "1"
+          SLM_POLICY_CORE_STRICT_NAMES: "1"
+          SLM_POLICY_CORE_EXPECTED_TESTS: "settingsapp_policy_core_test"
+          SLM_TEST_NIGHTLY_SECRET_CONSENT_SKIP_BUILD: "1"
+          SLM_SECRET_CONSENT_MIN_TESTS: "6"
+          SLM_SECRET_CONSENT_STRICT_NAMES: "1"
+          SLM_SECRET_CONSENT_EXPECTED_TESTS: "portal_secret_integration_test,portal_consent_dialog_copy_contract_test,portal_consent_dialog_behavior_test,portal_dialog_bridge_payload_test,portal_secret_consent_contract_snapshot_test,settingsapp_secret_consent_test"
+        run: scripts/test.sh nightly build
+
+      - name: Run baseline-flaky lane (non-blocking report)
+        continue-on-error: true
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: scripts/test.sh baseline-flaky build
 
       - name: Run backend smoke checks
         env:
@@ -173,6 +281,110 @@ jobs:
         run: |
           ctest --test-dir build -R "(portal_portals_conf_strategy_test|portal_install_script_integration_test|portal_profile_snapshot_test|portal_slm_portal_snapshot_test|portal_dbus_service_template_snapshot_test|portal_systemd_unit_template_snapshot_test|portal_profile_smoke_test|portal_installed_artifacts_smoke_test)" --output-on-failure
 
+  packagepolicy-wrapper-smoke:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            ninja-build \
+            pkg-config \
+            meson \
+            libglib2.0-dev \
+            libwayland-dev \
+            wayland-protocols
+
+      - name: Install Qt 6.10
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.10.0'
+          host: 'linux'
+          target: 'desktop'
+          modules: 'qtshadertools'
+          cache: true
+
+      - name: Configure
+        run: cmake -S . -B build -G Ninja
+
+      - name: Build package policy targets
+        run: cmake --build build --target slm-package-policy-service packagepolicy_engine_test packagepolicy_oneshot_cli_test -j
+
+      - name: Install wrappers into user PATH sandbox
+        run: |
+          ROOT_DIR="${RUNNER_TEMP}/slm-package-policy"
+          BIN_DIR="${RUNNER_TEMP}/slm-package-policy-bin"
+          scripts/package-policy/install-wrappers.sh \
+            "${ROOT_DIR}" \
+            "${BIN_DIR}" \
+            --install-profile-script "${RUNNER_TEMP}/slm-package-policy-path.sh"
+          echo "${BIN_DIR}" >> "${GITHUB_PATH}"
+
+      - name: Run package policy runtime smoke
+        env:
+          SLM_PACKAGE_POLICY_RUNTIME_SMOKE: "1"
+          SLM_PACKAGE_POLICY_WRAPPER_SMOKE_STRICT: "1"
+          SLM_PACKAGE_POLICY_SERVICE_BIN: "${{ github.workspace }}/build/slm-package-policy-service"
+          SLM_PACKAGE_POLICY_PROTECTED_FILE: "${{ github.workspace }}/config/package-policy/protected-capabilities.yaml"
+          SLM_PACKAGE_POLICY_MAPPING_FILE: "${{ github.workspace }}/config/package-policy/package-mappings/debian.yaml"
+          SLM_PACKAGE_POLICY_SOURCE_POLICIES_DIR: "${{ github.workspace }}/config/package-policy/source-policies"
+        run: |
+          scripts/smoke-package-policy-wrapper.sh
+
+  storage-runtime-hardware-smoke:
+    if: |
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.run_storage_hardware_smoke == 'true') ||
+      (github.event_name == 'schedule' && github.event.schedule == '0 3 * * 0')
+    runs-on: [self-hosted, linux, x64, storage-hw]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            ninja-build \
+            pkg-config \
+            meson \
+            libxkbcommon-dev \
+            libglib2.0-dev \
+            libwayland-dev \
+            wayland-protocols
+
+      - name: Install Qt 6.10
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.10.0'
+          host: 'linux'
+          target: 'desktop'
+          modules: 'qtshadertools'
+          cache: true
+
+      - name: Configure
+        run: cmake -S . -B build -G Ninja
+
+      - name: Build storage runtime smoke target
+        run: cmake --build build --target storage_runtime_smoke_test -j
+
+      - name: Run storage runtime hardware smoke (strict)
+        env:
+          SLM_STORAGE_RUNTIME_HARDWARE_MODE: required
+          SLM_STORAGE_SMOKE_SKIP_BUILD: "1"
+          SLM_STORAGE_SMOKE_MIN_TESTS: "1"
+          SLM_STORAGE_SMOKE_STRICT_NAMES: "1"
+          SLM_STORAGE_SMOKE_EXPECTED_TESTS: "storage_runtime_smoke_test"
+          SLM_STORAGE_SMOKE_REQUIRE_SERVICE_RESTART: "1"
+        run: scripts/test-storage-runtime-suite.sh build
+
   filemanager-integration-modes:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
@@ -182,9 +394,9 @@ jobs:
       SLM_FILEMANAGER_EXTERNAL_ROOT: build/filemanager-integration/remote-external
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
-      - name: Install dependencies
+      - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -192,10 +404,19 @@ jobs:
             ninja-build \
             pkg-config \
             meson \
-            qt6-base-dev \
-            qt6-declarative-dev \
-            qt6-shadertools-dev \
-            libglib2.0-dev
+            libxkbcommon-dev \
+            libglib2.0-dev \
+            libwayland-dev \
+            wayland-protocols
+
+      - name: Install Qt 6.10
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.10.0'
+          host: 'linux'
+          target: 'desktop'
+          modules: 'qtshadertools'
+          cache: true
 
       - name: Build/test FileManager integration modes
         env:
@@ -214,9 +435,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
-      - name: Install dependencies
+      - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -224,10 +445,19 @@ jobs:
             ninja-build \
             pkg-config \
             meson \
-            qt6-base-dev \
-            qt6-declarative-dev \
-            qt6-shadertools-dev \
-            libglib2.0-dev
+            libxkbcommon-dev \
+            libglib2.0-dev \
+            libwayland-dev \
+            wayland-protocols
+
+      - name: Install Qt 6.10
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.10.0'
+          host: 'linux'
+          target: 'desktop'
+          modules: 'qtshadertools'
+          cache: true
 
       - name: Validate pinned FileManager package compatibility
         env:
@@ -241,9 +471,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
-      - name: Install dependencies
+      - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -251,10 +481,19 @@ jobs:
             ninja-build \
             pkg-config \
             meson \
-            qt6-base-dev \
-            qt6-declarative-dev \
-            qt6-shadertools-dev \
-            libglib2.0-dev
+            libxkbcommon-dev \
+            libglib2.0-dev \
+            libwayland-dev \
+            wayland-protocols
+
+      - name: Install Qt 6.10
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.10.0'
+          host: 'linux'
+          target: 'desktop'
+          modules: 'qtshadertools'
+          cache: true
 
       - name: Configure
         run: cmake -S . -B build -G Ninja
@@ -277,7 +516,7 @@ jobs:
         profile: [mvp, beta, production]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Validate portal profile
         env:
@@ -296,9 +535,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
-      - name: Install dependencies
+      - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -306,10 +545,19 @@ jobs:
             ninja-build \
             pkg-config \
             meson \
-            qt6-base-dev \
-            qt6-declarative-dev \
-            qt6-shadertools-dev \
-            libglib2.0-dev
+            libxkbcommon-dev \
+            libglib2.0-dev \
+            libwayland-dev \
+            wayland-protocols
+
+      - name: Install Qt 6.10
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.10.0'
+          host: 'linux'
+          target: 'desktop'
+          modules: 'qtshadertools'
+          cache: true
 
       - name: Configure
         run: cmake -S . -B build -G Ninja
@@ -350,9 +598,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
-      - name: Install dependencies
+      - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -360,10 +608,19 @@ jobs:
             ninja-build \
             pkg-config \
             meson \
-            qt6-base-dev \
-            qt6-declarative-dev \
-            qt6-shadertools-dev \
-            libglib2.0-dev
+            libxkbcommon-dev \
+            libglib2.0-dev \
+            libwayland-dev \
+            wayland-protocols
+
+      - name: Install Qt 6.10
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.10.0'
+          host: 'linux'
+          target: 'desktop'
+          modules: 'qtshadertools'
+          cache: true
 
       - name: Configure
         run: cmake -S . -B build -G Ninja
@@ -384,9 +641,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
-      - name: Install dependencies
+      - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -394,10 +651,19 @@ jobs:
             ninja-build \
             pkg-config \
             meson \
-            qt6-base-dev \
-            qt6-declarative-dev \
-            qt6-shadertools-dev \
-            libglib2.0-dev
+            libxkbcommon-dev \
+            libglib2.0-dev \
+            libwayland-dev \
+            wayland-protocols
+
+      - name: Install Qt 6.10
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.10.0'
+          host: 'linux'
+          target: 'desktop'
+          modules: 'qtshadertools'
+          cache: true
 
       - name: Configure
         run: cmake -S . -B build -G Ninja

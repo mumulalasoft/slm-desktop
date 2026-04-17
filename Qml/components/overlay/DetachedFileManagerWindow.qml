@@ -12,6 +12,7 @@ Window {
     signal printRequested(string documentUri, string documentTitle, bool preferPdfOutput)
     property int panelHeight: 0
     property var fileModel: null
+    property double openedAtMs: 0
 
     readonly property var loadedItem: detachedFileManagerLoader.item
     readonly property int loaderStatus: detachedFileManagerLoader.status
@@ -125,6 +126,7 @@ Window {
 
     onVisibleChanged: {
         if (visible) {
+            openedAtMs = Date.now()
             if (visibility !== Window.Windowed) {
                 visibility = Window.Windowed
             }
@@ -231,7 +233,7 @@ Window {
             anchors.fill: parent
             active: false
             asynchronous: true
-            source: "qrc:/qt/qml/Slm_Desktop/Qml/apps/filemanager/FileManagerWindow.qml"
+            sourceComponent: fileManagerWindowComponent
             onLoaded: {
                 if (!item) {
                     shellApi.detachedFileManagerLoadFailed = true
@@ -261,6 +263,11 @@ Window {
                 }
             }
         }
+    }
+
+    Component {
+        id: fileManagerWindowComponent
+        FileManagerWindow { }
     }
 
     Connections {
@@ -410,6 +417,14 @@ Window {
         target: detachedFileManagerLoader.item
         ignoreUnknownSignals: true
         function onCloseRequested() {
+            if (detachedFileManagerLoader.status !== Loader.Ready) {
+                console.warn("Main: ignore closeRequested before loader ready")
+                return
+            }
+            if ((Date.now() - root.openedAtMs) < 900) {
+                console.warn("Main: ignore early closeRequested within 900ms")
+                return
+            }
             shellApi.detachedFileManagerVisible = false
         }
         function onOpenInNewWindowRequested(path) {

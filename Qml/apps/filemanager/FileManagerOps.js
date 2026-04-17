@@ -307,6 +307,58 @@ function selectedRows(root) {
     return out
 }
 
+function isArchiveEntryPath(pathValue, nameValue, mimeTypeValue, suffixValue) {
+    var name = String(nameValue || "")
+    if (name.length <= 0) {
+        name = String(pathValue || "")
+    }
+    name = name.toLowerCase()
+    var mime = String(mimeTypeValue || "").trim().toLowerCase()
+    var suffix = String(suffixValue || "").trim().toLowerCase()
+    if (suffix.length <= 0 && name.indexOf(".") >= 0) {
+        suffix = name.split(".").pop()
+    }
+    var knownSuffixes = [
+        "zip", "tar", "tgz", "gz", "xz", "bz2", "tbz", "tbz2",
+        "txz", "zst", "tzst", "7z", "rar", "cpio", "ar", "lz", "lzma"
+    ]
+    if (knownSuffixes.indexOf(suffix) >= 0) {
+        return true
+    }
+    if (name.endsWith(".tar.gz") || name.endsWith(".tar.xz")
+            || name.endsWith(".tar.bz2") || name.endsWith(".tar.zst")
+            || name.endsWith(".tar.lzma")) {
+        return true
+    }
+    if (mime.indexOf("zip") >= 0 || mime.indexOf("tar") >= 0
+            || mime.indexOf("gzip") >= 0 || mime.indexOf("bzip") >= 0
+            || mime.indexOf("xz") >= 0 || mime.indexOf("7z") >= 0
+            || mime.indexOf("rar") >= 0 || mime.indexOf("cpio") >= 0
+            || mime.indexOf("archive") >= 0) {
+        return true
+    }
+    return false
+}
+
+function selectEntryByPath(root, pathValue) {
+    var target = String(pathValue || "")
+    if (target.length <= 0 || !root.fileModel || !root.fileModel.entryAt) {
+        return false
+    }
+    var count = Number(root.fileModel.count || 0)
+    for (var i = 0; i < count; ++i) {
+        var row = root.fileModel.entryAt(i)
+        if (!row || !row.ok) {
+            continue
+        }
+        if (String(row.path || "") === target) {
+            root.setSingleSelection(i)
+            return true
+        }
+    }
+    return false
+}
+
 function selectedHasProtectedPath(root) {
     var paths = selectedPaths(root)
     for (var i = 0; i < paths.length; ++i) {
@@ -901,6 +953,48 @@ function chooseDestinationForSelection(root, fileManagerApi, moveMode) {
     root.pendingPortalChooserSources = sources
 }
 
+function extractContextArchive(root, fileManagerApi, destinationDir) {
+    var p = String(root.contextEntryPath || "")
+    if (p.length <= 0 || !fileManagerApi || !fileManagerApi.startExtractArchive) {
+        return
+    }
+    var dest = String(destinationDir || "")
+    var res = fileManagerApi.startExtractArchive(p, dest)
+    if (!res || !res.ok) {
+        root.notifyResult("Extract", res || {
+                              "ok": false,
+                              "error": "extract-failed"
+                          })
+    }
+}
+
+function chooseExtractDestinationForContextArchive(root, fileManagerApi) {
+    var p = String(root.contextEntryPath || "")
+    if (p.length <= 0) {
+        return
+    }
+    if (!fileManagerApi || !fileManagerApi.startPortalFileChooser) {
+        root.notifyResult("Extract", {
+                              "ok": false,
+                              "error": "portal-filechooser-unavailable"
+                          })
+        return
+    }
+    var rid = fileManagerApi.startPortalFileChooser({
+                                                         "mode": "folder",
+                                                         "title": "Extract to...",
+                                                         "selectFolders": true,
+                                                         "multiple": false,
+                                                         "folder": String(
+                                                                       root.fileModel
+                                                                       && root.fileModel.currentPath ? root.fileModel.currentPath : "~")
+                                                     })
+    root.pendingPortalChooserRequestId = String(rid || "")
+    root.pendingPortalChooserAction = "extract"
+    root.pendingPortalChooserArchive = p
+    root.pendingPortalChooserSources = []
+}
+
 function compressSelection(root, fileManagerApi, compressDialog) {
     var paths = selectedPaths(root)
     if (!paths || paths.length <= 0) {
@@ -1007,6 +1101,10 @@ function showPropertiesForSelection(root, fileManagerApi, propertiesDialog) {
     root.propertiesOpenWithCurrentIndex = -1
     root.propertiesOpenWithRequestId = ""
     root.propertiesOpenWithPath = ""
+    if (root.resetPropertiesStoragePolicyState) {
+        root.resetPropertiesStoragePolicyState()
+    }
+    root.propertiesSharePath = String(entry.path || "")
     var appRow = root.contextDefaultOpenWithEntry()
     var appName = String((appRow && appRow.name) ? appRow.name : "")
     if (appName.length > 0) {
@@ -1020,6 +1118,11 @@ function showPropertiesForSelection(root, fileManagerApi, propertiesDialog) {
     }
     if (!entry.isDir) {
         root.refreshPropertiesOpenWithApps(String(entry.path || ""))
+    } else if (root.folderShareInfoForPath) {
+        root.folderShareInfoForPath(String(entry.path || ""))
+    }
+    if (root.loadPropertiesStoragePolicy) {
+        root.loadPropertiesStoragePolicy(String(entry.path || ""))
     }
     if (propertiesDialog && propertiesDialog.open) {
         propertiesDialog.open()
@@ -1041,6 +1144,11 @@ function showPropertiesForPath(root, fileManagerApi, pathValue, propertiesDialog
     root.contextEntryPath = p
     root.contextEntryName = root.basename(p)
     root.contextEntryIsDir = isDirValue
+    root.contextEntryMimeType = isDirValue ? "inode/directory" : ""
+    var baseName = String(root.basename(p) || "")
+    var dot = baseName.lastIndexOf(".")
+    root.contextEntrySuffix = (isDirValue || dot <= 0 || dot >= baseName.length - 1)
+            ? "" : baseName.slice(dot + 1)
     root.selectedEntryIndex = -1
     root.selectedEntryIndexes = []
     showPropertiesForSelection(root, fileManagerApi, propertiesDialog)
@@ -1081,6 +1189,33 @@ function toggleQuickPreview(root, quickPreviewDialog) {
     root.quickPreviewFallbackIconSource = "image://themeicon/" + String(
                 entry.iconName
                 || (entry.isDir ? "folder" : "text-x-generic-symbolic"))
+    root.quickPreviewArchiveMode = false
+    root.quickPreviewArchiveEntries = []
+    root.quickPreviewArchiveEntryCount = 0
+    root.quickPreviewArchiveTruncated = false
+    root.quickPreviewArchiveLayout = ""
+
+    var isArchive = isArchiveEntryPath(String(entry.path || ""),
+                                       String(entry.name || ""),
+                                       String(entry.mimeType || ""),
+                                       String(entry.suffix || ""))
+    if (isArchive && root.fileManagerApiRef && root.fileManagerApiRef.previewArchiveContents) {
+        var preview = root.fileManagerApiRef.previewArchiveContents(String(entry.path || ""), 180)
+        if (preview && preview.ok) {
+            var entryCount = Number((preview && preview.entryCount) ? preview.entryCount : 0)
+            var layout = String((preview && preview.layout) ? preview.layout : "")
+            var layoutLabel = layout.length > 0 ? ("  •  " + layout.replace(/_/g, " ")) : ""
+            root.quickPreviewMetaText = "Archive  •  " + String(entry.path || "")
+                    + "  •  " + String(entryCount) + " entries" + layoutLabel
+            root.quickPreviewArchiveMode = true
+            root.quickPreviewArchiveEntries = preview.entries || []
+            root.quickPreviewArchiveEntryCount = entryCount
+            root.quickPreviewArchiveTruncated = !!(preview && preview.truncated)
+            root.quickPreviewArchiveLayout = layout
+            root.quickPreviewImageSource = ""
+        }
+    }
+
     if (quickPreviewDialog && quickPreviewDialog.visible) {
         quickPreviewDialog.close()
     } else if (quickPreviewDialog && quickPreviewDialog.open) {

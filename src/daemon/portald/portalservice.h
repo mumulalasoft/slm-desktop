@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QByteArray>
 #include <QObject>
 #include <QDBusContext>
 #include <QVariantMap>
@@ -65,6 +66,15 @@ public slots:
     QVariantMap CaptureScreen(const QVariantMap &options);
     QVariantMap CaptureWindow(const QVariantMap &options);
     QVariantMap CaptureArea(const QVariantMap &options);
+    QVariantMap StoreSecret(const QVariantMap &options, const QByteArray &secret);
+    QVariantMap GetSecret(const QVariantMap &query);
+    QVariantMap DeleteSecret(const QVariantMap &query);
+    QVariantMap ClearAppSecrets(const QVariantMap &options);
+    QVariantMap DescribeSecret(const QVariantMap &query);
+    QVariantMap ListOwnSecretMetadata(const QVariantMap &options);
+    QVariantMap ListSecretAppIds(const QVariantMap &options);
+    QVariantMap ListSecretConsentGrants(const QVariantMap &options);
+    QVariantMap RevokeSecretConsentGrants(const QVariantMap &options);
     QVariantMap GlobalShortcutsCreateSession(const QVariantMap &options);
     QVariantMap GlobalShortcutsBindShortcuts(const QString &sessionPath, const QVariantMap &options);
     QVariantMap GlobalShortcutsListBindings(const QString &sessionPath, const QVariantMap &options);

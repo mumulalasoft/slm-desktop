@@ -4,7 +4,6 @@
 #include "appmodel.h"
 #include "dbuslogutils.h"
 #include "src/services/clipboard/ClipboardSearchProvider.h"
-#include "src/core/prefs/uipreferences.h"
 #include "src/core/workspace/workspacemanager.h"
 
 #include <QDBusConnection>
@@ -479,12 +478,12 @@ QVariantList localSearchActionsFromDesktopEntries(const QString &query,
 
 GlobalSearchService::GlobalSearchService(DesktopAppModel *appModel,
                                          WorkspaceManager *workspaceManager,
-                                         UIPreferences *uiPreferences,
+                                         QObject *desktopSettings,
                                          QObject *parent)
     : QObject(parent)
     , m_appModel(appModel)
     , m_workspaceManager(workspaceManager)
-    , m_uiPreferences(uiPreferences)
+    , m_desktopSettings(desktopSettings)
     , m_startedAtUtc(QDateTime::currentDateTimeUtc())
     , m_auditLogger(&m_permissionStore)
 {
@@ -1238,13 +1237,18 @@ QVariantList GlobalSearchService::GetSearchProfiles() const
 
 QString GlobalSearchService::GetActiveSearchProfile() const
 {
-    if (!m_uiPreferences) {
+    if (!m_desktopSettings) {
         return QStringLiteral("balanced");
     }
-    const QString configured = m_uiPreferences
-                                   ->getPreference(QStringLiteral("tothespot.searchProfile"),
-                                                   QStringLiteral("balanced"))
-                                   .toString();
+    QVariant configured;
+    const bool okInvoke = QMetaObject::invokeMethod(m_desktopSettings,
+                                                     "settingValue",
+                                                     Q_RETURN_ARG(QVariant, configured),
+                                                     Q_ARG(QString, QStringLiteral("tothespot.searchProfile")),
+                                                     Q_ARG(QVariant, QVariant(QStringLiteral("balanced"))));
+    if (!okInvoke) {
+        return QStringLiteral("balanced");
+    }
     QVariantMap probe;
     probe.insert(QStringLiteral("searchProfile"), configured);
     return normalizedSearchProfile(probe);
@@ -1260,20 +1264,27 @@ QVariantMap GlobalSearchService::GetActiveSearchProfileMeta() const
         {QStringLiteral("ok"), true},
         {QStringLiteral("profileId"), profile},
         {QStringLiteral("updatedAtUtc"), ts.toString(Qt::ISODateWithMs)},
-        {QStringLiteral("source"), QStringLiteral("uipreferences")},
+        {QStringLiteral("source"), QStringLiteral("desktopsettings")},
     };
 }
 
 bool GlobalSearchService::SetActiveSearchProfile(const QString &profileId)
 {
-    if (!m_uiPreferences) {
+    if (!m_desktopSettings) {
         return false;
     }
     QVariantMap probe;
     probe.insert(QStringLiteral("searchProfile"), profileId);
     const QString normalized = normalizedSearchProfile(probe);
-    const bool changed =
-        m_uiPreferences->setPreference(QStringLiteral("tothespot.searchProfile"), normalized);
+    bool changed = false;
+    const bool okInvoke = QMetaObject::invokeMethod(m_desktopSettings,
+                                                     "setSettingValue",
+                                                     Q_RETURN_ARG(bool, changed),
+                                                     Q_ARG(QString, QStringLiteral("tothespot.searchProfile")),
+                                                     Q_ARG(QVariant, QVariant(normalized)));
+    if (!okInvoke) {
+        return false;
+    }
     if (changed) {
         m_searchProfileUpdatedAtUtc = QDateTime::currentDateTimeUtc();
         emit SearchProfileChanged(normalized);

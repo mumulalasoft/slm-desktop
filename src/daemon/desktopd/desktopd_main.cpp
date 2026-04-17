@@ -10,7 +10,6 @@
 #include "../../filemanager/ops/fileoperationsservice.h"
 #include "../../core/workspace/spacesmanager.h"
 #include "../../core/workspace/windowingbackendmanager.h"
-#include "../../core/prefs/uipreferences.h"
 #include "sessionstatecompatservice.h"
 #include "sessionstatemanager.h"
 #include "sessionstateservice.h"
@@ -20,6 +19,7 @@
 #include "screencastservice.h"
 #include "inputcaptureservice.h"
 #include "capturestreamingestor.h"
+#include "foldersharingservice.h"
 #include "../../core/workspace/workspacecompatservice.h"
 #include "../../core/workspace/workspacemanager.h"
 #include "../../core/actions/slmactionregistry.h"
@@ -34,9 +34,7 @@ int main(int argc, char *argv[])
 
     WindowingBackendManager windowingBackendManager;
     windowingBackendManager.configureBackend(QStringLiteral("kwin-wayland"));
-    UIPreferences uiPreferences;
     DesktopAppModel appModel;
-    appModel.setUIPreferences(&uiPreferences);
     appModel.refresh();
 
     SpacesManager spacesManager;
@@ -49,7 +47,7 @@ int main(int argc, char *argv[])
                                        &spacesManager,
                                        &appModel,
                                        &daemonHealthMonitor);
-    GlobalSearchService globalSearchService(&appModel, &workspaceManager, &uiPreferences);
+    GlobalSearchService globalSearchService(&appModel, &workspaceManager, nullptr);
     WorkspaceCompatService legacyCompatService(&workspaceManager,
                                                &windowingBackendManager,
                                                &spacesManager);
@@ -61,9 +59,10 @@ int main(int argc, char *argv[])
     CaptureService captureService;
     ScreencastService screencastService;
     InputCaptureService inputCaptureService;
+    FolderSharingService folderSharingService;
     CaptureStreamIngestor captureStreamIngestor(&captureService);
     Slm::Actions::ActionRegistry actionRegistry;
-    AppExecutionGate appExecutionGate(nullptr, nullptr, &uiPreferences);
+    AppExecutionGate appExecutionGate(nullptr, nullptr, nullptr);
     actionRegistry.setExecutionGate(&appExecutionGate);
     actionRegistry.reload();
     Slm::Actions::Framework::SlmActionFramework actionFramework(&actionRegistry);
@@ -86,6 +85,7 @@ int main(int argc, char *argv[])
                       << "captureRegistered=" << captureService.serviceRegistered()
                       << "screencastRegistered=" << screencastService.serviceRegistered()
                       << "inputCaptureRegistered=" << inputCaptureService.serviceRegistered()
+                      << "folderSharingRegistered=" << folderSharingService.serviceRegistered()
                       << "slmCapabilitiesRegistered=" << capabilityService.serviceRegistered()
                       << "fileOperationsEmbedded=" << embedFileOps
                       << "fileOperationsRegistered="

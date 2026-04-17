@@ -3,14 +3,18 @@ import QtQuick.Controls 2.15
 import "components"
 import "components/compositor" as CompositorComp
 import "components/shell" as ShellComp
-import "components/style" as StyleComp
 
 Item {
     id: root
     signal shellContextMenuRequested(real x, real y)
 
     property var dockItem: null
-    property bool launchpadVisible: false
+    // launchpadVisible owner: ShellStateController (SSOT).
+    // Keep a local fallback only when controller is unavailable.
+    property bool _launchpadVisibleLocal: false
+    readonly property bool launchpadVisible: ShellStateController
+                                            ? !!ShellStateController.launchpadVisible
+                                            : _launchpadVisibleLocal
     property bool styleGalleryVisible: false
     property bool workspaceVisible: MultitaskingController.workspaceVisible
     // Compatibility alias during rebrand (overview -> workspace).
@@ -33,6 +37,14 @@ Item {
     property bool shellPointerBlocked: false
     property bool workspaceSwipeActive: MultitaskingController.workspaceSwipeActive
     property bool workspaceSwipeSettling: MultitaskingController.workspaceSwipeSettling
+    property bool workspaceLifecycleActive: false
+    property bool workspaceSwitchLifecycleActive: false
+    property bool windowLifecycleActive: false
+    property bool windowFocusLifecycleActive: false
+    property bool windowLifecycleProfilePinned: false
+    property string windowLifecyclePrevChannel: ""
+    property string windowLifecyclePrevPreset: ""
+    property int windowLifecycleReleaseMs: Theme.durationNormal
     property real workspaceSwipeOffset: MultitaskingController.workspaceSwipeOffset
     property int workspaceSwipeStartSpace: MultitaskingController.workspaceSwipeStartSpace
     property int workspaceSwipeTargetSpace: MultitaskingController.workspaceSwipeTargetSpace
@@ -42,6 +54,8 @@ Item {
     property bool spaceSwitchHudVisible: MultitaskingController.spaceSwitchHudVisible
     property string spaceSwitchHudText: MultitaskingController.spaceSwitchHudText
     property int spaceSwitchDirection: MultitaskingController.spaceSwitchDirection
+    readonly property bool startupTraceEnabled: (typeof StartupTraceEnabled !== "undefined") ? !!StartupTraceEnabled : false
+    property real _startupT0: 0
     readonly property bool dockModeNoHide: dockHideMode === "no_hide"
     readonly property bool dockModeDurationHide: dockHideMode === "duration_hide"
     readonly property bool dockModeSmartHide: dockHideMode === "smart_hide"
@@ -51,6 +65,13 @@ Item {
     readonly property real dockX: Math.round((width - dockWidth) / 2)
     readonly property real dockY: dockShownY
     readonly property bool dockHovered: !!(dockItem && dockItem.hovered)
+    readonly property bool layerShellAvailable: (typeof WlrLayerShell !== "undefined") && !!WlrLayerShell
+    readonly property bool layerShellSupported: layerShellAvailable && !!WlrLayerShell.isSupported()
+    readonly property bool dockLayerReady: !layerShellAvailable
+                                           || !layerShellSupported
+                                           || ((typeof DockBootstrapState !== "undefined" && DockBootstrapState)
+                                               ? !!DockBootstrapState.readyToRender
+                                               : true)
     property real dockShownY: height - dockHeight - dockBottomMargin
     property real dockHiddenY: height - 10
     readonly property bool pointerNearDock: (
@@ -68,11 +89,31 @@ Item {
                                                 )
     readonly property bool dockSmartRevealAllowed: (!dockModeSmartHide || !dockSmartOccluded)
     readonly property bool dockRevealWanted: (
-                                                launchpadVisible ||
                                                 workspaceVisible ||
                                                 dockModeNoHide ||
                                                 (dockSmartRevealAllowed && dockUserRevealWanted)
                                             )
+    function startupQmlMark(phase, detail) {
+        var now = Date.now()
+        if (phase === "desktopScene.onCompleted.begin" && _startupT0 <= 0) {
+            _startupT0 = now
+        }
+        if (!startupTraceEnabled)
+            return
+        var elapsed = (_startupT0 > 0) ? (now - _startupT0) : -1
+        var text = "[startup-qml] phase=" + String(phase || "")
+        if (detail !== undefined && detail !== null && String(detail).length > 0) {
+            text += " detail=" + String(detail)
+        }
+        if (elapsed >= 0) {
+            text += " elapsed=" + elapsed + "ms"
+        }
+        text += " t=" + now
+        console.warn(text)
+    }
+    // Note: launchpadVisible is intentionally excluded from dockRevealWanted.
+    // DockWindow (z=200) is above LaunchpadWindow (z=190) in the scene graph —
+    // the dock renders on top of the launchpad without any exclusion zone.
 
     ShellComp.Shell {
         id: shell
@@ -212,30 +253,53 @@ Item {
     onDockShownYChanged: refreshDockSmartOcclusion()
 
     Component.onCompleted: {
-        syncDockHidePrefs()
-        root.dockShownState = true
-        if (typeof WindowingBackend !== "undefined" && WindowingBackend && WindowingBackend.sendCommand) {
-            WindowingBackend.sendCommand("shellpopup off")
-        }
-        refreshShellPointerBlock()
-        if (typeof ThemeIconController !== "undefined" && ThemeIconController &&
-                ThemeIconController.applyForDarkMode) {
-            ThemeIconController.applyForDarkMode(Theme.darkMode)
-        }
-        if (typeof NotificationManager !== "undefined" && NotificationManager &&
-                typeof UIPreferences !== "undefined" && UIPreferences && UIPreferences.getPreference &&
-                NotificationManager.setBubbleDurationMs) {
-            var duration = Number(UIPreferences.getPreference("notifications.bubbleDurationMs", 5000))
-            if (!isNaN(duration)) {
-                NotificationManager.setBubbleDurationMs(duration)
+        startupQmlMark("desktopScene.onCompleted.begin")
+        Qt.callLater(function() {
+            startupQmlMark("desktopScene.deferredInit.begin")
+            syncDockHidePrefs()
+            root.dockShownState = true
+            if (typeof WindowingBackend !== "undefined" && WindowingBackend && WindowingBackend.sendCommand) {
+                WindowingBackend.sendCommand("shellpopup off")
             }
+            refreshShellPointerBlock()
+            if (typeof ThemeIconController !== "undefined" && ThemeIconController &&
+                    ThemeIconController.applyForDarkMode) {
+                ThemeIconController.applyForDarkMode(Theme.darkMode)
+            }
+            syncNotificationPrefs()
+            root.pushSpaceToCompositor()
+            root.pushWorkspaceVisibilityToCompositor()
+            root.syncWorkspaceLifecycleState()
+            root.pushLaunchpadToCompositor()
+            root.lastKnownActiveSpace = Number(SpacesManager && SpacesManager.activeSpace ? SpacesManager.activeSpace : 1)
+            startupQmlMark("desktopScene.deferredInit.end")
+        })
+        startupQmlMark("desktopScene.onCompleted.end")
+    }
+    Component.onDestruction: {
+        if (root.workspaceLifecycleActive &&
+                typeof MotionController !== "undefined" && MotionController &&
+                MotionController.endLifecycleTransition) {
+            MotionController.endLifecycleTransition("workspace.overview")
         }
-        root.pushSpaceToCompositor()
-        root.pushWorkspaceVisibilityToCompositor()
-        root.pushLaunchpadToCompositor()
-        root.lastKnownActiveSpace = Number(SpacesManager && SpacesManager.activeSpace ? SpacesManager.activeSpace : 1)
+        if (root.workspaceSwitchLifecycleActive &&
+                typeof MotionController !== "undefined" && MotionController &&
+                MotionController.endLifecycleTransition) {
+            MotionController.endLifecycleTransition("workspace.switch")
+        }
+        if (root.windowLifecycleActive &&
+                typeof MotionController !== "undefined" && MotionController &&
+                MotionController.endLifecycleTransition) {
+            MotionController.endLifecycleTransition("window.lifecycle")
+        }
+        if (root.windowFocusLifecycleActive &&
+                typeof MotionController !== "undefined" && MotionController &&
+                MotionController.endLifecycleTransition) {
+            MotionController.endLifecycleTransition("window.focus")
+        }
     }
     onStyleGalleryVisibleChanged: {
+        if (ShellStateController) ShellStateController.setStyleGalleryVisible(styleGalleryVisible)
         if (!styleGalleryVisible) {
             syncDockHidePrefs()
         }
@@ -267,8 +331,8 @@ Item {
 
         Behavior on opacity {
             NumberAnimation {
-                duration: 140
-                easing.type: Easing.OutQuad
+                duration: Theme.durationFast
+                easing.type: Theme.easingLight
             }
         }
     }
@@ -278,17 +342,8 @@ Item {
         ignoreUnknownSignals: true
         function onWidthChanged() { root.refreshDockSmartOcclusion() }
         function onHeightChanged() { root.refreshDockSmartOcclusion() }
-        function onAppActivated() { root.launchpadVisible = false }
-        function onLaunchpadRequested() { root.launchpadVisible = !root.launchpadVisible }
-    }
-
-    MouseArea {
-        id: styleGalleryDismissArea
-        anchors.fill: parent
-        z: 429
-        visible: styleGallery.visible
-        enabled: visible
-        onClicked: root.styleGalleryVisible = false
+        function onAppActivated() { root.setLaunchpadVisible(false) }
+        function onLaunchpadRequested() { root.setLaunchpadVisible(!root.launchpadVisible) }
     }
 
     Rectangle {
@@ -334,8 +389,8 @@ Item {
 
         Behavior on opacity {
             NumberAnimation {
-                duration: 150
-                easing.type: Easing.OutCubic
+                duration: Theme.durationNormal
+                easing.type: Theme.easingDefault
             }
         }
     }
@@ -348,32 +403,20 @@ Item {
             property: "opacity"
             from: 1.0
             to: 0.90
-            duration: 75
-            easing.type: Easing.OutQuad
+            duration: Theme.durationMicro
+            easing.type: Theme.easingLight
         }
         NumberAnimation {
             target: shell
             property: "opacity"
             to: 1.0
-            duration: 140
-            easing.type: Easing.OutCubic
+            duration: Theme.durationFast
+            easing.type: Theme.easingDefault
         }
     }
 
     CompositorComp.CompositorSwitcherOverlay {
         anchors.fill: parent
-    }
-
-    StyleComp.StyleGallery {
-        id: styleGallery
-        z: 430
-        width: Math.min(parent.width - 120, 860)
-        height: Math.min(parent.height - root.panelHeight - 80, 620)
-        anchors.horizontalCenter: parent.horizontalCenter
-        y: root.panelHeight + 24
-        visible: root.styleGalleryVisible
-        onCloseRequested: root.styleGalleryVisible = false
-        onDockHidePrefsApplied: root.syncDockHidePrefs()
     }
 
     Rectangle {
@@ -392,15 +435,15 @@ Item {
             property: "opacity"
             from: 0.0
             to: 0.20
-            duration: Math.round(Theme.transitionDuration * 0.35)
-            easing.type: Easing.OutCubic
+            duration: Theme.durationFast
+            easing.type: Theme.easingDefault
         }
         NumberAnimation {
             target: themeTransition
             property: "opacity"
             to: 0.0
-            duration: Theme.transitionDuration
-            easing.type: Easing.OutCubic
+            duration: Theme.durationNormal
+            easing.type: Theme.easingDefault
         }
     }
 
@@ -431,10 +474,10 @@ Item {
                 root.workspaceVisible = !root.workspaceVisible
             } else if (event === "launchpad-open") {
                 root.lastPushedLaunchpadState = 1
-                root.launchpadVisible = true
+                root.setLaunchpadVisible(true)
             } else if (event === "launchpad-close") {
                 root.lastPushedLaunchpadState = 0
-                root.launchpadVisible = false
+                root.setLaunchpadVisible(false)
             }
         }
     }
@@ -463,6 +506,9 @@ Item {
         function onLastEventChanged() {
             root.refreshDockSmartOcclusion()
             root.refreshShellPointerBlock()
+            if (CompositorStateModel && CompositorStateModel.lastEvent) {
+                root.processCompositorLifecycleEvent(CompositorStateModel.lastEvent)
+            }
         }
         function onConnectedChanged() {
             root.refreshShellPointerBlock()
@@ -499,11 +545,35 @@ Item {
                 root.spaceHudBootstrapped = true
             }
             root.lastKnownActiveSpace = nextSpace
+            if (nextSpace !== prevSpace &&
+                    typeof MotionController !== "undefined" && MotionController &&
+                    MotionController.beginLifecycleTransition) {
+                MotionController.beginLifecycleTransition("workspace.switch", MotionController.MediumPriority)
+                root.workspaceSwitchLifecycleActive = true
+                workspaceSwitchLifecycleReleaseTimer.restart()
+            }
         }
     }
 
-    onLaunchpadVisibleChanged: pushLaunchpadToCompositor()
-    onWorkspaceVisibleChanged: pushWorkspaceVisibilityToCompositor()
+    onLaunchpadVisibleChanged: {
+        if (launchpadVisible) {
+            console.info("LAUNCHPAD show requested")
+            if (!dockLayerReady) {
+                console.info("LAUNCHPAD show allowed dockReady=false")
+                root.setLaunchpadVisible(false)
+                return
+            }
+            console.info("LAUNCHPAD show allowed dockReady=true")
+        }
+        pushLaunchpadToCompositor()
+    }
+    onWorkspaceVisibleChanged: {
+        if (ShellStateController) ShellStateController.setWorkspaceOverviewVisible(workspaceVisible)
+        syncWorkspaceLifecycleState()
+        pushWorkspaceVisibilityToCompositor()
+    }
+    onWorkspaceSwipeActiveChanged: syncWorkspaceLifecycleState()
+    onWorkspaceSwipeSettlingChanged: syncWorkspaceLifecycleState()
 
     Timer {
         id: shellPointerBlockPoll
@@ -513,6 +583,50 @@ Item {
         onTriggered: root.refreshShellPointerBlock()
     }
 
+    Timer {
+        id: windowLifecycleReleaseTimer
+        interval: Math.max(1, Number(root.windowLifecycleReleaseMs || Theme.durationNormal))
+        repeat: false
+        onTriggered: {
+            if (root.windowLifecycleActive &&
+                    typeof MotionController !== "undefined" && MotionController &&
+                    MotionController.endLifecycleTransition) {
+                MotionController.endLifecycleTransition("window.lifecycle")
+                root.windowLifecycleActive = false
+            }
+            root.releaseWindowLifecycleProfile()
+        }
+    }
+
+    Timer {
+        id: windowFocusLifecycleReleaseTimer
+        interval: Theme.durationFast
+        repeat: false
+        onTriggered: {
+        if (root.windowFocusLifecycleActive &&
+                typeof MotionController !== "undefined" && MotionController &&
+                MotionController.endLifecycleTransition) {
+            MotionController.endLifecycleTransition("window.focus")
+            root.windowFocusLifecycleActive = false
+        }
+        root.releaseWindowLifecycleProfile()
+    }
+    }
+
+    Timer {
+        id: workspaceSwitchLifecycleReleaseTimer
+        interval: Theme.durationWorkspace
+        repeat: false
+        onTriggered: {
+            if (root.workspaceSwitchLifecycleActive &&
+                    typeof MotionController !== "undefined" && MotionController &&
+                    MotionController.endLifecycleTransition) {
+                MotionController.endLifecycleTransition("workspace.switch")
+                root.workspaceSwitchLifecycleActive = false
+            }
+        }
+    }
+
     Connections {
         target: (typeof WindowingBackend !== "undefined") ? WindowingBackend : null
         function onConnectedChanged() {
@@ -520,14 +634,26 @@ Item {
         }
     }
 
+    Connections {
+        target: (typeof DesktopSettings !== "undefined") ? DesktopSettings : null
+        function onSettingChanged(path) {
+            var p = String(path || "")
+            if (p === "dock.hideMode" || p === "dock.hideDurationMs" || p === "dock.autoHideEnabled") {
+                root.syncDockHidePrefs()
+            } else if (p === "notifications.bubbleDurationMs") {
+                root.syncNotificationPrefs()
+            }
+        }
+    }
+
     function syncDockHidePrefs() {
         var mode = "duration_hide"
         var duration = 450
-        if (typeof UIPreferences !== "undefined" && UIPreferences && UIPreferences.getPreference) {
-            var legacyAuto = !!UIPreferences.getPreference("dock.autoHideEnabled", false)
-            mode = String(UIPreferences.getPreference("dock.hideMode",
-                                                      legacyAuto ? "duration_hide" : "no_hide"))
-            duration = Number(UIPreferences.getPreference("dock.hideDurationMs", 450))
+        if (typeof DesktopSettings !== "undefined" && DesktopSettings && DesktopSettings.settingValue) {
+            var legacyAuto = !!DesktopSettings.settingValue("dock.autoHideEnabled", false)
+            mode = String(DesktopSettings.settingValue("dock.hideMode",
+                                                       legacyAuto ? "duration_hide" : "no_hide"))
+            duration = Number(DesktopSettings.settingValue("dock.hideDurationMs", 450))
         }
         mode = mode.trim().toLowerCase()
         if (mode === "snart_hide") {
@@ -544,6 +670,20 @@ Item {
         root.dockHideDurationMs = duration
         pushDockModeToCompositor()
         refreshDockSmartOcclusion()
+    }
+
+    function syncNotificationPrefs() {
+        if (!(typeof NotificationManager !== "undefined" && NotificationManager && NotificationManager.setBubbleDurationMs)) {
+            return
+        }
+        var duration = 5000
+        if (typeof DesktopSettings !== "undefined" && DesktopSettings && DesktopSettings.settingValue) {
+            duration = Number(DesktopSettings.settingValue("notifications.bubbleDurationMs", 5000))
+        }
+        if (isNaN(duration)) {
+            duration = 5000
+        }
+        NotificationManager.setBubbleDurationMs(duration)
     }
 
     function pushDockModeToCompositor() {
@@ -600,6 +740,153 @@ Item {
         }
     }
 
+    function syncWorkspaceLifecycleState() {
+        if (typeof MotionController === "undefined" || !MotionController ||
+                !MotionController.beginLifecycleTransition || !MotionController.endLifecycleTransition) {
+            return
+        }
+        var shouldBeActive = !!root.workspaceVisible || !!root.workspaceSwipeActive || !!root.workspaceSwipeSettling
+        if (shouldBeActive && !root.workspaceLifecycleActive) {
+            MotionController.beginLifecycleTransition("workspace.overview", MotionController.MediumPriority)
+            root.workspaceLifecycleActive = true
+        } else if (!shouldBeActive && root.workspaceLifecycleActive) {
+            MotionController.endLifecycleTransition("workspace.overview")
+            root.workspaceLifecycleActive = false
+        }
+    }
+
+    function processCompositorLifecycleEvent(payload) {
+        if (!payload || typeof MotionController === "undefined" || !MotionController) {
+            return
+        }
+        if (!MotionController.beginLifecycleTransition || !MotionController.endLifecycleTransition) {
+            return
+        }
+        var eventName = String(payload.event || payload.eventName || payload.type || payload.action || "")
+        eventName = eventName.toLowerCase().replace(/_/g, "-")
+        if (eventName.length <= 0) {
+            return
+        }
+        var focusMatch = (eventName === "window-focused" ||
+                          eventName === "window-unfocused" ||
+                          eventName === "window-activated" ||
+                          eventName === "window-deactivated" ||
+                          eventName === "focus-changed")
+        if (focusMatch) {
+            var focusKey = "window-focus:" + eventName + ":" + String(payload.viewId || payload.windowId || "")
+            if (MotionController.shouldCoalesceEvent && MotionController.shouldCoalesceEvent(focusKey, 90)) {
+                return
+            }
+            MotionController.beginLifecycleTransition("window.focus", MotionController.LowPriority)
+            root.windowFocusLifecycleActive = true
+            windowFocusLifecycleReleaseTimer.restart()
+            return
+        }
+        var lifecycleMatch = (eventName === "window-created" ||
+                              eventName === "window-opened" ||
+                              eventName === "window-shown" ||
+                              eventName === "window-closing" ||
+                              eventName === "window-closed" ||
+                              eventName === "window-minimized" ||
+                              eventName === "window-unminimized")
+        if (!lifecycleMatch) {
+            return
+        }
+        var viewId = String(payload.viewId || payload.viewid || payload.windowId || payload.windowid || "")
+        var coalesceKey = "window-lifecycle:" + eventName + ":" + viewId
+        if (MotionController.shouldCoalesceEvent && MotionController.shouldCoalesceEvent(coalesceKey, 120)) {
+            return
+        }
+        root.applyWindowLifecycleProfile(eventName)
+        MotionController.beginLifecycleTransition("window.lifecycle", MotionController.HighPriority)
+        root.windowLifecycleActive = true
+        windowLifecycleReleaseTimer.restart()
+
+        // Dock visual feedback: bounce the matching icon on open/minimize.
+        var appId = String(payload.appId || payload.app_id || payload.appid || "")
+        if (appId.length > 0 && root.dockItem && root.dockItem.notifyWindowLifecycle) {
+            root.dockItem.notifyWindowLifecycle(eventName, appId)
+        }
+    }
+
+    function windowLifecycleProfileForEvent(eventName) {
+        var event = String(eventName || "").toLowerCase()
+        if (event === "window-minimized") {
+            // Minimize: quick settle (no genie-like distortion).
+            return {
+                "channel": "window.minimize",
+                "preset": "snappy",
+                "releaseMs": Theme.durationFast
+            }
+        }
+        if (event === "window-closing" || event === "window-closed") {
+            // Close: fast decay with crisp response.
+            return {
+                "channel": "window.close",
+                "preset": "snappy",
+                "releaseMs": Theme.durationFast
+            }
+        }
+        if (event === "window-created" || event === "window-opened" ||
+                event === "window-shown" || event === "window-unminimized") {
+            // Open/restore: smooth scale+fade style profile.
+            return {
+                "channel": "window.open",
+                "preset": "smooth",
+                "releaseMs": Theme.durationNormal
+            }
+        }
+        return {
+            "channel": "window.lifecycle",
+            "preset": "smooth",
+            "releaseMs": Theme.durationNormal
+        }
+    }
+
+    function applyWindowLifecycleProfile(eventName) {
+        if (typeof MotionController === "undefined" || !MotionController) {
+            return
+        }
+        var profile = root.windowLifecycleProfileForEvent(eventName)
+        var nextChannel = String(profile.channel || "window.lifecycle")
+        var nextPreset = String(profile.preset || "smooth")
+        var releaseMs = Number(profile.releaseMs || Theme.durationNormal)
+        if (isNaN(releaseMs) || releaseMs < 1) {
+            releaseMs = Theme.durationNormal
+        }
+        root.windowLifecycleReleaseMs = Math.max(1, Math.round(releaseMs))
+        if (!root.windowLifecycleProfilePinned) {
+            root.windowLifecyclePrevChannel = String(MotionController.channel || "")
+            root.windowLifecyclePrevPreset = String(MotionController.preset || "")
+            root.windowLifecycleProfilePinned = true
+        }
+        if (MotionController.channel !== nextChannel) {
+            MotionController.channel = nextChannel
+        }
+        if (MotionController.preset !== nextPreset) {
+            MotionController.preset = nextPreset
+        }
+    }
+
+    function releaseWindowLifecycleProfile() {
+        if (!root.windowLifecycleProfilePinned ||
+                typeof MotionController === "undefined" || !MotionController) {
+            return
+        }
+        if (root.windowLifecyclePrevChannel.length > 0 &&
+                MotionController.channel !== root.windowLifecyclePrevChannel) {
+            MotionController.channel = root.windowLifecyclePrevChannel
+        }
+        if (root.windowLifecyclePrevPreset.length > 0 &&
+                MotionController.preset !== root.windowLifecyclePrevPreset) {
+            MotionController.preset = root.windowLifecyclePrevPreset
+        }
+        root.windowLifecycleProfilePinned = false
+        root.windowLifecyclePrevChannel = ""
+        root.windowLifecyclePrevPreset = ""
+        root.windowLifecycleReleaseMs = Theme.durationNormal
+    }
+
 
     function showSpaceSwitchHud(nextSpace, prevSpace) {
         var next = Number(nextSpace || 1)
@@ -627,6 +914,15 @@ Item {
             if (WindowingBackend.sendCommand("launchpad " + (root.launchpadVisible ? "on" : "off"))) {
                 root.lastPushedLaunchpadState = state
             }
+        }
+    }
+
+    function setLaunchpadVisible(visible) {
+        var v = !!visible
+        if (ShellStateController && ShellStateController.setLaunchpadVisible) {
+            ShellStateController.setLaunchpadVisible(v)
+        } else {
+            root._launchpadVisibleLocal = v
         }
     }
 
@@ -902,6 +1198,16 @@ Item {
             if (typeof WorkspaceManager !== "undefined" && WorkspaceManager &&
                     WorkspaceManager.MoveFocusedWindowByDelta) {
                 WorkspaceManager.MoveFocusedWindowByDelta(1)
+            }
+        }
+    }
+
+    Shortcut {
+        sequence: "Meta+N"
+        onActivated: {
+            if (typeof NotificationManager !== "undefined" && NotificationManager &&
+                    NotificationManager.toggleCenter) {
+                NotificationManager.toggleCenter()
             }
         }
     }

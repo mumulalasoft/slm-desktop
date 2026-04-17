@@ -1,0 +1,16 @@
+[Unit]
+Description=SLM Recovery Daemon
+After=graphical-session.target dbus.service
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+Environment=SLM_RECOVERY_BOOTLOADER_HELPER=/usr/local/libexec/slm/recovery/request-bootloader-recovery.sh
+Environment=SLM_RECOVERY_BOOT_ENTRY=auto
+Environment=SLM_RECOVERY_BOOT_ENTRY_HINT=recovery
+ExecStart=/usr/local/bin/slm-recoveryd
+Restart=on-failure
+RestartSec=1
+
+[Install]
+WantedBy=graphical-session.target

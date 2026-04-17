@@ -7,8 +7,9 @@
 #include <QVariantMap>
 
 class AppExecutionGate;
-class UIPreferences;
 class ScreenshotManager;
+class WorkspaceManager;
+class WindowingBackendManager;
 
 class AppCommandRouter : public QObject {
     Q_OBJECT
@@ -18,8 +19,10 @@ class AppCommandRouter : public QObject {
     Q_PROPERTY(QString lastError READ lastError NOTIFY recentEventsChanged)
 public:
     explicit AppCommandRouter(AppExecutionGate *gate,
-                              UIPreferences *uiPreferences = nullptr,
                               ScreenshotManager *screenshotManager = nullptr,
+                              QObject *desktopSettings = nullptr,
+                              WorkspaceManager *workspaceManager = nullptr,
+                              WindowingBackendManager *windowingBackend = nullptr,
                               QObject *parent = nullptr);
 
     Q_INVOKABLE bool route(const QString &action, const QVariantMap &payload = QVariantMap(),
@@ -37,6 +40,7 @@ public:
     Q_INVOKABLE QVariantList recentEvents() const;
     Q_INVOKABLE QVariantList recentFailures(int maxItems = 20) const;
     Q_INVOKABLE QVariantMap actionStats() const;
+    Q_INVOKABLE QVariantMap globalMenuStats() const;
     Q_INVOKABLE QVariantMap diagnosticSnapshot() const;
     Q_INVOKABLE QString diagnosticsJson(bool pretty = false) const;
     Q_INVOKABLE void clearRecentEvents();
@@ -52,7 +56,9 @@ signals:
 
 private:
     void recordEvent(const QString &action, const QString &source, bool success,
-                     const QString &detail = QString());
+                     const QString &detail = QString(),
+                     qint64 durationMs = 0,
+                     const QVariantMap &payload = QVariantMap());
     bool verboseLoggingEnabled() const;
 
     struct RouterEvent {
@@ -61,10 +67,16 @@ private:
         bool success = false;
         QString detail;
         qint64 epochMs = 0;
+        qint64 durationMs = 0;
+        int menuId = -1;
+        int itemId = -1;
+        QString telemetryCategory;
     };
 
     AppExecutionGate *m_gate = nullptr;
-    UIPreferences *m_uiPreferences = nullptr;
+    QObject *m_desktopSettings = nullptr;
     ScreenshotManager *m_screenshotManager = nullptr;
+    WorkspaceManager *m_workspaceManager = nullptr;
+    WindowingBackendManager *m_windowingBackend = nullptr;
     QVector<RouterEvent> m_recentEvents;
 };

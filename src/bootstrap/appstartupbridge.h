@@ -12,6 +12,8 @@ class NotificationManager;
 class BatteryManager;
 class ExternalIndicatorRegistry;
 class GlobalMenuManager;
+class GlobalMenuAdaptiveController;
+class GlobalMenuSuspendBridge;
 class StatusNotifierHost;
 class ScreencastPrivacyModel;
 class InputCapturePrivacyModel;
@@ -23,7 +25,6 @@ class AppExecutionGate;
 class AppCommandRouter;
 class CursorController;
 class ThemeIconController;
-class UIPreferences;
 class WindowingBackendManager;
 class WorkspaceManager;
 class WorkspaceStripModel;
@@ -48,6 +49,13 @@ class ClipboardServiceClient;
 namespace Slm::Motion {
 class MotionController;
 }
+class ShellStateController;
+class ShellInputRouter;
+class ShellLayerWatchdog;
+class PowerBridge;
+namespace Slm::ContextMenu {
+class ContextMenuService;
+}
 
 namespace AppStartupBridge {
 void registerTopBarIndicatorContext(QQmlContext *context,
@@ -59,6 +67,8 @@ void registerTopBarIndicatorContext(QQmlContext *context,
                                     BatteryManager *batteryManager,
                                     ExternalIndicatorRegistry *externalIndicatorRegistry,
                                     GlobalMenuManager *globalMenuManager,
+                                    GlobalMenuAdaptiveController *globalMenuAdaptiveController,
+                                    GlobalMenuSuspendBridge *globalMenuSuspendBridge,
                                     StatusNotifierHost *statusNotifierHost,
                                     ScreencastPrivacyModel *screencastPrivacyModel,
                                     InputCapturePrivacyModel *inputCapturePrivacyModel);
@@ -72,7 +82,7 @@ void registerCoreContext(QQmlContext *context,
                          AppCommandRouter *appCommandRouter,
                          CursorController *cursorController,
                          ThemeIconController *themeIconController,
-                         UIPreferences *uiPreferences,
+                         QObject *desktopSettings,
                          WindowingBackendManager *windowingBackendManager,
                          WorkspaceManager *workspaceManager,
                          WorkspaceStripModel *workspaceStripModel,
@@ -92,7 +102,12 @@ void registerCoreContext(QQmlContext *context,
                          TothespotTextHighlighter *tothespotTextHighlighter,
                          MetadataIndexServer *metadataIndexServer,
                          Slm::Clipboard::ClipboardServiceClient *clipboardServiceClient,
-                         Slm::Motion::MotionController *motionController);
+                         Slm::Motion::MotionController *motionController,
+                         ShellStateController *shellStateController,
+                         ShellInputRouter *shellInputRouter,
+                         ShellLayerWatchdog *shellLayerWatchdog,
+                         PowerBridge *powerBridge,
+                         Slm::ContextMenu::ContextMenuService *contextMenuService);
 
 void setStartupWindowContext(QQmlContext *context,
                              bool appStartWindowed,

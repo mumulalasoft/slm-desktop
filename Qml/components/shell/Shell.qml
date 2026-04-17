@@ -1,17 +1,39 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import Slm_Desktop
+import SlmStyle as DSStyle
+import "../contextmenu" as ContextMenuComp
 
 Item {
     id: root
+    readonly property bool startupTraceEnabled: (typeof StartupTraceEnabled !== "undefined") ? !!StartupTraceEnabled : false
+    property real _startupT0: 0
+    property bool shortcutsBootstrapped: false
 
-    property string wallpaperSource: "qrc:/images/wallpaper.jpeg"
+    property string wallpaperSource: {
+        if (typeof DesktopSettings !== "undefined" && DesktopSettings) {
+            const uri = String(DesktopSettings.wallpaperUri || "")
+            if (uri.length > 0)
+                return uri
+        }
+        return "qrc:/images/wallpaper.jpeg"
+    }
     property var shortcutsModel: (typeof ShortcutModel !== "undefined") ? ShortcutModel : null
     property bool inputEnabled: true
     property bool contextMenuOnly: false
     property real dockTopY: -1
     property int maxShortcuts: 24
-    property int totalSlots: Math.max(modelCount(), gridColumns() * visibleRows())
+    property int startupSlotCap: 8
+    property bool startupSlotsExpanded: false
+    // Keep startup instantiation bounded. Building full-screen empty slot delegates
+    // (often >100) is expensive and blocks the first shell completion path.
+    property int totalSlots: {
+        var viewportSlots = gridColumns() * visibleRows()
+        var slotBudget = startupSlotsExpanded
+                ? maxShortcuts
+                : Math.min(startupSlotCap, maxShortcuts)
+        return Math.max(modelCount(), Math.min(slotBudget, viewportSlots))
+    }
     property int cellWidth: 104
     property int cellHeight: 122
     property int tileWidth: 96
@@ -55,6 +77,25 @@ Item {
     signal dockDropCommit(string desktopFile, real globalX, string iconPath)
     signal dockDropClear()
     signal shellContextMenuRequested(real x, real y)
+
+    function startupQmlMark(phase, detail) {
+        var now = Date.now()
+        if (phase === "shell.onCompleted.begin" && _startupT0 <= 0) {
+            _startupT0 = now
+        }
+        if (!startupTraceEnabled)
+            return
+        var elapsed = (_startupT0 > 0) ? (now - _startupT0) : -1
+        var text = "[startup-qml] phase=" + String(phase || "")
+        if (detail !== undefined && detail !== null && String(detail).length > 0) {
+            text += " detail=" + String(detail)
+        }
+        if (elapsed >= 0) {
+            text += " elapsed=" + elapsed + "ms"
+        }
+        text += " t=" + now
+        console.warn(text)
+    }
 
     function isSelected(modelIndex) {
         if (modelIndex === undefined || modelIndex < 0) {
@@ -470,8 +511,20 @@ Item {
         }
     }
 
+    function syncThemePreferences() {
+        if (typeof DesktopSettings === "undefined" || !DesktopSettings) {
+            return
+        }
+        Theme.applyModeString(DesktopSettings.themeMode)
+        Theme.userAccentColor = DesktopSettings.accentColor
+        Theme.userFontScale = DesktopSettings.fontScale
+        DSStyle.Theme.applyModeString(DesktopSettings.themeMode)
+        DSStyle.Theme.userAccentColor = DesktopSettings.accentColor
+        DSStyle.Theme.userFontScale = DesktopSettings.fontScale
+    }
+
     onVisibleChanged: {
-        if (visible) {
+        if (visible && shortcutsBootstrapped) {
             refreshShortcuts()
         }
     }
@@ -481,9 +534,40 @@ Item {
     onTotalSlotsChanged: rebuildSlots()
 
     Component.onCompleted: {
-        refreshShortcuts()
+        startupQmlMark("shell.onCompleted.begin")
         loadPersistedSlotMap()
         rebuildSlots()
+        syncThemePreferences()
+        Qt.callLater(function() {
+            startupQmlMark("shell.deferredShortcuts.begin")
+            refreshShortcuts()
+            shortcutsBootstrapped = true
+            startupQmlMark("shell.deferredShortcuts.end",
+                           "count=" + String(modelCount()))
+        })
+        startupSlotExpandTimer.restart()
+        startupQmlMark("shell.onCompleted.end")
+    }
+
+    Timer {
+        id: startupSlotExpandTimer
+        interval: 350
+        repeat: false
+        onTriggered: {
+            if (!root.startupSlotsExpanded) {
+                root.startupSlotsExpanded = true
+                root.startupQmlMark("shell.startupSlots.expanded",
+                                    "budget=" + String(root.maxShortcuts))
+            }
+        }
+    }
+
+    Connections {
+        target: (typeof DesktopSettings !== "undefined") ? DesktopSettings : null
+        function onThemeModeChanged() { root.syncThemePreferences() }
+        function onAccentColorChanged() { root.syncThemePreferences() }
+        function onFontScaleChanged() { root.syncThemePreferences() }
+        function onHighContrastChanged() { root.syncThemePreferences() }
     }
 
     Connections {
@@ -500,6 +584,49 @@ Item {
     DesktopBackground {
         anchors.fill: parent
         imageSource: root.wallpaperSource
+    }
+
+    ContextMenuComp.DesktopContextMenu {
+        id: desktopCtxMenu
+        anchors.fill: parent
+        desktopPath: {
+            if (typeof DesktopSettings !== "undefined" && DesktopSettings
+                    && DesktopSettings.desktopPath)
+                return DesktopSettings.desktopPath
+            return ""
+        }
+
+        onNewFolder: {
+            if (typeof FileManagerApi !== "undefined" && FileManagerApi
+                    && FileManagerApi.createFolder)
+                FileManagerApi.createFolder(desktopPath, "")
+        }
+        onNewTextFile: {
+            if (typeof FileManagerApi !== "undefined" && FileManagerApi
+                    && FileManagerApi.createFile)
+                FileManagerApi.createFile(desktopPath, "New File.txt")
+        }
+        onPaste: {
+            if (typeof FileManagerApi !== "undefined" && FileManagerApi
+                    && FileManagerApi.pasteClipboard)
+                FileManagerApi.pasteClipboard(desktopPath)
+        }
+        onChangeWallpaper: {
+            if (typeof AppCommandRouter !== "undefined" && AppCommandRouter)
+                AppCommandRouter.route("settings.open", {"page": "appearance"}, "desktop-ctx")
+        }
+        onOpenAppearance: {
+            if (typeof AppCommandRouter !== "undefined" && AppCommandRouter)
+                AppCommandRouter.route("settings.open", {"page": "appearance"}, "desktop-ctx")
+        }
+        onOpenSettings: {
+            if (typeof AppCommandRouter !== "undefined" && AppCommandRouter)
+                AppCommandRouter.route("settings.open", {}, "desktop-ctx")
+        }
+        onOpenTerminal: {
+            if (typeof AppExecutionGate !== "undefined" && AppExecutionGate)
+                AppExecutionGate.launchTerminalAt(desktopPath)
+        }
     }
 
     Flickable {

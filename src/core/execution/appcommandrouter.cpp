@@ -1,21 +1,73 @@
 #include "appcommandrouter.h"
 
 #include "appexecutiongate.h"
+#include "../workspace/workspacemanager.h"
+#include "../workspace/windowingbackendmanager.h"
 #include "../../../screenshotmanager.h"
-#include "../prefs/uipreferences.h"
 
 #include <QDebug>
+#include <QDBusInterface>
+#include <QDBusReply>
+#include <QElapsedTimer>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QtGlobal>
+
+namespace {
+bool parseGlobalMenuMeta(const QVariantMap &payload, const QString &source, int &menuIdOut, int &itemIdOut)
+{
+    menuIdOut = payload.value(QStringLiteral("__menuId"), -1).toInt();
+    itemIdOut = payload.value(QStringLiteral("__itemId"), -1).toInt();
+    if (menuIdOut >= 0 || itemIdOut >= 0) {
+        return true;
+    }
+
+    if (!source.startsWith(QStringLiteral("global-menu"))) {
+        return false;
+    }
+
+    QString suffix = source.mid(QStringLiteral("global-menu").size());
+    if (suffix.startsWith(QLatin1Char(':'))) {
+        suffix.remove(0, 1);
+    }
+    if (suffix.isEmpty()) {
+        return false;
+    }
+
+    const QStringList parts = suffix.split(QLatin1Char(':'), Qt::SkipEmptyParts);
+    if (parts.size() >= 1) {
+        menuIdOut = parts.at(0).toInt();
+    }
+    if (parts.size() >= 2) {
+        itemIdOut = parts.at(1).toInt();
+    }
+    return menuIdOut >= 0 || itemIdOut >= 0;
+}
+
+QString globalMenuTelemetryCategory(int menuId, int itemId)
+{
+    if (menuId >= 0 && itemId >= 0) {
+        return QStringLiteral("menu:%1:%2").arg(menuId).arg(itemId);
+    }
+    if (menuId >= 0) {
+        return QStringLiteral("menu:%1").arg(menuId);
+    }
+    return QString();
+}
+} // namespace
 
 AppCommandRouter::AppCommandRouter(AppExecutionGate *gate,
-                                   UIPreferences *uiPreferences,
                                    ScreenshotManager *screenshotManager,
+                                   QObject *desktopSettings,
+                                   WorkspaceManager *workspaceManager,
+                                   WindowingBackendManager *windowingBackend,
                                    QObject *parent)
     : QObject(parent)
     , m_gate(gate)
-    , m_uiPreferences(uiPreferences)
+    , m_desktopSettings(desktopSettings)
     , m_screenshotManager(screenshotManager)
+    , m_workspaceManager(workspaceManager)
+    , m_windowingBackend(windowingBackend)
 {
 }
 
@@ -27,6 +79,13 @@ QStringList AppCommandRouter::supportedActions() const
         QStringLiteral("app.desktopid"),
         QStringLiteral("app.entry"),
         QStringLiteral("app.desktopentry"),
+        QStringLiteral("workspace.presentview"),
+        QStringLiteral("workspace.toggle"),
+        QStringLiteral("workspace.split_left"),
+        QStringLiteral("workspace.split_right"),
+        QStringLiteral("workspace.pin_current"),
+        QStringLiteral("storage.mount"),
+        QStringLiteral("storage.unmount"),
         QStringLiteral("screenshot.fullscreen"),
         QStringLiteral("screenshot.window"),
         QStringLiteral("screenshot.area"),
@@ -47,21 +106,35 @@ bool AppCommandRouter::route(const QString &action, const QVariantMap &payload, 
 QVariantMap AppCommandRouter::routeWithResult(const QString &action, const QVariantMap &payload,
                                               const QString &source)
 {
+    QElapsedTimer timer;
+    timer.start();
     QVariantMap result;
     const QString op = action.trimmed().toLower();
     result.insert(QStringLiteral("action"), op);
     result.insert(QStringLiteral("source"), source);
     result.insert(QStringLiteral("ok"), false);
     result.insert(QStringLiteral("error"), QString());
+    int globalMenuId = -1;
+    int globalMenuItemId = -1;
+    if (parseGlobalMenuMeta(payload, source, globalMenuId, globalMenuItemId)) {
+        if (globalMenuId >= 0) {
+            result.insert(QStringLiteral("menuId"), globalMenuId);
+        }
+        if (globalMenuItemId >= 0) {
+            result.insert(QStringLiteral("itemId"), globalMenuItemId);
+        }
+    }
     const bool knownAction = isSupportedAction(op);
     if (!knownAction) {
         if (verboseLoggingEnabled()) {
             qWarning().noquote() << "AppCommandRouter.route: unknown action=" << op
                                  << "source=" << source;
         }
-        recordEvent(op, source, false, QStringLiteral("unknown-action"));
+        const qint64 durationMs = timer.elapsed();
+        recordEvent(op, source, false, QStringLiteral("unknown-action"), durationMs, payload);
         emit routed(op, source, false);
         result.insert(QStringLiteral("error"), QStringLiteral("unknown-action"));
+        result.insert(QStringLiteral("durationMs"), durationMs);
         emit routedDetailed(result);
         return result;
     }
@@ -87,6 +160,16 @@ QVariantMap AppCommandRouter::routeWithResult(const QString &action, const QVari
         const QString executable = payload.value(QStringLiteral("executable")).toString().trimmed();
         if (desktopFile.isEmpty() && executable.isEmpty()) {
             detail = QStringLiteral("missing-desktopfile-and-executable");
+        }
+    } else if (op == QStringLiteral("workspace.presentview")) {
+        const QString viewId = payload.value(QStringLiteral("viewId")).toString().trimmed();
+        if (viewId.isEmpty()) {
+            detail = QStringLiteral("missing-viewid");
+        }
+    } else if (op == QStringLiteral("storage.mount") || op == QStringLiteral("storage.unmount")) {
+        const QString devicePath = payload.value(QStringLiteral("devicePath")).toString().trimmed();
+        if (devicePath.isEmpty()) {
+            detail = QStringLiteral("missing-device-path");
         }
     } else if (op == QStringLiteral("screenshot.window")) {
         const int width = payload.value(QStringLiteral("width")).toInt();
@@ -114,17 +197,21 @@ QVariantMap AppCommandRouter::routeWithResult(const QString &action, const QVari
                               << "ok=" << false
                               << "detail=" << detail;
         }
-        recordEvent(op, source, false, detail);
+        const qint64 durationMs = timer.elapsed();
+        recordEvent(op, source, false, detail, durationMs, payload);
         emit routed(op, source, false);
         result.insert(QStringLiteral("error"), detail);
+        result.insert(QStringLiteral("durationMs"), durationMs);
         emit routedDetailed(result);
         return result;
     }
 
     if (op.startsWith(QStringLiteral("screenshot.")) && m_screenshotManager == nullptr) {
-        recordEvent(op, source, false, QStringLiteral("screenshot-manager-unavailable"));
+        const qint64 durationMs = timer.elapsed();
+        recordEvent(op, source, false, QStringLiteral("screenshot-manager-unavailable"), durationMs, payload);
         emit routed(op, source, false);
         result.insert(QStringLiteral("error"), QStringLiteral("screenshot-manager-unavailable"));
+        result.insert(QStringLiteral("durationMs"), durationMs);
         emit routedDetailed(result);
         return result;
     }
@@ -132,10 +219,19 @@ QVariantMap AppCommandRouter::routeWithResult(const QString &action, const QVari
     if (!m_gate &&
         op != QStringLiteral("screenshot.fullscreen") &&
         op != QStringLiteral("screenshot.window") &&
-        op != QStringLiteral("screenshot.area")) {
-        recordEvent(op, source, false, QStringLiteral("gate-unavailable"));
+        op != QStringLiteral("screenshot.area") &&
+        op != QStringLiteral("workspace.presentview") &&
+        op != QStringLiteral("workspace.toggle") &&
+        op != QStringLiteral("workspace.split_left") &&
+        op != QStringLiteral("workspace.split_right") &&
+        op != QStringLiteral("workspace.pin_current") &&
+        op != QStringLiteral("storage.mount") &&
+        op != QStringLiteral("storage.unmount")) {
+        const qint64 durationMs = timer.elapsed();
+        recordEvent(op, source, false, QStringLiteral("gate-unavailable"), durationMs, payload);
         emit routed(op, source, false);
         result.insert(QStringLiteral("error"), QStringLiteral("gate-unavailable"));
+        result.insert(QStringLiteral("durationMs"), durationMs);
         emit routedDetailed(result);
         return result;
     }
@@ -157,6 +253,73 @@ QVariantMap AppCommandRouter::routeWithResult(const QString &action, const QVari
                                         payload.value(QStringLiteral("iconName")).toString(),
                                         payload.value(QStringLiteral("iconSource")).toString(),
                                         source);
+    } else if (op == QStringLiteral("workspace.presentview")) {
+        if (m_workspaceManager && m_workspaceManager->PresentView(
+                    payload.value(QStringLiteral("viewId")).toString().trimmed())) {
+            ok = true;
+        } else {
+            detail = QStringLiteral("workspace-manager-unavailable");
+        }
+    } else if (op == QStringLiteral("workspace.toggle")) {
+        if (m_workspaceManager) {
+            m_workspaceManager->ToggleWorkspace();
+            ok = true;
+        } else if (m_windowingBackend) {
+            ok = m_windowingBackend->sendCommand(QStringLiteral("workspace toggle"))
+                 || m_windowingBackend->sendCommand(QStringLiteral("overview toggle"));
+            if (!ok) {
+                detail = QStringLiteral("workspace-command-failed");
+            }
+        } else {
+            detail = QStringLiteral("workspace-manager-unavailable");
+        }
+    } else if (op == QStringLiteral("workspace.split_left")
+               || op == QStringLiteral("workspace.split_right")
+               || op == QStringLiteral("workspace.pin_current")) {
+        if (!m_windowingBackend) {
+            detail = QStringLiteral("windowing-backend-unavailable");
+        } else {
+            QString command;
+            if (op == QStringLiteral("workspace.split_left")) {
+                command = QStringLiteral("workspace split-left");
+            } else if (op == QStringLiteral("workspace.split_right")) {
+                command = QStringLiteral("workspace split-right");
+            } else {
+                command = QStringLiteral("workspace pin-current");
+            }
+            ok = m_windowingBackend->sendCommand(command);
+            if (!ok) {
+                detail = QStringLiteral("workspace-command-failed");
+            }
+        }
+    } else if (op == QStringLiteral("storage.mount")
+               || op == QStringLiteral("storage.unmount")) {
+        static const QString service = QStringLiteral("org.slm.Desktop.Storage");
+        static const QString path = QStringLiteral("/org/slm/Desktop/Storage");
+        static const QString ifaceName = QStringLiteral("org.slm.Desktop.Storage");
+        QDBusInterface storageIface(service, path, ifaceName, QDBusConnection::sessionBus());
+        if (!storageIface.isValid()) {
+            detail = QStringLiteral("storage-service-unavailable");
+        } else {
+            const QString dev = payload.value(QStringLiteral("devicePath")).toString().trimmed();
+            const QString method = (op == QStringLiteral("storage.mount"))
+                                       ? QStringLiteral("Mount")
+                                       : QStringLiteral("Eject");
+            QDBusReply<QVariantMap> reply = storageIface.call(method, dev);
+            if (!reply.isValid()) {
+                detail = QStringLiteral("storage-dbus-error");
+            } else {
+                const QVariantMap map = reply.value();
+                ok = map.value(QStringLiteral("ok")).toBool();
+                if (!ok) {
+                    detail = map.value(QStringLiteral("error")).toString().trimmed();
+                    if (detail.isEmpty()) {
+                        detail = QStringLiteral("storage-action-failed");
+                    }
+                }
+                result.insert(QStringLiteral("payload"), map);
+            }
+        }
     } else if (op == QStringLiteral("screenshot.fullscreen")) {
         const QVariantMap shot = m_screenshotManager->captureFullscreen(
             payload.value(QStringLiteral("outputPath")).toString());
@@ -210,10 +373,12 @@ QVariantMap AppCommandRouter::routeWithResult(const QString &action, const QVari
                           << "ok=" << ok
                           << "detail=" << detail;
     }
-    recordEvent(op, source, ok, detail);
+    const qint64 durationMs = timer.elapsed();
+    recordEvent(op, source, ok, detail, durationMs, payload);
     emit routed(op, source, ok);
     result.insert(QStringLiteral("ok"), ok);
     result.insert(QStringLiteral("error"), detail);
+    result.insert(QStringLiteral("durationMs"), durationMs);
     emit routedDetailed(result);
     return result;
 }
@@ -241,7 +406,17 @@ bool AppCommandRouter::execFromTerminal(const QString &command, const QString &w
 
 bool AppCommandRouter::verboseLoggingEnabled() const
 {
-    return m_uiPreferences ? m_uiPreferences->verboseLogging() : false;
+    if (m_desktopSettings) {
+        QVariant v;
+        const bool okInvoke = QMetaObject::invokeMethod(m_desktopSettings, "settingValue",
+                                                         Q_RETURN_ARG(QVariant, v),
+                                                         Q_ARG(QString, QStringLiteral("debug.verboseLogging")),
+                                                         Q_ARG(QVariant, false));
+        if (okInvoke) {
+            return v.toBool();
+        }
+    }
+    return false;
 }
 
 QVariantList AppCommandRouter::recentEvents() const
@@ -255,6 +430,16 @@ QVariantList AppCommandRouter::recentEvents() const
         row.insert(QStringLiteral("success"), e.success);
         row.insert(QStringLiteral("detail"), e.detail);
         row.insert(QStringLiteral("epochMs"), e.epochMs);
+        row.insert(QStringLiteral("durationMs"), e.durationMs);
+        if (e.menuId >= 0) {
+            row.insert(QStringLiteral("menuId"), e.menuId);
+        }
+        if (e.itemId >= 0) {
+            row.insert(QStringLiteral("itemId"), e.itemId);
+        }
+        if (!e.telemetryCategory.isEmpty()) {
+            row.insert(QStringLiteral("telemetryCategory"), e.telemetryCategory);
+        }
         row.insert(QStringLiteral("isoTime"),
                    QDateTime::fromMSecsSinceEpoch(e.epochMs).toString(Qt::ISODateWithMs));
         out.push_back(row);
@@ -279,6 +464,16 @@ QVariantList AppCommandRouter::recentFailures(int maxItems) const
         row.insert(QStringLiteral("success"), e.success);
         row.insert(QStringLiteral("detail"), e.detail);
         row.insert(QStringLiteral("epochMs"), e.epochMs);
+        row.insert(QStringLiteral("durationMs"), e.durationMs);
+        if (e.menuId >= 0) {
+            row.insert(QStringLiteral("menuId"), e.menuId);
+        }
+        if (e.itemId >= 0) {
+            row.insert(QStringLiteral("itemId"), e.itemId);
+        }
+        if (!e.telemetryCategory.isEmpty()) {
+            row.insert(QStringLiteral("telemetryCategory"), e.telemetryCategory);
+        }
         row.insert(QStringLiteral("isoTime"),
                    QDateTime::fromMSecsSinceEpoch(e.epochMs).toString(Qt::ISODateWithMs));
         out.push_back(row);
@@ -297,10 +492,44 @@ QVariantMap AppCommandRouter::actionStats() const
         const int total = row.value(QStringLiteral("total")).toInt() + 1;
         const int success = row.value(QStringLiteral("success")).toInt() + (e.success ? 1 : 0);
         const int failure = row.value(QStringLiteral("failure")).toInt() + (e.success ? 0 : 1);
+        const qint64 durationTotalMs = row.value(QStringLiteral("durationTotalMs")).toLongLong()
+                                       + e.durationMs;
         row.insert(QStringLiteral("total"), total);
         row.insert(QStringLiteral("success"), success);
         row.insert(QStringLiteral("failure"), failure);
+        row.insert(QStringLiteral("durationTotalMs"), durationTotalMs);
+        row.insert(QStringLiteral("durationAvgMs"),
+                   total > 0 ? (durationTotalMs / total) : 0);
         stats.insert(e.action, row);
+    }
+    return stats;
+}
+
+QVariantMap AppCommandRouter::globalMenuStats() const
+{
+    QVariantMap stats;
+    for (const RouterEvent &e : m_recentEvents) {
+        if (e.telemetryCategory.isEmpty()) {
+            continue;
+        }
+        QVariantMap row = stats.value(e.telemetryCategory).toMap();
+        const int total = row.value(QStringLiteral("total")).toInt() + 1;
+        const int success = row.value(QStringLiteral("success")).toInt() + (e.success ? 1 : 0);
+        const int failure = row.value(QStringLiteral("failure")).toInt() + (e.success ? 0 : 1);
+        const qint64 durationTotalMs = row.value(QStringLiteral("durationTotalMs")).toLongLong()
+                                       + e.durationMs;
+        row.insert(QStringLiteral("menuId"), e.menuId);
+        row.insert(QStringLiteral("itemId"), e.itemId);
+        row.insert(QStringLiteral("total"), total);
+        row.insert(QStringLiteral("success"), success);
+        row.insert(QStringLiteral("failure"), failure);
+        row.insert(QStringLiteral("durationTotalMs"), durationTotalMs);
+        row.insert(QStringLiteral("durationAvgMs"), total > 0 ? (durationTotalMs / total) : 0);
+        row.insert(QStringLiteral("lastAction"), e.action);
+        row.insert(QStringLiteral("lastSource"), e.source);
+        row.insert(QStringLiteral("lastDetail"), e.detail);
+        row.insert(QStringLiteral("lastSuccess"), e.success);
+        stats.insert(e.telemetryCategory, row);
     }
     return stats;
 }
@@ -318,6 +547,7 @@ QVariantMap AppCommandRouter::diagnosticSnapshot() const
     out.insert(QStringLiteral("lastError"), lastError());
     out.insert(QStringLiteral("lastEvent"), lastEvent());
     out.insert(QStringLiteral("actionStats"), actionStats());
+    out.insert(QStringLiteral("globalMenuStats"), globalMenuStats());
     out.insert(QStringLiteral("recentFailures"), recentFailures(10));
     return out;
 }
@@ -336,7 +566,7 @@ void AppCommandRouter::clearRecentEvents()
 }
 
 void AppCommandRouter::recordEvent(const QString &action, const QString &source, bool success,
-                                   const QString &detail)
+                                   const QString &detail, qint64 durationMs, const QVariantMap &payload)
 {
     RouterEvent e;
     e.action = action;
@@ -344,6 +574,13 @@ void AppCommandRouter::recordEvent(const QString &action, const QString &source,
     e.success = success;
     e.detail = detail;
     e.epochMs = QDateTime::currentMSecsSinceEpoch();
+    e.durationMs = qMax<qint64>(0, durationMs);
+    int menuId = -1;
+    int itemId = -1;
+    parseGlobalMenuMeta(payload, source, menuId, itemId);
+    e.menuId = menuId;
+    e.itemId = itemId;
+    e.telemetryCategory = globalMenuTelemetryCategory(menuId, itemId);
     m_recentEvents.push_back(e);
     static constexpr int kMaxRecentEvents = 120;
     if (m_recentEvents.size() > kMaxRecentEvents) {
@@ -365,6 +602,16 @@ QVariantMap AppCommandRouter::lastEvent() const
     out.insert(QStringLiteral("success"), e.success);
     out.insert(QStringLiteral("detail"), e.detail);
     out.insert(QStringLiteral("epochMs"), e.epochMs);
+    out.insert(QStringLiteral("durationMs"), e.durationMs);
+    if (e.menuId >= 0) {
+        out.insert(QStringLiteral("menuId"), e.menuId);
+    }
+    if (e.itemId >= 0) {
+        out.insert(QStringLiteral("itemId"), e.itemId);
+    }
+    if (!e.telemetryCategory.isEmpty()) {
+        out.insert(QStringLiteral("telemetryCategory"), e.telemetryCategory);
+    }
     out.insert(QStringLiteral("isoTime"),
                QDateTime::fromMSecsSinceEpoch(e.epochMs).toString(Qt::ISODateWithMs));
     return out;

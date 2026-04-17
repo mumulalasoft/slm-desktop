@@ -8,39 +8,40 @@ Item {
     anchors.fill: parent
 
     property bool active: false
-    readonly property int smoothMotionDuration: Theme.durationMd
+    readonly property int smoothMotionDuration: Theme.durationWorkspace
     property real transitionProgress: active ? 1.0 : 0.0
     property int lastAnimatedSpace: (typeof SpacesManager !== "undefined" && SpacesManager)
                                     ? Number(SpacesManager.activeSpace || 1) : 1
     property real workspaceSwitchOffset: 0
     property var activeWindows: []
     property bool dragInProgress: false
+    property string dragViewId: ""
     property real dragCenterX: -1
     property real dragCenterY: -1
     property int dragEdgeDirection: 0 // -1: left, +1: right
     property bool dragEdgeSwitchArmed: false
     property int dragEdgeDwellMs: {
-        if (typeof UIPreferences === "undefined" || !UIPreferences || !UIPreferences.getPreference) {
+        if (typeof DesktopSettings === "undefined" || !DesktopSettings || !DesktopSettings.settingValue) {
             return 350
         }
-        var v = Number(UIPreferences.getPreference("workspace.dragEdgeDwellMs", 350))
+        var v = Number(DesktopSettings.settingValue("workspace.dragEdgeDwellMs", 350))
         return Math.max(120, Math.min(1200, Math.round(v)))
     }
     property int dragEdgeRepeatMs: {
-        if (typeof UIPreferences === "undefined" || !UIPreferences || !UIPreferences.getPreference) {
+        if (typeof DesktopSettings === "undefined" || !DesktopSettings || !DesktopSettings.settingValue) {
             return 260
         }
-        var v = Number(UIPreferences.getPreference("workspace.dragEdgeRepeatMs", 260))
+        var v = Number(DesktopSettings.settingValue("workspace.dragEdgeRepeatMs", 260))
         return Math.max(80, Math.min(700, Math.round(v)))
     }
     signal dismissed()
 
     Behavior on transitionProgress {
-        NumberAnimation { duration: root.smoothMotionDuration; easing.type: Easing.InOutCubic }
+        NumberAnimation { duration: root.smoothMotionDuration; easing.type: Theme.easingStandard }
     }
 
     Behavior on workspaceSwitchOffset {
-        NumberAnimation { duration: root.smoothMotionDuration; easing.type: Easing.InOutCubic }
+        NumberAnimation { duration: root.smoothMotionDuration; easing.type: Theme.easingDecelerate }
     }
 
     function isShellWindow(appId, title) {
@@ -98,6 +99,16 @@ Item {
         var id = String(viewId || "")
         if (!id.length) {
             return
+        }
+        if (typeof AppCommandRouter !== "undefined" && AppCommandRouter
+                && AppCommandRouter.routeWithResult) {
+            var focusRes = AppCommandRouter.routeWithResult("workspace.presentview",
+                                                            { "viewId": id },
+                                                            "workspace-overview")
+            if (focusRes && focusRes.ok) {
+                root.dismissed()
+                return
+            }
         }
         if (typeof WorkspaceManager !== "undefined" && WorkspaceManager &&
                 WorkspaceManager.PresentView) {
@@ -158,8 +169,30 @@ Item {
 
     function beginWindowDrag(viewId, centerPoint) {
         dragInProgress = true
+        dragViewId = String(viewId || "")
         dragCenterX = Number(centerPoint ? centerPoint.x : -1)
         dragCenterY = Number(centerPoint ? centerPoint.y : -1)
+        if (typeof ShellStateController !== "undefined" && ShellStateController &&
+                ShellStateController.setDragSession) {
+            ShellStateController.setDragSession({
+                "source": "workspace",
+                "source_component": "workspace.overview",
+                "object_type": "window",
+                "item_id": dragViewId,
+                "mime": ["application/x-wayland-window"],
+                "capabilities": ["move_to_workspace", "activate"],
+                "allowed_operations": ["move"],
+                "preferred_action": "move",
+                "target_hints": {
+                    "edge_direction": Number(dragEdgeDirection || 0)
+                },
+                "active": true,
+                "position": {
+                    "x": dragCenterX,
+                    "y": dragCenterY
+                }
+            })
+        }
         updateDragEdgeState()
     }
 
@@ -170,10 +203,32 @@ Item {
         dragCenterX = Number(centerPoint ? centerPoint.x : dragCenterX)
         dragCenterY = Number(centerPoint ? centerPoint.y : dragCenterY)
         updateDragEdgeState()
+        if (typeof ShellStateController !== "undefined" && ShellStateController &&
+                ShellStateController.setDragSession) {
+            ShellStateController.setDragSession({
+                "source": "workspace",
+                "source_component": "workspace.overview",
+                "object_type": "window",
+                "item_id": dragViewId,
+                "mime": ["application/x-wayland-window"],
+                "capabilities": ["move_to_workspace", "activate"],
+                "allowed_operations": ["move"],
+                "preferred_action": "move",
+                "target_hints": {
+                    "edge_direction": Number(dragEdgeDirection || 0)
+                },
+                "active": true,
+                "position": {
+                    "x": dragCenterX,
+                    "y": dragCenterY
+                }
+            })
+        }
     }
 
     function endWindowDrag() {
         dragInProgress = false
+        dragViewId = ""
         dragCenterX = -1
         dragCenterY = -1
         dragEdgeDirection = 0
@@ -182,6 +237,13 @@ Item {
         autoSwitchRightDelayTimer.stop()
         autoSwitchLeftTimer.stop()
         autoSwitchRightTimer.stop()
+        if (typeof ShellStateController !== "undefined" && ShellStateController) {
+            if (ShellStateController.clearDragSession) {
+                ShellStateController.clearDragSession()
+            } else if (ShellStateController.setDragSession) {
+                ShellStateController.setDragSession({})
+            }
+        }
     }
 
     function updateDragEdgeState() {
@@ -350,7 +412,7 @@ Item {
     Rectangle {
         anchors.fill: parent
         color: Theme.color("workspaceBackdrop")
-        opacity: 0.96 * root.transitionProgress
+        opacity: Theme.opacityElevated * root.transitionProgress
     }
 
     MouseArea {

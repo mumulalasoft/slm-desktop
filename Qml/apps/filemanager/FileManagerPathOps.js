@@ -1,5 +1,9 @@
 .pragma library
 
+function listModel(root) {
+    return root.tabModel || root.tabModelRef || null
+}
+
 function openPath(root, fileManagerApi, pathValue) {
     if (!root.fileModel) {
         return
@@ -12,7 +16,7 @@ function openPath(root, fileManagerApi, pathValue) {
             return
         }
         if (!fileManagerApi || !fileManagerApi.startMountStorageDevice) {
-            root.notifyResult("Mount Storage", {
+            root.notifyResult("Open Drive", {
                                   "ok": false,
                                   "error": "mount-api-unavailable"
                               })
@@ -22,7 +26,7 @@ function openPath(root, fileManagerApi, pathValue) {
         var mountRes = fileManagerApi.startMountStorageDevice(device)
         if (!mountRes || !mountRes.ok) {
             root.pendingMountDevice = ""
-            root.notifyResult("Mount Storage", mountRes)
+            root.notifyResult("Open Drive", mountRes)
         }
         return
     }
@@ -35,7 +39,15 @@ function openPath(root, fileManagerApi, pathValue) {
     if (p === "__trash__") {
         p = root.trashFilesPath
     }
+    console.log("[fm-path] openPath input=", String(pathValue || ""), "normalized=", p,
+                "activeTab=", Number(root.activeTabIndex || 0))
+    var beforePath = String(root.fileModel.currentPath || "")
     root.fileModel.currentPath = p
+    var afterPath = String(root.fileModel.currentPath || "")
+    if (beforePath === afterPath
+            && root.fileModel.refresh) {
+        root.fileModel.refresh()
+    }
     root.selectedSidebarPath = p
     root.updateTabPath(root.activeTabIndex, p)
     root.clearSelection()
@@ -55,9 +67,10 @@ function initSingleTab(root, fileManagerModelFactory, pathValue) {
     }
     root.ownedTabModels = []
     root.tabModelRefs = []
-    if (root.tabModel) {
-        root.tabModel.clear()
-        root.tabModel.append({
+    var model = listModel(root)
+    if (model) {
+        model.clear()
+        model.append({
                                  "path": p
                              })
     }

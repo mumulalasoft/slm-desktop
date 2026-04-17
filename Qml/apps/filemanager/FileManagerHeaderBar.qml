@@ -2,7 +2,8 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import Slm_Desktop
-import Style
+import SlmStyle
+import SlmStyle as DSStyle
 
 Rectangle {
     id: root
@@ -10,6 +11,14 @@ Rectangle {
     required property var hostRoot
     property var contentViewRef: null
     readonly property var searchFieldRef: toolbarSearchField
+    readonly property int iconRevision: ((typeof ThemeIconController !== "undefined" && ThemeIconController)
+                                         ? ThemeIconController.revision : 0)
+
+    function microAnimationAllowed() {
+        if (!Theme.animationsEnabled) return false
+        if (typeof MotionController === "undefined" || !MotionController || !MotionController.allowMotionPriority) return true
+        return MotionController.allowMotionPriority(MotionController.LowPriority)
+    }
 
     function focusSearchField(selectAllText) {
         hostRoot.toolbarSearchExpanded = true
@@ -41,7 +50,7 @@ Rectangle {
 
         Rectangle {
             Layout.preferredWidth: 76
-            Layout.preferredHeight: 26
+            Layout.preferredHeight: Theme.fileManagerControlHeight
             radius: Theme.radiusWindowAlt
             color: Theme.color("fileManagerControlBg")
             border.width: Theme.borderWidthNone
@@ -65,7 +74,7 @@ Rectangle {
                         fillMode: Image.PreserveAspectFit
                         asynchronous: true
                         cache: true
-                        source: "image://themeicon/go-previous-symbolic"
+                        source: "image://themeicon/go-previous-symbolic?v=" + root.iconRevision
                     }
                     MouseArea {
                         id: prevMouse
@@ -88,7 +97,7 @@ Rectangle {
                         fillMode: Image.PreserveAspectFit
                         asynchronous: true
                         cache: true
-                        source: "image://themeicon/go-next-symbolic"
+                        source: "image://themeicon/go-next-symbolic?v=" + root.iconRevision
                         opacity: nextMouse.enabled ? 1.0 : 0.5
                     }
                     MouseArea {
@@ -102,7 +111,7 @@ Rectangle {
             }
         }
 
-        Label {
+        DSStyle.Label {
             Layout.preferredWidth: 300
             Layout.maximumWidth: 460
             text: {
@@ -140,7 +149,7 @@ Rectangle {
 
             Rectangle {
                 width: 138
-                height: 26
+                height: Theme.fileManagerControlHeight
                 radius: Theme.radiusWindowAlt
                 color: Theme.color("fileManagerControlBg")
                 border.width: Theme.borderWidthNone
@@ -182,6 +191,7 @@ Rectangle {
                                 source: "image://themeicon/" + String(
                                             modelData.iconName
                                             || "view-grid-symbolic")
+                                        + "?v=" + root.iconRevision
                             }
 
                             MouseArea {
@@ -206,14 +216,14 @@ Rectangle {
             Item {
                 id: toolbarSearch
                 width: 40
-                height: 30
+                height: Theme.fileManagerStatusBarHeight
 
                 Rectangle {
                     id: toolbarSearchPanel
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
                     width: hostRoot.toolbarSearchExpanded ? 220 : 40
-                    height: 26
+                    height: Theme.fileManagerControlHeight
                     radius: Theme.radiusWindowAlt
                     color: Theme.color("fileManagerControlBg")
                     border.width: Theme.borderWidthNone
@@ -221,9 +231,10 @@ Rectangle {
                     clip: true
                     z: 8
                     Behavior on width {
+                        enabled: root.microAnimationAllowed()
                         NumberAnimation {
-                            duration: 160
-                            easing.type: Easing.OutCubic
+                            duration: Theme.durationMd
+                            easing.type: Theme.easingDefault
                         }
                     }
 
@@ -239,10 +250,10 @@ Rectangle {
                             fillMode: Image.PreserveAspectFit
                             asynchronous: true
                             cache: true
-                            source: "image://themeicon/system-search-symbolic"
+                            source: "image://themeicon/system-search-symbolic?v=" + root.iconRevision
                         }
 
-                        TextField {
+                        DSStyle.TextField {
                             id: toolbarSearchField
                             Layout.fillWidth: true
                             visible: hostRoot.toolbarSearchExpanded
@@ -282,19 +293,19 @@ Rectangle {
             visible: hostRoot.trashView
             spacing: 8
 
-            Button {
+            DSStyle.Button {
                 text: "Restore"
                 enabled: hostRoot.selectedEntryIndex >= 0
                 onClicked: hostRoot.restoreSelectedFromTrash()
             }
 
-            Button {
+            DSStyle.Button {
                 text: "Restore All"
                 enabled: hostRoot.fileModel && Number(hostRoot.fileModel.count || 0) > 0
                 onClicked: hostRoot.restoreAllFromTrash()
             }
 
-            Button {
+            DSStyle.Button {
                 text: hostRoot.selectedEntryIndex >= 0 ? "Delete Selected" : "Empty Trash"
                 enabled: hostRoot.fileModel && Number(hostRoot.fileModel.count || 0) > 0
                 onClicked: hostRoot.deleteSelectedOrEmptyTrash()

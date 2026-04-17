@@ -3,6 +3,7 @@
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
 #include <QDBusInterface>
+#include <QDBusServiceWatcher>
 #include <QDBusReply>
 #include <QProcessEnvironment>
 
@@ -158,12 +159,12 @@ void SessionStateClient::bindSignals()
                 this,
                 SLOT(onSessionUnlocked()));
 
-    QDBusConnectionInterface *iface = bus.interface();
-    if (!iface) {
-        return;
-    }
-    connect(iface, SIGNAL(serviceOwnerChanged(QString,QString,QString)),
-            this, SLOT(onNameOwnerChanged(QString,QString,QString)));
+    auto *watcher = new QDBusServiceWatcher(QString::fromLatin1(kService),
+                                             bus,
+                                             QDBusServiceWatcher::WatchForOwnerChange,
+                                             this);
+    connect(watcher, &QDBusServiceWatcher::serviceOwnerChanged,
+            this, &SessionStateClient::onNameOwnerChanged);
 }
 
 void SessionStateClient::refreshServiceAvailability()

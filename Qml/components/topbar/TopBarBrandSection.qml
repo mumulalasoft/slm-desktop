@@ -1,165 +1,401 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import Slm_Desktop
-import Style as DSStyle
+import "../globalmenu" as GlobalMenuComp
 
 Row {
     id: root
-    spacing: 6
+    spacing: 4
+
+    readonly property int _focusRevealHitWidth: Math.max(20, Theme.metric("spacingXl") * 2)
+    width: _menuVisible ? implicitWidth : _focusRevealHitWidth
+    height: (implicitHeight > 0) ? implicitHeight : (parent ? parent.height : Theme.metric("topBarHeight"))
+
     property var fileManagerContent: null
+    property bool _focusReveal: false
 
-    function printMenuEnabled() {
-        var content = root.fileManagerContent
-        if (!content || !content.canPrintSelection) {
-            return false
+    // -1 = no category menu open; ≥0 = menuId of the open category dropdown.
+    property int menuBarOpenId: -1
+
+    readonly property string _adaptiveMode: (typeof GlobalMenuAdaptiveController !== "undefined"
+                                             && GlobalMenuAdaptiveController
+                                             && GlobalMenuAdaptiveController.mode)
+                                            ? String(GlobalMenuAdaptiveController.mode) : "full"
+    readonly property string _activeAppId: (typeof GlobalMenuManager !== "undefined"
+                                            && GlobalMenuManager
+                                            && GlobalMenuManager.activeAppId)
+                                           ? String(GlobalMenuManager.activeAppId) : ""
+    readonly property bool _hasActiveApp: _activeAppId.length > 0
+    readonly property string _effectiveAdaptiveMode: (_adaptiveMode === "focus" && !_hasActiveApp)
+                                                     ? "full" : _adaptiveMode
+    readonly property bool _resumePending: (typeof GlobalMenuSuspendBridge !== "undefined"
+                                            && GlobalMenuSuspendBridge
+                                            && GlobalMenuSuspendBridge.resumePending)
+                                           ? true : false
+
+    // ── fallback menu definitions ─────────────────────────────────────────────
+
+    function _systemFallbackMenus() {
+        return [
+            { "id": 9001, "label": "Session",  "enabled": true, "source": "fallback-system" },
+            { "id": 9002, "label": "Apps",      "enabled": true, "source": "fallback-system" },
+            { "id": 9003, "label": "Settings",  "enabled": true, "source": "fallback-system" }
+        ]
+    }
+
+    function _appFallbackMenus() {
+        return [
+            { "id": 9101, "label": "File",      "enabled": true, "source": "fallback-app" },
+            { "id": 9102, "label": "Edit",      "enabled": true, "source": "fallback-app" },
+            { "id": 9103, "label": "View",      "enabled": true, "source": "fallback-app" },
+            { "id": 9104, "label": "Tools",     "enabled": true, "source": "fallback-app" },
+            { "id": 9105, "label": "Workspace", "enabled": true, "source": "fallback-app" },
+            { "id": 9106, "label": "Help",      "enabled": true, "source": "fallback-app" }
+        ]
+    }
+
+    function _rawMenus() {
+        if (typeof GlobalMenuManager !== "undefined" && GlobalMenuManager
+                && GlobalMenuManager.available
+                && GlobalMenuManager.topLevelMenus
+                && GlobalMenuManager.topLevelMenus.length > 0) {
+            return GlobalMenuManager.topLevelMenus
         }
-        return !!content.canPrintSelection()
+        return _hasActiveApp ? _appFallbackMenus() : _systemFallbackMenus()
     }
 
-    function patchSectionItems(menuId, items) {
-        var src = items || []
-        var out = []
-        var canPrint = root.printMenuEnabled()
-        for (var i = 0; i < src.length; ++i) {
-            var row = src[i] || ({})
-            var next = {}
-            var keys = Object.keys(row)
-            for (var k = 0; k < keys.length; ++k) {
-                var key = keys[k]
-                next[key] = row[key]
-            }
-            if (Number(menuId || -1) === 2001 && Number(next.id || -1) === 6) {
-                next.enabled = canPrint
-            }
-            out.push(next)
+    function _moreCompactRows(menus) {
+        var rows = []
+        for (var i = 0; i < menus.length; ++i) {
+            var row = menus[i] || ({})
+            var label = String(row.label || "").toLowerCase()
+            if (label === "file" || label === "edit" || label === "view") continue
+            rows.push({
+                "id": 7000 + i, "label": String(row.label || ""),
+                "enabled": row.enabled !== false,
+                "targetMenuId": Number(row.id || -1),
+                "source": "compact-more"
+            })
         }
-        return out
+        return rows
     }
 
-    Label {
-        text: "SLM"
-        color: Theme.color("textOnGlass")
-        font.pixelSize: Theme.fontSize("bodyLarge")
-        font.weight: Theme.fontWeight("bold")
+    function _effectiveMenus() {
+        var menus = _rawMenus()
+        if (_effectiveAdaptiveMode === "compact") {
+            var keep = []
+            var haveFile = false, haveEdit = false, haveView = false
+            for (var i = 0; i < menus.length; ++i) {
+                var row = menus[i] || ({})
+                var label = String(row.label || "").toLowerCase()
+                if (!haveFile  && label === "file")  { keep.push(row); haveFile  = true; continue }
+                if (!haveEdit  && label === "edit")  { keep.push(row); haveEdit  = true; continue }
+                if (!haveView  && label === "view")  { keep.push(row); haveView  = true; continue }
+            }
+            var more = _moreCompactRows(menus)
+            if (more.length > 0) {
+                keep.push({ "id": 9999, "label": "More", "enabled": true,
+                            "source": "compact", "moreItems": more })
+            }
+            return keep
+        }
+        return menus
     }
+
+    // ── fallback item lists ───────────────────────────────────────────────────
+
+    function _fallbackMenuItems(menuId) {
+        var id = Number(menuId || -1)
+        if (id === 9001) {
+            return [
+                { "id": 1, "label": "Workspace Overview", "enabled": true },
+                { "id": -1, "separator": true },
+                { "id": 2, "label": "Lock Screen", "enabled": true }
+            ]
+        }
+        if (id === 9002) {
+            return [
+                { "id": 1, "label": "Open Launchpad", "enabled": true },
+                { "id": 2, "label": "Open Files",     "enabled": true },
+                { "id": -1, "separator": true },
+                { "id": 3, "label": "Settings",       "enabled": true }
+            ]
+        }
+        if (id === 9003) {
+            return [
+                { "id": 1, "label": "Open Settings",      "enabled": true },
+                { "id": 2, "label": "Firewall & Security", "enabled": true }
+            ]
+        }
+        if (id === 9101) {
+            return [
+                { "id": 1, "label": "Open…",       "enabled": true },
+                { "id": 2, "label": "New Window",  "enabled": true }
+            ]
+        }
+        if (id === 9102) {
+            return [
+                { "id": 1, "label": "Copy",       "enabled": true },
+                { "id": 2, "label": "Paste",      "enabled": true },
+                { "id": -1, "separator": true },
+                { "id": 3, "label": "Select All", "enabled": true }
+            ]
+        }
+        if (id === 9103) {
+            return [
+                { "id": 1, "label": "Workspace Overview", "enabled": true }
+            ]
+        }
+        if (id === 9104) {
+            return []   // placeholder — populated by real app via D-Bus
+        }
+        if (id === 9105) {
+            return [
+                { "id": 1, "label": "Workspace Overview",     "enabled": true },
+                { "id": 2, "label": "Move to New Workspace",  "enabled": true }
+            ]
+        }
+        if (id === 9106) {
+            return [
+                { "id": 1, "label": "Help Center", "enabled": true }
+            ]
+        }
+        return []
+    }
+
+    function _menuItemsFor(menuRow) {
+        if (!menuRow) return []
+        var menuId = Number(menuRow.id || -1)
+        if (menuId === 9999 && menuRow.moreItems) return menuRow.moreItems
+        var source = String(menuRow.source || "")
+        if (source.indexOf("fallback-") === 0) return _fallbackMenuItems(menuId)
+        if (typeof GlobalMenuManager !== "undefined" && GlobalMenuManager
+                && GlobalMenuManager.menuItemsFor) {
+            return GlobalMenuManager.menuItemsFor(menuId)
+        }
+        return []
+    }
+
+    // ── fallback activation ───────────────────────────────────────────────────
+
+    function _activateFallback(menuId, itemId) {
+        var m = Number(menuId || -1)
+        var i = Number(itemId || -1)
+        var router = (typeof AppCommandRouter !== "undefined") ? AppCommandRouter : null
+        var session = (typeof SessionStateClient !== "undefined") ? SessionStateClient : null
+        var shell   = (typeof ShellStateController !== "undefined") ? ShellStateController : null
+
+        if (m === 9001) {
+            if (i === 1 && router) { router.route("workspace.toggle", {}, "global-menu-fallback"); return }
+            if (i === 2 && session) { session.lock(); return }
+        }
+        if (m === 9002) {
+            if (i === 1 && shell)  { shell.setLaunchpadVisible(true); return }
+            if (i === 2 && router) { router.route("filemanager.open", { "target": "~" }, "global-menu-fallback"); return }
+            if (i === 3 && router) { router.route("app.desktopid", { "desktopId": "slm-settings.desktop" }, "global-menu-fallback"); return }
+        }
+        if (m === 9003 && router)  { router.route("app.desktopid", { "desktopId": "slm-settings.desktop" }, "global-menu-fallback"); return }
+        if (m === 9101) {
+            if (i === 1 && shell)  { shell.setToTheSpotVisible(true); return }
+            if (i === 2 && router) { router.route("filemanager.open", { "target": "~" }, "global-menu-fallback"); return }
+        }
+        if ((m === 9103 || m === 9105) && i === 1 && router) {
+            router.route("workspace.toggle", {}, "global-menu-fallback")
+        }
+    }
+
+    function _onCategoryActivated(menuRow, itemId) {
+        if (!menuRow) return
+        var menuId = Number(menuRow.id || -1)
+        if (menuId === 9999) return
+        if (menuRow.source === "compact-more") {
+            var targetId = Number(menuRow.targetMenuId || -1)
+            if (targetId > 0 && typeof GlobalMenuManager !== "undefined"
+                    && GlobalMenuManager && GlobalMenuManager.activateMenu) {
+                GlobalMenuManager.activateMenu(targetId)
+            }
+            return
+        }
+        if (String(menuRow.source || "").indexOf("fallback-") === 0) {
+            _activateFallback(menuId, itemId)
+            return
+        }
+        if (typeof GlobalMenuManager !== "undefined" && GlobalMenuManager
+                && GlobalMenuManager.activateMenuItem) {
+            GlobalMenuManager.activateMenuItem(menuId, itemId)
+        }
+    }
+
+    function _openSettings() {
+        if (typeof AppCommandRouter !== "undefined" && AppCommandRouter && AppCommandRouter.route) {
+            AppCommandRouter.route("app.desktopid", { "desktopId": "slm-settings.desktop" }, "global-menu")
+        }
+    }
+
+    // ── focus-mode reveal ─────────────────────────────────────────────────────
+
+    Timer {
+        id: focusHideTimer
+        interval: 2200
+        repeat: false
+        onTriggered: root._focusReveal = false
+    }
+
+    Shortcut {
+        sequence: "Meta+Alt+M"
+        context: Qt.ApplicationShortcut
+        onActivated: {
+            if (root._effectiveAdaptiveMode !== "focus") return
+            root._focusReveal = !root._focusReveal
+            if (!root._focusReveal) focusHideTimer.stop()
+            else focusHideTimer.restart()
+        }
+    }
+
+    HoverHandler {
+        id: revealHover
+        onHoveredChanged: {
+            if (root._effectiveAdaptiveMode !== "focus") return
+            root._focusReveal = hovered
+            focusHideTimer.restart()
+        }
+    }
+
+    readonly property bool _menuVisible: _effectiveAdaptiveMode !== "focus" || _focusReveal || _resumePending
+
+    Connections {
+        target: (typeof GlobalMenuSuspendBridge !== "undefined") ? GlobalMenuSuspendBridge : null
+        ignoreUnknownSignals: true
+        function onResumePendingChanged() {
+            if (root._effectiveAdaptiveMode === "focus" && root._resumePending) {
+                root._focusReveal = true
+                focusHideTimer.restart()
+            }
+        }
+    }
+
+    // ── app identity ──────────────────────────────────────────────────────────
+
+    GlobalMenuComp.GlobalMenuAppIdentity {
+        id: appIdentity
+        visible: root._menuVisible
+        menuGroupActive: root.menuBarOpenId >= 0
+
+        onIdentityMenuOpened: root.menuBarOpenId = -1
+
+        onRequestAbout:      root._activateFallback(9106, 1)
+        onRequestSettings:   root._openSettings()
+        onRequestShortcuts: {
+            if (typeof ShellStateController !== "undefined" && ShellStateController
+                    && ShellStateController.setToTheSpotVisible) {
+                ShellStateController.setToTheSpotVisible(true)
+            }
+        }
+        onRequestPermissions:  root._openSettings()
+        onRequestRestartApp: {
+            if (typeof AppCommandRouter !== "undefined" && AppCommandRouter
+                    && AppCommandRouter.route && root._activeAppId.length > 0) {
+                AppCommandRouter.route("app.desktopid", { "desktopId": root._activeAppId }, "global-menu")
+            }
+        }
+        onRequestQuitApp: {
+            if (typeof WindowingBackend !== "undefined" && WindowingBackend
+                    && WindowingBackend.sendCommand) {
+                WindowingBackend.sendCommand("close-view")
+            }
+        }
+    }
+
+    // ── category menu bar ─────────────────────────────────────────────────────
 
     Row {
-        spacing: 6
-        visible: typeof GlobalMenuManager !== "undefined" &&
-                 GlobalMenuManager &&
-                 GlobalMenuManager.available &&
-                 GlobalMenuManager.topLevelMenus &&
-                 GlobalMenuManager.topLevelMenus.length > 0
+        visible: root._menuVisible
+        spacing: 2
 
         Repeater {
-            model: (typeof GlobalMenuManager !== "undefined" && GlobalMenuManager)
-                   ? GlobalMenuManager.topLevelMenus : []
-            delegate: ToolButton {
+            model: root._effectiveMenus()
+
+            delegate: Item {
+                id: categoryItem
                 required property var modelData
-                property int topMenuId: Number(modelData && modelData.id !== undefined ? modelData.id : -1)
-                property var sectionItems: []
-                text: modelData && modelData.label ? modelData.label : ""
-                enabled: modelData && modelData.enabled !== false
-                font.pixelSize: Theme.fontSize("bodyLarge")
-                onClicked: {
-                    if (!(typeof GlobalMenuManager !== "undefined" &&
-                          GlobalMenuManager &&
-                          modelData && modelData.id !== undefined)) {
-                        return
-                    }
-                    sectionItems = root.patchSectionItems(topMenuId,
-                                                          GlobalMenuManager.menuItemsFor(
-                                                              topMenuId))
-                    if (sectionItems && sectionItems.length > 0) {
-                        sectionMenu.x = Math.round(parent.mapToGlobal(0, 0).x)
-                        sectionMenu.y = Math.round(parent.mapToGlobal(0, parent.height + Theme.metric("spacingSm")).y)
-                        sectionMenu.open()
-                        return
-                    }
-                    GlobalMenuManager.activateMenu(modelData.id)
-                }
-                background: Rectangle {
-                    radius: Theme.radiusMd
-                    color: parent.hovered ? Theme.color("accentSoft") : "transparent"
-                }
+                required property int index
 
-                Menu {
-                    id: sectionMenu
-                    popupType: Popup.Window
-                    modal: false
-                    focus: false
-                    dim: false
-                    closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-                    background: DSStyle.PopupSurface {
-                        implicitWidth: Theme.metric("popupWidthS")
-                        implicitHeight: 40
-                        popupOpacity: Theme.popupSurfaceOpacityStrong
-                    }
+                readonly property int _myMenuId: Number(modelData.id || -1)
+                property bool popupOpen: dropdown.visible
 
-                    Instantiator {
-                        model: parent.sectionItems || []
-                        delegate: Loader {
-                            required property var modelData
-                            active: true
-                            sourceComponent: (modelData && modelData.separator)
-                                             ? separatorComp : itemComp
-                            onLoaded: {
-                                if (!item) {
-                                    return
+                width: categoryButton.implicitWidth
+                height: parent ? parent.height : 28
+
+                // ── button ────────────────────────────────────────────────────
+                GlobalMenuComp.GlobalMenuCategoryButton {
+                    id: categoryButton
+                    anchors.fill: parent
+                    label: String(modelData.label || "")
+                    menuEnabled: modelData.enabled !== false
+                    active: categoryItem.popupOpen
+
+                    onClicked: {
+                        if (root.menuBarOpenId === categoryItem._myMenuId) {
+                            root.menuBarOpenId = -1
+                        } else {
+                            var rows = root._menuItemsFor(modelData)
+                            if (!rows || rows.length === 0) {
+                                if (typeof GlobalMenuManager !== "undefined" && GlobalMenuManager
+                                        && GlobalMenuManager.activateMenu) {
+                                    GlobalMenuManager.activateMenu(categoryItem._myMenuId)
                                 }
-                                if (item.hasOwnProperty("menuId")) {
-                                        item.menuId = topMenuId
-                                }
-                                if (item.hasOwnProperty("itemId")) {
-                                    item.itemId = Number(parent.modelData.id || -1)
-                                }
-                                if (item.hasOwnProperty("text")) {
-                                    item.text = String(parent.modelData.label || "")
-                                }
-                                if (item.hasOwnProperty("enabled")) {
-                                    item.enabled = parent.modelData.enabled !== false
-                                }
-                                if (item.hasOwnProperty("checkable")) {
-                                    item.checkable = parent.modelData.checkable === true
-                                }
-                                if (item.hasOwnProperty("checked")) {
-                                    item.checked = parent.modelData.checked === true
-                                }
-                                if (item.hasOwnProperty("secondaryText")) {
-                                    item.secondaryText = String(parent.modelData.shortcutText || "")
-                                }
-                                if (item.hasOwnProperty("icon") && item.icon) {
-                                    item.icon.name = String(parent.modelData.iconName || "")
-                                }
-                                if (item.hasOwnProperty("iconSource")) {
-                                    item.iconSource = String(parent.modelData.iconSource || "")
-                                }
+                                return
                             }
+                            dropdown.menuItems = rows
+                            root.menuBarOpenId = categoryItem._myMenuId
                         }
+                    }
+                }
 
-                        Component {
-                            id: separatorComp
-                            MenuSeparator {}
+                // ── hover-switch: move cursor → switch open menu instantly ────
+                HoverHandler {
+                    onHoveredChanged: {
+                        if (!hovered || root.menuBarOpenId < 0
+                                || root.menuBarOpenId === categoryItem._myMenuId) {
+                            return
                         }
+                        var rows = root._menuItemsFor(modelData)
+                        if (rows && rows.length > 0) {
+                            dropdown.menuItems = rows
+                            root.menuBarOpenId = categoryItem._myMenuId
+                        }
+                    }
+                }
 
-                        Component {
-                            id: itemComp
-                            MenuItem {
-                                property int menuId: -1
-                                property int itemId: -1
-                                onTriggered: {
-                                    if (typeof GlobalMenuManager !== "undefined" && GlobalMenuManager) {
-                                        GlobalMenuManager.activateMenuItem(menuId, itemId)
-                                    }
-                                }
+                // ── dropdown ──────────────────────────────────────────────────
+                GlobalMenuComp.GlobalMenuDropdown {
+                    id: dropdown
+                    x: 0
+                    y: categoryItem.height + Theme.metric("spacingXs")
+                    menuId: categoryItem._myMenuId
+                    menuItems: []
+
+                    onClosed: {
+                        if (root.menuBarOpenId === categoryItem._myMenuId) {
+                            root.menuBarOpenId = -1
+                        }
+                    }
+                    onItemActivated: function(mId, itemId) {
+                        root.menuBarOpenId = -1
+                        root._onCategoryActivated(modelData, itemId)
+                    }
+                }
+
+                // ── react to menuBarOpenId: open or close this dropdown ───────
+                Connections {
+                    target: root
+                    function onMenuBarOpenIdChanged() {
+                        if (root.menuBarOpenId === categoryItem._myMenuId) {
+                            if (!dropdown.visible && dropdown.menuItems.length > 0) {
+                                dropdown.open()
                             }
-                        }
-
-                        onObjectAdded: function(index, object) {
-                            sectionMenu.insertItem(index, object)
-                        }
-                        onObjectRemoved: function(index, object) {
-                            sectionMenu.removeItem(object)
+                        } else if (dropdown.visible) {
+                            dropdown.close()
                         }
                     }
                 }

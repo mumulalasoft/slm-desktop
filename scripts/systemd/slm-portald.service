@@ -1,0 +1,13 @@
+[Unit]
+Description=SLM Desktop Portal Daemon
+After=default.target
+
+[Service]
+Type=simple
+ExecStart=%h/Development/Qt/Slm_Desktop/build/slm-portald
+Restart=on-failure
+RestartSec=1
+
+[Install]
+WantedBy=default.target
+

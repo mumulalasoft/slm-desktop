@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(git rev-parse --show-toplevel)"
+cd "${ROOT_DIR}"
+
+if [[ "${SLM_SKIP_PRECOMMIT:-0}" == "1" ]]; then
+  echo "[pre-commit] skipped (SLM_SKIP_PRECOMMIT=1)"
+  exit 0
+fi
+
+echo "[pre-commit] lint animation tokens"
+scripts/check-animation-token-usage.sh staged
+
+if [[ "${SLM_PRECOMMIT_UI_LINT:-1}" == "1" ]]; then
+  echo "[pre-commit] lint UI style (staged)"
+  scripts/lint-ui-style.sh staged
+else
+  echo "[pre-commit] skip UI style lint (SLM_PRECOMMIT_UI_LINT=0)"
+fi
+
+echo "[pre-commit] OK"

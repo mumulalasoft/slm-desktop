@@ -1,0 +1,81 @@
+{
+    "id": "firewall",
+    "name": "Firewall",
+    "icon": "security-high",
+    "group": "Security",
+    "description": "Application-aware firewall controls for incoming and outgoing defaults.",
+    "keywords": ["firewall", "security", "network", "incoming", "outgoing", "home", "public", "custom"],
+    "main": "FirewallPage.qml",
+    "settings": [
+        {
+            "id": "enabled",
+            "label": "Firewall",
+            "description": "Enable or disable desktop firewall protection",
+            "keywords": ["firewall", "enabled", "protection"],
+            "type": "toggle",
+            "anchor": "status",
+            "backend_binding": "dbus:org.slm.Desktop.Firewall",
+            "privileged_action": "org.slm.settings.network.modify"
+        },
+        {
+            "id": "mode",
+            "label": "Mode",
+            "description": "Choose firewall mode: Home, Public, or Custom",
+            "keywords": ["mode", "home", "public", "custom"],
+            "type": "choice",
+            "anchor": "mode",
+            "backend_binding": "dbus:org.slm.Desktop.Firewall",
+            "privileged_action": "org.slm.settings.network.modify"
+        },
+        {
+            "id": "incoming-default",
+            "label": "Incoming Default Policy",
+            "description": "Default decision for incoming connections",
+            "keywords": ["incoming", "default", "allow", "deny", "prompt"],
+            "type": "choice",
+            "anchor": "incoming-default",
+            "backend_binding": "dbus:org.slm.Desktop.Firewall",
+            "privileged_action": "org.slm.settings.network.modify"
+        },
+        {
+            "id": "outgoing-default",
+            "label": "Outgoing Default Policy",
+            "description": "Default decision for outgoing connections",
+            "keywords": ["outgoing", "default", "allow", "deny", "prompt"],
+            "type": "choice",
+            "anchor": "outgoing-default",
+            "backend_binding": "dbus:org.slm.Desktop.Firewall",
+            "privileged_action": "org.slm.settings.network.modify"
+        },
+        {
+            "id": "blocked-ip",
+            "label": "Blocked IP / Network",
+            "description": "Block single IP or subnet (CIDR)",
+            "keywords": ["blocked ip", "subnet", "cidr", "deny", "network"],
+            "type": "action",
+            "anchor": "blocked-ip",
+            "backend_binding": "dbus:org.slm.Desktop.Firewall",
+            "privileged_action": "org.slm.settings.network.modify"
+        },
+        {
+            "id": "pending-prompts",
+            "label": "Pending Prompts",
+            "description": "Review and resolve queued firewall connection prompts",
+            "keywords": ["pending prompt", "allow deny", "connection request", "firewall queue"],
+            "type": "action",
+            "anchor": "pending-prompts",
+            "backend_binding": "dbus:org.slm.Desktop.Firewall",
+            "privileged_action": "org.slm.settings.network.modify"
+        },
+        {
+            "id": "reset-config",
+            "label": "Reset Configuration",
+            "description": "Clear policies and restore secure firewall defaults",
+            "keywords": ["reset", "restore defaults", "clear policies", "maintenance"],
+            "type": "action",
+            "anchor": "reset-config",
+            "backend_binding": "dbus:org.slm.Desktop.Firewall",
+            "privileged_action": "org.slm.settings.network.modify"
+        }
+    ]
+}

@@ -2,6 +2,7 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Window 2.15
 import Slm_Desktop
+import SlmStyle as DSStyle
 import "Qml/components" as Components
 import "Qml/components/globalmenu" as GlobalMenuComp
 import "Qml/components/overlay" as OverlayComp
@@ -17,20 +18,44 @@ import "Qml/components/shell/TothespotController.js" as TothespotController
 
 ApplicationWindow {
     id: root
+    function readSetting(path, fallback) {
+        if (typeof DesktopSettings !== "undefined" && DesktopSettings
+                && DesktopSettings.settingValue) {
+            return DesktopSettings.settingValue(path, fallback)
+        }
+        return fallback
+    }
+    function writeSetting(path, value) {
+        if (typeof DesktopSettings !== "undefined" && DesktopSettings
+                && DesktopSettings.setSettingValue) {
+            return DesktopSettings.setSettingValue(path, value)
+        }
+        return false
+    }
     property bool styleDarkMode: Theme.darkMode
+    readonly property bool startupTraceEnabled: (typeof StartupTraceEnabled !== "undefined") ? !!StartupTraceEnabled : false
+    property real startupT0: 0
+    property bool startupNonCriticalWindowsReady: false
+    property bool startupTopbarBootstrapReady: false
+    property bool startupTopbarItemsReady: false
+    property bool dockLoadGateOpen: false
+    function markStartupTopbarItemsReady() {
+        if (!startupTopbarItemsReady) {
+            startupTopbarItemsReady = true
+            startupQmlMark("main.topbarItems.ready")
+        }
+        if (!dockLoadGateOpen) {
+            dockLoadGateOpen = true
+            startupQmlMark("main.dockLoadGate.open")
+        }
+    }
     property bool startWindowed: (typeof AppStartWindowed !== "undefined") ? !!AppStartWindowed : false
     property int startWindowWidthHint: (typeof AppStartWindowWidth !== "undefined") ? Number(AppStartWindowWidth) : 0
     property int startWindowHeightHint: (typeof AppStartWindowHeight !== "undefined") ? Number(AppStartWindowHeight) : 0
     property bool topBarPopupExpanded: false
-    property bool motionDebugOverlayEnabled: (typeof UIPreferences !== "undefined" && UIPreferences && UIPreferences.getPreference)
-                                              ? !!UIPreferences.getPreference("motion.debugOverlay", false)
-                                              : false
-    property real motionTimeScale: (typeof UIPreferences !== "undefined" && UIPreferences && UIPreferences.getPreference)
-                                    ? Number(UIPreferences.getPreference("motion.timeScale", 1.0))
-                                    : 1.0
-    property bool motionReducedEnabled: (typeof UIPreferences !== "undefined" && UIPreferences && UIPreferences.getPreference)
-                                         ? !!UIPreferences.getPreference("motion.reduced", false)
-                                         : false
+    property bool motionDebugOverlayEnabled: !!readSetting("motion.debugOverlay", false)
+    property real motionTimeScale: Number(readSetting("motion.timeScale", 1.0))
+    property bool motionReducedEnabled: !!readSetting("motion.reduced", false)
     property var motionDebugRows: []
     property bool shellContextMenuOpen: false
     property bool fileManagerVisible: false
@@ -42,6 +67,22 @@ ApplicationWindow {
     property var appModelRef: null
     property var fileManagerApiRef: null
     property var tothespotServiceRef: null
+    function openFileManagerFromShortcut(pathValue) {
+        var targetPath = String(pathValue && String(pathValue).length > 0 ? pathValue : "~")
+        ShellUtils.openDetachedFileManager(root, targetPath)
+        Qt.callLater(function() {
+            var detachedUnavailable = !detachedFileManagerWindow
+                                     || root.detachedFileManagerLoadFailed
+                                     || detachedFileManagerWindow.loaderStatus === Loader.Error
+            if (!detachedUnavailable) {
+                return
+            }
+            if (root.fileManagerApiRef && root.fileManagerApiRef.startOpenPathInFileManager) {
+                root.fileManagerApiRef.startOpenPathInFileManager(targetPath,
+                                                                  "shortcut-open-filemanager")
+            }
+        })
+    }
     onDetachedFileManagerVisibleChanged: {
         if (!detachedFileManagerVisible) {
             detachedFileManagerLoadFailed = false
@@ -81,12 +122,8 @@ ApplicationWindow {
     property real areaShotStartY: 0
     property real areaShotEndX: 0
     property real areaShotEndY: 0
-    property string areaShotBind: (typeof UIPreferences !== "undefined" && UIPreferences && UIPreferences.getPreference)
-                                  ? String(UIPreferences.getPreference("screenshot.bindArea", "Alt+Shift+S"))
-                                  : "Alt+Shift+S"
-    property string fullscreenShotBind: (typeof UIPreferences !== "undefined" && UIPreferences && UIPreferences.getPreference)
-                                        ? String(UIPreferences.getPreference("screenshot.bindFullscreen", "Alt+Shift+F"))
-                                        : "Alt+Shift+F"
+    property string areaShotBind: String(readSetting("screenshot.bindArea", "Alt+Shift+S"))
+    property string fullscreenShotBind: String(readSetting("screenshot.bindFullscreen", "Alt+Shift+F"))
     property int pendingScreenshotDelaySec: 0
     property string pendingScreenshotMode: "screen"
     property bool screenshotSaveDialogVisible: false
@@ -145,11 +182,21 @@ ApplicationWindow {
     property var portalChooserEntriesModelRef: portalChooserEntries
     property var portalChooserPlacesModelRef: portalChooserPlacesModel
     property var portalChooserApiRef: portalChooserApi
-    property bool tothespotVisible: false
+    property bool _searchVisibleLocal: false
+    readonly property bool searchVisible: (typeof ShellStateController !== "undefined" && ShellStateController)
+                                          ? !!ShellStateController.searchVisible
+                                          : _searchVisibleLocal
+    // Compatibility alias while older callsites still use tothespot naming.
+    readonly property bool tothespotVisible: searchVisible
     property bool clipboardOverlayVisible: false
     property bool lockScreenVisible: false
     property double tothespotLastCloseMs: 0
-    property string tothespotQuery: ""
+    property string _searchQueryLocal: ""
+    readonly property string searchQuery: (typeof ShellStateController !== "undefined" && ShellStateController)
+                                          ? String(ShellStateController.searchQuery || "")
+                                          : _searchQueryLocal
+    // Compatibility alias while older callsites still use tothespot naming.
+    readonly property string tothespotQuery: searchQuery
     property string tothespotLastLoadedQuery: ""
     property int tothespotQueryGeneration: 0
     property int tothespotAppliedGeneration: -1
@@ -159,33 +206,38 @@ ApplicationWindow {
     property var tothespotTelemetryLast: ({})
     property var tothespotProviderStats: ({})
     property var tothespotPreviewData: ({})
-    property bool tothespotShowDebug: (typeof UIPreferences !== "undefined" && UIPreferences && UIPreferences.getPreference)
-                                      ? !!UIPreferences.getPreference("debug.verboseLogging", false)
-                                      : false
-    property bool tothespotNotifyClipboardResolveSuccess: (typeof UIPreferences !== "undefined"
-                                                           && UIPreferences
-                                                           && UIPreferences.getPreference)
-                                                          ? !!UIPreferences.getPreference(
-                                                              "tothespot.notifyClipboardResolveSuccess", true)
-                                                          : true
-    property string tothespotBind: (typeof UIPreferences !== "undefined" && UIPreferences && UIPreferences.getPreference)
-                                   ? String(UIPreferences.getPreference("tothespot.bindToggle", "Alt+Space"))
-                                   : "Alt+Space"
-    property int tothespotSavedX: (typeof UIPreferences !== "undefined" && UIPreferences && UIPreferences.getPreference)
-                                  ? Number(UIPreferences.getPreference("tothespot.windowX", -1)) : -1
-    property int tothespotSavedY: (typeof UIPreferences !== "undefined" && UIPreferences && UIPreferences.getPreference)
-                                  ? Number(UIPreferences.getPreference("tothespot.windowY", -1)) : -1
-    property int tothespotSavedWidth: (typeof UIPreferences !== "undefined" && UIPreferences && UIPreferences.getPreference)
-                                      ? Number(UIPreferences.getPreference("tothespot.windowWidth", -1)) : -1
-    property int tothespotSavedHeight: (typeof UIPreferences !== "undefined" && UIPreferences && UIPreferences.getPreference)
-                                       ? Number(UIPreferences.getPreference("tothespot.windowHeight", -1)) : -1
+    property bool tothespotShowDebug: !!readSetting("debug.verboseLogging", false)
+    property bool tothespotNotifyClipboardResolveSuccess: !!readSetting("tothespot.notifyClipboardResolveSuccess", true)
+    property string tothespotBind: String(readSetting("tothespot.bindToggle", "Alt+Space"))
+    property int tothespotSavedX: Number(readSetting("tothespot.windowX", -1))
+    property int tothespotSavedY: Number(readSetting("tothespot.windowY", -1))
+    property int tothespotSavedWidth: Number(readSetting("tothespot.windowWidth", -1))
+    property int tothespotSavedHeight: Number(readSetting("tothespot.windowHeight", -1))
     property bool tothespotRestoringGeometry: false
-    onTothespotVisibleChanged: {
-        if (lockScreenVisible && tothespotVisible) {
-            tothespotVisible = false
+    function setSearchVisible(visible) {
+        var v = !!visible
+        if (typeof ShellStateController !== "undefined" && ShellStateController
+                && ShellStateController.setToTheSpotVisible) {
+            ShellStateController.setToTheSpotVisible(v)
+        } else {
+            _searchVisibleLocal = v
+        }
+    }
+    function setSearchQuery(query) {
+        var text = String(query || "")
+        if (typeof ShellStateController !== "undefined" && ShellStateController
+                && ShellStateController.setSearchQuery) {
+            ShellStateController.setSearchQuery(text)
+        } else {
+            _searchQueryLocal = text
+        }
+    }
+    onSearchVisibleChanged: {
+        if (lockScreenVisible && searchVisible) {
+            setSearchVisible(false)
             return
         }
-        if (!tothespotVisible) {
+        if (!searchVisible) {
             tothespotLastCloseMs = Date.now()
             return
         }
@@ -200,10 +252,11 @@ ApplicationWindow {
         ShellUtils.refreshMotionDebugRows(root)
     }
     onLockScreenVisibleChanged: {
+        if (typeof ShellStateController !== "undefined" && ShellStateController) ShellStateController.setLockScreenActive(lockScreenVisible)
         if (!lockScreenVisible) {
             return
         }
-        tothespotVisible = false
+        setSearchVisible(false)
         clipboardOverlayVisible = false
         shellContextMenuOpen = false
         if (desktopScene) {
@@ -216,6 +269,15 @@ ApplicationWindow {
         ShellUtils.applyMotionTimeScale(root)
     }
     visible: true
+    onVisibleChanged: {
+        if (visible) {
+            // Intentionally quiet in runtime; startup diagnostics can be enabled from C++.
+            if (topBarWindow && topBarWindow.startupItemsReady && !dockLoadGateOpen) {
+                dockLoadGateOpen = true
+                startupQmlMark("main.dockLoadGate.open.visible")
+            }
+        }
+    }
     width: startWindowed
            ? Math.max(minimumWidth,
                       Math.min(Screen.width,
@@ -245,6 +307,54 @@ ApplicationWindow {
         }
     }
 
+    function syncStyleThemeFromPreferences() {
+        if (typeof DesktopSettings === "undefined" || !DesktopSettings) {
+            return
+        }
+        Theme.applyModeString(String(DesktopSettings.themeMode || "system"))
+        Theme.userAccentColor = String(DesktopSettings.accentColor || "")
+        Theme.userFontScale = Number(DesktopSettings.fontScale || 1.0)
+        DSStyle.Theme.applyModeString(String(DesktopSettings.themeMode || "system"))
+        DSStyle.Theme.userAccentColor = String(DesktopSettings.accentColor || "")
+        DSStyle.Theme.userFontScale = Number(DesktopSettings.fontScale || 1.0)
+    }
+    // Phase-budget map (ms from startupT0). Exceeding these logs a regression warning.
+    // Only covers phases that are emitted through Main.qml's startupQmlMark.
+    readonly property var startupPhaseBudgets: ({
+        "main.deferredInit.begin":      50,
+        "main.topbarBootstrap.ready":   400,
+        "main.dockLoader.activated":    300,
+        "main.deferredInit.end":        200,
+        "main.nonCriticalWindows.ready": 2000
+    })
+
+    function startupQmlMark(phase, detail) {
+        var now = Date.now()
+        if (phase === "main.onCompleted.begin" && startupT0 <= 0) {
+            startupT0 = now
+        }
+        if (!startupTraceEnabled)
+            return
+        var elapsed = (startupT0 > 0) ? (now - startupT0) : -1
+        var text = "[startup-qml] phase=" + String(phase || "")
+        if (detail !== undefined && detail !== null && String(detail).length > 0) {
+            text += " detail=" + String(detail)
+        }
+        if (elapsed >= 0) {
+            text += " elapsed=" + elapsed + "ms"
+        }
+        text += " t=" + now
+        console.warn(text)
+        if (elapsed >= 0 && startupPhaseBudgets[phase] !== undefined) {
+            var budget = Number(startupPhaseBudgets[phase] || 0)
+            if (elapsed > budget) {
+                console.warn("[startup-qml] BUDGET-WARN phase=" + String(phase || "")
+                             + " elapsed=" + elapsed + "ms budget=" + budget + "ms"
+                             + " over=" + (elapsed - budget) + "ms")
+            }
+        }
+    }
+
     onPortalChooserSelectedPathsChanged: {
         if (portalChooserApi) {
             portalChooserApi.portalChooserUpdatePreviewPath()
@@ -252,21 +362,65 @@ ApplicationWindow {
     }
 
     Component.onCompleted: {
-        if (typeof AppModel !== "undefined" && AppModel) {
-            appModelRef = AppModel
+        startupQmlMark("main.onCompleted.begin")
+        syncStyleThemeFromPreferences()
+        Qt.callLater(function() {
+            startupQmlMark("main.deferredInit.begin")
+            // 5-minute threshold — 30 s default is too short for normal launchpad browsing.
+            if (typeof ShellLayerWatchdog !== "undefined" && ShellLayerWatchdog) {
+                ShellLayerWatchdog.overlayStuckThresholdMs = 300000
+            }
+            if (typeof AppModel !== "undefined" && AppModel) {
+                appModelRef = AppModel
+            }
+            if (typeof FileManagerApi !== "undefined" && FileManagerApi) {
+                fileManagerApiRef = FileManagerApi
+            }
+            if (typeof TothespotService !== "undefined" && TothespotService) {
+                tothespotServiceRef = TothespotService
+            }
+            ShellUtils.applyUserFontScalePreference(root)
+            ShellUtils.applyMotionTimeScale(root)
+            ShellUtils.refreshMotionDebugRows(root)
+            FileManagerGlobalMenuController.syncOverride(root, detachedFileManagerWindow)
+            if (typeof SessionStateClient !== "undefined" && SessionStateClient) {
+                root.lockScreenVisible = !!SessionStateClient.locked
+            }
+            startupTopbarBootstrapTimer.restart()
+            startupNonCriticalWindowsTimer.restart()
+            startupQmlMark("main.deferredInit.end")
+        })
+        startupQmlMark("main.onCompleted.end")
+    }
+
+    Timer {
+        id: startupTopbarBootstrapTimer
+        interval: 250
+        repeat: false
+        onTriggered: {
+            root.startupTopbarBootstrapReady = true
+            root.startupQmlMark("main.topbarBootstrap.ready")
         }
-        if (typeof FileManagerApi !== "undefined" && FileManagerApi) {
-            fileManagerApiRef = FileManagerApi
+    }
+
+    Timer {
+        id: startupNonCriticalWindowsTimer
+        interval: 1500
+        repeat: false
+        onTriggered: {
+            root.startupNonCriticalWindowsReady = true
+            root.startupQmlMark("main.nonCriticalWindows.ready")
         }
-        if (typeof TothespotService !== "undefined" && TothespotService) {
-            tothespotServiceRef = TothespotService
-        }
-        ShellUtils.applyUserFontScalePreference(root)
-        ShellUtils.applyMotionTimeScale(root)
-        ShellUtils.refreshMotionDebugRows(root)
-        FileManagerGlobalMenuController.syncOverride(root, detachedFileManagerWindow)
-        if (typeof SessionStateClient !== "undefined" && SessionStateClient) {
-            root.lockScreenVisible = !!SessionStateClient.locked
+    }
+
+    Connections {
+        target: typeof DesktopSettings !== "undefined" ? DesktopSettings : null
+        function onThemeModeChanged() { root.syncStyleThemeFromPreferences() }
+        function onAccentColorChanged() { root.syncStyleThemeFromPreferences() }
+        function onFontScaleChanged() { root.syncStyleThemeFromPreferences() }
+        function onAnimationModeChanged() {
+            // Re-sync motion controller scale when animation mode changes at runtime.
+            ShellUtils.applyMotionTimeScale(root)
         }
     }
 
@@ -275,9 +429,34 @@ ApplicationWindow {
         rootWindow: root
         fileManagerContent: root.fileManagerContent
         detachedFileManagerWindow: detachedFileManagerWindow
-        onRequestFocusTothespot: TothespotController.focusFromMenu(root, tothespotWindow)
+        onRequestFocusTothespot: TothespotController.focusFromMenu(root, tothespotWindowLoader ? tothespotWindowLoader.item : null)
         onRequestHelpMessage: function(message) {
-            ScreenshotController.showResultNotification(root, true, "", String(message || ""))
+            if (typeof NotificationManager !== "undefined" && NotificationManager && NotificationManager.Notify) {
+                NotificationManager.Notify("Slm Desktop",
+                                           0,
+                                           "dialog-information-symbolic",
+                                           "Global Menu",
+                                           String(message || ""),
+                                           [],
+                                           { "source": "global-menu" },
+                                           2600)
+            }
+        }
+        onRequestMenuNotification: function(ok, summary, body, iconName) {
+            if (typeof NotificationManager !== "undefined" && NotificationManager && NotificationManager.Notify) {
+                NotificationManager.Notify("Slm Desktop",
+                                           0,
+                                           String(iconName || (ok ? "dialog-information-symbolic"
+                                                                  : "dialog-error-symbolic")),
+                                           String(summary || "Global Menu"),
+                                           String(body || ""),
+                                           [],
+                                           {
+                                               "source": "global-menu",
+                                               "ok": !!ok
+                                           },
+                                           2600)
+            }
         }
     }
 
@@ -285,7 +464,17 @@ ApplicationWindow {
         sequence: "Alt+Shift+E"
         context: Qt.ApplicationShortcut
         onActivated: {
-            ShellUtils.openDetachedFileManager(root, "~")
+            if (typeof ShellInputRouter !== "undefined" && !ShellInputRouter.canDispatch("shell.file_manager")) return
+            root.openFileManagerFromShortcut("~")
+        }
+    }
+
+    Shortcut {
+        sequence: "Meta+E"
+        context: Qt.ApplicationShortcut
+        onActivated: {
+            if (typeof ShellInputRouter !== "undefined" && !ShellInputRouter.canDispatch("shell.file_manager")) return
+            root.openFileManagerFromShortcut("~")
         }
     }
 
@@ -293,6 +482,7 @@ ApplicationWindow {
         sequence: "Alt+Shift+P"
         context: Qt.ApplicationShortcut
         onActivated: {
+            if (typeof ShellInputRouter !== "undefined" && !ShellInputRouter.canDispatch("shell.print")) return
             if (!root.printDocumentUri.length && root.screenshotSaveSourcePath.length) {
                 root.printDocumentUri = "file://" + root.screenshotSaveSourcePath
                 root.printDocumentTitle = "Captured Image"
@@ -305,17 +495,16 @@ ApplicationWindow {
     Shortcut {
         sequence: root.tothespotBind
         onActivated: {
-            if (root.lockScreenVisible) {
-                return
-            }
-            root.tothespotVisible = !root.tothespotVisible
+            if (typeof ShellInputRouter !== "undefined" && !ShellInputRouter.canDispatch("shell.tothespot")) return
+            root.setSearchVisible(!root.tothespotVisible)
             if (root.tothespotVisible) {
                 root.clipboardOverlayVisible = false
             }
             if (root.tothespotVisible) {
                 Qt.callLater(function() {
-                    if (tothespotWindow && tothespotWindow.focusSearchField) {
-                        tothespotWindow.focusSearchField()
+                    const tw = tothespotWindowLoader ? tothespotWindowLoader.item : null
+                    if (tw && tw.focusSearchField) {
+                        tw.focusSearchField()
                     }
                 })
             }
@@ -326,12 +515,10 @@ ApplicationWindow {
         sequence: "Meta+V"
         context: Qt.ApplicationShortcut
         onActivated: {
-            if (root.lockScreenVisible) {
-                return
-            }
+            if (typeof ShellInputRouter !== "undefined" && !ShellInputRouter.canDispatch("shell.clipboard")) return
             root.clipboardOverlayVisible = !root.clipboardOverlayVisible
             if (root.clipboardOverlayVisible) {
-                root.tothespotVisible = false
+                root.setSearchVisible(false)
             }
         }
     }
@@ -340,9 +527,7 @@ ApplicationWindow {
         sequence: "Meta+,"
         context: Qt.ApplicationShortcut
         onActivated: {
-            if (root.lockScreenVisible) {
-                return
-            }
+            if (typeof ShellInputRouter !== "undefined" && !ShellInputRouter.canDispatch("shell.settings")) return
             if (typeof AppExecutionGate === "undefined" || !AppExecutionGate) {
                 return
             }
@@ -371,9 +556,7 @@ ApplicationWindow {
         sequence: "Meta+S"
         context: Qt.ApplicationShortcut
         onActivated: {
-            if (root.lockScreenVisible) {
-                return
-            }
+            if (typeof ShellInputRouter !== "undefined" && !ShellInputRouter.canDispatch("shell.workspace_overview")) return
             if (desktopScene && desktopScene.toggleWorkspaceOverview) {
                 desktopScene.toggleWorkspaceOverview()
             } else if (desktopScene) {
@@ -397,9 +580,7 @@ ApplicationWindow {
         sequence: "Meta+Left"
         context: Qt.ApplicationShortcut
         onActivated: {
-            if (root.lockScreenVisible) {
-                return
-            }
+            if (typeof ShellInputRouter !== "undefined" && !ShellInputRouter.canDispatch("workspace.prev")) return
             if (desktopScene && desktopScene.switchWorkspaceByDelta) {
                 desktopScene.switchWorkspaceByDelta(-1)
             }
@@ -410,9 +591,7 @@ ApplicationWindow {
         sequence: "Meta+Right"
         context: Qt.ApplicationShortcut
         onActivated: {
-            if (root.lockScreenVisible) {
-                return
-            }
+            if (typeof ShellInputRouter !== "undefined" && !ShellInputRouter.canDispatch("workspace.next")) return
             if (desktopScene && desktopScene.switchWorkspaceByDelta) {
                 desktopScene.switchWorkspaceByDelta(1)
             }
@@ -423,9 +602,7 @@ ApplicationWindow {
         sequence: "Ctrl+Meta+Left"
         context: Qt.ApplicationShortcut
         onActivated: {
-            if (root.lockScreenVisible) {
-                return
-            }
+            if (typeof ShellInputRouter !== "undefined" && !ShellInputRouter.canDispatch("window.move_workspace_prev")) return
             if (desktopScene && desktopScene.moveFocusedWindowByDelta) {
                 desktopScene.moveFocusedWindowByDelta(-1)
             }
@@ -436,9 +613,7 @@ ApplicationWindow {
         sequence: "Ctrl+Meta+Right"
         context: Qt.ApplicationShortcut
         onActivated: {
-            if (root.lockScreenVisible) {
-                return
-            }
+            if (typeof ShellInputRouter !== "undefined" && !ShellInputRouter.canDispatch("window.move_workspace_next")) return
             if (desktopScene && desktopScene.moveFocusedWindowByDelta) {
                 desktopScene.moveFocusedWindowByDelta(1)
             }
@@ -448,7 +623,8 @@ ApplicationWindow {
     Shortcut {
         sequence: "Escape"
         context: Qt.ApplicationShortcut
-        enabled: !!(desktopScene && desktopScene.workspaceVisible) && !root.lockScreenVisible
+        enabled: !!(desktopScene && desktopScene.workspaceVisible)
+                 && (typeof ShellInputRouter === "undefined" || ShellInputRouter.canDispatch("overlay.dismiss"))
         onActivated: {
             if (desktopScene && desktopScene.exitWorkspaceOverview) {
                 desktopScene.exitWorkspaceOverview()
@@ -464,9 +640,7 @@ ApplicationWindow {
         onActivated: {
             root.motionDebugOverlayEnabled = !root.motionDebugOverlayEnabled
             ShellUtils.refreshMotionDebugRows(root)
-            if (typeof UIPreferences !== "undefined" && UIPreferences && UIPreferences.setPreference) {
-                UIPreferences.setPreference("motion.debugOverlay", root.motionDebugOverlayEnabled)
-            }
+            root.writeSetting("motion.debugOverlay", root.motionDebugOverlayEnabled)
         }
     }
 
@@ -502,12 +676,11 @@ ApplicationWindow {
         fileManagerApi: (typeof FileManagerApi !== "undefined") ? FileManagerApi : null
         tothespotService: (typeof TothespotService !== "undefined") ? TothespotService : null
         tothespotResultsModel: tothespotResultsModel
-        uiPreferences: (typeof UIPreferences !== "undefined") ? UIPreferences : null
+        desktopSettings: (typeof DesktopSettings !== "undefined") ? DesktopSettings : null
     }
 
     ListModel {
         id: tothespotResultsModel
-        dynamicRoles: true
     }
 
     ListModel {
@@ -525,16 +698,22 @@ ApplicationWindow {
         placesModel: portalChooserPlacesModel
     }
 
-    OverlayComp.GlobalProgressWindow {
-        id: globalProgressWindow
-        rootWindow: root
-        overlayVisible: false
+    Loader {
+        id: globalProgressWindowLoader
+        active: false
+        asynchronous: false
+        sourceComponent: Component {
+            OverlayComp.GlobalProgressWindow {
+                rootWindow: root
+                overlayVisible: false
+            }
+        }
     }
 
     DesktopScene {
         id: desktopScene
         anchors.fill: parent
-        dockItem: dockWindow.dockItem
+        dockItem: DockSystem.activeDockItem
     }
 
     Shortcut {
@@ -584,165 +763,237 @@ ApplicationWindow {
         }
     }
 
-    OverlayComp.AreaShotSelectorWindow {
-        id: areaShotWindow
-        rootWindow: root
-        selecting: root.areaShotSelecting
-        startX: root.areaShotStartX
-        startY: root.areaShotStartY
-        endX: root.areaShotEndX
-        endY: root.areaShotEndY
-        onCancelRequested: ScreenshotController.cancelAreaSelection(root)
-        onSelectionChanged: function(x, y) {
-            root.areaShotEndX = x
-            root.areaShotEndY = y
-        }
-        onSelectionCommitted: function(x, y) {
-            root.areaShotEndX = x
-            root.areaShotEndY = y
-            ScreenshotController.commitAreaSelection(root)
-        }
-    }
-
-    ScreenshotComp.ScreenshotSaveDialog {
-        id: screenshotSaveWindow
-        visible: root.visible && root.screenshotSaveDialogVisible
-        parentWindow: root
-        sourcePath: root.screenshotSaveSourcePath
-        saveName: root.screenshotSaveName
-        saveFolderText: String(root.screenshotSaveFolder || ScreenshotSaveController.defaultSaveFolder(root))
-        typeIndex: root.screenshotSaveTypeIndex
-        errorCode: root.screenshotSaveErrorCode
-        errorHint: root.screenshotSaveErrorHint
-        saveDisabledReason: root.screenshotSaveBlockedByNoSpace
-                            ? "No space left in destination. Choose another folder."
-                            : ""
-        outputTypes: root.screenshotOutputTypes
-        onSaveNameEdited: function(value) {
-            root.screenshotSaveName = value
-            root.screenshotSaveBlockedByNoSpace = false
-            if (String(root.screenshotSaveErrorCode || "") === "no-space") {
-                root.screenshotSaveErrorCode = ""
-                root.screenshotSaveErrorHint = ""
+    Loader {
+        id: areaShotWindowLoader
+        active: !!root.areaShotSelecting
+        asynchronous: false
+        sourceComponent: Component {
+            OverlayComp.AreaShotSelectorWindow {
+                rootWindow: root
+                selecting: root.areaShotSelecting
+                startX: root.areaShotStartX
+                startY: root.areaShotStartY
+                endX: root.areaShotEndX
+                endY: root.areaShotEndY
+                onCancelRequested: ScreenshotController.cancelAreaSelection(root)
+                onSelectionChanged: function(x, y) {
+                    root.areaShotEndX = x
+                    root.areaShotEndY = y
+                }
+                onSelectionCommitted: function(x, y) {
+                    root.areaShotEndX = x
+                    root.areaShotEndY = y
+                    ScreenshotController.commitAreaSelection(root)
+                }
             }
         }
-        onTypeIndexChangedByUser: function(indexValue) {
-            root.screenshotSaveTypeIndex = indexValue
-            var typeInfo = ScreenshotSaveController.outputTypeAt(root, indexValue)
-            var ext = String(typeInfo && typeInfo.ext ? typeInfo.ext : "png")
-            if (typeof ScreenshotSaveHelper !== "undefined"
-                    && ScreenshotSaveHelper
-                    && ScreenshotSaveHelper.ensureFileNameForExtension) {
-                root.screenshotSaveName = String(
-                            ScreenshotSaveHelper.ensureFileNameForExtension(
-                                String(root.screenshotSaveName || ""), ext))
+    }
+
+    Loader {
+        id: screenshotSaveWindowLoader
+        active: !!root.screenshotSaveDialogVisible
+        asynchronous: false
+        sourceComponent: Component {
+            ScreenshotComp.ScreenshotSaveDialog {
+                visible: root.visible && root.screenshotSaveDialogVisible
+                parentWindow: root
+                sourcePath: root.screenshotSaveSourcePath
+                saveName: root.screenshotSaveName
+                saveFolderText: String(root.screenshotSaveFolder || ScreenshotSaveController.defaultSaveFolder(root))
+                typeIndex: root.screenshotSaveTypeIndex
+                errorCode: root.screenshotSaveErrorCode
+                errorHint: root.screenshotSaveErrorHint
+                saveDisabledReason: root.screenshotSaveBlockedByNoSpace
+                                    ? "No space left in destination. Choose another folder."
+                                    : ""
+                outputTypes: root.screenshotOutputTypes
+                onSaveNameEdited: function(value) {
+                    root.screenshotSaveName = value
+                    root.screenshotSaveBlockedByNoSpace = false
+                    if (String(root.screenshotSaveErrorCode || "") === "no-space") {
+                        root.screenshotSaveErrorCode = ""
+                        root.screenshotSaveErrorHint = ""
+                    }
+                }
+                onTypeIndexChangedByUser: function(indexValue) {
+                    root.screenshotSaveTypeIndex = indexValue
+                    var typeInfo = ScreenshotSaveController.outputTypeAt(root, indexValue)
+                    var ext = String(typeInfo && typeInfo.ext ? typeInfo.ext : "png")
+                    if (typeof ScreenshotSaveHelper !== "undefined"
+                            && ScreenshotSaveHelper
+                            && ScreenshotSaveHelper.ensureFileNameForExtension) {
+                        root.screenshotSaveName = String(
+                                    ScreenshotSaveHelper.ensureFileNameForExtension(
+                                        String(root.screenshotSaveName || ""), ext))
+                    }
+                    root.screenshotSaveBlockedByNoSpace = false
+                    if (String(root.screenshotSaveErrorCode || "") === "no-space") {
+                        root.screenshotSaveErrorCode = ""
+                        root.screenshotSaveErrorHint = ""
+                    }
+                }
+                saveEnabled: !root.screenshotSaveBlockedByNoSpace
+                onChooseFolderRequested: ScreenshotSaveController.chooseSaveFolder(root)
+                onCancelRequested: ScreenshotSaveController.cancelSaveDialog(root)
+                onSaveRequested: ScreenshotSaveController.submitSaveDialog(root)
             }
-            root.screenshotSaveBlockedByNoSpace = false
-            if (String(root.screenshotSaveErrorCode || "") === "no-space") {
-                root.screenshotSaveErrorCode = ""
-                root.screenshotSaveErrorHint = ""
+        }
+    }
+
+    Loader {
+        id: screenshotOverwriteWindowLoader
+        active: !!root.screenshotOverwriteDialogVisible
+        asynchronous: false
+        sourceComponent: Component {
+            ScreenshotComp.ScreenshotOverwriteDialog {
+                visible: root.visible && root.screenshotOverwriteDialogVisible
+                parentWindow: root
+                transientParentWindow: (screenshotSaveWindowLoader.item
+                                        && screenshotSaveWindowLoader.item.visible)
+                                       ? screenshotSaveWindowLoader.item
+                                       : root
+                targetPath: String(root.screenshotOverwriteTargetPath || "")
+                alwaysReplaceInSession: root.portalChooserOverwriteAlwaysThisSession
+                onAlwaysReplaceToggled: function(checked) {
+                    root.portalChooserOverwriteAlwaysThisSession = checked
+                }
+                onCancelRequested: ScreenshotSaveController.cancelOverwrite(root)
+                onReplaceRequested: ScreenshotSaveController.confirmOverwrite(root)
             }
         }
-        saveEnabled: !root.screenshotSaveBlockedByNoSpace
-        onChooseFolderRequested: ScreenshotSaveController.chooseSaveFolder(root)
-        onCancelRequested: ScreenshotSaveController.cancelSaveDialog(root)
-        onSaveRequested: ScreenshotSaveController.submitSaveDialog(root)
     }
 
-    ScreenshotComp.ScreenshotOverwriteDialog {
-        id: screenshotOverwriteWindow
-        visible: root.visible && root.screenshotOverwriteDialogVisible
-        parentWindow: root
-        transientParentWindow: screenshotSaveWindow.visible ? screenshotSaveWindow : root
-        targetPath: String(root.screenshotOverwriteTargetPath || "")
-        alwaysReplaceInSession: root.portalChooserOverwriteAlwaysThisSession
-        onAlwaysReplaceToggled: function(checked) {
-            root.portalChooserOverwriteAlwaysThisSession = checked
-        }
-        onCancelRequested: ScreenshotSaveController.cancelOverwrite(root)
-        onReplaceRequested: ScreenshotSaveController.confirmOverwrite(root)
-    }
-
-    PrintComp.PrintDialog {
-        id: printDialogWindow
-        visible: root.visible && root.printDialogVisible
-        parentWindow: root
-        printManager: (typeof PrintManager !== "undefined") ? PrintManager : null
-        printSession: (typeof PrintSession !== "undefined") ? PrintSession : null
-        printPreviewModel: (typeof PrintPreviewModel !== "undefined") ? PrintPreviewModel : null
-        printJobSubmitter: (typeof PrintJobSubmitter !== "undefined") ? PrintJobSubmitter : null
-        documentUri: root.printDocumentUri
-        documentTitle: root.printDocumentTitle
-        preferPdfOutput: root.printPreferPdfOutput
-        onCloseRequested: root.printDialogVisible = false
-    }
-
-    OverlayComp.PortalFileChooserWindow {
-        id: portalFileChooserWindow
-        rootWindow: root
-        chooserApi: portalChooserApi
-        entriesModel: portalChooserEntries
-        placesModel: portalChooserPlacesModel
-    }
-
-    PortalChooserComp.PortalChooserOverwriteDialog {
-        id: portalChooserOverwriteWindow
-        visible: root.visible && root.portalChooserOverwriteDialogVisible
-        parentWindow: root
-        transientParentWindow: portalFileChooserWindow.visible ? portalFileChooserWindow : root
-        targetPath: String(root.portalChooserOverwriteTargetPath || "")
-        escapeEnabled: root.portalChooserOverwriteDialogVisible
-        onEscapeRequested: root.portalChooserOverwriteDialogVisible = false
-        onCancelRequested: root.portalChooserOverwriteDialogVisible = false
-        onReplaceRequested: {
-            root.portalChooserOverwriteDialogVisible = false
-            portalChooserApi.finishPortalFileChooser(true, false, "", true)
+    Loader {
+        id: printDialogWindowLoader
+        active: !!root.printDialogVisible
+        asynchronous: false
+        sourceComponent: Component {
+            PrintComp.PrintDialog {
+                visible: root.visible && root.printDialogVisible
+                parentWindow: root
+                printManager: (typeof PrintManager !== "undefined") ? PrintManager : null
+                printSession: (typeof PrintSession !== "undefined") ? PrintSession : null
+                printPreviewModel: (typeof PrintPreviewModel !== "undefined") ? PrintPreviewModel : null
+                printJobSubmitter: (typeof PrintJobSubmitter !== "undefined") ? PrintJobSubmitter : null
+                documentUri: root.printDocumentUri
+                documentTitle: root.printDocumentTitle
+                preferPdfOutput: root.printPreferPdfOutput
+                onCloseRequested: root.printDialogVisible = false
+            }
         }
     }
 
-    OverlayComp.PortalConsentDialogWindow {
-        id: portalConsentDialogWindow
-        hostRoot: root
-        bridge: shellServiceBridge
-        visible: root.visible && shellServiceBridge.consentDialogVisible
-        requestPath: String(shellServiceBridge.consentRequestPath || "")
-        payload: shellServiceBridge.consentPayload
-        onAllowOnceRequested: shellServiceBridge.acceptConsentOnce()
-        onAllowAlwaysRequested: shellServiceBridge.acceptConsentAlways()
-        onDenyRequested: shellServiceBridge.denyConsent()
-        onCancelRequested: shellServiceBridge.cancelConsent()
-    }
-
-    OverlayComp.DetachedFileManagerWindow {
-        id: detachedFileManagerWindow
-        rootWindow: root
-        shellApi: root
-        panelHeight: desktopScene.panelHeight
-        fileModel: (typeof FileManagerModel !== "undefined") ? FileManagerModel : null
-        onPrintRequested: function(documentUri, documentTitle, preferPdfOutput) {
-            root.printDocumentUri = String(documentUri || "")
-            root.printDocumentTitle = String(documentTitle || "Document")
-            root.printPreferPdfOutput = !!preferPdfOutput
-            root.printDialogVisible = root.printDocumentUri.length > 0
+    Loader {
+        id: portalFileChooserWindowLoader
+        active: !!root.portalFileChooserVisible
+        asynchronous: false
+        sourceComponent: Component {
+            OverlayComp.PortalFileChooserWindow {
+                rootWindow: root
+                chooserApi: portalChooserApi
+                entriesModel: portalChooserEntries
+                placesModel: portalChooserPlacesModel
+            }
         }
     }
+
+    Loader {
+        id: portalChooserOverwriteWindowLoader
+        active: !!root.portalChooserOverwriteDialogVisible
+        asynchronous: false
+        sourceComponent: Component {
+            PortalChooserComp.PortalChooserOverwriteDialog {
+                visible: root.visible && root.portalChooserOverwriteDialogVisible
+                parentWindow: root
+                transientParentWindow: (portalFileChooserWindowLoader.item
+                                        && portalFileChooserWindowLoader.item.visible)
+                                       ? portalFileChooserWindowLoader.item
+                                       : root
+                targetPath: String(root.portalChooserOverwriteTargetPath || "")
+                escapeEnabled: root.portalChooserOverwriteDialogVisible
+                onEscapeRequested: root.portalChooserOverwriteDialogVisible = false
+                onCancelRequested: root.portalChooserOverwriteDialogVisible = false
+                onReplaceRequested: {
+                    root.portalChooserOverwriteDialogVisible = false
+                    portalChooserApi.finishPortalFileChooser(true, false, "", true)
+                }
+            }
+        }
+    }
+
+    Loader {
+        id: portalConsentDialogWindowLoader
+        active: root.visible && shellServiceBridge.consentDialogVisible
+        asynchronous: false
+        sourceComponent: Component {
+            OverlayComp.PortalConsentDialogWindow {
+                hostRoot: root
+                bridge: shellServiceBridge
+                visible: root.visible && shellServiceBridge.consentDialogVisible
+                requestPath: String(shellServiceBridge.consentRequestPath || "")
+                payload: shellServiceBridge.consentPayload
+                onAllowOnceRequested: shellServiceBridge.acceptConsentOnce()
+                onAllowAlwaysRequested: shellServiceBridge.acceptConsentAlways()
+                onDenyRequested: shellServiceBridge.denyConsent()
+                onCancelRequested: shellServiceBridge.cancelConsent()
+                onOpenSettingsRequested: shellServiceBridge.openConsentSettings()
+            }
+        }
+    }
+
+    Loader {
+        id: firewallPromptDialogLoader
+        active: !!root.startupNonCriticalWindowsReady
+        asynchronous: false
+        sourceComponent: Component {
+            OverlayComp.FirewallPromptDialog {
+                hostRoot: root
+            }
+        }
+    }
+
+    Loader {
+        id: detachedFileManagerWindowLoader
+        active: !!root.detachedFileManagerVisible
+        asynchronous: false
+        sourceComponent: Component {
+            OverlayComp.DetachedFileManagerWindow {
+                rootWindow: root
+                shellApi: root
+                panelHeight: desktopScene.panelHeight
+                fileModel: (typeof FileManagerModel !== "undefined") ? FileManagerModel : null
+                onPrintRequested: function(documentUri, documentTitle, preferPdfOutput) {
+                    root.printDocumentUri = String(documentUri || "")
+                    root.printDocumentTitle = String(documentTitle || "Document")
+                    root.printPreferPdfOutput = !!preferPdfOutput
+                    root.printDialogVisible = root.printDocumentUri.length > 0
+                }
+            }
+        }
+    }
+    readonly property var detachedFileManagerWindow: detachedFileManagerWindowLoader.item
 
     OverlayComp.TopBarWindow {
         id: topBarWindow
         rootWindow: root
         desktopScene: desktopScene
         shellApi: root
+        onStartupItemsReadyReached: root.markStartupTopbarItemsReady()
+        onStartupItemsReadyChanged: {
+            if (startupItemsReady) {
+                root.markStartupTopbarItemsReady()
+            }
+        }
         onLauncherRequested: desktopScene.launchpadVisible = !desktopScene.launchpadVisible
-        onStyleGalleryRequested: desktopScene.styleGalleryVisible = !desktopScene.styleGalleryVisible
         onTothespotRequested: {
             if (root.tothespotVisible) {
-                root.tothespotVisible = false
+                root.setSearchVisible(false)
                 return
             }
             if ((Date.now() - Number(root.tothespotLastCloseMs || 0)) < 220) {
                 return
             }
-            root.tothespotVisible = true
+            root.setSearchVisible(true)
         }
         onScreenshotCaptureRequested: function(mode, delaySec, grabPointer, concealText) {
             ScreenshotController.startFromTopBar(root, mode, delaySec, grabPointer, concealText)
@@ -771,78 +1022,190 @@ ApplicationWindow {
         globalMenuManager: GlobalMenuManager
     }
 
-    OverlayComp.LaunchpadWindow {
-        id: launchpadWindow
-        rootWindow: root
-        desktopScene: desktopScene
-        appsModel: AppModel
-        dockModel: DockModel
-        onAppChosen: LaunchpadActions.handleAppChosen(appData)
-        onAddToDockRequested: LaunchpadActions.handleAddToDock(appData)
-        onAddToDesktopRequested: LaunchpadActions.handleAddToDesktop(appData, desktopScene)
-    }
-
-    TothespotDismissWindow {
-        id: tothespotDismissWindow
-        rootWindow: root
-        overlayVisible: root.tothespotVisible
-        onDismissRequested: root.tothespotVisible = false
-    }
-
-    OverlayComp.ClipboardOverlayWindow {
-        id: clipboardOverlayWindow
-        rootWindow: root
-        panelHeight: desktopScene.panelHeight
-        overlayVisible: root.clipboardOverlayVisible && !root.lockScreenVisible
-        client: (typeof ClipboardServiceClient !== "undefined") ? ClipboardServiceClient : null
-        onCloseRequested: root.clipboardOverlayVisible = false
-    }
-
-    TothespotWindow {
-        id: tothespotWindow
-        rootWindow: root
-        panelHeight: desktopScene.panelHeight
-        overlayVisible: root.tothespotVisible && !root.lockScreenVisible
-        showDebugInfo: root.tothespotShowDebug
-        searchProfileMeta: root.tothespotProfileMeta
-        telemetryMeta: root.tothespotTelemetryMeta
-        telemetryLast: root.tothespotTelemetryLast
-        providerStats: root.tothespotProviderStats
-        previewData: root.tothespotPreviewData
-        queryText: root.tothespotQuery
-        resultsModel: tothespotResultsModel
-        selectedIndex: root.tothespotSelectedIndex
-        onGeometryEdited: ShellUtils.saveTothespotGeometry(root)
-        onOpeningRequested: ShellUtils.restoreTothespotGeometry(root)
-        onDismissRequested: root.tothespotVisible = false
-        onQueryTextChangedRequest: function(text) {
-            root.tothespotQuery = String(text || "")
-            root.tothespotQueryGeneration = Number(root.tothespotQueryGeneration || 0) + 1
-            tothespotDebounce.restart()
+    // DockWindow — single persistent Dock surface (wlr-layer-shell).
+    // Deferred out of critical startup path to prioritize first desktop frame.
+    Loader {
+        id: dockWindowLoader
+        active: !!root.visible
+                && !!root.dockLoadGateOpen
+        asynchronous: false
+        sourceComponent: Component {
+            OverlayComp.DockWindow {
+                rootWindow: root
+                desktopScene: desktopScene
+                appsModel: DockModel
+            }
         }
-        onSelectedIndexChangedByUser: function(indexValue) {
-            root.tothespotSelectedIndex = indexValue
-            TothespotController.refreshPreview(root, tothespotResultsModel)
-        }
-        onResultActivated: function(indexValue) {
-            TothespotController.activateResult(root, tothespotResultsModel, indexValue)
-        }
-        onResultContextAction: function(indexValue, action) {
-            TothespotController.activateContextAction(root, tothespotResultsModel, indexValue, action)
+        onActiveChanged: {
+            if (active) {
+                root.startupQmlMark("main.dockLoader.activated")
+            }
         }
     }
 
-    OverlayComp.WorkspaceWindow {
-        id: workspaceWindow
-        rootWindow: root
-        desktopScene: desktopScene
+    // LaunchpadWindow — transient frameless Window above application windows.
+    // DockWindow (wlr-layer-shell LayerTop) sits above it at the compositor level.
+    // Deferred Loader with error boundary so load failures don't crash Main.qml.
+    Loader {
+        id: launchpadWindowLoader
+        // Capture desktopScene here (Loader scope) to avoid the name-collision
+        // that occurs when Component bindings resolve 'desktopScene' to
+        // LaunchpadWindow's own required property instead of Main.qml's ID.
+        readonly property var sceneRef: desktopScene
+        active: !!root.visible
+                && !!desktopScene
+                && !!desktopScene.launchpadVisible
+        asynchronous: false
+        sourceComponent: Component {
+            OverlayComp.LaunchpadWindow {
+                rootWindow: root
+                desktopScene: launchpadWindowLoader.sceneRef
+                appsModel: AppModel
+                onAppChosen: function(appData) { LaunchpadActions.handleAppChosen(appData) }
+                onAddToDockRequested: function(appData) { LaunchpadActions.handleAddToDock(appData) }
+                onAddToDesktopRequested: function(appData) { LaunchpadActions.handleAddToDesktop(appData, launchpadWindowLoader.sceneRef) }
+            }
+        }
+        onStatusChanged: {
+            if (status === Loader.Error) {
+                console.error("[shell] LaunchpadWindow failed to load:", errorString())
+                if (typeof ShellStateController !== "undefined" && ShellStateController) {
+                    ShellStateController.setLaunchpadVisible(false)
+                }
+                if (typeof ShellLayerWatchdog !== "undefined" && ShellLayerWatchdog) {
+                    ShellLayerWatchdog.reportOverlayLoadError("launchpad")
+                }
+            }
+        }
     }
 
-    OverlayComp.DockWindow {
-        id: dockWindow
-        rootWindow: root
-        desktopScene: desktopScene
-        appsModel: DockModel
+    Loader {
+        id: tothespotDismissWindowLoader
+        active: !!root.tothespotVisible
+        asynchronous: false
+        sourceComponent: Component {
+            TothespotDismissWindow {
+                rootWindow: root
+                overlayVisible: root.tothespotVisible
+                onDismissRequested: root.setSearchVisible(false)
+            }
+        }
+    }
+
+    Loader {
+        id: clipboardOverlayWindowLoader
+        active: !!root.clipboardOverlayVisible && !root.lockScreenVisible
+        asynchronous: false
+        sourceComponent: Component {
+            OverlayComp.ClipboardOverlayWindow {
+                rootWindow: root
+                panelHeight: desktopScene.panelHeight
+                overlayVisible: root.clipboardOverlayVisible && !root.lockScreenVisible
+                client: (typeof ClipboardServiceClient !== "undefined") ? ClipboardServiceClient : null
+                onCloseRequested: root.clipboardOverlayVisible = false
+            }
+        }
+    }
+
+    // TothespotWindow — deferred Loader with error boundary.
+    Loader {
+        id: tothespotWindowLoader
+        active: !!root.visible
+                && !!root.tothespotVisible
+                && !root.lockScreenVisible
+        asynchronous: false
+        sourceComponent: Component {
+            TothespotWindow {
+                rootWindow: root
+                panelHeight: desktopScene.panelHeight
+                overlayVisible: root.tothespotVisible && !root.lockScreenVisible
+                showDebugInfo: root.tothespotShowDebug
+                searchProfileMeta: root.tothespotProfileMeta
+                telemetryMeta: root.tothespotTelemetryMeta
+                telemetryLast: root.tothespotTelemetryLast
+                providerStats: root.tothespotProviderStats
+                previewData: root.tothespotPreviewData
+                queryText: root.tothespotQuery
+                resultsModel: tothespotResultsModel
+                selectedIndex: root.tothespotSelectedIndex
+                onGeometryEdited: ShellUtils.saveTothespotGeometry(root)
+                onOpeningRequested: ShellUtils.restoreTothespotGeometry(root)
+                onDismissRequested: root.setSearchVisible(false)
+                onQueryTextChangedRequest: function(text) {
+                    root.setSearchQuery(text)
+                    root.tothespotQueryGeneration = Number(root.tothespotQueryGeneration || 0) + 1
+                    tothespotDebounce.restart()
+                }
+                onSelectedIndexChangedByUser: function(indexValue) {
+                    root.tothespotSelectedIndex = indexValue
+                    TothespotController.refreshPreview(root, tothespotResultsModel)
+                }
+                onResultActivated: function(indexValue) {
+                    TothespotController.activateResult(root, tothespotResultsModel, indexValue)
+                }
+                onResultContextAction: function(indexValue, action) {
+                    TothespotController.activateContextAction(root, tothespotResultsModel, indexValue, action)
+                }
+            }
+        }
+        onStatusChanged: {
+            if (status === Loader.Error) {
+                console.error("[shell] TothespotWindow failed to load:", errorString())
+                root.setSearchVisible(false)
+                if (typeof ShellStateController !== "undefined" && ShellStateController) {
+                    ShellStateController.setToTheSpotVisible(false)
+                }
+                if (typeof ShellLayerWatchdog !== "undefined" && ShellLayerWatchdog) {
+                    ShellLayerWatchdog.reportOverlayLoadError("tothespot")
+                }
+            }
+        }
+    }
+
+    // WorkspaceWindow — deferred Loader with error boundary.
+    Loader {
+        id: workspaceWindowLoader
+        active: !!root.visible
+                && !!desktopScene
+                && !!desktopScene.workspaceVisible
+        asynchronous: false
+        sourceComponent: Component {
+            OverlayComp.WorkspaceWindow {
+                rootWindow: root
+                desktopScene: desktopScene
+            }
+        }
+        onStatusChanged: {
+            if (status === Loader.Error) {
+                console.error("[shell] WorkspaceWindow failed to load:", errorString())
+                if (typeof ShellStateController !== "undefined" && ShellStateController) {
+                    ShellStateController.setWorkspaceOverviewVisible(false)
+                }
+                if (typeof ShellLayerWatchdog !== "undefined" && ShellLayerWatchdog) {
+                    ShellLayerWatchdog.reportOverlayLoadError("workspace")
+                }
+            }
+        }
+    }
+
+    // Persistent-layer health check.
+    Connections {
+        target: (typeof ShellLayerWatchdog !== "undefined") ? ShellLayerWatchdog : null
+        ignoreUnknownSignals: true
+        function onPersistentLayerRestored() {
+            if (topBarWindow && !topBarWindow.visible) {
+                console.warn("[shell] persistent-layer restore: re-showing TopBar")
+                topBarWindow.visible = Qt.binding(function() { return !!root && root.visible })
+            }
+        }
+        function onOverlayStuckDetected(overlayName, durationMs) {
+            // Fires exactly once per occurrence (C++ sets stuckReported after first emit).
+            console.warn("[shell] overlay stuck:", overlayName, "visible for", durationMs, "ms — recovery pending")
+        }
+        function onHealthCheckCompleted(healthy) {
+            // Intentionally silent: onOverlayStuckDetected already logged the incident.
+            void healthy
+        }
     }
 
     Connections {
@@ -870,101 +1233,115 @@ ApplicationWindow {
         }
     }
 
-    OverlayComp.LockScreenWindow {
-        id: lockScreenWindow
-        rootWindow: root
-        overlayVisible: root.lockScreenVisible
-        userName: (typeof SessionStateClient !== "undefined" && SessionStateClient && SessionStateClient.userName)
-                  ? String(SessionStateClient.userName)
-                  : "User"
-        onVisibleChanged: {
-            if (visible) {
-                unlockErrorCode = ""
-            }
-        }
-        onUnlockRequested: function(password) {
-            if (lockScreenWindow.lockoutActive) {
-                return
-            }
-            if (typeof SessionStateClient !== "undefined" && SessionStateClient && SessionStateClient.requestUnlock) {
-                if (SessionStateClient.requestUnlock(password)) {
-                    root.lockScreenVisible = false
-                    lockScreenWindow.lockFailed = false
-                    lockScreenWindow.failedAttempts = 0
-                    lockScreenWindow.lockoutLevel = 0
-                    lockScreenWindow.unlockErrorCode = ""
-                } else {
-                    lockScreenWindow.lockFailed = true
-                    lockScreenWindow.unlockErrorCode = String(SessionStateClient.lastUnlockError || "")
-                    var backendRetrySec = Number(SessionStateClient.lastRetryAfterSec || 0)
-                    if (backendRetrySec > 0) {
-                        lockScreenWindow.lockoutActive = true
-                        lockScreenWindow.lockoutDurationSec = backendRetrySec
-                        lockScreenWindow.lockoutRemainingSec = backendRetrySec
-                        lockScreenWindow.failedAttempts = 0
-                        if (lockScreenWindow.lockoutTimer) {
-                            lockScreenWindow.lockoutTimer.restart()
-                        }
-                        if (lockScreenWindow.lockoutTick) {
-                            lockScreenWindow.lockoutTick.restart()
-                        }
-                    } else {
-                        lockScreenWindow.failedAttempts = Number(lockScreenWindow.failedAttempts || 0) + 1
-                        if (lockScreenWindow.failedAttempts >= 5) {
-                            lockScreenWindow.lockoutLevel = Number(lockScreenWindow.lockoutLevel || 0) + 1
-                            var lockoutSeconds = 10
-                            if (lockScreenWindow.lockoutLevel >= 2) {
-                                lockoutSeconds = 30
-                            }
-                            if (lockScreenWindow.lockoutLevel >= 3) {
-                                lockoutSeconds = 60
-                            }
-                            if (lockScreenWindow.lockoutLevel >= 4) {
-                                lockoutSeconds = 120
-                            }
-                            if (lockScreenWindow.lockoutLevel >= 5) {
-                                lockoutSeconds = 300
-                            }
-                            lockScreenWindow.lockoutActive = true
-                            lockScreenWindow.lockoutDurationSec = lockoutSeconds
-                            lockScreenWindow.lockoutRemainingSec = lockoutSeconds
-                            lockScreenWindow.failedAttempts = 0
-                            if (lockScreenWindow.lockoutTimer) {
-                                lockScreenWindow.lockoutTimer.restart()
-                            }
-                            if (lockScreenWindow.lockoutTick) {
-                                lockScreenWindow.lockoutTick.restart()
-                            }
-                        }
+    Loader {
+        id: lockScreenWindowLoader
+        active: !!root.lockScreenVisible
+                || !!(typeof SessionStateClient !== "undefined" && SessionStateClient && SessionStateClient.locked)
+        asynchronous: false
+        sourceComponent: Component {
+            OverlayComp.LockScreenWindow {
+                id: lockScreenWindow
+                rootWindow: root
+                overlayVisible: root.lockScreenVisible
+                userName: (typeof SessionStateClient !== "undefined" && SessionStateClient && SessionStateClient.userName)
+                          ? String(SessionStateClient.userName)
+                          : "User"
+                onVisibleChanged: {
+                    if (visible) {
+                        unlockErrorCode = ""
                     }
                 }
-                return
-            }
-            if (String(password || "").trim().length > 0) {
-                root.lockScreenVisible = false
-                lockScreenWindow.lockFailed = false
-                lockScreenWindow.failedAttempts = 0
-                lockScreenWindow.lockoutLevel = 0
-                lockScreenWindow.unlockErrorCode = ""
-            } else {
-                lockScreenWindow.lockFailed = true
-                lockScreenWindow.unlockErrorCode = "empty-password"
-                lockScreenWindow.failedAttempts = Number(lockScreenWindow.failedAttempts || 0) + 1
+                onUnlockRequested: function(password) {
+                    if (lockScreenWindow.lockoutActive) {
+                        return
+                    }
+                    if (typeof SessionStateClient !== "undefined" && SessionStateClient && SessionStateClient.requestUnlock) {
+                        if (SessionStateClient.requestUnlock(password)) {
+                            root.lockScreenVisible = false
+                            lockScreenWindow.lockFailed = false
+                            lockScreenWindow.failedAttempts = 0
+                            lockScreenWindow.lockoutLevel = 0
+                            lockScreenWindow.unlockErrorCode = ""
+                        } else {
+                            lockScreenWindow.lockFailed = true
+                            lockScreenWindow.unlockErrorCode = String(SessionStateClient.lastUnlockError || "")
+                            var backendRetrySec = Number(SessionStateClient.lastRetryAfterSec || 0)
+                            if (backendRetrySec > 0) {
+                                lockScreenWindow.lockoutActive = true
+                                lockScreenWindow.lockoutDurationSec = backendRetrySec
+                                lockScreenWindow.lockoutRemainingSec = backendRetrySec
+                                lockScreenWindow.failedAttempts = 0
+                                if (lockScreenWindow.lockoutTimer) {
+                                    lockScreenWindow.lockoutTimer.restart()
+                                }
+                                if (lockScreenWindow.lockoutTick) {
+                                    lockScreenWindow.lockoutTick.restart()
+                                }
+                            } else {
+                                lockScreenWindow.failedAttempts = Number(lockScreenWindow.failedAttempts || 0) + 1
+                                if (lockScreenWindow.failedAttempts >= 5) {
+                                    lockScreenWindow.lockoutLevel = Number(lockScreenWindow.lockoutLevel || 0) + 1
+                                    var lockoutSeconds = 10
+                                    if (lockScreenWindow.lockoutLevel >= 2) {
+                                        lockoutSeconds = 30
+                                    }
+                                    if (lockScreenWindow.lockoutLevel >= 3) {
+                                        lockoutSeconds = 60
+                                    }
+                                    if (lockScreenWindow.lockoutLevel >= 4) {
+                                        lockoutSeconds = 120
+                                    }
+                                    if (lockScreenWindow.lockoutLevel >= 5) {
+                                        lockoutSeconds = 300
+                                    }
+                                    lockScreenWindow.lockoutActive = true
+                                    lockScreenWindow.lockoutDurationSec = lockoutSeconds
+                                    lockScreenWindow.lockoutRemainingSec = lockoutSeconds
+                                    lockScreenWindow.failedAttempts = 0
+                                    if (lockScreenWindow.lockoutTimer) {
+                                        lockScreenWindow.lockoutTimer.restart()
+                                    }
+                                    if (lockScreenWindow.lockoutTick) {
+                                        lockScreenWindow.lockoutTick.restart()
+                                    }
+                                }
+                            }
+                        }
+                        return
+                    }
+                    if (String(password || "").trim().length > 0) {
+                        root.lockScreenVisible = false
+                        lockScreenWindow.lockFailed = false
+                        lockScreenWindow.failedAttempts = 0
+                        lockScreenWindow.lockoutLevel = 0
+                        lockScreenWindow.unlockErrorCode = ""
+                    } else {
+                        lockScreenWindow.lockFailed = true
+                        lockScreenWindow.unlockErrorCode = "empty-password"
+                        lockScreenWindow.failedAttempts = Number(lockScreenWindow.failedAttempts || 0) + 1
+                    }
+                }
             }
         }
     }
 
-    OverlayComp.MotionDebugOverlay {
-        id: motionDebugOverlay
-        anchors.fill: parent
-        enabled: root.motionDebugOverlayEnabled
-        rows: root.motionDebugRows
-        panelHeight: desktopScene.panelHeight
-        frameDt: (typeof MotionController !== "undefined" && MotionController)
-                 ? MotionController.lastFrameDt : 0
-        timeScale: (typeof MotionController !== "undefined" && MotionController)
-                   ? MotionController.timeScale : 1
-        droppedFrameCount: (typeof MotionController !== "undefined" && MotionController)
-                           ? MotionController.droppedFrameCount : 0
+    Loader {
+        id: motionDebugOverlayLoader
+        active: !!root.motionDebugOverlayEnabled
+        asynchronous: false
+        sourceComponent: Component {
+            OverlayComp.MotionDebugOverlay {
+                anchors.fill: parent
+                enabled: root.motionDebugOverlayEnabled
+                rows: root.motionDebugRows
+                panelHeight: desktopScene.panelHeight
+                frameDt: (typeof MotionController !== "undefined" && MotionController)
+                         ? MotionController.lastFrameDt : 0
+                timeScale: (typeof MotionController !== "undefined" && MotionController)
+                           ? MotionController.timeScale : 1
+                droppedFrameCount: (typeof MotionController !== "undefined" && MotionController)
+                                   ? MotionController.droppedFrameCount : 0
+            }
+        }
     }
 }

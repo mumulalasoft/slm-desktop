@@ -1,5 +1,6 @@
 import QtQuick 2.15
 import QtQuick.Window 2.15
+import Slm_Desktop
 import "../workspace" as WorkspaceComp
 
 Window {
@@ -8,7 +9,7 @@ Window {
     required property var rootWindow
     required property var desktopScene
 
-    visible: !!rootWindow && !!desktopScene && rootWindow.visible && desktopScene.workspaceVisible
+    visible: !!rootWindow && !!desktopScene && rootWindow.visible && ShellState.workspaceOverviewVisible
     color: "transparent"
     flags: Qt.FramelessWindowHint | Qt.WindowDoesNotAcceptFocus | Qt.WindowStaysOnTopHint
     transientParent: rootWindow

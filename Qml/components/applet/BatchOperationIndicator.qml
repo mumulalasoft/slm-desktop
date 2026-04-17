@@ -2,7 +2,7 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import Slm_Desktop
-import Style as DSStyle
+import SlmStyle as DSStyle
 
 Item {
     id: root
@@ -12,6 +12,7 @@ Item {
     property bool popupHint: false
     property bool popupOpen: popupHint || opMenu.opened
     property bool autoOpenWhenActive: true
+    property real tinyArchiveAutoPopupBytes: 2 * 1024 * 1024
     readonly property int compactH: Theme.metric("controlHeightCompact")
     readonly property int regularH: Theme.metric("controlHeightRegular")
     readonly property int largeH: Theme.metric("controlHeightLarge")
@@ -27,15 +28,15 @@ Item {
 
     Behavior on opacity {
         NumberAnimation {
-            duration: 180
-            easing.type: Easing.OutCubic
+            duration: Theme.durationMd
+            easing.type: Theme.easingDefault
         }
     }
 
     Behavior on scale {
         NumberAnimation {
-            duration: 180
-            easing.type: Easing.OutCubic
+            duration: Theme.durationMd
+            easing.type: Theme.easingDefault
         }
     }
 
@@ -102,6 +103,8 @@ Item {
     property real pendingBatchTotal: 0
     property string pendingBatchError: ""
     property real progressUiIdleSinceMs: 0
+    property int progressNotificationId: 0
+    property int progressNotificationBucket: -1
 
     function positionOpMenu() {
         if (!opMenu || !indicatorButton) {
@@ -149,6 +152,84 @@ Item {
         return String(root.lastOperationType || "")
     }
 
+    function supportsPause(op) {
+        var t = String(op || "").toLowerCase()
+        return t !== "extract" && t !== "compress"
+    }
+
+    function operationMeta(operation) {
+        var op = String(operation || "").toLowerCase()
+        if (op === "copy") return { "title": "Copy", "icon": "edit-copy-symbolic" }
+        if (op === "move") return { "title": "Move", "icon": "go-jump-symbolic" }
+        if (op === "delete") return { "title": "Delete", "icon": "edit-delete-symbolic" }
+        if (op === "trash") return { "title": "Move to Trash", "icon": "user-trash-symbolic" }
+        if (op === "restore") return { "title": "Restore", "icon": "edit-undo-symbolic" }
+        if (op === "extract") return { "title": "Extract", "icon": "package-x-generic-symbolic" }
+        if (op === "compress") return { "title": "Compress", "icon": "package-x-generic-symbolic" }
+        return { "title": "Operation", "icon": "document-save-symbolic" }
+    }
+
+    function clearProgressNotification() {
+        if (typeof NotificationManager === "undefined" || !NotificationManager) {
+            progressNotificationId = 0
+            progressNotificationBucket = -1
+            return
+        }
+        if (progressNotificationId > 0) {
+            if (NotificationManager.dismissBanner) {
+                NotificationManager.dismissBanner(progressNotificationId)
+            } else if (NotificationManager.closeById) {
+                NotificationManager.closeById(progressNotificationId)
+            }
+        }
+        progressNotificationId = 0
+        progressNotificationBucket = -1
+    }
+
+    function syncProgressNotification(forceUpdate) {
+        if (typeof NotificationManager === "undefined" || !NotificationManager || !NotificationManager.Notify) {
+            return
+        }
+        if (!root.activeOperation) {
+            clearProgressNotification()
+            return
+        }
+
+        var op = root.displayOperationType()
+        var meta = operationMeta(op)
+        var total = Number(root.displayTotalValue() || 0)
+        var current = Number(root.displayCurrentValue() || 0)
+        var progress = Math.max(0, Math.min(1, Number(root.displayProgressValue() || 0)))
+        var bucket = Math.max(0, Math.min(10, Math.floor(progress * 10)))
+        if (!forceUpdate && progressNotificationId > 0 && bucket === progressNotificationBucket) {
+            return
+        }
+
+        var body = ""
+        if (total > (8 * 1024 * 1024)) {
+            body = humanBytes(current) + " / " + humanBytes(total) + " (" + percentText() + ")"
+        } else if (total > 0) {
+            body = String(current) + " / " + String(total) + " (" + percentText() + ")"
+        } else {
+            body = "Preparing operation..."
+        }
+
+        var replacesId = Math.max(0, Number(progressNotificationId || 0))
+        var id = Number(NotificationManager.Notify(
+                            "Desktop File Manager",
+                            replacesId,
+                            String(meta.icon || "document-save-symbolic"),
+                            String(meta.title || "Operation") + " in progress",
+                            body,
+                            [],
+                            { "transient": true },
+                            -1))
+        if (id > 0) {
+            progressNotificationId = id
+            progressNotificationBucket = bucket
+        }
+    }
+
     function captureProgressSnapshot(opOverride, currentOverride, totalOverride) {
         var op = (opOverride !== undefined && opOverride !== null)
                 ? String(opOverride || "")
@@ -163,6 +244,24 @@ Item {
         root.lastCurrentValue = current
         root.lastTotalValue = total
         root.lastProgressValue = total > 0 ? Math.max(0, Math.min(1, current / total)) : 0
+    }
+
+    function shouldAutoOpenPopupForActiveOperation() {
+        if (!root.fileManagerApi) {
+            return true
+        }
+        var op = String(root.fileManagerApi.batchOperationType || "").toLowerCase()
+        if (op !== "extract" && op !== "compress") {
+            return true
+        }
+        if (!root.fileManagerApi.batchOperationTotalIsBytes) {
+            return true
+        }
+        var total = Number(root.fileManagerApi.batchOperationTotal || 0)
+        if (!(total > 0)) {
+            return true
+        }
+        return total > Number(root.tinyArchiveAutoPopupBytes || 0)
     }
 
     function updateEta() {
@@ -232,25 +331,11 @@ Item {
         if (typeof NotificationManager === "undefined" || !NotificationManager || !NotificationManager.Notify) {
             return
         }
+        clearProgressNotification()
         var op = String(operation || "")
-        var opTitle = "Operation"
-        var iconName = "document-save-symbolic"
-        if (op === "copy") {
-            opTitle = "Copy"
-            iconName = "edit-copy-symbolic"
-        } else if (op === "move") {
-            opTitle = "Move"
-            iconName = "go-jump-symbolic"
-        } else if (op === "delete") {
-            opTitle = "Delete"
-            iconName = "edit-delete-symbolic"
-        } else if (op === "trash") {
-            opTitle = "Move to Trash"
-            iconName = "user-trash-symbolic"
-        } else if (op === "restore") {
-            opTitle = "Restore"
-            iconName = "edit-undo-symbolic"
-        }
+        var meta = operationMeta(op)
+        var opTitle = String(meta.title || "Operation")
+        var iconName = String(meta.icon || "document-save-symbolic")
 
         var processedNum = Number(processed || 0)
         var totalNum = Number(total || 0)
@@ -372,7 +457,9 @@ Item {
             inactiveCloseDebounce.stop()
             root.holdVisible = true
             visibleHoldTimer.restart()
-            if (root.autoOpenWhenActive && !opMenu.opened) {
+            root.syncProgressNotification(true)
+            if (root.autoOpenWhenActive && !opMenu.opened
+                    && root.shouldAutoOpenPopupForActiveOperation()) {
                 root.popupHint = true
                 popupHintTimer.restart()
                 Qt.callLater(function() {
@@ -382,6 +469,7 @@ Item {
                 })
             }
         } else {
+            root.clearProgressNotification()
             visibleHoldTimer.restart()
             inactiveCloseDebounce.restart()
             Qt.callLater(root.maybeFlushBatchFinishedNotification)
@@ -410,7 +498,10 @@ Item {
         interval: 500
         running: root.activeOperation
         repeat: true
-        onTriggered: root.updateEta()
+        onTriggered: {
+            root.updateEta()
+            root.syncProgressNotification(false)
+        }
     }
 
     Connections {
@@ -433,6 +524,9 @@ Item {
                 root.speedBytesPerSec = 0
                 root.lastSampleMs = 0
                 root.lastSampleCurrent = 0
+                root.clearProgressNotification()
+            } else {
+                root.syncProgressNotification(false)
             }
             root.updateEta()
             progressRing.requestPaint()
@@ -443,6 +537,7 @@ Item {
                                          Number(total || 0))
             root.holdVisible = true
             visibleHoldTimer.restart()
+            root.clearProgressNotification()
             root.queueBatchFinishedNotification(operation, ok, processed, total, error)
             root.updateEta()
             progressRing.requestPaint()
@@ -503,7 +598,6 @@ Item {
 
     Popup {
         id: opMenu
-        popupType: Popup.Item
         parent: Overlay.overlay
         modal: false
         focus: false
@@ -554,6 +648,8 @@ Item {
                     if (op === "delete") return "Delete in progress" + paused
                     if (op === "trash") return "Move to Trash in progress" + paused
                     if (op === "restore") return "Restore in progress" + paused
+                    if (op === "extract") return "Extract in progress" + paused
+                    if (op === "compress") return "Compress in progress" + paused
                     return "Operation in progress"
                 }
                 color: Theme.color("textPrimary")
@@ -623,8 +719,12 @@ Item {
 
                 Button {
                     text: (root.fileManagerApi && root.fileManagerApi.batchOperationPaused) ? "Resume" : "Pause"
+                    enabled: root.fileManagerApi && root.supportsPause(root.displayOperationType())
                     onClicked: {
                         if (!root.fileManagerApi) {
+                            return
+                        }
+                        if (!root.supportsPause(root.displayOperationType())) {
                             return
                         }
                         if (root.fileManagerApi.batchOperationPaused && root.fileManagerApi.resumeActiveBatchOperation) {

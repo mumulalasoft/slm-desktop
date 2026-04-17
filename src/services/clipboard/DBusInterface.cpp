@@ -118,6 +118,11 @@ bool DBusInterface::serviceRegistered() const
     return m_registered;
 }
 
+QString DBusInterface::BackendMode() const
+{
+    return m_service ? m_service->backendMode() : QStringLiteral("unknown");
+}
+
 QVariantList DBusInterface::GetHistory(int limit)
 {
     if (!checkPermission(Slm::Permissions::Capability::ClipboardReadHistoryPreview, QStringLiteral("GetHistory"))) {

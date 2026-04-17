@@ -1,0 +1,242 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!--?xml version="1.0" encoding="UTF-8"?-->
+
+<svg
+   viewBox="0 0 1024 1024"
+   width="1024"
+   height="1024"
+   aria-labelledby="title"
+   version="1.1"
+   id="svg142"
+   sodipodi:docname="launchpad.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview144"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     showgrid="false" />
+  <title
+     id="title">Launchpad-style 3x3 icon (SVG)</title>
+  <defs
+     id="defs76">
+    <linearGradient
+       inkscape:collect="always"
+       id="linearGradient4093">
+      <stop
+         style="stop-color:#4fc3ff;stop-opacity:1;"
+         offset="0"
+         id="stop4089" />
+      <stop
+         style="stop-color:#0f8aca;stop-opacity:0.86856973;"
+         offset="1"
+         id="stop4091" />
+    </linearGradient>
+    <linearGradient
+       inkscape:collect="always"
+       id="linearGradient4085">
+      <stop
+         style="stop-color:#9b59ff;stop-opacity:1;"
+         offset="0"
+         id="stop4081" />
+      <stop
+         style="stop-color:#621ccd;stop-opacity:0.87167466;"
+         offset="1"
+         id="stop4083" />
+    </linearGradient>
+    <linearGradient
+       inkscape:collect="always"
+       id="linearGradient4077">
+      <stop
+         style="stop-color:#ff5b88;stop-opacity:1;"
+         offset="0"
+         id="stop4073" />
+      <stop
+         style="stop-color:#c11443;stop-opacity:0.92439902;"
+         offset="1"
+         id="stop4075" />
+    </linearGradient>
+    <linearGradient
+       inkscape:collect="always"
+       id="linearGradient4061">
+      <stop
+         style="stop-color:#65e465;stop-opacity:1;"
+         offset="0"
+         id="stop4057" />
+      <stop
+         style="stop-color:#0c931c;stop-opacity:0.9291867;"
+         offset="1"
+         id="stop4059" />
+    </linearGradient>
+    <linearGradient
+       inkscape:collect="always"
+       id="linearGradient3983">
+      <stop
+         style="stop-color:#ff9a3c;stop-opacity:1;"
+         offset="0"
+         id="stop3979" />
+      <stop
+         style="stop-color:#ff0000;stop-opacity:1"
+         offset="1"
+         id="stop3981" />
+    </linearGradient>
+    <!-- soft background blur/glow -->
+    <filter
+       id="bgShadow"
+       x="-0.050446428"
+       y="-0.050446428"
+       width="1.1008929"
+       height="1.1008929">
+      <feGaussianBlur
+         stdDeviation="18"
+         result="b"
+         id="feGaussianBlur3" />
+      <feComposite
+         in="b"
+         in2="SourceGraphic"
+         operator="over"
+         id="feComposite5" />
+    </filter>
+    <!-- tile drop shadow -->
+    <!-- subtle inner highlight on tiles -->
+    <!-- gradients for each tile color -->
+    <!-- subtle vignette -->
+    <radialGradient
+       id="vignette"
+       cx="512"
+       cy="512"
+       r="672"
+       fx="512"
+       fy="512"
+       gradientUnits="userSpaceOnUse">
+      <stop
+         offset="0"
+         stop-color="#000"
+         stop-opacity="0"
+         id="stop71" />
+      <stop
+         offset="1"
+         stop-color="#000"
+         stop-opacity="0.18"
+         id="stop73" />
+    </radialGradient>
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient3983"
+       id="linearGradient3985"
+       x1="681.63098"
+       y1="270.01804"
+       x2="537.09418"
+       y2="570.13678"
+       gradientUnits="userSpaceOnUse" />
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient4061"
+       id="linearGradient4063"
+       x1="288.23227"
+       y1="320.1445"
+       x2="498.43097"
+       y2="581.78583"
+       gradientUnits="userSpaceOnUse" />
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient4077"
+       id="linearGradient4079"
+       x1="759.35486"
+       y1="598.9729"
+       x2="546.08002"
+       y2="598.26062"
+       gradientUnits="userSpaceOnUse" />
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient4085"
+       id="linearGradient4087"
+       x1="291.25677"
+       y1="671.68518"
+       x2="505.97162"
+       y2="611.44257"
+       gradientUnits="userSpaceOnUse" />
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient4093"
+       id="linearGradient4095"
+       x1="526.13678"
+       y1="786.80255"
+       x2="524.77936"
+       y2="628.66064"
+       gradientUnits="userSpaceOnUse" />
+  </defs>
+  <!-- outer rounded square background -->
+  <g
+     filter="url(#bgShadow)"
+     id="g80">
+    <rect
+       x="64"
+       y="64"
+       width="896"
+       height="896"
+       rx="160"
+       ry="160"
+       fill="#f8f9fb"
+       stroke="#e6e9ec"
+       stroke-width="4"
+       id="rect78" />
+  </g>
+  <!-- soft outer vignette overlay (subtle) -->
+  <rect
+     x="64"
+     y="64"
+     width="896"
+     height="896"
+     rx="160"
+     fill="url(#vignette)"
+     opacity="0.28"
+     id="rect82"
+     style="fill:url(#vignette)" />
+  <g
+     id="g4102">
+    <path
+       style="fill:url(#linearGradient4087);fill-opacity:1;stroke:none;stroke-width:19.5183;stroke-dasharray:none"
+       d="M 506.91711,605.95575 354.38376,562.24706 a 98.25682,98.25682 0 0 0 -124.81515,104.43415 103.67709,103.67709 0 0 0 184.61596,46.53534 z"
+       id="path7" />
+    <path
+       style="fill:url(#linearGradient4095);fill-opacity:1;stroke:none;stroke-width:19.1118;stroke-dasharray:none"
+       d="m 522.34,618.44137 c 83.596,68.36503 67.3509,163.13641 -40.24157,217.3277 a 193.50591,181.72943 89.999998 0 0 30.76909,-172.38462 l 7.91392,-44.33783 c 0.16783,-0.9386 0.84822,-1.18648 1.55856,-0.6055 z"
+       id="path8" />
+    <path
+       style="fill:url(#linearGradient4063);fill-opacity:1;stroke:none;stroke-width:19.5195"
+       d="M 509.23334,588.81502 477.0073,351.09363 a 148.55404,148.55404 0 0 0 -220.44664,-109.2896 156.74893,156.74893 0 0 0 47.81762,283.85128 z"
+       id="path13" />
+    <path
+       style="fill:url(#linearGradient3985);fill-opacity:1;stroke:none;stroke-width:19.5183;stroke-dasharray:none"
+       d="M 528.80472,580.55916 732.98353,454.61885 A 148.55404,148.55404 0 0 0 743.38944,208.78835 156.74893,156.74893 0 0 0 503.3797,367.7016 Z"
+       id="path14" />
+    <path
+       style="fill:url(#linearGradient4079);fill-opacity:1;stroke:none;stroke-width:19.348;stroke-dasharray:none"
+       d="m 531.65011,600.15994 143.45193,-83.24059 a 98.06084,104.26564 88.852721 0 1 157.34369,66.57531 103.4703,110.01738 88.852721 0 1 -175.43926,94.63228 z"
+       id="path16" />
+  </g>
+  <!-- grid parameters -->
+  <!-- positions computed to center a grid: first tile at (176,176), tile size 160, gap 96 -->
+  <!-- helper group for tiles -->
+  <!-- slight inner rim to emulate soft 3D container edge -->
+  <rect
+     x="92"
+     y="92"
+     width="840"
+     height="840"
+     rx="140"
+     fill="none"
+     stroke="#ffffff"
+     stroke-opacity="0.5"
+     stroke-width="6"
+     id="rect140" />
+</svg>

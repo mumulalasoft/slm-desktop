@@ -2,6 +2,7 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import Slm_Desktop
+import "../contextmenu" as ContextMenuComp
 
 Item {
     id: root
@@ -64,7 +65,7 @@ Item {
             border.width: Theme.shadowMd.radius
             border.color: Qt.rgba(0, 0, 0, Theme.shadowMd.opacity * (Theme.darkMode ? 1.6 : 1.0))
             z: -1
-            opacity: 0.45
+            opacity: Theme.opacityMuted * 0.56
             scale: 1.0
         }
 
@@ -104,11 +105,50 @@ Item {
 
     MouseArea {
         anchors.fill: parent
-        onClicked: {
+        acceptedButtons: Qt.LeftButton | Qt.RightButton
+        onClicked: function(mouse) {
+            if (mouse.button === Qt.RightButton) {
+                var notifAppId = ""
+                if (root.notificationManager && root.notificationId > 0) {
+                    var nd = root.notificationManager.latestNotification
+                    notifAppId = nd ? String(nd.appName || "") : ""
+                }
+                notifCtxMenu.popupForNotification(
+                    root.notificationId,
+                    notifAppId,
+                    false,
+                    mouse.x,
+                    mouse.y
+                )
+                return
+            }
             root.showing = false
             if (root.notificationManager && root.notificationId > 0) {
                 root.notificationManager.closeById(root.notificationId)
             }
+        }
+    }
+
+    ContextMenuComp.NotificationContextMenu {
+        id: notifCtxMenu
+        onMuteApp: function(appId) {
+            if (root.notificationManager && root.notificationManager.muteApp)
+                root.notificationManager.muteApp(appId)
+        }
+        onTurnOffNotifications: function(appId) {
+            if (root.notificationManager && root.notificationManager.setAppNotificationsEnabled)
+                root.notificationManager.setAppNotificationsEnabled(appId, false)
+        }
+        onOpenApp: function(appId) {
+            if (typeof AppStateClient !== "undefined" && AppStateClient)
+                AppStateClient.activateApp(appId)
+            else if (typeof AppModel !== "undefined" && AppModel && AppModel.activateApp)
+                AppModel.activateApp(appId)
+        }
+        onReply: function(notificationId) {
+            // Reply is notification-type specific; surface via NotificationManager if supported.
+            if (root.notificationManager && root.notificationManager.activateAction)
+                root.notificationManager.activateAction(notificationId, "reply", [])
         }
     }
 

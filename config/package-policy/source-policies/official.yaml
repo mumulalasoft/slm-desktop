@@ -1,0 +1,5 @@
+id: official
+kind: official
+risk: low
+can_replace_core: true
+advanced_only: false

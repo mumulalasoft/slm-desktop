@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Architecture Notes
+    url: https://example.invalid/slm-filemanager/architecture
+    about: Use this as placeholder. Replace with repository docs URL after extraction.

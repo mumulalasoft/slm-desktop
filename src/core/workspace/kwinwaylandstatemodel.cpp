@@ -363,12 +363,19 @@ void KWinWaylandStateModel::onConnectedChanged()
 
 void KWinWaylandStateModel::onEventReceived(const QString &event, const QVariantMap &payload)
 {
-    Q_UNUSED(event)
-    m_lastEvent = payload;
+    QVariantMap normalizedPayload = payload;
+    QString normalizedEvent = normalizedPayload.value(QStringLiteral("event")).toString().trimmed();
+    if (normalizedEvent.isEmpty()) {
+        normalizedEvent = event.trimmed();
+    }
+    if (!normalizedEvent.isEmpty()) {
+        normalizedPayload.insert(QStringLiteral("event"), normalizedEvent.toLower());
+    }
+    m_lastEvent = normalizedPayload;
     emit lastEventChanged();
 
-    if (payload.value(QStringLiteral("event")).toString() == QStringLiteral("command")) {
-        const QString command = payload.value(QStringLiteral("command")).toString();
+    if (normalizedPayload.value(QStringLiteral("event")).toString() == QStringLiteral("command")) {
+        const QString command = normalizedPayload.value(QStringLiteral("command")).toString();
         if (command == QStringLiteral("switcher-next") || command == QStringLiteral("switcher-prev")) {
             scheduleWindowRefresh(10);
         }

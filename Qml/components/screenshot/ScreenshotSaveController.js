@@ -68,8 +68,8 @@ function defaultSaveFolder(shell) {
     if (!shell) {
         return "~/Pictures/Screenshots"
     }
-    if (typeof UIPreferences !== "undefined" && UIPreferences && UIPreferences.getPreference) {
-        var v = String(UIPreferences.getPreference("screenshot.saveFolder", "~/Pictures/Screenshots") || "")
+    if (typeof DesktopSettings !== "undefined" && DesktopSettings && DesktopSettings.settingValue) {
+        var v = String(DesktopSettings.settingValue("screenshot.saveFolder", "~/Pictures/Screenshots") || "")
         if (v.trim().length > 0) {
             return v
         }
@@ -82,8 +82,8 @@ function persistSaveFolder(folderValue) {
     if (folder.length <= 0) {
         return
     }
-    if (typeof UIPreferences !== "undefined" && UIPreferences && UIPreferences.setPreference) {
-        UIPreferences.setPreference("screenshot.saveFolder", folder)
+    if (typeof DesktopSettings !== "undefined" && DesktopSettings && DesktopSettings.setSettingValue) {
+        DesktopSettings.setSettingValue("screenshot.saveFolder", folder)
     }
 }
 

@@ -1,9 +1,10 @@
 #include "portalmanager.h"
-#include "../../../portalmethodnames.h"
-#include "../../../portalresponsebuilder.h"
-#include "../../../portalvalidation.h"
+#include "portalmethodnames.h"
+#include "portalresponsebuilder.h"
+#include "portalvalidation.h"
 
 #include <QDBusConnection>
+#include <QDBusArgument>
 #include <QDBusInterface>
 #include <QDBusReply>
 #include <QDir>
@@ -151,6 +152,71 @@ QVariantMap callUiFileChooser(const QVariantMap &options)
     }
     return reply.value();
 }
+
+QVariantList toVariantListNormalized(const QVariant &value)
+{
+    if (!value.isValid() || value.isNull()) {
+        return {};
+    }
+    if (value.canConvert<QVariantList>()) {
+        const QVariantList list = value.toList();
+        if (!list.isEmpty()) {
+            return list;
+        }
+    }
+    if (value.canConvert<QStringList>()) {
+        const QStringList list = value.toStringList();
+        if (!list.isEmpty()) {
+            QVariantList out;
+            out.reserve(list.size());
+            for (const QString &item : list) {
+                out.push_back(item);
+            }
+            return out;
+        }
+    }
+    if (value.userType() == qMetaTypeId<QDBusArgument>()) {
+        const QDBusArgument dbusArg = value.value<QDBusArgument>();
+        QVariantList out;
+        QDBusArgument arg = dbusArg;
+        arg.beginArray();
+        while (!arg.atEnd()) {
+            QVariant item;
+            arg >> item;
+            out.push_back(item);
+        }
+        arg.endArray();
+        if (!out.isEmpty()) {
+            return out;
+        }
+    }
+    const QString single = value.toString().trimmed();
+    if (!single.isEmpty()) {
+        return {single};
+    }
+    return {};
+}
+
+void normalizeFileChooserPayload(QVariantMap *out)
+{
+    if (!out) {
+        return;
+    }
+    QVariantList paths = toVariantListNormalized(out->value(QStringLiteral("paths")));
+    QVariantList uris = toVariantListNormalized(out->value(QStringLiteral("uris")));
+    const QString path = out->value(QStringLiteral("path")).toString().trimmed();
+    const QString uri = out->value(QStringLiteral("uri")).toString().trimmed();
+
+    if (paths.isEmpty() && !path.isEmpty()) {
+        paths.push_back(path);
+    }
+    if (uris.isEmpty() && !uri.isEmpty()) {
+        uris.push_back(uri);
+    }
+
+    out->insert(QStringLiteral("paths"), paths);
+    out->insert(QStringLiteral("uris"), uris);
+}
 }
 
 PortalManager::PortalManager(QObject *parent)
@@ -200,6 +266,7 @@ QVariantMap PortalManager::FileChooser(const QVariantMap &options) const
     if (!out.contains(QStringLiteral("ok"))) {
         out.insert(QStringLiteral("ok"), false);
     }
+    normalizeFileChooserPayload(&out);
     out.insert(QStringLiteral("method"), QString::fromLatin1(SlmPortalMethod::kFileChooser));
     return out;
 }
@@ -278,6 +345,7 @@ QVariantMap PortalManager::PickFolder(const QVariantMap &options) const
     if (!out.contains(QStringLiteral("ok"))) {
         out.insert(QStringLiteral("ok"), false);
     }
+    normalizeFileChooserPayload(&out);
     out.insert(QStringLiteral("method"), QString::fromLatin1(SlmPortalMethod::kPickFolder));
     return out;
 }

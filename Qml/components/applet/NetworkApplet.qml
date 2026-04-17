@@ -1,8 +1,9 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
+import QtQuick.Controls.impl 2.15
 import QtQuick.Layouts 1.15
 import Slm_Desktop
-import Style
+import SlmStyle
 
 Item {
     id: root
@@ -28,6 +29,16 @@ Item {
 
     implicitWidth: indicatorButton.implicitWidth
     implicitHeight: indicatorButton.implicitHeight
+
+    function microAnimationAllowed() {
+        if (!Theme.animationsEnabled) {
+            return false
+        }
+        if (typeof MotionController === "undefined" || !MotionController || !MotionController.allowMotionPriority) {
+            return true
+        }
+        return MotionController.allowMotionPriority(MotionController.LowPriority)
+    }
 
     function openMenuSafely() {
         if ((Date.now() - lastMenuCloseMs) < 180) {
@@ -147,7 +158,7 @@ Item {
             spacing: Theme.metric("spacingXs")
             anchors.verticalCenter: parent.verticalCenter
 
-            Image {
+            IconImage {
                 id: panelIcon
                 width: root.iconSize
                 height: root.iconSize
@@ -156,6 +167,7 @@ Item {
                 source: root.iconSourceByName(root.iconCandidate(candidates, candidateIndex))
                 fillMode: Image.PreserveAspectFit
                 opacity: (root.networkManager && root.networkManager.online) ? 1.0 : 0.55
+                color: Theme.color("textOnGlass")
                 onStatusChanged: {
                     if (status === Image.Error && candidateIndex + 1 < candidates.length) {
                         candidateIndex += 1
@@ -172,6 +184,14 @@ Item {
             color: indicatorButton.hovered ? Theme.color("accentSoft") : "transparent"
             border.width: Theme.borderWidthThin
             border.color: indicatorButton.hovered ? Theme.color("panelBorder") : "transparent"
+            Behavior on color {
+                enabled: root.microAnimationAllowed()
+                ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault }
+            }
+            Behavior on border.color {
+                enabled: root.microAnimationAllowed()
+                ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault }
+            }
         }
 
         onClicked: {

@@ -1,6 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import Slm_Desktop
+import "../contextmenu" as ContextMenuComp
 
 Item {
     id: root
@@ -11,6 +12,8 @@ Item {
     property bool showCloseButton: true
     property string iconSource: "qrc:/icons/logo.svg"
     property bool transitionActive: false
+    readonly property bool focusedWindow: !!(windowData && windowData.focused)
+    property real focusBlend: focusedWindow ? 1.0 : 0.0
 
     property bool wasDragged: false
     property string dragViewId: String((windowData && windowData.viewId) || "")
@@ -47,19 +50,40 @@ Item {
     Drag.hotSpot.y: height / 2
     Drag.keys: [ "workspaceWindowThumbnail" ]
 
-    Behavior on x { enabled: !root.transitionActive; NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingDecelerate } }
-    Behavior on y { enabled: !root.transitionActive; NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingDecelerate } }
-    Behavior on width { enabled: !root.transitionActive; NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingDecelerate } }
-    Behavior on height { enabled: !root.transitionActive; NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingDecelerate } }
+    Behavior on focusBlend {
+        enabled: !root.transitionActive && Theme.animationsEnabled
+        NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingLight }
+    }
+    Behavior on x { enabled: !root.transitionActive; NumberAnimation { duration: Theme.durationNormal; easing.type: Theme.easingDecelerate } }
+    Behavior on y { enabled: !root.transitionActive; NumberAnimation { duration: Theme.durationNormal; easing.type: Theme.easingDecelerate } }
+    Behavior on width { enabled: !root.transitionActive; NumberAnimation { duration: Theme.durationNormal; easing.type: Theme.easingDecelerate } }
+    Behavior on height { enabled: !root.transitionActive; NumberAnimation { duration: Theme.durationNormal; easing.type: Theme.easingDecelerate } }
+
+    Rectangle {
+        anchors.fill: parent
+        anchors.margins: -2
+        radius: Theme.radiusControlLarge + 2
+        color: Theme.color("accent")
+        opacity: root.focusBlend * Theme.opacityFaint
+        visible: opacity > 0
+    }
 
     Rectangle {
         anchors.fill: parent
         radius: Theme.radiusControlLarge
         color: "transparent"
-        border.width: !!(windowData && windowData.focused) ? 2 : 1
-        border.color: !!(windowData && windowData.focused)
+        border.width: root.focusedWindow ? Theme.borderWidthThick : Theme.borderWidthThin
+        border.color: root.focusedWindow
                       ? Theme.color("accent")
                       : Theme.color("workspaceWindowBorderUnfocused")
+        Behavior on border.width {
+            enabled: !root.transitionActive && Theme.animationsEnabled
+            NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingLight }
+        }
+        Behavior on border.color {
+            enabled: !root.transitionActive && Theme.animationsEnabled
+            ColorAnimation { duration: Theme.durationFast; easing.type: Theme.easingLight }
+        }
     }
 
     Image {
@@ -70,6 +94,11 @@ Item {
         source: String((windowData && windowData.previewSource) || "")
         smooth: true
         visible: source.toString().length > 0
+        opacity: Theme.opacityMuted + (root.focusBlend * (Theme.opacitySurfaceStrong - Theme.opacityMuted))
+        Behavior on opacity {
+            enabled: !root.transitionActive && Theme.animationsEnabled
+            NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingLight }
+        }
     }
 
     Rectangle {
@@ -78,6 +107,11 @@ Item {
         radius: Theme.radiusControl
         color: Theme.color("workspaceWindowPlaceholder")
         visible: !previewImage.visible
+        opacity: Theme.opacityMuted + (root.focusBlend * (Theme.opacitySurfaceStrong - Theme.opacityMuted))
+        Behavior on opacity {
+            enabled: !root.transitionActive && Theme.animationsEnabled
+            NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingLight }
+        }
     }
 
     Image {
@@ -125,6 +159,11 @@ Item {
         color: Theme.color("workspaceCaptionBg")
         border.width: Theme.borderWidthThin
         border.color: Theme.color("workspaceCaptionBorder")
+        opacity: Theme.opacityMuted + (root.focusBlend * (Theme.opacitySurfaceStrong - Theme.opacityMuted))
+        Behavior on opacity {
+            enabled: !root.transitionActive && Theme.animationsEnabled
+            NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingLight }
+        }
 
         Row {
             anchors.fill: parent
@@ -155,11 +194,63 @@ Item {
 
     MouseArea {
         anchors.fill: parent
+        acceptedButtons: Qt.LeftButton | Qt.RightButton
         onPressed: root.wasDragged = false
-        onClicked: {
+        onClicked: function(mouse) {
+            if (mouse.button === Qt.RightButton) {
+                var vid = root.dragViewId
+                var aid = String((windowData && windowData.appId) || "")
+                var gp = mapToGlobal(mouse.x, mouse.y)
+                windowCtxMenu.popup(vid, aid, gp.x, gp.y)
+                return
+            }
             if (!root.wasDragged) {
                 root.activated(root.dragViewId)
             }
+        }
+    }
+
+    ContextMenuComp.WindowContextMenu {
+        id: windowCtxMenu
+        onMinimize: function(windowId) {
+            if (typeof WorkspaceManager !== "undefined" && WorkspaceManager)
+                WorkspaceManager.MinimizeWindow(windowId)
+        }
+        onMaximize: function(windowId) {
+            if (typeof WorkspaceManager !== "undefined" && WorkspaceManager)
+                WorkspaceManager.MaximizeWindow(windowId)
+        }
+        onFullscreen: function(windowId) {
+            if (typeof WorkspaceManager !== "undefined" && WorkspaceManager)
+                WorkspaceManager.FullscreenWindow(windowId)
+        }
+        onMoveToWorkspace: function(windowId) {
+            // Opens workspace switcher; compositor handles target selection.
+            if (typeof MultitaskingController !== "undefined" && MultitaskingController)
+                MultitaskingController.requestMoveWindowToWorkspace(windowId)
+        }
+        onMoveToDisplay: function(windowId) {
+            if (typeof WorkspaceManager !== "undefined" && WorkspaceManager)
+                WorkspaceManager.MoveWindowToDisplay(windowId)
+        }
+        onAlwaysOnTop: function(windowId) {
+            if (typeof WorkspaceManager !== "undefined" && WorkspaceManager)
+                WorkspaceManager.SetWindowAlwaysOnTop(windowId)
+        }
+        onFocusApp: function(appId) {
+            if (typeof AppStateClient !== "undefined" && AppStateClient)
+                AppStateClient.activateApp(appId)
+        }
+        onRevealInDock: function(appId) {
+            if (typeof DockController !== "undefined" && DockController)
+                DockController.revealAppInDock(appId)
+        }
+        onPinToDock: function(appId) {
+            if (typeof DockModel !== "undefined" && DockModel)
+                DockModel.addDesktopEntry(appId)
+        }
+        onClose: function(windowId) {
+            root.closeRequested(windowId)
         }
     }
 

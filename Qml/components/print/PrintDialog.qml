@@ -3,7 +3,7 @@ import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import QtQuick.Window 2.15
 import Slm_Desktop
-import Style as DSStyle
+import SlmStyle as DSStyle
 
 Window {
     id: dialog
@@ -13,6 +13,8 @@ Window {
     property var printSession: null
     property var printPreviewModel: null
     property var printJobSubmitter: null
+    // Optional: set to PrintDialogController* for unified submit/error handling.
+    property var printDialogController: null
     property string documentUri: ""
     property string documentTitle: "Document"
     property bool preferPdfOutput: false
@@ -21,7 +23,19 @@ Window {
     property string submitErrorText: ""
     property string submitInfoText: ""
     property string fallbackSelectionSource: ""
-    readonly property var uiPreferences: (typeof UIPreferences !== "undefined") ? UIPreferences : null
+    readonly property var uiPreferences: (typeof DesktopSettings !== "undefined") ? DesktopSettings : null
+    // True while a submit is in progress — disables the Print button.
+    readonly property bool isSubmitting: printDialogController
+                                         ? !!printDialogController.isSubmitting
+                                         : false
+
+    // Convenience accessors for capability-driven UI visibility.
+    readonly property var activeCap: (printSession && printSession.printerCapability)
+                                      ? printSession.printerCapability : ({})
+    // Default true (optimistic) — only hide when explicitly false.
+    readonly property bool capSupportsColor:  activeCap.supportsColor  !== false
+    // Default false — only show when explicitly true.
+    readonly property bool capSupportsDuplex: activeCap.supportsDuplex === true
 
     signal closeRequested()
 
@@ -68,8 +82,7 @@ Window {
             var row = list[i] || ({})
             var id = String(row.id || "").toLowerCase()
             var name = String(row.name || "").toLowerCase()
-            if (id.indexOf("pdf") >= 0 || id.indexOf("cups-pdf") >= 0
-                    || name.indexOf("pdf") >= 0) {
+            if (id.indexOf("pdf") >= 0 || name.indexOf("pdf") >= 0) {
                 return String(row.id || "")
             }
         }
@@ -93,17 +106,17 @@ Window {
 
     function rememberPdfFallbackPrinter(printerId) {
         var id = String(printerId || "")
-        if (id.length <= 0 || !uiPreferences || !uiPreferences.setPreference) {
+        if (id.length <= 0 || !uiPreferences || !uiPreferences.setSettingValue) {
             return
         }
-        uiPreferences.setPreference("print.pdfFallbackPrinterId", id)
+        uiPreferences.setSettingValue("print.pdfFallbackPrinterId", id)
     }
 
     function resetPdfFallbackPrinterPreference() {
-        if (!uiPreferences || !uiPreferences.setPreference) {
+        if (!uiPreferences || !uiPreferences.setSettingValue) {
             return
         }
-        uiPreferences.setPreference("print.pdfFallbackPrinterId", "")
+        uiPreferences.setSettingValue("print.pdfFallbackPrinterId", "")
         fallbackSelectionSource = ""
         console.log("[print-fallback] preference-reset")
     }
@@ -119,8 +132,8 @@ Window {
         }
 
         var rememberedPdfPrinter = ""
-        if (uiPreferences && uiPreferences.getPreference) {
-            rememberedPdfPrinter = String(uiPreferences.getPreference("print.pdfFallbackPrinterId", ""))
+        if (uiPreferences && uiPreferences.settingValue) {
+            rememberedPdfPrinter = String(uiPreferences.settingValue("print.pdfFallbackPrinterId", ""))
         }
         var pdfPrinter = printerExists(rememberedPdfPrinter)
                 ? rememberedPdfPrinter : preferredPdfPrinterId()
@@ -176,6 +189,12 @@ Window {
     function submitPrint() {
         submitErrorText = ""
         submitInfoText = ""
+        // Prefer PrintDialogController path (async, with proper error surface).
+        if (dialog.printDialogController) {
+            dialog.printDialogController.submit()
+            return
+        }
+        // Direct fallback path (synchronous, for cases without controller).
         if (!printSession || !printJobSubmitter) {
             submitErrorText = "Print backend is unavailable."
             return
@@ -216,6 +235,22 @@ Window {
         }
     }
 
+    // Wire PrintDialogController async results back to visible error/info text.
+    Connections {
+        target: dialog.printDialogController
+        function onSubmitSucceeded(jobId) {
+            dialog.submitInfoText = jobId.length > 0
+                ? qsTr("Sent to printer (job %1)").arg(jobId)
+                : qsTr("Print job submitted")
+            dialog.closeRequested()
+        }
+        function onSubmitFailed(error) {
+            dialog.submitErrorText = error.length > 0
+                ? error
+                : qsTr("Failed to submit print job.")
+        }
+    }
+
     onUsePdfFallbackChanged: {
         if (!visible || !printSession || !printSession.settingsModel) {
             return
@@ -241,92 +276,58 @@ Window {
             width: dialog.width - (Theme.metric("spacingMd") * 2)
             spacing: Theme.metric("spacingMd")
 
-            Rectangle {
+            PrintPreviewPane {
                 Layout.preferredWidth: Math.round(parent.width * 0.42)
                 Layout.fillHeight: true
-                radius: Theme.radiusControlLarge
-                color: Theme.color("fileManagerWindowBg")
-                border.width: Theme.borderWidthThin
-                border.color: Theme.color("fileManagerWindowBorder")
-
-                Column {
-                    anchors.fill: parent
-                    anchors.margins: Theme.metric("spacingSm")
-                    spacing: Theme.metric("spacingSm")
-
-                    Row {
-                        width: parent.width
-                        spacing: Theme.metric("spacingXs")
-                        DSStyle.Button {
-                            width: 28
-                            height: Theme.metric("controlHeightRegular")
-                            text: "◀"
-                            enabled: printPreviewModel && printPreviewModel.currentPage > 1
-                            onClicked: if (printPreviewModel) { printPreviewModel.previousPage() }
-                        }
-                        DSStyle.Button {
-                            width: 28
-                            height: Theme.metric("controlHeightRegular")
-                            text: "▶"
-                            enabled: printPreviewModel && printPreviewModel.currentPage < printPreviewModel.totalPages
-                            onClicked: if (printPreviewModel) { printPreviewModel.nextPage() }
-                        }
-                        DSStyle.Label {
-                            text: printPreviewModel
-                                  ? ("Page " + printPreviewModel.currentPage + " / " + printPreviewModel.totalPages)
-                                  : "Page - / -"
-                            color: Theme.color("textSecondary")
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
-                    }
-
-                    Rectangle {
-                        width: parent.width
-                        height: Math.max(180, parent.height - 42)
-                        radius: Theme.radiusControlLarge
-                        color: Theme.color("windowBg")
-                        border.width: Theme.borderWidthThin
-                        border.color: Theme.color("borderSubtle")
-
-                        Column {
-                            anchors.centerIn: parent
-                            spacing: Theme.metric("spacingXs")
-                            DSStyle.Label {
-                                text: "Preview"
-                                color: Theme.color("textSecondary")
-                                font.pixelSize: Theme.fontSize("small")
-                            }
-                            DSStyle.Label {
-                                text: documentTitle
-                                color: Theme.color("textPrimary")
-                                font.pixelSize: Theme.fontSize("title")
-                            }
-                            DSStyle.Label {
-                                text: documentUri
-                                color: Theme.color("textSecondary")
-                                font.pixelSize: Theme.fontSize("small")
-                                elide: Text.ElideMiddle
-                                width: Math.min(parent.width, 260)
-                                horizontalAlignment: Text.AlignHCenter
-                            }
-                            DSStyle.Label {
-                                visible: !!(printPreviewModel && printPreviewModel.previewCacheKey)
-                                text: printPreviewModel ? ("cache: " + printPreviewModel.previewCacheKey) : ""
-                                color: Theme.color("textTertiary")
-                                font.pixelSize: Theme.fontSize("small")
-                                elide: Text.ElideRight
-                                width: Math.min(parent.width, 300)
-                                horizontalAlignment: Text.AlignHCenter
-                            }
-                        }
-                    }
-                }
+                previewModel: dialog.printPreviewModel
             }
 
             Column {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 spacing: Theme.metric("spacingSm")
+
+                // Printing unavailable banner
+                Rectangle {
+                    visible: printManager && printManager.printingAvailable === false
+                    width: parent.width
+                    implicitHeight: printUnavailableRow.implicitHeight + Theme.metric("spacingSm") * 2
+                    radius: Theme.radiusControlLarge
+                    color: Theme.color("warningBg")
+                    border.width: Theme.borderWidthThin
+                    border.color: Theme.color("warning")
+
+                    Row {
+                        id: printUnavailableRow
+                        anchors {
+                            left: parent.left
+                            right: parent.right
+                            verticalCenter: parent.verticalCenter
+                            leftMargin: Theme.metric("spacingSm")
+                            rightMargin: Theme.metric("spacingSm")
+                        }
+                        spacing: Theme.metric("spacingSm")
+
+                        DSStyle.Label {
+                            text: qsTr("Printing is not available right now.")
+                            color: Theme.color("warning")
+                            font.pixelSize: Theme.fontSize("small")
+                            wrapMode: Text.Wrap
+                            width: parent.width - retryRefreshButton.width - parent.spacing
+                        }
+
+                        DSStyle.Button {
+                            id: retryRefreshButton
+                            text: qsTr("Retry")
+                            height: Theme.metric("controlHeightCompact")
+                            onClicked: {
+                                if (printManager && printManager.reload) {
+                                    printManager.reload()
+                                }
+                            }
+                        }
+                    }
+                }
 
                 Rectangle {
                     visible: dialog.usePdfFallback
@@ -370,8 +371,8 @@ Window {
                         text: "Reset PDF fallback"
                         height: Theme.metric("controlHeightCompact")
                         enabled: dialog.usePdfFallback
-                                 && !!(dialog.uiPreferences && dialog.uiPreferences.getPreference
-                                       && String(dialog.uiPreferences.getPreference("print.pdfFallbackPrinterId", "")).length > 0)
+                                 && !!(dialog.uiPreferences && dialog.uiPreferences.settingValue
+                                       && String(dialog.uiPreferences.settingValue("print.pdfFallbackPrinterId", "")).length > 0)
                         onClicked: {
                             dialog.resetPdfFallbackPrinterPreference()
                             if (dialog.usePdfFallback) {
@@ -395,12 +396,18 @@ Window {
                         onTextEdited: dialog.documentUri = text
                     }
 
-                    DSStyle.Label { text: "Printer"; color: Theme.color("textSecondary") }
+                    DSStyle.Label {
+                        text: "Printer"
+                        color: Theme.color("textSecondary")
+                        Accessible.ignored: true
+                    }
                     DSStyle.ComboBox {
                         id: printerCombo
                         Layout.fillWidth: true
                         model: printManager ? printManager.printers : []
                         textRole: "name"
+                        Accessible.role: Accessible.ComboBox
+                        Accessible.name: qsTr("Printer")
                         currentIndex: dialog.printerIndexForId(
                                           (printSession && printSession.settingsModel)
                                           ? printSession.settingsModel.printerId : "")
@@ -421,12 +428,14 @@ Window {
                         }
                     }
 
-                    DSStyle.Label { text: "Copies"; color: Theme.color("textSecondary") }
+                    DSStyle.Label { text: "Copies"; color: Theme.color("textSecondary"); Accessible.ignored: true }
                     DSStyle.TextField {
                         Layout.fillWidth: true
                         text: (printSession && printSession.settingsModel)
                               ? String(printSession.settingsModel.copies) : "1"
                         inputMethodHints: Qt.ImhDigitsOnly
+                        Accessible.role: Accessible.EditableText
+                        Accessible.name: qsTr("Number of copies")
                         onEditingFinished: {
                             if (printSession && printSession.settingsModel) {
                                 var n = Number(text)
@@ -436,46 +445,59 @@ Window {
                         }
                     }
 
-                    DSStyle.Label { text: "Page Range"; color: Theme.color("textSecondary") }
+                    DSStyle.Label { text: "Page Range"; color: Theme.color("textSecondary"); Accessible.ignored: true }
                     DSStyle.TextField {
                         Layout.fillWidth: true
                         text: (printSession && printSession.settingsModel)
                               ? String(printSession.settingsModel.pageRange) : ""
                         placeholderText: "All"
+                        Accessible.role: Accessible.EditableText
+                        Accessible.name: qsTr("Page range")
+                        Accessible.description: qsTr("e.g. 1-3,5,7-9 or leave blank for all pages")
                         onTextEdited: if (printSession && printSession.settingsModel) {
                                           printSession.settingsModel.pageRange = text
                                       }
                     }
 
-                    DSStyle.Label { text: "Color"; color: Theme.color("textSecondary") }
+                    DSStyle.Label {
+                        text: "Color"
+                        color: Theme.color("textSecondary")
+                        visible: dialog.capSupportsColor
+                    }
                     DSStyle.ComboBox {
                         Layout.fillWidth: true
+                        visible: dialog.capSupportsColor
                         model: [
-                            { label: "Color", value: "color" },
-                            { label: "Black & White", value: "monochrome" }
+                            { label: qsTr("Color"),     value: "color"     },
+                            { label: qsTr("Grayscale"), value: "grayscale" }
                         ]
                         textRole: "label"
                         currentIndex: (printSession && printSession.settingsModel
-                                       && String(printSession.settingsModel.colorMode) === "monochrome") ? 1 : 0
+                                       && String(printSession.settingsModel.colorMode) === "grayscale") ? 1 : 0
                         onActivated: if (printSession && printSession.settingsModel) {
                                          printSession.settingsModel.colorMode = model[currentIndex].value
                                      }
                     }
 
-                    DSStyle.Label { text: "Duplex"; color: Theme.color("textSecondary") }
+                    DSStyle.Label {
+                        text: "Duplex"
+                        color: Theme.color("textSecondary")
+                        visible: dialog.capSupportsDuplex
+                    }
                     DSStyle.ComboBox {
                         Layout.fillWidth: true
+                        visible: dialog.capSupportsDuplex
                         model: [
-                            { label: "Off", value: "one-sided" },
-                            { label: "Long Edge", value: "two-sided-long-edge" },
-                            { label: "Short Edge", value: "two-sided-short-edge" }
+                            { label: qsTr("Off"),        value: "off"         },
+                            { label: qsTr("Long Edge"),  value: "long-edge"   },
+                            { label: qsTr("Short Edge"), value: "short-edge"  }
                         ]
                         textRole: "label"
                         currentIndex: {
                             if (!printSession || !printSession.settingsModel) return 0
                             var d = String(printSession.settingsModel.duplex)
-                            if (d === "two-sided-long-edge") return 1
-                            if (d === "two-sided-short-edge") return 2
+                            if (d === "long-edge")  return 1
+                            if (d === "short-edge") return 2
                             return 0
                         }
                         onActivated: if (printSession && printSession.settingsModel) {
@@ -502,84 +524,40 @@ Window {
                     }
                 }
 
-                DSStyle.Button {
-                    text: dialog.showDetails ? "Hide Details" : "Show Details"
-                    onClicked: dialog.showDetails = !dialog.showDetails
+                PrintAdvancedPanel {
+                    width: parent.width
+                    settingsModel: dialog.printSession ? dialog.printSession.settingsModel : null
+                    capability:    dialog.printSession ? dialog.printSession.printerCapability : ({})
+                    previewModel:  dialog.printPreviewModel
+                }
+
+                PrinterFeatureSection {
+                    width: parent.width
+                    resolver:     dialog.printDialogController
+                                  ? dialog.printDialogController.pluginFeatureResolver
+                                  : null
+                    settingsModel: dialog.printSession ? dialog.printSession.settingsModel : null
                 }
 
                 Column {
-                    visible: dialog.showDetails
-                    spacing: Theme.metric("spacingSm")
-                    width: parent.width
-
-                    GridLayout {
-                        width: parent.width
-                        columns: 2
-                        columnSpacing: Theme.metric("spacingSm")
-                        rowSpacing: Theme.metric("spacingSm")
-
-                        DSStyle.Label { text: "Quality"; color: Theme.color("textSecondary") }
-                        DSStyle.ComboBox {
-                            Layout.fillWidth: true
-                            model: (printSession && printSession.printerCapability
-                                    && printSession.printerCapability.qualityModes)
-                                   ? printSession.printerCapability.qualityModes : ["draft", "normal", "high"]
-                            currentIndex: {
-                                if (!printSession || !printSession.settingsModel) return 0
-                                var arr = model
-                                var value = String(printSession.settingsModel.quality)
-                                var i = arr.indexOf(value)
-                                return i >= 0 ? i : 0
-                            }
-                            onActivated: if (printSession && printSession.settingsModel) {
-                                             printSession.settingsModel.quality = String(model[currentIndex])
-                                         }
-                        }
-
-                        DSStyle.Label { text: "Scale (%)"; color: Theme.color("textSecondary") }
-                        DSStyle.TextField {
-                            Layout.fillWidth: true
-                            text: (printSession && printSession.settingsModel)
-                                  ? String(Math.round(Number(printSession.settingsModel.scale))) : "100"
-                            inputMethodHints: Qt.ImhDigitsOnly
-                            onEditingFinished: if (printSession && printSession.settingsModel) {
-                                                   var n = Number(text)
-                                                   if (isNaN(n)) n = 100
-                                                   printSession.settingsModel.scale = n
-                                                   text = String(Math.round(Number(printSession.settingsModel.scale)))
-                                               }
-                        }
-
-                        DSStyle.Label { text: "Zoom"; color: Theme.color("textSecondary") }
-                        DSStyle.ComboBox {
-                            Layout.fillWidth: true
-                            model: [
-                                { label: "Fit Page", value: "fitPage" },
-                                { label: "Fit Width", value: "fitWidth" },
-                                { label: "Custom", value: "custom" }
-                            ]
-                            textRole: "label"
-                            currentIndex: {
-                                if (!printPreviewModel) return 0
-                                var mode = String(printPreviewModel.zoomMode)
-                                if (mode === "fitWidth") return 1
-                                if (mode === "custom") return 2
-                                return 0
-                            }
-                            onActivated: if (printPreviewModel) {
-                                             printPreviewModel.zoomMode = model[currentIndex].value
-                                         }
-                        }
-                    }
-                }
-
-                DSStyle.Label {
                     visible: submitErrorText.length > 0
-                    text: submitErrorText
-                    color: Theme.color("warning")
-                    font.pixelSize: Theme.fontSize("small")
-                    wrapMode: Text.Wrap
                     width: parent.width
+                    spacing: Theme.metric("spacingXs")
+
+                    DSStyle.Label {
+                        text: submitErrorText
+                        color: Theme.color("warning")
+                        font.pixelSize: Theme.fontSize("small")
+                        wrapMode: Text.Wrap
+                        width: parent.width
+                    }
+
+                    DSStyle.Button {
+                        text: qsTr("Retry")
+                        height: Theme.metric("controlHeightCompact")
+                        enabled: !dialog.isSubmitting
+                        onClicked: dialog.submitPrint()
+                    }
                 }
 
                 DSStyle.Label {
@@ -618,13 +596,20 @@ Window {
                 width: 96
                 height: Theme.metric("controlHeightRegular")
                 text: "Cancel"
+                Accessible.role: Accessible.Button
+                Accessible.name: qsTr("Cancel printing")
                 onClicked: dialog.closeRequested()
             }
             DSStyle.Button {
                 width: 96
                 height: Theme.metric("controlHeightRegular")
-                text: "Print"
+                text: dialog.isSubmitting ? qsTr("Sending…") : qsTr("Print")
+                enabled: !dialog.isSubmitting
+                         && !(printManager && printManager.printingAvailable === false)
                 defaultAction: true
+                Accessible.role: Accessible.Button
+                Accessible.name: dialog.isSubmitting ? qsTr("Sending print job") : qsTr("Print")
+                Accessible.description: qsTr("Send document to printer")
                 onClicked: dialog.submitPrint()
             }
         }

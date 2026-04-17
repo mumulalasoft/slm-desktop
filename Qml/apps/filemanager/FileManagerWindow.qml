@@ -2,7 +2,7 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Window 2.15
 import Slm_Desktop
-import Style
+import SlmStyle
 import "." as FM
 import "./FileManagerOps.js" as FileManagerOps
 import "./FileManagerKeys.js" as FileManagerKeys
@@ -31,6 +31,13 @@ Rectangle {
     property string contextEntryPath: ""
     property string contextEntryName: ""
     property bool contextEntryIsDir: false
+    property string contextEntryMimeType: ""
+    property string contextEntrySuffix: ""
+    readonly property bool contextEntryIsArchive: FileManagerOps.isArchiveEntryPath(
+                                                      contextEntryPath,
+                                                      contextEntryName,
+                                                      contextEntryMimeType,
+                                                      contextEntrySuffix)
     readonly property bool contextEntryProtected: isProtectedEntryPath(
                                                       contextEntryPath)
     property string renameDialogError: ""
@@ -86,6 +93,16 @@ Rectangle {
     property bool connectServerBusy: false
     property var storageOrderMap: ({})
     property int storageOrderNext: 1
+    property bool storageSnapshotReady: false
+    property bool storageScanInProgress: true
+    property var storageGroupSnapshot: ({})
+    property var storagePendingSidebarRows: []
+    property var storageAttachLastNotifiedMs: ({})
+    property int storageAttachCooldownMs: 12000
+    property int storageSidebarSettleMs: 350
+    property var storageNotificationPayloadById: ({})
+    property var storageSelectorVolumes: []
+    property string storageSelectorDeviceLabel: ""
     property string openWithSearchText: ""
     property string openWithDialogMode: "open" // open | openin | setdefault
     property string clipboardPath: ""
@@ -130,6 +147,11 @@ Rectangle {
     property string quickPreviewMetaText: ""
     property string quickPreviewImageSource: ""
     property string quickPreviewFallbackIconSource: ""
+    property bool quickPreviewArchiveMode: false
+    property var quickPreviewArchiveEntries: []
+    property int quickPreviewArchiveEntryCount: 0
+    property bool quickPreviewArchiveTruncated: false
+    property string quickPreviewArchiveLayout: ""
     property var propertiesEntry: ({})
     property var propertiesStat: ({})
     property int propertiesTabIndex: 0
@@ -138,10 +160,28 @@ Rectangle {
     property int propertiesOpenWithCurrentIndex: -1
     property string propertiesOpenWithRequestId: ""
     property string propertiesOpenWithPath: ""
+    property bool propertiesStoragePolicySupported: false
+    property bool propertiesStoragePolicyBusy: false
+    property string propertiesStoragePolicyError: ""
+    property string propertiesStoragePolicyScope: "partition"
+    property string propertiesStoragePolicyKey: ""
+    property string propertiesStorageAction: "mount"
+    property bool propertiesStorageAutomount: true
+    property bool propertiesStorageAutoOpen: false
+    property bool propertiesStorageVisible: true
+    property bool propertiesStorageReadOnly: false
+    property bool propertiesStorageExec: false
+    property bool propertiesStoragePolicyUpdating: false
+    property var folderShareInfoCache: ({})
+    property string propertiesSharePath: ""
     property string quickTypeBuffer: ""
     property string pendingPortalChooserRequestId: ""
     property string pendingPortalChooserAction: ""
     property var pendingPortalChooserSources: []
+    property string pendingPortalChooserArchive: ""
+    property var archiveMissingIssues: []
+    property string archiveMissingStatusText: ""
+    property bool archiveMissingInstallBusy: false
     readonly property bool propertiesShowDeviceUsage: !!(propertiesStat
                                                          && propertiesStat.isDir)
                                                       && Number(
@@ -154,7 +194,16 @@ Rectangle {
     readonly property string trashFilesPath: "~/.local/share/Trash/files"
     readonly property var fileManagerApiRef: (typeof FileManagerApi !== "undefined") ? FileManagerApi : null
     readonly property var modelFactoryRef: (typeof FileManagerModelFactory !== "undefined") ? FileManagerModelFactory : null
-    readonly property var uiPreferencesRef: (typeof UIPreferences !== "undefined") ? UIPreferences : null
+    readonly property var uiPreferencesRef: ({
+        "setPreference": function(key, value) {
+            if (typeof DesktopSettings !== "undefined" && DesktopSettings && DesktopSettings.setSettingValue) {
+                DesktopSettings.setSettingValue(String(key || ""), value)
+                return true
+            }
+            return false
+        }
+    })
+    readonly property var tabModelRef: tabModel
     readonly property var appCommandRouterRef: (typeof AppCommandRouter !== "undefined") ? AppCommandRouter : null
     readonly property var notificationManagerRef: (typeof NotificationManager !== "undefined") ? NotificationManager : null
     readonly property var cursorControllerRef: (typeof CursorController !== "undefined") ? CursorController : null
@@ -169,6 +218,8 @@ Rectangle {
     readonly property var propertiesDialogRef: dialogsRef ? dialogsRef.propertiesDialogRef : null
     readonly property var compressDialogRef: dialogsRef ? dialogsRef.compressDialogRef : null
     readonly property var openWithDialogRef: dialogsRef ? dialogsRef.openWithDialogRef : null
+    readonly property var folderShareDialogRef: dialogsRef ? dialogsRef.folderShareDialogRef : null
+    readonly property var storageVolumeSelectorDialogRef: dialogsRef ? dialogsRef.storageVolumeSelectorDialogRef : null
     readonly property var shareSheetRef: dialogsRef ? dialogsRef.shareSheetRef : null
 
     function isRecentPath(pathValue) {
@@ -232,7 +283,7 @@ Rectangle {
     function switchToTab(indexValue) { FileManagerTabs.switchToTab(root, indexValue) }
     function closeTab(indexValue) { FileManagerTabs.closeTab(root, modelFactoryRef, uiPreferencesRef, indexValue) }
     function saveTabState() { FileManagerTabs.saveTabState(root, uiPreferencesRef) }
-    function restoreTabState(defaultPath) { FileManagerTabs.restoreTabState(root, defaultPath) }
+    function restoreTabState(defaultPath) { FileManagerTabs.restoreTabState(root, uiPreferencesRef, defaultPath) }
     function openContextEntryInNewTab() { FileManagerTabs.openContextEntryInNewTab(root, modelFactoryRef, uiPreferencesRef) }
     function openSidebarContextPath(pathValue) { FileManagerSidebarContextOps.openSidebarContextPath(root, pathValue) }
     function openSidebarContextPathInNewTab(pathValue) { FileManagerSidebarContextOps.openSidebarContextPathInNewTab(root, pathValue) }
@@ -242,6 +293,7 @@ Rectangle {
     function sidebarContextCanMount() { return FileManagerSidebarContextOps.sidebarContextCanMount(root) }
     function sidebarContextCanUnmount() { return FileManagerSidebarContextOps.sidebarContextCanUnmount(root) }
     function sidebarContextMount() { FileManagerSidebarContextOps.sidebarContextMount(root, fileManagerApiRef) }
+    function sidebarContextMountDevice(deviceValue) { FileManagerSidebarContextOps.sidebarContextMountDevice(root, fileManagerApiRef, deviceValue) }
     function sidebarContextUnmount() { FileManagerSidebarContextOps.sidebarContextUnmount(root, fileManagerApiRef) }
     function sidebarContextRevealInFileManager() { FileManagerSidebarContextOps.sidebarContextRevealInFileManager(root, fileManagerApiRef) }
     function sidebarContextCopyPath() { FileManagerSidebarContextOps.sidebarContextCopyPath(root, fileManagerApiRef) }
@@ -317,6 +369,26 @@ Rectangle {
 
     function finishContentDrag() { FileManagerContentDnd.finishContentDrag(root, windowBody && windowBody.mainPaneRef ? windowBody.mainPaneRef.contentViewRef : null, dndSidebarSpringOpenTimer, fileManagerApiRef) }
 
+    function setGlobalDragSession(session) {
+        if (typeof ShellStateController === "undefined" || !ShellStateController) {
+            return
+        }
+        if (ShellStateController.setDragSession) {
+            ShellStateController.setDragSession(session || {})
+        }
+    }
+
+    function clearGlobalDragSession() {
+        if (typeof ShellStateController === "undefined" || !ShellStateController) {
+            return
+        }
+        if (ShellStateController.clearDragSession) {
+            ShellStateController.clearDragSession()
+        } else if (ShellStateController.setDragSession) {
+            ShellStateController.setDragSession({})
+        }
+    }
+
     function applySelectionRect(indexesValue, modifiers, anchorIndex) { FileManagerSelection.applySelectionRect(root, Qt, indexesValue, modifiers, anchorIndex) }
     function handleTypeToSelect(textValue) { return FileManagerSelection.handleTypeToSelect(root, textValue, quickTypeClearTimer, windowBody && windowBody.mainPaneRef ? windowBody.mainPaneRef.contentViewRef : null) }
     function syncDeepSearchBusyCursor() { FileManagerBatch.syncDeepSearchBusyCursor(root, cursorControllerRef) }
@@ -360,6 +432,162 @@ Rectangle {
     function minimizeWindow() { FileManagerWindowActions.minimizeWindow(hostWindow) }
     function toggleMaximizeWindow() { FileManagerWindowActions.toggleMaximizeWindow(hostWindow, windowMaximized, Window) }
     function notifyResult(title, resultValue) { FileManagerWindowActions.notifyResult(notificationManagerRef, title, resultValue) }
+    function notifyStorageAttach(deviceLabel, volumeCount, volumes) {
+        if (!notificationManagerRef || !notificationManagerRef.Notify) {
+            return -1
+        }
+        var count = Math.max(1, Number(volumeCount || 1))
+        var actions = ["open", "Open", "eject", "Eject"]
+        var id = Number(notificationManagerRef.Notify(
+                            "Storage", 0,
+                            "drive-removable-media-symbolic",
+                            qsTr("External Drive connected"), qsTr("%1 volume tersedia").arg(count),
+                            actions, {}, 7000))
+        if (id > 0) {
+            var map = storageNotificationPayloadById || ({})
+            map[String(id)] = {
+                "label": String(deviceLabel || "External Drive"),
+                "volumes": volumes || []
+            }
+            storageNotificationPayloadById = map
+        }
+        return id
+    }
+    function normalizeStorageActionTarget(volumeRow) {
+        var row = volumeRow || ({})
+        var deviceValue = String(row.device || "")
+        var pathValue = String(row.path || row.rootPath || "")
+        if (deviceValue.length > 0) {
+            return deviceValue
+        }
+        if (pathValue.length > 0 && pathValue.indexOf("__mount__:") === 0) {
+            return decodeURIComponent(pathValue.slice(10))
+        }
+        return pathValue
+    }
+    function showStorageVolumeSelector(deviceLabel, volumes) {
+        storageSelectorDeviceLabel = String(deviceLabel || "External Drive")
+        storageSelectorVolumes = volumes || []
+        if (storageVolumeSelectorDialogRef && storageVolumeSelectorDialogRef.open) {
+            storageVolumeSelectorDialogRef.open()
+        }
+    }
+    function openStorageVolumes(deviceLabel, volumes) {
+        var list = volumes || []
+        if (list.length <= 0) {
+            notifyResult("Open Drive", {
+                             "ok": false,
+                             "error": "volume-not-available"
+                         })
+            return
+        }
+        if (list.length === 1) {
+            openStorageVolumeChoice(list[0])
+            return
+        }
+        showStorageVolumeSelector(deviceLabel, list)
+    }
+    function ejectStorageVolumes(volumes) {
+        var list = volumes || []
+        if (list.length <= 0 || !fileManagerApiRef || !fileManagerApiRef.startUnmountStorageDevice) {
+            notifyResult("Eject", {
+                             "ok": false,
+                             "error": "eject-api-unavailable"
+                         })
+            return
+        }
+        var seen = ({})
+        var firstFail = ""
+        for (var i = 0; i < list.length; ++i) {
+            var row = list[i] || ({})
+            if (!row.mounted) {
+                continue
+            }
+            var target = normalizeStorageActionTarget(row)
+            if (target.length <= 0 || seen[target]) {
+                continue
+            }
+            seen[target] = true
+            var res = fileManagerApiRef.startUnmountStorageDevice(target)
+            if (!res || !res.ok) {
+                firstFail = String((res && res.error) ? res.error : "eject-failed")
+                break
+            }
+        }
+        if (firstFail.length > 0) {
+            notifyResult("Eject", {
+                             "ok": false,
+                             "error": firstFail
+                         })
+        }
+    }
+    function openStorageVolumeChoice(volumeRow) {
+        var row = volumeRow || ({})
+        var pathValue = String(row.path || row.rootPath || "")
+        var mounted = !!row.mounted
+        if (mounted && pathValue.length > 0 && pathValue.indexOf("__mount__:") !== 0) {
+            openPath(pathValue)
+            return
+        }
+        var target = String(row.device || "")
+        if (target.length <= 0 && pathValue.length > 0 && pathValue.indexOf("__mount__:") === 0) {
+            target = decodeURIComponent(pathValue.slice(10))
+        }
+        if (target.length <= 0) {
+            notifyResult("Open Drive", {
+                             "ok": false,
+                             "error": "volume-not-available"
+                         })
+            return
+        }
+        pendingMountDevice = target
+        var mountRes = fileManagerApiRef && fileManagerApiRef.startMountStorageDevice
+                ? fileManagerApiRef.startMountStorageDevice(target)
+                : ({
+                       "ok": false,
+                       "error": "mount-api-unavailable"
+                   })
+        if (!mountRes || !mountRes.ok) {
+            pendingMountDevice = ""
+            notifyResult("Open Drive", mountRes || ({
+                               "ok": false,
+                               "error": "mount-failed"
+                           }))
+        }
+    }
+    function resolveMountedPathForDevice(deviceValue, mountedPathValue) {
+        var dev = String(deviceValue || "").trim()
+        var mountedPath = String(mountedPathValue || "").trim()
+        if (mountedPath.length > 0 && mountedPath.indexOf("/dev/") !== 0) {
+            return mountedPath
+        }
+        if (!fileManagerApiRef || !fileManagerApiRef.storageLocations) {
+            return mountedPath
+        }
+        var rows = fileManagerApiRef.storageLocations() || []
+        for (var i = 0; i < rows.length; ++i) {
+            var row = rows[i] || ({})
+            if (!row.mounted) {
+                continue
+            }
+            var rowDevice = String(row.device || "").trim()
+            if (dev.length > 0 && rowDevice !== dev) {
+                continue
+            }
+            var rowPath = String(row.path || row.rootPath || "").trim()
+            if (rowPath.length > 0 && rowPath.indexOf("__mount__:") !== 0
+                    && rowPath.indexOf("/dev/") !== 0) {
+                return rowPath
+            }
+        }
+        return mountedPath
+    }
+    function handleStorageLocationsUpdated(rowsValue) {
+        var rows = rowsValue || []
+        storagePendingSidebarRows = rows
+        storageScanInProgress = true
+        storageSettleTimer.restart()
+    }
 
     function basename(pathValue) { return FileManagerPathUtils.basename(pathValue) }
     function createAsyncRequestId() { return FileManagerWindowActions.createAsyncRequestId() }
@@ -551,6 +779,298 @@ Rectangle {
     }
     function refreshPropertiesOpenWithApps(pathValue) { FileManagerOpenWith.refreshPropertiesOpenWithApps(root, fileManagerApiRef, pathValue) }
     function applyPropertiesOpenWithSelection(indexValue) { FileManagerOpenWith.applyPropertiesOpenWithSelection(root, fileManagerApiRef, indexValue) }
+    function resetPropertiesStoragePolicyState() {
+        propertiesStoragePolicySupported = false
+        propertiesStoragePolicyBusy = false
+        propertiesStoragePolicyError = ""
+        propertiesStoragePolicyScope = "partition"
+        propertiesStoragePolicyKey = ""
+        propertiesStorageAction = "mount"
+        propertiesStorageAutomount = true
+        propertiesStorageAutoOpen = false
+        propertiesStorageVisible = true
+        propertiesStorageReadOnly = false
+        propertiesStorageExec = false
+        propertiesStoragePolicyUpdating = false
+    }
+    function applyPropertiesStoragePolicyResponse(result) {
+        var res = result || ({})
+        var policy = res.policy || ({})
+        var action = String(policy.action || "").trim().toLowerCase()
+        if (action !== "mount" && action !== "ask" && action !== "ignore") {
+            action = policy.automount ? "mount" : "ask"
+        }
+        propertiesStoragePolicyUpdating = true
+        propertiesStoragePolicyKey = String(res.policyKey || "")
+        propertiesStoragePolicyScope = String(res.policyScope || "partition")
+        propertiesStorageAction = action
+        propertiesStorageAutomount = action === "mount"
+        propertiesStorageAutoOpen = (action === "mount") && !!policy.auto_open
+        propertiesStorageVisible = policy.visible !== false
+        propertiesStorageReadOnly = !!policy.read_only
+        propertiesStorageExec = !!policy.exec
+        propertiesStoragePolicyUpdating = false
+    }
+    function loadPropertiesStoragePolicy(pathValue) {
+        var p = String(pathValue || "").trim()
+        resetPropertiesStoragePolicyState()
+        if (p.length <= 0 || !fileManagerApiRef || !fileManagerApiRef.storagePolicyForPath) {
+            return
+        }
+        propertiesStoragePolicyBusy = true
+        var res = fileManagerApiRef.storagePolicyForPath(p)
+        propertiesStoragePolicyBusy = false
+        if (!res || !res.ok) {
+            var err = String((res && res.error) ? res.error : "")
+            if (err.length > 0 && err !== "path-not-found") {
+                propertiesStoragePolicyError = err
+            }
+            return
+        }
+        propertiesStoragePolicySupported = true
+        propertiesStoragePolicyError = ""
+        applyPropertiesStoragePolicyResponse(res)
+    }
+    function applyPropertiesStoragePolicyPatch(patch, scopeOverride) {
+        if (!propertiesStoragePolicySupported || propertiesStoragePolicyUpdating) {
+            return
+        }
+        var normalizedPatch = patch || ({})
+        if (normalizedPatch.hasOwnProperty("action")) {
+            normalizedPatch.action = String(normalizedPatch.action || "").trim().toLowerCase()
+            if (normalizedPatch.action !== "mount"
+                    && normalizedPatch.action !== "ask"
+                    && normalizedPatch.action !== "ignore") {
+                delete normalizedPatch.action
+            }
+        }
+        if (normalizedPatch.hasOwnProperty("action")) {
+            normalizedPatch.automount = normalizedPatch.action === "mount"
+        } else if (normalizedPatch.hasOwnProperty("automount")) {
+            normalizedPatch.action = normalizedPatch.automount ? "mount" : "ask"
+        }
+        if ((normalizedPatch.hasOwnProperty("action") && normalizedPatch.action !== "mount")
+                || (normalizedPatch.hasOwnProperty("automount") && !normalizedPatch.automount)) {
+            normalizedPatch.auto_open = false
+            propertiesStoragePolicyUpdating = true
+            propertiesStorageAutoOpen = false
+            propertiesStoragePolicyUpdating = false
+        }
+        var p = String((propertiesEntry && propertiesEntry.path) ? propertiesEntry.path : "").trim()
+        if (p.length <= 0 || !fileManagerApiRef || !fileManagerApiRef.setStoragePolicyForPath) {
+            return
+        }
+        var scope = String(scopeOverride || propertiesStoragePolicyScope || "partition")
+        propertiesStoragePolicyBusy = true
+        var res = fileManagerApiRef.setStoragePolicyForPath(p, normalizedPatch, scope)
+        propertiesStoragePolicyBusy = false
+        if (!res || !res.ok) {
+            propertiesStoragePolicyError = String((res && res.error) ? res.error : "policy-update-failed")
+            notifyResult("Mount Behavior", res || ({
+                                                   "ok": false,
+                                                   "error": "policy-update-failed"
+                                               }))
+            return
+        }
+        propertiesStoragePolicySupported = true
+        propertiesStoragePolicyError = ""
+        applyPropertiesStoragePolicyResponse(res)
+    }
+    function applyPropertiesStorageScope(scopeValue) {
+        var scope = String(scopeValue || "partition")
+        var patch = {
+            "action": String(propertiesStorageAction || "mount"),
+            "automount": !!propertiesStorageAutomount,
+            "auto_open": !!propertiesStorageAutoOpen,
+            "visible": !!propertiesStorageVisible,
+            "read_only": !!propertiesStorageReadOnly,
+            "exec": !!propertiesStorageExec
+        }
+        applyPropertiesStoragePolicyPatch(patch, scope)
+    }
+    function folderShareInfoForPath(pathValue) {
+        var p = String(pathValue || "")
+        if (p.length <= 0 || !fileManagerApiRef || !fileManagerApiRef.folderShareInfo) {
+            return ({
+                        "ok": false,
+                        "enabled": false
+                    })
+        }
+        var res = fileManagerApiRef.folderShareInfo(p)
+        if (!!res && !!res.ok) {
+            var next = {}
+            var keys = Object.keys(folderShareInfoCache || ({}))
+            for (var i = 0; i < keys.length; ++i) {
+                next[keys[i]] = folderShareInfoCache[keys[i]]
+            }
+            next[String(res.path || p)] = res
+            folderShareInfoCache = next
+        }
+        return res || ({
+                           "ok": false,
+                           "enabled": false
+                       })
+    }
+    function prepareFolderShareDialog(pathValue) {
+        var info = folderShareInfoForPath(pathValue)
+        if (folderShareDialogRef && folderShareDialogRef.applyFromInfo) {
+            folderShareDialogRef.applyFromInfo(info)
+        }
+    }
+    function openFolderShareDialog(pathValue) {
+        var p = String(pathValue || "")
+        if (p.length <= 0) {
+            p = String(contextEntryPath || "")
+        }
+        if (p.length <= 0 || !folderShareDialogRef || !folderShareDialogRef.openForPath) {
+            return
+        }
+        folderShareDialogRef.openForPath(p)
+    }
+    function applyFolderShareConfig(pathValue, options) {
+        if (!fileManagerApiRef || !fileManagerApiRef.configureFolderShare) {
+            return ({
+                        "ok": false,
+                        "error": "api-unavailable"
+                    })
+        }
+        var res = fileManagerApiRef.configureFolderShare(String(pathValue || ""),
+                                                         options || ({}))
+        if (!!res && !!res.ok) {
+            var cp = String(res.path || pathValue || "")
+            if (cp.length > 0) {
+                var next = {}
+                var keys = Object.keys(folderShareInfoCache || ({}))
+                for (var i = 0; i < keys.length; ++i) {
+                    next[keys[i]] = folderShareInfoCache[keys[i]]
+                }
+                next[cp] = res
+                folderShareInfoCache = next
+                propertiesSharePath = cp
+            }
+            refreshCurrent()
+            notifyResult("Bagikan Folder", {
+                             "ok": true,
+                             "message": "Folder sekarang dibagikan di jaringan"
+                         })
+        }
+        return res
+    }
+    function disableFolderShare(pathValue) {
+        if (!fileManagerApiRef || !fileManagerApiRef.disableFolderShare) {
+            return ({
+                        "ok": false,
+                        "error": "api-unavailable"
+                    })
+        }
+        var res = fileManagerApiRef.disableFolderShare(String(pathValue || ""))
+        if (!!res && !!res.ok) {
+            var cp = String(res.path || pathValue || "")
+            if (cp.length > 0) {
+                var next = {}
+                var keys = Object.keys(folderShareInfoCache || ({}))
+                for (var i = 0; i < keys.length; ++i) {
+                    next[keys[i]] = folderShareInfoCache[keys[i]]
+                }
+                next[cp] = res
+                folderShareInfoCache = next
+                propertiesSharePath = cp
+            }
+            refreshCurrent()
+            notifyResult("Bagikan Folder", {
+                             "ok": true,
+                             "message": "Berbagi folder dihentikan"
+                         })
+        }
+        return res
+    }
+    function copyFolderShareAddress(pathValue) {
+        if (!fileManagerApiRef || !fileManagerApiRef.copyFolderShareAddress) {
+            return ({
+                        "ok": false,
+                        "error": "api-unavailable"
+                    })
+        }
+        var res = fileManagerApiRef.copyFolderShareAddress(String(pathValue || ""))
+        notifyResult("Bagikan Folder", res)
+        return res
+    }
+    function folderSharingEnvironment() {
+        if (!fileManagerApiRef || !fileManagerApiRef.folderSharingEnvironment) {
+            return ({
+                        "ok": false,
+                        "ready": false,
+                        "error": "api-unavailable",
+                        "issues": []
+                    })
+        }
+        return fileManagerApiRef.folderSharingEnvironment()
+    }
+    function repairFolderSharingEnvironment() {
+        if (!fileManagerApiRef || !fileManagerApiRef.repairFolderSharingEnvironment) {
+            return ({
+                        "ok": false,
+                        "ready": false,
+                        "error": "api-unavailable",
+                        "issues": [],
+                        "actions": []
+                    })
+        }
+        return fileManagerApiRef.repairFolderSharingEnvironment()
+    }
+    function installMissingComponent(componentIdValue) {
+        if (!fileManagerApiRef || !fileManagerApiRef.installMissingComponent) {
+            return ({
+                        "ok": false,
+                        "error": "api-unavailable"
+                    })
+        }
+        return fileManagerApiRef.installMissingComponent(String(componentIdValue || ""))
+    }
+    function refreshArchiveMissingComponents() {
+        archiveMissingStatusText = ""
+        if (!fileManagerApiRef || !fileManagerApiRef.missingComponentsForDomain) {
+            archiveMissingIssues = []
+            return []
+        }
+        var list = fileManagerApiRef.missingComponentsForDomain("archive")
+        archiveMissingIssues = list || []
+        return archiveMissingIssues
+    }
+    function installArchiveMissingComponent(componentIdValue) {
+        var componentId = String(componentIdValue || "").trim()
+        if (componentId.length <= 0) {
+            return ({
+                        "ok": false,
+                        "error": "invalid-component"
+                    })
+        }
+        if (!fileManagerApiRef || !fileManagerApiRef.installMissingComponentForDomain) {
+            return ({
+                        "ok": false,
+                        "error": "api-unavailable"
+                    })
+        }
+        archiveMissingInstallBusy = true
+        var res = fileManagerApiRef.installMissingComponentForDomain("archive",
+                                                                     componentId)
+        archiveMissingInstallBusy = false
+        if (!!res && !!res.ok) {
+            archiveMissingStatusText = "Archive component installed. Rechecking..."
+            refreshArchiveMissingComponents()
+            notifyResult("Archive", {
+                             "ok": true,
+                             "message": "Archive component installed."
+                         })
+        } else {
+            archiveMissingStatusText = "Install failed: " + String((res && res.error) ? res.error : "unknown")
+            notifyResult("Archive", {
+                             "ok": false,
+                             "error": String((res && res.error) ? res.error : "install-failed")
+                         })
+        }
+        return res
+    }
     function openContextEntryInApp(appIdValue) { FileManagerOpenWith.openContextEntryInApp(root, fileManagerApiRef, appIdValue) }
     function setDefaultContextEntryApp(appIdValue) { FileManagerOpenWith.setDefaultContextEntryApp(root, fileManagerApiRef, appIdValue) }
     function openWithOtherApplication() { FileManagerOpenWith.openWithOtherApplication(root, openWithDialogRef) }
@@ -592,13 +1112,16 @@ Rectangle {
     function sendSelectionViaBluetooth() { FileManagerOps.sendSelectionViaBluetooth(root, appCommandRouterRef) }
     function compressSelection() { FileManagerOps.compressSelection(root, fileManagerApiRef, compressDialogRef) }
     function applyCompressSelection() { FileManagerOps.applyCompressSelection(root, fileManagerApiRef, compressDialogRef) }
+    function extractContextArchive(destinationDir) { FileManagerOps.extractContextArchive(root, fileManagerApiRef, destinationDir) }
+    function chooseExtractDestinationForContextArchive() { FileManagerOps.chooseExtractDestinationForContextArchive(root, fileManagerApiRef) }
+    function selectEntryByPath(pathValue) { return FileManagerOps.selectEntryByPath(root, pathValue) }
     function showPropertiesForSelection() { FileManagerOps.showPropertiesForSelection(root, fileManagerApiRef, propertiesDialogRef) }
     function showPropertiesForPath(pathValue) { FileManagerOps.showPropertiesForPath(root, fileManagerApiRef, pathValue, propertiesDialogRef) }
     function isImageSuffix(nameValue) { return FileManagerOps.isImageSuffix(nameValue) }
     function previewSourceForEntry(entry) { return FileManagerOps.previewSourceForEntry(entry) }
     function toggleQuickPreview() { FileManagerOps.toggleQuickPreview(root, quickPreviewDialogRef) }
-    function loadStorageSidebarItems() { FileManagerSidebarOps.loadStorageSidebarItems(root, sidebarModel, fileManagerApiRef) }
-    function rebuildSidebarItems() { FileManagerSidebarOps.rebuildSidebarItems(root, sidebarModel, fileManagerApiRef) }
+    function loadStorageSidebarItems(rowsOverride) { FileManagerSidebarOps.loadStorageSidebarItems(root, sidebarModel, fileManagerApiRef, rowsOverride) }
+    function rebuildSidebarItems(rowsOverride) { FileManagerSidebarOps.rebuildSidebarItems(root, sidebarModel, fileManagerApiRef, rowsOverride) }
 
     function renameSelected() {
         var entry = selectedEntry()
@@ -610,11 +1133,23 @@ Rectangle {
         root.contextEntryName = String(entry.name || basename(
                                            root.contextEntryPath))
         root.contextEntryIsDir = !!entry.isDir
+        root.contextEntryMimeType = String(entry.mimeType || "")
+        root.contextEntrySuffix = String(entry.suffix || "")
         requestRenameContextEntry()
     }
 
     ListModel {
         id: sidebarModel
+    }
+
+    Timer {
+        id: storageSettleTimer
+        interval: Math.max(120, Number(root.storageSidebarSettleMs || 350))
+        repeat: false
+        running: false
+        onTriggered: {
+            root.rebuildSidebarItems(root.storagePendingSidebarRows || [])
+        }
     }
 
     ListModel {
@@ -625,6 +1160,43 @@ Rectangle {
         hostRoot: root
         fileManagerApi: fileManagerApiRef
         connectServerDialogRef: connectServerDialogRef
+    }
+
+    Connections {
+        target: notificationManagerRef
+        ignoreUnknownSignals: true
+
+        function onActionInvoked(id, actionKey) {
+            var key = String(id || "")
+            var map = root.storageNotificationPayloadById || ({})
+            if (!map[key]) {
+                return
+            }
+            var payload = map[key] || ({})
+            var action = String(actionKey || "default").toLowerCase()
+            if (action === "eject") {
+                root.ejectStorageVolumes(payload.volumes || [])
+            } else {
+                root.openStorageVolumes(String(payload.label || "External Drive"),
+                                        payload.volumes || [])
+            }
+        }
+
+        function onNotificationClosed(id, reason) {
+            var key = String(id || "")
+            var map = root.storageNotificationPayloadById || ({})
+            if (!map[key]) {
+                return
+            }
+            var next = {}
+            var keys = Object.keys(map)
+            for (var i = 0; i < keys.length; ++i) {
+                if (keys[i] !== key) {
+                    next[keys[i]] = map[keys[i]]
+                }
+            }
+            root.storageNotificationPayloadById = next
+        }
     }
 
     FM.FileManagerWindowBody {

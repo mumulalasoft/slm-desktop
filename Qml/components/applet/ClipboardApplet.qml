@@ -1,8 +1,9 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
+import QtQuick.Controls.impl 2.15
 import QtQuick.Layouts 1.15
 import Slm_Desktop
-import Style
+import SlmStyle
 
 Item {
     id: root
@@ -18,6 +19,16 @@ Item {
 
     implicitWidth: button.implicitWidth
     implicitHeight: button.implicitHeight
+
+    function microAnimationAllowed() {
+        if (!Theme.animationsEnabled) {
+            return false
+        }
+        if (typeof MotionController === "undefined" || !MotionController || !MotionController.allowMotionPriority) {
+            return true
+        }
+        return MotionController.allowMotionPriority(MotionController.LowPriority)
+    }
 
     function openMenuSafely() {
         if ((Date.now() - lastMenuCloseMs) < 180) {
@@ -36,7 +47,7 @@ Item {
         contentItem: Item {
             implicitWidth: root.iconSize
             implicitHeight: root.iconSize
-            Image {
+            IconImage {
                 anchors.centerIn: parent
                 width: root.iconSize
                 height: root.iconSize
@@ -44,6 +55,7 @@ Item {
                 source: "image://themeicon/edit-paste-symbolic?v=" +
                         ((typeof ThemeIconController !== "undefined" && ThemeIconController)
                          ? ThemeIconController.revision : 0)
+                color: Theme.color("textOnGlass")
             }
         }
         background: Rectangle {
@@ -51,8 +63,14 @@ Item {
             color: button.down ? Theme.color("controlBgPressed") : (button.hovered ? Theme.color("accentSoft") : "transparent")
             border.width: Theme.borderWidthThin
             border.color: button.hovered ? Theme.color("panelBorder") : "transparent"
-            Behavior on color { ColorAnimation { duration: Theme.durationSm; easing.type: Easing.OutCubic } }
-            Behavior on border.color { ColorAnimation { duration: Theme.durationSm; easing.type: Easing.OutCubic } }
+            Behavior on color {
+                enabled: root.microAnimationAllowed()
+                ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault }
+            }
+            Behavior on border.color {
+                enabled: root.microAnimationAllowed()
+                ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault }
+            }
         }
         onClicked: {
             if (menu.opened || menu.visible) {
@@ -163,7 +181,10 @@ Item {
                                 height: Theme.metric("controlHeightLarge")
                                 radius: Theme.radiusControl
                                 color: rowMouse.pressed ? Theme.color("controlBgPressed") : (rowMouse.containsMouse ? Theme.color("accentSoft") : "transparent")
-                                Behavior on color { ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDecelerate } }
+                                Behavior on color {
+                                    enabled: root.microAnimationAllowed()
+                                    ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDecelerate }
+                                }
 
                                 RowLayout {
                                     anchors.fill: parent

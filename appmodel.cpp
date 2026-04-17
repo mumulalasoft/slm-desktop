@@ -1,6 +1,5 @@
 #include "appmodel.h"
 #include "src/core/execution/appexecutiongate.h"
-#include "src/core/prefs/uipreferences.h"
 
 #ifdef QT_DBUS_LIB
 #include <QDBusConnection>
@@ -26,6 +25,9 @@
 #include <QTimeZone>
 #include <QRegularExpression>
 #include <QProcess>
+#include <QtConcurrent/QtConcurrentRun>
+#include <QFutureWatcher>
+#include <QMutex>
 
 #ifdef signals
 #undef signals
@@ -318,111 +320,130 @@ QString iconNameFromGIcon(GIcon *icon)
     return QString();
 }
 
+// Thread-safe icon path resolver.
+// Heavy filesystem scanning runs without holding the lock; only the cache
+// lookup and insert are protected so multiple threads can call concurrently.
 QString resolveThemedIconPath(const QString &rawIconName)
 {
     static QHash<QString, QString> cache;
+    static QMutex cacheMutex;
+
     const QString iconName = rawIconName.trimmed();
     if (iconName.isEmpty()) {
         return QString();
     }
 
-    const auto it = cache.constFind(iconName);
-    if (it != cache.cend()) {
-        return it.value();
+    // Fast path: already cached.
+    {
+        QMutexLocker lk(&cacheMutex);
+        const auto it = cache.constFind(iconName);
+        if (it != cache.cend()) {
+            return it.value();
+        }
     }
+
+    // Slow path: scan filesystem (no lock held — pure reads).
+    QString resolved;
 
     QFileInfo iconInfo(iconName);
     if (iconInfo.exists() && iconInfo.isFile()) {
-        const QString source = toQmlFileSource(iconInfo.absoluteFilePath());
-        cache.insert(iconName, source);
-        return source;
-    }
+        resolved = toQmlFileSource(iconInfo.absoluteFilePath());
+    } else {
+        const QStringList exts = {QStringLiteral("png"), QStringLiteral("svg"),
+                                  QStringLiteral("xpm"), QStringLiteral("svgz")};
+        const QStringList contexts = {
+            QStringLiteral("apps"),    QStringLiteral("actions"),
+            QStringLiteral("categories"), QStringLiteral("devices"),
+            QStringLiteral("mimetypes"), QStringLiteral("places"),
+            QStringLiteral("status"),  QStringLiteral("emblems")
+        };
+        const QStringList sizeDirs = {
+            QStringLiteral("symbolic"), QStringLiteral("scalable"),
+            QStringLiteral("512x512"),  QStringLiteral("256x256"),
+            QStringLiteral("192x192"),  QStringLiteral("128x128"),
+            QStringLiteral("96x96"),    QStringLiteral("72x72"),
+            QStringLiteral("64x64"),    QStringLiteral("48x48"),
+            QStringLiteral("36x36"),    QStringLiteral("32x32"),
+            QStringLiteral("24x24"),    QStringLiteral("22x22"),
+            QStringLiteral("16x16")
+        };
 
-    const QStringList exts = {QStringLiteral("png"), QStringLiteral("svg"), QStringLiteral("xpm"), QStringLiteral("svgz")};
-    const QStringList contexts = {
-        QStringLiteral("apps"),
-        QStringLiteral("actions"),
-        QStringLiteral("categories"),
-        QStringLiteral("devices"),
-        QStringLiteral("mimetypes"),
-        QStringLiteral("places"),
-        QStringLiteral("status"),
-        QStringLiteral("emblems")
-    };
-    const QStringList sizeDirs = {
-        QStringLiteral("symbolic"),
-        QStringLiteral("scalable"),
-        QStringLiteral("512x512"),
-        QStringLiteral("256x256"),
-        QStringLiteral("192x192"),
-        QStringLiteral("128x128"),
-        QStringLiteral("96x96"),
-        QStringLiteral("72x72"),
-        QStringLiteral("64x64"),
-        QStringLiteral("48x48"),
-        QStringLiteral("36x36"),
-        QStringLiteral("32x32"),
-        QStringLiteral("24x24"),
-        QStringLiteral("22x22"),
-        QStringLiteral("16x16")
-    };
+        QStringList searchRoots = QStandardPaths::standardLocations(
+            QStandardPaths::GenericDataLocation);
+        searchRoots << QStringLiteral("/usr/share") << QStringLiteral("/usr/local/share");
+        searchRoots.removeDuplicates();
 
-    QStringList searchRoots = QStandardPaths::standardLocations(QStandardPaths::GenericDataLocation);
-    searchRoots << QStringLiteral("/usr/share") << QStringLiteral("/usr/local/share");
-    searchRoots.removeDuplicates();
-
-    QStringList iconThemeBases;
-    for (const QString &root : searchRoots) {
-        iconThemeBases << QDir(root).filePath(QStringLiteral("icons"));
-    }
-
-    const QString homeIcons = QDir::home().filePath(QStringLiteral(".icons"));
-    iconThemeBases << homeIcons;
-
-    QStringList pixmapBases;
-    for (const QString &root : searchRoots) {
-        pixmapBases << QDir(root).filePath(QStringLiteral("pixmaps"));
-    }
-
-    QStringList candidateNames;
-    candidateNames << iconName;
-    if (iconName.contains('.')) {
-        const QString maybeBase = QFileInfo(iconName).completeBaseName();
-        if (!maybeBase.isEmpty() && maybeBase != iconName) {
-            candidateNames << maybeBase;
+        QStringList iconThemeBases;
+        for (const QString &root : searchRoots) {
+            iconThemeBases << QDir(root).filePath(QStringLiteral("icons"));
         }
-    }
+        iconThemeBases << QDir::home().filePath(QStringLiteral(".icons"));
 
-    for (const QString &base : iconThemeBases) {
-        QDir baseDir(base);
-        if (!baseDir.exists()) {
-            continue;
+        QStringList pixmapBases;
+        for (const QString &root : searchRoots) {
+            pixmapBases << QDir(root).filePath(QStringLiteral("pixmaps"));
         }
 
-        QStringList themes = baseDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
-        if (!themes.contains(QStringLiteral("hicolor"))) {
-            themes.prepend(QStringLiteral("hicolor"));
+        QStringList candidateNames;
+        candidateNames << iconName;
+        if (iconName.contains('.')) {
+            const QString maybeBase = QFileInfo(iconName).completeBaseName();
+            if (!maybeBase.isEmpty() && maybeBase != iconName) {
+                candidateNames << maybeBase;
+            }
         }
 
-        for (const QString &theme : themes) {
-            const QString themePath = baseDir.filePath(theme);
-            for (const QString &sizeDir : sizeDirs) {
-                for (const QString &context : contexts) {
-                    const QString bucket = QDir(themePath).filePath(sizeDir + QLatin1Char('/') + context);
-                    for (const QString &name : candidateNames) {
-                        const QFileInfo rawFile(bucket + QLatin1Char('/') + name);
-                        if (rawFile.exists() && rawFile.isFile()) {
-                            const QString source = toQmlFileSource(rawFile.absoluteFilePath());
-                            cache.insert(iconName, source);
-                            return source;
-                        }
-                        for (const QString &ext : exts) {
-                            const QFileInfo file(bucket + QLatin1Char('/') + name + QLatin1Char('.') + ext);
-                            if (file.exists() && file.isFile()) {
-                                const QString source = toQmlFileSource(file.absoluteFilePath());
-                                cache.insert(iconName, source);
-                                return source;
+        auto tryFile = [&](const QString &path) -> bool {
+            const QFileInfo fi(path);
+            if (fi.exists() && fi.isFile()) {
+                resolved = toQmlFileSource(fi.absoluteFilePath());
+                return true;
+            }
+            return false;
+        };
+
+        bool found = false;
+        for (const QString &base : iconThemeBases) {
+            if (found) break;
+            QDir baseDir(base);
+            if (!baseDir.exists()) continue;
+            QStringList themes = baseDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
+            if (!themes.contains(QStringLiteral("hicolor"))) {
+                themes.prepend(QStringLiteral("hicolor"));
+            }
+            for (const QString &theme : themes) {
+                if (found) break;
+                const QString themePath = baseDir.filePath(theme);
+                for (const QString &sizeDir : sizeDirs) {
+                    if (found) break;
+                    for (const QString &context : contexts) {
+                        if (found) break;
+                        const QString bucket = QDir(themePath).filePath(
+                            sizeDir + QLatin1Char('/') + context);
+                        for (const QString &name : candidateNames) {
+                            if (found) break;
+                            if (tryFile(bucket + QLatin1Char('/') + name)) { found = true; break; }
+                            for (const QString &ext : exts) {
+                                if (tryFile(bucket + QLatin1Char('/') + name
+                                            + QLatin1Char('.') + ext)) { found = true; break; }
                             }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!found) {
+            for (const QString &pixmapBase : pixmapBases) {
+                if (found) break;
+                QDir pixmapDir(pixmapBase);
+                if (!pixmapDir.exists()) continue;
+                for (const QString &name : candidateNames) {
+                    if (found) break;
+                    if (tryFile(pixmapDir.filePath(name))) { found = true; break; }
+                    for (const QString &ext : exts) {
+                        if (tryFile(pixmapDir.filePath(name + QLatin1Char('.') + ext))) {
+                            found = true; break;
                         }
                     }
                 }
@@ -430,31 +451,12 @@ QString resolveThemedIconPath(const QString &rawIconName)
         }
     }
 
-    for (const QString &pixmapBase : pixmapBases) {
-        QDir pixmapDir(pixmapBase);
-        if (!pixmapDir.exists()) {
-            continue;
-        }
-        for (const QString &name : candidateNames) {
-            const QFileInfo rawFile(pixmapDir.filePath(name));
-            if (rawFile.exists() && rawFile.isFile()) {
-                const QString source = toQmlFileSource(rawFile.absoluteFilePath());
-                cache.insert(iconName, source);
-                return source;
-            }
-            for (const QString &ext : exts) {
-                const QFileInfo file(pixmapDir.filePath(name + QLatin1Char('.') + ext));
-                if (file.exists() && file.isFile()) {
-                    const QString source = toQmlFileSource(file.absoluteFilePath());
-                    cache.insert(iconName, source);
-                    return source;
-                }
-            }
-        }
+    // Store result (hit or miss) under lock.
+    {
+        QMutexLocker lk(&cacheMutex);
+        cache.insert(iconName, resolved);
     }
-
-    cache.insert(iconName, QString());
-    return QString();
+    return resolved;
 }
 
 qint64 nowMsUtc()
@@ -501,6 +503,40 @@ QString normalizedExecKey(const QString &exec)
         return QString();
     }
     return QFileInfo(firstToken).fileName().toLower();
+}
+
+QString normalizedIdentityToken(const QString &value)
+{
+    QString s = value.trimmed().toLower();
+    if (s.isEmpty()) {
+        return {};
+    }
+    if (s.contains(QLatin1Char('/'))) {
+        s = QFileInfo(s).fileName();
+    }
+    if (s.endsWith(QStringLiteral(".desktop"))) {
+        s.chop(8);
+    }
+    s.replace(QLatin1Char(' '), QLatin1Char('.'));
+    QString out;
+    out.reserve(s.size());
+    for (QChar ch : s) {
+        const bool ok = ch.isLetterOrNumber()
+                || ch == QLatin1Char('.')
+                || ch == QLatin1Char('-')
+                || ch == QLatin1Char('_');
+        out.push_back(ok ? ch : QLatin1Char('.'));
+    }
+    while (out.contains(QStringLiteral(".."))) {
+        out.replace(QStringLiteral(".."), QStringLiteral("."));
+    }
+    while (out.startsWith(QLatin1Char('.'))) {
+        out.remove(0, 1);
+    }
+    while (out.endsWith(QLatin1Char('.'))) {
+        out.chop(1);
+    }
+    return out;
 }
 
 QString launchHistoryPath()
@@ -764,7 +800,7 @@ void DesktopAppModel::setupDesktopDirMonitors()
         }
         g_signal_connect(monitor, "changed", G_CALLBACK(&DesktopAppModel::onDesktopDirChanged), this);
         m_appDirMonitors.push_back(monitor);
-        qCInfo(lcAppModel) << "Monitoring desktop directory:" << root;
+        qCDebug(lcAppModel) << "Monitoring desktop directory:" << root;
     }
 }
 
@@ -801,18 +837,18 @@ void DesktopAppModel::setExecutionGate(AppExecutionGate *gate)
     }
 }
 
-void DesktopAppModel::setUIPreferences(UIPreferences *preferences)
+void DesktopAppModel::setDesktopSettings(QObject *desktopSettings)
 {
-    if (m_preferences == preferences) {
+    if (m_desktopSettings == desktopSettings) {
         return;
     }
-    if (m_preferences) {
-        disconnect(m_preferences, nullptr, this, nullptr);
+    if (m_desktopSettings) {
+        disconnect(m_desktopSettings, nullptr, this, nullptr);
     }
-    m_preferences = preferences;
-    if (m_preferences) {
-        connect(m_preferences, &UIPreferences::preferenceChanged,
-                this, &DesktopAppModel::onPreferenceChanged);
+    m_desktopSettings = desktopSettings;
+    if (m_desktopSettings) {
+        connect(m_desktopSettings, SIGNAL(settingChanged(QString)),
+                this, SLOT(onDesktopSettingChanged(QString)));
     }
     reloadScoringWeights();
     rebuildUsageStats();
@@ -820,15 +856,38 @@ void DesktopAppModel::setUIPreferences(UIPreferences *preferences)
 
 void DesktopAppModel::reloadScoringWeights()
 {
-    if (!m_preferences) {
-        m_launchWeight = 10;
-        m_fileOpenWeight = 3;
-        m_recencyWeight = 1;
-        return;
-    }
-    m_launchWeight = qBound(1, m_preferences->getPreference(QStringLiteral("app.score.launchWeight"), 10).toInt(), 50);
-    m_fileOpenWeight = qBound(0, m_preferences->getPreference(QStringLiteral("app.score.fileOpenWeight"), 3).toInt(), 50);
-    m_recencyWeight = qBound(0, m_preferences->getPreference(QStringLiteral("app.score.recencyWeight"), 1).toInt(), 20);
+    auto readIntSetting = [this](const QStringList &paths, int fallback) -> int {
+        if (m_desktopSettings) {
+            for (const QString &path : paths) {
+                QVariant v;
+                const bool okInvoke = QMetaObject::invokeMethod(m_desktopSettings, "settingValue",
+                                                                 Q_RETURN_ARG(QVariant, v),
+                                                                 Q_ARG(QString, path),
+                                                                 Q_ARG(QVariant, QVariant()));
+                if (!okInvoke) {
+                    continue;
+                }
+                if (v.isValid() && !v.isNull()) {
+                    bool ok = false;
+                    const int out = v.toInt(&ok);
+                    if (ok) {
+                        return out;
+                    }
+                }
+            }
+        }
+        return fallback;
+    };
+
+    m_launchWeight = qBound(1, readIntSetting({QStringLiteral("app.score.launchWeight"),
+                                               QStringLiteral("app.scoreLaunchWeight"),
+                                               QStringLiteral("app/scoreLaunchWeight")}, 10), 50);
+    m_fileOpenWeight = qBound(0, readIntSetting({QStringLiteral("app.score.fileOpenWeight"),
+                                                 QStringLiteral("app.scoreFileOpenWeight"),
+                                                 QStringLiteral("app/scoreFileOpenWeight")}, 3), 50);
+    m_recencyWeight = qBound(0, readIntSetting({QStringLiteral("app.score.recencyWeight"),
+                                                QStringLiteral("app.scoreRecencyWeight"),
+                                                QStringLiteral("app/scoreRecencyWeight")}, 1), 20);
 }
 
 int DesktopAppModel::effectiveScore(int launchCount, int fileOpenCount, qint64 lastLaunchMs) const
@@ -847,12 +906,17 @@ void DesktopAppModel::onAppExecutionRecorded(QString source, QString name, QStri
     noteLaunchEvent(name, desktopFile, executable);
 }
 
-void DesktopAppModel::onPreferenceChanged(QString key, QVariant value)
+void DesktopAppModel::onDesktopSettingChanged(QString path)
 {
-    Q_UNUSED(value);
-    const QString k = key.trimmed().toLower();
-    if (k != QStringLiteral("app/scorelaunchweight") &&
+    const QString k = path.trimmed().toLower();
+    if (k != QStringLiteral("app.scorelaunchweight") &&
+        k != QStringLiteral("app.score.launchweight") &&
+        k != QStringLiteral("app/scorelaunchweight") &&
+        k != QStringLiteral("app.scorefileopenweight") &&
+        k != QStringLiteral("app.score.fileopenweight") &&
         k != QStringLiteral("app/scorefileopenweight") &&
+        k != QStringLiteral("app.scorerecencyweight") &&
+        k != QStringLiteral("app.score.recencyweight") &&
         k != QStringLiteral("app/scorerecencyweight")) {
         return;
     }
@@ -1041,8 +1105,127 @@ void DesktopAppModel::refresh()
     m_apps = std::move(newApps);
     endResetModel();
 
-    qCInfo(lcAppModel) << "DesktopAppModel refresh done, app count =" << m_apps.size();
+    qCDebug(lcAppModel) << "DesktopAppModel refresh done, app count =" << m_apps.size();
     rebuildUsageStats();
+}
+
+// Static: all heavy GIO + filesystem work. Safe to call from any thread.
+// Does NOT touch any DesktopAppModel members.
+QVector<DesktopAppEntry> DesktopAppModel::computeAppsFromSystem()
+{
+    QVector<DesktopAppEntry> newApps;
+    QSet<QString> seenKeys;
+
+    const auto appendFromAppInfo = [&](GAppInfo *info, bool enforceShouldShow) {
+        if (!info) return;
+        if (enforceShouldShow && !g_app_info_should_show(info)) return;
+        if (!enforceShouldShow && G_IS_DESKTOP_APP_INFO(info)) {
+            GDesktopAppInfo *di = G_DESKTOP_APP_INFO(info);
+            if (g_desktop_app_info_get_is_hidden(di) || g_desktop_app_info_get_nodisplay(di))
+                return;
+        }
+
+        DesktopAppEntry app;
+        app.name = fromUtf8(g_app_info_get_display_name(info));
+        if (app.name.trimmed().isEmpty()) return;
+
+        app.desktopId  = fromUtf8(g_app_info_get_id(info));
+        app.executable = fromUtf8(g_app_info_get_executable(info));
+
+        if (G_IS_DESKTOP_APP_INFO(info)) {
+            app.desktopFile = fromUtf8(g_desktop_app_info_get_filename(G_DESKTOP_APP_INFO(info)));
+            if (app.iconName.isEmpty())
+                app.iconName = fromUtf8(g_desktop_app_info_get_string(G_DESKTOP_APP_INFO(info), "Icon"));
+        }
+
+        GIcon *icon = g_app_info_get_icon(info);
+        app.iconSource = iconFilePathFromGIcon(icon);
+        if (app.iconName.isEmpty())  app.iconName   = iconNameFromGIcon(icon);
+        if (app.iconSource.isEmpty()) app.iconSource = resolveThemedIconPath(app.iconName);
+
+        const QString dedupeKey = !app.desktopId.isEmpty()
+                                      ? app.desktopId.toLower() : app.name.toLower();
+        if (seenKeys.contains(dedupeKey)) return;
+        seenKeys.insert(dedupeKey);
+        newApps.push_back(app);
+    };
+
+    GList *infos = g_app_info_get_all();
+    for (GList *it = infos; it != nullptr; it = it->next)
+        appendFromAppInfo(G_APP_INFO(it->data), true);
+    g_list_free_full(infos, g_object_unref);
+
+    // Fallback: local desktop entries.
+    const QString localAppsDir = QDir::home().filePath(QStringLiteral(".local/share/applications"));
+    QDirIterator localIt(localAppsDir, QStringList{QStringLiteral("*.desktop")}, QDir::Files);
+    while (localIt.hasNext()) {
+        const QString desktopPath = localIt.next();
+        GDesktopAppInfo *desktopInfo = g_desktop_app_info_new_from_filename(
+            QFile::encodeName(desktopPath).constData());
+        if (!desktopInfo) {
+            GKeyFile *kf = g_key_file_new();
+            GError *loadError = nullptr;
+            const gboolean loaded = g_key_file_load_from_file(
+                kf, QFile::encodeName(desktopPath).constData(), G_KEY_FILE_NONE, &loadError);
+            if (loadError) g_error_free(loadError);
+            if (!loaded) { g_key_file_free(kf); continue; }
+
+            const QString type     = fromUtf8(g_key_file_get_string(kf, "Desktop Entry", "Type",      nullptr)).trimmed();
+            const bool hidden      = g_key_file_get_boolean(kf, "Desktop Entry", "Hidden",    nullptr);
+            const bool noDisplay   = g_key_file_get_boolean(kf, "Desktop Entry", "NoDisplay", nullptr);
+            const QString name     = fromUtf8(g_key_file_get_string(kf, "Desktop Entry", "Name",      nullptr)).trimmed();
+            const QString execRaw  = fromUtf8(g_key_file_get_string(kf, "Desktop Entry", "Exec",      nullptr)).trimmed();
+            const QString iconName = fromUtf8(g_key_file_get_string(kf, "Desktop Entry", "Icon",      nullptr)).trimmed();
+            g_key_file_free(kf);
+
+            if (type.compare(QStringLiteral("Application"), Qt::CaseInsensitive) != 0
+                || hidden || noDisplay || name.isEmpty())
+                continue;
+
+            DesktopAppEntry app;
+            app.name       = name;
+            app.desktopId  = QFileInfo(desktopPath).fileName();
+            app.desktopFile = desktopPath;
+            app.executable = execRaw;
+            app.iconName   = iconName;
+            app.iconSource = resolveThemedIconPath(iconName);
+            const QString dedupeKey = !app.desktopId.isEmpty()
+                                          ? app.desktopId.toLower() : app.name.toLower();
+            if (!seenKeys.contains(dedupeKey)) {
+                seenKeys.insert(dedupeKey);
+                newApps.push_back(app);
+            }
+            continue;
+        }
+        appendFromAppInfo(G_APP_INFO(desktopInfo), false);
+        g_object_unref(desktopInfo);
+    }
+
+    return newApps;
+}
+
+void DesktopAppModel::refreshAsync()
+{
+    if (m_refreshRunning) {
+        qCDebug(lcAppModel) << "refreshAsync: already running, skipped";
+        return;
+    }
+    m_refreshRunning = true;
+    qCDebug(lcAppModel) << "refreshAsync: starting background scan";
+
+    auto *watcher = new QFutureWatcher<QVector<DesktopAppEntry>>(this);
+    connect(watcher, &QFutureWatcher<QVector<DesktopAppEntry>>::finished, this,
+            [this, watcher]() {
+                QVector<DesktopAppEntry> newApps = watcher->result();
+                watcher->deleteLater();
+                m_refreshRunning = false;
+                qCInfo(lcAppModel) << "refreshAsync: scan done, app count =" << newApps.size();
+                beginResetModel();
+                m_apps = std::move(newApps);
+                endResetModel();
+                rebuildUsageStats();
+            });
+    watcher->setFuture(QtConcurrent::run(&DesktopAppModel::computeAppsFromSystem));
 }
 
 QString DesktopAppModel::primaryKey(const QString &desktopId,
@@ -1460,6 +1643,27 @@ QVariantMap DesktopAppModel::appUsage(const QString &desktopId,
                      .toString(Qt::ISODateWithMs)
                : QString());
     return out;
+}
+
+QString DesktopAppModel::canonicalAppIdentity(const QString &desktopId,
+                                              const QString &desktopFile,
+                                              const QString &executable,
+                                              const QString &name) const
+{
+    Q_UNUSED(name);
+    const QString id = normalizedIdentityToken(desktopId);
+    if (!id.isEmpty()) {
+        return id;
+    }
+    const QString desktopBase = normalizedIdentityToken(QFileInfo(desktopFile.trimmed()).fileName());
+    if (!desktopBase.isEmpty()) {
+        return desktopBase;
+    }
+    const QString execKey = normalizedIdentityToken(normalizedExecKey(executable));
+    if (!execKey.isEmpty()) {
+        return execKey;
+    }
+    return QStringLiteral("unknown.app");
 }
 
 QVariantList DesktopAppModel::frequentApps(int limit) const

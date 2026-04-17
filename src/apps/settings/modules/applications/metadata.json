@@ -1,0 +1,59 @@
+{
+    "id": "applications",
+    "name": "Applications",
+    "icon": "preferences-desktop-apps",
+    "group": "System",
+    "description": "Default apps for web, mail, files, and media.",
+    "keywords": ["default app", "browser", "email", "startup", "mime", "file association", "video", "image", "editor"],
+    "main": "ApplicationsPage.qml",
+    "settings": [
+        {
+            "id": "default-browser",
+            "label": "Default Browser",
+            "description": "Open web links with selected app",
+            "keywords": ["browser", "default", "web", "http", "https"],
+            "type": "dropdown",
+            "backend_binding": "xdg:mime/x-scheme-handler/http"
+        },
+        {
+            "id": "default-mail",
+            "label": "Default Mail App",
+            "description": "Open mailto links with selected app",
+            "keywords": ["mail", "email", "default", "mailto"],
+            "type": "dropdown",
+            "backend_binding": "xdg:mime/x-scheme-handler/mailto"
+        },
+        {
+            "id": "default-image-viewer",
+            "label": "Default Image Viewer",
+            "description": "Open image files with selected app",
+            "keywords": ["image", "photo", "viewer", "default", "jpeg", "png"],
+            "type": "dropdown",
+            "backend_binding": "xdg:mime/image/jpeg"
+        },
+        {
+            "id": "default-video-player",
+            "label": "Default Video Player",
+            "description": "Open video files with selected app",
+            "keywords": ["video", "player", "default", "mp4", "mkv"],
+            "type": "dropdown",
+            "backend_binding": "xdg:mime/video/mp4"
+        },
+        {
+            "id": "default-text-editor",
+            "label": "Default Text Editor",
+            "description": "Open text files with selected app",
+            "keywords": ["text", "editor", "default", "plain"],
+            "type": "dropdown",
+            "backend_binding": "xdg:mime/text/plain"
+        },
+        {
+            "id": "default-file-manager",
+            "label": "Default File Manager",
+            "description": "Open folders with selected app",
+            "keywords": ["file manager", "files", "folder", "directory", "default"],
+            "type": "dropdown",
+            "backend_binding": "xdg:mime/inode/directory"
+        }
+    ]
+}

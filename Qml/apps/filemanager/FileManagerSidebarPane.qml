@@ -3,7 +3,7 @@ import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import QtQuick.Window 2.15
 import Slm_Desktop
-import Style
+import SlmStyle
 
 Rectangle {
     id: root
@@ -11,6 +11,8 @@ Rectangle {
     required property var hostRoot
     required property var sidebarModel
     property var sidebarContextMenuRef: null
+    readonly property int iconRevision: ((typeof ThemeIconController !== "undefined" && ThemeIconController)
+                                         ? ThemeIconController.revision : 0)
 
     function dropTargetAt(sceneX, sceneY) {
         if (!sidebarList || !sidebarList.contentItem) {
@@ -28,7 +30,8 @@ Rectangle {
         var rowType = String(row.rowType || "")
         var rowPath = String(row.path || "")
         var mounted = row.mounted === undefined ? true : !!row.mounted
-        if (rowType === "section" || !mounted || rowPath.length <= 0) {
+        if (rowType === "section" || rowType === "storage-group"
+                || rowType === "storage-status" || !mounted || rowPath.length <= 0) {
             return ({ "ok": false })
         }
         if (rowPath === "__recent__" || rowPath === "__network__"
@@ -58,79 +61,16 @@ Rectangle {
             anchors.left: parent.left
             anchors.leftMargin: 14
             anchors.verticalCenter: parent.verticalCenter
-            spacing: 8
+            spacing: 0
 
-            Item {
-                width: 16
-                height: 16
-                scale: closeMacMouse.pressed ? 0.9 : (closeMacMouse.containsMouse ? 1.04 : 1.0)
-                Behavior on scale {
-                    NumberAnimation {
-                        duration: 90
-                        easing.type: Easing.OutCubic
-                    }
+            WindowControlsCapsule {
+                spacing: 0
+                iconProvider: function(kind, hovered, pressed) {
+                    return hostRoot.titleButtonIcon(kind, hovered, pressed)
                 }
-                Image {
-                    anchors.fill: parent
-                    fillMode: Image.PreserveAspectFit
-                    source: hostRoot.titleButtonIcon("close",
-                                                     closeMacMouse.containsMouse,
-                                                     closeMacMouse.pressed)
-                }
-                MouseArea {
-                    id: closeMacMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    onClicked: hostRoot.closeRequested()
-                }
-            }
-            Item {
-                width: 16
-                height: 16
-                scale: minimizeMacMouse.pressed ? 0.9 : (minimizeMacMouse.containsMouse ? 1.04 : 1.0)
-                Behavior on scale {
-                    NumberAnimation {
-                        duration: 90
-                        easing.type: Easing.OutCubic
-                    }
-                }
-                Image {
-                    anchors.fill: parent
-                    fillMode: Image.PreserveAspectFit
-                    source: hostRoot.titleButtonIcon("minimize",
-                                                     minimizeMacMouse.containsMouse,
-                                                     minimizeMacMouse.pressed)
-                }
-                MouseArea {
-                    id: minimizeMacMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    onClicked: hostRoot.minimizeWindow()
-                }
-            }
-            Item {
-                width: 16
-                height: 16
-                scale: maximizeMacMouse.pressed ? 0.9 : (maximizeMacMouse.containsMouse ? 1.04 : 1.0)
-                Behavior on scale {
-                    NumberAnimation {
-                        duration: 90
-                        easing.type: Easing.OutCubic
-                    }
-                }
-                Image {
-                    anchors.fill: parent
-                    fillMode: Image.PreserveAspectFit
-                    source: hostRoot.titleButtonIcon("maximize",
-                                                     maximizeMacMouse.containsMouse,
-                                                     maximizeMacMouse.pressed)
-                }
-                MouseArea {
-                    id: maximizeMacMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    onClicked: hostRoot.toggleMaximizeWindow()
-                }
+                onCloseRequested: hostRoot.closeRequested()
+                onMinimizeRequested: hostRoot.minimizeWindow()
+                onMaximizeRequested: hostRoot.toggleMaximizeWindow()
             }
         }
     }
@@ -159,6 +99,7 @@ Rectangle {
             required property bool browsable
             required property real bytesTotal
             required property real bytesAvailable
+            required property int depth
             readonly property real bytesTotalValue: Number(
                                                         bytesTotal !== undefined ? bytesTotal : -1)
             readonly property real bytesAvailableValue: Number(
@@ -166,8 +107,14 @@ Rectangle {
             readonly property real usageRatio: hostRoot.storageUsageRatio(
                                                    bytesAvailableValue,
                                                    bytesTotalValue)
+            readonly property bool isSectionRow: rowType === "section"
+            readonly property bool isStorageGroupRow: rowType === "storage-group"
+            readonly property bool isStorageStatusRow: rowType === "storage-status"
+            readonly property bool isInteractiveRow: !isSectionRow
+                                                    && !isStorageGroupRow
+                                                    && !isStorageStatusRow
             width: sidebarList.width
-            height: rowType === "section" ? Math.max(
+            height: isSectionRow ? Math.max(
                                                 24, Math.round(
                                                     hostRoot.sidebarMenuFontPx
                                                     * 1.50)) : Math.max(
@@ -177,17 +124,17 @@ Rectangle {
             Rectangle {
                 anchors.fill: parent
                 radius: Theme.radiusMdPlus
-                color: (rowType !== "section" && hostRoot.dndActive
+                color: (isInteractiveRow && hostRoot.dndActive
                         && hostRoot.dndSidebarHoverPath
                         === path) ? Theme.color(
-                                        "fileManagerTabActive") : ((rowType !== "section" && hostRoot.selectedSidebarPath === path) ? Theme.color("selectedItem") : ((rowType !== "section" && sidebarMouse.containsMouse) ? Theme.color("hoverItem") : "transparent"))
+                                        "fileManagerTabActive") : ((isInteractiveRow && hostRoot.selectedSidebarPath === path) ? Theme.color("selectedItem") : ((isInteractiveRow && sidebarMouse.containsMouse) ? Theme.color("hoverItem") : "transparent"))
 
                 Row {
                     anchors.verticalCenter: parent.verticalCenter
                     anchors.left: parent.left
-                    anchors.leftMargin: 8
+                    anchors.leftMargin: 8 + (Math.max(0, Number(depth || 0)) * 16)
                     spacing: 6
-                    visible: rowType !== "section"
+                    visible: !isSectionRow
                     opacity: 1.0
 
                     Image {
@@ -197,14 +144,20 @@ Rectangle {
                         asynchronous: true
                         cache: true
                         source: "image://themeicon/" + (iconName && iconName.length > 0 ? iconName : "folder-symbolic")
+                                + "?v=" + root.iconRevision
                     }
 
                     Text {
-                        width: sidebarList.width - 66
+                        width: sidebarList.width - (rowType === "storage" ? 66 : 34)
+                               - (Math.max(0, Number(depth || 0)) * 16)
                         text: label
-                        color: Theme.color("textPrimary")
+                        color: isStorageGroupRow ? Theme.color("textSecondary")
+                                                 : Theme.color("textPrimary")
                         font.family: Theme.fontFamilyUi
-                        font.pixelSize: Theme.fontSize("menu")
+                        font.pixelSize: isStorageGroupRow ? Theme.fontSize("caption")
+                                                          : Theme.fontSize("menu")
+                        font.weight: isStorageGroupRow ? Theme.fontWeight("medium")
+                                                       : Theme.fontWeight("normal")
                         verticalAlignment: Text.AlignVCenter
                         elide: Text.ElideRight
                     }
@@ -214,7 +167,7 @@ Rectangle {
                     anchors.left: parent.left
                     anchors.leftMargin: 8
                     anchors.verticalCenter: parent.verticalCenter
-                    visible: rowType === "section"
+                    visible: isSectionRow
                     text: label
                     color: Theme.color("textSecondary")
                     font.family: Theme.fontFamilyUi
@@ -265,7 +218,8 @@ Rectangle {
                         fillMode: Image.PreserveAspectFit
                         asynchronous: true
                         cache: true
-                        source: "image://themeicon/" + (mounted ? "media-eject-symbolic" : "go-up-symbolic")
+                        source: "image://themeicon/" + (mounted ? "media-eject-symbolic" : "folder-open-symbolic")
+                                + "?v=" + root.iconRevision
                     }
 
                     MouseArea {
@@ -283,7 +237,7 @@ Rectangle {
             MouseArea {
                 id: sidebarMouse
                 anchors.fill: parent
-                enabled: rowType !== "section"
+                enabled: isInteractiveRow
                 hoverEnabled: true
                 acceptedButtons: Qt.LeftButton | Qt.RightButton
                 onClicked: function(mouse) {
@@ -353,7 +307,7 @@ Rectangle {
                 fillMode: Image.PreserveAspectFit
                 asynchronous: true
                 cache: true
-                source: "image://themeicon/network-workgroup-symbolic"
+                source: "image://themeicon/network-workgroup-symbolic?v=" + root.iconRevision
             }
 
             Text {

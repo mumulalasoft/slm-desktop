@@ -1,7 +1,8 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
+import SlmStyle as DSStyle
 
-Menu {
+DSStyle.Menu {
     id: recursiveMenu
 
     property var menuController: null
@@ -115,7 +116,7 @@ Menu {
 
     Component {
         id: submenuComp
-        Menu {
+        DSStyle.Menu {
             property string nodeIdInternal: "root"
             modal: false
             closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside | Popup.CloseOnPressOutsideParent

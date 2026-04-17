@@ -1,15 +1,24 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
-import Style
+import SlmStyle
+import SlmStyle as DSStyle
 import "."
 
 Item {
     id: root
 
     required property var hostRoot
+    readonly property int iconRevision: ((typeof ThemeIconController !== "undefined" && ThemeIconController)
+                                         ? ThemeIconController.revision : 0)
     property var fileMenuSlmRows: []
     property var folderMenuSlmRows: []
     property var multiMenuSlmRows: []
+
+    function microAnimationAllowed() {
+        if (!Theme.animationsEnabled) return false
+        if (typeof MotionController === "undefined" || !MotionController || !MotionController.allowMotionPriority) return true
+        return MotionController.allowMotionPriority(MotionController.LowPriority)
+    }
 
     function menuColor(key, fallback) {
         if (typeof Theme !== "undefined" && Theme && Theme.color) {
@@ -499,7 +508,9 @@ Item {
 
     Component {
         id: slmNativeSubmenuComponent
-        Menu {
+        DSStyle.Menu {
+            compact: true
+            itemIconSize: 20
             property var menuRow: ({})
             property bool _slmIsNativeMenu: true
             property var _slmDynamicItems: []
@@ -530,7 +541,7 @@ Item {
 
     Component {
         id: slmShareActionItemComponent
-        MenuItem {
+        DSStyle.MenuItem {
             id: shareActionItem
             property var menuRow: ({})
             readonly property string actionId: String((menuRow && menuRow.actionId) ? menuRow.actionId : "")
@@ -539,15 +550,17 @@ Item {
             readonly property bool rowActiveHover: (shareActionItem.highlighted || shareActionItem.hovered)
             text: String((menuRow && menuRow.name) ? menuRow.name : actionId)
             hoverEnabled: true
-            leftPadding: 10
-            rightPadding: 10
+            leftPadding: (menu && menu.itemHorizontalPadding !== undefined)
+                         ? Number(menu.itemHorizontalPadding) : 8
+            rightPadding: (menu && menu.itemHorizontalPadding !== undefined)
+                          ? Number(menu.itemHorizontalPadding) : 8
             contentItem: Row {
-                spacing: 8
-                leftPadding: 2
+                spacing: 6
 
                 Image {
-                    width: 16
-                    height: 16
+                    width: (shareActionItem.menu && shareActionItem.menu.itemIconSize !== undefined)
+                           ? Number(shareActionItem.menu.itemIconSize) : 20
+                    height: width
                     anchors.verticalCenter: parent.verticalCenter
                     fillMode: Image.PreserveAspectFit
                     asynchronous: true
@@ -557,14 +570,14 @@ Item {
                             return shareActionItem.iconSourceValue
                         }
                         if (shareActionItem.iconNameValue.length > 0) {
-                            return "image://themeicon/" + shareActionItem.iconNameValue
+                            return "image://themeicon/" + shareActionItem.iconNameValue + "?v=" + root.iconRevision
                         }
                         return ""
                     }
                     visible: source.toString().length > 0
                 }
 
-                Label {
+                DSStyle.Label {
                     text: shareActionItem.text
                     color: shareActionItem.rowActiveHover ? root.menuColor("textOnAccent", "#ffffff")
                                                           : root.menuColor("menuText", "#202124")
@@ -578,9 +591,10 @@ Item {
                                                       : "transparent"
                 border.width: Theme.borderWidthNone
                 Behavior on color {
+                    enabled: root.microAnimationAllowed()
                     ColorAnimation {
-                        duration: 100
-                        easing.type: Easing.OutCubic
+                        duration: Theme.durationFast
+                        easing.type: Theme.easingDefault
                     }
                 }
             }
@@ -593,35 +607,39 @@ Item {
         }
     }
 
-    Menu {
+    DSStyle.Menu {
         id: fileEntryMenu
+        compact: true
+        itemIconSize: 20
         modal: false
         property var _slmInjectedObjects: []
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside | Popup.CloseOnPressOutsideParent
         onClosed: root.slmClearInjectedObjects(fileEntryMenu)
 
-        MenuItem {
-            text: "Open"
+        DSStyle.MenuItem {
+            text: root.hostRoot.contextEntryIsArchive ? "Extract" : "Open"
             enabled: root.hostRoot.contextEntryIndex >= 0
             onTriggered: root.hostRoot.openContextEntry()
         }
 
-        Menu {
-            title: "Open with"
+        DSStyle.MenuItem {
+            text: "Extract to..."
+            visible: root.hostRoot.contextEntryIsArchive
             enabled: root.hostRoot.contextEntryIndex >= 0
-            readonly property var defaultRow: root.hostRoot.contextDefaultOpenWithEntry()
-            readonly property string defaultAppId: String((defaultRow && defaultRow.id) ? defaultRow.id : "")
+            onTriggered: root.hostRoot.chooseExtractDestinationForContextArchive()
+        }
+
+        DSStyle.Menu {
+            title: "Open with"
+            compact: true
+            itemIconSize: 20
+            // NOTE: Avoid toggling Menu.visible during component finalization.
+            // Qt 6.10 can crash in QQuickMenu::setVisible() for submenu bindings.
+            // Keep submenu always present and gate interactions via enabled state.
+            enabled: root.hostRoot.contextEntryIndex >= 0 && !root.hostRoot.contextEntryIsArchive
             readonly property var recommendedRows: root.hostRoot.contextRecommendedOpenWithEntries()
             function computedRows() {
                 var rows = []
-                if (defaultAppId.length > 0) {
-                    rows.push({
-                        "separator": false,
-                        "appId": defaultAppId,
-                        "name": "Default: " + String((defaultRow && defaultRow.name) ? defaultRow.name : defaultAppId),
-                        "iconName": String((defaultRow && defaultRow.iconName) ? defaultRow.iconName : "")
-                    })
-                }
                 for (var i = 0; i < recommendedRows.length; ++i) {
                     var r = recommendedRows[i] || ({})
                     var rid = String((r && r.id) ? r.id : "")
@@ -667,7 +685,7 @@ Item {
 
                 Component {
                     id: fileEntryItemComp
-                    MenuItem {
+                    DSStyle.MenuItem {
                         property var menuRow: ({})
                         text: String((menuRow && menuRow.name) ? menuRow.name : "")
                         icon.name: {
@@ -697,32 +715,34 @@ Item {
             id: fileEntryMenuOpenWith
         }
 
-        MenuSeparator {}
+        MenuSeparator {
+            visible: !root.hostRoot.contextEntryIsArchive
+        }
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Cut"
             enabled: root.hostRoot.contextEntryIndex >= 0 && !root.hostRoot.contextEntryProtected
             onTriggered: root.hostRoot.copySelected(true)
         }
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Copy"
             enabled: root.hostRoot.contextEntryIndex >= 0
             onTriggered: root.hostRoot.copySelected(false)
         }
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Copy as Link"
             enabled: root.hostRoot.contextEntryIndex >= 0
             onTriggered: root.hostRoot.copySelectedAsLinkToClipboard()
         }
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Select All"
             onTriggered: root.hostRoot.selectAllVisibleEntries()
         }
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Invert Selection"
             onTriggered: root.hostRoot.invertSelection()
         }
@@ -731,7 +751,7 @@ Item {
             visible: root.hostRoot.recentView && root.hostRoot.contextEntryIndex < 0
         }
 
-        MenuItem {
+        DSStyle.MenuItem {
             visible: root.hostRoot.recentView && root.hostRoot.contextEntryIndex < 0
             text: "Clear Recents"
             onTriggered: root.hostRoot.requestClearRecentFiles()
@@ -739,7 +759,7 @@ Item {
 
         MenuSeparator {}
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Paste"
             enabled: root.hostRoot.clipboardPath.length > 0
             onTriggered: {
@@ -750,13 +770,13 @@ Item {
             }
         }
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Copy to..."
             enabled: root.hostRoot.contextEntryIndex >= 0
             onTriggered: root.hostRoot.chooseDestinationForSelection(false)
         }
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Move to..."
             enabled: root.hostRoot.contextEntryIndex >= 0 && !root.hostRoot.contextEntryProtected
             onTriggered: root.hostRoot.chooseDestinationForSelection(true)
@@ -764,13 +784,13 @@ Item {
 
         MenuSeparator {}
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Move to Trash"
             enabled: root.hostRoot.contextEntryIndex >= 0 && !root.hostRoot.contextEntryProtected
             onTriggered: root.hostRoot.moveContextEntryToTrash()
         }
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Rename..."
             enabled: root.hostRoot.contextEntryIndex >= 0 && !root.hostRoot.contextEntryProtected
             onTriggered: root.hostRoot.requestRenameContextEntry()
@@ -778,13 +798,13 @@ Item {
 
         MenuSeparator {}
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Copy Path"
             enabled: root.hostRoot.contextEntryIndex >= 0
             onTriggered: root.hostRoot.copySelectedPathToClipboard()
         }
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Share..."
             enabled: root.slmShareRows().length > 0
             onTriggered: {
@@ -794,7 +814,13 @@ Item {
             }
         }
 
-        MenuItem {
+        DSStyle.MenuItem {
+            text: "Bagikan Folder..."
+            enabled: root.hostRoot.contextEntryIndex >= 0 && !!root.hostRoot.contextEntryIsDir
+            onTriggered: root.hostRoot.openFolderShareDialog(root.hostRoot.contextEntryPath)
+        }
+
+        DSStyle.MenuItem {
             text: "Print..."
             secondaryText: "Ctrl+P"
             enabled: root.hostRoot.canPrintSelection ? root.hostRoot.canPrintSelection() : false
@@ -806,7 +832,7 @@ Item {
 
 
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Send by Email"
             enabled: root.hostRoot.contextEntryIndex >= 0
             onTriggered: root.hostRoot.sendSelectionByEmail()
@@ -814,33 +840,35 @@ Item {
 
         MenuSeparator {}
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Compress"
             enabled: root.hostRoot.contextEntryIndex >= 0
             onTriggered: root.hostRoot.compressSelection()
         }
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Send Files via Bluetooth"
             enabled: root.hostRoot.contextEntryIndex >= 0
             onTriggered: root.hostRoot.sendSelectionViaBluetooth()
         }
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Properties"
             enabled: root.hostRoot.contextEntryIndex >= 0
             onTriggered: root.hostRoot.showPropertiesForSelection()
         }
     }
 
-    Menu {
+    DSStyle.Menu {
         id: folderEntryMenu
+        compact: true
+        itemIconSize: 20
         modal: false
         property var _slmInjectedObjects: []
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside | Popup.CloseOnPressOutsideParent
         onClosed: root.slmClearInjectedObjects(folderEntryMenu)
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Open"
             enabled: String(root.hostRoot.contextEntryPath || "").length > 0
             onTriggered: {
@@ -852,22 +880,14 @@ Item {
             }
         }
 
-        Menu {
+        DSStyle.Menu {
             title: "Open in"
+            compact: true
+            itemIconSize: 20
             enabled: String(root.hostRoot.contextEntryPath || "").length > 0
-            readonly property var defaultRow: root.hostRoot.contextDefaultOpenWithEntry()
-            readonly property string defaultAppId: String((defaultRow && defaultRow.id) ? defaultRow.id : "")
             readonly property var recommendedRows: root.hostRoot.contextRecommendedOpenWithEntries()
             function computedRows() {
                 var rows = []
-                if (defaultAppId.length > 0) {
-                    rows.push({
-                        "separator": false,
-                        "appId": defaultAppId,
-                        "name": "Default: " + String((defaultRow && defaultRow.name) ? defaultRow.name : defaultAppId),
-                        "iconName": String((defaultRow && defaultRow.iconName) ? defaultRow.iconName : "")
-                    })
-                }
                 for (var i = 0; i < recommendedRows.length; ++i) {
                     var r = recommendedRows[i] || ({})
                     var rid = String((r && r.id) ? r.id : "")
@@ -913,7 +933,7 @@ Item {
 
                 Component {
                     id: folderEntryItemComp
-                    MenuItem {
+                    DSStyle.MenuItem {
                         property var menuRow: ({})
                         text: String((menuRow && menuRow.name) ? menuRow.name : "")
                         icon.name: {
@@ -945,13 +965,13 @@ Item {
 
         MenuSeparator {}
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Open in New Tab"
             enabled: String(root.hostRoot.contextEntryPath || "").length > 0
             onTriggered: root.hostRoot.openContextEntryInNewTab()
         }
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Open in New Window"
             enabled: String(root.hostRoot.contextEntryPath || "").length > 0
             onTriggered: root.hostRoot.openContextEntryInNewWindow()
@@ -959,37 +979,37 @@ Item {
 
         MenuSeparator {}
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Cut"
             enabled: root.hostRoot.contextEntryIndex >= 0 && !root.hostRoot.contextEntryProtected
             onTriggered: root.hostRoot.copySelected(true)
         }
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Copy"
             enabled: root.hostRoot.contextEntryIndex >= 0
             onTriggered: root.hostRoot.copySelected(false)
         }
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Copy as Link"
             enabled: root.hostRoot.contextEntryIndex >= 0
             onTriggered: root.hostRoot.copySelectedAsLinkToClipboard()
         }
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Select All"
             onTriggered: root.hostRoot.selectAllVisibleEntries()
         }
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Invert Selection"
             onTriggered: root.hostRoot.invertSelection()
         }
 
         MenuSeparator {}
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Paste"
             enabled: root.hostRoot.clipboardPath.length > 0
             onTriggered: {
@@ -1000,13 +1020,13 @@ Item {
             }
         }
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Copy to..."
             enabled: root.hostRoot.contextEntryIndex >= 0
             onTriggered: root.hostRoot.chooseDestinationForSelection(false)
         }
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Move to..."
             enabled: root.hostRoot.contextEntryIndex >= 0 && !root.hostRoot.contextEntryProtected
             onTriggered: root.hostRoot.chooseDestinationForSelection(true)
@@ -1014,19 +1034,19 @@ Item {
 
         MenuSeparator {}
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Move to Trash"
             enabled: root.hostRoot.contextEntryIndex >= 0 && !root.hostRoot.contextEntryProtected
             onTriggered: root.hostRoot.moveContextEntryToTrash()
         }
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Rename..."
             enabled: root.hostRoot.contextEntryIndex >= 0 && !root.hostRoot.contextEntryProtected
             onTriggered: root.hostRoot.requestRenameContextEntry()
         }
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Add to Bookmarks"
             enabled: root.hostRoot.contextEntryIndex >= 0
             onTriggered: root.hostRoot.addContextEntryToBookmarks()
@@ -1034,13 +1054,13 @@ Item {
 
         MenuSeparator {}
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Copy Path"
             enabled: String(root.hostRoot.contextEntryPath || "").length > 0
             onTriggered: root.hostRoot.copySelectedPathToClipboard()
         }
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Share..."
             enabled: root.slmShareRows().length > 0
             onTriggered: {
@@ -1050,11 +1070,18 @@ Item {
             }
         }
 
+        DSStyle.MenuItem {
+            text: "Bagikan Folder..."
+            enabled: String(root.hostRoot.contextEntryPath || "").length > 0
+                     && !!root.hostRoot.contextEntryIsDir
+            onTriggered: root.hostRoot.openFolderShareDialog(root.hostRoot.contextEntryPath)
+        }
+
         MenuSeparator {}
 
 
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Send by Email"
             enabled: root.hostRoot.contextEntryIndex >= 0
             onTriggered: root.hostRoot.sendSelectionByEmail()
@@ -1062,45 +1089,47 @@ Item {
 
         MenuSeparator {}
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Compress"
             enabled: root.hostRoot.contextEntryIndex >= 0
             onTriggered: root.hostRoot.compressSelection()
         }
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Send Files via Bluetooth"
             enabled: root.hostRoot.contextEntryIndex >= 0
             onTriggered: root.hostRoot.sendSelectionViaBluetooth()
         }
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Properties"
             enabled: String(root.hostRoot.contextEntryPath || "").length > 0
             onTriggered: root.hostRoot.showPropertiesForSelection()
         }
     }
 
-    Menu {
+    DSStyle.Menu {
         id: multiSelectionMenu
+        compact: true
+        itemIconSize: 20
         modal: false
         property var _slmInjectedObjects: []
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside | Popup.CloseOnPressOutsideParent
         onClosed: root.slmClearInjectedObjects(multiSelectionMenu)
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Open"
             enabled: (root.hostRoot.selectedEntryIndexes && root.hostRoot.selectedEntryIndexes.length > 1)
             onTriggered: root.hostRoot.openSelectedEntries()
         }
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Open in New Tab"
             enabled: root.hostRoot.selectedAllDirectories()
             onTriggered: root.hostRoot.openSelectedInNewTabs()
         }
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Open in New Window"
             enabled: root.hostRoot.selectedAllDirectories()
             onTriggered: root.hostRoot.openSelectedInNewWindows()
@@ -1108,47 +1137,47 @@ Item {
 
         MenuSeparator {}
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Cut"
             enabled: !root.hostRoot.selectedHasProtectedPath()
             onTriggered: root.hostRoot.copySelected(true)
         }
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Copy"
             onTriggered: root.hostRoot.copySelected(false)
         }
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Copy as Link"
             onTriggered: root.hostRoot.copySelectedAsLinkToClipboard()
         }
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Select All"
             onTriggered: root.hostRoot.selectAllVisibleEntries()
         }
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Invert Selection"
             onTriggered: root.hostRoot.invertSelection()
         }
 
         MenuSeparator {}
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Paste"
             enabled: root.hostRoot.clipboardPath.length > 0
             onTriggered: root.hostRoot.pasteIntoCurrent()
         }
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Copy to..."
             enabled: root.hostRoot.selectedEntryIndexes && root.hostRoot.selectedEntryIndexes.length > 0
             onTriggered: root.hostRoot.chooseDestinationForSelection(false)
         }
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Move to..."
             enabled: (root.hostRoot.selectedEntryIndexes && root.hostRoot.selectedEntryIndexes.length > 0)
                      && !root.hostRoot.selectedHasProtectedPath()
@@ -1157,18 +1186,18 @@ Item {
 
         MenuSeparator {}
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Move to Trash"
             enabled: !root.hostRoot.selectedHasProtectedPath()
             onTriggered: root.hostRoot.deleteSelected(false)
         }
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Copy Paths"
             onTriggered: root.hostRoot.copySelectedPathToClipboard()
         }
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Share..."
             enabled: root.slmShareRows().length > 0
             onTriggered: {
@@ -1181,41 +1210,43 @@ Item {
         MenuSeparator {}
 
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Send by Email"
             onTriggered: root.hostRoot.sendSelectionByEmail()
         }
 
         MenuSeparator {}
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Compress"
             onTriggered: root.hostRoot.compressSelection()
         }
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Send Files via Bluetooth"
             onTriggered: root.hostRoot.sendSelectionViaBluetooth()
         }
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Properties"
             onTriggered: root.hostRoot.showPropertiesForSelection()
         }
 
     }
 
-    Menu {
+    DSStyle.Menu {
         id: trashEntryMenu
+        compact: true
+        itemIconSize: 20
         modal: false
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside | Popup.CloseOnPressOutsideParent
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Restore from Trash"
             enabled: root.hostRoot.contextEntryIndex >= 0
             onTriggered: root.hostRoot.restoreSelectedFromTrash()
         }
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Delete Permanently"
             enabled: root.hostRoot.contextEntryIndex >= 0 && !root.hostRoot.contextEntryProtected
             onTriggered: root.hostRoot.deleteSelected(true)
@@ -1223,20 +1254,20 @@ Item {
 
         MenuSeparator {}
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Copy Path"
             enabled: root.hostRoot.contextEntryIndex >= 0
             onTriggered: root.hostRoot.copySelectedPathToClipboard()
         }
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Select All"
             onTriggered: root.hostRoot.selectAllVisibleEntries()
         }
 
         MenuSeparator {}
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: "Properties"
             enabled: root.hostRoot.contextEntryIndex >= 0
             onTriggered: root.hostRoot.showPropertiesForSelection()

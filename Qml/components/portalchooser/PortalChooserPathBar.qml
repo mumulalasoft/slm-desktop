@@ -50,7 +50,7 @@ Item {
                 selectedTextColor: Theme.color("selectedItemText")
                 placeholderText: "Directory"
                 Behavior on opacity {
-                    NumberAnimation { duration: 140; easing.type: Easing.InOutQuad }
+                    NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingStandard }
                 }
                 onAccepted: {
                     root.loadDirectoryRequested(text)
@@ -67,7 +67,7 @@ Item {
                 contentHeight: height
                 clip: true
                 Behavior on opacity {
-                    NumberAnimation { duration: 140; easing.type: Easing.InOutQuad }
+                    NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingStandard }
                 }
 
                 Row {
