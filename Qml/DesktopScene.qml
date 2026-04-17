@@ -7,6 +7,10 @@ import "components/shell" as ShellComp
 Item {
     id: root
     signal shellContextMenuRequested(real x, real y)
+    property var shellApi: null
+    property var desktopViewController: null
+    property var desktopMenuProvider: null
+    readonly property var desktopFileManagerContent: shell ? shell.desktopFileManagerContent : null
 
     property var dockItem: null
     // launchpadVisible owner: ShellStateController (SSOT).
@@ -118,6 +122,9 @@ Item {
     ShellComp.Shell {
         id: shell
         anchors.fill: parent
+        shellApi: root.shellApi
+        desktopViewController: root.desktopViewController
+        desktopMenuProvider: root.desktopMenuProvider
         transform: Translate {
             x: root.workspaceSwipeOffset
         }

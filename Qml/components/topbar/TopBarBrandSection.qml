@@ -12,6 +12,7 @@ Row {
     height: (implicitHeight > 0) ? implicitHeight : (parent ? parent.height : Theme.metric("topBarHeight"))
 
     property var fileManagerContent: null
+    property var desktopMenuProvider: null
     property bool _focusReveal: false
 
     // -1 = no category menu open; ≥0 = menuId of the open category dropdown.
@@ -76,13 +77,21 @@ Row {
             out.push({
                 "id": menuId,
                 "label": label,
-                "enabled": row.enabled !== false
+                "enabled": row.enabled !== false,
+                "source": String(row.source || "")
             })
         }
         return out
     }
 
     function _rawMenus() {
+        if (!_hasActiveApp && desktopMenuProvider && desktopMenuProvider.enabled
+                && desktopMenuProvider.topLevelMenus) {
+            var providerMenus = _sanitizeTopLevelMenus(desktopMenuProvider.topLevelMenus())
+            if (providerMenus.length > 0) {
+                return providerMenus
+            }
+        }
         if (typeof GlobalMenuManager !== "undefined" && GlobalMenuManager
                 && GlobalMenuManager.topLevelMenus) {
             var sanitized = _sanitizeTopLevelMenus(GlobalMenuManager.topLevelMenus)
@@ -216,6 +225,10 @@ Row {
         var menuId = Number(menuRow.id || -1)
         if (menuId === 9999 && menuRow.moreItems) return menuRow.moreItems
         var source = String(menuRow.source || "")
+        if (desktopMenuProvider && desktopMenuProvider.menuItemsFor
+                && source === "desktop-provider") {
+            return desktopMenuProvider.menuItemsFor(menuId)
+        }
         if (source.indexOf("fallback-") === 0) return _fallbackMenuItems(menuId)
         if (typeof GlobalMenuManager !== "undefined" && GlobalMenuManager
                 && GlobalMenuManager.menuItemsFor) {
@@ -295,6 +308,12 @@ Row {
                     && GlobalMenuManager && GlobalMenuManager.activateMenu) {
                 GlobalMenuManager.activateMenu(targetId)
             }
+            return
+        }
+        if (desktopMenuProvider && desktopMenuProvider.activateMenuItem
+                && desktopMenuProvider.ownsMenu
+                && desktopMenuProvider.ownsMenu(menuId)) {
+            desktopMenuProvider.activateMenuItem(menuId, itemId)
             return
         }
         if (String(menuRow.source || "").indexOf("fallback-") === 0) {

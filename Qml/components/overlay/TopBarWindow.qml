@@ -8,6 +8,7 @@ Item {
     required property var rootWindow
     required property var desktopScene
     property var shellApi: null
+    property var desktopMenuProvider: null
     // Hybrid mode: defer applet bootstrap off critical load path, but start quickly.
     readonly property bool deferredReady: !!(shellApi && shellApi.startupTopbarBootstrapReady)
     readonly property bool startupItemsReady: !!topBarSurface && !!topBarSurface.startupItemsReady
@@ -52,8 +53,13 @@ Item {
             height: desktopScene ? desktopScene.panelHeight : 0
             deferredReady: root.deferredReady
             popupHost: popupHostLayer
-            fileManagerContent: (root.shellApi && root.shellApi.fileManagerContent)
-                                ? root.shellApi.fileManagerContent : null
+            fileManagerContent: (root.shellApi
+                                 && root.shellApi.detachedFileManagerVisible
+                                 && root.shellApi.fileManagerContent)
+                                ? root.shellApi.fileManagerContent
+                                : ((root.desktopScene && root.desktopScene.desktopFileManagerContent)
+                                   ? root.desktopScene.desktopFileManagerContent : null)
+            desktopMenuProvider: root.desktopMenuProvider
 
             onLauncherRequested: root.launcherRequested()
             onTothespotRequested: root.tothespotRequested()

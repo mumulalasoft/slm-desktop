@@ -8,6 +8,7 @@ import "." as TB
 Rectangle {
     id: root
     property var fileManagerContent: null
+    property var desktopMenuProvider: null
     property bool deferredReady: true
     readonly property bool startupTraceEnabled: (typeof StartupTraceEnabled !== "undefined") ? !!StartupTraceEnabled : false
     property var popupHost: null
@@ -386,6 +387,7 @@ Rectangle {
         TB.TopBarBrandSection {
             id: brandSection
             fileManagerContent: root.fileManagerContent
+            desktopMenuProvider: root.desktopMenuProvider
         }
 
     }

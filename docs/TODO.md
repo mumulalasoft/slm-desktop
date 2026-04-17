@@ -359,3 +359,302 @@ Agent MUST produce:
 * ALWAYS provide at least one working graphical path
 
 END.
+
+---
+
+## NEW SECTION — Desktop View As Core System Component
+
+Implement a Desktop View system as a core part of the shell architecture.
+
+This is NOT a visual feature.
+This is a SYSTEM COMPONENT.
+
+The Desktop View MUST be implemented as a File Manager instance rendering the directory ~/Desktop.
+
+---
+
+========================================
+CORE RULE (NON-NEGOTIABLE)
+========================================
+
+Desktop View = FileManager instance (path: ~/Desktop)
+
+NOT:
+- wallpaper layer
+- fallback UI
+- special empty state
+- static icon renderer
+
+FAIL if:
+- Desktop does not use FileManager backend
+- Menu is not coming from FileManager
+- Desktop has no real filesystem binding
+
+---
+
+========================================
+ARCHITECTURE OVERVIEW
+========================================
+
+You MUST implement these components:
+
+1. DesktopSurface (QML layer)
+2. FileManager Backend (core logic)
+3. DesktopViewController (state manager)
+4. DesktopMenuProvider (menu source)
+5. Integration with global-menud
+
+---
+
+========================================
+1. DESKTOP SURFACE (QML)
+========================================
+
+Responsibilities:
+- Render icons from ~/Desktop
+- Handle mouse interaction:
+  - click
+  - selection
+  - drag
+  - context menu trigger
+- Display grid layout
+
+Constraints:
+- MUST NOT be a normal window
+- MUST be part of shell scene
+- MUST sit above wallpaper and below application windows
+
+FAIL if:
+- DesktopSurface is implemented as a standalone window
+- Uses WindowStaysOnTopHint
+- Competes with app windows in stacking
+
+---
+
+========================================
+2. FILE MANAGER BACKEND (REQUIRED)
+========================================
+
+Responsibilities:
+- Read directory ~/Desktop
+- Track file list
+- Track selection
+- Provide actions (open, rename, delete, etc.)
+- Provide menu data
+
+Must be reusable:
+- same backend used for:
+  - desktop view
+  - file manager window
+
+FAIL if:
+- Desktop uses custom logic separate from FileManager
+- Logic duplicated between desktop and file manager
+
+---
+
+========================================
+3. DESKTOP VIEW CONTROLLER
+========================================
+
+Responsibilities:
+- Bind FileManager to DesktopSurface
+- Maintain state:
+
+State:
+- path = ~/Desktop
+- mode = desktop_view
+- selection = list of selected items
+
+Must emit:
+- selectionChanged
+- directoryChanged
+
+---
+
+========================================
+4. DESKTOP MENU PROVIDER (CRITICAL)
+========================================
+
+You MUST implement a MenuProvider for Desktop View.
+
+Definition:
+
+DesktopMenuProvider:
+  appId: filemanager
+  role: desktop_view
+  path: ~/Desktop
+  selection: currentSelection
+
+This provider is used by global-menud.
+
+FAIL if:
+- Desktop menu is hardcoded
+- Desktop menu is fallback menu
+- Menu not based on selection
+
+---
+
+========================================
+5. GLOBAL MENU INTEGRATION
+========================================
+
+Rules:
+
+IF active window exists:
+    use window.menuProvider
+
+ELSE:
+    use DesktopMenuProvider
+
+This is REQUIRED.
+
+FAIL if:
+- Menu disappears when no app is active
+- Menu switches to fallback instead of DesktopMenuProvider
+
+---
+
+========================================
+6. MENU BEHAVIOR (DYNAMIC)
+========================================
+
+Menu MUST change based on selection.
+
+Case 1: No selection
+- New Folder
+- Open Terminal Here
+
+Case 2: Single file selected
+- Open
+- Rename
+- Compress
+- Move to Trash
+- Properties
+
+Case 3: Multiple selection
+- Compress
+- Move to Trash
+
+FAIL if:
+- Menu is static
+- Selection has no effect
+
+---
+
+========================================
+7. DATA MODEL (REQUIRED)
+========================================
+
+FileItem:
+- path
+- name
+- type
+- icon
+- isExecutable
+- isHidden
+
+DesktopState:
+- path = ~/Desktop
+- items = list<FileItem>
+- selection = list<FileItem>
+
+MenuContext:
+- selectionCount
+- selectionTypes
+
+---
+
+========================================
+8. Z-ORDER (STRICT)
+========================================
+
+Layer order:
+
+TopBar > Dock > Launchpad > Windows > DesktopSurface > Wallpaper
+
+FAIL if:
+- Desktop overlaps windows
+- Desktop hidden behind wallpaper
+- Menu appears behind desktop
+
+---
+
+========================================
+9. INTERACTION MODEL
+========================================
+
+- Clicking desktop:
+  → Desktop becomes active context
+
+- Clicking icon:
+  → updates selection
+  → updates menu
+
+- Double click:
+  → open file
+
+- Right click:
+  → context menu (optional, separate from global menu)
+
+---
+
+========================================
+10. RESILIENCE (UNBREAKABLE)
+========================================
+
+Must handle:
+
+- ~/Desktop missing → recreate
+- FileManager crash → restart backend
+- MenuProvider unavailable → retry
+
+Fallback menu is ONLY allowed if:
+- FileManager backend fails completely
+
+---
+
+========================================
+11. PERFORMANCE
+========================================
+
+- No blocking IO on UI thread
+- Use async file listing
+- Incremental updates
+
+---
+
+========================================
+12. FORBIDDEN IMPLEMENTATIONS
+========================================
+
+DO NOT:
+
+- Create Desktop as fake UI without FS binding
+- Use static list of icons
+- Hardcode menu items
+- Treat Desktop as empty state
+- Skip FileManager backend
+
+---
+
+========================================
+SUCCESS CRITERIA
+========================================
+
+Implementation is valid ONLY if:
+
+- Desktop renders real files from ~/Desktop
+- Menu comes from FileManager (not fallback)
+- Menu changes based on selection
+- Desktop behaves like an application context
+- Global menu works even when no app is open
+
+---
+
+FINAL STATEMENT:
+
+Desktop View MUST behave as:
+FileManager(path=~/Desktop, mode=desktop_view)
+
+Anything else is INVALID.

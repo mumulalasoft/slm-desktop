@@ -69,6 +69,17 @@ Window {
         return false
     }
 
+    function renamePathIfReady(pathValue) {
+        var p = String(pathValue || "").trim()
+        if (p.length <= 0) {
+            return false
+        }
+        if (detachedFileManagerLoader.item && detachedFileManagerLoader.item.requestRenameForPath) {
+            return !!detachedFileManagerLoader.item.requestRenameForPath(p)
+        }
+        return false
+    }
+
     function closeContextMenusIfReady() {
         if (detachedFileManagerLoader.item && detachedFileManagerLoader.item.closeAllContextMenus) {
             detachedFileManagerLoader.item.closeAllContextMenus()
@@ -252,6 +263,11 @@ Window {
                         && item.showPropertiesForPath) {
                     item.showPropertiesForPath(shellApi.pendingDetachedFileManagerPropertiesPath)
                     shellApi.pendingDetachedFileManagerPropertiesPath = ""
+                }
+                if (shellApi.pendingDetachedFileManagerRenamePath.length > 0
+                        && item.requestRenameForPath) {
+                    item.requestRenameForPath(shellApi.pendingDetachedFileManagerRenamePath)
+                    shellApi.pendingDetachedFileManagerRenamePath = ""
                 }
             }
             onStatusChanged: {

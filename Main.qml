@@ -4,6 +4,7 @@ import QtQuick.Window 2.15
 import Slm_Desktop
 import SlmStyle as DSStyle
 import "Qml/components" as Components
+import "Qml/components/desktop" as DesktopComp
 import "Qml/components/globalmenu" as GlobalMenuComp
 import "Qml/components/overlay" as OverlayComp
 import "Qml/components/portalchooser" as PortalChooserComp
@@ -63,7 +64,9 @@ ApplicationWindow {
     property string detachedFileManagerPath: "~"
     property bool detachedFileManagerLoadFailed: false
     property string pendingDetachedFileManagerPropertiesPath: ""
+    property string pendingDetachedFileManagerRenamePath: ""
     property var fileManagerContent: null
+    property var desktopMenuProviderRef: null
     property var appModelRef: null
     property var fileManagerApiRef: null
     property var tothespotServiceRef: null
@@ -83,9 +86,18 @@ ApplicationWindow {
             }
         })
     }
+    function _syncDesktopMenuOverride() {
+        if (!desktopMenuProviderRef || !desktopMenuProviderRef.syncGlobalMenuOverride) {
+            return
+        }
+        var activeApp = (typeof GlobalMenuManager !== "undefined" && GlobalMenuManager)
+                ? String(GlobalMenuManager.activeAppId || "") : ""
+        desktopMenuProviderRef.syncGlobalMenuOverride(activeApp.length <= 0)
+    }
     onDetachedFileManagerVisibleChanged: {
         if (!detachedFileManagerVisible) {
             detachedFileManagerLoadFailed = false
+            pendingDetachedFileManagerRenamePath = ""
             if (detachedFileManagerWindow) {
                 detachedFileManagerWindow.setLoaderActive(false)
                 detachedFileManagerWindow.stopWatchdog()
@@ -379,10 +391,12 @@ ApplicationWindow {
             if (typeof TothespotService !== "undefined" && TothespotService) {
                 tothespotServiceRef = TothespotService
             }
+            root.desktopMenuProviderRef = desktopMenuProvider
             ShellUtils.applyUserFontScalePreference(root)
             ShellUtils.applyMotionTimeScale(root)
             ShellUtils.refreshMotionDebugRows(root)
             FileManagerGlobalMenuController.syncOverride(root, detachedFileManagerWindow)
+            root._syncDesktopMenuOverride()
             if (typeof SessionStateClient !== "undefined" && SessionStateClient) {
                 root.lockScreenVisible = !!SessionStateClient.locked
             }
@@ -423,6 +437,31 @@ ApplicationWindow {
             ShellUtils.applyMotionTimeScale(root)
         }
     }
+
+    Connections {
+        target: (typeof GlobalMenuManager !== "undefined") ? GlobalMenuManager : null
+        ignoreUnknownSignals: true
+        function onAppSwitched() {
+            root._syncDesktopMenuOverride()
+        }
+        function onChanged() {
+            root._syncDesktopMenuOverride()
+        }
+    }
+
+    DesktopComp.DesktopViewController {
+        id: desktopViewController
+    }
+
+    DesktopComp.DesktopMenuProvider {
+        id: desktopMenuProvider
+        desktopSurface: desktopScene ? desktopScene.desktopFileManagerContent : null
+        selection: desktopViewController.selection
+        menuContext: desktopViewController.menuContext
+        path: desktopViewController.path
+    }
+
+    onDesktopMenuProviderRefChanged: _syncDesktopMenuOverride()
 
     GlobalMenuComp.GlobalMenuActionRouter {
         id: globalMenuActionRouter
@@ -714,6 +753,9 @@ ApplicationWindow {
         id: desktopScene
         anchors.fill: parent
         dockItem: DockSystem.activeDockItem
+        shellApi: root
+        desktopViewController: desktopViewController
+        desktopMenuProvider: desktopMenuProvider
     }
 
     Shortcut {
@@ -978,6 +1020,7 @@ ApplicationWindow {
         rootWindow: root
         desktopScene: desktopScene
         shellApi: root
+        desktopMenuProvider: desktopMenuProvider
         onStartupItemsReadyReached: root.markStartupTopbarItemsReady()
         onStartupItemsReadyChanged: {
             if (startupItemsReady) {
@@ -1020,6 +1063,7 @@ ApplicationWindow {
         desktopScene: desktopScene
         globalMenuActionRouter: globalMenuActionRouter
         globalMenuManager: GlobalMenuManager
+        desktopMenuProvider: desktopMenuProvider
     }
 
     // DockWindow — single persistent Dock surface (wlr-layer-shell).

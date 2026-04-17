@@ -1117,6 +1117,18 @@ Rectangle {
     function selectEntryByPath(pathValue) { return FileManagerOps.selectEntryByPath(root, pathValue) }
     function showPropertiesForSelection() { FileManagerOps.showPropertiesForSelection(root, fileManagerApiRef, propertiesDialogRef) }
     function showPropertiesForPath(pathValue) { FileManagerOps.showPropertiesForPath(root, fileManagerApiRef, pathValue, propertiesDialogRef) }
+    function requestRenameForPath(pathValue) {
+        var p = String(pathValue || "").trim()
+        if (p.length <= 0) {
+            return false
+        }
+        var ok = selectEntryByPath(p)
+        if (!ok) {
+            return false
+        }
+        renameSelected()
+        return true
+    }
     function isImageSuffix(nameValue) { return FileManagerOps.isImageSuffix(nameValue) }
     function previewSourceForEntry(entry) { return FileManagerOps.previewSourceForEntry(entry) }
     function toggleQuickPreview() { FileManagerOps.toggleQuickPreview(root, quickPreviewDialogRef) }
