@@ -10,7 +10,8 @@ Rectangle {
     property var fileManagerContent: null
     property bool deferredReady: true
     readonly property bool startupTraceEnabled: (typeof StartupTraceEnabled !== "undefined") ? !!StartupTraceEnabled : false
-    readonly property var popupHost: (parent && parent.height > 0) ? parent : root
+    property var popupHost: null
+    readonly property var resolvedPopupHost: popupHost ? popupHost : ((parent && parent.height > 0) ? parent : root)
     readonly property int panelInset: Theme.metric("spacingLg")
     readonly property int panelGap: Theme.metric("spacingLg")
     readonly property int iconButtonW: Theme.metric("controlHeightRegular")
@@ -151,53 +152,53 @@ Rectangle {
             source: "../applet/ControlCenterApplet.qml",
             order: 890,
             enabled: false,
-            properties: { popupHost: root.popupHost }
+            properties: { popupHost: root.resolvedPopupHost }
         })
         IndicatorRegistry.registerIndicator({
             name: "network",
             source: "../applet/NetworkApplet.qml",
             order: 200,
             enabled: false,
-            properties: { showText: true, popupHost: root.popupHost }
+            properties: { showText: true, popupHost: root.resolvedPopupHost }
         })
         IndicatorRegistry.registerIndicator({
             name: "bluetooth",
             source: "../applet/BluetoothApplet.qml",
             order: 300,
             enabled: false,
-            properties: { popupHost: root.popupHost }
+            properties: { popupHost: root.resolvedPopupHost }
         })
         IndicatorRegistry.registerIndicator({
             name: "sound",
             source: "../applet/SoundApplet.qml",
             order: 400,
             enabled: false,
-            properties: { popupHost: root.popupHost }
+            properties: { popupHost: root.resolvedPopupHost }
         })
         IndicatorRegistry.registerIndicator({
             name: "print",
             source: "../applet/PrintJobApplet.qml",
             order: 450,
             enabled: false,
-            properties: { popupHost: root.popupHost }
+            properties: { popupHost: root.resolvedPopupHost }
         })
         IndicatorRegistry.registerIndicator({
             name: "notification",
             source: "../applet/NotificationApplet.qml",
             order: 500,
-            properties: { popupHost: root.popupHost }
+            properties: { popupHost: root.resolvedPopupHost }
         })
         IndicatorRegistry.registerIndicator({
             name: "clipboard",
             source: "../applet/ClipboardApplet.qml",
             order: 600,
-            properties: { popupHost: root.popupHost }
+            properties: { popupHost: root.resolvedPopupHost }
         })
         IndicatorRegistry.registerIndicator({
             name: "battery",
             source: "../applet/BatteryApplet.qml",
             order: 700,
-            properties: { popupHost: root.popupHost, textYOffset: root.panelTextYOffset }
+            properties: { popupHost: root.resolvedPopupHost, textYOffset: root.panelTextYOffset }
         })
         IndicatorRegistry.registerIndicator({
             name: "batch_ops",
@@ -209,7 +210,7 @@ Rectangle {
             name: "datetime",
             source: "../applet/DatetimeApplet.qml",
             order: 900,
-            properties: { popupHost: root.popupHost, timeText: root.timeText }
+            properties: { popupHost: root.resolvedPopupHost, timeText: root.timeText }
         })
         stagedIndicatorQueue = ["network", "bluetooth", "sound", "print", "controlcenter"]
         stagedIndicatorTimer.restart()
@@ -340,7 +341,7 @@ Rectangle {
                     iconButtonW: root.iconButtonW
                     iconButtonH: root.iconButtonH
                     iconGlyph: root.iconGlyph
-                    popupHost: root.popupHost
+                    popupHost: root.resolvedPopupHost
                     popupGap: root.popupGap
                     searchProfilesModel: root.searchProfilesModel
                     onPopupHintRequested: {
@@ -401,7 +402,7 @@ Rectangle {
                 popupInset: root.popupInset
                 popupGap: root.popupGap
                 popupControlH: root.popupControlH
-                popupHost: root.popupHost
+                popupHost: root.resolvedPopupHost
                 onPopupHintRequested: {
                     root.popupOpenHint = true
                     popupHintTimer.restart()
@@ -440,7 +441,7 @@ Rectangle {
                 fileManagerApi: FileManagerApi
                 panelTextYOffset: root.panelTextYOffset
                 timeText: root.timeText
-                popupHost: root.popupHost
+                popupHost: root.resolvedPopupHost
             }
         }
     }

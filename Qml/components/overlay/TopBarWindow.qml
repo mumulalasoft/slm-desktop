@@ -33,6 +33,13 @@ Item {
     width: rootWindow ? rootWindow.width : 0
     height: (desktopScene ? desktopScene.panelHeight : 0) + (anyPopupOpen ? popupHeadroom : 0)
 
+    PopupHostLayer {
+        id: popupHostLayer
+        anchors.fill: parent
+        rootWindow: root.rootWindow
+        z: 1
+    }
+
     Item {
         anchors.fill: parent
         clip: true
@@ -44,6 +51,7 @@ Item {
             anchors.top: parent.top
             height: desktopScene ? desktopScene.panelHeight : 0
             deferredReady: root.deferredReady
+            popupHost: popupHostLayer
             fileManagerContent: (root.shellApi && root.shellApi.fileManagerContent)
                                 ? root.shellApi.fileManagerContent : null
 
