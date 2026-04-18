@@ -94,12 +94,21 @@ SettingsApp::SettingsApp(QQmlApplicationEngine *engine, QObject *parent)
     const QString systemModules = "/usr/lib/settings/modules";
     const QString bundledModules = appDir + "/../src/apps/settings/modules";
     const QString cwdModules = QDir::currentPath() + "/src/apps/settings/modules";
-    paths << userModules << systemModules << appData + "/modules" << bundledModules << cwdModules;
+    // Dev-first lookup order:
+    // 1) source tree / cwd (workspace module edits),
+    // 2) bundled next to binary,
+    // 3) user/appdata overrides,
+    // 4) system modules.
 #ifdef SLM_SOURCE_DIR
     const QString sourceModules = QStringLiteral(SLM_SOURCE_DIR) + "/src/apps/settings/modules";
     if (!paths.contains(sourceModules))
         paths << sourceModules;
 #endif
+    paths << cwdModules
+          << bundledModules
+          << userModules
+          << appData + "/modules"
+          << systemModules;
     m_moduleLoader->scanModules(paths);
 
     connect(m_polkitBridge, &SettingsPolkitBridge::authorizationFinished,

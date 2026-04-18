@@ -199,6 +199,8 @@ private:
     bool ensureIface();
     bool setSetting(const QString &path, const QVariant &value);
     bool setFontByPath(const QString &path, QString &slot, const QString &spec, void (DesktopSettingsClient::*signal)());
+    void applySettingsMap(const QVariantMap &settings);
+    void loadFromLocalStore();
     void loadFromService();
     static QVariant valueByPath(const QVariantMap &root, const QString &path, bool *ok = nullptr);
     static bool setValueByPath(QVariantMap &root, const QString &path, const QVariant &value);
