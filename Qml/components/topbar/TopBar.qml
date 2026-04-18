@@ -132,6 +132,24 @@ Rectangle {
         activeSearchProfileId = active
     }
 
+    readonly property var defaultApplets: ["sound", "network", "controlcenter", "datetime", "battery"]
+
+    function appletEnabled(name) {
+        var n = String(name)
+        if (root.defaultApplets.indexOf(n) >= 0) return true
+        if (typeof DesktopSettings === "undefined" || !DesktopSettings || !DesktopSettings.settingValue)
+            return false
+        return DesktopSettings.settingValue("shellTheme.applets." + n, false) === true
+    }
+
+    function applyNonStagedAppletSettings() {
+        var nonStaged = ["notification", "clipboard", "battery", "datetime"]
+        for (var i = 0; i < nonStaged.length; i++) {
+            var n = nonStaged[i]
+            IndicatorRegistry.setIndicatorEnabledByName(n, appletEnabled(n))
+        }
+    }
+
     function registerCoreIndicators() {
         if (indicatorsRegistered) {
             return
@@ -215,6 +233,7 @@ Rectangle {
             order: 900,
             properties: { popupHost: root.resolvedPopupHost, timeText: root.timeText }
         })
+        applyNonStagedAppletSettings()
         stagedIndicatorQueue = ["network", "bluetooth", "sound", "print", "controlcenter"]
         stagedIndicatorTimer.restart()
     }
@@ -287,7 +306,7 @@ Rectangle {
             stagedIndicatorQueue = stagedIndicatorQueue.slice(1)
             if (typeof IndicatorRegistry !== "undefined" && IndicatorRegistry
                     && IndicatorRegistry.setIndicatorEnabledByName) {
-                IndicatorRegistry.setIndicatorEnabledByName(next, true)
+                IndicatorRegistry.setIndicatorEnabledByName(next, root.appletEnabled(next))
                 root.startupQmlMark("topbar.stagedIndicator.enabled", "name=" + String(next))
             }
             if (stagedIndicatorQueue.length <= 0) {
@@ -307,6 +326,14 @@ Rectangle {
             } else if (k === "ui/fontScale" || k === "ui.fontScale") {
                 Theme.userFontScale = root.normalizedFontScale(
                             DesktopSettings.settingValue("ui.fontScale", 1.0))
+            } else if (k.startsWith("shellTheme.applets.")) {
+                var appletName = k.slice("shellTheme.applets.".length)
+                if (appletName === "tothespot") {
+                    searchButton.visible = true
+                } else if (typeof IndicatorRegistry !== "undefined" && IndicatorRegistry
+                           && IndicatorRegistry.setIndicatorEnabledByName) {
+                    IndicatorRegistry.setIndicatorEnabledByName(appletName, root.appletEnabled(appletName))
+                }
             }
         }
     }
@@ -423,8 +450,9 @@ Rectangle {
     TB.TopBarSearchButton {
         id: searchButton
         anchors.right: indicatorManagerLoader.left
-        anchors.rightMargin: Theme.metric("spacingSm")
+        anchors.rightMargin: visible ? Theme.metric("spacingSm") : 0
         anchors.verticalCenter: parent.verticalCenter
+        visible: true
         iconButtonW: root.iconButtonW
         iconButtonH: root.iconButtonH
         iconGlyph: root.iconGlyph

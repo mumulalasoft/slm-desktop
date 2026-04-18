@@ -32,6 +32,7 @@ Item {
         { id: "icons",      label: qsTr("Icons"),      icon: "preferences-desktop-icons"    },
         { id: "dock",       label: qsTr("Dock"),        icon: "user-desktop"                 },
         { id: "desktop",    label: qsTr("Desktop"),    icon: "video-display"                },
+        { id: "topbar",     label: qsTr("Topbar"),     icon: "go-top"                       },
     ]
 
     property int currentIndex: 0
@@ -831,6 +832,198 @@ Item {
                                     font.pixelSize: Theme.fontSize("small")
                                     wrapMode: Text.WordWrap
                                     Layout.fillWidth: true
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ── 6: Topbar ──────────────────────────────────────────────────
+            Flickable {
+                contentHeight: topbarCol.implicitHeight + 48
+                clip: true
+
+                ColumnLayout {
+                    id: topbarCol
+                    anchors.left: parent.left; anchors.right: parent.right
+                    anchors.top: parent.top
+                    anchors.margins: 24; anchors.topMargin: 24
+                    spacing: 24
+
+                    // ── Appearance ─────────────────────────────────────────
+
+                    SettingGroup {
+                        title: qsTr("Appearance")
+                        Layout.fillWidth: true
+
+                        SettingCard {
+                            label: qsTr("Panel Style")
+                            description: qsTr("Choose how the top panel is displayed.")
+                            Layout.fillWidth: true
+                            ComboBox {
+                                id: panelStyleCombo
+                                readonly property var styleKeys: ["floating", "attached"]
+                                model: [qsTr("Floating"), qsTr("Attached")]
+                                currentIndex: {
+                                    var v = DesktopSettings.settingValue("shellTheme.panelStyle", "floating")
+                                    var idx = styleKeys.indexOf(String(v))
+                                    return idx >= 0 ? idx : 0
+                                }
+                                Layout.preferredWidth: 160
+                                onActivated: DesktopSettings.setSettingValue("shellTheme.panelStyle", styleKeys[currentIndex])
+                                Connections {
+                                    target: DesktopSettings
+                                    function onSettingChanged(path) {
+                                        if (path === "shellTheme.panelStyle") {
+                                            var v = DesktopSettings.settingValue("shellTheme.panelStyle", "floating")
+                                            var idx = panelStyleCombo.styleKeys.indexOf(String(v))
+                                            panelStyleCombo.currentIndex = idx >= 0 ? idx : 0
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        SettingCard {
+                            label: qsTr("Blur")
+                            description: qsTr("Apply a blur effect behind the top panel.")
+                            Layout.fillWidth: true
+                            SettingToggle {
+                                id: topbarBlurToggle
+                                checked: DesktopSettings.settingValue("shellTheme.blur", true) !== false
+                                onToggled: DesktopSettings.setSettingValue("shellTheme.blur", checked)
+                                Connections {
+                                    target: DesktopSettings
+                                    function onSettingChanged(path) {
+                                        if (path === "shellTheme.blur") {
+                                            topbarBlurToggle.checked = DesktopSettings.settingValue("shellTheme.blur", true) !== false
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // ── Applets ────────────────────────────────────────────
+
+                    SettingGroup {
+                        title: qsTr("Applets")
+                        Layout.fillWidth: true
+
+                        // ── Default applets before Network ─────────────────
+                        Repeater {
+                            model: [
+                                { key: "sound", label: qsTr("Sound"), description: qsTr("Volume control and audio output."), locked: true },
+                            ]
+                            delegate: SettingCard {
+                                required property var modelData
+                                label: modelData.label; description: modelData.description
+                                Layout.fillWidth: true
+                                SettingToggle { enabled: false; checked: true }
+                            }
+                        }
+
+                        // ── Network + Show IP sub-row (no separator between) ─
+                        SettingCard {
+                            label: qsTr("Network")
+                            description: qsTr("Wi-Fi and network connection status.")
+                            Layout.fillWidth: true
+                            hideSeparator: true
+                            SettingToggle { enabled: false; checked: true }
+                        }
+
+                        Item {
+                            Layout.fillWidth: true
+                            implicitHeight: showIpRow.implicitHeight + 20
+
+                            RowLayout {
+                                id: showIpRow
+                                anchors {
+                                    left: parent.left; right: parent.right
+                                    verticalCenter: parent.verticalCenter
+                                    leftMargin: 32; rightMargin: 16
+                                }
+                                spacing: 16
+
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 2
+                                    Text {
+                                        text: qsTr("Show IP Address")
+                                        font.pixelSize: Theme.fontSize("body")
+                                        font.weight: Theme.fontWeight("medium")
+                                        color: Theme.color("textPrimary")
+                                        Layout.fillWidth: true
+                                    }
+                                    Text {
+                                        text: qsTr("Display IP address section in the Network popup.")
+                                        font.pixelSize: Theme.fontSize("small")
+                                        color: Theme.color("textSecondary")
+                                        Layout.fillWidth: true
+                                        wrapMode: Text.WordWrap
+                                    }
+                                }
+
+                                SettingToggle {
+                                    id: showIpToggle
+
+                                    function sync() {
+                                        checked = (typeof DesktopSettings !== "undefined" && DesktopSettings)
+                                                  ? DesktopSettings.settingValue("shellTheme.networkShowIp", false) === true
+                                                  : false
+                                    }
+
+                                    Component.onCompleted: sync()
+                                    onToggled: DesktopSettings.setSettingValue("shellTheme.networkShowIp", checked)
+
+                                    Connections {
+                                        target: (typeof DesktopSettings !== "undefined") ? DesktopSettings : null
+                                        function onAvailableChanged() { showIpToggle.sync() }
+                                        function onSettingChanged(path) {
+                                            if (path === "shellTheme.networkShowIp") showIpToggle.sync()
+                                        }
+                                    }
+                                }
+                            }
+
+                            Rectangle {
+                                anchors { left: parent.left; right: parent.right; bottom: parent.bottom; leftMargin: 16 }
+                                height: 1
+                                color: Theme.color("panelBorder")
+                            }
+                        }
+
+                        // ── Remaining applets ───────────────────────────────
+                        Repeater {
+                            model: [
+                                { key: "tothespot",     label: qsTr("Search"),         description: qsTr("Quick search button (ToTheSpot)."),         locked: true  },
+                                { key: "controlcenter", label: qsTr("Control Center"), description: qsTr("Quick settings panel."),                    locked: true  },
+                                { key: "datetime",      label: qsTr("Date & Time"),    description: qsTr("Clock and calendar popup."),                locked: true  },
+                                { key: "bluetooth",     label: qsTr("Bluetooth"),      description: qsTr("Bluetooth device management."),             locked: false },
+                                { key: "battery",       label: qsTr("Battery"),        description: qsTr("Battery level and power status."),          locked: true  },
+                                { key: "notification",  label: qsTr("Notifications"),  description: qsTr("Notification history and do-not-disturb."), locked: false },
+                                { key: "clipboard",     label: qsTr("Clipboard"),      description: qsTr("Clipboard history manager."),               locked: false },
+                                { key: "print",         label: qsTr("Print Jobs"),     description: qsTr("Active print job status."),                 locked: false },
+                            ]
+                            delegate: SettingCard {
+                                required property var modelData
+                                label: modelData.label; description: modelData.description
+                                Layout.fillWidth: true
+                                SettingToggle {
+                                    id: appletToggle
+                                    readonly property bool locked: modelData.locked === true
+                                    readonly property string settingPath: "shellTheme.applets." + modelData.key
+                                    enabled: !locked
+                                    checked: locked || DesktopSettings.settingValue(settingPath, false) === true
+                                    onToggled: if (!locked) DesktopSettings.setSettingValue(settingPath, checked)
+                                    Connections {
+                                        target: DesktopSettings
+                                        function onSettingChanged(path) {
+                                            if (!appletToggle.locked && path === appletToggle.settingPath)
+                                                appletToggle.checked = DesktopSettings.settingValue(appletToggle.settingPath, false) === true
+                                        }
+                                    }
                                 }
                             }
                         }

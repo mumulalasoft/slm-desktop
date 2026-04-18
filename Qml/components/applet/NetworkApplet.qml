@@ -11,6 +11,7 @@ Item {
     property var networkManager: NetworkManager
     property var popupHost: null
     property bool ipAddressVisible: false
+    property bool ipSectionVisible: false
     property bool popupHint: false
     property double lastMenuCloseMs: 0
     readonly property int iconSize: 22
@@ -23,6 +24,21 @@ Item {
         interval: 320
         repeat: false
         onTriggered: root.popupHint = false
+    }
+
+    function syncIpSection() {
+        if (typeof DesktopSettings === "undefined" || !DesktopSettings) return
+        root.ipSectionVisible = DesktopSettings.settingValue("shellTheme.networkShowIp", false) === true
+    }
+
+    Component.onCompleted: syncIpSection()
+
+    Connections {
+        target: (typeof DesktopSettings !== "undefined") ? DesktopSettings : null
+        function onAvailableChanged() { root.syncIpSection() }
+        function onSettingChanged(path) {
+            if (path === "shellTheme.networkShowIp") root.syncIpSection()
+        }
     }
     // property var string networkName: networkManager.statusText
     property bool showText: true
@@ -256,6 +272,8 @@ Item {
             enabled: false
         }
         MenuItem {
+            visible: root.ipSectionVisible
+            height: visible ? implicitHeight : 0
             contentItem: IndicatorSectionRow {
                 text: "IP Address Visible"
                 rowSpacing: root.rowGap
@@ -266,6 +284,8 @@ Item {
             }
         }
         MenuItem {
+            visible: root.ipSectionVisible
+            height: visible ? implicitHeight : 0
             text: "IPv4: " + (
                       root.ipAddressVisible
                       ? (

@@ -211,6 +211,13 @@ QVariantMap SettingsStore::defaultSettings()
              {QStringLiteral("panelStyle"), QStringLiteral("floating")},
              {QStringLiteral("surfaceStyle"), QStringLiteral("default")},
              {QStringLiteral("animationPreset"), QStringLiteral("balanced")},
+             {QStringLiteral("applets"), QVariantMap{
+                  {QStringLiteral("bluetooth"),     false},
+                  {QStringLiteral("notification"),  false},
+                  {QStringLiteral("clipboard"),     false},
+                  {QStringLiteral("print"),         false},
+              }},
+             {QStringLiteral("networkShowIp"),  false},
          }},
         {QStringLiteral("gtkThemeRouting"), QVariantMap{
              {QStringLiteral("themeDark"), QStringLiteral("SLM-GTK-Dark")},

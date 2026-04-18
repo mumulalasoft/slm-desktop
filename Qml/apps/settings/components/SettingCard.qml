@@ -13,6 +13,7 @@ Item {
     property alias description: descriptionText.text
     property bool showDescription: descriptionText.text !== ""
     property bool highlighted: false
+    property bool hideSeparator: false
     default property alias content: controlContainer.data
 
     function microAnimationAllowed() {
@@ -80,6 +81,7 @@ Item {
         height: 1
         color: Theme.color("panelBorder")
         visible: {
+            if (root.hideSeparator) return false
             if (!root.parent) return false
             var seenVisible = false
             for (var i = root.parent.children.length - 1; i >= 0; i--) {
