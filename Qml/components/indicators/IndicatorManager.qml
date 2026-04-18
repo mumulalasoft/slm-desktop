@@ -37,7 +37,7 @@ RowLayout {
     }
     readonly property bool anyPopupOpen: itemPopupOpen
 
-    spacing: Theme.metric("spacingMd")
+    spacing: Theme.metric("spacingXs")
 
     Timer {
         id: nowDateTimer
@@ -211,6 +211,8 @@ RowLayout {
             active: !!modelData && modelData.enabled !== false
             visible: !!modelData && modelData.visible !== false
             asynchronous: true
+            readonly property bool slotVisible: visible
+                                             && (!item || item.visible === undefined || !!item.visible)
             source: {
                 var s = String(modelData && modelData.source ? modelData.source : "")
                 if (s === "" || s.indexOf("://") >= 0 || s.indexOf("/") === 0) {
@@ -222,9 +224,9 @@ RowLayout {
                 // Indicator applet QML files live in ../applet relative to this file.
                 return Qt.resolvedUrl("../applet/" + s)
             }
-            Layout.minimumWidth: implicitWidth
-            Layout.preferredWidth: implicitWidth
-            Layout.maximumWidth: implicitWidth
+            Layout.minimumWidth: slotVisible ? implicitWidth : 0
+            Layout.preferredWidth: slotVisible ? implicitWidth : 0
+            Layout.maximumWidth: slotVisible ? implicitWidth : 0
             Layout.preferredHeight: root.indicatorSlotHeight
             Layout.alignment: Qt.AlignVCenter
 
@@ -271,10 +273,12 @@ RowLayout {
             active: !!modelData && modelData.enabled !== false
             visible: !!modelData && modelData.visible !== false
             asynchronous: true
+            readonly property bool slotVisible: visible
+                                             && (!item || item.visible === undefined || !!item.visible)
             source: modelData && modelData.source ? modelData.source : ""
-            Layout.minimumWidth: implicitWidth
-            Layout.preferredWidth: implicitWidth
-            Layout.maximumWidth: implicitWidth
+            Layout.minimumWidth: slotVisible ? implicitWidth : 0
+            Layout.preferredWidth: slotVisible ? implicitWidth : 0
+            Layout.maximumWidth: slotVisible ? implicitWidth : 0
             Layout.preferredHeight: root.indicatorSlotHeight
             Layout.alignment: Qt.AlignVCenter
 

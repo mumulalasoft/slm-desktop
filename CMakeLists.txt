@@ -808,6 +808,9 @@ set(DESKTOP_SHELL_QML_FILES
     Qml/components/AppWindow.qml
     Qml/components/AppDialog.qml
     Qml/components/desktop/DesktopBackground.qml
+    Qml/components/desktop/DesktopPlacementEngine.qml
+    Qml/components/desktop/DesktopItem.qml
+    Qml/components/desktop/DesktopView.qml
     Qml/components/desktop/DesktopViewController.qml
     Qml/components/desktop/DesktopMenuProvider.qml
     Qml/components/desktop/DesktopSurface.qml

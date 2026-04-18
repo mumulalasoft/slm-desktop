@@ -597,6 +597,7 @@ Item {
         desktopViewController: root.desktopViewController
         desktopMenuProvider: root.desktopMenuProvider
         shellApi: root.shellApi
+        dockTopY: root.dockTopY
     }
 
     Flickable {

@@ -32,6 +32,22 @@ Window {
                                            || !layerShellSupported
                                            || (bootstrap ? !!bootstrap.readyToRender : true)
     readonly property bool bootstrapSurfaceVisible: layerShellSupported && !root.dockLayerReady
+    readonly property var targetScreenGeometry: {
+        if (rootWindow && rootWindow.screen) {
+            return {
+                "x": Number(rootWindow.screen.virtualX || 0),
+                "y": Number(rootWindow.screen.virtualY || 0),
+                "width": Number(rootWindow.screen.width || (rootWindow ? rootWindow.width : Screen.width)),
+                "height": Number(rootWindow.screen.height || (rootWindow ? rootWindow.height : Screen.height))
+            }
+        }
+        return {
+            "x": Number(rootWindow ? rootWindow.x : 0),
+            "y": Number(rootWindow ? rootWindow.y : 0),
+            "width": Number(rootWindow ? rootWindow.width : Screen.width),
+            "height": Number(rootWindow ? rootWindow.height : Screen.height)
+        }
+    }
 
     // ── Window setup ──────────────────────────────────────────────────────────
 
@@ -59,11 +75,12 @@ Window {
 
     // Width follows root window; height is only dock strip + headroom.
     // The compositor may still override geometry via layer-shell configure.
-    width:  rootWindow ? rootWindow.width  : Screen.width
+    width:  Number(root.targetScreenGeometry.width || (rootWindow ? rootWindow.width : Screen.width))
     height: dockSurfaceHeight
-    x: rootWindow ? rootWindow.x : 0
-    y: rootWindow ? (rootWindow.y + rootWindow.height - height)
-                  : (Screen.height - height)
+    x: Number(root.targetScreenGeometry.x || 0)
+    y: Number(root.targetScreenGeometry.y || 0)
+       + Number(root.targetScreenGeometry.height || (rootWindow ? rootWindow.height : Screen.height))
+       - height
 
     opacity: root.dockLayerReady ? 1.0 : 0.0
 
@@ -142,7 +159,7 @@ Window {
                 opacity: 1.0
                 appsModel: root.appsModel
 
-                layoutIconSlotWidth:          Number(DockSystem.dockLayoutState.iconSlotWidth || 58)
+                layoutIconSlotWidth:          DockSystem.dockIconSlotWidth
                 layoutItemSpacing:            Number(DockSystem.dockLayoutState.itemSpacing || 0)
                 layoutEdgePadding:            Number(DockSystem.dockLayoutState.edgePadding || 6)
                 layoutHoverLift:              Number(DockSystem.dockLayoutState.hoverLift || 6)

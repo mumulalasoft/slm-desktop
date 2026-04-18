@@ -43,6 +43,24 @@ Item {
     property real dragOffsetX: 0
     property real bounceOffset: 0
     property real iconLift: hovered ? Math.max(0, hoverLift) : 0
+    property bool desktopExportEnabled: false
+    property real desktopExportMinUpwardPx: (typeof DesktopSettings !== "undefined"
+                                             && DesktopSettings
+                                             && DesktopSettings.dockDesktopExportMinUpwardPx !== undefined)
+                                            ? Number(DesktopSettings.dockDesktopExportMinUpwardPx) : 28
+    property real desktopExportVerticalRatio: (typeof DesktopSettings !== "undefined"
+                                               && DesktopSettings
+                                               && DesktopSettings.dockDesktopExportVerticalRatioPercent !== undefined)
+                                              ? (Number(DesktopSettings.dockDesktopExportVerticalRatioPercent) / 100.0)
+                                              : 1.35
+    property real desktopExportMaxHorizontalDriftPx: (typeof DesktopSettings !== "undefined"
+                                                      && DesktopSettings
+                                                      && DesktopSettings.dockDesktopExportMaxHorizontalDriftPx !== undefined)
+                                                     ? Number(DesktopSettings.dockDesktopExportMaxHorizontalDriftPx) : 42
+    property bool externalDragMode: false
+    property string dragMimeAppEntry: ""
+    property string dragMimeDesktopItem: ""
+    property string dragMimeTextPlain: ""
     signal clicked()
     signal bounceCompleted()
     signal dragStarted()
@@ -62,6 +80,16 @@ Item {
     width: baseSlotWidth + (gapTarget ? gapWidthExtra : 0) + separatorSlotWidth
     height: 76
     z: root.dragging ? 200 : 0
+    Drag.active: root.externalDragMode
+    Drag.supportedActions: Qt.CopyAction
+    Drag.proposedAction: Qt.CopyAction
+    Drag.hotSpot.x: width * 0.5
+    Drag.hotSpot.y: height * 0.5
+    Drag.mimeData: ({
+                        "application/x-slm-app-entry": String(root.dragMimeAppEntry || ""),
+                        "application/x-slm-desktop-item": String(root.dragMimeDesktopItem || ""),
+                        "text/plain": String(root.dragMimeTextPlain || "")
+                    })
     Behavior on width {
         SpringAnimation {
             spring: gapSpring
@@ -107,7 +135,7 @@ Item {
 
         Item {
             id: iconPlate
-            width: Math.round(52 * root.itemScale)
+            width: Math.round(root.baseSlotWidth * root.itemScale)
             height: width
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottom: parent.bottom
@@ -321,6 +349,7 @@ Item {
         property real pressX: 0
         property real pressY: 0
         property real pressGlobalX: 0
+        property real pressGlobalY: 0
         property real lastDx: 0
         property int deltaSamples: 0
         property int fineStepSamples: 0
@@ -329,10 +358,13 @@ Item {
         onPressed: function(mouse) {
             pressX = mouse.x
             pressY = mouse.y
-            pressGlobalX = root.mapToItem(null, mouse.x, mouse.y).x
+            var scenePos = root.mapToItem(null, mouse.x, mouse.y)
+            pressGlobalX = scenePos.x
+            pressGlobalY = scenePos.y
             lastDx = 0
             deltaSamples = 0
             fineStepSamples = 0
+            root.externalDragMode = false
             holdToReorderTimer.restart()
         }
         onDoubleClicked: function(mouse) {
@@ -355,6 +387,11 @@ Item {
         }
         onReleased: {
             holdToReorderTimer.stop()
+            if (root.externalDragMode) {
+                root.externalDragMode = false
+                suppressNextClick = true
+                return
+            }
             if (root.dragging) {
                 root.dragFinished(root.dragOffsetX)
                 root.dragOffsetX = 0
@@ -366,6 +403,10 @@ Item {
         }
         onCanceled: {
             holdToReorderTimer.stop()
+            if (root.externalDragMode) {
+                root.externalDragMode = false
+                mouseArea.suppressNextClick = true
+            }
             if (root.dragging) {
                 root.dragFinished(root.dragOffsetX)
                 mouseArea.suppressNextClick = true
@@ -436,9 +477,11 @@ Item {
                 return
             }
 
-            var currentGlobalX = root.mapToItem(null, mouse.x, mouse.y).x
+            var currentGlobalPos = root.mapToItem(null, mouse.x, mouse.y)
+            var currentGlobalX = currentGlobalPos.x
+            var currentGlobalY = currentGlobalPos.y
             var dx = currentGlobalX - pressGlobalX
-            var dy = mouse.y - pressY
+            var dy = currentGlobalY - pressGlobalY
             var moveDistance = Math.sqrt(dx * dx + dy * dy)
             var step = Math.abs(dx - lastDx)
             if (!root.dragging && step > 0.01 && deltaSamples < 10) {
@@ -453,6 +496,18 @@ Item {
                 var looksLikeTouchpad = deltaSamples >= 4
                                          && fineStepSamples / Math.max(1, deltaSamples) >= 0.65
                 var threshold = looksLikeTouchpad ? root.dragThresholdTouchpadPx : root.dragThresholdMousePx
+                var upwardExport = root.desktopExportEnabled
+                        && dy <= -Math.max(root.desktopExportMinUpwardPx, threshold * 2.6)
+                        && Math.abs(dy) > Math.abs(dx) * root.desktopExportVerticalRatio
+                        && Math.abs(dx) <= root.desktopExportMaxHorizontalDriftPx
+                if (upwardExport) {
+                    clickConfirmTimer.stop()
+                    mouseArea.clickPending = false
+                    root.externalDragMode = true
+                    root.dragOffsetX = 0
+                    root.dragging = false
+                    return
+                }
                 if (moveDistance < threshold) {
                     return
                 }

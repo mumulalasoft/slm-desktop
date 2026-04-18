@@ -24,7 +24,18 @@ function handleAddToDock(appData) {
 }
 
 function handleAddToDesktop(appData, desktopScene) {
-    if (!appData || typeof ShortcutModel === "undefined" || !ShortcutModel) {
+    if (!appData) {
+        return
+    }
+
+    if (desktopScene
+            && desktopScene.desktopFileManagerContent
+            && desktopScene.desktopFileManagerContent.addAppEntryToDesktop) {
+        desktopScene.desktopFileManagerContent.addAppEntryToDesktop(appData, -1, -1)
+        return
+    }
+
+    if (typeof ShortcutModel === "undefined" || !ShortcutModel) {
         return
     }
 

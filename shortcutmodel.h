@@ -57,8 +57,10 @@ public:
 
 private:
     QString desktopDirectoryPath() const;
+    QString shortcutsStateDirectoryPath() const;
     QString orderFilePath() const;
     QString slotMapFilePath() const;
+    bool ensureShortcutsStateDir() const;
     bool ensureDesktopDir() const;
     void load();
     QStringList loadOrder() const;

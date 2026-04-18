@@ -107,6 +107,21 @@ DockItem {
                  ((typeof ThemeIconController !== "undefined" && ThemeIconController)
                   ? ThemeIconController.revision : 0))
               : ((iconSource && iconSource.length > 0) ? iconSource : "qrc:/icons/logo.svg")
+    desktopExportEnabled: pinnedEntry
+                          && ((desktopFile && desktopFile.length > 0)
+                              || (desktopId && desktopId.length > 0)
+                              || (executable && executable.length > 0))
+    dragMimeAppEntry: JSON.stringify({
+                                         "name": String(name || ""),
+                                         "desktopId": String((typeof desktopId !== "undefined") ? (desktopId || "") : ""),
+                                         "desktopFile": String(desktopFile || ""),
+                                         "executable": String(executable || ""),
+                                         "iconName": String(iconName || ""),
+                                         "iconSource": String(iconSource || ""),
+                                         "source": "dock"
+                                     })
+    dragMimeDesktopItem: dragMimeAppEntry
+    dragMimeTextPlain: dragMimeAppEntry
     itemScale: 1.0
 
     onClicked: {

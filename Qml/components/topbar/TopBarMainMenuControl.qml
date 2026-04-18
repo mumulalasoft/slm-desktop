@@ -21,7 +21,7 @@ Item {
     signal searchProfileResetRequested()
     signal refreshSearchProfilesRequested()
 
-    implicitWidth: iconButtonW
+    implicitWidth: Math.max(iconButtonW, desktopLabel.implicitWidth + Theme.metric("spacingMd") * 2)
     implicitHeight: iconButtonH
 
     property double lastCloseMs: 0
@@ -225,21 +225,13 @@ Item {
             ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault }
         }
 
-        Image {
-            id: mainLogo
+        Text {
+            id: desktopLabel
             anchors.centerIn: parent
-            width: root.iconGlyph
-            height: root.iconGlyph
-            fillMode: Image.PreserveAspectFit
-            source: Theme.darkMode ? "qrc:/icons/dark/logo.svg" : "qrc:/icons/light/logo.svg"
-        }
-
-        Label {
-            anchors.centerIn: parent
-            visible: mainLogo.status !== Image.Ready
-            text: "\u25cf"
+            text: "Desktop"
             color: Theme.color("textOnGlass")
-            font.pixelSize: Theme.fontSize("body")
+            font.pixelSize: Theme.fontSize("bodyLarge")
+            font.weight: Theme.fontWeight("bold")
         }
 
         MouseArea {

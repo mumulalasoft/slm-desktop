@@ -642,7 +642,7 @@ Rectangle {
         id: dockRow
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: root.contentVPadding + 1
+        anchors.bottomMargin: 0
 
         spacing: layoutItemSpacing >= 0 ? layoutItemSpacing : 0
 

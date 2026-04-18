@@ -129,6 +129,7 @@ Window {
             z: 1
             anchors.fill: parent
             visible: root.isActive
+            desktopScene: root.desktopScene
             appsModel: root.appsModel
             topSafeInset: root.panelHeight
             revealProgress: 1.0

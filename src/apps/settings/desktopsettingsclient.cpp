@@ -132,6 +132,9 @@ bool DesktopSettingsClient::dockAutoHideEnabled() const { return m_dockAutoHideE
 bool DesktopSettingsClient::dockDropPulseEnabled() const { return m_dockDropPulseEnabled; }
 int DesktopSettingsClient::dockDragThresholdMouse() const { return m_dockDragThresholdMouse; }
 int DesktopSettingsClient::dockDragThresholdTouchpad() const { return m_dockDragThresholdTouchpad; }
+int DesktopSettingsClient::dockDesktopExportMinUpwardPx() const { return m_dockDesktopExportMinUpwardPx; }
+int DesktopSettingsClient::dockDesktopExportVerticalRatioPercent() const { return m_dockDesktopExportVerticalRatioPercent; }
+int DesktopSettingsClient::dockDesktopExportMaxHorizontalDriftPx() const { return m_dockDesktopExportMaxHorizontalDriftPx; }
 QString DesktopSettingsClient::dockIconSize() const { return m_dockIconSize; }
 bool DesktopSettingsClient::dockMagnificationEnabled() const { return m_dockMagnificationEnabled; }
 bool DesktopSettingsClient::windowingAnimationEnabled() const { return m_windowingAnimationEnabled; }
@@ -152,7 +155,14 @@ bool DesktopSettingsClient::setThemeMode(const QString &mode)
             && normalized != QStringLiteral("auto")) {
         return false;
     }
-    if (setSetting(QStringLiteral("globalAppearance.colorMode"), normalized)) {
+    if (!ensureIface()) {
+        return false;
+    }
+    QVariantMap patch;
+    patch.insert(QStringLiteral("globalAppearance.colorMode"), normalized);
+    patch.insert(QStringLiteral("shellTheme.mode"), normalized);
+    QDBusReply<QVariantMap> reply = m_iface->call(QStringLiteral("SetSettingsPatch"), patch);
+    if (reply.isValid() && reply.value().value(QStringLiteral("ok"), false).toBool()) {
         setThemeModeLocal(normalized);
         return true;
     }
@@ -453,6 +463,45 @@ bool DesktopSettingsClient::setDockDragThresholdTouchpad(int value)
     return false;
 }
 
+bool DesktopSettingsClient::setDockDesktopExportMinUpwardPx(int value)
+{
+    const int normalized = qBound(8, value, 96);
+    if (setSetting(QStringLiteral("dock.desktopExportMinUpwardPx"), normalized)) {
+        if (m_dockDesktopExportMinUpwardPx != normalized) {
+            m_dockDesktopExportMinUpwardPx = normalized;
+            emit dockDesktopExportMinUpwardPxChanged();
+        }
+        return true;
+    }
+    return false;
+}
+
+bool DesktopSettingsClient::setDockDesktopExportVerticalRatioPercent(int value)
+{
+    const int normalized = qBound(100, value, 260);
+    if (setSetting(QStringLiteral("dock.desktopExportVerticalRatioPercent"), normalized)) {
+        if (m_dockDesktopExportVerticalRatioPercent != normalized) {
+            m_dockDesktopExportVerticalRatioPercent = normalized;
+            emit dockDesktopExportVerticalRatioPercentChanged();
+        }
+        return true;
+    }
+    return false;
+}
+
+bool DesktopSettingsClient::setDockDesktopExportMaxHorizontalDriftPx(int value)
+{
+    const int normalized = qBound(8, value, 140);
+    if (setSetting(QStringLiteral("dock.desktopExportMaxHorizontalDriftPx"), normalized)) {
+        if (m_dockDesktopExportMaxHorizontalDriftPx != normalized) {
+            m_dockDesktopExportMaxHorizontalDriftPx = normalized;
+            emit dockDesktopExportMaxHorizontalDriftPxChanged();
+        }
+        return true;
+    }
+    return false;
+}
+
 bool DesktopSettingsClient::setDockIconSize(const QString &value)
 {
     const QString normalized = [&]() {
@@ -689,7 +738,8 @@ void DesktopSettingsClient::onSettingChanged(const QString &path, const QDBusVar
 {
     const QVariant rawValue = value.variant();
     mapSetValueByPath(m_settingsSnapshot, path, rawValue);
-    if (path == QLatin1String("globalAppearance.colorMode")) {
+    if (path == QLatin1String("globalAppearance.colorMode")
+            || path == QLatin1String("shellTheme.mode")) {
         setThemeModeLocal(rawValue.toString().trimmed().toLower());
     } else if (path == QLatin1String("globalAppearance.accentColor")) {
         setAccentColorLocal(rawValue.toString().trimmed());
@@ -802,6 +852,24 @@ void DesktopSettingsClient::onSettingChanged(const QString &path, const QDBusVar
         if (m_dockDragThresholdTouchpad != v) {
             m_dockDragThresholdTouchpad = v;
             emit dockDragThresholdTouchpadChanged();
+        }
+    } else if (path == QLatin1String("dock.desktopExportMinUpwardPx")) {
+        const int v = qBound(8, rawValue.toInt(), 96);
+        if (m_dockDesktopExportMinUpwardPx != v) {
+            m_dockDesktopExportMinUpwardPx = v;
+            emit dockDesktopExportMinUpwardPxChanged();
+        }
+    } else if (path == QLatin1String("dock.desktopExportVerticalRatioPercent")) {
+        const int v = qBound(100, rawValue.toInt(), 260);
+        if (m_dockDesktopExportVerticalRatioPercent != v) {
+            m_dockDesktopExportVerticalRatioPercent = v;
+            emit dockDesktopExportVerticalRatioPercentChanged();
+        }
+    } else if (path == QLatin1String("dock.desktopExportMaxHorizontalDriftPx")) {
+        const int v = qBound(8, rawValue.toInt(), 140);
+        if (m_dockDesktopExportMaxHorizontalDriftPx != v) {
+            m_dockDesktopExportMaxHorizontalDriftPx = v;
+            emit dockDesktopExportMaxHorizontalDriftPxChanged();
         }
     } else if (path == QLatin1String("dock.iconSize")) {
         const QString v = [&]() {
@@ -1006,8 +1074,20 @@ void DesktopSettingsClient::loadFromService()
         }
     }
 
-    setThemeModeLocal(appearance.value(QStringLiteral("colorMode"), QStringLiteral("dark"))
-                          .toString().trimmed().toLower());
+    const QString appearanceMode = appearance.value(QStringLiteral("colorMode"), QString())
+                                       .toString().trimmed().toLower();
+    const QString shellMode = settings.value(QStringLiteral("shellTheme")).toMap()
+                                  .value(QStringLiteral("mode"), QString())
+                                  .toString().trimmed().toLower();
+    const auto isSupportedMode = [](const QString &candidate) {
+        return candidate == QLatin1String("light")
+                || candidate == QLatin1String("dark")
+                || candidate == QLatin1String("auto");
+    };
+    const QString resolvedMode = isSupportedMode(appearanceMode)
+            ? appearanceMode
+            : (isSupportedMode(shellMode) ? shellMode : QStringLiteral("dark"));
+    setThemeModeLocal(resolvedMode);
     setAccentColorLocal(appearance.value(QStringLiteral("accentColor"), QStringLiteral("#0a84ff"))
                             .toString().trimmed());
     setFontScaleLocal(appearance.value(QStringLiteral("uiScale"), 1.0).toDouble());
@@ -1121,6 +1201,21 @@ void DesktopSettingsClient::loadFromService()
     if (m_dockDragThresholdTouchpad != dockTouchpad) {
         m_dockDragThresholdTouchpad = dockTouchpad;
         emit dockDragThresholdTouchpadChanged();
+    }
+    const int dockExportMinUpward = qBound(8, dock.value(QStringLiteral("desktopExportMinUpwardPx"), 28).toInt(), 96);
+    if (m_dockDesktopExportMinUpwardPx != dockExportMinUpward) {
+        m_dockDesktopExportMinUpwardPx = dockExportMinUpward;
+        emit dockDesktopExportMinUpwardPxChanged();
+    }
+    const int dockExportRatioPercent = qBound(100, dock.value(QStringLiteral("desktopExportVerticalRatioPercent"), 135).toInt(), 260);
+    if (m_dockDesktopExportVerticalRatioPercent != dockExportRatioPercent) {
+        m_dockDesktopExportVerticalRatioPercent = dockExportRatioPercent;
+        emit dockDesktopExportVerticalRatioPercentChanged();
+    }
+    const int dockExportMaxDrift = qBound(8, dock.value(QStringLiteral("desktopExportMaxHorizontalDriftPx"), 42).toInt(), 140);
+    if (m_dockDesktopExportMaxHorizontalDriftPx != dockExportMaxDrift) {
+        m_dockDesktopExportMaxHorizontalDriftPx = dockExportMaxDrift;
+        emit dockDesktopExportMaxHorizontalDriftPxChanged();
     }
     const QString dockIconSize = [&]() {
         const QString raw = dock.value(QStringLiteral("iconSize"), QStringLiteral("medium"))

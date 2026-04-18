@@ -35,6 +35,7 @@ class FileManagerModel : public QAbstractListModel
     Q_PROPERTY(QString searchText READ searchText WRITE setSearchText NOTIFY searchTextChanged)
     Q_PROPERTY(QString sortKey READ sortKey WRITE setSortKey NOTIFY sortKeyChanged)
     Q_PROPERTY(bool sortDescending READ sortDescending WRITE setSortDescending NOTIFY sortDescendingChanged)
+    Q_PROPERTY(bool useSlotOrder READ useSlotOrder WRITE setUseSlotOrder NOTIFY useSlotOrderChanged)
     Q_PROPERTY(bool deepSearchRunning READ deepSearchRunning NOTIFY deepSearchRunningChanged)
     Q_PROPERTY(int count READ count NOTIFY countChanged)
     Q_PROPERTY(QString lastError READ lastError NOTIFY lastErrorChanged)
@@ -75,6 +76,8 @@ public:
     void setSortKey(const QString &value);
     bool sortDescending() const;
     void setSortDescending(bool value);
+    bool useSlotOrder() const;
+    void setUseSlotOrder(bool value);
     bool deepSearchRunning() const;
     int count() const;
     QString lastError() const;
@@ -88,6 +91,8 @@ public:
     Q_INVOKABLE QVariantMap createFile(const QString &name);
     Q_INVOKABLE QVariantMap removeAt(int index, bool recursive = false);
     Q_INVOKABLE QVariantMap renameAt(int index, const QString &newName);
+    Q_INVOKABLE QVariantMap loadSlotMap() const;
+    Q_INVOKABLE bool saveSlotMap(const QVariantMap &slotMap);
 
 signals:
     void currentPathChanged();
@@ -96,6 +101,7 @@ signals:
     void searchTextChanged();
     void sortKeyChanged();
     void sortDescendingChanged();
+    void useSlotOrderChanged();
     void deepSearchRunningChanged();
     void countChanged();
     void lastErrorChanged();
@@ -120,6 +126,7 @@ private:
     QString m_searchText;
     QString m_sortKey = QStringLiteral("dateModified");
     bool m_sortDescending = true;
+    bool m_useSlotOrder = false;
     bool m_deepSearchRunning = false;
     std::atomic<quint64> m_refreshGeneration{0};
     QHash<QString, QVector<FileEntry>> m_dirCache;

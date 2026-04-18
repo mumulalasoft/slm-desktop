@@ -18,10 +18,12 @@ Popup {
     signal itemActivated(int menuId, int itemId)
 
     // ── geometry ─────────────────────────────────────────────────────────────
-    readonly property int minPopupWidth: 244
+    // Keep dropdown compact; previous hard minimum (244) left too much empty space
+    // on short menus like "Edit".
+    readonly property int minPopupWidth: 168
     readonly property int popupHPadding: Theme.metric("spacingXs") * 2
     readonly property int popupVPadding: Theme.metric("spacingXs") * 2
-    implicitWidth: Math.max(minPopupWidth, Math.round(Number(contentColumn.childrenRect.width || 0) + popupHPadding))
+    implicitWidth: Math.max(minPopupWidth, Math.round(Number(contentColumn.width || 0) + popupHPadding))
     width: implicitWidth
     implicitHeight: Math.max(1, Math.round(Number(contentColumn.implicitHeight || 0) + popupVPadding))
     height: implicitHeight
@@ -30,8 +32,10 @@ Popup {
     modal: false
     focus: true
     dim: false
-    // Prevent the opening click gesture from immediately closing this popup.
+    // Close on Escape and any click/tap outside the popup.
     closePolicy: Popup.CloseOnEscape
+                 | Popup.CloseOnPressOutside
+                 | Popup.CloseOnPressOutsideParent
 
     // ── enter / exit transitions ──────────────────────────────────────────────
     enter: Transition {
@@ -112,12 +116,12 @@ Popup {
             }
         }
 
-        implicitWidth: contentColumn.childrenRect.width
+        implicitWidth: contentColumn.width
         implicitHeight: contentColumn.implicitHeight
 
         Column {
             id: contentColumn
-            width: childrenRect.width
+            width: Math.max(160, Number(contentColumn.implicitWidth || 0))
             topPadding: Theme.metric("spacingXs")
             bottomPadding: Theme.metric("spacingXs")
 
@@ -132,7 +136,7 @@ Popup {
                     Component {
                         id: sepComp
                         Rectangle {
-                            width: Math.max(160, Number(contentColumn.childrenRect.width || 0))
+                            width: Math.max(160, Number(contentColumn.width || 0))
                             height: 1
                             color: Theme.color("menuSeparator")
                             opacity: Theme.opacitySeparator
@@ -143,7 +147,7 @@ Popup {
                         id: itemComp
                         Item {
                             id: itemRow
-                            width: implicitWidth
+                            width: Math.max(160, Number(contentColumn.width || 0))
                             implicitHeight: Theme.metric("controlHeightCompact")
                             implicitWidth: {
                                 var lp = Theme.metric("spacingMd") + 14 + Theme.metric("spacingXs")
@@ -160,8 +164,8 @@ Popup {
                         // Focused/hovered highlight — soft fill, not macOS-style
                         Rectangle {
                             anchors.fill: parent
-                            anchors.leftMargin: Theme.metric("spacingXs")
-                            anchors.rightMargin: Theme.metric("spacingXs")
+                            anchors.leftMargin: 0
+                            anchors.rightMargin: 0
                             radius: Theme.radiusSm
                             color: (itemRow.isFocused || hov.hovered) && itemRow.isEnabled
                                    ? Theme.color("menuHover") : "transparent"

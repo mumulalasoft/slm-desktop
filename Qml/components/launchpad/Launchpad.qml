@@ -13,6 +13,7 @@ Item {
     property int maxRowsPerPage: 4
     property int topSafeInset: 0
     property int bottomSafeInset: 144
+    property var desktopScene: null
     property int minColumns: 7
     property int minRowsPerPage: 4
     readonly property int effectiveColumns: Math.max(minColumns,
@@ -76,6 +77,137 @@ Item {
     function refreshCompositorBlurPrefs() {
         compositorBlurHint = prefBool("launchpad.compositorBlurHint", true)
         compositorSceneFxEnabled = prefBool("windowing.sceneFxEnabled", false)
+    }
+
+    function activeDesktopPath() {
+        return "~/Desktop"
+    }
+
+    function sanitizeDesktopBaseName(raw) {
+        var name = String(raw || "").trim()
+        if (name.length <= 0) {
+            name = "Application"
+        }
+        var forbidden = "\\/:*?\"<>|"
+        for (var i = 0; i < forbidden.length; ++i) {
+            name = name.split(forbidden.charAt(i)).join("_")
+        }
+        return name
+    }
+
+    function uniqueDesktopLauncherPath(targetDir, baseName) {
+        var dir = String(targetDir || "").trim()
+        if (dir.length <= 0) {
+            dir = "~/Desktop"
+        }
+        var base = sanitizeDesktopBaseName(baseName)
+        var candidate = dir + "/" + base + ".desktop"
+        if (typeof FileManagerApi === "undefined" || !FileManagerApi || !FileManagerApi.statPath) {
+            return candidate
+        }
+        var probe = FileManagerApi.statPath(candidate)
+        if (!probe || !probe.ok || !probe.exists) {
+            return candidate
+        }
+        for (var i = 2; i <= 9999; ++i) {
+            candidate = dir + "/" + base + " (" + i + ").desktop"
+            probe = FileManagerApi.statPath(candidate)
+            if (!probe || !probe.ok || !probe.exists) {
+                return candidate
+            }
+        }
+        return dir + "/" + base + "-launcher.desktop"
+    }
+
+    function writeDesktopLauncher(targetDir, appData) {
+        if (typeof FileManagerApi === "undefined" || !FileManagerApi || !FileManagerApi.writeTextFile) {
+            return false
+        }
+        var executable = String(appData && appData.executable ? appData.executable : "").trim()
+        if (executable.length <= 0) {
+            return false
+        }
+        var name = String(appData && appData.name ? appData.name : "Application").trim()
+        if (name.length <= 0) {
+            name = "Application"
+        }
+        var icon = String(appData && appData.iconName ? appData.iconName : "").trim()
+        var path = uniqueDesktopLauncherPath(targetDir, name)
+        var text = "[Desktop Entry]\n"
+        text += "Type=Application\n"
+        text += "Name=" + name + "\n"
+        text += "Exec=" + executable + "\n"
+        if (icon.length > 0) {
+            text += "Icon=" + icon + "\n"
+        }
+        text += "Terminal=false\n"
+        text += "NoDisplay=false\n"
+        var writeResult = FileManagerApi.writeTextFile(path, text, false)
+        return !!(writeResult && writeResult.ok)
+    }
+
+    function requestAddToDesktop(appData) {
+        if (!appData) {
+            return false
+        }
+
+        var data = cloneAppEntry(appData)
+        if (root.desktopScene
+                && root.desktopScene.desktopFileManagerContent
+                && root.desktopScene.desktopFileManagerContent.addAppEntryToDesktop) {
+            return !!root.desktopScene.desktopFileManagerContent.addAppEntryToDesktop(data, -1, -1)
+        }
+
+        var targetDir = activeDesktopPath()
+        var added = false
+
+        if (typeof FileManagerApi !== "undefined" && FileManagerApi) {
+            if (FileManagerApi.createDirectory) {
+                FileManagerApi.createDirectory(targetDir, true)
+            }
+            var desktopFilePath = String(data.desktopFile || "").trim()
+            if (desktopFilePath.length > 0 && FileManagerApi.copyPaths) {
+                var copyRes = FileManagerApi.copyPaths([desktopFilePath], targetDir, false)
+                added = !!(copyRes && copyRes.ok)
+            }
+            if (!added) {
+                added = writeDesktopLauncher(targetDir, data)
+            }
+        }
+
+        if (!added && typeof ShortcutModel !== "undefined" && ShortcutModel) {
+            if (data.desktopFile && data.desktopFile.length > 0 && ShortcutModel.addDesktopShortcut) {
+                added = ShortcutModel.addDesktopShortcut(data.desktopFile)
+            }
+            if (!added && data.desktopId && data.desktopId.length > 0 && ShortcutModel.addDesktopShortcutById) {
+                added = ShortcutModel.addDesktopShortcutById(data.desktopId)
+            }
+            if (!added && data.executable && data.executable.length > 0 && ShortcutModel.addDesktopShortcut) {
+                added = ShortcutModel.addDesktopShortcut(data.executable)
+            }
+            if (!added && data.name && data.name.length > 0 && ShortcutModel.addDesktopShortcut) {
+                added = ShortcutModel.addDesktopShortcut(data.name)
+            }
+            if (!added && data.executable && data.executable.length > 0 && ShortcutModel.addAppShortcut) {
+                added = ShortcutModel.addAppShortcut(data.name || "Application",
+                                                     data.executable,
+                                                     data.iconName || "")
+            }
+        }
+
+        return !!added
+    }
+
+    function cloneAppEntry(source) {
+        var entry = source ? source : ({})
+        return {
+            "name": String(entry.name || ""),
+            "iconSource": String(entry.iconSource || ""),
+            "iconName": String(entry.iconName || ""),
+            "desktopId": String(entry.desktopId || ""),
+            "desktopFile": String(entry.desktopFile || ""),
+            "executable": String(entry.executable || "")
+        }
     }
 
     function clampSelectedIndex() {
@@ -466,6 +598,15 @@ Item {
                                 width: root.gridCellWidth
                                 height: root.gridCellHeight
                                 readonly property var appEntry: modelData
+                                readonly property var dragEntryPayload: ({
+                                                                               "name": String(appEntry && appEntry.name ? appEntry.name : ""),
+                                                                               "desktopId": String(appEntry && appEntry.desktopId ? appEntry.desktopId : ""),
+                                                                               "desktopFile": String(appEntry && appEntry.desktopFile ? appEntry.desktopFile : ""),
+                                                                               "executable": String(appEntry && appEntry.executable ? appEntry.executable : ""),
+                                                                               "iconName": String(appEntry && appEntry.iconName ? appEntry.iconName : ""),
+                                                                               "iconSource": String(appEntry && appEntry.iconSource ? appEntry.iconSource : ""),
+                                                                               "source": "launchpad"
+                                                                           })
                                 // Per-row stagger: row N starts revealing after row (N-1) is underway.
                                 readonly property int rowIndex: Math.floor(index / Math.max(1, root.effectiveColumns))
                                 readonly property real rowDelay: rowIndex * root.staggerDelayPerRow
@@ -476,6 +617,16 @@ Item {
                                 transform: Translate {
                                     y: (1.0 - rowProgress) * 18
                                 }
+                                Drag.active: appEntryDragHandler.active
+                                Drag.supportedActions: Qt.CopyAction
+                                Drag.proposedAction: Qt.CopyAction
+                                Drag.hotSpot.x: width * 0.5
+                                Drag.hotSpot.y: height * 0.5
+                                Drag.mimeData: ({
+                                                    "application/x-slm-app-entry": JSON.stringify(dragEntryPayload),
+                                                    "application/x-slm-desktop-item": JSON.stringify(dragEntryPayload),
+                                                    "text/plain": JSON.stringify(dragEntryPayload)
+                                                })
 
                                 Rectangle {
                                     id: iconPlate
@@ -545,27 +696,61 @@ Item {
                                     acceptedButtons: Qt.LeftButton | Qt.RightButton
                                     onEntered: root.selectedIndex = index
                                     onClicked: function(mouse) {
+                                        if (appEntryDragHandler.active || appDragClickBlock.running) {
+                                            return
+                                        }
                                         root.selectedIndex = index
                                         if (mouse.button === Qt.LeftButton) {
                                             root.appChosen(appEntry)
                                         } else if (mouse.button === Qt.RightButton) {
+                                            appContextMenu.actionEntrySnapshot = root.cloneAppEntry(appEntry)
                                             appContextMenu.popup()
                                         }
                                     }
                                 }
 
+                                DragHandler {
+                                    id: appEntryDragHandler
+                                    target: null
+                                    acceptedButtons: Qt.LeftButton
+                                    onActiveChanged: {
+                                        if (active) {
+                                            root.selectedIndex = index
+                                            if (appContextMenu.visible) {
+                                                appContextMenu.close()
+                                            }
+                                        } else {
+                                            appDragClickBlock.restart()
+                                        }
+                                    }
+                                }
+
+                                Timer {
+                                    id: appDragClickBlock
+                                    interval: 160
+                                    repeat: false
+                                }
+
                                 Menu {
                                     id: appContextMenu
                                     property var quickRows: []
+                                    property var actionEntrySnapshot: ({})
+                                    onClosed: {
+                                        actionEntrySnapshot = ({})
+                                        quickRows = []
+                                    }
                                     onAboutToShow: {
+                                        if (!actionEntrySnapshot || String(actionEntrySnapshot.name || "").length <= 0) {
+                                            actionEntrySnapshot = root.cloneAppEntry(appEntry)
+                                        }
                                         if (typeof AppModel !== "undefined" && AppModel
                                                 && AppModel.slmQuickActionsForEntry) {
                                             quickRows = AppModel.slmQuickActionsForEntry("launcher", {
-                                                "desktopId": String(appEntry.desktopId || ""),
-                                                "desktopFile": String(appEntry.desktopFile || ""),
-                                                "executable": String(appEntry.executable || ""),
-                                                "iconName": String(appEntry.iconName || ""),
-                                                "iconSource": String(appEntry.iconSource || "")
+                                                "desktopId": String(actionEntrySnapshot.desktopId || ""),
+                                                "desktopFile": String(actionEntrySnapshot.desktopFile || ""),
+                                                "executable": String(actionEntrySnapshot.executable || ""),
+                                                "iconName": String(actionEntrySnapshot.iconName || ""),
+                                                "iconSource": String(actionEntrySnapshot.iconSource || "")
                                             }) || []
                                         } else if (typeof AppModel !== "undefined" && AppModel && AppModel.slmQuickActions) {
                                             quickRows = AppModel.slmQuickActions("launcher") || []
@@ -590,9 +775,9 @@ Item {
                                                     "scope": "launcher",
                                                     "selection_count": 0,
                                                     "source_app": "org.slm.launchpad",
-                                                    "desktop_id": String(appEntry.desktopId || ""),
-                                                    "desktop_file": String(appEntry.desktopFile || ""),
-                                                    "executable": String(appEntry.executable || "")
+                                                    "desktop_id": String(appContextMenu.actionEntrySnapshot.desktopId || ""),
+                                                    "desktop_file": String(appContextMenu.actionEntrySnapshot.desktopFile || ""),
+                                                    "executable": String(appContextMenu.actionEntrySnapshot.executable || "")
                                                 })
                                             }
                                         }
@@ -609,11 +794,13 @@ Item {
                                     }
                                     MenuItem {
                                         text: "Tambah ke Dock"
-                                        onTriggered: root.addToDockRequested(appEntry)
+                                        onTriggered: root.addToDockRequested(appContextMenu.actionEntrySnapshot)
                                     }
                                     MenuItem {
                                         text: "Add to Desktop"
-                                        onTriggered: root.addToDesktopRequested(appEntry)
+                                        onTriggered: {
+                                            root.requestAddToDesktop(appContextMenu.actionEntrySnapshot)
+                                        }
                                     }
                                 }
                             }

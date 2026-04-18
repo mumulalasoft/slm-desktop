@@ -17,7 +17,7 @@ Row {
 
     // -1 = no category menu open; ≥0 = menuId of the open category dropdown.
     property int menuBarOpenId: -1
-    readonly property bool anyPopupOpen: menuBarOpenId >= 0 || (appIdentity ? appIdentity.menuOpen : false)
+    readonly property bool anyPopupOpen: menuBarOpenId >= 0
 
     readonly property string _adaptiveMode: (typeof GlobalMenuAdaptiveController !== "undefined"
                                              && GlobalMenuAdaptiveController
@@ -389,38 +389,6 @@ Row {
             if (root._effectiveAdaptiveMode === "focus" && root._resumePending) {
                 root._focusReveal = true
                 focusHideTimer.restart()
-            }
-        }
-    }
-
-    // ── app identity ──────────────────────────────────────────────────────────
-
-    GlobalMenuComp.GlobalMenuAppIdentity {
-        id: appIdentity
-        visible: root._menuVisible
-        menuGroupActive: root.menuBarOpenId >= 0
-
-        onIdentityMenuOpened: root.menuBarOpenId = -1
-
-        onRequestAbout:      root._activateFallback(9106, 1)
-        onRequestSettings:   root._openSettings()
-        onRequestShortcuts: {
-            if (typeof ShellStateController !== "undefined" && ShellStateController
-                    && ShellStateController.setToTheSpotVisible) {
-                ShellStateController.setToTheSpotVisible(true)
-            }
-        }
-        onRequestPermissions:  root._openSettings()
-        onRequestRestartApp: {
-            if (typeof AppCommandRouter !== "undefined" && AppCommandRouter
-                    && AppCommandRouter.route && root._activeAppId.length > 0) {
-                AppCommandRouter.route("app.desktopid", { "desktopId": root._activeAppId }, "global-menu")
-            }
-        }
-        onRequestQuitApp: {
-            if (typeof WindowingBackend !== "undefined" && WindowingBackend
-                    && WindowingBackend.sendCommand) {
-                WindowingBackend.sendCommand("close-view")
             }
         }
     }

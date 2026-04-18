@@ -23,6 +23,7 @@ ApplicationWindow {
 
     // Navigation state — true = home grid, false = module page
     property bool atHome: true
+    property bool _themeSyncPending: false
 
     readonly property var currentModule: {
         if (!SettingsApp || !SettingsApp.currentModuleId || !ModuleLoader) return null
@@ -54,15 +55,32 @@ ApplicationWindow {
         DSStyle.Theme.userFontScale = DesktopSettings.fontScale
     }
 
+    function requestThemeSync() {
+        if (_themeSyncPending) {
+            return
+        }
+        _themeSyncPending = true
+        Qt.callLater(function() {
+            _themeSyncPending = false
+            syncThemePreferences()
+        })
+    }
+
     Component.onCompleted: {
-        syncThemePreferences()
+        requestThemeSync()
     }
 
     Connections {
         target: DesktopSettings
-        function onThemeModeChanged() { window.syncThemePreferences() }
-        function onAccentColorChanged() { window.syncThemePreferences() }
-        function onFontScaleChanged() { window.syncThemePreferences() }
+        function onThemeModeChanged() { window.requestThemeSync() }
+        function onAccentColorChanged() { window.requestThemeSync() }
+        function onFontScaleChanged() { window.requestThemeSync() }
+        function onSettingChanged(path) {
+            var p = String(path || "")
+            if (p.indexOf("globalAppearance.") === 0 || p.indexOf("globalAppearance/") === 0) {
+                window.requestThemeSync()
+            }
+        }
     }
 
     // External module open (deep link / D-Bus)

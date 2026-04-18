@@ -502,6 +502,15 @@ QVariantList GlobalMenuManager::menuItemsFor(int menuId) const
     if (menuId <= 0) {
         return {};
     }
+    if (m_overrideEnabled) {
+        for (const QVariant &menuValue : std::as_const(m_overrideMenus)) {
+            const QVariantMap menuRow = menuValue.toMap();
+            if (menuRow.value(QStringLiteral("id")).toInt() == menuId) {
+                return menuRow.value(QStringLiteral("items")).toList();
+            }
+        }
+        return {};
+    }
     if (m_activeMenuService.isEmpty() || m_activeMenuPath.isEmpty()) {
         return {};
     }
@@ -526,6 +535,34 @@ bool GlobalMenuManager::activateMenuItem(int menuId, int itemId)
 {
     if (menuId <= 0 || itemId <= 0) {
         return false;
+    }
+    if (m_overrideEnabled) {
+        QString label;
+        bool found = false;
+        for (const QVariant &menuValue : std::as_const(m_overrideMenus)) {
+            const QVariantMap menuRow = menuValue.toMap();
+            if (menuRow.value(QStringLiteral("id")).toInt() != menuId) {
+                continue;
+            }
+            const QVariantList items = menuRow.value(QStringLiteral("items")).toList();
+            for (const QVariant &itemValue : items) {
+                const QVariantMap itemRow = itemValue.toMap();
+                if (itemRow.value(QStringLiteral("separator")).toBool()) {
+                    continue;
+                }
+                if (itemRow.value(QStringLiteral("id")).toInt() == itemId) {
+                    label = itemRow.value(QStringLiteral("label")).toString();
+                    found = true;
+                    break;
+                }
+            }
+            break;
+        }
+        if (!found) {
+            return false;
+        }
+        emit overrideMenuItemActivated(menuId, itemId, label, m_overrideContext);
+        return true;
     }
     if (m_activeMenuService == QString::fromLatin1(kSlmMenuService)) {
         QDBusInterface slmMenu(QString::fromLatin1(kSlmMenuService),

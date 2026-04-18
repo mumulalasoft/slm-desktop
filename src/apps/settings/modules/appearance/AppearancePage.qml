@@ -658,6 +658,33 @@ Item {
                         Layout.fillWidth: true
 
                         SettingCard {
+                            label: qsTr("Icon Size")
+                            description: qsTr("Set the size of dock icons.")
+                            Layout.fillWidth: true
+                            ComboBox {
+                                model: [qsTr("Small"), qsTr("Medium"), qsTr("Large")]
+                                readonly property var sizeKeys: ["small", "medium", "large"]
+                                currentIndex: {
+                                    var sz = DesktopSettings.dockIconSize || "medium"
+                                    var idx = sizeKeys.indexOf(sz)
+                                    return idx >= 0 ? idx : 1
+                                }
+                                onActivated: DesktopSettings.setDockIconSize(sizeKeys[currentIndex])
+                                Layout.preferredWidth: 160
+                            }
+                        }
+
+                        SettingCard {
+                            label: qsTr("Magnification")
+                            description: qsTr("Enlarge icons when hovering over the dock.")
+                            Layout.fillWidth: true
+                            SettingToggle {
+                                checked: DesktopSettings.dockMagnificationEnabled !== false
+                                onToggled: DesktopSettings.setDockMagnificationEnabled(checked)
+                            }
+                        }
+
+                        SettingCard {
                             label: qsTr("Animation Style")
                             description: qsTr("Controls how dock icons animate when launching apps.")
                             Layout.fillWidth: true

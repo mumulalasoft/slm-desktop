@@ -309,7 +309,11 @@ int ShortcutModel::shortcutCount() const
 QVariantMap ShortcutModel::loadSlotMap() const
 {
     QVariantMap result;
-    QFile file(slotMapFilePath());
+    const QString filePath = slotMapFilePath();
+    if (filePath.isEmpty()) {
+        return result;
+    }
+    QFile file(filePath);
     if (!file.open(QIODevice::ReadOnly)) {
         return result;
     }
@@ -336,7 +340,7 @@ QVariantMap ShortcutModel::loadSlotMap() const
 
 bool ShortcutModel::saveSlotMap(const QVariantMap &slotMap) const
 {
-    if (!ensureDesktopDir()) {
+    if (!ensureShortcutsStateDir()) {
         return false;
     }
 
@@ -363,14 +367,45 @@ QString ShortcutModel::desktopDirectoryPath() const
     return QDir::home().filePath(QStringLiteral("Desktop"));
 }
 
+QString ShortcutModel::shortcutsStateDirectoryPath() const
+{
+    QString configRoot = QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
+    if (configRoot.isEmpty()) {
+        const QString genericConfig = QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation);
+        if (genericConfig.isEmpty()) {
+            return QString();
+        }
+        configRoot = QDir(genericConfig).filePath(QStringLiteral("slm-desktop"));
+    }
+    return QDir(configRoot).filePath(QStringLiteral("shortcuts"));
+}
+
 QString ShortcutModel::orderFilePath() const
 {
-    return QDir(desktopDirectoryPath()).filePath(QStringLiteral(".desktop_shell_shortcut_order"));
+    const QString stateDir = shortcutsStateDirectoryPath();
+    if (stateDir.isEmpty()) {
+        return QString();
+    }
+    return QDir(stateDir).filePath(QStringLiteral("desktop_shell_shortcut_order"));
 }
 
 QString ShortcutModel::slotMapFilePath() const
 {
-    return QDir(desktopDirectoryPath()).filePath(QStringLiteral(".desktop_shell_slot_map.json"));
+    const QString stateDir = shortcutsStateDirectoryPath();
+    if (stateDir.isEmpty()) {
+        return QString();
+    }
+    return QDir(stateDir).filePath(QStringLiteral("desktop_shell_slot_map.json"));
+}
+
+bool ShortcutModel::ensureShortcutsStateDir() const
+{
+    const QString stateDir = shortcutsStateDirectoryPath();
+    if (stateDir.isEmpty()) {
+        return false;
+    }
+    QDir dir(stateDir);
+    return dir.exists() || dir.mkpath(QStringLiteral("."));
 }
 
 bool ShortcutModel::ensureDesktopDir() const
@@ -382,7 +417,11 @@ bool ShortcutModel::ensureDesktopDir() const
 QStringList ShortcutModel::loadOrder() const
 {
     QStringList order;
-    QFile file(orderFilePath());
+    const QString filePath = orderFilePath();
+    if (filePath.isEmpty()) {
+        return order;
+    }
+    QFile file(filePath);
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
         return order;
     }
@@ -398,7 +437,7 @@ QStringList ShortcutModel::loadOrder() const
 
 void ShortcutModel::saveOrder() const
 {
-    if (!ensureDesktopDir()) {
+    if (!ensureShortcutsStateDir()) {
         return;
     }
     QFile file(orderFilePath());

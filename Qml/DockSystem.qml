@@ -100,6 +100,8 @@ QtObject {
         return 52
     }
 
+    readonly property real dockIconSlotWidth: resolveIconSlotWidth(dockIconSizePref)
+
     readonly property var dockLayoutState: ({
         "screenGeometry": {
             "x":      rootWindowRef ? Number(rootWindowRef.x || 0) : 0,
@@ -109,7 +111,7 @@ QtObject {
         },
         "dockBottomMargin":         desktopSceneRef ? Number(desktopSceneRef.dockBottomMargin || 0) : 0,
         "zoomHeadroom":             76,
-        "iconSlotWidth":            resolveIconSlotWidth(dockIconSizePref),
+        "iconSlotWidth":            dockIconSlotWidth,
         "itemSpacing":              0,
         "edgePadding":              4,
         "magnificationEnabled":     dockMagnificationEnabled,

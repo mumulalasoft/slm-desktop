@@ -173,6 +173,9 @@ void ModuleLoader::loadModuleFromDir(const QString &dirPath)
     if (id.isEmpty() || name.isEmpty()) {
         return;
     }
+    if (obj.value("hidden").toBool(false)) {
+        return;
+    }
 
     QVariantMap mod;
     mod.insert("id", id);

@@ -17,6 +17,11 @@ import Slm_Desktop
 
 Menu {
     id: root
+    modal: true
+    focus: true
+    closePolicy: Popup.CloseOnEscape
+                 | Popup.CloseOnPressOutside
+                 | Popup.CloseOnPressOutsideParent
 
     // The full context map passed to ContextMenuService.buildMenu().
     // Callers must populate at minimum the "type" key.
@@ -32,14 +37,29 @@ Menu {
 
     // ── internal state ───────────────────────────────────────────────────────
     property var _items: []
+    property bool _openingNow: false
 
     // Populate the model just before showing so the list is always fresh.
     onAboutToShow: {
-        _rebuildItems()
+        // Avoid double-rebuild race: popupAt() already rebuilt just before
+        // opening. Rebuilding again here can mutate the model while the popup
+        // is entering, which may look like auto-close/flicker.
+        if (!_openingNow && root.count <= 0) {
+            _rebuildItems()
+        }
+    }
+
+    onOpened: {
+        _openingNow = false
+    }
+
+    onClosed: {
+        _openingNow = false
     }
 
     // ── public helpers ───────────────────────────────────────────────────────
     function popupAt(x, y) {
+        _openingNow = true
         _rebuildItems()
         popup(x, y)
     }
@@ -58,9 +78,6 @@ Menu {
         while (root.count > 0) {
             var existing = root.itemAt(0)
             root.removeItem(existing)
-            if (existing && existing.destroy) {
-                existing.destroy()
-            }
         }
 
         _buildLevel(root, root._items)

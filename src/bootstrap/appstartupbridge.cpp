@@ -3,6 +3,7 @@
 #include "../services/power/powerbridge.h"
 
 #include <QQmlContext>
+#include <QDebug>
 #include <QTimer>
 #include <array>
 #include <utility>
@@ -53,10 +54,26 @@
 #include "../core/shell/shelllayerwatchdog.h"
 
 namespace {
+bool contextIsUsable(QQmlContext *context)
+{
+    if (context == nullptr) {
+        return false;
+    }
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    return context->isValid();
+#else
+    return true;
+#endif
+}
+
 template <std::size_t N>
 void setContextObjects(QQmlContext *context,
                        const std::array<std::pair<const char *, QObject *>, N> &entries)
 {
+    if (!contextIsUsable(context)) {
+        qWarning() << "[AppStartupBridge] skipped setContextObjects: invalid QQmlContext";
+        return;
+    }
     for (const auto &[name, object] : entries) {
         context->setContextProperty(QString::fromLatin1(name), object);
     }
@@ -200,6 +217,10 @@ void setStartupWindowContext(QQmlContext *context,
                              int appStartWindowWidth,
                              int appStartWindowHeight)
 {
+    if (!contextIsUsable(context)) {
+        qWarning() << "[AppStartupBridge] skipped setStartupWindowContext: invalid QQmlContext";
+        return;
+    }
     context->setContextProperty(QStringLiteral("AppStartWindowed"), appStartWindowed);
     context->setContextProperty(QStringLiteral("AppStartWindowWidth"), appStartWindowWidth);
     context->setContextProperty(QStringLiteral("AppStartWindowHeight"), appStartWindowHeight);

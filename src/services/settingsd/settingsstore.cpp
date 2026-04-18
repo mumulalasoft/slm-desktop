@@ -255,6 +255,9 @@ QVariantMap SettingsStore::defaultSettings()
              {QStringLiteral("dropPulseEnabled"), true},
              {QStringLiteral("dragThresholdMouse"), 6},
              {QStringLiteral("dragThresholdTouchpad"), 3},
+             {QStringLiteral("desktopExportMinUpwardPx"), 28},
+             {QStringLiteral("desktopExportVerticalRatioPercent"), 135},
+             {QStringLiteral("desktopExportMaxHorizontalDriftPx"), 42},
              {QStringLiteral("iconSize"), QStringLiteral("medium")},
              {QStringLiteral("magnificationEnabled"), true},
          }},
@@ -323,6 +326,28 @@ QVariantMap SettingsStore::normalizeRoot(const QVariantMap &raw)
     for (auto it = migrated.constBegin(); it != migrated.constEnd(); ++it) {
         normalized.insert(it.key(), it.value());
     }
+
+    QVariantMap appearance = normalized.value(QStringLiteral("globalAppearance")).toMap();
+    QVariantMap shellTheme = normalized.value(QStringLiteral("shellTheme")).toMap();
+    const QString appearanceMode = appearance.value(QStringLiteral("colorMode")).toString().trimmed().toLower();
+    const QString shellMode = shellTheme.value(QStringLiteral("mode")).toString().trimmed().toLower();
+    const auto isSupportedMode = [](const QString &candidate) {
+        return candidate == QLatin1String("light")
+                || candidate == QLatin1String("dark")
+                || candidate == QLatin1String("auto");
+    };
+
+    QString resolvedMode = QStringLiteral("dark");
+    if (isSupportedMode(appearanceMode)) {
+        resolvedMode = appearanceMode;
+    } else if (isSupportedMode(shellMode)) {
+        resolvedMode = shellMode;
+    }
+    appearance.insert(QStringLiteral("colorMode"), resolvedMode);
+    shellTheme.insert(QStringLiteral("mode"), resolvedMode);
+    normalized.insert(QStringLiteral("globalAppearance"), appearance);
+    normalized.insert(QStringLiteral("shellTheme"), shellTheme);
+
     normalized.insert(QStringLiteral("schemaVersion"), kSchemaVersion);
     return normalized;
 }
@@ -488,6 +513,39 @@ bool SettingsStore::validateValue(const QString &path, const QVariant &value, QS
         if (!ok || v < 2 || v > 24) {
             if (error) {
                 *error = QStringLiteral("dock drag threshold out of supported range 2..24");
+            }
+            return false;
+        }
+        return true;
+    }
+    if (path == QStringLiteral("dock.desktopExportMinUpwardPx")) {
+        bool ok = false;
+        const int v = value.toInt(&ok);
+        if (!ok || v < 8 || v > 96) {
+            if (error) {
+                *error = QStringLiteral("dock desktop export minimum upward distance out of supported range 8..96");
+            }
+            return false;
+        }
+        return true;
+    }
+    if (path == QStringLiteral("dock.desktopExportVerticalRatioPercent")) {
+        bool ok = false;
+        const int v = value.toInt(&ok);
+        if (!ok || v < 100 || v > 260) {
+            if (error) {
+                *error = QStringLiteral("dock desktop export vertical ratio out of supported range 100..260");
+            }
+            return false;
+        }
+        return true;
+    }
+    if (path == QStringLiteral("dock.desktopExportMaxHorizontalDriftPx")) {
+        bool ok = false;
+        const int v = value.toInt(&ok);
+        if (!ok || v < 8 || v > 140) {
+            if (error) {
+                *error = QStringLiteral("dock desktop export max horizontal drift out of supported range 8..140");
             }
             return false;
         }

@@ -38,6 +38,9 @@ class DesktopSettingsClient : public QObject
     Q_PROPERTY(bool dockDropPulseEnabled READ dockDropPulseEnabled NOTIFY dockDropPulseEnabledChanged)
     Q_PROPERTY(int dockDragThresholdMouse READ dockDragThresholdMouse NOTIFY dockDragThresholdMouseChanged)
     Q_PROPERTY(int dockDragThresholdTouchpad READ dockDragThresholdTouchpad NOTIFY dockDragThresholdTouchpadChanged)
+    Q_PROPERTY(int dockDesktopExportMinUpwardPx READ dockDesktopExportMinUpwardPx NOTIFY dockDesktopExportMinUpwardPxChanged)
+    Q_PROPERTY(int dockDesktopExportVerticalRatioPercent READ dockDesktopExportVerticalRatioPercent NOTIFY dockDesktopExportVerticalRatioPercentChanged)
+    Q_PROPERTY(int dockDesktopExportMaxHorizontalDriftPx READ dockDesktopExportMaxHorizontalDriftPx NOTIFY dockDesktopExportMaxHorizontalDriftPxChanged)
     Q_PROPERTY(QString dockIconSize READ dockIconSize NOTIFY dockIconSizeChanged)
     Q_PROPERTY(bool dockMagnificationEnabled READ dockMagnificationEnabled NOTIFY dockMagnificationEnabledChanged)
     Q_PROPERTY(bool windowingAnimationEnabled READ windowingAnimationEnabled NOTIFY windowingAnimationEnabledChanged)
@@ -80,6 +83,9 @@ public:
     bool dockDropPulseEnabled() const;
     int dockDragThresholdMouse() const;
     int dockDragThresholdTouchpad() const;
+    int dockDesktopExportMinUpwardPx() const;
+    int dockDesktopExportVerticalRatioPercent() const;
+    int dockDesktopExportMaxHorizontalDriftPx() const;
     QString dockIconSize() const;
     bool dockMagnificationEnabled() const;
     bool windowingAnimationEnabled() const;
@@ -118,6 +124,9 @@ public:
     Q_INVOKABLE bool setDockDropPulseEnabled(bool enabled);
     Q_INVOKABLE bool setDockDragThresholdMouse(int value);
     Q_INVOKABLE bool setDockDragThresholdTouchpad(int value);
+    Q_INVOKABLE bool setDockDesktopExportMinUpwardPx(int value);
+    Q_INVOKABLE bool setDockDesktopExportVerticalRatioPercent(int value);
+    Q_INVOKABLE bool setDockDesktopExportMaxHorizontalDriftPx(int value);
     Q_INVOKABLE bool setDockIconSize(const QString &value);
     Q_INVOKABLE bool setDockMagnificationEnabled(bool enabled);
     Q_INVOKABLE bool setWindowingAnimationEnabled(bool enabled);
@@ -164,6 +173,9 @@ signals:
     void dockDropPulseEnabledChanged();
     void dockDragThresholdMouseChanged();
     void dockDragThresholdTouchpadChanged();
+    void dockDesktopExportMinUpwardPxChanged();
+    void dockDesktopExportVerticalRatioPercentChanged();
+    void dockDesktopExportMaxHorizontalDriftPxChanged();
     void dockIconSizeChanged();
     void dockMagnificationEnabledChanged();
     void windowingAnimationEnabledChanged();
@@ -224,6 +236,9 @@ private:
     bool m_dockDropPulseEnabled = true;
     int m_dockDragThresholdMouse = 6;
     int m_dockDragThresholdTouchpad = 3;
+    int m_dockDesktopExportMinUpwardPx = 28;
+    int m_dockDesktopExportVerticalRatioPercent = 135;
+    int m_dockDesktopExportMaxHorizontalDriftPx = 42;
     QString m_dockIconSize = QStringLiteral("medium");
     bool m_dockMagnificationEnabled = true;
     bool m_windowingAnimationEnabled = true;

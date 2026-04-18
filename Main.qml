@@ -34,6 +34,7 @@ ApplicationWindow {
         return false
     }
     property bool styleDarkMode: Theme.darkMode
+    property bool _themeSyncPending: false
     readonly property bool startupTraceEnabled: (typeof StartupTraceEnabled !== "undefined") ? !!StartupTraceEnabled : false
     property real startupT0: 0
     property bool startupNonCriticalWindowsReady: false
@@ -330,6 +331,17 @@ ApplicationWindow {
         DSStyle.Theme.userAccentColor = String(DesktopSettings.accentColor || "")
         DSStyle.Theme.userFontScale = Number(DesktopSettings.fontScale || 1.0)
     }
+
+    function requestStyleThemeSync() {
+        if (_themeSyncPending) {
+            return
+        }
+        _themeSyncPending = true
+        Qt.callLater(function() {
+            _themeSyncPending = false
+            syncStyleThemeFromPreferences()
+        })
+    }
     // Phase-budget map (ms from startupT0). Exceeding these logs a regression warning.
     // Only covers phases that are emitted through Main.qml's startupQmlMark.
     readonly property var startupPhaseBudgets: ({
@@ -383,7 +395,7 @@ ApplicationWindow {
     Component.onCompleted: {
         startupQmlMark("main.onCompleted.begin")
         root.sendOverlayCommand("overlay register shell slm-shell-main")
-        syncStyleThemeFromPreferences()
+        requestStyleThemeSync()
         Qt.callLater(function() {
             startupQmlMark("main.deferredInit.begin")
             // 5-minute threshold — 30 s default is too short for normal launchpad browsing.
@@ -441,9 +453,15 @@ ApplicationWindow {
 
     Connections {
         target: typeof DesktopSettings !== "undefined" ? DesktopSettings : null
-        function onThemeModeChanged() { root.syncStyleThemeFromPreferences() }
-        function onAccentColorChanged() { root.syncStyleThemeFromPreferences() }
-        function onFontScaleChanged() { root.syncStyleThemeFromPreferences() }
+        function onThemeModeChanged() { root.requestStyleThemeSync() }
+        function onAccentColorChanged() { root.requestStyleThemeSync() }
+        function onFontScaleChanged() { root.requestStyleThemeSync() }
+        function onSettingChanged(path) {
+            var p = String(path || "")
+            if (p.indexOf("globalAppearance.") === 0 || p.indexOf("globalAppearance/") === 0) {
+                root.requestStyleThemeSync()
+            }
+        }
         function onAnimationModeChanged() {
             // Re-sync motion controller scale when animation mode changes at runtime.
             ShellUtils.applyMotionTimeScale(root)

@@ -5,11 +5,16 @@
 
 #include <QDateTime>
 #include <QDir>
+#include <QCryptographicHash>
+#include <QFile>
 #include <QFileInfo>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QMetaObject>
 #include <QMimeDatabase>
 #include <QMimeType>
 #include <QPointer>
+#include <QSettings>
 #include <QStandardPaths>
 #include <QTimer>
 #include <QUrl>
@@ -28,6 +33,18 @@ struct DirectoryScanResult
 
 QString mimeIconForInfo(const QFileInfo &info);
 bool isArchiveEntry(const FileEntry &entry);
+void applyDesktopEntryMetadata(FileEntry *entry);
+QString slotMapFilePathForPath(const QString &path);
+QHash<QString, int> loadSlotMapForPath(const QString &path);
+bool saveSlotMapForPath(const QString &path, const QHash<QString, int> &slotByPath);
+void applySlotOrder(QVector<FileEntry> *entries, const QHash<QString, int> &slotByPath);
+
+bool isInternalDesktopMetaFileName(const QString &name)
+{
+    const QString n = name.trimmed();
+    return n == QStringLiteral(".desktop_shell_slot_map.json")
+            || n == QStringLiteral(".desktop_shell_shortcut_order");
+}
 
 QString fileKindSortKey(const FileEntry &e)
 {
@@ -147,6 +164,9 @@ DirectoryScanResult scanDirectoryFast(const QString &currentPath,
 
     out.entries.reserve(rows.size());
     for (const QFileInfo &info : rows) {
+        if (isInternalDesktopMetaFileName(info.fileName())) {
+            continue;
+        }
         FileEntry e;
         e.name = info.fileName();
         e.path = info.absoluteFilePath();
@@ -162,6 +182,7 @@ DirectoryScanResult scanDirectoryFast(const QString &currentPath,
         e.size = static_cast<qlonglong>(info.size());
         e.dir = info.isDir();
         e.hidden = info.isHidden();
+        applyDesktopEntryMetadata(&e);
         out.entries.push_back(e);
     }
     out.ok = true;
@@ -288,6 +309,134 @@ bool isArchiveEntry(const FileEntry &entry)
     return false;
 }
 
+void applyDesktopEntryMetadata(FileEntry *entry)
+{
+    if (entry == nullptr) {
+        return;
+    }
+    const QFileInfo fi(entry->path);
+    if (!fi.exists() || !fi.isFile() || fi.suffix().compare(QStringLiteral("desktop"), Qt::CaseInsensitive) != 0) {
+        return;
+    }
+
+    QSettings desktopFile(entry->path, QSettings::IniFormat);
+    desktopFile.beginGroup(QStringLiteral("Desktop Entry"));
+    const QString displayName = desktopFile.value(QStringLiteral("Name")).toString().trimmed();
+    const QString iconName = desktopFile.value(QStringLiteral("Icon")).toString().trimmed();
+    desktopFile.endGroup();
+
+    if (!displayName.isEmpty()) {
+        entry->name = displayName;
+    }
+    if (!iconName.isEmpty()) {
+        entry->iconName = iconName;
+    }
+    if (entry->mimeType.isEmpty()) {
+        entry->mimeType = QStringLiteral("application/x-desktop");
+    }
+}
+
+QString slotMapFilePathForPath(const QString &path)
+{
+    if (path.contains(QStringLiteral("://")) || isRecentVirtualPath(path) || path.startsWith(QStringLiteral("__"))) {
+        return QString();
+    }
+    const QString dirPath = QDir(path).absolutePath();
+    if (dirPath.isEmpty()) {
+        return QString();
+    }
+
+    QString configRoot = QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
+    if (configRoot.isEmpty()) {
+        const QString genericConfig = QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation);
+        if (genericConfig.isEmpty()) {
+            return QString();
+        }
+        configRoot = QDir(genericConfig).filePath(QStringLiteral("slm-desktop"));
+    }
+
+    const QByteArray hash = QCryptographicHash::hash(dirPath.toUtf8(), QCryptographicHash::Sha1).toHex();
+    return QDir(configRoot).filePath(QStringLiteral("slotmaps/%1.json").arg(QString::fromLatin1(hash)));
+}
+
+QHash<QString, int> loadSlotMapForPath(const QString &path)
+{
+    QHash<QString, int> out;
+    const QString slotFile = slotMapFilePathForPath(path);
+    if (slotFile.isEmpty()) {
+        return out;
+    }
+    QFile file(slotFile);
+    if (!file.open(QIODevice::ReadOnly)) {
+        return out;
+    }
+    QJsonParseError err;
+    const QJsonDocument doc = QJsonDocument::fromJson(file.readAll(), &err);
+    file.close();
+    if (err.error != QJsonParseError::NoError || !doc.isObject()) {
+        return out;
+    }
+    const QJsonObject obj = doc.object();
+    for (auto it = obj.constBegin(); it != obj.constEnd(); ++it) {
+        if (!it.value().isDouble()) {
+            continue;
+        }
+        const int slot = it.value().toInt(-1);
+        if (slot >= 0) {
+            out.insert(QFileInfo(it.key()).absoluteFilePath(), slot);
+        }
+    }
+    return out;
+}
+
+bool saveSlotMapForPath(const QString &path, const QHash<QString, int> &slotByPath)
+{
+    const QString slotFile = slotMapFilePathForPath(path);
+    if (slotFile.isEmpty()) {
+        return false;
+    }
+    QDir parentDir = QFileInfo(slotFile).absoluteDir();
+    if (!parentDir.exists() && !parentDir.mkpath(QStringLiteral("."))) {
+        return false;
+    }
+    QJsonObject obj;
+    for (auto it = slotByPath.constBegin(); it != slotByPath.constEnd(); ++it) {
+        const int slot = it.value();
+        if (slot < 0) {
+            continue;
+        }
+        obj.insert(QFileInfo(it.key()).absoluteFilePath(), slot);
+    }
+    QFile file(slotFile);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        return false;
+    }
+    file.write(QJsonDocument(obj).toJson(QJsonDocument::Compact));
+    file.close();
+    return true;
+}
+
+void applySlotOrder(QVector<FileEntry> *entries, const QHash<QString, int> &slotByPath)
+{
+    if (entries == nullptr || entries->isEmpty() || slotByPath.isEmpty()) {
+        return;
+    }
+    std::stable_sort(entries->begin(), entries->end(),
+                     [&slotByPath](const FileEntry &a, const FileEntry &b) {
+        const QString aPath = QFileInfo(a.path).absoluteFilePath();
+        const QString bPath = QFileInfo(b.path).absoluteFilePath();
+        const bool hasA = slotByPath.contains(aPath);
+        const bool hasB = slotByPath.contains(bPath);
+        if (hasA && hasB) {
+            return slotByPath.value(aPath) < slotByPath.value(bPath);
+        }
+        if (hasA != hasB) {
+            return hasA;
+        }
+        return false;
+    });
+}
+
 QVector<FileEntry> entriesFromApiResult(const QVariantList &rows)
 {
     QVector<FileEntry> out;
@@ -332,6 +481,7 @@ QVector<FileEntry> entriesFromApiResult(const QVariantList &rows)
                     ? QStringLiteral("inode/directory")
                     : QMimeDatabase().mimeTypeForFile(fi.absoluteFilePath(), QMimeDatabase::MatchDefault).name();
         }
+        applyDesktopEntryMetadata(&e);
         if (e.dateAdded.isEmpty()) {
             const QString created = row.value(QStringLiteral("created")).toString();
             const QString lastOpened = row.value(QStringLiteral("lastOpened")).toString();
@@ -550,6 +700,21 @@ void FileManagerModel::setSortDescending(bool value)
     refresh();
 }
 
+bool FileManagerModel::useSlotOrder() const
+{
+    return m_useSlotOrder;
+}
+
+void FileManagerModel::setUseSlotOrder(bool value)
+{
+    if (m_useSlotOrder == value) {
+        return;
+    }
+    m_useSlotOrder = value;
+    emit useSlotOrderChanged();
+    refresh();
+}
+
 void FileManagerModel::setSearchText(const QString &value)
 {
     const QString next = value;
@@ -689,6 +854,7 @@ QVariantMap FileManagerModel::refresh()
                 e.dir = fi.isDir();
                 e.hidden = fi.isHidden();
                 e.networkShared = row.value(QStringLiteral("networkShared")).toBool();
+                applyDesktopEntryMetadata(&e);
                 if (searchActive && !e.name.contains(search, Qt::CaseInsensitive)) {
                     continue;
                 }
@@ -801,6 +967,9 @@ void FileManagerModel::setSort(const QString &key, bool descending)
 void FileManagerModel::applyEntries(QVector<FileEntry> entries)
 {
     sortEntries(entries, m_sortKey, m_sortDescending, m_directoriesFirst);
+    if (m_useSlotOrder) {
+        applySlotOrder(&entries, loadSlotMapForPath(m_currentPath));
+    }
     beginResetModel();
     m_entries = std::move(entries);
     endResetModel();
@@ -1034,4 +1203,32 @@ QVariantMap FileManagerModel::renameAt(int index, const QString &newName)
         refresh();
     }
     return result;
+}
+
+QVariantMap FileManagerModel::loadSlotMap() const
+{
+    QVariantMap out;
+    const auto slotByPath = loadSlotMapForPath(m_currentPath);
+    for (auto it = slotByPath.constBegin(); it != slotByPath.constEnd(); ++it) {
+        out.insert(it.key(), it.value());
+    }
+    return out;
+}
+
+bool FileManagerModel::saveSlotMap(const QVariantMap &slotMap)
+{
+    QHash<QString, int> next;
+    for (auto it = slotMap.constBegin(); it != slotMap.constEnd(); ++it) {
+        bool ok = false;
+        const int slot = it.value().toInt(&ok);
+        if (!ok || slot < 0) {
+            continue;
+        }
+        next.insert(QFileInfo(it.key()).absoluteFilePath(), slot);
+    }
+    const bool saved = saveSlotMapForPath(m_currentPath, next);
+    if (saved && m_useSlotOrder) {
+        refresh();
+    }
+    return saved;
 }

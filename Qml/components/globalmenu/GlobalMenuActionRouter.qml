@@ -196,6 +196,199 @@ QtObject {
         if (ctx.length <= 0) {
             return
         }
+        if (ctx === "filemanager") {
+            if (!fileManagerContent) {
+                return
+            }
+            var currentPath = (fileManagerContent.fileModel && fileManagerContent.fileModel.currentPath)
+                    ? String(fileManagerContent.fileModel.currentPath) : "~"
+
+            function openPathSafe(pathValue) {
+                if (fileManagerContent.openPath) {
+                    fileManagerContent.openPath(String(pathValue || "~"))
+                }
+            }
+
+            function unsupported(title) {
+                requestHelpMessage(String(title || "Action") + " is not available yet.")
+            }
+
+            if (menu === 2001) { // File
+                if (item === 1 && fileManagerContent.createNewFolder) { fileManagerContent.createNewFolder(); return }
+                if (item === 2 && fileManagerContent.createNewFile) { fileManagerContent.createNewFile(); return }
+                if (item === 3 && fileManagerContent.openSelectedEntries) { fileManagerContent.openSelectedEntries(); return }
+                if (item === 4 && fileManagerContent.openInOtherApplication) { fileManagerContent.openInOtherApplication(); return }
+                if (item === 5) {
+                    if (typeof AppCommandRouter !== "undefined" && AppCommandRouter && AppCommandRouter.routeWithResult) {
+                        var quotedPath = fileManagerContent.shellSingleQuote
+                                ? fileManagerContent.shellSingleQuote(currentPath)
+                                : ("'" + String(currentPath).replace(/'/g, "'\\''") + "'")
+                        var terminalCmd = "cd " + quotedPath
+                        var termRes = AppCommandRouter.routeWithResult("terminal.exec",
+                                                                        { "command": terminalCmd },
+                                                                        "global-menu-filemanager")
+                        if (!termRes || !termRes.ok) {
+                            requestHelpMessage("Open Terminal Here failed.")
+                        }
+                    } else {
+                        requestHelpMessage("Open Terminal Here is unavailable.")
+                    }
+                    return
+                }
+                if (item === 6 && fileManagerContent.openHome) { fileManagerContent.openHome(); return }
+                if (item === 7 && fileManagerContent.compressSelection) { fileManagerContent.compressSelection(); return }
+                if (item === 8 && fileManagerContent.deleteSelected) { fileManagerContent.deleteSelected(false); return }
+                if (item === 9 && fileManagerContent.deleteSelected) { fileManagerContent.deleteSelected(true); return }
+                return
+            }
+
+            if (menu === 2002) { // Edit
+                if (item === 1) { unsupported("Undo"); return }
+                if (item === 2) { unsupported("Redo"); return }
+                if (item === 3 && fileManagerContent.copySelected) { fileManagerContent.copySelected(true); return }
+                if (item === 4 && fileManagerContent.copySelected) { fileManagerContent.copySelected(false); return }
+                if (item === 5 && fileManagerContent.pasteIntoCurrent) { fileManagerContent.pasteIntoCurrent(); return }
+                if (item === 6) {
+                    if (fileManagerContent.copySelected && fileManagerContent.pasteIntoCurrent) {
+                        fileManagerContent.copySelected(false)
+                        fileManagerContent.pasteIntoCurrent()
+                    }
+                    return
+                }
+                if (item === 7 && fileManagerContent.selectAllVisibleEntries) { fileManagerContent.selectAllVisibleEntries(); return }
+                if (item === 8 && fileManagerContent.clearSelection) { fileManagerContent.clearSelection(); return }
+                if (item === 9 && fileManagerContent.renameSelected) { fileManagerContent.renameSelected(); return }
+                return
+            }
+
+            if (menu === 2003) { // View
+                if (item === 1) { fileManagerContent.viewMode = "grid"; return }
+                if (item === 2) {
+                    if (fileManagerContent.fileModel && fileManagerContent.fileModel.setSort) {
+                        fileManagerContent.fileModel.setSort("name", false)
+                    }
+                    return
+                }
+                if (item === 3) {
+                    if (fileManagerContent.fileModel && fileManagerContent.fileModel.setSort) {
+                        var key = String(fileManagerContent.fileModel.sortKey || "dateModified")
+                        var descending = !!fileManagerContent.fileModel.sortDescending
+                        fileManagerContent.fileModel.setSort(key, !descending)
+                    }
+                    return
+                }
+                if (item === 4) {
+                    if (fileManagerContent.fileModel && fileManagerContent.fileModel.directoriesFirst !== undefined) {
+                        fileManagerContent.fileModel.directoriesFirst = !fileManagerContent.fileModel.directoriesFirst
+                    }
+                    return
+                }
+                if (item === 5) {
+                    if (fileManagerContent.fileModel && fileManagerContent.fileModel.includeHidden !== undefined) {
+                        fileManagerContent.fileModel.includeHidden = !fileManagerContent.fileModel.includeHidden
+                    }
+                    return
+                }
+                if (item === 6) { unsupported("Show File Extensions"); return }
+                if (item === 7) { unsupported("Icon Size"); return }
+                if (item === 8) { unsupported("Grid Spacing"); return }
+                if (item === 9 && fileManagerContent.showPropertiesForSelection) { fileManagerContent.showPropertiesForSelection(); return }
+                return
+            }
+
+            if (menu === 2101) { // Go
+                if (item === 1) { openPathSafe("~"); return }
+                if (item === 2) { openPathSafe("~/Desktop"); return }
+                if (item === 3) { openPathSafe("~/Documents"); return }
+                if (item === 4) { openPathSafe("~/Downloads"); return }
+                if (item === 5) { openPathSafe("~/Pictures"); return }
+                if (item === 6) { openPathSafe("~/Videos"); return }
+                if (item === 7) { openPathSafe("__recent__"); return }
+                if (item === 8) { unsupported("Recent Folders"); return }
+                if (item === 9) { openPathSafe("__network__"); return }
+                if (item === 10) {
+                    if (fileManagerContent.fileManagerApiRef && fileManagerContent.fileManagerApiRef.storageLocations) {
+                        var rows = fileManagerContent.fileManagerApiRef.storageLocations() || []
+                        for (var i = 0; i < rows.length; ++i) {
+                            var row = rows[i] || ({})
+                            if (!row.mounted) {
+                                continue
+                            }
+                            var mountedPath = String(row.path || row.rootPath || "")
+                            if (mountedPath.length > 0 && mountedPath.indexOf("__mount__:") !== 0) {
+                                openPathSafe(mountedPath)
+                                return
+                            }
+                        }
+                    }
+                    requestHelpMessage("No mounted devices found.")
+                    return
+                }
+                if (item === 11) { openPathSafe("~/.local/share/Trash/files"); return }
+                return
+            }
+
+            if (menu === 2004) { // Tools
+                if (item === 1) {
+                    ShellUtils.openDetachedFileManager(rootWindow, currentPath)
+                    return
+                }
+                if (item === 2) {
+                    if (fileManagerContent.openPathInNewTab) {
+                        fileManagerContent.openPathInNewTab(currentPath)
+                    }
+                    return
+                }
+                if (item === 3) { requestFocusTothespot(); return }
+                if (item === 4) { unsupported("Batch Rename"); return }
+                if (item === 5 && fileManagerContent.compressSelection) { fileManagerContent.compressSelection(); return }
+                if (item === 6) {
+                    if (fileManagerContent.copySelectedAsLinkToClipboard) {
+                        fileManagerContent.copySelectedAsLinkToClipboard()
+                    } else {
+                        unsupported("Create Shortcut / Link")
+                    }
+                    return
+                }
+                if (item === 7 && fileManagerContent.showPropertiesForSelection) { fileManagerContent.showPropertiesForSelection(); return }
+                return
+            }
+
+            if (menu === 2005) { // Workspace
+                if (item === 1) {
+                    _routeOrWarn("workspace.toggle",
+                                 _withMenuMeta({}, menu, item),
+                                 "global-menu",
+                                 "Workspace action failed")
+                    return
+                }
+                if (item === 2 || item === 3) {
+                    if (typeof WindowingBackend !== "undefined" && WindowingBackend && WindowingBackend.sendCommand) {
+                        WindowingBackend.sendCommand(item === 2 ? "focus left" : "focus right")
+                    } else {
+                        unsupported(item === 2 ? "Move Focus Left" : "Move Focus Right")
+                    }
+                    return
+                }
+                if (item === 4) {
+                    _routeOrWarn("workspace.pin_current",
+                                 _withMenuMeta({}, menu, item),
+                                 "global-menu",
+                                 "Workspace pin failed")
+                    return
+                }
+                if (item === 5) {
+                    _routeOrWarn("workspace.split_right",
+                                 _withMenuMeta({}, menu, item),
+                                 "global-menu",
+                                 "Workspace split failed")
+                    openPathSafe("~/Desktop")
+                    return
+                }
+                return
+            }
+            return
+        }
 
         if (menu === 2001) { // File
             if (item === 1) { // New Window
