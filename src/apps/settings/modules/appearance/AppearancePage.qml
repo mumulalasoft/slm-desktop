@@ -17,6 +17,49 @@ Item {
     function themeModel(list) {
         return [qsTr("(System default)")].concat(list)
     }
+    function themeRows(list) {
+        var rows = [{ "label": qsTr("(System default)"), "value": "" }]
+        for (var i = 0; i < list.length; ++i) {
+            var name = String(list[i] || "")
+            rows.push({ "label": name, "value": name })
+        }
+        return rows
+    }
+    function themeRowsForCurrent(list, currentValue) {
+        var rows = [{ "label": qsTr("(System default)"), "value": "" }]
+        var current = String(currentValue || "").trim()
+        var foundCurrent = false
+        for (var i = 0; i < list.length; ++i) {
+            var name = String(list[i] || "").trim()
+            if (name.length <= 0) {
+                continue
+            }
+            if (current.length > 0 && name === current) {
+                foundCurrent = true
+            }
+            rows.push({ "label": name, "value": name })
+        }
+        if (current.length > 0 && !foundCurrent) {
+            rows.splice(1, 0, {
+                "label": current + qsTr(" (current)"),
+                "value": current
+            })
+        }
+        return rows
+    }
+    function themeIndexFromRows(rows, stored) {
+        var s = String(stored || "").trim()
+        if (s.length <= 0) {
+            return 0
+        }
+        for (var i = 0; i < rows.length; ++i) {
+            var row = rows[i] || ({})
+            if (String((row && row.value) ? row.value : "") === s) {
+                return i
+            }
+        }
+        return 0
+    }
     function themeIndex(list, stored) {
         if (!stored || stored.length === 0) return 0
         const idx = list.indexOf(stored)
@@ -36,6 +79,137 @@ Item {
     ]
 
     property int currentIndex: 0
+    property bool _themeComboSyncPending: false
+    property int _themeComboSyncRetries: 0
+    property bool _ignoreComboActivated: false
+    readonly property bool comboDebugEnabled: false
+    readonly property string comboDebugRevision: "appearance-combo-debug-r1"
+    property string _lastComboDebugSnapshot: ""
+
+    function comboTextIndex(combo, storedValue) {
+        if (!combo) {
+            return 0
+        }
+        var stored = String(storedValue || "").trim().toLowerCase()
+        if (stored.length <= 0) {
+            return 0
+        }
+        var n = Number(combo.count || 0)
+        for (var i = 0; i < n; ++i) {
+            var t = String(combo.textAt(i) || "").trim().toLowerCase()
+            if (t === stored) {
+                return i
+            }
+        }
+        return 0
+    }
+
+    function syncComboToStoredValue(combo, storedValue) {
+        if (!combo) {
+            return
+        }
+        var idx = comboTextIndex(combo, storedValue)
+        if (combo.currentIndex !== idx) {
+            combo.currentIndex = idx
+        }
+    }
+
+    function syncThemeAndIconCombos() {
+        _ignoreComboActivated = true
+        syncComboToStoredValue(gtkThemeLightCombo, DesktopSettings.gtkThemeLight)
+        syncComboToStoredValue(gtkThemeDarkCombo, DesktopSettings.gtkThemeDark)
+        syncComboToStoredValue(kdeColorSchemeLightCombo, DesktopSettings.kdeColorSchemeLight)
+        syncComboToStoredValue(kdeColorSchemeDarkCombo, DesktopSettings.kdeColorSchemeDark)
+        syncComboToStoredValue(gtkIconThemeLightCombo, DesktopSettings.gtkIconThemeLight)
+        syncComboToStoredValue(gtkIconThemeDarkCombo, DesktopSettings.gtkIconThemeDark)
+        syncComboToStoredValue(kdeIconThemeLightCombo, DesktopSettings.kdeIconThemeLight)
+        syncComboToStoredValue(kdeIconThemeDarkCombo, DesktopSettings.kdeIconThemeDark)
+        logThemeAndIconComboState("sync", false)
+        Qt.callLater(function() {
+            root._ignoreComboActivated = false
+        })
+    }
+
+    function requestThemeAndIconComboSync() {
+        if (_themeComboSyncPending) {
+            return
+        }
+        _themeComboSyncPending = true
+        Qt.callLater(function() {
+            _themeComboSyncPending = false
+            root.syncThemeAndIconCombos()
+            root._themeComboSyncRetries = 4
+            themeComboSyncTimer.restart()
+        })
+    }
+
+    Component.onCompleted: {
+        requestThemeAndIconComboSync()
+        if (comboDebugEnabled) {
+            console.warn("[appearance-combo-debug] loaded rev=" + comboDebugRevision)
+            logThemeAndIconComboState("component-completed", true)
+        }
+    }
+    onCurrentIndexChanged: {
+        if (currentIndex === 2 || currentIndex === 3) {
+            requestThemeAndIconComboSync()
+            logThemeAndIconComboState("tab-open-" + currentIndex, true)
+        }
+    }
+
+    Timer {
+        id: themeComboSyncTimer
+        interval: 140
+        repeat: true
+        running: false
+        onTriggered: {
+            root.syncThemeAndIconCombos()
+            root._themeComboSyncRetries = Math.max(0, root._themeComboSyncRetries - 1)
+            if (root._themeComboSyncRetries <= 0) {
+                stop()
+            }
+        }
+    }
+
+    Connections {
+        target: DesktopSettings
+        function onGtkThemeLightChanged() { root.requestThemeAndIconComboSync() }
+        function onGtkThemeDarkChanged() { root.requestThemeAndIconComboSync() }
+        function onKdeColorSchemeLightChanged() { root.requestThemeAndIconComboSync() }
+        function onKdeColorSchemeDarkChanged() { root.requestThemeAndIconComboSync() }
+        function onGtkIconThemeLightChanged() { root.requestThemeAndIconComboSync() }
+        function onGtkIconThemeDarkChanged() { root.requestThemeAndIconComboSync() }
+        function onKdeIconThemeLightChanged() { root.requestThemeAndIconComboSync() }
+        function onKdeIconThemeDarkChanged() { root.requestThemeAndIconComboSync() }
+    }
+
+    Connections {
+        target: ThemeManager
+        function onGtkThemesChanged() { root.requestThemeAndIconComboSync() }
+        function onKdeColorSchemesChanged() { root.requestThemeAndIconComboSync() }
+        function onIconThemesChanged() { root.requestThemeAndIconComboSync() }
+    }
+
+    function logThemeAndIconComboState(reason, force) {
+        if (!comboDebugEnabled) {
+            return
+        }
+        var snapshot = String(DesktopSettings.gtkThemeLight || "")
+        if (!force && snapshot === _lastComboDebugSnapshot) {
+            return
+        }
+        _lastComboDebugSnapshot = snapshot
+        var idx = gtkThemeLightCombo ? Number(gtkThemeLightCombo.currentIndex || 0) : -1
+        var txt = gtkThemeLightCombo ? String(gtkThemeLightCombo.currentText || "") : "<null>"
+        var cnt = gtkThemeLightCombo ? Number(gtkThemeLightCombo.count || 0) : -1
+        console.warn("[appearance-combo-debug] reason=" + String(reason || "unknown")
+                     + " rev=" + comboDebugRevision
+                     + " pageIndex=" + Number(root.currentIndex || 0))
+        console.warn("[appearance-combo-debug] gtkThemeLight stored=\"" + snapshot
+                     + "\" idx=" + idx
+                     + " text=\"" + txt
+                     + "\" count=" + cnt)
+    }
 
     // ── Layout ─────────────────────────────────────────────────────────────
 
@@ -487,11 +661,14 @@ Item {
                             description: qsTr("Applied to GTK 3/4 applications when light mode is active.")
                             Layout.fillWidth: true
                             ComboBox {
+                                id: gtkThemeLightCombo
                                 model: root.themeModel(ThemeManager.gtkThemes)
-                                currentIndex: root.themeIndex(ThemeManager.gtkThemes, DesktopSettings.gtkThemeLight)
                                 Layout.preferredWidth: 220
                                 onActivated: {
-                                    const name = currentIndex === 0 ? "" : ThemeManager.gtkThemes[currentIndex - 1]
+                                    if (root._ignoreComboActivated) {
+                                        return
+                                    }
+                                    const name = currentIndex === 0 ? "" : String(currentText || "")
                                     DesktopSettings.setGtkThemeLight(name)
                                 }
                             }
@@ -502,11 +679,14 @@ Item {
                             description: qsTr("Applied to GTK 3/4 applications when dark mode is active.")
                             Layout.fillWidth: true
                             ComboBox {
+                                id: gtkThemeDarkCombo
                                 model: root.themeModel(ThemeManager.gtkThemes)
-                                currentIndex: root.themeIndex(ThemeManager.gtkThemes, DesktopSettings.gtkThemeDark)
                                 Layout.preferredWidth: 220
                                 onActivated: {
-                                    const name = currentIndex === 0 ? "" : ThemeManager.gtkThemes[currentIndex - 1]
+                                    if (root._ignoreComboActivated) {
+                                        return
+                                    }
+                                    const name = currentIndex === 0 ? "" : String(currentText || "")
                                     DesktopSettings.setGtkThemeDark(name)
                                 }
                             }
@@ -517,11 +697,14 @@ Item {
                             description: qsTr("Applied to KDE / Qt applications when light mode is active.")
                             Layout.fillWidth: true
                             ComboBox {
+                                id: kdeColorSchemeLightCombo
                                 model: root.themeModel(ThemeManager.kdeColorSchemes)
-                                currentIndex: root.themeIndex(ThemeManager.kdeColorSchemes, DesktopSettings.kdeColorSchemeLight)
                                 Layout.preferredWidth: 220
                                 onActivated: {
-                                    const name = currentIndex === 0 ? "" : ThemeManager.kdeColorSchemes[currentIndex - 1]
+                                    if (root._ignoreComboActivated) {
+                                        return
+                                    }
+                                    const name = currentIndex === 0 ? "" : String(currentText || "")
                                     DesktopSettings.setKdeColorSchemeLight(name)
                                 }
                             }
@@ -532,11 +715,14 @@ Item {
                             description: qsTr("Applied to KDE / Qt applications when dark mode is active.")
                             Layout.fillWidth: true
                             ComboBox {
+                                id: kdeColorSchemeDarkCombo
                                 model: root.themeModel(ThemeManager.kdeColorSchemes)
-                                currentIndex: root.themeIndex(ThemeManager.kdeColorSchemes, DesktopSettings.kdeColorSchemeDark)
                                 Layout.preferredWidth: 220
                                 onActivated: {
-                                    const name = currentIndex === 0 ? "" : ThemeManager.kdeColorSchemes[currentIndex - 1]
+                                    if (root._ignoreComboActivated) {
+                                        return
+                                    }
+                                    const name = currentIndex === 0 ? "" : String(currentText || "")
                                     DesktopSettings.setKdeColorSchemeDark(name)
                                 }
                             }
@@ -575,11 +761,14 @@ Item {
                             description: qsTr("Applied to system icons when light mode is active.")
                             Layout.fillWidth: true
                             ComboBox {
+                                id: gtkIconThemeLightCombo
                                 model: root.themeModel(ThemeManager.iconThemes)
-                                currentIndex: root.themeIndex(ThemeManager.iconThemes, DesktopSettings.gtkIconThemeLight)
                                 Layout.preferredWidth: 220
                                 onActivated: {
-                                    const name = currentIndex === 0 ? "" : ThemeManager.iconThemes[currentIndex - 1]
+                                    if (root._ignoreComboActivated) {
+                                        return
+                                    }
+                                    const name = currentIndex === 0 ? "" : String(currentText || "")
                                     DesktopSettings.setGtkIconThemeLight(name)
                                 }
                             }
@@ -590,11 +779,14 @@ Item {
                             description: qsTr("Applied to system icons when dark mode is active.")
                             Layout.fillWidth: true
                             ComboBox {
+                                id: gtkIconThemeDarkCombo
                                 model: root.themeModel(ThemeManager.iconThemes)
-                                currentIndex: root.themeIndex(ThemeManager.iconThemes, DesktopSettings.gtkIconThemeDark)
                                 Layout.preferredWidth: 220
                                 onActivated: {
-                                    const name = currentIndex === 0 ? "" : ThemeManager.iconThemes[currentIndex - 1]
+                                    if (root._ignoreComboActivated) {
+                                        return
+                                    }
+                                    const name = currentIndex === 0 ? "" : String(currentText || "")
                                     DesktopSettings.setGtkIconThemeDark(name)
                                 }
                             }
@@ -605,11 +797,14 @@ Item {
                             description: qsTr("Applied to KDE / Qt applications when light mode is active.")
                             Layout.fillWidth: true
                             ComboBox {
+                                id: kdeIconThemeLightCombo
                                 model: root.themeModel(ThemeManager.iconThemes)
-                                currentIndex: root.themeIndex(ThemeManager.iconThemes, DesktopSettings.kdeIconThemeLight)
                                 Layout.preferredWidth: 220
                                 onActivated: {
-                                    const name = currentIndex === 0 ? "" : ThemeManager.iconThemes[currentIndex - 1]
+                                    if (root._ignoreComboActivated) {
+                                        return
+                                    }
+                                    const name = currentIndex === 0 ? "" : String(currentText || "")
                                     DesktopSettings.setKdeIconThemeLight(name)
                                 }
                             }
@@ -620,11 +815,14 @@ Item {
                             description: qsTr("Applied to KDE / Qt applications when dark mode is active.")
                             Layout.fillWidth: true
                             ComboBox {
+                                id: kdeIconThemeDarkCombo
                                 model: root.themeModel(ThemeManager.iconThemes)
-                                currentIndex: root.themeIndex(ThemeManager.iconThemes, DesktopSettings.kdeIconThemeDark)
                                 Layout.preferredWidth: 220
                                 onActivated: {
-                                    const name = currentIndex === 0 ? "" : ThemeManager.iconThemes[currentIndex - 1]
+                                    if (root._ignoreComboActivated) {
+                                        return
+                                    }
+                                    const name = currentIndex === 0 ? "" : String(currentText || "")
                                     DesktopSettings.setKdeIconThemeDark(name)
                                 }
                             }

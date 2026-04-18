@@ -4,6 +4,10 @@
 #include <QDBusInterface>
 #include <QDBusReply>
 #include <QDBusVariant>
+#include <QDir>
+#include <QFile>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QStringList>
 #include <QtGlobal>
 #include <functional>
@@ -32,6 +36,16 @@ const QStringList kManagedShortcutPaths{
 bool isManagedShortcutPath(const QString &path)
 {
     return kManagedShortcutPaths.contains(path.trimmed());
+}
+
+QString settingsStorePath()
+{
+    const QString overridePath = qEnvironmentVariable("SLM_SETTINGSD_STORE_PATH").trimmed();
+    if (!overridePath.isEmpty()) {
+        return overridePath;
+    }
+    const QString base = QDir::homePath() + QStringLiteral("/.config/slm-desktop/settings");
+    return base + QStringLiteral("/settings.json");
 }
 
 QVariant mapValueByPath(const QVariantMap &root, const QString &path, bool *ok = nullptr)
@@ -88,6 +102,25 @@ bool mapSetValueByPath(QVariantMap &root, const QString &path, const QVariant &v
         return true;
     };
     return assign(root, 0);
+}
+
+QVariantMap mergeVariantMaps(const QVariantMap &base, const QVariantMap &patch)
+{
+    QVariantMap out = base;
+    for (auto it = patch.constBegin(); it != patch.constEnd(); ++it) {
+        const QString key = it.key();
+        const QVariant patchValue = it.value();
+        if (patchValue.canConvert<QVariantMap>()) {
+            const QVariant baseValue = out.value(key);
+            const QVariantMap baseMap = baseValue.canConvert<QVariantMap>()
+                    ? baseValue.toMap()
+                    : QVariantMap{};
+            out.insert(key, mergeVariantMaps(baseMap, patchValue.toMap()));
+        } else {
+            out.insert(key, patchValue);
+        }
+    }
+    return out;
 }
 }
 
@@ -718,6 +751,10 @@ bool DesktopSettingsClient::setSettingValue(const QString &path, const QVariant 
 
 void DesktopSettingsClient::refresh()
 {
+    // Preload persisted local snapshot first, then let service override with
+    // whatever keys it provides. This prevents partial service payloads from
+    // resetting fields to defaults at startup.
+    loadFromLocalStore();
     if (ensureIface()) {
         loadFromService();
     }
@@ -1041,20 +1078,50 @@ void DesktopSettingsClient::loadFromService()
         return;
     }
     const QVariantMap settings = root.value(QStringLiteral("settings")).toMap();
-    m_settingsSnapshot = settings;
-    const QVariantMap appearance = settings.value(QStringLiteral("globalAppearance")).toMap();
-    const QVariantMap gtk = settings.value(QStringLiteral("gtkThemeRouting")).toMap();
-    const QVariantMap kde = settings.value(QStringLiteral("kdeThemeRouting")).toMap();
-    const QVariantMap appThemePolicy = settings.value(QStringLiteral("appThemePolicy")).toMap();
-    const QVariantMap fallback = settings.value(QStringLiteral("fallbackPolicy")).toMap();
-    const QVariantMap contextAutomation = settings.value(QStringLiteral("contextAutomation")).toMap();
-    const QVariantMap contextTime = settings.value(QStringLiteral("contextTime")).toMap();
-    const QVariantMap dock = settings.value(QStringLiteral("dock")).toMap();
-    const QVariantMap print = settings.value(QStringLiteral("print")).toMap();
-    const QVariantMap windowing = settings.value(QStringLiteral("windowing")).toMap();
-    const QVariantMap shortcuts = settings.value(QStringLiteral("shortcuts")).toMap();
-    const QVariantMap fonts = settings.value(QStringLiteral("fonts")).toMap();
-    const QVariantMap wallpaper = settings.value(QStringLiteral("wallpaper")).toMap();
+    applySettingsMap(settings);
+}
+
+void DesktopSettingsClient::loadFromLocalStore()
+{
+    QFile file(settingsStorePath());
+    if (!file.exists() || !file.open(QIODevice::ReadOnly)) {
+        return;
+    }
+    QJsonParseError parseError;
+    const QJsonDocument doc = QJsonDocument::fromJson(file.readAll(), &parseError);
+    file.close();
+    if (parseError.error != QJsonParseError::NoError || !doc.isObject()) {
+        return;
+    }
+    const QVariantMap root = doc.object().toVariantMap();
+    QVariantMap settings = root;
+    const QVariant maybeSettings = root.value(QStringLiteral("settings"));
+    if (maybeSettings.canConvert<QVariantMap>()) {
+        settings = maybeSettings.toMap();
+    }
+    applySettingsMap(settings);
+}
+
+void DesktopSettingsClient::applySettingsMap(const QVariantMap &settings)
+{
+    if (settings.isEmpty()) {
+        return;
+    }
+    m_settingsSnapshot = mergeVariantMaps(m_settingsSnapshot, settings);
+    const QVariantMap snapshot = m_settingsSnapshot;
+    const QVariantMap appearance = snapshot.value(QStringLiteral("globalAppearance")).toMap();
+    const QVariantMap gtk = snapshot.value(QStringLiteral("gtkThemeRouting")).toMap();
+    const QVariantMap kde = snapshot.value(QStringLiteral("kdeThemeRouting")).toMap();
+    const QVariantMap appThemePolicy = snapshot.value(QStringLiteral("appThemePolicy")).toMap();
+    const QVariantMap fallback = snapshot.value(QStringLiteral("fallbackPolicy")).toMap();
+    const QVariantMap contextAutomation = snapshot.value(QStringLiteral("contextAutomation")).toMap();
+    const QVariantMap contextTime = snapshot.value(QStringLiteral("contextTime")).toMap();
+    const QVariantMap dock = snapshot.value(QStringLiteral("dock")).toMap();
+    const QVariantMap print = snapshot.value(QStringLiteral("print")).toMap();
+    const QVariantMap windowing = snapshot.value(QStringLiteral("windowing")).toMap();
+    const QVariantMap shortcuts = snapshot.value(QStringLiteral("shortcuts")).toMap();
+    const QVariantMap fonts = snapshot.value(QStringLiteral("fonts")).toMap();
+    const QVariantMap wallpaper = snapshot.value(QStringLiteral("wallpaper")).toMap();
 
     const bool highContrastValue = appearance.value(QStringLiteral("highContrast"), false).toBool();
     if (m_highContrast != highContrastValue) {
@@ -1076,7 +1143,7 @@ void DesktopSettingsClient::loadFromService()
 
     const QString appearanceMode = appearance.value(QStringLiteral("colorMode"), QString())
                                        .toString().trimmed().toLower();
-    const QString shellMode = settings.value(QStringLiteral("shellTheme")).toMap()
+    const QString shellMode = snapshot.value(QStringLiteral("shellTheme")).toMap()
                                   .value(QStringLiteral("mode"), QString())
                                   .toString().trimmed().toLower();
     const auto isSupportedMode = [](const QString &candidate) {
@@ -1091,30 +1158,46 @@ void DesktopSettingsClient::loadFromService()
     setAccentColorLocal(appearance.value(QStringLiteral("accentColor"), QStringLiteral("#0a84ff"))
                             .toString().trimmed());
     setFontScaleLocal(appearance.value(QStringLiteral("uiScale"), 1.0).toDouble());
-    setThemeStringLocal(m_gtkThemeLight,
-                        gtk.value(QStringLiteral("themeLight"), QString()).toString().trimmed(),
-                        &DesktopSettingsClient::gtkThemeLightChanged);
-    setThemeStringLocal(m_gtkThemeDark,
-                        gtk.value(QStringLiteral("themeDark"), QString()).toString().trimmed(),
-                        &DesktopSettingsClient::gtkThemeDarkChanged);
-    setThemeStringLocal(m_kdeColorSchemeLight,
-                        kde.value(QStringLiteral("themeLight"), QString()).toString().trimmed(),
-                        &DesktopSettingsClient::kdeColorSchemeLightChanged);
-    setThemeStringLocal(m_kdeColorSchemeDark,
-                        kde.value(QStringLiteral("themeDark"), QString()).toString().trimmed(),
-                        &DesktopSettingsClient::kdeColorSchemeDarkChanged);
-    setThemeStringLocal(m_gtkIconThemeLight,
-                        gtk.value(QStringLiteral("iconThemeLight"), QString()).toString().trimmed(),
-                        &DesktopSettingsClient::gtkIconThemeLightChanged);
-    setThemeStringLocal(m_gtkIconThemeDark,
-                        gtk.value(QStringLiteral("iconThemeDark"), QString()).toString().trimmed(),
-                        &DesktopSettingsClient::gtkIconThemeDarkChanged);
-    setThemeStringLocal(m_kdeIconThemeLight,
-                        kde.value(QStringLiteral("iconThemeLight"), QString()).toString().trimmed(),
-                        &DesktopSettingsClient::kdeIconThemeLightChanged);
-    setThemeStringLocal(m_kdeIconThemeDark,
-                        kde.value(QStringLiteral("iconThemeDark"), QString()).toString().trimmed(),
-                        &DesktopSettingsClient::kdeIconThemeDarkChanged);
+    if (gtk.contains(QStringLiteral("themeLight"))) {
+        setThemeStringLocal(m_gtkThemeLight,
+                            gtk.value(QStringLiteral("themeLight"), QString()).toString().trimmed(),
+                            &DesktopSettingsClient::gtkThemeLightChanged);
+    }
+    if (gtk.contains(QStringLiteral("themeDark"))) {
+        setThemeStringLocal(m_gtkThemeDark,
+                            gtk.value(QStringLiteral("themeDark"), QString()).toString().trimmed(),
+                            &DesktopSettingsClient::gtkThemeDarkChanged);
+    }
+    if (kde.contains(QStringLiteral("themeLight"))) {
+        setThemeStringLocal(m_kdeColorSchemeLight,
+                            kde.value(QStringLiteral("themeLight"), QString()).toString().trimmed(),
+                            &DesktopSettingsClient::kdeColorSchemeLightChanged);
+    }
+    if (kde.contains(QStringLiteral("themeDark"))) {
+        setThemeStringLocal(m_kdeColorSchemeDark,
+                            kde.value(QStringLiteral("themeDark"), QString()).toString().trimmed(),
+                            &DesktopSettingsClient::kdeColorSchemeDarkChanged);
+    }
+    if (gtk.contains(QStringLiteral("iconThemeLight"))) {
+        setThemeStringLocal(m_gtkIconThemeLight,
+                            gtk.value(QStringLiteral("iconThemeLight"), QString()).toString().trimmed(),
+                            &DesktopSettingsClient::gtkIconThemeLightChanged);
+    }
+    if (gtk.contains(QStringLiteral("iconThemeDark"))) {
+        setThemeStringLocal(m_gtkIconThemeDark,
+                            gtk.value(QStringLiteral("iconThemeDark"), QString()).toString().trimmed(),
+                            &DesktopSettingsClient::gtkIconThemeDarkChanged);
+    }
+    if (kde.contains(QStringLiteral("iconThemeLight"))) {
+        setThemeStringLocal(m_kdeIconThemeLight,
+                            kde.value(QStringLiteral("iconThemeLight"), QString()).toString().trimmed(),
+                            &DesktopSettingsClient::kdeIconThemeLightChanged);
+    }
+    if (kde.contains(QStringLiteral("iconThemeDark"))) {
+        setThemeStringLocal(m_kdeIconThemeDark,
+                            kde.value(QStringLiteral("iconThemeDark"), QString()).toString().trimmed(),
+                            &DesktopSettingsClient::kdeIconThemeDarkChanged);
+    }
 
     const bool qtCompat = appThemePolicy.value(QStringLiteral("qtGenericAllowKdeCompat"), true).toBool();
     if (m_qtGenericAllowKdeCompat != qtCompat) {
