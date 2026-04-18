@@ -46,6 +46,7 @@ using namespace Qt::StringLiterals;
 #include "modules/developer/componenthealthcontroller.h"
 #include "modules/developer/daemonhealthclient.h"
 #include "modules/network/firewallserviceclient.h"
+#include "modules/storage/cleanerserviceclient.h"
 
 int main(int argc, char *argv[])
 {
@@ -93,6 +94,26 @@ int main(int argc, char *argv[])
         }
     };
     ensureSettingsdAvailable();
+    const auto ensureCleanerdAvailable = []() {
+        QDBusConnectionInterface *busIface = QDBusConnection::sessionBus().interface();
+        if (!busIface) {
+            return;
+        }
+        if (busIface->isServiceRegistered(QStringLiteral("org.slm.Desktop.Cleaner")).value()) {
+            return;
+        }
+
+        const QString appDir = QFileInfo(QCoreApplication::applicationFilePath()).absolutePath();
+        const QString localPath = QDir(appDir).filePath(QStringLiteral("slm-cleanerd"));
+        bool started = false;
+        if (QFileInfo::exists(localPath)) {
+            started = QProcess::startDetached(localPath, {});
+        }
+        if (!started) {
+            QProcess::startDetached(QStringLiteral("slm-cleanerd"), {});
+        }
+    };
+    ensureCleanerdAvailable();
 
     QString initialModuleId = parser.value(moduleOption);
     const QString initialDeepLink = parser.value(deepLinkOption).trimmed();
@@ -138,6 +159,7 @@ int main(int argc, char *argv[])
     ComponentHealthController componentHealth;
     DaemonHealthClient daemonHealthClient;
     FirewallServiceClient firewallServiceClient;
+    CleanerServiceClient cleanerServiceClient;
     Slm::System::MissingComponentController missingComponents;
     WallpaperManager wallpaperManager(&desktopSettings);
     MimeAppsManager mimeAppsManager;
@@ -199,6 +221,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("ComponentHealth"), &componentHealth);
     engine.rootContext()->setContextProperty(QStringLiteral("DaemonHealthClient"), &daemonHealthClient);
     engine.rootContext()->setContextProperty(QStringLiteral("FirewallServiceClient"), &firewallServiceClient);
+    engine.rootContext()->setContextProperty(QStringLiteral("CleanerServiceClient"), &cleanerServiceClient);
     engine.rootContext()->setContextProperty(QStringLiteral("MissingComponents"), &missingComponents);
     engine.rootContext()->setContextProperty(QStringLiteral("SessionStartupMode"), sessionMode);
     engine.rootContext()->setContextProperty(QStringLiteral("SafeModeActive"), safeModeActive);

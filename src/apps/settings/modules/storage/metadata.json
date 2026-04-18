@@ -1,0 +1,20 @@
+{
+    "id": "storage",
+    "name": "Storage",
+    "icon": "drive-harddisk",
+    "group": "System",
+    "description": "Cache, thumbnails, and cleaner policy.",
+    "keywords": ["storage", "cache", "thumbnail", "cleaner", "disk"],
+    "main": "CleanerPage.qml",
+    "settings": [
+        {
+            "id": "cleaner",
+            "label": "Cleaner",
+            "description": "Analyze and clean thumbnail/app cache safely",
+            "keywords": ["clean", "cache", "thumbnail", "storage"],
+            "type": "action",
+            "backend_binding": "dbus:org.slm.Desktop.Cleaner"
+        }
+    ]
+}
+

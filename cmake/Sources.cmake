@@ -753,3 +753,18 @@ set(SLM_RECOVERYD_SOURCES
     src/login/libslmlogin/slmconfigmanager.h
     src/login/libslmlogin/slmconfigmanager.cpp
 )
+
+set(SLM_CLEANERD_SOURCES
+    src/daemon/cleanerd/cleanerd_main.cpp
+    src/services/cleaner/cleanertypes.h
+    src/services/cleaner/cleanerscanner.cpp
+    src/services/cleaner/cleanerscanner.h
+    src/services/cleaner/cleaneranalyzer.cpp
+    src/services/cleaner/cleaneranalyzer.h
+    src/services/cleaner/cleanerengine.cpp
+    src/services/cleaner/cleanerengine.h
+    src/services/cleaner/cleanerpolicy.cpp
+    src/services/cleaner/cleanerpolicy.h
+    src/services/cleaner/cleanerservice.cpp
+    src/services/cleaner/cleanerservice.h
+)

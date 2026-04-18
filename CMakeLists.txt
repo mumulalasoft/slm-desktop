@@ -376,6 +376,8 @@ qt_add_executable(slm-settings
     src/apps/settings/modules/developer/componenthealthcontroller.h
     src/apps/settings/modules/developer/daemonhealthclient.cpp
     src/apps/settings/modules/developer/daemonhealthclient.h
+    src/apps/settings/modules/storage/cleanerserviceclient.cpp
+    src/apps/settings/modules/storage/cleanerserviceclient.h
     src/core/system/componentregistry.cpp
     src/core/system/componentregistry.h
     src/core/system/dependencyguard.cpp
@@ -546,6 +548,10 @@ qt_add_executable(slm-recoveryd
     ${SLM_RECOVERYD_SOURCES}
 )
 
+qt_add_executable(slm-cleanerd
+    ${SLM_CLEANERD_SOURCES}
+)
+
 qt_add_executable(slm-secretd
     src/daemon/secretd/secretd_main.cpp
     src/services/secret/secretservice.cpp
@@ -703,6 +709,14 @@ target_link_libraries(slm-recoveryd
         Qt6::DBus
 )
 target_include_directories(slm-recoveryd PRIVATE ${CMAKE_SOURCE_DIR})
+
+target_link_libraries(slm-cleanerd
+    PRIVATE
+        Qt6::Core
+        Qt6::DBus
+        PkgConfig::GIO
+)
+target_include_directories(slm-cleanerd PRIVATE ${CMAKE_SOURCE_DIR})
 
 target_link_libraries(slm-secretd
     PRIVATE
@@ -1116,6 +1130,7 @@ target_link_libraries(slm-settings
         Qt6::QuickControls2
         Qt6::QuickLayouts
         Qt6::DBus
+        Qt6::Concurrent
         PkgConfig::GIO
 )
 target_link_libraries(desktop-contextd
@@ -1214,6 +1229,10 @@ install(TARGETS slm-firewalld
 )
 
 install(TARGETS slm-recoveryd
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
+install(TARGETS slm-cleanerd
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
@@ -2837,6 +2856,33 @@ target_link_libraries(settingsservice_dbus_test
 )
 
 add_test(NAME settingsservice_dbus_test COMMAND settingsservice_dbus_test)
+
+qt_add_executable(cleanerservice_dbus_test
+    src/services/cleaner/cleanertypes.h
+    src/services/cleaner/cleanerscanner.cpp
+    src/services/cleaner/cleanerscanner.h
+    src/services/cleaner/cleaneranalyzer.cpp
+    src/services/cleaner/cleaneranalyzer.h
+    src/services/cleaner/cleanerengine.cpp
+    src/services/cleaner/cleanerengine.h
+    src/services/cleaner/cleanerpolicy.cpp
+    src/services/cleaner/cleanerpolicy.h
+    src/services/cleaner/cleanerservice.cpp
+    src/services/cleaner/cleanerservice.h
+    tests/cleanerservice_dbus_test.cpp
+)
+
+target_include_directories(cleanerservice_dbus_test PRIVATE ${CMAKE_SOURCE_DIR})
+
+target_link_libraries(cleanerservice_dbus_test
+    PRIVATE
+        Qt6::Core
+        Qt6::DBus
+        Qt6::Test
+        PkgConfig::GIO
+)
+
+add_test(NAME cleanerservice_dbus_test COMMAND cleanerservice_dbus_test)
 
 qt_add_executable(firewallservice_dbus_contract_test
     src/daemon/firewalld/firewallservice.cpp

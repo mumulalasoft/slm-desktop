@@ -11,6 +11,70 @@
 ### Startup Performance Desktop
 - [ ] Turunkan waktu `qml.load.begin -> main.onCompleted` dengan profiling terarah per komponen.
 
+### Cleaner System SLM (Freedesktop Compliant)
+- [ ] Definisikan kontrak produk Cleaner sebagai **system-aware cleaner** (deterministic, safe, reversible jika memungkinkan).
+- [ ] Tetapkan kepatuhan wajib:
+  - [ ] XDG Base Directory Spec (`$XDG_CACHE_HOME`, default `~/.cache`).
+  - [ ] Freedesktop Thumbnail Managing Standard (`~/.cache/thumbnails/{normal,large,x-large,xx-large,fail}`).
+- [ ] Tegakkan strict safety guardrail:
+  - [ ] Tidak pernah menghapus `~/.config` dan `~/.local/share`.
+  - [ ] Tidak ada hardcoded path di luar XDG resolve.
+  - [ ] Tidak ada `rm -rf` tanpa filter terverifikasi.
+  - [ ] Hindari penghapusan file aktif / race-condition.
+- [ ] Buat daemon `slm-cleanerd` dengan struktur modul:
+  - [ ] `scanner/`
+  - [ ] `analyzer/`
+  - [ ] `cleaner/`
+  - [ ] `policy/`
+  - [ ] `api/`
+- [ ] Implement Scanner (async, non-blocking UI):
+  - [ ] Scan seluruh subtree `$XDG_CACHE_HOME`.
+  - [ ] Hasilkan metadata per folder: ukuran, jumlah file, last access time.
+- [ ] Implement Analyzer:
+  - [ ] Kelompok `thumbnail` (`$XDG_CACHE_HOME/thumbnails/*`).
+  - [ ] Kelompok `failed_thumbnail` (`$XDG_CACHE_HOME/thumbnails/fail`).
+  - [ ] Kelompok `app_cache` (selain thumbnails).
+  - [ ] Hasilkan output agregat size/files/grouping untuk UI preview.
+- [ ] Implement Cleaner Engine:
+  - [ ] Clear thumbnail cache.
+  - [ ] Clear failed thumbnail cache.
+  - [ ] Clear selected app cache (selective per app/folder).
+  - [ ] Mode `Full Clean`.
+  - [ ] Mode `Age-based Clean` (>X hari).
+  - [ ] Mode `Smart Clean` (unused lama, ukuran besar, corrupted).
+- [ ] Implement Safety System runtime:
+  - [ ] File existence check sebelum delete.
+  - [ ] Permission check + error mapping.
+  - [ ] Skip file yang sedang digunakan.
+  - [ ] Logging ke `~/.local/share/slm/logs/cleaner.log`.
+- [ ] Implement Policy module:
+  - [ ] Simpan/ambil config `auto_clean`, `max_cache_size_mb`, `delete_after_days`.
+  - [ ] Validasi nilai policy dan fallback default aman.
+- [ ] Integrasi UI Settings:
+  - [ ] Lokasi: `Settings > System > Storage > Cleaner`.
+  - [ ] Tombol Scan.
+  - [ ] Result view (thumbnail, failed thumbnail, daftar app cache).
+  - [ ] Aksi per kategori (`Clear All`, `Clear > 7 days`, checklist app).
+  - [ ] Preview total size sebelum delete.
+  - [ ] Progress indicator real-time.
+  - [ ] Smart suggestion (mis. thumbnail > 500MB, unused cache detected).
+- [ ] Integrasi sistem:
+  - [ ] Gunakan GIO untuk operasi file.
+  - [ ] Gunakan GLib untuk directory scan.
+  - [ ] Jalankan task async/batched delete agar tidak freeze.
+- [ ] Test wajib:
+  - [ ] Cache besar (>1GB).
+  - [ ] File sedang digunakan.
+  - [ ] Folder kosong.
+  - [ ] Permission denied.
+  - [ ] Partial delete.
+- [ ] Acceptance criteria:
+  - [ ] `slm-cleanerd` stabil.
+  - [ ] UI cleaner mendukung scan, preview, selective clean.
+  - [ ] Tidak menghapus data penting.
+  - [ ] Cache berkurang terukur.
+  - [ ] Lolos compliance XDG/Freedesktop.
+
 ---
 
 ## Program Network & Firewall
@@ -1207,4 +1271,3 @@ Anything else is INVALID.
   - [x] Persiapan fase lanjutan (multi-monitor optimization).
 - [x] Target gate:
   - [x] `Gate M3` (closed)
-

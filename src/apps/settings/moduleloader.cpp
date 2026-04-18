@@ -243,6 +243,7 @@ void ModuleLoader::addBuiltinModuleOrder()
         QStringLiteral("sound"),
         QStringLiteral("display"),
         QStringLiteral("power"),
+        QStringLiteral("storage"),
         QStringLiteral("print"),
         QStringLiteral("keyboard"),
         QStringLiteral("mouse"),
