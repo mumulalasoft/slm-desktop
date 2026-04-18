@@ -136,4 +136,6 @@ private:
     QString m_lastSearchQuery;
     QVector<FileEntry> m_lastSearchEntries;
     bool m_indexWarmupTriggered = false;
+    bool m_startupFastPassPending = true;
+    bool m_startupFullPassScheduled = false;
 };

@@ -10,9 +10,10 @@ Item {
     property var cursorController: null
     property var quickTypeClearTimerRef: null
     property var batchOverlayPopupRef: null
+    property bool archiveMissingDeferredInitDone: false
 
     Component.onCompleted: {
-        hostRoot.rebuildSidebarItems()
+        hostRoot.rebuildSidebarItems([])
         if (fileManagerApi && fileManagerApi.refreshStorageLocationsAsync) {
             fileManagerApi.refreshStorageLocationsAsync()
         }
@@ -29,8 +30,21 @@ Item {
         }
         hostRoot.syncDeepSearchBusyCursor()
         hostRoot.updateBatchOverlayFromApi()
-        if (hostRoot.refreshArchiveMissingComponents) {
-            hostRoot.refreshArchiveMissingComponents()
+        deferredArchiveMissingInitTimer.restart()
+    }
+
+    Timer {
+        id: deferredArchiveMissingInitTimer
+        interval: 1200
+        repeat: false
+        onTriggered: {
+            if (archiveMissingDeferredInitDone) {
+                return
+            }
+            archiveMissingDeferredInitDone = true
+            if (hostRoot.refreshArchiveMissingComponents) {
+                hostRoot.refreshArchiveMissingComponents()
+            }
         }
     }
 

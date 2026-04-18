@@ -786,13 +786,11 @@ QVariantList FileManagerApi::storageLocations() const
             return m_storageLocationsCache;
         }
     }
-    const QVariantList rows = queryStorageLocationsSync(400);
-    {
-        QMutexLocker locker(&m_storageCacheMutex);
-        m_storageLocationsCache = rows;
-        m_storageLocationsCacheMs = QDateTime::currentMSecsSinceEpoch();
+    auto *self = const_cast<FileManagerApi *>(this);
+    if (self) {
+        self->refreshStorageLocationsAsync();
     }
-    return rows;
+    return {};
 }
 
 void FileManagerApi::refreshStorageLocationsAsync()

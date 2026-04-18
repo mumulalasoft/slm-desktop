@@ -92,6 +92,21 @@ function loadStorageSidebarItems(root, sidebarModel, fileManagerApi, rowsOverrid
     }
     root.storageScanInProgress = true
     var rows = rowsOverride
+    if ((!rows || typeof rows.length === "undefined") && !root.storageSnapshotReady) {
+        sidebarModel.append({
+                                "rowType": "storage-status",
+                                "label": "Memindai drive...",
+                                "path": "",
+                                "iconName": "drive-harddisk-symbolic",
+                                "device": "",
+                                "mounted": true,
+                                "browsable": false,
+                                "bytesTotal": -1,
+                                "bytesAvailable": -1,
+                                "depth": 0
+                            })
+        return
+    }
     if (!rows || typeof rows.length === "undefined") {
         rows = fileManagerApi.storageLocations()
     }

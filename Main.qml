@@ -62,10 +62,12 @@ ApplicationWindow {
     property bool shellContextMenuOpen: false
     property bool fileManagerVisible: false
     property bool detachedFileManagerVisible: false
+    property bool detachedFileManagerPreloadRequested: false
     property string detachedFileManagerPath: "~"
     property bool detachedFileManagerLoadFailed: false
     property string pendingDetachedFileManagerPropertiesPath: ""
     property string pendingDetachedFileManagerRenamePath: ""
+    property string detachedFileManagerFallbackPath: ""
     property var fileManagerContent: null
     property var desktopMenuProviderRef: null
     property var appModelRef: null
@@ -74,18 +76,8 @@ ApplicationWindow {
     function openFileManagerFromShortcut(pathValue) {
         var targetPath = String(pathValue && String(pathValue).length > 0 ? pathValue : "~")
         ShellUtils.openDetachedFileManager(root, targetPath)
-        Qt.callLater(function() {
-            var detachedUnavailable = !detachedFileManagerWindow
-                                     || root.detachedFileManagerLoadFailed
-                                     || detachedFileManagerWindow.loaderStatus === Loader.Error
-            if (!detachedUnavailable) {
-                return
-            }
-            if (root.fileManagerApiRef && root.fileManagerApiRef.startOpenPathInFileManager) {
-                root.fileManagerApiRef.startOpenPathInFileManager(targetPath,
-                                                                  "shortcut-open-filemanager")
-            }
-        })
+        root.detachedFileManagerFallbackPath = targetPath
+        detachedFileManagerFallbackTimer.restart()
     }
     function _syncDesktopMenuOverride() {
         if (!desktopMenuProviderRef || !desktopMenuProviderRef.syncGlobalMenuOverride) {
@@ -99,6 +91,8 @@ ApplicationWindow {
         if (!detachedFileManagerVisible) {
             detachedFileManagerLoadFailed = false
             pendingDetachedFileManagerRenamePath = ""
+            detachedFileManagerFallbackPath = ""
+            detachedFileManagerFallbackTimer.stop()
             if (detachedFileManagerWindow) {
                 detachedFileManagerWindow.setLoaderActive(false)
                 detachedFileManagerWindow.stopWatchdog()
@@ -106,6 +100,7 @@ ApplicationWindow {
             return
         }
         detachedFileManagerLoadFailed = false
+        detachedFileManagerPreloadRequested = true
         if (detachedFileManagerWindow) {
             detachedFileManagerWindow.restartWatchdog()
         }
@@ -128,6 +123,41 @@ ApplicationWindow {
     readonly property int listViewEndMode: ListView.End
     readonly property int listViewBeginningMode: ListView.Beginning
     property double shellContextMenuOpenedAtMs: 0
+    Timer {
+        id: detachedFileManagerFallbackTimer
+        interval: 1500
+        repeat: false
+        onTriggered: {
+            var targetPath = String(root.detachedFileManagerFallbackPath || "")
+            if (targetPath.length <= 0) {
+                return
+            }
+            var detachedUnavailable = !detachedFileManagerWindow
+                                     || root.detachedFileManagerLoadFailed
+                                     || detachedFileManagerWindow.loaderStatus === Loader.Error
+            if (!detachedUnavailable) {
+                root.detachedFileManagerFallbackPath = ""
+                return
+            }
+            if (root.fileManagerApiRef && root.fileManagerApiRef.startOpenPathInFileManager) {
+                root.fileManagerApiRef.startOpenPathInFileManager(targetPath,
+                                                                  "shortcut-open-filemanager")
+            }
+            root.detachedFileManagerFallbackPath = ""
+        }
+    }
+    Timer {
+        id: detachedFileManagerPreloadTimer
+        interval: 1800
+        repeat: false
+        running: true
+        onTriggered: {
+            root.detachedFileManagerPreloadRequested = true
+            if (root.detachedFileManagerWindow) {
+                root.detachedFileManagerWindow.setLoaderActive(true)
+            }
+        }
+    }
     property bool areaShotSelecting: false
     property bool areaShotFromScreenshotTool: false
     property string areaShotOutputPath: ""
@@ -1026,7 +1056,7 @@ ApplicationWindow {
 
     Loader {
         id: detachedFileManagerWindowLoader
-        active: !!root.detachedFileManagerVisible
+        active: !!root.detachedFileManagerVisible || !!root.detachedFileManagerPreloadRequested
         asynchronous: false
         sourceComponent: Component {
             OverlayComp.DetachedFileManagerWindow {
@@ -1034,6 +1064,7 @@ ApplicationWindow {
                 shellApi: root
                 panelHeight: desktopScene.panelHeight
                 fileModel: (typeof FileManagerModel !== "undefined") ? FileManagerModel : null
+                preloadRequested: !!root.detachedFileManagerPreloadRequested
                 onPrintRequested: function(documentUri, documentTitle, preferPdfOutput) {
                     root.printDocumentUri = String(documentUri || "")
                     root.printDocumentTitle = String(documentTitle || "Document")

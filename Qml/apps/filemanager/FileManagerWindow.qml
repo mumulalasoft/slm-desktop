@@ -207,7 +207,7 @@ Rectangle {
     readonly property var appCommandRouterRef: (typeof AppCommandRouter !== "undefined") ? AppCommandRouter : null
     readonly property var notificationManagerRef: (typeof NotificationManager !== "undefined") ? NotificationManager : null
     readonly property var cursorControllerRef: (typeof CursorController !== "undefined") ? CursorController : null
-    readonly property var dialogsRef: fileManagerDialogs
+    readonly property var dialogsRef: fileManagerDialogsLoader ? fileManagerDialogsLoader.item : null
     readonly property var connectServerDialogRef: dialogsRef ? dialogsRef.connectServerDialogRef : null
     readonly property var batchOverlayPopupDialogRef: dialogsRef ? dialogsRef.batchOverlayPopupRef : null
     readonly property var fileManagerMenusDialogRef: dialogsRef ? dialogsRef.fileManagerMenusRef : null
@@ -1218,7 +1218,7 @@ Rectangle {
         sidebarModel: sidebarModel
         tabModel: tabModel
         sidebarContextMenuRef: sidebarContextMenuDialogRef
-        fileManagerDialogsRef: fileManagerDialogs
+        fileManagerDialogsRef: dialogsRef
     }
 
     FM.FileManagerDragGhost {
@@ -1229,9 +1229,15 @@ Rectangle {
         label: root.dndGhostLabel
     }
 
-    FM.FileManagerDialogs {
-        id: fileManagerDialogs
-        hostRoot: root
+    Loader {
+        id: fileManagerDialogsLoader
+        active: true
+        asynchronous: true
+        sourceComponent: Component {
+            FM.FileManagerDialogs {
+                hostRoot: root
+            }
+        }
     }
 
     Keys.onPressed: function (event) {

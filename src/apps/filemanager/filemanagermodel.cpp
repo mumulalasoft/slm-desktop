@@ -72,6 +72,43 @@ QDateTime parseIsoDateLoose(const QString &iso)
     return dt;
 }
 
+bool compareIsoDateText(const QString &aIso, const QString &bIso, bool sortDescending)
+{
+    const QString a = aIso.trimmed();
+    const QString b = bIso.trimmed();
+    if (!a.isEmpty() && !b.isEmpty() && a != b) {
+        return sortDescending ? (a > b) : (a < b);
+    }
+    if (a.isEmpty() != b.isEmpty()) {
+        return !a.isEmpty();
+    }
+    const QDateTime da = parseIsoDateLoose(a);
+    const QDateTime db = parseIsoDateLoose(b);
+    if (da.isValid() && db.isValid() && da != db) {
+        return sortDescending ? (da > db) : (da < db);
+    }
+    if (da.isValid() != db.isValid()) {
+        return da.isValid();
+    }
+    return false;
+}
+
+QMimeDatabase &mimeDatabaseFast()
+{
+    thread_local QMimeDatabase db;
+    return db;
+}
+
+QMimeType mimeTypeForPathFast(const QString &path)
+{
+    QMimeDatabase &db = mimeDatabaseFast();
+    QMimeType mime = db.mimeTypeForFile(path, QMimeDatabase::MatchExtension);
+    if (!mime.isValid() || mime.name().isEmpty()) {
+        mime = db.mimeTypeForFile(path, QMimeDatabase::MatchDefault);
+    }
+    return mime;
+}
+
 void sortEntries(QVector<FileEntry> &entries,
                  const QString &sortKey,
                  bool sortDescending,
@@ -105,22 +142,18 @@ void sortEntries(QVector<FileEntry> &entries,
                 return compareOrder(-cmp);
             }
         } else if (key == QLatin1String("dateAdded")) {
-            const QDateTime da = parseIsoDateLoose(a.dateAdded);
-            const QDateTime db = parseIsoDateLoose(b.dateAdded);
-            if (da.isValid() && db.isValid() && da != db) {
-                return sortDescending ? (da > db) : (da < db);
+            if (compareIsoDateText(a.dateAdded, b.dateAdded, sortDescending)) {
+                return true;
             }
-            if (da.isValid() != db.isValid()) {
-                return da.isValid();
+            if (compareIsoDateText(b.dateAdded, a.dateAdded, sortDescending)) {
+                return false;
             }
         } else {
-            const QDateTime ma = parseIsoDateLoose(a.lastModified);
-            const QDateTime mb = parseIsoDateLoose(b.lastModified);
-            if (ma.isValid() && mb.isValid() && ma != mb) {
-                return sortDescending ? (ma > mb) : (ma < mb);
+            if (compareIsoDateText(a.lastModified, b.lastModified, sortDescending)) {
+                return true;
             }
-            if (ma.isValid() != mb.isValid()) {
-                return ma.isValid();
+            if (compareIsoDateText(b.lastModified, a.lastModified, sortDescending)) {
+                return false;
             }
         }
 
@@ -130,7 +163,8 @@ void sortEntries(QVector<FileEntry> &entries,
 
 DirectoryScanResult scanDirectoryFast(const QString &currentPath,
                                       bool includeHidden,
-                                      bool directoriesFirst)
+                                      bool directoriesFirst,
+                                      bool lightweightMetadata = false)
 {
     DirectoryScanResult out;
     const QString resolved = QDir(currentPath).absolutePath();
@@ -147,20 +181,7 @@ DirectoryScanResult scanDirectoryFast(const QString &currentPath,
         filters |= QDir::Hidden;
     }
     QFileInfoList rows = dir.entryInfoList(filters, QDir::NoSort);
-    std::sort(rows.begin(), rows.end(), [directoriesFirst](const QFileInfo &a, const QFileInfo &b) {
-        const QDateTime ma = a.lastModified();
-        const QDateTime mb = b.lastModified();
-        if (ma.isValid() && mb.isValid() && ma != mb) {
-            return ma > mb; // newest first
-        }
-        if (ma.isValid() != mb.isValid()) {
-            return ma.isValid();
-        }
-        if (directoriesFirst && a.isDir() != b.isDir()) {
-            return a.isDir();
-        }
-        return QString::compare(a.fileName(), b.fileName(), Qt::CaseInsensitive) < 0;
-    });
+    Q_UNUSED(directoriesFirst)
 
     out.entries.reserve(rows.size());
     for (const QFileInfo &info : rows) {
@@ -172,17 +193,25 @@ DirectoryScanResult scanDirectoryFast(const QString &currentPath,
         e.path = info.absoluteFilePath();
         e.thumbnailPath = QString();
         e.suffix = info.suffix();
-        e.mimeType = info.isDir()
-                ? QStringLiteral("inode/directory")
-                : QMimeDatabase().mimeTypeForFile(info.absoluteFilePath(), QMimeDatabase::MatchDefault).name();
-        e.iconName = mimeIconForInfo(info);
+        if (info.isDir()) {
+            e.mimeType = QStringLiteral("inode/directory");
+            e.iconName = QStringLiteral("folder");
+        } else if (lightweightMetadata) {
+            e.mimeType = QString();
+            e.iconName = QStringLiteral("text-x-generic-symbolic");
+        } else {
+            e.mimeType = mimeTypeForPathFast(info.absoluteFilePath()).name();
+            e.iconName = mimeIconForInfo(info);
+        }
         e.dateAdded = (info.birthTime().isValid() ? info.birthTime() : info.lastModified())
                 .toString(Qt::ISODateWithMs);
         e.lastModified = info.lastModified().toString(Qt::ISODateWithMs);
         e.size = static_cast<qlonglong>(info.size());
         e.dir = info.isDir();
         e.hidden = info.isHidden();
-        applyDesktopEntryMetadata(&e);
+        if (!lightweightMetadata) {
+            applyDesktopEntryMetadata(&e);
+        }
         out.entries.push_back(e);
     }
     out.ok = true;
@@ -259,7 +288,7 @@ QString mimeIconForInfo(const QFileInfo &info)
     if (info.isDir()) {
         return QStringLiteral("folder");
     }
-    const QMimeType mime = QMimeDatabase().mimeTypeForFile(info.absoluteFilePath(), QMimeDatabase::MatchDefault);
+    const QMimeType mime = mimeTypeForPathFast(info.absoluteFilePath());
     if (!mime.iconName().isEmpty()) {
         return mime.iconName();
     }
@@ -479,7 +508,7 @@ QVector<FileEntry> entriesFromApiResult(const QVariantList &rows)
             QFileInfo fi(e.path);
             e.mimeType = fi.isDir()
                     ? QStringLiteral("inode/directory")
-                    : QMimeDatabase().mimeTypeForFile(fi.absoluteFilePath(), QMimeDatabase::MatchDefault).name();
+                    : mimeTypeForPathFast(fi.absoluteFilePath()).name();
         }
         applyDesktopEntryMetadata(&e);
         if (e.dateAdded.isEmpty()) {
@@ -808,6 +837,14 @@ QVariantMap FileManagerModel::refresh()
     const QString search = m_searchText.trimmed();
     const bool searchActive = !search.isEmpty();
     const bool deepSearchPlanned = searchActive && search.size() >= 2;
+    const bool startupFastPass = m_startupFastPassPending
+            && !searchActive
+            && !targetPath.contains(QStringLiteral("://"))
+            && !isRecentVirtualPath(targetPath)
+            && !targetPath.startsWith(QStringLiteral("__"));
+    if (startupFastPass) {
+        m_startupFastPassPending = false;
+    }
     ++m_refreshGeneration;
     const quint64 generation = m_refreshGeneration.load();
     if (deepSearchPlanned) {
@@ -823,7 +860,7 @@ QVariantMap FileManagerModel::refresh()
         }, Qt::QueuedConnection);
     }
     QPointer<FileManagerModel> self(this);
-    std::thread([self, generation, targetPath, includeHidden, directoriesFirst, search, searchActive]() {
+    std::thread([self, generation, targetPath, includeHidden, directoriesFirst, search, searchActive, startupFastPass]() {
         DirectoryScanResult scan;
         if (self && self->m_api != nullptr && isRecentVirtualPath(targetPath)) {
             scan.ok = true;
@@ -845,7 +882,7 @@ QVariantMap FileManagerModel::refresh()
                 e.suffix = fi.suffix();
                 e.mimeType = fi.isDir()
                         ? QStringLiteral("inode/directory")
-                        : QMimeDatabase().mimeTypeForFile(fi.absoluteFilePath(), QMimeDatabase::MatchDefault).name();
+                        : mimeTypeForPathFast(fi.absoluteFilePath()).name();
                 const QString rowIcon = row.value(QStringLiteral("iconName")).toString();
                 e.iconName = rowIcon.isEmpty() ? mimeIconForInfo(fi) : rowIcon;
                 e.dateAdded = row.value(QStringLiteral("lastOpened")).toString();
@@ -864,7 +901,7 @@ QVariantMap FileManagerModel::refresh()
         } else if (searchActive && self && self->m_api != nullptr) {
             if (search.size() < 2) {
                 // For very short queries, return local filtered entries first.
-                scan = scanDirectoryFast(targetPath, includeHidden, directoriesFirst);
+                scan = scanDirectoryFast(targetPath, includeHidden, directoriesFirst, false);
                 if (scan.ok) {
                     QVector<FileEntry> filtered;
                     filtered.reserve(scan.entries.size());
@@ -906,12 +943,12 @@ QVariantMap FileManagerModel::refresh()
             if (self && self->m_api != nullptr) {
                 self->m_api->beginSearchSession();
             }
-            scan = scanDirectoryFast(targetPath, includeHidden, directoriesFirst);
+            scan = scanDirectoryFast(targetPath, includeHidden, directoriesFirst, startupFastPass);
         }
         if (!self) {
             return;
         }
-        QMetaObject::invokeMethod(self.data(), [self, generation, scan = std::move(scan), searchActive, search]() mutable {
+        QMetaObject::invokeMethod(self.data(), [self, generation, scan = std::move(scan), searchActive, search, startupFastPass]() mutable {
             if (!self || generation != self->m_refreshGeneration.load()) {
                 return;
             }
@@ -934,6 +971,16 @@ QVariantMap FileManagerModel::refresh()
             }
             self->applyEntries(std::move(scan.entries));
             self->setLastError(QString());
+            if (startupFastPass && !self->m_startupFullPassScheduled) {
+                self->m_startupFullPassScheduled = true;
+                QTimer::singleShot(120, self.data(), [self]() {
+                    if (!self) {
+                        return;
+                    }
+                    self->m_startupFullPassScheduled = false;
+                    self->refresh();
+                });
+            }
             if (self->m_api != nullptr
                     && !self->m_currentPath.contains(QStringLiteral("://"))
                     && !isRecentVirtualPath(self->m_currentPath)

@@ -1,6 +1,8 @@
 #include "filemanagerapi.h"
 #include "filemanagerapi_daemon_common.h"
 
+#include <QDBusConnectionInterface>
+#include <QDBusReply>
 #include <QTimer>
 
 namespace {
@@ -116,6 +118,16 @@ void FileManagerApi::recoverDaemonFileOpState()
     }
     if (batchOperationActive() && m_daemonFileOpJobId.trimmed().isEmpty()) {
         return;
+    }
+
+    QDBusConnectionInterface *busInterface = QDBusConnection::sessionBus().interface();
+    if (busInterface != nullptr) {
+        const QDBusReply<bool> hasService = busInterface->isServiceRegistered(
+                    QString::fromLatin1(FileManagerApiDaemonCommon::kFileOpsService));
+        if (hasService.isValid() && !hasService.value()) {
+            m_daemonRecoverMisses = 0;
+            return;
+        }
     }
 
     QVariantList rows;

@@ -12,6 +12,7 @@ Window {
     signal printRequested(string documentUri, string documentTitle, bool preferPdfOutput)
     property int panelHeight: 0
     property var fileModel: null
+    property bool preloadRequested: false
     property double openedAtMs: 0
 
     readonly property var loadedItem: detachedFileManagerLoader.item
@@ -147,6 +148,11 @@ Window {
             requestActivate()
         }
         FileManagerGlobalMenuController.syncOverride(shellApi, root)
+    }
+    onPreloadRequestedChanged: {
+        if (preloadRequested && detachedFileManagerLoader.status === Loader.Null) {
+            setLoaderActive(true)
+        }
     }
     onActiveChanged: {
         FileManagerGlobalMenuController.syncOverride(shellApi, root)
