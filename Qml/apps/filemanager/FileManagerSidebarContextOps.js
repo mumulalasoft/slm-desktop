@@ -85,6 +85,21 @@ function sidebarContextCanUnmount(root) {
             && String(root.sidebarContextDevice || "").length > 0
 }
 
+function sidebarContextCanRemoveBookmark(root) {
+    var rowType = String(root.sidebarContextRowType || "")
+    var p = String(root.sidebarContextPath || "")
+    if (rowType !== "item" || p.length <= 0) {
+        return false
+    }
+    if (!root.sidebarContextBookmarkRemovable) {
+        return false
+    }
+    if (p === "__recent__" || p === "__network__" || p.indexOf("__mount__:") === 0) {
+        return false
+    }
+    return true
+}
+
 function sidebarContextMount(root, fileManagerApi) {
     if (!sidebarContextCanMount(root)) {
         return
@@ -160,6 +175,25 @@ function sidebarContextCopyPath(root, fileManagerApi) {
     if (fileManagerApi && fileManagerApi.copyTextToClipboard) {
         fileManagerApi.copyTextToClipboard(p)
     }
+}
+
+function sidebarContextRemoveBookmark(root, fileManagerApi) {
+    if (!sidebarContextCanRemoveBookmark(root)) {
+        return
+    }
+    if (!fileManagerApi || !fileManagerApi.removeBookmark) {
+        return
+    }
+    var p = String(root.sidebarContextPath || "").trim()
+    if (p.length <= 0) {
+        return
+    }
+    var res = fileManagerApi.removeBookmark(p)
+    if (!res || !res.ok) {
+        root.notifyResult("Remove Bookmark", res)
+        return
+    }
+    root.rebuildSidebarItems()
 }
 
 function storageUsageRatio(bytesAvailableValue, bytesTotalValue) {

@@ -694,9 +694,6 @@ function requestClearRecentFiles(clearRecentsDialog) {
 }
 
 function addContextEntryToBookmarks(root, fileManagerApi) {
-    if (root.contextEntryIndex < 0) {
-        return
-    }
     if (!fileManagerApi || !fileManagerApi.addBookmark) {
         return
     }
@@ -1186,9 +1183,12 @@ function toggleQuickPreview(root, quickPreviewDialog) {
                 entry.isDir ? "Folder" : "File") + "  •  " + String(
                 entry.path || "")
     root.quickPreviewImageSource = previewSourceForEntry(entry)
+    var quickPreviewIconRev = ((typeof ThemeIconController !== "undefined" && ThemeIconController)
+                               ? ThemeIconController.revision : 0)
     root.quickPreviewFallbackIconSource = "image://themeicon/" + String(
                 entry.iconName
                 || (entry.isDir ? "folder" : "text-x-generic-symbolic"))
+            + "?v=" + quickPreviewIconRev
     root.quickPreviewArchiveMode = false
     root.quickPreviewArchiveEntries = []
     root.quickPreviewArchiveEntryCount = 0

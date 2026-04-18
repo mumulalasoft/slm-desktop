@@ -6,6 +6,7 @@ function appendSidebarSection(sidebarModel, label) {
                             "label": String(label || ""),
                             "path": "",
                             "iconName": "",
+                            "removableBookmark": false,
                             "device": "",
                             "mounted": true,
                             "browsable": false,
@@ -58,12 +59,13 @@ function storageKeyForRow(row) {
     return ""
 }
 
-function appendSidebarItem(sidebarModel, label, path, iconName) {
+function appendSidebarItem(sidebarModel, label, path, iconName, removableBookmark) {
     sidebarModel.append({
                             "rowType": "item",
                             "label": String(label || ""),
                             "path": String(path || ""),
                             "iconName": String(iconName || "folder-symbolic"),
+                            "removableBookmark": !!removableBookmark,
                             "device": "",
                             "mounted": true,
                             "browsable": true,
@@ -71,6 +73,73 @@ function appendSidebarItem(sidebarModel, label, path, iconName) {
                             "bytesAvailable": -1,
                             "depth": 0
                         })
+}
+
+function normalizeBookmarkPath(pathValue) {
+    var p = String(pathValue || "").trim()
+    if (p.length <= 0) {
+        return ""
+    }
+    if (p.indexOf("file://") === 0) {
+        var local = p.slice(7)
+        if (local.length > 0 && local.charAt(0) !== "/") {
+            local = "/" + local
+        }
+        p = decodeURIComponent(local)
+    }
+    p = p.replace(/\/+/g, "/")
+    if (p.length > 1 && p.charAt(p.length - 1) === "/") {
+        p = p.slice(0, p.length - 1)
+    }
+    return p.toLowerCase()
+}
+
+function isStandardBookmarkPath(pathValue) {
+    var raw = String(pathValue || "").trim().toLowerCase()
+    if (raw.length <= 0) {
+        return false
+    }
+    var normalized = normalizeBookmarkPath(raw)
+    var standardMap = ({
+                           "documents": true,
+                           "downloads": true,
+                           "pictures": true,
+                           "videos": true
+                       })
+    function leafOf(p) {
+        var value = String(p || "")
+        if (value.indexOf("~/") === 0) {
+            return String(value.slice(2)).toLowerCase()
+        }
+        var idx = value.lastIndexOf("/")
+        return idx >= 0 ? String(value.slice(idx + 1)).toLowerCase() : value.toLowerCase()
+    }
+    var leafRaw = leafOf(raw)
+    var leafNormalized = leafOf(normalized)
+    return !!standardMap[leafRaw] || !!standardMap[leafNormalized]
+}
+
+function shouldDedupeWithBuiltin(pathValue) {
+    var raw = String(pathValue || "").trim().toLowerCase()
+    if (raw.length <= 0) {
+        return false
+    }
+    var normalized = normalizeBookmarkPath(raw)
+    function leafOf(p) {
+        var value = String(p || "")
+        if (value.indexOf("~/") === 0) {
+            return String(value.slice(2)).toLowerCase()
+        }
+        var idx = value.lastIndexOf("/")
+        return idx >= 0 ? String(value.slice(idx + 1)).toLowerCase() : value.toLowerCase()
+    }
+    var standardLeaf = ({
+                            "documents": true,
+                            "downloads": true,
+                            "pictures": true,
+                            "videos": true
+                        })
+    return !!standardLeaf[leafOf(raw)] || !!standardLeaf[leafOf(normalized)]
 }
 
 function loadStorageSidebarItems(root, sidebarModel, fileManagerApi, rowsOverride) {
@@ -81,6 +150,7 @@ function loadStorageSidebarItems(root, sidebarModel, fileManagerApi, rowsOverrid
                                 "label": "Memindai drive...",
                                 "path": "",
                                 "iconName": "drive-harddisk-symbolic",
+                                "removableBookmark": false,
                                 "device": "",
                                 "mounted": true,
                                 "browsable": false,
@@ -98,6 +168,7 @@ function loadStorageSidebarItems(root, sidebarModel, fileManagerApi, rowsOverrid
                                 "label": "Memindai drive...",
                                 "path": "",
                                 "iconName": "drive-harddisk-symbolic",
+                                "removableBookmark": false,
                                 "device": "",
                                 "mounted": true,
                                 "browsable": false,
@@ -117,6 +188,7 @@ function loadStorageSidebarItems(root, sidebarModel, fileManagerApi, rowsOverrid
                                 "label": "Memindai drive...",
                                 "path": "",
                                 "iconName": "drive-harddisk-symbolic",
+                                "removableBookmark": false,
                                 "device": "",
                                 "mounted": true,
                                 "browsable": false,
@@ -223,6 +295,7 @@ function loadStorageSidebarItems(root, sidebarModel, fileManagerApi, rowsOverrid
                                          : "Tidak ada drive terdeteksi",
                                 "path": "",
                                 "iconName": "drive-harddisk-symbolic",
+                                "removableBookmark": false,
                                 "device": "",
                                 "mounted": true,
                                 "browsable": false,
@@ -266,6 +339,7 @@ function loadStorageSidebarItems(root, sidebarModel, fileManagerApi, rowsOverrid
                                     "label": String(group.label || "Drive"),
                                     "path": "",
                                     "iconName": "drive-harddisk-symbolic",
+                                    "removableBookmark": false,
                                     "device": "",
                                     "mounted": true,
                                     "browsable": false,
@@ -299,6 +373,7 @@ function loadStorageSidebarItems(root, sidebarModel, fileManagerApi, rowsOverrid
                                     "iconName": String(
                                                     entry.iconName
                                                     || "drive-harddisk-symbolic"),
+                                    "removableBookmark": false,
                                     "device": rowDevice,
                                     "mounted": rowMounted,
                                     "browsable": rowMounted,
@@ -318,18 +393,80 @@ function loadStorageSidebarItems(root, sidebarModel, fileManagerApi, rowsOverrid
 function rebuildSidebarItems(root, sidebarModel, fileManagerApi, rowsOverride) {
     sidebarModel.clear()
     appendSidebarSection(sidebarModel, "Bookmarks")
-    appendSidebarItem(sidebarModel, "Home", "~", "go-home-symbolic")
-    appendSidebarItem(sidebarModel, "Recent", "__recent__",
-                      "document-open-recent-symbolic")
-    appendSidebarItem(sidebarModel, "Documents", "~/Documents", "text-x-generic-symbolic")
-    appendSidebarItem(sidebarModel, "Music", "~/Music", "audio-x-generic-symbolic")
-    appendSidebarItem(sidebarModel, "Pictures", "~/Pictures", "image-x-generic-symbolic")
-    appendSidebarItem(sidebarModel, "Videos", "~/Videos", "video-x-generic-symbolic")
-    appendSidebarItem(sidebarModel, "Downloads", "~/Downloads",
-                      "folder-download-symbolic")
-    appendSidebarItem(sidebarModel, "Desktop", "~/Desktop", "user-desktop-symbolic")
-    appendSidebarItem(sidebarModel, "Trash", "~/.local/share/Trash/files",
-                      "user-trash-symbolic")
+    var builtins = [{
+            "label": "Home",
+            "path": "~",
+            "iconName": "go-home-symbolic"
+        }, {
+            "label": "Desktop",
+            "path": "~/Desktop",
+            "iconName": "user-desktop-symbolic"
+        }, {
+            "label": "Recent",
+            "path": "__recent__",
+            "iconName": "document-open-recent-symbolic"
+        }, {
+            "label": "Documents",
+            "path": "~/Documents",
+            "iconName": "text-x-generic-symbolic"
+        }, {
+            "label": "Music",
+            "path": "~/Music",
+            "iconName": "audio-x-generic-symbolic"
+        }, {
+            "label": "Pictures",
+            "path": "~/Pictures",
+            "iconName": "image-x-generic-symbolic"
+        }, {
+            "label": "Videos",
+            "path": "~/Videos",
+            "iconName": "video-x-generic-symbolic"
+        }, {
+            "label": "Downloads",
+            "path": "~/Downloads",
+            "iconName": "folder-download-symbolic"
+        }, {
+            "label": "Trash",
+            "path": "~/.local/share/Trash/files",
+            "iconName": "user-trash-symbolic"
+        }]
+    var seenBookmarkPaths = ({})
+    for (var b = 0; b < builtins.length; ++b) {
+        var row = builtins[b]
+        appendSidebarItem(sidebarModel, row.label, row.path, row.iconName)
+        if (shouldDedupeWithBuiltin(row.path)) {
+            var key = normalizeBookmarkPath(row.path)
+            if (key.length > 0) {
+                seenBookmarkPaths[key] = true
+            }
+        }
+    }
+    if (fileManagerApi && fileManagerApi.bookmarks) {
+        var userBookmarks = fileManagerApi.bookmarks(500) || []
+        for (var i = 0; i < userBookmarks.length; ++i) {
+            var ub = userBookmarks[i] || ({})
+            var p = String(ub.path || "").trim()
+            if (p.length <= 0) {
+                continue
+            }
+            if (isStandardBookmarkPath(p)) {
+                continue
+            }
+            var key = normalizeBookmarkPath(p)
+            if (key.length > 0 && seenBookmarkPaths[key]) {
+                continue
+            }
+            if (key.length > 0) {
+                seenBookmarkPaths[key] = true
+            }
+            var label = String(ub.label || "").trim()
+            appendSidebarItem(sidebarModel,
+                              label.length > 0 ? label : root.basename(p),
+                              p,
+                              "folder-symbolic",
+                              true)
+        }
+    }
     appendSidebarSection(sidebarModel, "Devices")
     loadStorageSidebarItems(root, sidebarModel, fileManagerApi, rowsOverride)
     appendSidebarSection(sidebarModel, "Network")

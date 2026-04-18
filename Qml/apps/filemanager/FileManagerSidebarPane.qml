@@ -94,6 +94,7 @@ Rectangle {
             required property string label
             required property string path
             required property string iconName
+            required property bool removableBookmark
             required property string device
             required property bool mounted
             required property bool browsable
@@ -249,6 +250,7 @@ Rectangle {
                         hostRoot.sidebarContextDevice = String(device || "")
                         hostRoot.sidebarContextMounted = !!mounted
                         hostRoot.sidebarContextBrowsable = !!browsable
+                        hostRoot.sidebarContextBookmarkRemovable = !!removableBookmark
                         var p = sidebarMouse.mapToItem(hostRoot, mouse.x, mouse.y)
                         if (sidebarContextMenuRef && sidebarContextMenuRef.openAt) {
                             sidebarContextMenuRef.openAt(p.x, p.y)

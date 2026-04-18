@@ -19,6 +19,22 @@ import "Qml/components/shell/TothespotController.js" as TothespotController
 
 ApplicationWindow {
     id: root
+    function closeDetachedFileManagerContextMenusIfOutside(localX, localY) {
+        if (!detachedFileManagerVisible || !detachedFileManagerWindow || !fileManagerContent
+                || !fileManagerContent.closeAllContextMenus) {
+            return
+        }
+        var gx = Number(root.x || 0) + Number(localX || 0)
+        var gy = Number(root.y || 0) + Number(localY || 0)
+        var wx = Number(detachedFileManagerWindow.x || 0)
+        var wy = Number(detachedFileManagerWindow.y || 0)
+        var ww = Number(detachedFileManagerWindow.width || 0)
+        var wh = Number(detachedFileManagerWindow.height || 0)
+        var inside = gx >= wx && gx < (wx + ww) && gy >= wy && gy < (wy + wh)
+        if (!inside) {
+            fileManagerContent.closeAllContextMenus()
+        }
+    }
     function readSetting(path, fallback) {
         if (typeof DesktopSettings !== "undefined" && DesktopSettings
                 && DesktopSettings.settingValue) {
@@ -123,6 +139,14 @@ ApplicationWindow {
     readonly property int listViewEndMode: ListView.End
     readonly property int listViewBeginningMode: ListView.Beginning
     property double shellContextMenuOpenedAtMs: 0
+    TapHandler {
+        id: detachedFileManagerOutsideClickCloser
+        acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
+        onTapped: function(eventPoint, button) {
+            root.closeDetachedFileManagerContextMenusIfOutside(eventPoint.position.x,
+                                                               eventPoint.position.y)
+        }
+    }
     Timer {
         id: detachedFileManagerFallbackTimer
         interval: 1500

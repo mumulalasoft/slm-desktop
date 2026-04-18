@@ -48,7 +48,9 @@ Item {
                 if (String(dragGhost.iconSource || "").length > 0) {
                     return dragGhost.iconSource
                 }
-                return "image://themeicon/text-x-generic-symbolic"
+                var fallbackRev = ((typeof ThemeIconController !== "undefined" && ThemeIconController)
+                                   ? ThemeIconController.revision : 0)
+                return "image://themeicon/text-x-generic-symbolic?v=" + fallbackRev
             }
         }
 

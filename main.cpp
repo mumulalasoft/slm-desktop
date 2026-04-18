@@ -408,8 +408,12 @@ int main(int argc, char *argv[])
     MultitaskingController multitaskingController(&workspaceManager, &spacesManager);
     WindowThumbnailLayoutEngine windowThumbnailLayoutEngine;
     const auto applyIconThemePref = [&]() {
-        const QString light = desktopSettings.gtkIconThemeLight().trimmed();
-        const QString dark = desktopSettings.gtkIconThemeDark().trimmed();
+        const QString gtkLight = desktopSettings.gtkIconThemeLight().trimmed();
+        const QString gtkDark = desktopSettings.gtkIconThemeDark().trimmed();
+        const QString kdeLight = desktopSettings.kdeIconThemeLight().trimmed();
+        const QString kdeDark = desktopSettings.kdeIconThemeDark().trimmed();
+        const QString light = !gtkLight.isEmpty() ? gtkLight : kdeLight;
+        const QString dark = !gtkDark.isEmpty() ? gtkDark : kdeDark;
         if (!light.isEmpty() && !dark.isEmpty()) {
             themeIconController.setThemeMapping(light, dark);
         } else {
@@ -475,6 +479,12 @@ int main(int argc, char *argv[])
         applyIconThemePref();
     });
     QObject::connect(&desktopSettings, &DesktopSettingsClient::gtkIconThemeDarkChanged, &app, [&]() {
+        applyIconThemePref();
+    });
+    QObject::connect(&desktopSettings, &DesktopSettingsClient::kdeIconThemeLightChanged, &app, [&]() {
+        applyIconThemePref();
+    });
+    QObject::connect(&desktopSettings, &DesktopSettingsClient::kdeIconThemeDarkChanged, &app, [&]() {
         applyIconThemePref();
     });
     QObject::connect(&app, &QGuiApplication::focusWindowChanged, &app, [&](QWindow *window) {

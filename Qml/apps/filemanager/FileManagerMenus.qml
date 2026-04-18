@@ -280,8 +280,7 @@ Item {
         }
 
         root.slmRebuildInjectedObjects(fileEntryMenu, root.fileMenuSlmRows, fileEntryMenu.count-1)
-        fileEntryMenu.x = px
-        fileEntryMenu.y = py
+        root.positionMenuAt(fileEntryMenu, px, py)
         fileEntryMenu.open()
     }
 
@@ -293,8 +292,7 @@ Item {
             root.folderMenuSlmRows = root.slmRowsForCurrentContext()
         }
         root.slmRebuildInjectedObjects(folderEntryMenu, root.folderMenuSlmRows, folderEntryMenu.count-1)
-        folderEntryMenu.x = px
-        folderEntryMenu.y = py
+        root.positionMenuAt(folderEntryMenu, px, py)
         folderEntryMenu.open()
     }
 
@@ -306,17 +304,30 @@ Item {
             root.multiMenuSlmRows = root.slmRowsForCurrentContext()
         }
         root.slmRebuildInjectedObjects(multiSelectionMenu, root.multiMenuSlmRows, 1)
-        multiSelectionMenu.x = px
-        multiSelectionMenu.y = py
+        root.positionMenuAt(multiSelectionMenu, px, py)
         multiSelectionMenu.open()
     }
 
     function openTrashMenu(px, py) {
         if (!trashEntryMenu || trashEntryMenu.open === undefined)
             return
-        trashEntryMenu.x = px
-        trashEntryMenu.y = py
+        root.positionMenuAt(trashEntryMenu, px, py)
         trashEntryMenu.open()
+    }
+
+    function positionMenuAt(menuRef, px, py) {
+        if (!menuRef) {
+            return
+        }
+        var xPos = Number(px || 0)
+        var yPos = Number(py || 0)
+        if (menuRef.popupType === Popup.Window && root.hostRoot && root.hostRoot.mapToGlobal) {
+            var g = root.hostRoot.mapToGlobal(xPos, yPos)
+            xPos = Number(g.x || 0)
+            yPos = Number(g.y || 0)
+        }
+        menuRef.x = Math.round(xPos)
+        menuRef.y = Math.round(yPos)
     }
 
     function closeMenu(menuRef) {
@@ -611,9 +622,14 @@ Item {
         id: fileEntryMenu
         compact: true
         itemIconSize: 20
-        modal: false
+        popupType: Popup.Window
+        modal: true
         property var _slmInjectedObjects: []
-        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside | Popup.CloseOnPressOutsideParent
+        closePolicy: Popup.CloseOnEscape
+                     | Popup.CloseOnPressOutside
+                     | Popup.CloseOnPressOutsideParent
+                     | Popup.CloseOnReleaseOutside
+                     | Popup.CloseOnReleaseOutsideParent
         onClosed: root.slmClearInjectedObjects(fileEntryMenu)
 
         DSStyle.MenuItem {
@@ -863,9 +879,14 @@ Item {
         id: folderEntryMenu
         compact: true
         itemIconSize: 20
-        modal: false
+        popupType: Popup.Window
+        modal: true
         property var _slmInjectedObjects: []
-        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside | Popup.CloseOnPressOutsideParent
+        closePolicy: Popup.CloseOnEscape
+                     | Popup.CloseOnPressOutside
+                     | Popup.CloseOnPressOutsideParent
+                     | Popup.CloseOnReleaseOutside
+                     | Popup.CloseOnReleaseOutsideParent
         onClosed: root.slmClearInjectedObjects(folderEntryMenu)
 
         DSStyle.MenuItem {
@@ -1112,9 +1133,14 @@ Item {
         id: multiSelectionMenu
         compact: true
         itemIconSize: 20
-        modal: false
+        popupType: Popup.Window
+        modal: true
         property var _slmInjectedObjects: []
-        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside | Popup.CloseOnPressOutsideParent
+        closePolicy: Popup.CloseOnEscape
+                     | Popup.CloseOnPressOutside
+                     | Popup.CloseOnPressOutsideParent
+                     | Popup.CloseOnReleaseOutside
+                     | Popup.CloseOnReleaseOutsideParent
         onClosed: root.slmClearInjectedObjects(multiSelectionMenu)
 
         DSStyle.MenuItem {
@@ -1237,8 +1263,13 @@ Item {
         id: trashEntryMenu
         compact: true
         itemIconSize: 20
-        modal: false
-        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside | Popup.CloseOnPressOutsideParent
+        popupType: Popup.Window
+        modal: true
+        closePolicy: Popup.CloseOnEscape
+                     | Popup.CloseOnPressOutside
+                     | Popup.CloseOnPressOutsideParent
+                     | Popup.CloseOnReleaseOutside
+                     | Popup.CloseOnReleaseOutsideParent
 
         DSStyle.MenuItem {
             text: "Restore from Trash"

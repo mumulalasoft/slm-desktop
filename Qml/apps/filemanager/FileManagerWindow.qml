@@ -140,6 +140,7 @@ Rectangle {
     property string sidebarContextDevice: ""
     property bool sidebarContextMounted: false
     property bool sidebarContextBrowsable: false
+    property bool sidebarContextBookmarkRemovable: false
     property var compressPendingPaths: []
     property string compressOutputDirectory: "~"
     property string compressFormat: "tar"
@@ -292,9 +293,11 @@ Rectangle {
     function sidebarContextCanOpenInNewWindow() { return FileManagerSidebarContextOps.sidebarContextCanOpenInNewWindow(root) }
     function sidebarContextCanMount() { return FileManagerSidebarContextOps.sidebarContextCanMount(root) }
     function sidebarContextCanUnmount() { return FileManagerSidebarContextOps.sidebarContextCanUnmount(root) }
+    function sidebarContextCanRemoveBookmark() { return FileManagerSidebarContextOps.sidebarContextCanRemoveBookmark(root) }
     function sidebarContextMount() { FileManagerSidebarContextOps.sidebarContextMount(root, fileManagerApiRef) }
     function sidebarContextMountDevice(deviceValue) { FileManagerSidebarContextOps.sidebarContextMountDevice(root, fileManagerApiRef, deviceValue) }
     function sidebarContextUnmount() { FileManagerSidebarContextOps.sidebarContextUnmount(root, fileManagerApiRef) }
+    function sidebarContextRemoveBookmark() { FileManagerSidebarContextOps.sidebarContextRemoveBookmark(root, fileManagerApiRef) }
     function sidebarContextRevealInFileManager() { FileManagerSidebarContextOps.sidebarContextRevealInFileManager(root, fileManagerApiRef) }
     function sidebarContextCopyPath() { FileManagerSidebarContextOps.sidebarContextCopyPath(root, fileManagerApiRef) }
     function storageUsageRatio(bytesAvailableValue, bytesTotalValue) { return FileManagerSidebarContextOps.storageUsageRatio(bytesAvailableValue, bytesTotalValue) }

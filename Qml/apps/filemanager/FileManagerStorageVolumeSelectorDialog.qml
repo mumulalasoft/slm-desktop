@@ -7,6 +7,8 @@ AppDialog {
     id: root
 
     required property var hostRoot
+    readonly property int iconRevision: ((typeof ThemeIconController !== "undefined" && ThemeIconController)
+                                         ? ThemeIconController.revision : 0)
 
     title: qsTr("Open Drive")
     standardButtons: Dialog.Cancel
@@ -88,7 +90,7 @@ AppDialog {
                         Image {
                             Layout.preferredWidth: 16
                             Layout.preferredHeight: 16
-                            source: "image://themeicon/drive-harddisk-symbolic"
+                            source: "image://themeicon/drive-harddisk-symbolic?v=" + root.iconRevision
                         }
 
                         Text {
