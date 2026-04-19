@@ -1,6 +1,6 @@
 #include "portalservice.h"
 
-#include "../../../dbuslogutils.h"
+#include "../../core/utils/dbuslogutils.h"
 #include "portalmanager.h"
 #include "portal-adapter/PortalBackendService.h"
 #include "portalmethodnames.h"

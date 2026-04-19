@@ -1,8 +1,8 @@
 #include "globalsearchservice.h"
-#include "urlutils.h"
+#include "src/core/utils/urlutils.h"
 
-#include "appmodel.h"
-#include "dbuslogutils.h"
+#include "src/core/appmodel.h"
+#include "src/core/utils/dbuslogutils.h"
 #include "src/services/clipboard/ClipboardSearchProvider.h"
 #include "src/core/workspace/workspacemanager.h"
 

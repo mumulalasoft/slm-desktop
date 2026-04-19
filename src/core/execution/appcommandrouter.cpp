@@ -3,7 +3,7 @@
 #include "appexecutiongate.h"
 #include "../workspace/workspacemanager.h"
 #include "../workspace/windowingbackendmanager.h"
-#include "../../../screenshotmanager.h"
+#include "../../services/screenshot/screenshotmanager.h"
 
 #include <QDebug>
 #include <QDBusInterface>

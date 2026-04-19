@@ -3,9 +3,9 @@
 #include <memory>
 
 #include "daemonhealthmonitor.h"
-#include "../../../appmodel.h"
+#include "../../core/appmodel.h"
 #include "desktopdaemonservice.h"
-#include "../../../globalsearchservice.h"
+#include "../../services/search/globalsearchservice.h"
 #include "../../filemanager/ops/fileoperationsmanager.h"
 #include "../../filemanager/ops/fileoperationsservice.h"
 #include "../../core/workspace/spacesmanager.h"

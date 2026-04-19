@@ -1,5 +1,5 @@
 #include "networkmanager.h"
-#include "../../../resourcepaths.h"
+#include "../../core/utils/resourcepaths.h"
 #include <QProcess>
 #include <QDebug>
 #include <QTimer>

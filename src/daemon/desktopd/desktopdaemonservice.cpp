@@ -1,7 +1,7 @@
 #include "desktopdaemonservice.h"
 
-#include "../../../dbuslogutils.h"
-#include "../../../appmodel.h"
+#include "../../core/utils/dbuslogutils.h"
+#include "../../core/appmodel.h"
 #include "daemonhealthmonitor.h"
 #include "../../core/workspace/spacesmanager.h"
 #include "../../core/workspace/windowingbackendmanager.h"

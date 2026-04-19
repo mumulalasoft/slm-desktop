@@ -5,7 +5,7 @@
 #include <QTextStream>
 #include <QVariantList>
 
-#include "../../resourcepaths.h"
+#include "../core/utils/resourcepaths.h"
 
 namespace {
 constexpr const char *kService = "org.slm.IndicatorService";

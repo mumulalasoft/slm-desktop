@@ -1,6 +1,6 @@
 #include "fileoperationsmanager.h"
 #include "fileoperationserrors.h"
-#include "../../../../urlutils.h"
+#include "../../../core/utils/urlutils.h"
 
 #include <QDir>
 #include <QDateTime>

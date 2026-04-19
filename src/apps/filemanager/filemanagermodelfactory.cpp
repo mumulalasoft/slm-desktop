@@ -2,7 +2,7 @@
 
 #include "filemanagermodel.h"
 #include "filemanagerapi.h"
-#include "metadataindexserver.h"
+#include "src/services/fileindex/metadataindexserver.h"
 
 FileManagerModelFactory::FileManagerModelFactory(FileManagerApi *api,
                                                  MetadataIndexServer *indexServer,

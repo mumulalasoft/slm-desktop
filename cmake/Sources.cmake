@@ -5,8 +5,8 @@ set(DESKTOP_SHELL_APP_ENTRY
 )
 
 set(DESKTOP_SHELL_MODELS_AND_RUNTIME
-    appmodel.cpp
-    appmodel.h
+    src/core/appmodel.cpp
+    src/core/appmodel.h
     src/bootstrap/appstartupargs.cpp
     src/bootstrap/appstartupargs.h
     src/bootstrap/appstartupbridge.cpp
@@ -17,12 +17,12 @@ set(DESKTOP_SHELL_MODELS_AND_RUNTIME
     src/bootstrap/daemonservicebootstraprunner.h
     src/core/execution/appcommandrouter.cpp
     src/core/execution/appcommandrouter.h
-    dockidentity.cpp
-    dockidentity.h
-    dockmodel.cpp
-    dockmodel.h
-    shortcutmodel.cpp
-    shortcutmodel.h
+    src/core/dock/dockidentity.cpp
+    src/core/dock/dockidentity.h
+    src/core/dock/dockmodel.cpp
+    src/core/dock/dockmodel.h
+    src/core/shortcutmodel.cpp
+    src/core/shortcutmodel.h
     src/core/execution/appruntimeregistry.cpp
     src/core/execution/appruntimeregistry.h
     src/core/execution/appexecutiongate.cpp
@@ -213,16 +213,16 @@ set(DESKTOP_SHELL_SERVICES
     src/services/portal/screencastprivacymodel.h
     src/services/portal/inputcaptureprivacymodel.cpp
     src/services/portal/inputcaptureprivacymodel.h
-    cursorcontroller.cpp
-    cursorcontroller.h
+    src/core/shell/cursorcontroller.cpp
+    src/core/shell/cursorcontroller.h
     src/core/icons/themeiconprovider.cpp
     src/core/icons/themeiconprovider.h
     src/core/icons/themeiconcontroller.cpp
     src/core/icons/themeiconcontroller.h
-    externalindicatorregistry.cpp
-    externalindicatorregistry.h
-    globalmenumanager.cpp
-    globalmenumanager.h
+    src/services/indicator/externalindicatorregistry.cpp
+    src/services/indicator/externalindicatorregistry.h
+    src/services/globalmenu/globalmenumanager.cpp
+    src/services/globalmenu/globalmenumanager.h
     src/services/globalmenu/globalmenuadaptivecontroller.cpp
     src/services/globalmenu/globalmenuadaptivecontroller.h
     src/services/globalmenu/globalmenususpendbridge.cpp
@@ -249,22 +249,22 @@ set(DESKTOP_SHELL_SERVICES
     src/core/system/missingcomponentcontroller.cpp
     src/core/system/missingcomponentcontroller.h
     ${SLM_PERMISSIONS_SOURCES}
-    screenshotmanager.cpp
-    screenshotmanager.h
-    portalchooserlogichelper.cpp
-    portalchooserlogichelper.h
-    screenshotsavehelper.cpp
-    screenshotsavehelper.h
-    portaluibridge.cpp
-    portaluibridge.h
-    metadataindexserver.cpp
-    metadataindexserver.h
-    tothespotservice.cpp
-    tothespotservice.h
-    tothespotcontextmenuhelper.cpp
-    tothespotcontextmenuhelper.h
-    tothespottexthighlighter.cpp
-    tothespottexthighlighter.h
+    src/services/screenshot/screenshotmanager.cpp
+    src/services/screenshot/screenshotmanager.h
+    src/services/portal/portalchooserlogichelper.cpp
+    src/services/portal/portalchooserlogichelper.h
+    src/services/screenshot/screenshotsavehelper.cpp
+    src/services/screenshot/screenshotsavehelper.h
+    src/services/portal/portaluibridge.cpp
+    src/services/portal/portaluibridge.h
+    src/services/fileindex/metadataindexserver.cpp
+    src/services/fileindex/metadataindexserver.h
+    src/services/search/tothespotservice.cpp
+    src/services/search/tothespotservice.h
+    src/services/search/tothespotcontextmenuhelper.cpp
+    src/services/search/tothespotcontextmenuhelper.h
+    src/services/search/tothespottexthighlighter.cpp
+    src/services/search/tothespottexthighlighter.h
     ${FILEMANAGER_APP_SOURCES}
     ${FILEMANAGER_PROGRESS_SOURCES}
     src/filemanager/FileManagerShellBridge.cpp
@@ -357,16 +357,16 @@ set(WINDOWINGCTL_SOURCES
 
 set(DESKTOPD_SOURCES
     src/daemon/desktopd/desktopd_main.cpp
-    appmodel.cpp
-    appmodel.h
-    dockidentity.cpp
-    dockidentity.h
-    dockmodel.cpp
-    dockmodel.h
-    shortcutmodel.cpp
-    shortcutmodel.h
-    globalsearchservice.cpp
-    globalsearchservice.h
+    src/core/appmodel.cpp
+    src/core/appmodel.h
+    src/core/dock/dockidentity.cpp
+    src/core/dock/dockidentity.h
+    src/core/dock/dockmodel.cpp
+    src/core/dock/dockmodel.h
+    src/core/shortcutmodel.cpp
+    src/core/shortcutmodel.h
+    src/services/search/globalsearchservice.cpp
+    src/services/search/globalsearchservice.h
     src/core/execution/appexecutiongate.cpp
     src/core/execution/appexecutiongate.h
     src/core/execution/appruntimeregistry.cpp

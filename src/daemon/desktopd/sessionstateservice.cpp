@@ -1,6 +1,6 @@
 #include "sessionstateservice.h"
 
-#include "../../../dbuslogutils.h"
+#include "../../core/utils/dbuslogutils.h"
 #include "sessionauthenticator.h"
 #include "sessionstatemanager.h"
 

@@ -1,5 +1,5 @@
 #include "shortcutmodel.h"
-#include "urlutils.h"
+#include "src/core/utils/urlutils.h"
 
 #include <QDesktopServices>
 #include <QDir>

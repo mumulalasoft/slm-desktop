@@ -1,7 +1,7 @@
 #include "appexecutiongate.h"
 
-#include "../../../dockmodel.h"
-#include "../../../shortcutmodel.h"
+#include "../dock/dockmodel.h"
+#include "../shortcutmodel.h"
 #include "../../core/launcher/applauncher.h"
 #include "../../core/launcher/launchenvresolver.h"
 

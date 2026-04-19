@@ -1,7 +1,7 @@
 #include "tothespotservice.h"
 
 #include "globalsearchservice.h"
-#include "resourcepaths.h"
+#include "src/core/utils/resourcepaths.h"
 
 #include <QDBusInterface>
 #include <QDBusMetaType>
