@@ -456,7 +456,7 @@ Item {
                     anchors.right: parent.right
                     anchors.top: parent.top
                     anchors.bottom: parent.bottom
-                    color: Theme.color("surfaceAlt")
+                    color: Theme.color("windowBg")
 
                     // Empty state
                     Column {
