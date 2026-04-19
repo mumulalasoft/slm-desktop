@@ -3,7 +3,7 @@
 #include <QImage>
 
 #define private public
-#include "../globalmenumanager.h"
+#include "../src/services/globalmenu/globalmenumanager.h"
 #undef private
 
 class GlobalMenuManagerCacheTest : public QObject

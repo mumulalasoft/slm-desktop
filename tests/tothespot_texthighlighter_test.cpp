@@ -1,6 +1,6 @@
 #include <QtTest/QtTest>
 
-#include "../tothespottexthighlighter.h"
+#include "../src/services/search/tothespottexthighlighter.h"
 
 class TothespotTextHighlighterTest : public QObject
 {

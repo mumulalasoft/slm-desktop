@@ -11,7 +11,7 @@
 #include <QVariantList>
 #include <QVariantMap>
 
-#include "../appmodel.h"
+#include "../src/core/appmodel.h"
 
 class AppModelXbelFallbackTest : public QObject
 {

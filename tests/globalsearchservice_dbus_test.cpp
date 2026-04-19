@@ -8,8 +8,8 @@
 #include <QHash>
 #include <QSignalSpy>
 
-#include "../appmodel.h"
-#include "../globalsearchservice.h"
+#include "../src/core/appmodel.h"
+#include "../src/services/search/globalsearchservice.h"
 #include "../src/core/workspace/spacesmanager.h"
 #include "../src/core/workspace/windowingbackendmanager.h"
 #include "../src/core/workspace/workspacemanager.h"

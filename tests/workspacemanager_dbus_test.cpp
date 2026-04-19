@@ -6,7 +6,7 @@
 #include <QVariantList>
 #include <QVariantMap>
 
-#include "../appmodel.h"
+#include "../src/core/appmodel.h"
 #include "../src/daemon/desktopd/daemonhealthmonitor.h"
 #include "../src/daemon/desktopd/desktopdaemonservice.h"
 #include "../src/core/workspace/spacesmanager.h"

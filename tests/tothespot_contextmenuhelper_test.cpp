@@ -1,6 +1,6 @@
 #include <QtTest>
 
-#include "../tothespotcontextmenuhelper.h"
+#include "../src/services/search/tothespotcontextmenuhelper.h"
 
 class TothespotContextMenuHelperTest : public QObject
 {

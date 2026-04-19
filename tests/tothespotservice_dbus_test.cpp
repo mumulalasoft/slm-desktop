@@ -4,8 +4,8 @@
 #include <QDBusMetaType>
 #include <QStandardPaths>
 
-#include "../tothespotservice.h"
-#include "../globalsearchservice.h"
+#include "../src/services/search/tothespotservice.h"
+#include "../src/services/search/globalsearchservice.h"
 
 namespace {
 constexpr const char kService[] = "org.slm.Desktop.Search.v1";

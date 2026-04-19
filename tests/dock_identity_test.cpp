@@ -1,5 +1,5 @@
 #include <QtTest/QtTest>
-#include "../dockidentity.h"
+#include "../src/core/dock/dockidentity.h"
 using namespace DockIdentity;
 
 class DockIdentityTest : public QObject {

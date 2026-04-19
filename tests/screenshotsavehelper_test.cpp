@@ -3,7 +3,7 @@
 #include <QImage>
 #include <QTemporaryDir>
 
-#include "../screenshotsavehelper.h"
+#include "../src/services/screenshot/screenshotsavehelper.h"
 
 class ScreenshotSaveHelperTest : public QObject
 {
