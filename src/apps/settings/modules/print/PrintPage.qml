@@ -121,14 +121,6 @@ Item {
                 errorBanner.visible = true
             }
         }
-        function onPrinterAdded(success, name, error) {
-            if (success) {
-                addPrinterSheet.close()
-                root.doReload()
-            } else {
-                addPrinterSheet.errorText = error
-            }
-        }
     }
 
     Connections {
@@ -150,100 +142,11 @@ Item {
 
     // ── Add Printer dialog ────────────────────────────────────────────────
 
-    Dialog {
+    AddPrinterDialog {
         id: addPrinterSheet
-        title: qsTr("Add Printer")
-        modal: true
-        anchors.centerIn: Overlay.overlay
-        width: Math.min(parent.width - 64, 480)
-        standardButtons: Dialog.Cancel
-        property string errorText: ""
-
-        onOpened: {
-            addNameField.text = ""
-            addUriField.text  = ""
-            addPpdField.text  = ""
-            addPrinterSheet.errorText = ""
-        }
-
-        ColumnLayout {
-            width: parent.width
-            spacing: 16
-
-            Rectangle {
-                visible: addPrinterSheet.errorText.length > 0
-                Layout.fillWidth: true
-                radius: Theme.radiusMd
-                color: Theme.color("errorSoft")
-                implicitHeight: addErrText.implicitHeight + 16
-                Text {
-                    id: addErrText
-                    anchors { left: parent.left; right: parent.right; verticalCenter: parent.verticalCenter; margins: 12 }
-                    text: addPrinterSheet.errorText
-                    color: Theme.color("error")
-                    font.pixelSize: Theme.fontSize("small")
-                    wrapMode: Text.WordWrap
-                }
-            }
-
-            ColumnLayout {
-                spacing: 4; Layout.fillWidth: true
-                Label { text: qsTr("Queue name"); font.pixelSize: Theme.fontSize("small"); color: Theme.color("textSecondary") }
-                TextField { id: addNameField; Layout.fillWidth: true; placeholderText: qsTr("e.g. Office_Printer"); font.pixelSize: Theme.fontSize("regular") }
-            }
-
-            ColumnLayout {
-                spacing: 4; Layout.fillWidth: true
-                Label { text: qsTr("Device address (URI)"); font.pixelSize: Theme.fontSize("small"); color: Theme.color("textSecondary") }
-                TextField { id: addUriField; Layout.fillWidth: true; placeholderText: qsTr("ipp://192.168.1.100/ipp/print"); font.pixelSize: Theme.fontSize("regular") }
-            }
-
-            ColumnLayout {
-                spacing: 4; Layout.fillWidth: true
-                visible: (root.printerAdmin && root.printerAdmin.discoveredDevices.length > 0)
-                         || (root.printerAdmin && root.printerAdmin.busy)
-                Label { text: qsTr("Discovered devices"); font.pixelSize: Theme.fontSize("small"); color: Theme.color("textSecondary") }
-                BusyIndicator { visible: root.printerAdmin ? root.printerAdmin.busy : false; running: visible; implicitWidth: 24; implicitHeight: 24 }
-                Repeater {
-                    model: root.printerAdmin ? root.printerAdmin.discoveredDevices : []
-                    delegate: ItemDelegate {
-                        required property var modelData
-                        Layout.fillWidth: true
-                        text: modelData.uri
-                        font.pixelSize: Theme.fontSize("small")
-                        onClicked: addUriField.text = modelData.uri
-                    }
-                }
-            }
-
-            ColumnLayout {
-                spacing: 4; Layout.fillWidth: true
-                Label { text: qsTr("Driver (optional — leave blank for generic driver)"); font.pixelSize: Theme.fontSize("small"); color: Theme.color("textSecondary") }
-                TextField { id: addPpdField; Layout.fillWidth: true; placeholderText: qsTr("everywhere  or  /path/to/printer.ppd"); font.pixelSize: Theme.fontSize("regular") }
-            }
-
-            RowLayout {
-                Layout.fillWidth: true; spacing: 8
-                Button {
-                    text: root.printerAdmin && root.printerAdmin.busy ? qsTr("Discovering…") : qsTr("Discover Devices")
-                    enabled: root.printerAdmin !== null && !root.printerAdmin.busy && !root.hasBlockingIssues
-                    font.pixelSize: Theme.fontSize("small")
-                    onClicked: root.printerAdmin.discoverDevices()
-                }
-                Item { Layout.fillWidth: true }
-                Button {
-                    text: qsTr("Add Printer"); highlighted: true
-                    enabled: addNameField.text.trim().length > 0 && addUriField.text.trim().length > 0 && !root.hasBlockingIssues
-                    font.pixelSize: Theme.fontSize("small")
-                    onClicked: {
-                        if (root.printerAdmin) {
-                            addPrinterSheet.errorText = ""
-                            root.printerAdmin.addPrinter(addNameField.text.trim(), addUriField.text.trim(), addPpdField.text.trim())
-                        }
-                    }
-                }
-            }
-        }
+        printerAdmin:      root.printerAdmin
+        hasBlockingIssues: root.hasBlockingIssues
+        onPrinterAdded:    root.doReload()
     }
 
     // ── Page layout ───────────────────────────────────────────────────────
