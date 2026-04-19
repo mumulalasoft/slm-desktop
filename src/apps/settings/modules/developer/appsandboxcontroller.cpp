@@ -6,6 +6,7 @@
 #include <QSettings>
 #include <QStandardPaths>
 #include <QVariantMap>
+#include <QtConcurrent/QtConcurrentRun>
 
 static constexpr int kFlatpakListTimeoutMs = 5000;
 
@@ -46,64 +47,75 @@ void AppSandboxController::detectTools()
 
 void AppSandboxController::loadApps()
 {
+    if (m_watcher) {
+        return; // already loading
+    }
+
     m_loading = true;
     emit loadingChanged();
 
-    QProcess proc;
-    proc.start(QStringLiteral("flatpak"),
-               { QStringLiteral("list"),
-                 QStringLiteral("--app"),
-                 QStringLiteral("--columns=application,name,version,origin") });
+    using Result = QPair<QString, QVariantList>;
+    m_watcher = new QFutureWatcher<Result>(this);
+    connect(m_watcher, &QFutureWatcher<Result>::finished, this, [this]() {
+        auto [error, apps] = m_watcher->result();
+        m_watcher->deleteLater();
+        m_watcher = nullptr;
 
-    if (!proc.waitForFinished(kFlatpakListTimeoutMs)) {
-        m_error   = QStringLiteral("flatpak list timed out");
+        m_error   = error;
+        m_apps    = apps;
         m_loading = false;
+        emit appsChanged();
         emit errorChanged();
         emit loadingChanged();
-        return;
-    }
+    });
 
-    if (proc.exitCode() != 0) {
-        m_error = QString::fromUtf8(proc.readAllStandardError()).trimmed();
-        if (m_error.isEmpty())
-            m_error = QStringLiteral("flatpak list failed (exit %1)").arg(proc.exitCode());
-        m_loading = false;
-        emit errorChanged();
-        emit loadingChanged();
-        return;
-    }
+    m_watcher->setFuture(QtConcurrent::run([this]() -> Result {
+        QProcess proc;
+        proc.start(QStringLiteral("flatpak"),
+                   { QStringLiteral("list"),
+                     QStringLiteral("--app"),
+                     QStringLiteral("--columns=application,name,version,origin") });
 
-    QVariantList result;
-    const QString     output = QString::fromUtf8(proc.readAllStandardOutput());
-    const QStringList lines  = output.split(QLatin1Char('\n'), Qt::SkipEmptyParts);
+        if (!proc.waitForFinished(kFlatpakListTimeoutMs)) {
+            proc.kill();
+            return { QStringLiteral("flatpak list timed out"), {} };
+        }
 
-    for (const QString &line : lines) {
-        const QStringList cols = line.split(QLatin1Char('\t'));
-        if (cols.size() < 2)
-            continue;
+        if (proc.exitCode() != 0) {
+            QString err = QString::fromUtf8(proc.readAllStandardError()).trimmed();
+            if (err.isEmpty())
+                err = QStringLiteral("flatpak list failed (exit %1)").arg(proc.exitCode());
+            return { err, {} };
+        }
 
-        const QString id      = cols.value(0).trimmed();
-        const QString name    = cols.value(1).trimmed();
-        const QString version = cols.value(2).trimmed();
-        const QString origin  = cols.value(3).trimmed();
+        QVariantList apps;
+        const QStringList lines =
+            QString::fromUtf8(proc.readAllStandardOutput())
+                .split(QLatin1Char('\n'), Qt::SkipEmptyParts);
 
-        if (id.isEmpty())
-            continue;
+        for (const QString &line : lines) {
+            const QStringList cols = line.split(QLatin1Char('\t'));
+            if (cols.size() < 2)
+                continue;
 
-        QVariantMap app = parseMetadata(id);
-        app.insert(QStringLiteral("id"),      id);
-        app.insert(QStringLiteral("name"),    name.isEmpty() ? id : name);
-        app.insert(QStringLiteral("version"), version);
-        app.insert(QStringLiteral("origin"),  origin);
-        result.append(app);
-    }
+            const QString id      = cols.value(0).trimmed();
+            const QString name    = cols.value(1).trimmed();
+            const QString version = cols.value(2).trimmed();
+            const QString origin  = cols.value(3).trimmed();
 
-    m_apps    = result;
-    m_error.clear();
-    m_loading = false;
-    emit appsChanged();
-    emit errorChanged();
-    emit loadingChanged();
+            if (id.isEmpty())
+                continue;
+
+            QVariantMap app = parseMetadata(id);
+            app.insert(QStringLiteral("id"),      id);
+            app.insert(QStringLiteral("name"),    name.isEmpty() ? id : name);
+            app.insert(QStringLiteral("version"), version);
+            app.insert(QStringLiteral("origin"),  origin);
+            apps.append(app);
+        }
+
+        return { {}, apps };
+    }));
 }
 
 // ── Metadata parsing ───────────────────────────────────────────────────────

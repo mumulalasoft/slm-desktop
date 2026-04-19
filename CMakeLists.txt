@@ -3659,6 +3659,7 @@ qt_add_executable(printjobbuilder_test
 target_link_libraries(printjobbuilder_test
     PRIVATE
         Qt6::Core
+        Qt6::Concurrent
         Qt6::Test
 )
 

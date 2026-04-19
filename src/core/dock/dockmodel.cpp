@@ -6,7 +6,7 @@
 #include <QFileInfo>
 #include <QProcess>
 #include <QStandardPaths>
-#include <QtConcurrent>
+#include <QtConcurrent/QtConcurrentRun>
 #include <QUrl>
 #include <algorithm>
 #include <QDebug>
@@ -838,23 +838,12 @@ void DockModel::noteLaunchedEntry(const QString &desktopFilePath, const QString 
 bool DockModel::focusExistingWindow(const QString &desktopFilePath, const QString &executable,
                                     const QString &displayName) const
 {
+    if (m_wmctrlCache.isEmpty()) {
+        return false;
+    }
+
     const QString wmctrlPath = QStandardPaths::findExecutable(QStringLiteral("wmctrl"));
     if (wmctrlPath.isEmpty()) {
-        return false;
-    }
-
-    QProcess listProc;
-    listProc.start(wmctrlPath, QStringList{QStringLiteral("-lx")});
-    if (!listProc.waitForFinished(350)) {
-        listProc.kill();
-        return false;
-    }
-    if (listProc.exitStatus() != QProcess::NormalExit || listProc.exitCode() != 0) {
-        return false;
-    }
-
-    const QString output = QString::fromUtf8(listProc.readAllStandardOutput());
-    if (output.trimmed().isEmpty()) {
         return false;
     }
 
@@ -864,7 +853,7 @@ bool DockModel::focusExistingWindow(const QString &desktopFilePath, const QStrin
         return false;
     }
 
-    const QStringList lines = output.split('\n', Qt::SkipEmptyParts);
+    const QStringList lines = m_wmctrlCache;
     QString selectedWindowId;
     for (const QString &line : lines) {
         const QString trimmed = line.trimmed();

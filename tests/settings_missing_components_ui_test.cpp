@@ -345,8 +345,11 @@ Item {
     void evaluatePackagePolicy_rejectsUnsupportedTool()
     {
         ComponentHealthController componentHealth;
-        const QVariantMap out = componentHealth.evaluatePackagePolicy(QStringLiteral("yum"),
-                                                                      QStringLiteral("install testpkg"));
+        QSignalSpy spy(&componentHealth, &ComponentHealthController::policyEvaluated);
+        componentHealth.evaluatePackagePolicy(QStringLiteral("yum"),
+                                              QStringLiteral("install testpkg"));
+        QVERIFY(spy.count() > 0 || spy.wait(3000));
+        const QVariantMap out = spy.first().first().toMap();
         QCOMPARE(out.value(QStringLiteral("allowed")).toBool(), false);
         QCOMPARE(out.value(QStringLiteral("error")).toString(), QStringLiteral("unsupported-tool"));
     }
@@ -354,8 +357,10 @@ Item {
     void evaluatePackagePolicy_requiresArguments()
     {
         ComponentHealthController componentHealth;
-        const QVariantMap out = componentHealth.evaluatePackagePolicy(QStringLiteral("apt"),
-                                                                      QStringLiteral("   "));
+        QSignalSpy spy(&componentHealth, &ComponentHealthController::policyEvaluated);
+        componentHealth.evaluatePackagePolicy(QStringLiteral("apt"), QStringLiteral("   "));
+        QVERIFY(spy.count() > 0 || spy.wait(3000));
+        const QVariantMap out = spy.first().first().toMap();
         QCOMPARE(out.value(QStringLiteral("allowed")).toBool(), false);
         QCOMPARE(out.value(QStringLiteral("error")).toString(), QStringLiteral("missing-arguments"));
     }
@@ -378,8 +383,11 @@ Item {
         qputenv("SLM_PACKAGE_POLICY_SERVICE_BIN", toolPath.toUtf8());
 
         ComponentHealthController componentHealth;
-        const QVariantMap out = componentHealth.evaluatePackagePolicy(QStringLiteral("apt"),
-                                                                      QStringLiteral("install samba"));
+        QSignalSpy spy(&componentHealth, &ComponentHealthController::policyEvaluated);
+        componentHealth.evaluatePackagePolicy(QStringLiteral("apt"),
+                                              QStringLiteral("install samba"));
+        QVERIFY(spy.count() > 0 || spy.wait(10000));
+        const QVariantMap out = spy.first().first().toMap();
         QCOMPARE(out.value(QStringLiteral("allowed")).toBool(), true);
         QCOMPARE(out.value(QStringLiteral("trustLevel")).toString(), QStringLiteral("official"));
         QCOMPARE(out.value(QStringLiteral("riskLevel")).toString(), QStringLiteral("low"));

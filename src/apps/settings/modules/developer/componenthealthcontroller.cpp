@@ -8,6 +8,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QProcess>
+#include <QtConcurrent/QtConcurrentRun>
 
 namespace {
 QVariantMap runPolicyOneShot(const QString &tool, const QStringList &args)
@@ -69,55 +70,71 @@ QVariantMap ComponentHealthController::installComponent(const QString &component
     return m_missingController->installComponent(componentId);
 }
 
-QVariantMap ComponentHealthController::evaluatePackagePolicy(const QString &tool,
-                                                             const QString &arguments) const
+void ComponentHealthController::evaluatePackagePolicy(const QString &tool,
+                                                      const QString &arguments)
 {
+    if (m_evaluating) return;
+
     const QString normalizedTool = tool.trimmed().toLower();
     if (normalizedTool != QStringLiteral("apt")
         && normalizedTool != QStringLiteral("apt-get")
         && normalizedTool != QStringLiteral("dpkg")) {
-        return {
+        emit policyEvaluated({
             {QStringLiteral("allowed"), false},
             {QStringLiteral("error"), QStringLiteral("unsupported-tool")},
             {QStringLiteral("message"), QStringLiteral("Tool harus apt, apt-get, atau dpkg.")},
-        };
+        });
+        return;
     }
 
     const QStringList args = QProcess::splitCommand(arguments.trimmed());
     if (args.isEmpty()) {
-        return {
+        emit policyEvaluated({
             {QStringLiteral("allowed"), false},
             {QStringLiteral("error"), QStringLiteral("missing-arguments")},
             {QStringLiteral("message"), QStringLiteral("Masukkan argumen command paket yang akan dicek.")},
-        };
+        });
+        return;
     }
 
-    QDBusInterface iface(QStringLiteral("org.slm.PackagePolicy1"),
-                         QStringLiteral("/org/slm/PackagePolicy1"),
-                         QStringLiteral("org.slm.PackagePolicy1"),
-                         QDBusConnection::sessionBus());
-    if (!iface.isValid()) {
-        QVariantMap out = runPolicyOneShot(normalizedTool, args);
+    m_evaluating = true;
+    emit evaluatingChanged();
+
+    m_policyWatcher = new QFutureWatcher<QVariantMap>(this);
+    connect(m_policyWatcher, &QFutureWatcher<QVariantMap>::finished, this, [this]() {
+        QVariantMap result = m_policyWatcher->result();
+        m_policyWatcher->deleteLater();
+        m_policyWatcher = nullptr;
+        m_evaluating    = false;
+        emit evaluatingChanged();
+        emit policyEvaluated(result);
+    });
+
+    m_policyWatcher->setFuture(QtConcurrent::run([normalizedTool, args]() -> QVariantMap {
+        QDBusInterface iface(QStringLiteral("org.slm.PackagePolicy1"),
+                             QStringLiteral("/org/slm/PackagePolicy1"),
+                             QStringLiteral("org.slm.PackagePolicy1"),
+                             QDBusConnection::sessionBus());
+        QVariantMap out;
+        if (!iface.isValid()) {
+            out = runPolicyOneShot(normalizedTool, args);
+        } else {
+            QDBusReply<QVariantMap> reply = iface.call(QStringLiteral("Evaluate"),
+                                                       normalizedTool, args);
+            if (!reply.isValid()) {
+                out = {
+                    {QStringLiteral("allowed"), false},
+                    {QStringLiteral("error"), QStringLiteral("policy-service-call-failed")},
+                    {QStringLiteral("message"), reply.error().message().trimmed().isEmpty()
+                                                    ? QStringLiteral("Gagal memanggil service package policy.")
+                                                    : reply.error().message().trimmed()},
+                };
+            } else {
+                out = reply.value();
+            }
+        }
         out.insert(QStringLiteral("tool"), normalizedTool);
         out.insert(QStringLiteral("arguments"), args);
         return out;
-    }
-
-    QDBusReply<QVariantMap> reply = iface.call(QStringLiteral("Evaluate"),
-                                               normalizedTool,
-                                               args);
-    if (!reply.isValid()) {
-        return {
-            {QStringLiteral("allowed"), false},
-            {QStringLiteral("error"), QStringLiteral("policy-service-call-failed")},
-            {QStringLiteral("message"), reply.error().message().trimmed().isEmpty()
-                                            ? QStringLiteral("Gagal memanggil service package policy.")
-                                            : reply.error().message().trimmed()},
-        };
-    }
-
-    QVariantMap out = reply.value();
-    out.insert(QStringLiteral("tool"), normalizedTool);
-    out.insert(QStringLiteral("arguments"), args);
-    return out;
+    }));
 }

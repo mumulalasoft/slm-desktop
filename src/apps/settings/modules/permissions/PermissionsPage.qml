@@ -47,7 +47,12 @@ Flickable {
             }
             return
         }
-        policyResult = ComponentHealth.evaluatePackagePolicy(policyTool, policyArgs)
+        ComponentHealth.evaluatePackagePolicy(policyTool, policyArgs)
+    }
+
+    Connections {
+        target: ComponentHealth
+        function onPolicyEvaluated(result) { root.policyResult = result }
     }
 
     function reloadSecretApps() {
@@ -286,9 +291,9 @@ Flickable {
 
                     Label {
                         text: String(modelData.moduleId || "")
-                        font.pixelSize: 12
-                        font.weight: Font.DemiBold
-                        color: "#6b7280"
+                        font.pixelSize: Theme.fontSize("small")
+                        font.weight: Theme.fontWeight("semibold")
+                        color: Theme.color("textSecondary")
                     }
 
                     Repeater {
@@ -316,7 +321,7 @@ Flickable {
                                 spacing: 8
                                 Label {
                                     text: modelData.decision === "allow-always" ? qsTr("Allow") : qsTr("Deny")
-                                    color: modelData.decision === "allow-always" ? "#1f8f4a" : "#b42318"
+                                    color: modelData.decision === "allow-always" ? Theme.color("success") : Theme.color("error")
                                 }
                                 Button {
                                     text: qsTr("Open Setting")
@@ -370,14 +375,14 @@ Flickable {
                     Label {
                         visible: root.secretBusy
                         text: qsTr("Working...")
-                        color: "#6b7280"
+                        color: Theme.color("textSecondary")
                     }
                     Label {
                         Layout.fillWidth: true
                         visible: String(root.secretStatus).length > 0
                         text: root.secretStatus
                         wrapMode: Text.Wrap
-                        color: "#6b7280"
+                        color: Theme.color("textSecondary")
                     }
                 }
             }
@@ -458,7 +463,14 @@ Flickable {
                     Button {
                         text: qsTr("Evaluate")
                         enabled: root.policyArgs.trim().length > 0
+                                 && !(ComponentHealth && ComponentHealth.evaluating)
                         onClicked: root.evaluatePolicyNow()
+                    }
+                    BusyIndicator {
+                        visible: ComponentHealth && ComponentHealth.evaluating
+                        running: visible
+                        implicitWidth: 24
+                        implicitHeight: 24
                     }
                 }
             }
@@ -484,7 +496,7 @@ Flickable {
                         spacing: 12
                         Label {
                             text: qsTr("Allowed: ") + (root.policyResult.allowed ? qsTr("Yes") : qsTr("No"))
-                            color: root.policyResult.allowed ? "#1f8f4a" : "#b42318"
+                            color: root.policyResult.allowed ? Theme.color("success") : Theme.color("error")
                         }
                         Label {
                             text: qsTr("Trust: ") + String(root.policyResult.trustLevel || "unknown")
@@ -493,8 +505,8 @@ Flickable {
                         Label {
                             text: qsTr("Risk: ") + String(root.policyResult.riskLevel || "unknown")
                             color: String(root.policyResult.riskLevel || "") === "high"
-                                   ? "#b42318"
-                                   : (String(root.policyResult.riskLevel || "") === "medium" ? "#b54708" : Theme.color("textSecondary"))
+                                   ? Theme.color("error")
+                                   : (String(root.policyResult.riskLevel || "") === "medium" ? Theme.color("warning") : Theme.color("textSecondary"))
                         }
                     }
 
@@ -503,7 +515,7 @@ Flickable {
                         visible: resultArray(root.policyResult.blockReasons).length > 0
                         wrapMode: Text.Wrap
                         text: qsTr("Block reasons: ") + resultArray(root.policyResult.blockReasons).join(" | ")
-                        color: "#b42318"
+                        color: Theme.color("error")
                     }
 
                     Label {
@@ -511,7 +523,7 @@ Flickable {
                         visible: resultArray(root.policyResult.warnings).length > 0
                         wrapMode: Text.Wrap
                         text: qsTr("Warnings: ") + resultArray(root.policyResult.warnings).join(" | ")
-                        color: "#b54708"
+                        color: Theme.color("warning")
                     }
 
                     Label {
