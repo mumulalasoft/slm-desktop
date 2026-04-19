@@ -300,6 +300,8 @@ qt_add_executable(slm-settings
     src/apps/settings/thememanager.h
     src/apps/settings/desktopsettingsclient.cpp
     src/apps/settings/desktopsettingsclient.h
+    src/services/bluetooth/bluetoothmanager.cpp
+    src/services/bluetooth/bluetoothmanager.h
     src/apps/settings/fontmanager.cpp
     src/apps/settings/fontmanager.h
     src/apps/settings/modules/useraccounts/useraccountscontroller.cpp

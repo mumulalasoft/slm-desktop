@@ -27,6 +27,7 @@ using namespace Qt::StringLiterals;
 #include "../../printing/core/PrinterManager.h"
 #include "../../printing/core/PrinterAdminService.h"
 #include "../../core/system/missingcomponentcontroller.h"
+#include "../../services/bluetooth/bluetoothmanager.h"
 #include "modules/developer/envvariablecontroller.h"
 #include "modules/developer/envserviceclient.h"
 #include "modules/developer/effectiveenvpreviewcontroller.h"
@@ -133,6 +134,7 @@ int main(int argc, char *argv[])
         : QUrl(u"qrc:/qt/qml/SlmSettings/Qml/apps/settings/Main.qml"_s);
     ThemeIconController themeIconController;
     DesktopSettingsClient desktopSettings;
+    BluetoothManager bluetoothManager;
     const QString sessionMode = qEnvironmentVariable("SLM_SESSION_MODE").trimmed().toLower();
     const bool safeModeActive = (sessionMode == QStringLiteral("safe")
                                  || sessionMode == QStringLiteral("recovery"));
@@ -194,6 +196,7 @@ int main(int argc, char *argv[])
     applyIconThemePref();
     applyIconThemeMode();
     engine.rootContext()->setContextProperty(QStringLiteral("DesktopSettings"), &desktopSettings);
+    engine.rootContext()->setContextProperty(QStringLiteral("BluetoothManager"), &bluetoothManager);
     engine.rootContext()->setContextProperty(QStringLiteral("ThemeIconController"), &themeIconController);
     engine.rootContext()->setContextProperty(QStringLiteral("PrintManager"), &printManager);
     engine.rootContext()->setContextProperty(QStringLiteral("PrinterAdmin"), &printerAdmin);

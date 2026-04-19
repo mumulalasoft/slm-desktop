@@ -8,6 +8,7 @@
 #include <QFile>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QSaveFile>
 #include <QStringList>
 #include <QtGlobal>
 #include <functional>
@@ -46,6 +47,20 @@ QString settingsStorePath()
     }
     const QString base = QDir::homePath() + QStringLiteral("/.config/slm-desktop/settings");
     return base + QStringLiteral("/settings.json");
+}
+
+bool writeSettingsStoreFile(const QVariantMap &root)
+{
+    const QString path = settingsStorePath();
+    const QFileInfo info(path);
+    QDir().mkpath(info.absolutePath());
+    QSaveFile file(path);
+    if (!file.open(QIODevice::WriteOnly)) {
+        return false;
+    }
+    const QJsonDocument doc(QJsonObject::fromVariantMap(root));
+    file.write(doc.toJson(QJsonDocument::Indented));
+    return file.commit();
 }
 
 QVariant mapValueByPath(const QVariantMap &root, const QString &path, bool *ok = nullptr)
@@ -1034,17 +1049,37 @@ bool DesktopSettingsClient::ensureIface()
 
 bool DesktopSettingsClient::setSetting(const QString &path, const QVariant &value)
 {
+    const QString normalizedPath = path.trimmed();
+    if (normalizedPath.isEmpty()) {
+        return false;
+    }
+
+    auto applyLocalFallback = [&]() -> bool {
+        if (!mapSetValueByPath(m_settingsSnapshot, normalizedPath, value)) {
+            return false;
+        }
+        writeSettingsStoreFile(m_settingsSnapshot);
+        emit settingChanged(normalizedPath);
+        return true;
+    };
+
     if (!ensureIface()) {
-        return false;
+        return applyLocalFallback();
     }
-    QDBusReply<QVariantMap> reply = m_iface->call(
-                QStringLiteral("SetSetting"),
-                path,
-                QVariant::fromValue(QDBusVariant(value)));
-    if (!reply.isValid()) {
-        return false;
+
+    QDBusReply<QVariantMap> reply = m_iface->call(QStringLiteral("SetSetting"),
+                                                  normalizedPath,
+                                                  QVariant::fromValue(QDBusVariant(value)));
+    const bool ok = reply.isValid() && reply.value().value(QStringLiteral("ok"), false).toBool();
+    if (!ok) {
+        return applyLocalFallback();
     }
-    return reply.value().value(QStringLiteral("ok"), false).toBool();
+
+    // Mirror persisted snapshot in case DBus signal is delayed/lost.
+    if (mapSetValueByPath(m_settingsSnapshot, normalizedPath, value)) {
+        writeSettingsStoreFile(m_settingsSnapshot);
+    }
+    return true;
 }
 
 bool DesktopSettingsClient::setFontByPath(const QString &path,

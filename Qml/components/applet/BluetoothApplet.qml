@@ -14,6 +14,8 @@ Item {
     property string pendingDisconnectName: ""
     property bool popupHint: false
     property double lastMenuCloseMs: 0
+    property bool bluetoothEnabledPreference: false
+    property bool bluetoothPreferenceKnown: false
     readonly property int iconSize: 22
     readonly property int popupGap: Theme.metric("spacingSm")
     readonly property int rowGap: Theme.metric("spacingMd")
@@ -29,6 +31,39 @@ Item {
 
     implicitWidth: indicatorButton.implicitWidth
     implicitHeight: indicatorButton.implicitHeight
+
+    function loadPreference() {
+        if (typeof DesktopSettings === "undefined" || !DesktopSettings || !DesktopSettings.settingValue) {
+            return
+        }
+        root.bluetoothEnabledPreference = !!DesktopSettings.settingValue("bluetooth.enabled", false)
+        root.bluetoothPreferenceKnown = true
+    }
+
+    function savePreference(enabled) {
+        root.bluetoothEnabledPreference = !!enabled
+        if (typeof DesktopSettings === "undefined" || !DesktopSettings || !DesktopSettings.setSettingValue) {
+            return
+        }
+        DesktopSettings.setSettingValue("bluetooth.enabled", root.bluetoothEnabledPreference)
+    }
+
+    function effectivePowered() {
+        if (root.bluetoothPreferenceKnown) {
+            return root.bluetoothEnabledPreference
+        }
+        if (root.bluetoothManager && root.bluetoothManager.powered !== undefined && root.bluetoothManager.powered !== null) {
+            return !!root.bluetoothManager.powered
+        }
+        return false
+    }
+
+    function bluetoothIconName() {
+        if (root.bluetoothManager && root.bluetoothManager.available === false) {
+            return "bluetooth-disabled-symbolic"
+        }
+        return root.effectivePowered() ? "bluetooth-active-symbolic" : "bluetooth-disabled-symbolic"
+    }
 
     function microAnimationAllowed() {
         if (!Theme.animationsEnabled) {
@@ -84,9 +119,9 @@ Item {
                 width: root.iconSize
                 height: root.iconSize
                 fillMode: Image.PreserveAspectFit
-                source: root.iconSourceByName(root.bluetoothManager ? root.bluetoothManager.iconName : "bluetooth-disabled-symbolic")
+                source: root.iconSourceByName(root.bluetoothIconName())
                 color: Theme.color("textOnGlass")
-                opacity: (root.bluetoothManager && root.bluetoothManager.powered) ? 1.0 : 0.65
+                opacity: root.effectivePowered() ? 1.0 : 0.65
             }
         }
 
@@ -113,6 +148,7 @@ Item {
         popupWidth: Theme.metric("popupWidthS")
         onAboutToShow: {
             root.popupHint = false
+            root.loadPreference()
             if (root.bluetoothManager) {
                 root.bluetoothManager.refresh()
             }
@@ -136,8 +172,9 @@ Item {
                 rowSpacing: root.rowGap
                 Switch {
                     enabled: root.bluetoothManager && root.bluetoothManager.available
-                    checked: root.bluetoothManager && root.bluetoothManager.powered
+                    checked: root.effectivePowered()
                     onToggled: {
+                        root.savePreference(checked)
                         if (root.bluetoothManager) {
                             root.bluetoothManager.setPowered(checked)
                         }
@@ -248,4 +285,18 @@ Item {
             }
         }
     }
+
+    Connections {
+        target: (typeof DesktopSettings !== "undefined") ? DesktopSettings : null
+        function onSettingChanged(path) {
+            if (String(path || "") === "bluetooth.enabled") {
+                root.loadPreference()
+            }
+        }
+        function onAvailableChanged() {
+            root.loadPreference()
+        }
+    }
+
+    Component.onCompleted: loadPreference()
 }

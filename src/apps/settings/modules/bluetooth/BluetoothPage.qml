@@ -10,11 +10,17 @@ Flickable {
     clip: true
 
     property string highlightSettingId: ""
+    property var bluetoothManager: (typeof BluetoothManager !== "undefined") ? BluetoothManager : null
     property var enabledBinding: SettingsApp.createBindingFor("bluetooth", "enabled", false)
-    property var pairingBinding: SettingsApp.createBindingFor("bluetooth", "pairing", "")
     property string pairingStatus: ""
     property var componentIssues: []
     property bool hasBlockingIssues: false
+    property bool bluetoothEnabledPreference: false
+    property bool bluetoothPreferenceKnown: false
+    readonly property bool bluetoothAvailable: !!bluetoothManager && bluetoothManager.available
+    readonly property bool bluetoothPowered: !!bluetoothManager && bluetoothManager.powered
+    readonly property var connectedDeviceItems: (!!bluetoothManager && bluetoothManager.powered)
+                                               ? bluetoothManager.connectedDeviceItems : []
 
     function refreshComponentIssues() {
         if (typeof ComponentHealth === "undefined" || !ComponentHealth) {
@@ -31,6 +37,28 @@ Flickable {
                 return level === "required"
             })
         }
+    }
+
+    function syncGlobalBluetoothState(enabled) {
+        if (typeof DesktopSettings === "undefined" || !DesktopSettings || !DesktopSettings.setSettingValue) {
+            return
+        }
+        DesktopSettings.setSettingValue("bluetooth.enabled", !!enabled)
+    }
+
+    function loadBluetoothPreference() {
+        if (typeof DesktopSettings === "undefined" || !DesktopSettings || !DesktopSettings.settingValue) {
+            return
+        }
+        root.bluetoothEnabledPreference = !!DesktopSettings.settingValue("bluetooth.enabled", false)
+        root.bluetoothPreferenceKnown = true
+    }
+
+    function effectiveBluetoothEnabled() {
+        if (root.bluetoothPreferenceKnown) {
+            return root.bluetoothEnabledPreference
+        }
+        return root.bluetoothPowered
     }
 
     ColumnLayout {
@@ -65,9 +93,19 @@ Flickable {
                 Layout.fillWidth: true
 
                 SettingToggle {
-                    checked: Boolean(root.enabledBinding.value)
-                    enabled: !root.hasBlockingIssues
-                    onToggled: root.enabledBinding.value = checked
+                    checked: root.effectiveBluetoothEnabled()
+                    enabled: !root.hasBlockingIssues && root.bluetoothAvailable
+                    onToggled: {
+                        root.syncGlobalBluetoothState(checked)
+                        root.bluetoothEnabledPreference = checked
+                        root.bluetoothPreferenceKnown = true
+                        if (!root.bluetoothManager) {
+                            root.enabledBinding.value = checked
+                            return
+                        }
+                        root.bluetoothManager.setPowered(checked)
+                        root.enabledBinding.value = checked
+                    }
                 }
             }
 
@@ -78,11 +116,18 @@ Flickable {
                 description: qsTr("Discover nearby devices.")
                 Layout.fillWidth: true
                 Button {
-                    text: qsTr("Pair...")
-                    enabled: !root.hasBlockingIssues
+                    text: qsTr("Open Pairing")
+                    enabled: !root.hasBlockingIssues && root.bluetoothAvailable
                     onClicked: {
-                        root.pairingStatus = qsTr("Discovery requested…")
-                        root.pairingBinding.value = undefined
+                        if (!root.bluetoothManager) {
+                            root.pairingStatus = qsTr("Bluetooth service is unavailable.")
+                            return
+                        }
+                        if (root.bluetoothManager.openBluetoothSettings()) {
+                            root.pairingStatus = qsTr("Bluetooth settings opened.")
+                        } else {
+                            root.pairingStatus = qsTr("Unable to open Bluetooth settings.")
+                        }
                     }
                 }
             }
@@ -91,11 +136,49 @@ Flickable {
                 label: qsTr("Status")
                 description: root.pairingStatus.length > 0
                                  ? root.pairingStatus
-                                 : qsTr("Use Pair New Device to start discovery.")
+                                 : (root.bluetoothManager ? root.bluetoothManager.statusText
+                                                          : qsTr("Bluetooth service is unavailable."))
+                Layout.fillWidth: true
+            }
+
+            SettingCard {
+                visible: root.bluetoothPowered
+                label: qsTr("Connected Devices")
+                description: root.connectedDeviceItems.length > 0
+                                 ? root.connectedDeviceItems.map(function(item) { return item.name || "" }).join(", ")
+                                 : qsTr("No connected devices.")
                 Layout.fillWidth: true
             }
         }
     }
 
-    Component.onCompleted: refreshComponentIssues()
+    Connections {
+        target: root.bluetoothManager
+        function onChanged() {
+            root.enabledBinding.value = root.effectiveBluetoothEnabled()
+        }
+    }
+
+    Connections {
+        target: (typeof DesktopSettings !== "undefined") ? DesktopSettings : null
+        function onSettingChanged(path) {
+            if (String(path || "") === "bluetooth.enabled") {
+                root.loadBluetoothPreference()
+                root.enabledBinding.value = root.effectiveBluetoothEnabled()
+            }
+        }
+        function onAvailableChanged() {
+            root.loadBluetoothPreference()
+            root.enabledBinding.value = root.effectiveBluetoothEnabled()
+        }
+    }
+
+    Component.onCompleted: {
+        refreshComponentIssues()
+        loadBluetoothPreference()
+        if (root.bluetoothManager && root.bluetoothManager.refresh) {
+            root.bluetoothManager.refresh()
+        }
+        root.enabledBinding.value = root.effectiveBluetoothEnabled()
+    }
 }

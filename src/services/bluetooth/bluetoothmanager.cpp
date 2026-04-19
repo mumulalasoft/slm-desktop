@@ -21,6 +21,37 @@ BluetoothManager::BluetoothManager(QObject *parent)
     m_timer->setInterval(5000);
     connect(m_timer, &QTimer::timeout, this, &BluetoothManager::refresh);
     m_timer->start();
+
+    m_realtimeRefreshTimer = new QTimer(this);
+    m_realtimeRefreshTimer->setSingleShot(true);
+    m_realtimeRefreshTimer->setInterval(150);
+    connect(m_realtimeRefreshTimer, &QTimer::timeout, this, &BluetoothManager::refresh);
+
+    QDBusConnection systemBus = QDBusConnection::systemBus();
+    const bool propsConnected = systemBus.connect(QString(),
+                                                  QString(),
+                                                  QString::fromLatin1(kPropsIface),
+                                                  QStringLiteral("PropertiesChanged"),
+                                                  this,
+                                                  SLOT(onBluezPropertiesChanged(QString,QVariantMap,QStringList)));
+    const bool addedConnected = systemBus.connect(QString::fromLatin1(kBluezService),
+                                                  QStringLiteral("/"),
+                                                  QString::fromLatin1(kObjManagerIface),
+                                                  QStringLiteral("InterfacesAdded"),
+                                                  this,
+                                                  SLOT(onBluezInterfacesAdded(QDBusObjectPath,QVariantMap)));
+    const bool removedConnected = systemBus.connect(QString::fromLatin1(kBluezService),
+                                                    QStringLiteral("/"),
+                                                    QString::fromLatin1(kObjManagerIface),
+                                                    QStringLiteral("InterfacesRemoved"),
+                                                    this,
+                                                    SLOT(onBluezInterfacesRemoved(QDBusObjectPath,QStringList)));
+    const bool realtimeSignalsReady = propsConnected && addedConnected && removedConnected;
+    if (!realtimeSignalsReady) {
+        // Fallback polling lebih rapat saat event subscription DBus gagal.
+        m_timer->setInterval(1500);
+    }
+
     refresh();
 }
 
@@ -52,6 +83,75 @@ QStringList BluetoothManager::connectedDevices() const
 QVariantList BluetoothManager::connectedDeviceItems() const
 {
     return m_connectedDeviceItems;
+}
+
+void BluetoothManager::scheduleRefresh()
+{
+    if (!m_realtimeRefreshTimer) {
+        refresh();
+        return;
+    }
+    m_realtimeRefreshTimer->start();
+}
+
+void BluetoothManager::onBluezPropertiesChanged(const QString &interfaceName,
+                                                const QVariantMap &changedProperties,
+                                                const QStringList &invalidatedProperties)
+{
+    const bool adapterSignal = (interfaceName == QString::fromLatin1(kAdapterIface));
+    const bool deviceSignal = (interfaceName == QStringLiteral("org.bluez.Device1"));
+    if (!adapterSignal && !deviceSignal) {
+        return;
+    }
+
+    if (adapterSignal) {
+        if (changedProperties.contains(QStringLiteral("Powered")) ||
+            changedProperties.contains(QStringLiteral("Discovering")) ||
+            invalidatedProperties.contains(QStringLiteral("Powered")) ||
+            invalidatedProperties.contains(QStringLiteral("Discovering"))) {
+            scheduleRefresh();
+        }
+        return;
+    }
+
+    if (changedProperties.contains(QStringLiteral("Connected")) ||
+        changedProperties.contains(QStringLiteral("Alias")) ||
+        changedProperties.contains(QStringLiteral("Name")) ||
+        changedProperties.contains(QStringLiteral("Paired")) ||
+        changedProperties.contains(QStringLiteral("ServicesResolved")) ||
+        invalidatedProperties.contains(QStringLiteral("Connected")) ||
+        invalidatedProperties.contains(QStringLiteral("Alias")) ||
+        invalidatedProperties.contains(QStringLiteral("Name")) ||
+        invalidatedProperties.contains(QStringLiteral("Paired")) ||
+        invalidatedProperties.contains(QStringLiteral("ServicesResolved"))) {
+        scheduleRefresh();
+    }
+}
+
+void BluetoothManager::onBluezInterfacesAdded(const QDBusObjectPath &objectPath,
+                                              const QVariantMap &interfacesAndProperties)
+{
+    if (!objectPath.path().startsWith(QStringLiteral("/org/bluez/"))) {
+        return;
+    }
+
+    if (interfacesAndProperties.contains(QString::fromLatin1(kAdapterIface)) ||
+        interfacesAndProperties.contains(QStringLiteral("org.bluez.Device1"))) {
+        scheduleRefresh();
+    }
+}
+
+void BluetoothManager::onBluezInterfacesRemoved(const QDBusObjectPath &objectPath,
+                                                const QStringList &interfaces)
+{
+    if (!objectPath.path().startsWith(QStringLiteral("/org/bluez/"))) {
+        return;
+    }
+
+    if (interfaces.contains(QString::fromLatin1(kAdapterIface)) ||
+        interfaces.contains(QStringLiteral("org.bluez.Device1"))) {
+        scheduleRefresh();
+    }
 }
 
 void BluetoothManager::refresh()
