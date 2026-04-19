@@ -149,8 +149,8 @@ if(SLM_USE_EXTERNAL_FILEMANAGER_PACKAGE)
     list(REMOVE_ITEM DESKTOP_SHELL_SERVICES
         ${FILEMANAGER_APP_SOURCES}
         ${FILEMANAGER_PROGRESS_SOURCES}
-        metadataindexserver.cpp
-        metadataindexserver.h
+        src/services/fileindex/metadataindexserver.cpp
+        src/services/fileindex/metadataindexserver.h
         src/core/actions/slmactiontypes.cpp
         src/core/actions/slmactiontypes.h
         src/core/actions/slmactioncondition.cpp
@@ -450,12 +450,12 @@ qt_add_executable(slmcapdemo
     src/core/launcher/launchenvresolver.h
     src/apps/settings/modules/developer/envserviceclient.cpp
     src/apps/settings/modules/developer/envserviceclient.h
-    dockidentity.cpp
-    dockidentity.h
-    dockmodel.cpp
-    dockmodel.h
-    shortcutmodel.cpp
-    shortcutmodel.h
+    src/core/dock/dockidentity.cpp
+    src/core/dock/dockidentity.h
+    src/core/dock/dockmodel.cpp
+    src/core/dock/dockmodel.h
+    src/core/shortcutmodel.cpp
+    src/core/shortcutmodel.h
     src/core/actions/framework/slmdesktopentryscanner.cpp
     src/core/actions/framework/slmdesktopentryscanner.h
     src/core/actions/framework/slmactionframework.cpp
@@ -1328,8 +1328,8 @@ target_include_directories(secretservice_contract_test PRIVATE ${CMAKE_SOURCE_DI
 add_test(NAME secretservice_contract_test COMMAND secretservice_contract_test)
 
 qt_add_executable(dock_identity_test
-    dockidentity.cpp
-    dockidentity.h
+    src/core/dock/dockidentity.cpp
+    src/core/dock/dockidentity.h
     tests/dock_identity_test.cpp
 )
 
@@ -1373,8 +1373,8 @@ add_test(NAME slmmotioncore_test COMMAND slmmotioncore_test)
 qt_add_executable(appcommandrouter_test
     src/core/execution/appcommandrouter.cpp
     src/core/execution/appcommandrouter.h
-    screenshotmanager.cpp
-    screenshotmanager.h
+    src/services/screenshot/screenshotmanager.cpp
+    src/services/screenshot/screenshotmanager.h
     tests/appcommandrouter_test.cpp
 )
 
@@ -1485,12 +1485,12 @@ set(SLM_ACTION_TEST_SOURCES
     src/core/launcher/launchenvresolver.h
     src/apps/settings/modules/developer/envserviceclient.cpp
     src/apps/settings/modules/developer/envserviceclient.h
-    dockidentity.cpp
-    dockidentity.h
-    dockmodel.cpp
-    dockmodel.h
-    shortcutmodel.cpp
-    shortcutmodel.h
+    src/core/dock/dockidentity.cpp
+    src/core/dock/dockidentity.h
+    src/core/dock/dockmodel.cpp
+    src/core/dock/dockmodel.h
+    src/core/shortcutmodel.cpp
+    src/core/shortcutmodel.h
 )
 
 set(SLM_ACTION_FRAMEWORK_TEST_SOURCES
@@ -1551,8 +1551,8 @@ set(SLM_PERMISSION_TEST_SOURCES
 )
 
 qt_add_executable(appmodel_xbel_fallback_test
-    appmodel.cpp
-    appmodel.h
+    src/core/appmodel.cpp
+    src/core/appmodel.h
     ${SLM_ACTION_TEST_SOURCES}
     tests/appmodel_xbel_fallback_test.cpp
 )
@@ -1569,8 +1569,8 @@ target_link_libraries(appmodel_xbel_fallback_test
 add_test(NAME appmodel_xbel_fallback_test COMMAND appmodel_xbel_fallback_test)
 
 qt_add_executable(appmodel_scoring_weights_test
-    appmodel.cpp
-    appmodel.h
+    src/core/appmodel.cpp
+    src/core/appmodel.h
     ${SLM_ACTION_TEST_SOURCES}
     tests/appmodel_scoring_weights_test.cpp
 )
@@ -1634,8 +1634,8 @@ add_dependencies(fileopctl_smoke_test fileopctl)
 add_test(NAME fileopctl_smoke_test COMMAND fileopctl_smoke_test)
 
 qt_add_executable(workspacectl_smoke_test
-    appmodel.cpp
-    appmodel.h
+    src/core/appmodel.cpp
+    src/core/appmodel.h
     src/daemon/desktopd/daemonhealthmonitor.cpp
     src/daemon/desktopd/daemonhealthmonitor.h
     src/daemon/desktopd/desktopdaemonservice.cpp
@@ -2353,8 +2353,8 @@ add_dependencies(globalmenuctl_smoke_test globalmenuctl)
 add_test(NAME globalmenuctl_smoke_test COMMAND globalmenuctl_smoke_test)
 
 qt_add_executable(globalmenumanager_cache_test
-    globalmenumanager.cpp
-    globalmenumanager.h
+    src/services/globalmenu/globalmenumanager.cpp
+    src/services/globalmenu/globalmenumanager.h
     tests/globalmenumanager_cache_test.cpp
 )
 
@@ -2388,8 +2388,8 @@ add_test(NAME globalmenuadaptivecontroller_test COMMAND globalmenuadaptivecontro
 qt_add_executable(globalmenususpendbridge_test
     src/services/globalmenu/globalmenususpendbridge.cpp
     src/services/globalmenu/globalmenususpendbridge.h
-    globalmenumanager.cpp
-    globalmenumanager.h
+    src/services/globalmenu/globalmenumanager.cpp
+    src/services/globalmenu/globalmenumanager.h
     tests/globalmenususpendbridge_test.cpp
 )
 
@@ -2504,12 +2504,12 @@ qt_add_executable(filemanagerapi_daemon_recovery_test
     src/core/launcher/launchenvresolver.h
     src/apps/settings/modules/developer/envserviceclient.cpp
     src/apps/settings/modules/developer/envserviceclient.h
-    dockidentity.cpp
-    dockidentity.h
-    dockmodel.cpp
-    dockmodel.h
-    shortcutmodel.cpp
-    shortcutmodel.h
+    src/core/dock/dockidentity.cpp
+    src/core/dock/dockidentity.h
+    src/core/dock/dockmodel.cpp
+    src/core/dock/dockmodel.h
+    src/core/shortcutmodel.cpp
+    src/core/shortcutmodel.h
     src/apps/filemanager/include/filemanagerapi.h
     src/core/system/componentregistry.cpp
     src/core/system/componentregistry.h
@@ -2627,12 +2627,12 @@ qt_add_executable(filemanagerapi_fileops_contract_test
     src/core/launcher/launchenvresolver.h
     src/apps/settings/modules/developer/envserviceclient.cpp
     src/apps/settings/modules/developer/envserviceclient.h
-    dockidentity.cpp
-    dockidentity.h
-    dockmodel.cpp
-    dockmodel.h
-    shortcutmodel.cpp
-    shortcutmodel.h
+    src/core/dock/dockidentity.cpp
+    src/core/dock/dockidentity.h
+    src/core/dock/dockmodel.cpp
+    src/core/dock/dockmodel.h
+    src/core/shortcutmodel.cpp
+    src/core/shortcutmodel.h
     src/apps/filemanager/include/filemanagerapi.h
     src/core/system/componentregistry.cpp
     src/core/system/componentregistry.h
@@ -2685,14 +2685,14 @@ qt_add_executable(filemanager_shell_contract_test
     ${FILEMANAGER_PROGRESS_SOURCES}
     ${SLM_ACTION_FRAMEWORK_SOURCES}
     ${SLM_PERMISSION_TEST_SOURCES}
-    appmodel.cpp
-    appmodel.h
-    dockidentity.cpp
-    dockidentity.h
-    dockmodel.cpp
-    dockmodel.h
-    shortcutmodel.cpp
-    shortcutmodel.h
+    src/core/appmodel.cpp
+    src/core/appmodel.h
+    src/core/dock/dockidentity.cpp
+    src/core/dock/dockidentity.h
+    src/core/dock/dockmodel.cpp
+    src/core/dock/dockmodel.h
+    src/core/shortcutmodel.cpp
+    src/core/shortcutmodel.h
     src/core/execution/appexecutiongate.cpp
     src/core/execution/appexecutiongate.h
     src/core/execution/appruntimeregistry.cpp
@@ -3502,8 +3502,8 @@ target_link_libraries(implportal_payload_snapshot_test
 add_test(NAME implportal_payload_snapshot_test COMMAND implportal_payload_snapshot_test)
 
 qt_add_executable(screenshotsavehelper_test
-    screenshotsavehelper.cpp
-    screenshotsavehelper.h
+    src/services/screenshot/screenshotsavehelper.cpp
+    src/services/screenshot/screenshotsavehelper.h
     tests/screenshotsavehelper_test.cpp
 )
 
@@ -3730,8 +3730,8 @@ target_link_libraries(portalmanager_capture_contract_test
 add_test(NAME portalmanager_capture_contract_test COMMAND portalmanager_capture_contract_test)
 
 qt_add_executable(portalchooserlogichelper_test
-    portalchooserlogichelper.cpp
-    portalchooserlogichelper.h
+    src/services/portal/portalchooserlogichelper.cpp
+    src/services/portal/portalchooserlogichelper.h
     tests/portalchooserlogichelper_test.cpp
 )
 
@@ -3878,10 +3878,10 @@ if (_SLM_FILEMANAGER_TEST_SUITE_DEPS)
 endif()
 
 qt_add_executable(workspacemanager_dbus_test
-    appmodel.cpp
-    appmodel.h
-    globalsearchservice.cpp
-    globalsearchservice.h
+    src/core/appmodel.cpp
+    src/core/appmodel.h
+    src/services/search/globalsearchservice.cpp
+    src/services/search/globalsearchservice.h
     ${SLM_ACTION_TEST_SOURCES}
     ${SLM_PERMISSION_TEST_SOURCES}
     src/core/workspace/workspacemanager.cpp
@@ -3945,10 +3945,10 @@ target_link_libraries(daemonhealthmonitor_test
 add_test(NAME daemonhealthmonitor_test COMMAND daemonhealthmonitor_test)
 
 qt_add_executable(globalsearchservice_dbus_test
-    appmodel.cpp
-    appmodel.h
-    globalsearchservice.cpp
-    globalsearchservice.h
+    src/core/appmodel.cpp
+    src/core/appmodel.h
+    src/services/search/globalsearchservice.cpp
+    src/services/search/globalsearchservice.h
     ${SLM_ACTION_TEST_SOURCES}
     ${SLM_PERMISSION_TEST_SOURCES}
     src/core/workspace/spacesmanager.cpp
@@ -4242,8 +4242,8 @@ add_test(NAME slmcapabilityservice_dbus_test
 )
 
 qt_add_executable(tothespot_contextmenuhelper_test
-    tothespotcontextmenuhelper.cpp
-    tothespotcontextmenuhelper.h
+    src/services/search/tothespotcontextmenuhelper.cpp
+    src/services/search/tothespotcontextmenuhelper.h
     tests/tothespot_contextmenuhelper_test.cpp
 )
 
@@ -4256,8 +4256,8 @@ target_link_libraries(tothespot_contextmenuhelper_test
 add_test(NAME tothespot_contextmenuhelper_test COMMAND tothespot_contextmenuhelper_test)
 
 qt_add_executable(tothespot_texthighlighter_test
-    tothespottexthighlighter.cpp
-    tothespottexthighlighter.h
+    src/services/search/tothespottexthighlighter.cpp
+    src/services/search/tothespottexthighlighter.h
     tests/tothespot_texthighlighter_test.cpp
 )
 
@@ -4270,9 +4270,9 @@ target_link_libraries(tothespot_texthighlighter_test
 add_test(NAME tothespot_texthighlighter_test COMMAND tothespot_texthighlighter_test)
 
 qt_add_executable(tothespotservice_dbus_test
-    tothespotservice.cpp
-    tothespotservice.h
-    resourcepaths.h
+    src/services/search/tothespotservice.cpp
+    src/services/search/tothespotservice.h
+    src/core/utils/resourcepaths.h
     ${SLM_ACTION_TEST_SOURCES}
     ${SLM_ACTION_FRAMEWORK_TEST_SOURCES}
     ${SLM_PERMISSION_TEST_SOURCES}
@@ -4947,12 +4947,12 @@ qt_add_executable(slmactionregistry_test
     src/core/launcher/launchenvresolver.h
     src/apps/settings/modules/developer/envserviceclient.cpp
     src/apps/settings/modules/developer/envserviceclient.h
-    dockidentity.cpp
-    dockidentity.h
-    dockmodel.cpp
-    dockmodel.h
-    shortcutmodel.cpp
-    shortcutmodel.h
+    src/core/dock/dockidentity.cpp
+    src/core/dock/dockidentity.h
+    src/core/dock/dockmodel.cpp
+    src/core/dock/dockmodel.h
+    src/core/shortcutmodel.cpp
+    src/core/shortcutmodel.h
     tests/slmactionregistry_test.cpp
 )
 
@@ -4988,12 +4988,12 @@ qt_add_executable(slmcapability_framework_test
     src/core/launcher/launchenvresolver.h
     src/apps/settings/modules/developer/envserviceclient.cpp
     src/apps/settings/modules/developer/envserviceclient.h
-    dockidentity.cpp
-    dockidentity.h
-    dockmodel.cpp
-    dockmodel.h
-    shortcutmodel.cpp
-    shortcutmodel.h
+    src/core/dock/dockidentity.cpp
+    src/core/dock/dockidentity.h
+    src/core/dock/dockmodel.cpp
+    src/core/dock/dockmodel.h
+    src/core/shortcutmodel.cpp
+    src/core/shortcutmodel.h
     src/core/actions/framework/slmframeworktypes.h
     src/core/actions/framework/acl/slmacllexer.cpp
     src/core/actions/framework/acl/slmacllexer.h
