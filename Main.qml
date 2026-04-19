@@ -14,6 +14,7 @@ import "Qml/components/overlay/LaunchpadActions.js" as LaunchpadActions
 import "Qml/apps/filemanager/FileManagerGlobalMenuController.js" as FileManagerGlobalMenuController
 import "Qml/components/screenshot/ScreenshotController.js" as ScreenshotController
 import "Qml/components/screenshot/ScreenshotSaveController.js" as ScreenshotSaveController
+import "Qml/components/shell" as ShellComp
 import "Qml/components/shell/ShellUtils.js" as ShellUtils
 import "Qml/components/shell/TothespotController.js" as TothespotController
 
@@ -189,8 +190,6 @@ ApplicationWindow {
     property real areaShotStartY: 0
     property real areaShotEndX: 0
     property real areaShotEndY: 0
-    property string areaShotBind: String(readSetting("screenshot.bindArea", "Alt+Shift+S"))
-    property string fullscreenShotBind: String(readSetting("screenshot.bindFullscreen", "Alt+Shift+F"))
     property int pendingScreenshotDelaySec: 0
     property string pendingScreenshotMode: "screen"
     property bool screenshotSaveDialogVisible: false
@@ -676,69 +675,12 @@ ApplicationWindow {
     }
 
     Shortcut {
-        sequence: "Meta+S"
-        context: Qt.ApplicationShortcut
-        onActivated: {
-            if (typeof ShellInputRouter !== "undefined" && !ShellInputRouter.canDispatch("shell.workspace_overview")) return
-            if (desktopScene && desktopScene.toggleWorkspaceOverview) {
-                desktopScene.toggleWorkspaceOverview()
-            } else if (desktopScene) {
-                desktopScene.workspaceVisible = !desktopScene.workspaceVisible
-            }
-        }
-    }
-
-    Shortcut {
         sequence: "Meta+L"
         context: Qt.ApplicationShortcut
         onActivated: {
             root.lockScreenVisible = true
             if (typeof SessionStateClient !== "undefined" && SessionStateClient && SessionStateClient.lock) {
                 SessionStateClient.lock()
-            }
-        }
-    }
-
-    Shortcut {
-        sequence: "Meta+Left"
-        context: Qt.ApplicationShortcut
-        onActivated: {
-            if (typeof ShellInputRouter !== "undefined" && !ShellInputRouter.canDispatch("workspace.prev")) return
-            if (desktopScene && desktopScene.switchWorkspaceByDelta) {
-                desktopScene.switchWorkspaceByDelta(-1)
-            }
-        }
-    }
-
-    Shortcut {
-        sequence: "Meta+Right"
-        context: Qt.ApplicationShortcut
-        onActivated: {
-            if (typeof ShellInputRouter !== "undefined" && !ShellInputRouter.canDispatch("workspace.next")) return
-            if (desktopScene && desktopScene.switchWorkspaceByDelta) {
-                desktopScene.switchWorkspaceByDelta(1)
-            }
-        }
-    }
-
-    Shortcut {
-        sequence: "Ctrl+Meta+Left"
-        context: Qt.ApplicationShortcut
-        onActivated: {
-            if (typeof ShellInputRouter !== "undefined" && !ShellInputRouter.canDispatch("window.move_workspace_prev")) return
-            if (desktopScene && desktopScene.moveFocusedWindowByDelta) {
-                desktopScene.moveFocusedWindowByDelta(-1)
-            }
-        }
-    }
-
-    Shortcut {
-        sequence: "Ctrl+Meta+Right"
-        context: Qt.ApplicationShortcut
-        onActivated: {
-            if (typeof ShellInputRouter !== "undefined" && !ShellInputRouter.canDispatch("window.move_workspace_next")) return
-            if (desktopScene && desktopScene.moveFocusedWindowByDelta) {
-                desktopScene.moveFocusedWindowByDelta(1)
             }
         }
     }
@@ -842,51 +784,10 @@ ApplicationWindow {
         desktopMenuProvider: desktopMenuProvider
     }
 
-    Shortcut {
-        sequence: "Print"
-        onActivated: {
-            ScreenshotSaveController.beginRequest(root, "shortcut-print")
-            ScreenshotController.beginAreaSelection(root)
-        }
-    }
-
-    Shortcut {
-        sequence: root.areaShotBind
-        onActivated: {
-            ScreenshotSaveController.beginRequest(root, "shortcut-area-bind")
-            ScreenshotController.beginAreaSelection(root)
-        }
-    }
-
-    Shortcut {
-        sequence: "Shift+Print"
-        onActivated: {
-            ScreenshotSaveController.beginRequest(root, "shortcut-shift-print")
-            if (typeof AppCommandRouter !== "undefined" && AppCommandRouter && AppCommandRouter.route) {
-                var result = AppCommandRouter.routeWithResult("screenshot.fullscreen", {}, "shortcut-shift-print")
-                var payload = result && result.payload ? result.payload : {}
-                ScreenshotController.showResultNotification(root,
-                                                            !!(result && result.ok),
-                                                            (payload.path || ""),
-                                                            (payload.error || result.error || ""))
-            }
-        }
-    }
-
-    Shortcut {
-        sequence: root.fullscreenShotBind
-        onActivated: {
-            ScreenshotSaveController.beginRequest(root, "shortcut-fullscreen-bind")
-            if (typeof AppCommandRouter !== "undefined" && AppCommandRouter && AppCommandRouter.route) {
-                var result = AppCommandRouter.routeWithResult(
-                            "screenshot.fullscreen", {}, "shortcut-fullscreen-alt-shift-f")
-                var payload = result && result.payload ? result.payload : {}
-                ScreenshotController.showResultNotification(root,
-                                                            !!(result && result.ok),
-                                                            (payload.path || ""),
-                                                            (payload.error || result.error || ""))
-            }
-        }
+    ShellComp.GlobalShortcutManager {
+        shellRoot: root
+        topBarWindowRef: topBarWindow
+        desktopSceneRef: desktopScene
     }
 
     Loader {

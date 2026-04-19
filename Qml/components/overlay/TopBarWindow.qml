@@ -21,6 +21,12 @@ Item {
     signal screenshotCaptureRequested(string mode, int delaySec, bool grabPointer, bool concealText)
     signal startupItemsReadyReached()
 
+    function openScreenshotPopup() {
+        if (topBarSurface && topBarSurface.openScreenshotPopup) {
+            topBarSurface.openScreenshotPopup()
+        }
+    }
+
     // TopBar is a persistent layer — never hidden by overlay state.
     // Opacity dims when launchpad is open so it blends with the frosted backdrop.
     visible: !!rootWindow && rootWindow.visible

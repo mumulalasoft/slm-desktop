@@ -75,6 +75,12 @@ Rectangle {
         return (Date.now() - Number(lastCloseMs || 0)) < d
     }
 
+    function openScreenshotPopup() {
+        if (screenshotControlLoader.item && screenshotControlLoader.item.openPopup) {
+            screenshotControlLoader.item.openPopup()
+        }
+    }
+
     function startupQmlMark(phase, detail) {
         if (!startupTraceEnabled)
             return

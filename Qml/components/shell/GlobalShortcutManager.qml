@@ -28,8 +28,8 @@ Item {
     readonly property string workspaceOverviewBind: prefShortcut("shortcuts.workspaceOverview", "Meta+S")
     readonly property string workspacePrevBind: prefShortcut("shortcuts.workspacePrev", "Meta+Left")
     readonly property string workspaceNextBind: prefShortcut("shortcuts.workspaceNext", "Meta+Right")
-    readonly property string moveWindowPrevBind: prefShortcut("shortcuts.moveWindowPrev", "Meta+Shift+Left")
-    readonly property string moveWindowNextBind: prefShortcut("shortcuts.moveWindowNext", "Meta+Shift+Right")
+    readonly property string moveWindowPrevBind: prefShortcut("shortcuts.moveWindowPrev", "Ctrl+Meta+Left")
+    readonly property string moveWindowNextBind: prefShortcut("shortcuts.moveWindowNext", "Ctrl+Meta+Right")
 
     function triggerFullscreenQuickSave(sourceTag) {
         if (!shellRoot) {

@@ -38,12 +38,27 @@ private slots:
         const QString mainQml = readTextFile(mainPath);
         QVERIFY2(!mainQml.isEmpty(), qPrintable(QStringLiteral("failed to read %1").arg(mainPath)));
 
-        QVERIFY(mainQml.contains(QStringLiteral("sequence: \"Meta+S\"")));
-        QVERIFY(mainQml.contains(QStringLiteral("sequence: \"Meta+Left\"")));
-        QVERIFY(mainQml.contains(QStringLiteral("sequence: \"Meta+Right\"")));
-        QVERIFY(mainQml.contains(QStringLiteral("sequence: \"Ctrl+Meta+Left\"")));
-        QVERIFY(mainQml.contains(QStringLiteral("sequence: \"Ctrl+Meta+Right\"")));
         QVERIFY(mainQml.contains(QStringLiteral("sequence: \"Escape\"")));
+        QVERIFY(mainQml.contains(QStringLiteral("GlobalShortcutManager")));
+    }
+
+    void globalShortcutManager_shortcuts_areRegistered()
+    {
+        const QString managerPath =
+            QStringLiteral(DESKTOP_SOURCE_DIR)
+            + QStringLiteral("/Qml/components/shell/GlobalShortcutManager.qml");
+        const QString managerQml = readTextFile(managerPath);
+        QVERIFY2(!managerQml.isEmpty(),
+                 qPrintable(QStringLiteral("failed to read %1").arg(managerPath)));
+
+        QVERIFY(managerQml.contains(QStringLiteral("workspaceOverviewBind")));
+        QVERIFY(managerQml.contains(QStringLiteral("workspacePrevBind")));
+        QVERIFY(managerQml.contains(QStringLiteral("workspaceNextBind")));
+        QVERIFY(managerQml.contains(QStringLiteral("\"Ctrl+Meta+Left\"")));
+        QVERIFY(managerQml.contains(QStringLiteral("\"Ctrl+Meta+Right\"")));
+        QVERIFY(managerQml.contains(QStringLiteral("\"Meta+S\"")));
+        QVERIFY(managerQml.contains(QStringLiteral("\"Meta+Left\"")));
+        QVERIFY(managerQml.contains(QStringLiteral("\"Meta+Right\"")));
     }
 };
 
