@@ -21,16 +21,12 @@ set(DESKTOP_SHELL_MODELS_AND_RUNTIME
     dockidentity.h
     dockmodel.cpp
     dockmodel.h
-    dockidentity.cpp
-    dockidentity.h
     shortcutmodel.cpp
     shortcutmodel.h
     src/core/execution/appruntimeregistry.cpp
     src/core/execution/appruntimeregistry.h
     src/core/execution/appexecutiongate.cpp
     src/core/execution/appexecutiongate.h
-    src/core/execution/appruntimeregistry.cpp
-    src/core/execution/appruntimeregistry.h
     src/core/launcher/applauncher.cpp
     src/core/launcher/applauncher.h
     src/core/launcher/launchenvresolver.cpp
@@ -161,6 +157,31 @@ set(SLM_ACTION_FRAMEWORK_SOURCES
     src/core/actions/framework/slmactionframework.h
 )
 
+set(SLM_PERMISSIONS_SOURCES
+    src/core/permissions/Capability.cpp
+    src/core/permissions/Capability.h
+    src/core/permissions/CallerIdentity.cpp
+    src/core/permissions/CallerIdentity.h
+    src/core/permissions/AccessContext.cpp
+    src/core/permissions/AccessContext.h
+    src/core/permissions/PolicyDecision.cpp
+    src/core/permissions/PolicyDecision.h
+    src/core/permissions/PermissionStore.cpp
+    src/core/permissions/PermissionStore.h
+    src/core/permissions/AuditLogger.cpp
+    src/core/permissions/AuditLogger.h
+    src/core/permissions/TrustResolver.cpp
+    src/core/permissions/TrustResolver.h
+    src/core/permissions/SensitiveContentPolicy.cpp
+    src/core/permissions/SensitiveContentPolicy.h
+    src/core/permissions/PolicyEngine.cpp
+    src/core/permissions/PolicyEngine.h
+    src/core/permissions/PermissionBroker.cpp
+    src/core/permissions/PermissionBroker.h
+    src/core/permissions/DBusSecurityGuard.cpp
+    src/core/permissions/DBusSecurityGuard.h
+)
+
 set(DESKTOP_SHELL_SERVICES
     src/services/contextmenu/contextmenuservice.cpp
     src/services/contextmenu/contextmenuservice.h
@@ -227,28 +248,7 @@ set(DESKTOP_SHELL_SERVICES
     src/core/system/dependencyguard.h
     src/core/system/missingcomponentcontroller.cpp
     src/core/system/missingcomponentcontroller.h
-    src/core/permissions/Capability.cpp
-    src/core/permissions/Capability.h
-    src/core/permissions/CallerIdentity.cpp
-    src/core/permissions/CallerIdentity.h
-    src/core/permissions/AccessContext.cpp
-    src/core/permissions/AccessContext.h
-    src/core/permissions/PolicyDecision.cpp
-    src/core/permissions/PolicyDecision.h
-    src/core/permissions/PermissionStore.cpp
-    src/core/permissions/PermissionStore.h
-    src/core/permissions/AuditLogger.cpp
-    src/core/permissions/AuditLogger.h
-    src/core/permissions/TrustResolver.cpp
-    src/core/permissions/TrustResolver.h
-    src/core/permissions/SensitiveContentPolicy.cpp
-    src/core/permissions/SensitiveContentPolicy.h
-    src/core/permissions/PolicyEngine.cpp
-    src/core/permissions/PolicyEngine.h
-    src/core/permissions/PermissionBroker.cpp
-    src/core/permissions/PermissionBroker.h
-    src/core/permissions/DBusSecurityGuard.cpp
-    src/core/permissions/DBusSecurityGuard.h
+    ${SLM_PERMISSIONS_SOURCES}
     screenshotmanager.cpp
     screenshotmanager.h
     portalchooserlogichelper.cpp
@@ -378,28 +378,7 @@ set(DESKTOPD_SOURCES
     src/apps/settings/modules/developer/envserviceclient.cpp
     src/apps/settings/modules/developer/envserviceclient.h
     ${SLM_ACTION_FRAMEWORK_SOURCES}
-    src/core/permissions/Capability.cpp
-    src/core/permissions/Capability.h
-    src/core/permissions/CallerIdentity.cpp
-    src/core/permissions/CallerIdentity.h
-    src/core/permissions/AccessContext.cpp
-    src/core/permissions/AccessContext.h
-    src/core/permissions/PolicyDecision.cpp
-    src/core/permissions/PolicyDecision.h
-    src/core/permissions/PermissionStore.cpp
-    src/core/permissions/PermissionStore.h
-    src/core/permissions/AuditLogger.cpp
-    src/core/permissions/AuditLogger.h
-    src/core/permissions/TrustResolver.cpp
-    src/core/permissions/TrustResolver.h
-    src/core/permissions/SensitiveContentPolicy.cpp
-    src/core/permissions/SensitiveContentPolicy.h
-    src/core/permissions/PolicyEngine.cpp
-    src/core/permissions/PolicyEngine.h
-    src/core/permissions/PermissionBroker.cpp
-    src/core/permissions/PermissionBroker.h
-    src/core/permissions/DBusSecurityGuard.cpp
-    src/core/permissions/DBusSecurityGuard.h
+    ${SLM_PERMISSIONS_SOURCES}
     src/daemon/desktopd/daemonhealthmonitor.cpp
     src/daemon/desktopd/daemonhealthmonitor.h
     src/daemon/desktopd/desktopdaemonservice.cpp
@@ -481,28 +460,7 @@ set(DESKTOPD_SOURCES
 set(SLM_FILEOPSD_SOURCES
     src/daemon/fileopsd/fileopsd_main.cpp
     ${FILEMANAGER_OPS_SERVICE_SOURCES}
-    src/core/permissions/Capability.cpp
-    src/core/permissions/Capability.h
-    src/core/permissions/CallerIdentity.cpp
-    src/core/permissions/CallerIdentity.h
-    src/core/permissions/AccessContext.cpp
-    src/core/permissions/AccessContext.h
-    src/core/permissions/PolicyDecision.cpp
-    src/core/permissions/PolicyDecision.h
-    src/core/permissions/PermissionStore.cpp
-    src/core/permissions/PermissionStore.h
-    src/core/permissions/AuditLogger.cpp
-    src/core/permissions/AuditLogger.h
-    src/core/permissions/TrustResolver.cpp
-    src/core/permissions/TrustResolver.h
-    src/core/permissions/SensitiveContentPolicy.cpp
-    src/core/permissions/SensitiveContentPolicy.h
-    src/core/permissions/PolicyEngine.cpp
-    src/core/permissions/PolicyEngine.h
-    src/core/permissions/PermissionBroker.cpp
-    src/core/permissions/PermissionBroker.h
-    src/core/permissions/DBusSecurityGuard.cpp
-    src/core/permissions/DBusSecurityGuard.h
+    ${SLM_PERMISSIONS_SOURCES}
 )
 
 set(SLM_DEVICESD_SOURCES
@@ -519,28 +477,7 @@ set(SLM_DEVICESD_SOURCES
     src/services/storage/storagepolicystore.h
     src/daemon/devicesd/devicescompatservice.cpp
     src/daemon/devicesd/devicescompatservice.h
-    src/core/permissions/Capability.cpp
-    src/core/permissions/Capability.h
-    src/core/permissions/CallerIdentity.cpp
-    src/core/permissions/CallerIdentity.h
-    src/core/permissions/AccessContext.cpp
-    src/core/permissions/AccessContext.h
-    src/core/permissions/PolicyDecision.cpp
-    src/core/permissions/PolicyDecision.h
-    src/core/permissions/PermissionStore.cpp
-    src/core/permissions/PermissionStore.h
-    src/core/permissions/AuditLogger.cpp
-    src/core/permissions/AuditLogger.h
-    src/core/permissions/TrustResolver.cpp
-    src/core/permissions/TrustResolver.h
-    src/core/permissions/SensitiveContentPolicy.cpp
-    src/core/permissions/SensitiveContentPolicy.h
-    src/core/permissions/PolicyEngine.cpp
-    src/core/permissions/PolicyEngine.h
-    src/core/permissions/PermissionBroker.cpp
-    src/core/permissions/PermissionBroker.h
-    src/core/permissions/DBusSecurityGuard.cpp
-    src/core/permissions/DBusSecurityGuard.h
+    ${SLM_PERMISSIONS_SOURCES}
 )
 
 set(SLM_PORTALD_SOURCES
@@ -577,28 +514,7 @@ set(SLM_PORTALD_SOURCES
     src/daemon/portald/portal-adapter/PortalBackendService.h
     src/daemon/portald/portal-adapter/PortalSecretBridge.cpp
     src/daemon/portald/portal-adapter/PortalSecretBridge.h
-    src/core/permissions/Capability.cpp
-    src/core/permissions/Capability.h
-    src/core/permissions/CallerIdentity.cpp
-    src/core/permissions/CallerIdentity.h
-    src/core/permissions/AccessContext.cpp
-    src/core/permissions/AccessContext.h
-    src/core/permissions/PolicyDecision.cpp
-    src/core/permissions/PolicyDecision.h
-    src/core/permissions/PermissionStore.cpp
-    src/core/permissions/PermissionStore.h
-    src/core/permissions/AuditLogger.cpp
-    src/core/permissions/AuditLogger.h
-    src/core/permissions/TrustResolver.cpp
-    src/core/permissions/TrustResolver.h
-    src/core/permissions/SensitiveContentPolicy.cpp
-    src/core/permissions/SensitiveContentPolicy.h
-    src/core/permissions/PolicyEngine.cpp
-    src/core/permissions/PolicyEngine.h
-    src/core/permissions/PermissionBroker.cpp
-    src/core/permissions/PermissionBroker.h
-    src/core/permissions/DBusSecurityGuard.cpp
-    src/core/permissions/DBusSecurityGuard.h
+    ${SLM_PERMISSIONS_SOURCES}
 )
 
 set(SLM_CLIPBOARDD_SOURCES
@@ -622,28 +538,7 @@ set(SLM_CLIPBOARDD_SOURCES
     ${CMAKE_BINARY_DIR}/wayland-client-protocol.h
     ${CMAKE_BINARY_DIR}/ext-data-control-v1-protocol.c
     ${CMAKE_BINARY_DIR}/ext-data-control-v1-client-protocol.h
-    src/core/permissions/Capability.cpp
-    src/core/permissions/Capability.h
-    src/core/permissions/CallerIdentity.cpp
-    src/core/permissions/CallerIdentity.h
-    src/core/permissions/AccessContext.cpp
-    src/core/permissions/AccessContext.h
-    src/core/permissions/PolicyDecision.cpp
-    src/core/permissions/PolicyDecision.h
-    src/core/permissions/PermissionStore.cpp
-    src/core/permissions/PermissionStore.h
-    src/core/permissions/AuditLogger.cpp
-    src/core/permissions/AuditLogger.h
-    src/core/permissions/TrustResolver.cpp
-    src/core/permissions/TrustResolver.h
-    src/core/permissions/SensitiveContentPolicy.cpp
-    src/core/permissions/SensitiveContentPolicy.h
-    src/core/permissions/PolicyEngine.cpp
-    src/core/permissions/PolicyEngine.h
-    src/core/permissions/PermissionBroker.cpp
-    src/core/permissions/PermissionBroker.h
-    src/core/permissions/DBusSecurityGuard.cpp
-    src/core/permissions/DBusSecurityGuard.h
+    ${SLM_PERMISSIONS_SOURCES}
 )
 
 # ── Login / Session Stack ─────────────────────────────────────────────────────
@@ -747,11 +642,7 @@ set(SLM_RECOVERYD_SOURCES
     src/daemon/recoveryd/recoveryservice.h
     src/daemon/recoveryd/recoverydbusadaptor.cpp
     src/daemon/recoveryd/recoverydbusadaptor.h
-    src/login/libslmlogin/slmlogindefs.h
-    src/login/libslmlogin/slmsessionstate.h
-    src/login/libslmlogin/slmsessionstate.cpp
-    src/login/libslmlogin/slmconfigmanager.h
-    src/login/libslmlogin/slmconfigmanager.cpp
+    ${SLM_LOGIN_LIB_SOURCES}
 )
 
 set(SLM_CLEANERD_SOURCES
