@@ -8,6 +8,7 @@
 #include <QTimer>
 #include <QVector>
 
+#include "dockidentity.h"
 #include "src/core/execution/appruntimeregistry.h"
 
 struct DockEntry {

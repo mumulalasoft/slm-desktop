@@ -1,5 +1,4 @@
 #include "dockmodel.h"
-#include "dockidentity.h"
 
 #include <QDir>
 #include <QDateTime>
