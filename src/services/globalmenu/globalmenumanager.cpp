@@ -18,6 +18,7 @@
 #include <QRegularExpression>
 #include <QSequentialIterable>
 #include <QStandardPaths>
+#include <QtConcurrent>
 #include <limits>
 #include <utility>
 
@@ -289,8 +290,24 @@ void GlobalMenuManager::refresh()
 
     seedRegisteredMenus();
 
-    const quint32 windowId = detectActiveWindowId();
-    m_activeWindowId = windowId;
+    // Kick off async window-ID detection; this refresh uses the cached value.
+    // When the async result differs, another refresh fires automatically.
+    if (!m_windowIdPending) {
+        m_windowIdPending = true;
+        auto *w = new QFutureWatcher<quint32>(this);
+        connect(w, &QFutureWatcher<quint32>::finished, this, [this, w]() {
+            const quint32 newId = w->result();
+            w->deleteLater();
+            m_windowIdPending = false;
+            if (newId != m_activeWindowId) {
+                m_activeWindowId = newId;
+                QTimer::singleShot(0, this, &GlobalMenuManager::refresh);
+            }
+        });
+        w->setFuture(QtConcurrent::run([this]() { return detectActiveWindowId(); }));
+    }
+
+    const quint32 windowId = m_activeWindowId;
     if (windowId != 0) {
         QString service;
         QString path;

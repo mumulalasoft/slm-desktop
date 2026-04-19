@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QFutureWatcher>
 #include <QObject>
 #include <QString>
 #include <QTimer>
@@ -26,10 +27,7 @@ signals:
     void changed();
 
 private:
-    QString runProgram(const QString &program, const QStringList &args, int timeoutMs = 1200) const;
-    bool parseBrightnessctlOutput(const QString &output);
-    bool refreshWithBrightnessctl();
-    bool refreshWithLight();
+    void firePendingSetBrightness();
 
     bool m_available = false;
     int m_brightness = 0;
@@ -39,4 +37,7 @@ private:
     QTimer *m_timer = nullptr;
     bool m_hasBrightnessctl = false;
     bool m_hasLight = false;
+    bool m_refreshPending = false;
+    bool m_setPending = false;
+    int m_pendingBrightness = 0;
 };

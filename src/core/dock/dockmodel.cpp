@@ -902,13 +902,8 @@ bool DockModel::focusExistingWindow(const QString &desktopFilePath, const QStrin
         return false;
     }
 
-    QProcess activateProc;
-    activateProc.start(wmctrlPath, QStringList{QStringLiteral("-ia"), selectedWindowId});
-    if (!activateProc.waitForFinished(350)) {
-        activateProc.kill();
-        return false;
-    }
-    return activateProc.exitStatus() == QProcess::NormalExit && activateProc.exitCode() == 0;
+    QProcess::startDetached(wmctrlPath, QStringList{QStringLiteral("-ia"), selectedWindowId});
+    return true;
 }
 
 bool DockModel::movePinnedEntry(int fromModelIndex, int toModelIndex)

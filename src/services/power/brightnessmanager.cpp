@@ -3,8 +3,19 @@
 #include <QProcess>
 #include <QRegularExpression>
 #include <QStandardPaths>
+#include <QTimer>
+#include <QtConcurrent>
 
 namespace {
+
+struct BrightnessSnapshot {
+    bool available = false;
+    int brightness = 0;
+    QString statusText;
+    QString iconName = QStringLiteral("display-brightness-symbolic");
+    QString preferredDevice;
+};
+
 int parsePercent(const QString &text)
 {
     static const QRegularExpression kPercentRe(QStringLiteral(R"((\d{1,3})\s*%)"));
@@ -14,50 +25,10 @@ int parsePercent(const QString &text)
     }
     bool ok = false;
     const int value = match.captured(1).toInt(&ok);
-    if (!ok) {
-        return -1;
-    }
-    return qBound(0, value, 100);
-}
+    return ok ? qBound(0, value, 100) : -1;
 }
 
-BrightnessManager::BrightnessManager(QObject *parent)
-    : QObject(parent)
-{
-    m_hasBrightnessctl = !QStandardPaths::findExecutable(QStringLiteral("brightnessctl")).isEmpty();
-    m_hasLight = !QStandardPaths::findExecutable(QStringLiteral("light")).isEmpty();
-
-    m_timer = new QTimer(this);
-    m_timer->setInterval(5000);
-    connect(m_timer, &QTimer::timeout, this, &BrightnessManager::refresh);
-    m_timer->start();
-
-    refresh();
-}
-
-bool BrightnessManager::available() const
-{
-    return m_available;
-}
-
-int BrightnessManager::brightness() const
-{
-    return m_brightness;
-}
-
-QString BrightnessManager::iconName() const
-{
-    return m_iconName;
-}
-
-QString BrightnessManager::statusText() const
-{
-    return m_statusText;
-}
-
-QString BrightnessManager::runProgram(const QString &program,
-                                      const QStringList &args,
-                                      int timeoutMs) const
+QString runBrightnessProgram(const QString &program, const QStringList &args, int timeoutMs = 1200)
 {
     QProcess proc;
     proc.start(program, args);
@@ -67,41 +38,22 @@ QString BrightnessManager::runProgram(const QString &program,
     return QString::fromUtf8(proc.readAllStandardOutput()).trimmed();
 }
 
-bool BrightnessManager::refreshWithBrightnessctl()
-{
-    QString output = runProgram(QStringLiteral("brightnessctl"),
-                                {QStringLiteral("--class=backlight"), QStringLiteral("-m")});
-    if (output.isEmpty()) {
-        output = runProgram(QStringLiteral("brightnessctl"),
-                            {QStringLiteral("-c"), QStringLiteral("backlight"), QStringLiteral("-m")});
-    }
-    if (output.isEmpty()) {
-        output = runProgram(QStringLiteral("brightnessctl"), {QStringLiteral("-m")});
-    }
-    return parseBrightnessctlOutput(output);
-}
-
-bool BrightnessManager::parseBrightnessctlOutput(const QString &output)
+bool parseBrightnessctlOutput(const QString &output, BrightnessSnapshot &snap)
 {
     if (output.isEmpty()) {
         return false;
     }
-
-    // brightnessctl -m format:
-    // device,class,current,max,percent
     const QStringList lines = output.split(QLatin1Char('\n'), Qt::SkipEmptyParts);
     if (lines.isEmpty()) {
         return false;
     }
-
     QStringList chosenParts;
     for (const QString &line : lines) {
         const QStringList parts = line.split(QLatin1Char(','));
         if (parts.size() < 5) {
             continue;
         }
-        const QString klass = parts.at(1).trimmed().toLower();
-        if (klass == QStringLiteral("backlight")) {
+        if (parts.at(1).trimmed().toLower() == QStringLiteral("backlight")) {
             chosenParts = parts;
             break;
         }
@@ -113,119 +65,198 @@ bool BrightnessManager::parseBrightnessctlOutput(const QString &output)
         }
         chosenParts = parts;
     }
-
     const int value = parsePercent(chosenParts.at(4));
     if (value < 0) {
         return false;
     }
-
-    m_preferredBacklightDevice = chosenParts.at(0).trimmed();
-    m_available = true;
-    m_brightness = value;
-    m_statusText = QStringLiteral("%1%").arg(m_brightness);
+    snap.preferredDevice = chosenParts.at(0).trimmed();
+    snap.available       = true;
+    snap.brightness      = value;
+    snap.statusText      = QStringLiteral("%1%").arg(value);
     return true;
 }
 
-bool BrightnessManager::refreshWithLight()
+BrightnessSnapshot collectBrightnessSnapshot(bool hasBrightnessctl, bool hasLight)
 {
-    const QString output = runProgram(QStringLiteral("light"), {QStringLiteral("-G")});
-    if (output.isEmpty()) {
-        return false;
+    BrightnessSnapshot snap;
+    snap.iconName = QStringLiteral("display-brightness-symbolic");
+
+    if (hasBrightnessctl) {
+        QString out = runBrightnessProgram(QStringLiteral("brightnessctl"),
+                                           {QStringLiteral("--class=backlight"), QStringLiteral("-m")});
+        if (out.isEmpty()) {
+            out = runBrightnessProgram(QStringLiteral("brightnessctl"),
+                                       {QStringLiteral("-c"), QStringLiteral("backlight"), QStringLiteral("-m")});
+        }
+        if (out.isEmpty()) {
+            out = runBrightnessProgram(QStringLiteral("brightnessctl"), {QStringLiteral("-m")});
+        }
+        if (parseBrightnessctlOutput(out, snap)) {
+            return snap;
+        }
     }
-    bool ok = false;
-    const double raw = output.toDouble(&ok);
-    if (!ok) {
-        return false;
+
+    if (hasLight) {
+        const QString out = runBrightnessProgram(QStringLiteral("light"), {QStringLiteral("-G")});
+        if (!out.isEmpty()) {
+            bool ok = false;
+            const double raw = out.toDouble(&ok);
+            if (ok) {
+                snap.available  = true;
+                snap.brightness = qBound(0, qRound(raw), 100);
+                snap.statusText = QStringLiteral("%1%").arg(snap.brightness);
+                return snap;
+            }
+        }
     }
-    m_available = true;
-    m_brightness = qBound(0, qRound(raw), 100);
-    m_statusText = QStringLiteral("%1%").arg(m_brightness);
-    return true;
+
+    snap.statusText = QStringLiteral("Display unavailable");
+    return snap;
 }
+
+bool applyBrightness(int clamped, bool hasBrightnessctl, bool hasLight,
+                     const QString &preferredDevice)
+{
+    if (hasBrightnessctl) {
+        const QString pct = QStringLiteral("%1%").arg(clamped);
+        QProcess proc;
+
+        proc.start(QStringLiteral("brightnessctl"),
+                   {QStringLiteral("--class=backlight"), QStringLiteral("set"), pct});
+        if (proc.waitForFinished(1500) && proc.exitCode() == 0) {
+            return true;
+        }
+
+        proc.start(QStringLiteral("brightnessctl"),
+                   {QStringLiteral("-c"), QStringLiteral("backlight"), QStringLiteral("set"), pct});
+        if (proc.waitForFinished(1500) && proc.exitCode() == 0) {
+            return true;
+        }
+
+        if (!preferredDevice.trimmed().isEmpty()) {
+            proc.start(QStringLiteral("brightnessctl"),
+                       {QStringLiteral("--device"), preferredDevice, QStringLiteral("set"), pct});
+            if (proc.waitForFinished(1500) && proc.exitCode() == 0) {
+                return true;
+            }
+        }
+
+        proc.start(QStringLiteral("brightnessctl"), {QStringLiteral("set"), pct});
+        if (proc.waitForFinished(1500) && proc.exitCode() == 0) {
+            return true;
+        }
+    }
+
+    if (hasLight) {
+        QProcess proc;
+        proc.start(QStringLiteral("light"), {QStringLiteral("-S"), QString::number(clamped)});
+        if (proc.waitForFinished(1500) && proc.exitCode() == 0) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+} // namespace
+
+BrightnessManager::BrightnessManager(QObject *parent)
+    : QObject(parent)
+{
+    m_hasBrightnessctl = !QStandardPaths::findExecutable(QStringLiteral("brightnessctl")).isEmpty();
+    m_hasLight         = !QStandardPaths::findExecutable(QStringLiteral("light")).isEmpty();
+
+    m_timer = new QTimer(this);
+    m_timer->setInterval(5000);
+    connect(m_timer, &QTimer::timeout, this, &BrightnessManager::refresh);
+    m_timer->start();
+
+    refresh();
+}
+
+bool BrightnessManager::available() const { return m_available; }
+int BrightnessManager::brightness() const { return m_brightness; }
+QString BrightnessManager::iconName() const { return m_iconName; }
+QString BrightnessManager::statusText() const { return m_statusText; }
 
 void BrightnessManager::refresh()
 {
-    const bool oldAvailable = m_available;
-    const int oldBrightness = m_brightness;
-    const QString oldStatus = m_statusText;
-    const QString oldIcon = m_iconName;
-
-    m_available = false;
-
-    bool ok = false;
-    if (m_hasBrightnessctl) {
-        ok = refreshWithBrightnessctl();
+    if (m_refreshPending) {
+        return;
     }
-    if (!ok && m_hasLight) {
-        ok = refreshWithLight();
-    }
+    m_refreshPending = true;
 
-    if (!ok) {
-        m_available = false;
-        m_brightness = 0;
-        m_statusText = QStringLiteral("Display unavailable");
-    }
+    const bool hasBrightnessctl = m_hasBrightnessctl;
+    const bool hasLight         = m_hasLight;
 
-    m_iconName = QStringLiteral("display-brightness-symbolic");
+    auto *watcher = new QFutureWatcher<BrightnessSnapshot>(this);
+    connect(watcher, &QFutureWatcher<BrightnessSnapshot>::finished, this, [this, watcher]() {
+        BrightnessSnapshot snap = watcher->result();
+        watcher->deleteLater();
+        m_refreshPending = false;
 
-    if (oldAvailable != m_available ||
-        oldBrightness != m_brightness ||
-        oldStatus != m_statusText ||
-        oldIcon != m_iconName) {
-        emit changed();
-    }
+        const bool changed =
+            m_available  != snap.available  ||
+            m_brightness != snap.brightness ||
+            m_statusText != snap.statusText ||
+            m_iconName   != snap.iconName;
+
+        m_available             = snap.available;
+        m_brightness            = snap.brightness;
+        m_statusText            = snap.statusText;
+        m_iconName              = snap.iconName;
+        m_preferredBacklightDevice = snap.preferredDevice;
+
+        if (changed) {
+            emit this->changed();
+        }
+    });
+
+    watcher->setFuture(QtConcurrent::run([hasBrightnessctl, hasLight]() {
+        return collectBrightnessSnapshot(hasBrightnessctl, hasLight);
+    }));
 }
 
 bool BrightnessManager::setBrightness(int brightness)
 {
-    const int clamped = qBound(1, brightness, 100);
-    bool success = false;
+    m_pendingBrightness = qBound(1, brightness, 100);
 
-    if (m_hasBrightnessctl) {
-        QProcess proc;
-        proc.start(QStringLiteral("brightnessctl"),
-                   {QStringLiteral("--class=backlight"),
-                    QStringLiteral("set"),
-                    QStringLiteral("%1%").arg(clamped)});
-        success = proc.waitForFinished(1500) && proc.exitCode() == 0;
-
-        if (!success) {
-            proc.start(QStringLiteral("brightnessctl"),
-                       {QStringLiteral("-c"),
-                        QStringLiteral("backlight"),
-                        QStringLiteral("set"),
-                        QStringLiteral("%1%").arg(clamped)});
-            success = proc.waitForFinished(1500) && proc.exitCode() == 0;
-        }
-
-        if (!success && !m_preferredBacklightDevice.trimmed().isEmpty()) {
-            proc.start(QStringLiteral("brightnessctl"),
-                       {QStringLiteral("--device"),
-                        m_preferredBacklightDevice,
-                        QStringLiteral("set"),
-                        QStringLiteral("%1%").arg(clamped)});
-            success = proc.waitForFinished(1500) && proc.exitCode() == 0;
-        }
-
-        if (!success) {
-            proc.start(QStringLiteral("brightnessctl"),
-                       {QStringLiteral("set"),
-                        QStringLiteral("%1%").arg(clamped)});
-            success = proc.waitForFinished(1500) && proc.exitCode() == 0;
-        }
+    // Optimistic UI update so the slider feels instant
+    if (m_brightness != m_pendingBrightness) {
+        m_brightness = m_pendingBrightness;
+        m_statusText = QStringLiteral("%1%").arg(m_brightness);
+        emit changed();
     }
 
-    if (!success && m_hasLight) {
-        QProcess proc;
-        proc.start(QStringLiteral("light"),
-                   {QStringLiteral("-S"), QString::number(clamped)});
-        success = proc.waitForFinished(1500) && proc.exitCode() == 0;
+    if (!m_setPending) {
+        firePendingSetBrightness();
     }
-
-    if (!success) {
-        return false;
-    }
-
-    refresh();
     return true;
+}
+
+void BrightnessManager::firePendingSetBrightness()
+{
+    m_setPending = true;
+    const int target          = m_pendingBrightness;
+    const bool hasBrightnessctl = m_hasBrightnessctl;
+    const bool hasLight         = m_hasLight;
+    const QString preferredDevice = m_preferredBacklightDevice;
+
+    auto *watcher = new QFutureWatcher<bool>(this);
+    connect(watcher, &QFutureWatcher<bool>::finished, this, [this, watcher, target]() {
+        watcher->deleteLater();
+        m_setPending = false;
+
+        if (m_pendingBrightness != target) {
+            // A newer value arrived while we were running — fire it
+            firePendingSetBrightness();
+        } else {
+            // Confirm actual hardware value
+            refresh();
+        }
+    });
+
+    watcher->setFuture(QtConcurrent::run([target, hasBrightnessctl, hasLight, preferredDevice]() {
+        return applyBrightness(target, hasBrightnessctl, hasLight, preferredDevice);
+    }));
 }

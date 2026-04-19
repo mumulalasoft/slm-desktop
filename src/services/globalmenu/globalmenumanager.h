@@ -1,7 +1,7 @@
 #pragma once
 
-#include <QObject>
 #include <QHash>
+#include <QObject>
 #include <QPointer>
 #include <QSet>
 #include <QTimer>
@@ -108,6 +108,7 @@ private:
     QString m_lastSelectionSource;
     int m_lastSelectionScore = 0;
     bool m_debugEnabled = false;
+    bool m_windowIdPending = false;
     QString m_boundMenuService;
     QString m_boundMenuPath;
     QDBusServiceWatcher *m_canonicalRegistrarWatcher = nullptr;

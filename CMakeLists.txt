@@ -2363,6 +2363,7 @@ target_link_libraries(globalmenumanager_cache_test
         Qt6::Core
         Qt6::Gui
         Qt6::DBus
+        Qt6::Concurrent
         Qt6::Test
 )
 
@@ -2400,6 +2401,7 @@ target_link_libraries(globalmenususpendbridge_test
         Qt6::Core
         Qt6::DBus
         Qt6::Gui
+        Qt6::Concurrent
         Qt6::Test
 )
 

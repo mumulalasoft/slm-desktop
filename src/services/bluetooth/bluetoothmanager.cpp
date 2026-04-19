@@ -6,6 +6,20 @@
 #include <QDBusVariant>
 #include <QProcess>
 #include <QVariantMap>
+#include <QtConcurrent>
+
+namespace {
+
+struct BluetoothSnapshot {
+    bool available = false;
+    bool powered = false;
+    QString statusText;
+    QString iconName;
+    QStringList connectedDevices;
+    QVariantList connectedDeviceItems;
+};
+
+} // namespace
 
 namespace {
 constexpr const char *kBluezService = "org.bluez";
@@ -156,61 +170,73 @@ void BluetoothManager::onBluezInterfacesRemoved(const QDBusObjectPath &objectPat
 
 void BluetoothManager::refresh()
 {
-    const bool oldAvailable = m_available;
-    const bool oldPowered = m_powered;
-    const QString oldStatus = m_statusText;
-    const QString oldIcon = m_iconName;
-    const QStringList oldConnectedDevices = m_connectedDevices;
-    const QVariantList oldConnectedItems = m_connectedDeviceItems;
+    if (m_refreshPending) {
+        return;
+    }
+    m_refreshPending = true;
 
-    const QString adapterPath = detectAdapterPath();
-    if (adapterPath.isEmpty()) {
-        m_available = false;
-        m_powered = false;
-        m_statusText = QStringLiteral("Bluetooth unavailable");
-        m_iconName = QStringLiteral("bluetooth-disabled-symbolic");
-    } else {
+    auto *watcher = new QFutureWatcher<BluetoothSnapshot>(this);
+    connect(watcher, &QFutureWatcher<BluetoothSnapshot>::finished, this, [this, watcher]() {
+        BluetoothSnapshot snap = watcher->result();
+        watcher->deleteLater();
+        m_refreshPending = false;
+
+        const bool changed =
+            m_available           != snap.available           ||
+            m_powered             != snap.powered             ||
+            m_statusText          != snap.statusText          ||
+            m_iconName            != snap.iconName            ||
+            m_connectedDevices    != snap.connectedDevices    ||
+            m_connectedDeviceItems != snap.connectedDeviceItems;
+
+        m_available            = snap.available;
+        m_powered              = snap.powered;
+        m_statusText           = snap.statusText;
+        m_iconName             = snap.iconName;
+        m_connectedDevices     = snap.connectedDevices;
+        m_connectedDeviceItems = snap.connectedDeviceItems;
+
+        if (changed) {
+            emit this->changed();
+        }
+    });
+
+    watcher->setFuture(QtConcurrent::run([this]() -> BluetoothSnapshot {
+        BluetoothSnapshot snap;
+        const QString adapterPath = detectAdapterPath();
+        if (adapterPath.isEmpty()) {
+            snap.statusText = QStringLiteral("Bluetooth unavailable");
+            snap.iconName   = QStringLiteral("bluetooth-disabled-symbolic");
+            return snap;
+        }
+
         bool ok = false;
         const bool p = readPowered(adapterPath, &ok);
-        m_available = ok;
-        m_powered = ok && p;
-        if (!m_available) {
-            m_statusText = QStringLiteral("Bluetooth unavailable");
-            m_iconName = QStringLiteral("bluetooth-disabled-symbolic");
-            m_connectedDevices.clear();
-            m_connectedDeviceItems.clear();
-        } else if (m_powered) {
-            m_connectedDeviceItems = queryConnectedDeviceItems();
-            m_connectedDevices.clear();
-            for (const QVariant &entryVar : m_connectedDeviceItems) {
+        snap.available = ok;
+        snap.powered   = ok && p;
+
+        if (!snap.available) {
+            snap.statusText = QStringLiteral("Bluetooth unavailable");
+            snap.iconName   = QStringLiteral("bluetooth-disabled-symbolic");
+        } else if (snap.powered) {
+            snap.connectedDeviceItems = queryConnectedDeviceItems();
+            for (const QVariant &entryVar : snap.connectedDeviceItems) {
                 const QVariantMap entry = entryVar.toMap();
                 const QString name = entry.value(QStringLiteral("name")).toString().trimmed();
                 if (!name.isEmpty()) {
-                    m_connectedDevices << name;
+                    snap.connectedDevices << name;
                 }
             }
-            if (m_connectedDevices.isEmpty()) {
-                m_statusText = QStringLiteral("Bluetooth On");
-            } else {
-                m_statusText = QStringLiteral("Bluetooth On (%1 connected)").arg(m_connectedDevices.size());
-            }
-            m_iconName = QStringLiteral("bluetooth-active-symbolic");
+            snap.statusText = snap.connectedDevices.isEmpty()
+                ? QStringLiteral("Bluetooth On")
+                : QStringLiteral("Bluetooth On (%1 connected)").arg(snap.connectedDevices.size());
+            snap.iconName = QStringLiteral("bluetooth-active-symbolic");
         } else {
-            m_statusText = QStringLiteral("Bluetooth Off");
-            m_iconName = QStringLiteral("bluetooth-disabled-symbolic");
-            m_connectedDevices.clear();
-            m_connectedDeviceItems.clear();
+            snap.statusText = QStringLiteral("Bluetooth Off");
+            snap.iconName   = QStringLiteral("bluetooth-disabled-symbolic");
         }
-    }
-
-    if (oldAvailable != m_available ||
-        oldPowered != m_powered ||
-        oldStatus != m_statusText ||
-        oldIcon != m_iconName ||
-        oldConnectedDevices != m_connectedDevices ||
-        oldConnectedItems != m_connectedDeviceItems) {
-        emit changed();
-    }
+        return snap;
+    }));
 }
 
 bool BluetoothManager::setPowered(bool enabled)

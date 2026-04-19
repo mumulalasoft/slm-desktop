@@ -1,9 +1,10 @@
 #pragma once
 
-#include <QObject>
 #include <QDBusObjectPath>
-#include <QTimer>
+#include <QFutureWatcher>
+#include <QObject>
 #include <QStringList>
+#include <QTimer>
 #include <QVariantList>
 #include <QVariantMap>
 
@@ -58,4 +59,5 @@ private:
     QVariantList m_connectedDeviceItems;
     QTimer *m_timer = nullptr;
     QTimer *m_realtimeRefreshTimer = nullptr;
+    bool m_refreshPending = false;
 };
