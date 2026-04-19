@@ -295,14 +295,18 @@ bool BluetoothManager::disconnectDevice(const QString &address)
         return false;
     }
 
-    QProcess proc;
-    proc.setProcessChannelMode(QProcess::MergedChannels);
-    proc.start(QStringLiteral("bluetoothctl"), QStringList() << QStringLiteral("disconnect") << mac);
-    if (!proc.waitForFinished(2000) || proc.exitCode() != 0) {
-        return false;
-    }
-
-    refresh();
+    auto *watcher = new QFutureWatcher<bool>(this);
+    connect(watcher, &QFutureWatcher<bool>::finished, this, [this, watcher]() {
+        watcher->deleteLater();
+        refresh();
+    });
+    watcher->setFuture(QtConcurrent::run([mac]() -> bool {
+        QProcess proc;
+        proc.setProcessChannelMode(QProcess::MergedChannels);
+        proc.start(QStringLiteral("bluetoothctl"),
+                   QStringList() << QStringLiteral("disconnect") << mac);
+        return proc.waitForFinished(2000) && proc.exitCode() == 0;
+    }));
     return true;
 }
 

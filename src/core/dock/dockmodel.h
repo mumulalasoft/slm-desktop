@@ -2,9 +2,11 @@
 
 #include <QAbstractListModel>
 #include <QFileSystemWatcher>
+#include <QFutureWatcher>
 #include <QHash>
 #include <QSet>
 #include <QSettings>
+#include <QStringList>
 #include <QTimer>
 #include <QVector>
 
@@ -78,4 +80,6 @@ private:
     QHash<QString, qint64> m_pendingTransientExpiryByDesktop;
     QSettings m_localSettings;
     bool m_verboseLogging = false;
+    QStringList m_wmctrlCache;
+    bool m_wmctrlPending = false;
 };

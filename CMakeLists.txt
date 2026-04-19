@@ -1562,6 +1562,7 @@ target_link_libraries(appmodel_xbel_fallback_test
         Qt6::Core
         Qt6::DBus
         Qt6::Gui
+        Qt6::Concurrent
         Qt6::Test
         PkgConfig::GIO
 )
@@ -1580,6 +1581,7 @@ target_link_libraries(appmodel_scoring_weights_test
         Qt6::Core
         Qt6::DBus
         Qt6::Gui
+        Qt6::Concurrent
         Qt6::Test
         PkgConfig::GIO
 )
@@ -4963,6 +4965,7 @@ target_link_libraries(slmactionregistry_test
         Qt6::Core
         Qt6::DBus
         Qt6::Gui
+        Qt6::Concurrent
         Qt6::Test
         PkgConfig::GIO
 )
@@ -5011,6 +5014,7 @@ target_link_libraries(slmcapability_framework_test
         Qt6::Core
         Qt6::DBus
         Qt6::Gui
+        Qt6::Concurrent
         Qt6::Test
         PkgConfig::GIO
 )

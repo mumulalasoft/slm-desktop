@@ -6,6 +6,7 @@
 #include <QFileInfo>
 #include <QProcess>
 #include <QStandardPaths>
+#include <QtConcurrent>
 #include <QUrl>
 #include <algorithm>
 #include <QDebug>
@@ -1146,20 +1147,36 @@ void DockModel::refreshRunningStates()
         }
     }
 
-    QStringList wmctrlLines;
-    const QString wmctrlPath = QStandardPaths::findExecutable(QStringLiteral("wmctrl"));
-    if (!wmctrlPath.isEmpty()) {
-        QProcess listProc;
-        listProc.start(wmctrlPath, QStringList{QStringLiteral("-lx")});
-        if (listProc.waitForFinished(220) &&
-            listProc.exitStatus() == QProcess::NormalExit &&
-            listProc.exitCode() == 0) {
-            wmctrlLines = QString::fromUtf8(listProc.readAllStandardOutput())
-                              .split('\n', Qt::SkipEmptyParts);
-        } else {
-            listProc.kill();
+    // Use the cached wmctrl snapshot; refresh it async so we never block here.
+    if (!m_wmctrlPending) {
+        const QString wmctrlPath = QStandardPaths::findExecutable(QStringLiteral("wmctrl"));
+        if (!wmctrlPath.isEmpty()) {
+            m_wmctrlPending = true;
+            auto *w = new QFutureWatcher<QStringList>(this);
+            connect(w, &QFutureWatcher<QStringList>::finished, this, [this, w]() {
+                QStringList fresh = w->result();
+                w->deleteLater();
+                m_wmctrlPending = false;
+                if (fresh != m_wmctrlCache) {
+                    m_wmctrlCache = std::move(fresh);
+                    QTimer::singleShot(0, this, &DockModel::refreshRunningStates);
+                }
+            });
+            w->setFuture(QtConcurrent::run([wmctrlPath]() -> QStringList {
+                QProcess proc;
+                proc.start(wmctrlPath, QStringList{QStringLiteral("-lx")});
+                if (proc.waitForFinished(220) &&
+                    proc.exitStatus() == QProcess::NormalExit &&
+                    proc.exitCode() == 0) {
+                    return QString::fromUtf8(proc.readAllStandardOutput())
+                               .split('\n', Qt::SkipEmptyParts);
+                }
+                proc.kill();
+                return {};
+            }));
         }
     }
+    const QStringList wmctrlLines = m_wmctrlCache;
     const bool hasWindowSnapshot = !wmctrlLines.isEmpty();
     m_runtimeRegistry.refresh(runningPids);
 
