@@ -9,7 +9,7 @@
 #include <QVector>
 
 #include "dockidentity.h"
-#include "src/core/execution/appruntimeregistry.h"
+#include "../execution/appruntimeregistry.h"
 
 struct DockEntry {
     QString name;
