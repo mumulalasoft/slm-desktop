@@ -104,8 +104,10 @@ Flickable {
     }
 
     // ── Reactive wiring ───────────────────────────────────────────────────
-    Component.onCompleted: root.syncSelectedIndex()
-    Component.onCompleted: root.refreshComponentIssues()
+    Component.onCompleted: {
+        root.syncSelectedIndex()
+        root.refreshComponentIssues()
+    }
 
     Connections {
         target: (typeof DesktopSettings !== "undefined") ? DesktopSettings : null
