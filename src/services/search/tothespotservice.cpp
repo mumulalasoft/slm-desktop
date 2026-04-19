@@ -1,7 +1,7 @@
 #include "tothespotservice.h"
 
 #include "globalsearchservice.h"
-#include "src/core/utils/resourcepaths.h"
+#include "../../core/utils/resourcepaths.h"
 
 #include <QDBusInterface>
 #include <QDBusMetaType>
@@ -20,8 +20,8 @@
 #include <QProcessEnvironment>
 #include <QProcess>
 
-#include "src/core/actions/slmactionregistry.h"
-#include "src/core/actions/framework/slmactionframework.h"
+#include "../../core/actions/slmactionregistry.h"
+#include "../../core/actions/framework/slmactionframework.h"
 
 #ifdef signals
 #undef signals

@@ -1,4 +1,4 @@
-#include "src/services/cleaner/cleanerservice.h"
+#include "../../services/cleaner/cleanerservice.h"
 
 #include <QCoreApplication>
 #include <QDBusConnection>

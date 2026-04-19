@@ -13,12 +13,12 @@
 #include <QVariantMap>
 #include <QVector>
 
-#include "src/core/permissions/AuditLogger.h"
-#include "src/core/permissions/DBusSecurityGuard.h"
-#include "src/core/permissions/PermissionBroker.h"
-#include "src/core/permissions/PermissionStore.h"
-#include "src/core/permissions/PolicyEngine.h"
-#include "src/core/permissions/TrustResolver.h"
+#include "../../core/permissions/AuditLogger.h"
+#include "../../core/permissions/DBusSecurityGuard.h"
+#include "../../core/permissions/PermissionBroker.h"
+#include "../../core/permissions/PermissionStore.h"
+#include "../../core/permissions/PolicyEngine.h"
+#include "../../core/permissions/TrustResolver.h"
 
 class DesktopAppModel;
 class WorkspaceManager;

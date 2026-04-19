@@ -14,8 +14,8 @@
 #include <QSysInfo>
 #include <QProcess>
 
-#include "src/core/system/dependencyguard.h"
-#include "src/core/system/componentregistry.h"
+#include "../../core/system/dependencyguard.h"
+#include "../../core/system/componentregistry.h"
 
 namespace {
 

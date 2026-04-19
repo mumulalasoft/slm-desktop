@@ -3,7 +3,7 @@
 #include <QString>
 #include <QVariantList>
 #include "greetdclient.h"
-#include "src/login/libslmlogin/slmsessionstate.h"
+#include "../libslmlogin/slmsessionstate.h"
 
 namespace Slm::Login {
 

@@ -11,7 +11,7 @@
 #include <QFuture>
 #include <QtConcurrent>
 
-#include "src/apps/filemanager/include/filemanagerapi.h"
+#include "../apps/filemanager/include/filemanagerapi.h"
 
 Q_LOGGING_CATEGORY(logFmBridge, "slm.desktop.fmbridge")
 

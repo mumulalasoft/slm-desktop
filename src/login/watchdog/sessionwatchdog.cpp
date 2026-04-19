@@ -5,9 +5,9 @@
 #include <QFileInfo>
 #include <QProcess>
 #include <QStandardPaths>
-#include "src/login/libslmlogin/slmconfigmanager.h"
-#include "src/login/libslmlogin/slmlogindefs.h"
-#include "src/login/libslmlogin/slmsessionstate.h"
+#include "../libslmlogin/slmconfigmanager.h"
+#include "../libslmlogin/slmlogindefs.h"
+#include "../libslmlogin/slmsessionstate.h"
 
 namespace Slm::Login {
 

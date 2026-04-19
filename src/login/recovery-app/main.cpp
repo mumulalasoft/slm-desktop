@@ -3,7 +3,7 @@
 #include <QQmlContext>
 
 #include "recoveryapp.h"
-#include "src/core/system/missingcomponentcontroller.h"
+#include "../../core/system/missingcomponentcontroller.h"
 
 int main(int argc, char *argv[])
 {

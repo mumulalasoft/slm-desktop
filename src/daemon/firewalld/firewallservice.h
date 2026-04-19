@@ -1,10 +1,10 @@
 #pragma once
 
-#include "src/daemon/firewalld/firewalltypes.h"
-#include "src/services/firewall/appidentityclient.h"
-#include "src/services/firewall/nftablesadapter.h"
-#include "src/services/firewall/policyengine.h"
-#include "src/services/firewall/policystore.h"
+#include "firewalltypes.h"
+#include "../../services/firewall/appidentityclient.h"
+#include "../../services/firewall/nftablesadapter.h"
+#include "../../services/firewall/policyengine.h"
+#include "../../services/firewall/policystore.h"
 
 #include <QDBusContext>
 #include <QObject>

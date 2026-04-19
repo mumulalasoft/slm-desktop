@@ -1,4 +1,4 @@
-#include "src/services/packagepolicy/packagepolicyservice.h"
+#include "../../services/packagepolicy/packagepolicyservice.h"
 
 #include <QCoreApplication>
 #include <QCommandLineOption>

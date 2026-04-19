@@ -1,6 +1,6 @@
 #pragma once
 
-#include "src/daemon/firewalld/firewalltypes.h"
+#include "../../daemon/firewalld/firewalltypes.h"
 
 #include <QDateTime>
 #include <QHash>

@@ -1,10 +1,10 @@
 #include "globalsearchservice.h"
-#include "src/core/utils/urlutils.h"
+#include "../../core/utils/urlutils.h"
 
-#include "src/core/appmodel.h"
-#include "src/core/utils/dbuslogutils.h"
-#include "src/services/clipboard/ClipboardSearchProvider.h"
-#include "src/core/workspace/workspacemanager.h"
+#include "../../core/appmodel.h"
+#include "../../core/utils/dbuslogutils.h"
+#include "../clipboard/ClipboardSearchProvider.h"
+#include "../../core/workspace/workspacemanager.h"
 
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>

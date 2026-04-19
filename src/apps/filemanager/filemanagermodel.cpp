@@ -1,7 +1,7 @@
 #include "filemanagermodel.h"
 
 #include "filemanagerapi.h"
-#include "src/services/fileindex/metadataindexserver.h"
+#include "../../services/fileindex/metadataindexserver.h"
 
 #include <QDateTime>
 #include <QDir>

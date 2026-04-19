@@ -3,7 +3,7 @@
 #include <QQmlContext>
 #include <QQuickStyle>
 #include "greeterapp.h"
-#include "src/core/system/missingcomponentcontroller.h"
+#include "../../core/system/missingcomponentcontroller.h"
 
 using namespace Qt::StringLiterals;
 using namespace Slm::Login;

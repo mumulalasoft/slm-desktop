@@ -1,6 +1,6 @@
 #include "componenthealthcontroller.h"
 
-#include "src/core/system/missingcomponentcontroller.h"
+#include "../../../../core/system/missingcomponentcontroller.h"
 
 #include <QDBusConnection>
 #include <QDBusInterface>

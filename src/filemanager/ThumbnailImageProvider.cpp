@@ -4,7 +4,7 @@
 #include <QFileInfo>
 #include <QPainter>
 
-#include "src/apps/filemanager/include/filemanagerapi.h"
+#include "../apps/filemanager/include/filemanagerapi.h"
 
 Q_LOGGING_CATEGORY(logFmThumb, "slm.filemanager.thumbnails")
 

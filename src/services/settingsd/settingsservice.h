@@ -1,7 +1,7 @@
 #pragma once
 
 #include "settingsstore.h"
-#include "src/services/theme-policy/appthemeclassifier.h"
+#include "../theme-policy/appthemeclassifier.h"
 
 #include <QObject>
 #include <QDBusContext>

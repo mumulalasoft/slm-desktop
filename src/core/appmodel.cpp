@@ -1,5 +1,5 @@
 #include "appmodel.h"
-#include "src/core/execution/appexecutiongate.h"
+#include "execution/appexecutiongate.h"
 
 #ifdef QT_DBUS_LIB
 #include <QDBusConnection>

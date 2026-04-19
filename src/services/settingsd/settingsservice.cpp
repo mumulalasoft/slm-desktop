@@ -1,5 +1,5 @@
 #include "settingsservice.h"
-#include "src/services/theme-policy/themepolicyengine.h"
+#include "../theme-policy/themepolicyengine.h"
 
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>

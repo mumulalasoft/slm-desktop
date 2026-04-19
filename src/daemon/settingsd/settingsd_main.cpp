@@ -1,4 +1,4 @@
-#include "src/services/settingsd/settingsservice.h"
+#include "../../services/settingsd/settingsservice.h"
 
 #include <QCoreApplication>
 #include <QDebug>
