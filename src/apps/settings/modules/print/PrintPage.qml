@@ -4,17 +4,19 @@ import QtQuick.Layouts 1.15
 import Slm_Desktop
 import "../../../../../Qml/apps/settings/components"
 
-Flickable {
+Item {
     id: root
     anchors.fill: parent
-    contentHeight: mainLayout.implicitHeight + 48
-    clip: true
 
     property string highlightSettingId: ""
     property var componentIssues: []
     property bool hasBlockingIssues: false
+    property int selectedPrinterIndex: -1
+    property int _paperSizeRev: 0
 
+    readonly property var paperSizeOptions: ["A4", "A3", "A5", "Letter", "Legal", "Tabloid", "B4", "B5"]
     readonly property var printerAdmin: (typeof PrinterAdmin !== "undefined") ? PrinterAdmin : null
+    readonly property string currentFallbackId: root.fallbackId()
 
     function refreshComponentIssues() {
         if (typeof ComponentHealth === "undefined" || !ComponentHealth) {
@@ -27,22 +29,26 @@ Flickable {
             hasBlockingIssues = !!ComponentHealth.hasBlockingMissingForDomain("printing")
         } else {
             hasBlockingIssues = (componentIssues || []).some(function(issue) {
-                var level = String((issue || {}).severity || "required").toLowerCase()
-                return level === "required"
+                return String((issue || {}).severity || "required").toLowerCase() === "required"
             })
         }
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────
     function printerList() {
         return (typeof PrintManager !== "undefined" && PrintManager && PrintManager.printers)
                ? PrintManager.printers : []
     }
 
+    function selectedPrinter() {
+        var list = root.printerList()
+        if (root.selectedPrinterIndex >= 0 && root.selectedPrinterIndex < list.length)
+            return list[root.selectedPrinterIndex]
+        return null
+    }
+
     function fallbackId() {
         return (typeof DesktopSettings !== "undefined" && DesktopSettings)
-               ? String(DesktopSettings.printPdfFallbackPrinterId || "")
-               : ""
+               ? String(DesktopSettings.printPdfFallbackPrinterId || "") : ""
     }
 
     function setFallback(id) {
@@ -60,11 +66,47 @@ Flickable {
             PrintManager.reload()
     }
 
-    // ── Admin result handlers ─────────────────────────────────────────────
+    function systemDefaultPrinterId() {
+        var list = root.printerList()
+        for (var i = 0; i < list.length; ++i) {
+            if (Boolean(list[i].isDefault)) return String(list[i].id || "")
+        }
+        return ""
+    }
+
+    function defaultPrinterComboIndex() {
+        var list = root.printerList()
+        var def = root.systemDefaultPrinterId()
+        if (!def) return 0
+        for (var i = 0; i < list.length; ++i) {
+            if (String(list[i].id || "") === def) return i + 1
+        }
+        return 0
+    }
+
+    function defaultPaperSize() {
+        if (typeof DesktopSettings === "undefined" || !DesktopSettings) return "A4"
+        return String(DesktopSettings.settingValue("print.defaultPaperSize", "A4") || "A4")
+    }
+
+    function setDefaultPaperSize(size) {
+        if (typeof DesktopSettings === "undefined" || !DesktopSettings) return
+        DesktopSettings.setSettingValue("print.defaultPaperSize", String(size || "A4"))
+    }
+
+    function paperSizeComboIndex() {
+        var _dummy = root._paperSizeRev
+        var idx = root.paperSizeOptions.indexOf(root.defaultPaperSize())
+        return idx >= 0 ? idx : 0
+    }
+
+    Component.onCompleted: root.refreshComponentIssues()
+
     Connections {
         target: root.printerAdmin
         function onPrinterRemoved(success, printerId, error) {
             if (success) {
+                root.selectedPrinterIndex = -1
                 root.doReload()
             } else {
                 errorBanner.message = qsTr("Could not remove \"%1\": %2").arg(printerId).arg(error)
@@ -89,48 +131,25 @@ Flickable {
         }
     }
 
-    readonly property string currentFallbackId: root.fallbackId()
-
-    // ComboBox selected index (tracks detected printers list)
-    property int selectedIndex: -1
-
-    function syncSelectedIndex() {
-        var rows = printerList()
-        var fid  = root.currentFallbackId
-        for (var i = 0; i < rows.length; ++i) {
-            if (String(rows[i].id || "") === fid) { selectedIndex = i; return }
-        }
-        selectedIndex = rows.length > 0 ? 0 : -1
-    }
-
-    // ── Reactive wiring ───────────────────────────────────────────────────
-    Component.onCompleted: {
-        root.syncSelectedIndex()
-        root.refreshComponentIssues()
-    }
-
     Connections {
         target: (typeof DesktopSettings !== "undefined") ? DesktopSettings : null
-        function onPrintPdfFallbackPrinterIdChanged() { root.syncSelectedIndex() }
+        function onPrintPdfFallbackPrinterIdChanged() { /* currentFallbackId re-reads via binding */ }
+        function onSettingChanged(path) {
+            if (String(path || "") === "print.defaultPaperSize") root._paperSizeRev++
+        }
     }
+
     Connections {
         target: (typeof PrintManager !== "undefined") ? PrintManager : null
-        function onPrintersChanged() { root.syncSelectedIndex() }
+        function onPrintersChanged() {
+            var count = root.printerList().length
+            if (root.selectedPrinterIndex >= count)
+                root.selectedPrinterIndex = count > 0 ? count - 1 : -1
+        }
     }
 
-    // ── Deep-link scroll ──────────────────────────────────────────────────
-    onHighlightSettingIdChanged: {
-        var sid = String(highlightSettingId || "")
-        var card = null
-        if      (sid === "pdf-fallback-printer") card = fallbackPickerCard
-        else if (sid === "pdf-fallback-reset")   card = fallbackCurrentCard
-        if (!card) return
-        var pt = card.mapToItem(mainLayout, 0, 0)
-        var target = Math.max(0, Number(pt.y || 0) - 16)
-        contentY = Math.max(0, Math.min(Math.max(0, contentHeight - height), target))
-    }
+    // ── Add Printer dialog ────────────────────────────────────────────────
 
-    // ── Add Printer Dialog ────────────────────────────────────────────────
     Dialog {
         id: addPrinterSheet
         title: qsTr("Add Printer")
@@ -138,7 +157,6 @@ Flickable {
         anchors.centerIn: Overlay.overlay
         width: Math.min(parent.width - 64, 480)
         standardButtons: Dialog.Cancel
-
         property string errorText: ""
 
         onOpened: {
@@ -152,14 +170,12 @@ Flickable {
             width: parent.width
             spacing: 16
 
-            // Error row (shown only on failure)
             Rectangle {
                 visible: addPrinterSheet.errorText.length > 0
                 Layout.fillWidth: true
                 radius: Theme.radiusMd
                 color: Theme.color("errorSoft")
                 implicitHeight: addErrText.implicitHeight + 16
-
                 Text {
                     id: addErrText
                     anchors { left: parent.left; right: parent.right; verticalCenter: parent.verticalCenter; margins: 12 }
@@ -170,59 +186,24 @@ Flickable {
                 }
             }
 
-            // Name
             ColumnLayout {
-                spacing: 4
-                Layout.fillWidth: true
-                Label {
-                    text: qsTr("Queue name")
-                    font.pixelSize: Theme.fontSize("small")
-                    color: Theme.color("textSecondary")
-                }
-                TextField {
-                    id: addNameField
-                    Layout.fillWidth: true
-                    placeholderText: qsTr("e.g. Office_Printer")
-                    font.pixelSize: Theme.fontSize("regular")
-                }
+                spacing: 4; Layout.fillWidth: true
+                Label { text: qsTr("Queue name"); font.pixelSize: Theme.fontSize("small"); color: Theme.color("textSecondary") }
+                TextField { id: addNameField; Layout.fillWidth: true; placeholderText: qsTr("e.g. Office_Printer"); font.pixelSize: Theme.fontSize("regular") }
             }
 
-            // Device URI
             ColumnLayout {
-                spacing: 4
-                Layout.fillWidth: true
-                Label {
-                    text: qsTr("Device address (URI)")
-                    font.pixelSize: Theme.fontSize("small")
-                    color: Theme.color("textSecondary")
-                }
-                TextField {
-                    id: addUriField
-                    Layout.fillWidth: true
-                    placeholderText: qsTr("ipp://192.168.1.100/ipp/print")
-                    font.pixelSize: Theme.fontSize("regular")
-                }
+                spacing: 4; Layout.fillWidth: true
+                Label { text: qsTr("Device address (URI)"); font.pixelSize: Theme.fontSize("small"); color: Theme.color("textSecondary") }
+                TextField { id: addUriField; Layout.fillWidth: true; placeholderText: qsTr("ipp://192.168.1.100/ipp/print"); font.pixelSize: Theme.fontSize("regular") }
             }
 
-            // Discovered devices (populated after Discover)
             ColumnLayout {
-                spacing: 4
-                Layout.fillWidth: true
+                spacing: 4; Layout.fillWidth: true
                 visible: (root.printerAdmin && root.printerAdmin.discoveredDevices.length > 0)
                          || (root.printerAdmin && root.printerAdmin.busy)
-
-                Label {
-                    text: qsTr("Discovered devices")
-                    font.pixelSize: Theme.fontSize("small")
-                    color: Theme.color("textSecondary")
-                }
-
-                BusyIndicator {
-                    visible: root.printerAdmin ? root.printerAdmin.busy : false
-                    running: visible
-                    implicitWidth: 24; implicitHeight: 24
-                }
-
+                Label { text: qsTr("Discovered devices"); font.pixelSize: Theme.fontSize("small"); color: Theme.color("textSecondary") }
+                BusyIndicator { visible: root.printerAdmin ? root.printerAdmin.busy : false; running: visible; implicitWidth: 24; implicitHeight: 24 }
                 Repeater {
                     model: root.printerAdmin ? root.printerAdmin.discoveredDevices : []
                     delegate: ItemDelegate {
@@ -235,53 +216,29 @@ Flickable {
                 }
             }
 
-            // PPD / Driver (optional)
             ColumnLayout {
-                spacing: 4
-                Layout.fillWidth: true
-                Label {
-                    text: qsTr("Driver (optional — leave blank for generic driver)")
-                    font.pixelSize: Theme.fontSize("small")
-                    color: Theme.color("textSecondary")
-                }
-                TextField {
-                    id: addPpdField
-                    Layout.fillWidth: true
-                    placeholderText: qsTr("everywhere  or  /path/to/printer.ppd")
-                    font.pixelSize: Theme.fontSize("regular")
-                }
+                spacing: 4; Layout.fillWidth: true
+                Label { text: qsTr("Driver (optional — leave blank for generic driver)"); font.pixelSize: Theme.fontSize("small"); color: Theme.color("textSecondary") }
+                TextField { id: addPpdField; Layout.fillWidth: true; placeholderText: qsTr("everywhere  or  /path/to/printer.ppd"); font.pixelSize: Theme.fontSize("regular") }
             }
 
-            // Action row
             RowLayout {
-                Layout.fillWidth: true
-                spacing: 8
-
+                Layout.fillWidth: true; spacing: 8
                 Button {
-                    text: root.printerAdmin && root.printerAdmin.busy
-                          ? qsTr("Discovering…") : qsTr("Discover Devices")
+                    text: root.printerAdmin && root.printerAdmin.busy ? qsTr("Discovering…") : qsTr("Discover Devices")
                     enabled: root.printerAdmin !== null && !root.printerAdmin.busy && !root.hasBlockingIssues
                     font.pixelSize: Theme.fontSize("small")
                     onClicked: root.printerAdmin.discoverDevices()
                 }
-
                 Item { Layout.fillWidth: true }
-
                 Button {
-                    text: qsTr("Add Printer")
-                    highlighted: true
-                    enabled: addNameField.text.trim().length > 0
-                             && addUriField.text.trim().length > 0
-                             && !root.hasBlockingIssues
+                    text: qsTr("Add Printer"); highlighted: true
+                    enabled: addNameField.text.trim().length > 0 && addUriField.text.trim().length > 0 && !root.hasBlockingIssues
                     font.pixelSize: Theme.fontSize("small")
                     onClicked: {
                         if (root.printerAdmin) {
                             addPrinterSheet.errorText = ""
-                            root.printerAdmin.addPrinter(
-                                addNameField.text.trim(),
-                                addUriField.text.trim(),
-                                addPpdField.text.trim()
-                            )
+                            root.printerAdmin.addPrinter(addNameField.text.trim(), addUriField.text.trim(), addPpdField.text.trim())
                         }
                     }
                 }
@@ -289,275 +246,399 @@ Flickable {
         }
     }
 
-    // ── Layout ────────────────────────────────────────────────────────────
-    ColumnLayout {
-        id: mainLayout
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.margins: 24
-        anchors.top: parent.top
-        anchors.topMargin: 24
-        spacing: 24
+    // ── Page layout ───────────────────────────────────────────────────────
 
-        // ── Error banner (admin operation failures) ───────────────────────
+    ColumnLayout {
+        anchors.fill: parent
+        spacing: 0
+
+        MissingComponentsCard {
+            Layout.fillWidth: true
+            Layout.topMargin: 12
+            Layout.leftMargin: 16
+            Layout.rightMargin: 16
+            issues: root.componentIssues
+            visible: (root.componentIssues || []).length > 0
+            message: qsTr("Printing component missing. Some printer features are unavailable.")
+            installHandler: function(componentId) { return ComponentHealth.installComponent(componentId) }
+            onRefreshRequested: root.refreshComponentIssues()
+            onPostInstall: root.doReload()
+        }
+
         Rectangle {
             id: errorBanner
             visible: false
             property string message: ""
             Layout.fillWidth: true
+            Layout.topMargin: visible ? 8 : 0
+            Layout.leftMargin: 16
+            Layout.rightMargin: 16
             radius: Theme.radiusControl
             color: Theme.color("errorSoft")
-            implicitHeight: errRow.implicitHeight + 16
-
+            implicitHeight: visible ? errRow.implicitHeight + 16 : 0
             RowLayout {
                 id: errRow
                 anchors { left: parent.left; right: parent.right; verticalCenter: parent.verticalCenter; margins: 12 }
                 spacing: 8
-
-                Text {
-                    Layout.fillWidth: true
-                    text: errorBanner.message
-                    color: Theme.color("error")
-                    font.pixelSize: Theme.fontSize("small")
-                    wrapMode: Text.WordWrap
-                }
-                ToolButton {
-                    text: "×"
-                    font.pixelSize: Theme.fontSize("regular")
-                    onClicked: errorBanner.visible = false
-                }
+                Text { Layout.fillWidth: true; text: errorBanner.message; color: Theme.color("error"); font.pixelSize: Theme.fontSize("small"); wrapMode: Text.WordWrap }
+                ToolButton { text: "×"; font.pixelSize: Theme.fontSize("regular"); onClicked: errorBanner.visible = false }
             }
         }
 
-        MissingComponentsCard {
+        // Two-pane card
+        Item {
             Layout.fillWidth: true
-            issues: root.componentIssues
-            message: qsTr("Printing component missing. Some printer features are unavailable.")
-            installHandler: function(componentId) {
-                return ComponentHealth.installComponent(componentId)
-            }
-            onRefreshRequested: root.refreshComponentIssues()
-            onPostInstall: root.doReload()
-        }
+            Layout.fillHeight: true
+            Layout.topMargin: 12
+            Layout.leftMargin: 16
+            Layout.rightMargin: 16
 
-        // ── Printers ──────────────────────────────────────────────────────
-        SettingGroup {
-            title: qsTr("Printers")
-            Layout.fillWidth: true
-            enabled: !root.hasBlockingIssues
-            opacity: enabled ? 1.0 : 0.65
+            Rectangle {
+                id: card
+                anchors.fill: parent
+                radius: Theme.radiusCard
+                color: Theme.color("surface")
+                border.width: Theme.borderWidthThin
+                border.color: Theme.color("panelBorder")
+                clip: true
 
-            // One SettingCard per detected printer
-            Repeater {
-                model: root.printerList()
+                // Left panel
+                Item {
+                    id: leftPanel
+                    anchors.left: parent.left
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
+                    width: 210
 
-                delegate: SettingCard {
-                    id: printerCard
-                    required property var modelData
-                    required property int index
+                    ListView {
+                        id: printerListView
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.top: parent.top
+                        anchors.bottom: listToolbar.top
+                        model: root.printerList()
+                        currentIndex: root.selectedPrinterIndex
+                        clip: true
+                        boundsBehavior: Flickable.StopAtBounds
 
-                    readonly property string pid:        String(modelData.id          || "")
-                    readonly property bool isSysDefault: Boolean(modelData.isDefault)
-                    readonly property bool available:    Boolean(modelData.isAvailable !== false)
-                    readonly property bool isFallback:   pid === root.currentFallbackId && pid.length > 0
-                    property bool confirmingRemove:      false
+                        delegate: ItemDelegate {
+                            required property var modelData
+                            required property int index
+                            readonly property bool isPrinterDefault: Boolean(modelData.isDefault)
+                            readonly property bool isPrinterAvailable: Boolean(modelData.isAvailable !== false)
 
-                    label: pid
-                    description: available ? qsTr("Ready") : qsTr("Unavailable")
-                    Layout.fillWidth: true
+                            id: printerDelegate
+                            width: printerListView.width
+                            height: 52
+                            padding: 0
+                            highlighted: printerListView.currentIndex === index
+                            onClicked: root.selectedPrinterIndex = index
 
-                    RowLayout {
-                        spacing: 8
+                            background: Rectangle {
+                                color: printerDelegate.highlighted
+                                       ? Theme.color("accentSoft")
+                                       : printerDelegate.hovered ? Theme.color("controlBgHover") : "transparent"
+                            }
 
-                        // Availability dot
+                            contentItem: Item {
+                                anchors.left: parent.left
+                                anchors.leftMargin: 12
+                                anchors.right: parent.right
+                                anchors.rightMargin: 8
+                                anchors.verticalCenter: parent.verticalCenter
+
+                                Text {
+                                    id: delegateName
+                                    anchors.left: parent.left
+                                    anchors.right: parent.right
+                                    anchors.top: parent.top
+                                    anchors.topMargin: 6
+                                    text: String(modelData.id || "")
+                                    font.pixelSize: Theme.fontSize("small")
+                                    font.weight: Theme.fontWeight("medium")
+                                    color: Theme.color("textPrimary")
+                                    elide: Text.ElideRight
+                                }
+
+                                Row {
+                                    anchors.left: parent.left
+                                    anchors.top: delegateName.bottom
+                                    anchors.topMargin: 2
+                                    spacing: 4
+
+                                    Rectangle {
+                                        width: 6; height: 6
+                                        radius: Theme.radiusSm
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        color: printerDelegate.isPrinterAvailable ? Theme.color("success") : Theme.color("error")
+                                    }
+
+                                    Text {
+                                        text: printerDelegate.isPrinterDefault ? qsTr("Default")
+                                              : printerDelegate.isPrinterAvailable ? qsTr("Ready") : qsTr("Unavailable")
+                                        font.pixelSize: Theme.fontSize("xs")
+                                        color: printerDelegate.isPrinterDefault ? Theme.color("accent") : Theme.color("textSecondary")
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        id: listToolbar
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        height: 32
+                        color: Theme.color("surface")
+
                         Rectangle {
-                            width: 8; height: 8; radius: Theme.radiusSm
-                            color: available ? Theme.color("success") : Theme.color("error")
+                            anchors.top: parent.top
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            height: Theme.borderWidthThin
+                            color: Theme.color("panelBorder")
                         }
 
-                        // System default badge
-                        Rectangle {
-                            visible: isSysDefault
-                            radius: Theme.radiusSm
-                            color: Theme.color("accentSoft")
-                            implicitWidth: sysDefaultLabel.implicitWidth + 10
-                            implicitHeight: 22
+                        Row {
+                            anchors.left: parent.left
+                            anchors.top: parent.top
+                            anchors.bottom: parent.bottom
+
+                            ToolButton {
+                                width: 32; height: 32
+                                text: "+"
+                                font.pixelSize: Theme.fontSize("body")
+                                enabled: !root.hasBlockingIssues
+                                ToolTip.text: qsTr("Add Printer")
+                                ToolTip.visible: hovered
+                                ToolTip.delay: 600
+                                onClicked: addPrinterSheet.open()
+                            }
+
+                            Rectangle {
+                                width: Theme.borderWidthThin
+                                height: parent.height
+                                color: Theme.color("panelBorder")
+                            }
+
+                            ToolButton {
+                                width: 32; height: 32
+                                text: "−"
+                                font.pixelSize: Theme.fontSize("body")
+                                enabled: root.selectedPrinterIndex >= 0 && root.printerAdmin !== null && !root.hasBlockingIssues
+                                ToolTip.text: qsTr("Remove Printer")
+                                ToolTip.visible: hovered
+                                ToolTip.delay: 600
+                                onClicked: {
+                                    var p = root.selectedPrinter()
+                                    if (p && root.printerAdmin)
+                                        root.printerAdmin.removePrinter(String(p.id || ""))
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Divider
+                Rectangle {
+                    id: paneDivider
+                    anchors.left: leftPanel.right
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
+                    width: Theme.borderWidthThin
+                    color: Theme.color("panelBorder")
+                }
+
+                // Right panel
+                Rectangle {
+                    anchors.left: paneDivider.right
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
+                    color: Theme.color("surfaceAlt")
+
+                    // Empty state
+                    Column {
+                        anchors.centerIn: parent
+                        spacing: 6
+                        visible: root.printerList().length === 0 || root.selectedPrinterIndex < 0
+
+                        Text {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            text: root.printerList().length === 0 ? qsTr("No printers are available.")
+                                  : qsTr("Select a printer to view its details.")
+                            font.pixelSize: Theme.fontSize("body")
+                            color: Theme.color("textSecondary")
+                            horizontalAlignment: Text.AlignHCenter
+                        }
+
+                        Text {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            visible: root.printerList().length === 0
+                            text: qsTr("Click Add (+) to set up a printer.")
+                            font.pixelSize: Theme.fontSize("body")
+                            color: Theme.color("textSecondary")
+                            horizontalAlignment: Text.AlignHCenter
+                        }
+                    }
+
+                    // Detail pane
+                    ColumnLayout {
+                        anchors.fill: parent
+                        anchors.margins: 24
+                        spacing: 12
+                        visible: root.selectedPrinterIndex >= 0 && root.printerList().length > 0
+
+                        readonly property var printer: root.selectedPrinter()
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: parent.printer ? String(parent.printer.id || "") : ""
+                            font.pixelSize: Theme.fontSize("h3")
+                            font.weight: Theme.fontWeight("semibold")
+                            color: Theme.color("textPrimary")
+                            elide: Text.ElideRight
+                        }
+
+                        RowLayout {
+                            spacing: 6
+                            readonly property bool available: parent.printer ? Boolean(parent.printer.isAvailable !== false) : false
+                            readonly property bool isDefault: parent.printer ? Boolean(parent.printer.isDefault) : false
+
+                            Rectangle {
+                                width: 8; height: 8
+                                radius: Theme.radiusSm
+                                color: parent.available ? Theme.color("success") : Theme.color("error")
+                            }
 
                             Text {
-                                id: sysDefaultLabel
-                                anchors.centerIn: parent
-                                text: qsTr("Default")
-                                font.pixelSize: Theme.fontSize("xs")
-                                color: Theme.color("accent")
+                                text: parent.available ? qsTr("Ready") : qsTr("Unavailable")
+                                font.pixelSize: Theme.fontSize("small")
+                                color: Theme.color("textSecondary")
+                            }
+
+                            Rectangle {
+                                visible: parent.isDefault
+                                radius: Theme.radiusSm
+                                color: Theme.color("accentSoft")
+                                implicitWidth: defaultLabel.implicitWidth + 10
+                                implicitHeight: 20
+                                Text {
+                                    id: defaultLabel
+                                    anchors.centerIn: parent
+                                    text: qsTr("System Default")
+                                    font.pixelSize: Theme.fontSize("xs")
+                                    color: Theme.color("accent")
+                                }
                             }
                         }
 
-                        // Set as default button
-                        Button {
-                            visible: !isSysDefault
-                            text: qsTr("Set Default")
-                            font.pixelSize: Theme.fontSize("small")
-                            enabled: root.printerAdmin !== null && !root.hasBlockingIssues
-                            onClicked: {
-                                if (root.printerAdmin)
-                                    root.printerAdmin.setDefaultPrinter(pid)
-                            }
+                        Rectangle {
+                            Layout.fillWidth: true
+                            height: Theme.borderWidthThin
+                            color: Theme.color("panelBorder")
                         }
 
-                        // Set / clear fallback button
-                        Button {
-                            text: isFallback ? qsTr("PDF Fallback ✓") : qsTr("Set PDF Fallback")
-                            highlighted: isFallback
-                            font.pixelSize: Theme.fontSize("small")
-                            enabled: !root.hasBlockingIssues
-                            onClicked: {
-                                if (isFallback) root.clearFallback()
-                                else root.setFallback(pid)
-                            }
-                        }
+                        RowLayout {
+                            spacing: 8
+                            readonly property var printer: root.selectedPrinter()
 
-                        // Remove button (with inline confirmation)
-                        Button {
-                            text: printerCard.confirmingRemove ? qsTr("Confirm Remove") : qsTr("Remove")
-                            font.pixelSize: Theme.fontSize("small")
-                            enabled: root.printerAdmin !== null && !root.hasBlockingIssues
-                            palette.buttonText: printerCard.confirmingRemove
-                                                ? Theme.color("error") : undefined
-                            onClicked: {
-                                if (!printerCard.confirmingRemove) {
-                                    printerCard.confirmingRemove = true
-                                    confirmResetTimer.restart()
-                                } else {
-                                    printerCard.confirmingRemove = false
-                                    if (root.printerAdmin)
-                                        root.printerAdmin.removePrinter(pid)
+                            Button {
+                                visible: !(parent.printer && Boolean(parent.printer.isDefault))
+                                text: qsTr("Set as Default")
+                                font.pixelSize: Theme.fontSize("small")
+                                enabled: root.printerAdmin !== null && !root.hasBlockingIssues
+                                onClicked: {
+                                    var p = root.selectedPrinter()
+                                    if (p && root.printerAdmin)
+                                        root.printerAdmin.setDefaultPrinter(String(p.id || ""))
                                 }
                             }
 
-                            Timer {
-                                id: confirmResetTimer
-                                interval: 4000
-                                repeat: false
-                                onTriggered: printerCard.confirmingRemove = false
+                            Button {
+                                readonly property var printer: root.selectedPrinter()
+                                readonly property bool isFallback: printer
+                                    ? (String(printer.id || "") === root.currentFallbackId && root.currentFallbackId.length > 0)
+                                    : false
+                                text: isFallback ? qsTr("PDF Fallback ✓") : qsTr("Use as PDF Fallback")
+                                highlighted: isFallback
+                                font.pixelSize: Theme.fontSize("small")
+                                enabled: !root.hasBlockingIssues
+                                onClicked: {
+                                    if (isFallback) root.clearFallback()
+                                    else if (printer) root.setFallback(String(printer.id || ""))
+                                }
                             }
                         }
+
+                        Item { Layout.fillHeight: true }
                     }
-                }
-            }
-
-            // Empty state
-            Label {
-                visible: root.printerList().length === 0
-                text: qsTr("No printers found. Check that your printer is connected.")
-                color: Theme.color("textSecondary")
-                font.pixelSize: Theme.fontSize("small")
-                wrapMode: Text.WordWrap
-                Layout.fillWidth: true
-                Layout.leftMargin: 4
-            }
-
-            // Bottom row: Reload + Add Printer
-            RowLayout {
-                Layout.fillWidth: true
-                Layout.rightMargin: 4
-                spacing: 8
-
-                Button {
-                    text: qsTr("Add Printer…")
-                    font.pixelSize: Theme.fontSize("small")
-                    enabled: !root.hasBlockingIssues
-                    onClicked: addPrinterSheet.open()
-                }
-
-                Item { Layout.fillWidth: true }
-
-                Button {
-                    text: qsTr("Reload")
-                    font.pixelSize: Theme.fontSize("small")
-                    enabled: !root.hasBlockingIssues
-                    onClicked: root.doReload()
                 }
             }
         }
 
-        // ── PDF Fallback ───────────────────────────────────────────────────
-        SettingGroup {
-            title: qsTr("PDF Fallback")
+        // Bottom bar
+        Rectangle {
             Layout.fillWidth: true
-            enabled: !root.hasBlockingIssues
-            opacity: enabled ? 1.0 : 0.65
+            height: 72
+            color: Theme.color("windowBg")
 
-            // Picker row
-            SettingCard {
-                id: fallbackPickerCard
-                objectName: "pdf-fallback-printer"
-                label: qsTr("Fallback Printer")
-                description: qsTr("Used by the Print dialog when direct PDF output is unavailable.")
-                Layout.fillWidth: true
-                highlighted: root.highlightSettingId === "pdf-fallback-printer"
-
-                RowLayout {
-                    spacing: 8
-
-                    ComboBox {
-                        id: fallbackCombo
-                        Layout.preferredWidth: 240
-                        model: root.printerList()
-                        textRole: "name"
-                        valueRole: "id"
-                        currentIndex: root.selectedIndex
-                        displayText: {
-                            var rows = root.printerList()
-                            if (root.selectedIndex >= 0 && root.selectedIndex < rows.length)
-                                return String(rows[root.selectedIndex].name || rows[root.selectedIndex].id || "")
-                            return root.currentFallbackId.length > 0
-                                   ? root.currentFallbackId : qsTr("(none)")
-                        }
-                        onActivated: root.selectedIndex = currentIndex
-                    }
-
-                    Button {
-                        text: qsTr("Apply")
-                        enabled: root.selectedIndex >= 0 && !root.hasBlockingIssues
-                        onClicked: {
-                            var rows = root.printerList()
-                            if (root.selectedIndex >= 0 && root.selectedIndex < rows.length)
-                                root.setFallback(String(rows[root.selectedIndex].id || ""))
-                        }
-                    }
-                }
+            Rectangle {
+                anchors.top: parent.top
+                anchors.left: parent.left
+                anchors.right: parent.right
+                height: Theme.borderWidthThin
+                color: Theme.color("panelBorder")
             }
 
-            // Current value + clear
-            SettingCard {
-                id: fallbackCurrentCard
-                objectName: "pdf-fallback-reset"
-                label: qsTr("Current Selection")
-                description: qsTr("The printer ID saved as the PDF fallback.")
-                Layout.fillWidth: true
-                highlighted: root.highlightSettingId === "pdf-fallback-reset"
+            GridLayout {
+                anchors.right: parent.right
+                anchors.rightMargin: 20
+                anchors.verticalCenter: parent.verticalCenter
+                columns: 2
+                rowSpacing: 8
+                columnSpacing: 10
 
-                RowLayout {
-                    spacing: 8
+                Text {
+                    text: qsTr("Default printer:")
+                    font.pixelSize: Theme.fontSize("small")
+                    color: Theme.color("textPrimary")
+                    Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
+                }
 
-                    Text {
-                        text: root.currentFallbackId.length > 0
-                              ? root.currentFallbackId
-                              : qsTr("(none)")
-                        font.pixelSize: Theme.fontSize("small")
-                        font.family: root.currentFallbackId.length > 0 ? "monospace" : Theme.fontFamilyUi
-                        color: root.currentFallbackId.length > 0
-                               ? Theme.color("textPrimary")
-                               : Theme.color("textSecondary")
+                ComboBox {
+                    Layout.preferredWidth: 220
+                    enabled: !root.hasBlockingIssues
+                    model: {
+                        var items = [qsTr("Last Printer Used")]
+                        var list = root.printerList()
+                        for (var i = 0; i < list.length; ++i)
+                            items.push(String(list[i].id || ""))
+                        return items
                     }
-
-                    Button {
-                        visible: root.currentFallbackId.length > 0
-                        text: qsTr("Clear")
-                        font.pixelSize: Theme.fontSize("small")
-                        enabled: !root.hasBlockingIssues
-                        onClicked: root.clearFallback()
+                    currentIndex: root.defaultPrinterComboIndex()
+                    onActivated: {
+                        if (currentIndex === 0) return
+                        var list = root.printerList()
+                        var p = list[currentIndex - 1]
+                        if (p && root.printerAdmin)
+                            root.printerAdmin.setDefaultPrinter(String(p.id || ""))
                     }
+                }
+
+                Text {
+                    text: qsTr("Default paper size:")
+                    font.pixelSize: Theme.fontSize("small")
+                    color: Theme.color("textPrimary")
+                    Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
+                }
+
+                ComboBox {
+                    Layout.preferredWidth: 220
+                    model: root.paperSizeOptions
+                    currentIndex: root.paperSizeComboIndex()
+                    onActivated: root.setDefaultPaperSize(root.paperSizeOptions[currentIndex])
                 }
             }
         }
