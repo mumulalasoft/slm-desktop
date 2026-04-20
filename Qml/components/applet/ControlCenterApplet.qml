@@ -183,7 +183,13 @@ Item {
 
         MenuItem {
             enabled: true
+            hoverEnabled: false
             onTriggered: {}
+            background: Rectangle {
+                color: "transparent"
+                border.width: Theme.borderWidthThin
+                border.color: "transparent"
+            }
             contentItem: ColumnLayout {
                 spacing: root.sectionGap
 
@@ -193,7 +199,9 @@ Item {
 
                     Rectangle {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: Theme.metric("controlHeightLarge") * 3 + Theme.metric("spacingSm")
+                        Layout.preferredHeight: Theme.metric("controlHeightLarge") * 3
+                                                + (root.cardPadding * 2)
+                                                + (Theme.metric("spacingXs") * 2)
                         radius: Theme.radiusCard
                         color: Theme.color("surface")
                         border.width: Theme.borderWidthThin
