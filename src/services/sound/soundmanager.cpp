@@ -57,7 +57,7 @@ SoundManager::SoundManager(QObject *parent)
     m_timer->setInterval(4000);
     connect(m_timer, &QTimer::timeout, this, &SoundManager::refresh);
     m_timer->start();
-    refresh();
+    QTimer::singleShot(0, this, &SoundManager::refresh);
 }
 
 bool SoundManager::available() const

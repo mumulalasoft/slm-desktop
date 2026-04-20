@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QFutureWatcher>
 #include <QObject>
 #include <QString>
 #include <QTimer>
@@ -92,10 +93,7 @@ private:
     void setupDbusSignalSubscriptions();
     void refreshDbusDeviceSubscriptions();
     void queueRefresh(bool includeAvailableNetworks);
-    void queryNetworkManager();
-    void queryWiFiSignalStrength();
     void queryAvailableNetworks(bool rescan);
-    int normalizeSignalStrength(int percentage);
 
 private slots:
     void onDbusPropertiesChanged(const QString &interfaceName,
@@ -107,16 +105,33 @@ private slots:
     void onAccessPointRemoved(const QDBusObjectPath &apPath);
 
 private:
+    struct NetworkStatusResult {
+        bool isConnected = false;
+        QString connectionType = QStringLiteral("none");
+        QString networkName = QStringLiteral("N/A");
+        int signalStrength = 0;
+        QString interfaceName = QStringLiteral("n/a");
+        QString ipv4Address = QStringLiteral("n/a");
+    };
+
+    static NetworkStatusResult fetchNetworkStatus();
+    void applyNetworkStatus(const NetworkStatusResult &result);
+
+    static QVector<AvailableNetwork> fetchAvailableNetworks(bool rescan);
     int m_signalStrength = 0;
-    QString m_connectionType = "unknown";
+    QString m_connectionType = QStringLiteral("unknown");
     bool m_isConnected = false;
-    QString m_networkName = "N/A";
-    QString m_interfaceName = "n/a";
-    QString m_ipv4Address = "n/a";
+    QString m_networkName = QStringLiteral("N/A");
+    QString m_interfaceName = QStringLiteral("n/a");
+    QString m_ipv4Address = QStringLiteral("n/a");
     bool m_hasAvailableNetworks = false;
     QTimer *m_updateTimer = nullptr;
     QTimer *m_dbusRefreshTimer = nullptr;
     bool m_pendingAvailableRefresh = false;
     QStringList m_subscribedWifiDevices;
     AvailableNetworksModel *m_availableNetworksModel = nullptr;
+    bool m_statusFetching = false;
+    bool m_scanFetching = false;
+    QFutureWatcher<NetworkStatusResult> *m_statusWatcher = nullptr;
+    QFutureWatcher<QVector<AvailableNetwork>> *m_scanWatcher = nullptr;
 };

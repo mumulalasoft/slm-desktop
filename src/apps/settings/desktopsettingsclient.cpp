@@ -10,6 +10,7 @@
 #include <QJsonObject>
 #include <QSaveFile>
 #include <QStringList>
+#include <QTimer>
 #include <QtGlobal>
 #include <functional>
 
@@ -150,7 +151,10 @@ DesktopSettingsClient::DesktopSettingsClient(QObject *parent)
                 this,
                 SLOT(onNameOwnerChanged(QString,QString,QString)));
 
-    refresh();
+    loadFromLocalStore();
+    QTimer::singleShot(0, this, [this]() {
+        if (ensureIface()) loadFromService();
+    });
 }
 
 bool DesktopSettingsClient::available() const { return m_available; }

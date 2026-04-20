@@ -506,7 +506,7 @@ int main(int argc, char *argv[])
                                                              QStringLiteral("kwin-wayland")).toString();
     const QString requestedBackend = envBackend.isEmpty() ? prefBackend : envBackend;
     windowingBackendManager.configureBackend(requestedBackend);
-    printerManager.reload();
+    QTimer::singleShot(0, &printerManager, &Slm::Print::PrinterManager::reload);
     const auto syncPrintSessionWithSelection = [&]() {
         QString selectedPrinter = printSession.settingsModel()->printerId();
         if (selectedPrinter.trimmed().isEmpty()) {

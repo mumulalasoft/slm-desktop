@@ -3,6 +3,7 @@
 #include <QProcess>
 #include <QRegularExpression>
 #include <QSet>
+#include <QtConcurrent/QtConcurrentRun>
 
 namespace Slm::Print {
 
@@ -14,36 +15,48 @@ PrinterManager::PrinterManager(QObject *parent)
 
 void PrinterManager::reload()
 {
-    // Detect CUPS availability before querying printers.
-    const bool cupsNowAvailable = probeScheduler();
-    if (cupsNowAvailable != m_cupsAvailable) {
-        m_cupsAvailable = cupsNowAvailable;
-        emit printingAvailableChanged();
-    }
+    if (m_reloading) return;
+    m_reloading = true;
 
-    if (!m_cupsAvailable) {
-        // Clear printer list while CUPS is down.
-        if (!m_printers.isEmpty() || !m_defaultPrinterId.isEmpty()) {
-            m_printers.clear();
-            m_defaultPrinterId.clear();
+    m_reloadWatcher = new QFutureWatcher<ReloadResult>(this);
+    connect(m_reloadWatcher, &QFutureWatcher<ReloadResult>::finished, this, [this]() {
+        ReloadResult result = m_reloadWatcher->result();
+        m_reloadWatcher->deleteLater();
+        m_reloadWatcher = nullptr;
+        m_reloading = false;
+
+        if (result.cupsAvailable != m_cupsAvailable) {
+            m_cupsAvailable = result.cupsAvailable;
+            emit printingAvailableChanged();
+        }
+        if (!m_cupsAvailable) {
+            if (!m_printers.isEmpty() || !m_defaultPrinterId.isEmpty()) {
+                m_printers.clear();
+                m_defaultPrinterId.clear();
+                emit printersChanged();
+            }
+            return;
+        }
+        if (m_defaultPrinterId != result.defaultPrinter || m_printers != result.printers) {
+            m_defaultPrinterId = result.defaultPrinter;
+            m_printers         = result.printers;
             emit printersChanged();
         }
-        return;
-    }
+    });
 
-    const QString defaultRaw = runCommand(QStringLiteral("lpstat"), { QStringLiteral("-d") });
-    const QString printersRaw = runCommand(QStringLiteral("lpstat"), { QStringLiteral("-e") });
-    const QString statusesRaw = runCommand(QStringLiteral("lpstat"), { QStringLiteral("-p") });
+    m_reloadWatcher->setFuture(QtConcurrent::run([]() -> ReloadResult {
+        ReloadResult r;
+        r.cupsAvailable = probeScheduler();
+        if (!r.cupsAvailable) return r;
 
-    const QString parsedDefault = parseDefaultPrinter(defaultRaw);
-    const QVariantList parsedPrinters = parsePrinterList(printersRaw, statusesRaw, parsedDefault);
+        const QString defaultRaw  = runCommand(QStringLiteral("lpstat"), { QStringLiteral("-d") });
+        const QString printersRaw = runCommand(QStringLiteral("lpstat"), { QStringLiteral("-e") });
+        const QString statusesRaw = runCommand(QStringLiteral("lpstat"), { QStringLiteral("-p") });
 
-    if (m_defaultPrinterId == parsedDefault && m_printers == parsedPrinters) {
-        return;
-    }
-    m_defaultPrinterId = parsedDefault;
-    m_printers = parsedPrinters;
-    emit printersChanged();
+        r.defaultPrinter = parseDefaultPrinter(defaultRaw);
+        r.printers       = parsePrinterList(printersRaw, statusesRaw, r.defaultPrinter);
+        return r;
+    }));
 }
 
 QVariantMap PrinterManager::printerById(const QString &printerId) const
