@@ -99,6 +99,7 @@ DSStyle.Menu {
 
     MenuSeparator {
         visible: showMountSection
+        height: visible ? implicitHeight : 0
     }
 
     DSStyle.MenuItem {
@@ -121,6 +122,7 @@ DSStyle.Menu {
 
     MenuSeparator {
         visible: showPathActionsSection
+        height: visible ? implicitHeight : 0
     }
 
     DSStyle.MenuItem {
@@ -149,6 +151,7 @@ DSStyle.Menu {
 
     MenuSeparator {
         visible: showPrimaryOpenGroup || showMountSection || showPathActionsSection
+        height: visible ? implicitHeight : 0
     }
 
     DSStyle.MenuItem {

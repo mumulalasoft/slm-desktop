@@ -1826,6 +1826,7 @@ Item {
             text: "Add to Dock"
             enabled: root._isDesktopLauncherRow(root.contextEntryRow)
             visible: enabled
+            height: visible ? implicitHeight : 0
             onTriggered: root.addSelectionToDock()
         }
         MenuSeparator {}

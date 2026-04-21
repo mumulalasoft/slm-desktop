@@ -323,15 +323,18 @@ DockItem {
 
         MenuSeparator {
             visible: appContextMenu.windowRows.length >= 2
+            height: visible ? implicitHeight : 0
         }
 
         MenuSeparator {
             visible: appContextMenu.quickRows.length > 0
+            height: visible ? implicitHeight : 0
         }
 
         MenuItem {
             text: "Pin to Dock"
             visible: !pinnedEntry
+            height: visible ? implicitHeight : 0
             enabled: desktopFile && desktopFile.length > 0
             onTriggered: {
                 if (desktopFile && desktopFile.length > 0) {
@@ -342,6 +345,7 @@ DockItem {
         MenuItem {
             text: "Unpin"
             visible: pinnedEntry
+            height: visible ? implicitHeight : 0
             enabled: desktopFile && desktopFile.length > 0
             onTriggered: {
                 if (desktopFile && desktopFile.length > 0) {
@@ -352,12 +356,14 @@ DockItem {
         MenuItem {
             text: "Move Left"
             visible: pinnedEntry
+            height: visible ? implicitHeight : 0
             enabled: pinnedEntry && index >= 0 && index > 0
             onTriggered: DockModel.movePinnedEntry(index, index - 1)
         }
         MenuItem {
             text: "Move Right"
             visible: pinnedEntry
+            height: visible ? implicitHeight : 0
             enabled: pinnedEntry && index >= 0 && index < (modelCount - 1)
             onTriggered: DockModel.movePinnedEntry(index, index + 1)
         }

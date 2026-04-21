@@ -17,12 +17,17 @@ Item {
     property int tileWidth: 96
     property int tileHeight: 108
     property bool previewCandidate: false
+    property bool editing: false
+    property string editText: ""
 
     signal pressed(real x, real y, int button, int buttons, int modifiers)
     signal moved(real x, real y, int buttons, int modifiers)
     signal released(real x, real y, int button, int buttons, int modifiers)
     signal clicked(int button, int modifiers, real x, real y)
     signal doubleClicked(int button, int modifiers, real x, real y)
+    signal editValueChanged(string text)
+    signal editCommitted(string text)
+    signal editCanceled()
 
     width: tileWidth
     height: tileHeight
@@ -31,10 +36,11 @@ Item {
         id: selectionBg
         anchors.fill: parent
         radius: Theme.radiusCard
-        color: (root.selected || root.hovered) ? Theme.color("accentSoft") : "transparent"
-        border.width: (root.selected || root.hovered) ? Theme.borderWidthThin : Theme.borderWidthNone
+        color: root.selected ? Theme.color("accentSoft") : "transparent"
+        border.width: root.selected ? Theme.borderWidthThin : Theme.borderWidthNone
         border.color: Theme.color("dragGhostBorder")
         opacity: root.dragging ? 0.72 : 1.0
+        visible: !root.editing
     }
 
     Item {
@@ -98,6 +104,7 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
+        visible: !root.editing
         horizontalAlignment: Text.AlignHCenter
         verticalAlignment: Text.AlignTop
         text: root.displayName
@@ -110,12 +117,58 @@ Item {
         font.pixelSize: Theme.fontSize("small")
     }
 
+    TextField {
+        id: renameField
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        visible: root.editing
+        text: root.editText
+        selectByMouse: true
+        horizontalAlignment: Text.AlignHCenter
+        font.pixelSize: Theme.fontSize("small")
+        onTextChanged: root.editValueChanged(text)
+        onEditingFinished: {
+            if (root.editing) {
+                root.editCommitted(String(text || "").trim())
+            }
+        }
+        Keys.onEscapePressed: function(event) {
+            event.accepted = true
+            root.editCanceled()
+        }
+    }
+
+    onEditingChanged: {
+        if (!editing) {
+            return
+        }
+        Qt.callLater(function() {
+            if (!renameField || !root.editing) {
+                return
+            }
+            renameField.forceActiveFocus()
+            var current = String(renameField.text || "")
+            if (root.isDir) {
+                renameField.selectAll()
+                return
+            }
+            var dot = current.lastIndexOf(".")
+            if (dot > 0) {
+                renameField.select(0, dot)
+            } else {
+                renameField.selectAll()
+            }
+        })
+    }
+
     MouseArea {
         id: mouseArea
         anchors.fill: parent
         hoverEnabled: true
         acceptedButtons: Qt.LeftButton | Qt.RightButton
         preventStealing: true
+        enabled: !root.editing
         onEntered: root.hovered = true
         onExited: root.hovered = false
         onPressed: function(mouse) {
@@ -134,4 +187,5 @@ Item {
             root.doubleClicked(mouse.button, mouse.modifiers, mouse.x, mouse.y)
         }
     }
+
 }

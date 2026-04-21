@@ -733,6 +733,7 @@ Item {
 
         MenuSeparator {
             visible: !root.hostRoot.contextEntryIsArchive
+            height: visible ? implicitHeight : 0
         }
 
         DSStyle.MenuItem {
@@ -765,10 +766,12 @@ Item {
 
         MenuSeparator {
             visible: root.hostRoot.recentView && root.hostRoot.contextEntryIndex < 0
+            height: visible ? implicitHeight : 0
         }
 
         DSStyle.MenuItem {
             visible: root.hostRoot.recentView && root.hostRoot.contextEntryIndex < 0
+            height: visible ? implicitHeight : 0
             text: "Clear Recents"
             onTriggered: root.hostRoot.requestClearRecentFiles()
         }
