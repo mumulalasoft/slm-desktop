@@ -605,6 +605,12 @@ set(SLM_SETTINGSD_SOURCES
     src/services/settingsd/settingsservice.h
     src/services/settingsd/settingsstore.cpp
     src/services/settingsd/settingsstore.h
+    src/services/settingsd/settingsschema.cpp
+    src/services/settingsd/settingsschema.h
+    src/services/settingsd/settingssqlstore.cpp
+    src/services/settingsd/settingssqlstore.h
+    src/services/settingsd/settingstomlloader.cpp
+    src/services/settingsd/settingstomlloader.h
     src/services/theme-policy/appthemeclassifier.cpp
     src/services/theme-policy/appthemeclassifier.h
     src/services/theme-policy/themepolicyengine.cpp

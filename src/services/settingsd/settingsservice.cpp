@@ -108,6 +108,54 @@ QVariantMap SettingsService::SetSettingsPatch(const QVariantMap &patch)
     };
 }
 
+QVariantMap SettingsService::GetSettingEffective(const QString &key) const
+{
+    QVariantMap result = m_store.effectiveSetting(key);
+    result.insert(QStringLiteral("ok"), true);
+    return result;
+}
+
+QVariantMap SettingsService::GetSchemaInfo(const QString &key) const
+{
+    const QVariantMap info = m_store.schemaInfo(key);
+    if (info.isEmpty()) {
+        return {
+            {QStringLiteral("ok"),    false},
+            {QStringLiteral("error"), QStringLiteral("unknown key: %1").arg(key)},
+        };
+    }
+    QVariantMap result = info;
+    result.insert(QStringLiteral("ok"), true);
+    return result;
+}
+
+QVariantMap SettingsService::SetRuntimeOverride(const QString &key,
+                                                const QDBusVariant &value)
+{
+    QString error;
+    if (!m_store.setRuntimeOverride(key, value.variant(), &error)) {
+        return {
+            {QStringLiteral("ok"),    false},
+            {QStringLiteral("error"), error},
+        };
+    }
+    bool found = false;
+    const QVariant current = SettingsStore::valueByPath(m_store.settings(), key, &found);
+    emit SettingChanged(key, QDBusVariant(found ? current : value.variant()));
+    emitSemanticSignals({key});
+    return {{QStringLiteral("ok"), true}};
+}
+
+QVariantMap SettingsService::ClearRuntimeOverride(const QString &key)
+{
+    m_store.clearRuntimeOverride(key);
+    bool found = false;
+    const QVariant current = SettingsStore::valueByPath(m_store.settings(), key, &found);
+    emit SettingChanged(key, QDBusVariant(found ? current : QVariant{}));
+    emitSemanticSignals({key});
+    return {{QStringLiteral("ok"), true}};
+}
+
 QVariantMap SettingsService::SubscribeChanges() const
 {
     return {
@@ -117,6 +165,15 @@ QVariantMap SettingsService::SubscribeChanges() const
              QStringLiteral("AppearanceModeChanged"),
              QStringLiteral("ThemePolicyChanged"),
              QStringLiteral("IconPolicyChanged"),
+         }},
+        {QStringLiteral("methods"), QStringList{
+             QStringLiteral("GetSettings"),
+             QStringLiteral("SetSetting"),
+             QStringLiteral("SetSettingsPatch"),
+             QStringLiteral("GetSettingEffective"),
+             QStringLiteral("GetSchemaInfo"),
+             QStringLiteral("SetRuntimeOverride"),
+             QStringLiteral("ClearRuntimeOverride"),
          }},
     };
 }

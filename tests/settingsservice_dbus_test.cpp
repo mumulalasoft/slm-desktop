@@ -1,5 +1,6 @@
 #include <QtTest/QtTest>
 #include <QDBusConnection>
+#include <QDBusConnectionInterface>
 #include <QDBusInterface>
 #include <QDBusReply>
 #include <QDBusVariant>
@@ -35,7 +36,15 @@ private slots:
         lastGood.chop(5);
         lastGood += QStringLiteral(".last-good.json");
         QFile::remove(lastGood);
+        // SLM_SETTINGSD_STORE_PATH controls both the legacy JSON path and (derived)
+        // the SQLite DB path — giving each test case its own isolated storage.
         qputenv("SLM_SETTINGSD_STORE_PATH", m_storePath.toUtf8());
+
+        // Also remove any leftover SQLite DB from a previous run of the same test.
+        QString dbPath = m_storePath;
+        dbPath.chop(5);
+        dbPath += QStringLiteral(".db");
+        QFile::remove(dbPath);
     }
 
     void cleanup()
@@ -47,14 +56,32 @@ private slots:
             lastGood += QStringLiteral(".last-good.json");
             QFile::remove(lastGood);
         }
+        QString dbPath = m_storePath;
+        if (dbPath.endsWith(QStringLiteral(".json")))
+            dbPath.chop(5);
+        dbPath += QStringLiteral(".db");
+        QFile::remove(dbPath);
+    }
+
+    // Called from every test that creates a SettingsService so that the test
+    // is skipped cleanly when the real settingsd daemon is already running.
+    static bool checkBusAvailable()
+    {
+        QDBusConnection bus = QDBusConnection::sessionBus();
+        if (!bus.isConnected())
+            return false;
+        QDBusConnectionInterface *iface = bus.interface();
+        if (!iface)
+            return false;
+        return !iface->isServiceRegistered(QString::fromLatin1(kService)).value();
     }
 
     void ping_and_get_settings_contract()
     {
-        QDBusConnection bus = QDBusConnection::sessionBus();
-        if (!bus.isConnected()) {
-            QSKIP("session bus is not available in this test environment");
+        if (!checkBusAvailable()) {
+            QSKIP("session bus not available or settingsd already registered on this bus");
         }
+        QDBusConnection bus = QDBusConnection::sessionBus();
 
         SettingsService service;
         QString error;
@@ -138,10 +165,10 @@ private slots:
 
     void set_setting_emits_semantic_signal()
     {
-        QDBusConnection bus = QDBusConnection::sessionBus();
-        if (!bus.isConnected()) {
-            QSKIP("session bus is not available in this test environment");
+        if (!checkBusAvailable()) {
+            QSKIP("session bus not available or settingsd already registered on this bus");
         }
+        QDBusConnection bus = QDBusConnection::sessionBus();
 
         SettingsService service;
         QString error;
@@ -175,10 +202,10 @@ private slots:
 
     void resolve_theme_for_app_contract()
     {
-        QDBusConnection bus = QDBusConnection::sessionBus();
-        if (!bus.isConnected()) {
-            QSKIP("session bus is not available in this test environment");
+        if (!checkBusAvailable()) {
+            QSKIP("session bus not available or settingsd already registered on this bus");
         }
+        QDBusConnection bus = QDBusConnection::sessionBus();
 
         SettingsService service;
         QString error;
@@ -228,10 +255,10 @@ private slots:
 
     void context_automation_flags_validation()
     {
-        QDBusConnection bus = QDBusConnection::sessionBus();
-        if (!bus.isConnected()) {
-            QSKIP("session bus is not available in this test environment");
+        if (!checkBusAvailable()) {
+            QSKIP("session bus not available or settingsd already registered on this bus");
         }
+        QDBusConnection bus = QDBusConnection::sessionBus();
 
         SettingsService service;
         QString error;
@@ -261,10 +288,10 @@ private slots:
 
     void context_time_policy_validation()
     {
-        QDBusConnection bus = QDBusConnection::sessionBus();
-        if (!bus.isConnected()) {
-            QSKIP("session bus is not available in this test environment");
+        if (!checkBusAvailable()) {
+            QSKIP("session bus not available or settingsd already registered on this bus");
         }
+        QDBusConnection bus = QDBusConnection::sessionBus();
 
         SettingsService service;
         QString error;
@@ -315,10 +342,10 @@ private slots:
 
     void dock_settings_validation()
     {
-        QDBusConnection bus = QDBusConnection::sessionBus();
-        if (!bus.isConnected()) {
-            QSKIP("session bus is not available in this test environment");
+        if (!checkBusAvailable()) {
+            QSKIP("session bus not available or settingsd already registered on this bus");
         }
+        QDBusConnection bus = QDBusConnection::sessionBus();
 
         SettingsService service;
         QString error;
@@ -369,10 +396,10 @@ private slots:
 
     void print_and_shortcut_settings_validation()
     {
-        QDBusConnection bus = QDBusConnection::sessionBus();
-        if (!bus.isConnected()) {
-            QSKIP("session bus is not available in this test environment");
+        if (!checkBusAvailable()) {
+            QSKIP("session bus not available or settingsd already registered on this bus");
         }
+        QDBusConnection bus = QDBusConnection::sessionBus();
 
         SettingsService service;
         QString error;
