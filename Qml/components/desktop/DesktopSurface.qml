@@ -800,25 +800,100 @@ Item {
         if (!row || !row.ok) {
             return
         }
-        var p = String(row.path || "")
-        if (shellApi && shellApi.detachedFileManagerVisible
-                && shellApi.detachedFileManagerWindow
-                && shellApi.detachedFileManagerWindow.renamePathIfReady
-                && shellApi.detachedFileManagerWindow.renamePathIfReady(p)) {
+        var baseName = String(row.name || "").trim()
+        if (baseName.length <= 0) {
             return
         }
-        if (shellApi && shellApi.pendingDetachedFileManagerRenamePath !== undefined) {
-            shellApi.pendingDetachedFileManagerRenamePath = p
-            shellApi.detachedFileManagerPath = _parentDir(p)
-            shellApi.detachedFileManagerVisible = true
-            return
-        }
-        if (fileModel.renameAt) {
-            var baseName = String(row.name || "")
-            if (baseName.length <= 0) {
-                return
+        // Strip .desktop suffix so user edits only the stem; applyInlineRename adds it back
+        if (_isDesktopLauncherPath(String(row.path || ""))) {
+            var lowerBase = baseName.toLowerCase()
+            if (lowerBase.length > 8 && lowerBase.lastIndexOf(".desktop") === (lowerBase.length - 8)) {
+                baseName = baseName.slice(0, baseName.length - 8)
             }
-            fileModel.renameAt(selectedEntryIndex, baseName + " - Renamed")
+        }
+        if (baseName.length <= 0) {
+            return
+        }
+        if (launcherShortcutMenu && launcherShortcutMenu.visible) {
+            launcherShortcutMenu.close()
+        }
+        if (desktopViewRef && desktopViewRef.startInlineRename) {
+            desktopViewRef.startInlineRename(Number(selectedEntryIndex), baseName)
+            return
+        }
+        _notifyInfo("Inline rename unavailable.")
+    }
+
+    function applyInlineRename(indexValue, nameValue) {
+        var idx = (indexValue != null) ? Number(indexValue) : -1
+        if (!fileModel || !fileModel.renameAt || !fileModel.entryAt || idx < 0) {
+            return
+        }
+        var row = fileModel.entryAt(idx)
+        if (!row || !row.ok) {
+            return
+        }
+        var currentName = String(row.name || "").trim()
+        if (currentName.length <= 0) {
+            return
+        }
+        // Normalize currentName to stem (no .desktop) so comparison is consistent
+        var currentPath = String(row.path || "")
+        if (_isDesktopLauncherPath(currentPath)) {
+            var lc = currentName.toLowerCase()
+            if (lc.length > 8 && lc.lastIndexOf(".desktop") === (lc.length - 8)) {
+                currentName = currentName.slice(0, currentName.length - 8)
+            }
+        }
+        var nextName = String(nameValue || "").trim()
+        if (nextName.length <= 0) {
+            _notifyInfo("Name cannot be empty.")
+            if (desktopViewRef && desktopViewRef.startInlineRename) {
+                desktopViewRef.startInlineRename(idx, currentName)
+            }
+            return
+        }
+        if (nextName === "." || nextName === ".." || nextName.indexOf("/") >= 0) {
+            _notifyInfo("Invalid file name.")
+            if (desktopViewRef && desktopViewRef.startInlineRename) {
+                desktopViewRef.startInlineRename(idx, currentName)
+            }
+            return
+        }
+        var renamedFileName = nextName
+        if (root._isDesktopLauncherPath(currentPath)) {
+            var lower = nextName.toLowerCase()
+            var hasDesktopSuffix = lower.length > 8
+                    && lower.lastIndexOf(".desktop") === (lower.length - 8)
+            if (!hasDesktopSuffix) {
+                renamedFileName = nextName + ".desktop"
+            }
+        }
+        var currentFileName = currentPath.split("/").pop()
+        console.log("[rename] cur='" + currentFileName + "' next='" + renamedFileName
+                    + "' curName='" + currentName + "' nextName='" + nextName + "'")
+        if (renamedFileName === currentFileName || nextName === currentName) {
+            console.log("[rename] no-op")
+            return
+        }
+        var res = fileModel.renameAt(idx, renamedFileName)
+        console.log("[rename] renameAt res=" + JSON.stringify(res))
+        if (!res || !res.ok) {
+            _notifyInfo(String((res && res.error) ? res.error : "rename-failed"))
+            if (desktopViewRef && desktopViewRef.startInlineRename) {
+                desktopViewRef.startInlineRename(idx, currentName)
+            }
+            return
+        }
+        // For .desktop files: update Name= field using GKeyFile via gio
+        if (_isDesktopLauncherPath(currentPath) && fileManagerApiRef && fileManagerApiRef.setDesktopFileKey) {
+            var parentDir = currentPath.substring(0, currentPath.lastIndexOf("/"))
+            var newFilePath = parentDir + "/" + renamedFileName
+            var kr = fileManagerApiRef.setDesktopFileKey(newFilePath, "Desktop Entry", "Name", nextName)
+            console.log("[rename] setDesktopFileKey res=" + JSON.stringify(kr))
+        }
+        if (fileModel.refresh) {
+            fileModel.refresh()
         }
     }
 
@@ -1376,6 +1451,15 @@ Item {
         _syncSelectionToController()
     }
 
+    focus: true
+
+    Keys.onDeletePressed: function(event) {
+        if (root.selectedEntryIndexes.length > 0) {
+            event.accepted = true
+            root.moveSelectionToTrash()
+        }
+    }
+
     Component.onCompleted: {
         _reloadDesktop()
     }
@@ -1587,6 +1671,9 @@ Item {
                 launcherShortcutMenu.popup(p.x, p.y)
             }
             onPointerPressed: function(x, y, button, onItem) {
+                if (!onItem && Number(button) === Qt.LeftButton) {
+                    root.clearSelection()
+                }
                 if (Date.now() < Number(root.suppressContextMenuDismissUntilMs || 0)) {
                     return
                 }
@@ -1599,6 +1686,9 @@ Item {
                 root.activeContextMenuKind = ""
             }
             onClearSelectionRequested: root.clearSelection()
+            onRenameCommitRequested: function(index, name) {
+                root.applyInlineRename(index, name)
+            }
             onSelectionRectRequested: function(indexes, modifiers, anchorIndex, baseIndexes) {
                 root.applySelectionRect(indexes, modifiers, anchorIndex, baseIndexes)
             }

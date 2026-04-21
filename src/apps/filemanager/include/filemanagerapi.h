@@ -70,6 +70,10 @@ public:
     Q_INVOKABLE QVariantMap writeTextFile(const QString &path,
                                           const QString &content,
                                           bool append = false);
+    Q_INVOKABLE QVariantMap setDesktopFileKey(const QString &path,
+                                              const QString &group,
+                                              const QString &key,
+                                              const QString &value);
     Q_INVOKABLE bool isProtectedPath(const QString &path) const;
     Q_INVOKABLE QVariantMap createDirectory(const QString &path, bool recursive = true);
     Q_INVOKABLE QVariantMap createEmptyFile(const QString &path);
