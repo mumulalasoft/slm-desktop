@@ -4811,6 +4811,23 @@ set_tests_properties(security_settings_routing_js_test PROPERTIES
     LABELS "secret-consent"
 )
 
+qt_add_executable(pulse_controller_js_test
+    tests/pulse_controller_js_test.cpp
+)
+
+target_compile_definitions(pulse_controller_js_test PRIVATE
+    DESKTOP_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\"
+)
+
+target_link_libraries(pulse_controller_js_test
+    PRIVATE
+        Qt6::Core
+        Qt6::Qml
+        Qt6::Test
+)
+
+add_test(NAME pulse_controller_js_test COMMAND pulse_controller_js_test)
+
 qt_add_executable(portal_consent_dialog_behavior_test
     tests/portal_consent_dialog_behavior_test.cpp
 )
@@ -5151,6 +5168,7 @@ add_custom_target(test_headless
         notification_visual_contract_test
         notificationmanager_priority_routing_test
         appdecksystem_render_contract_test
+        pulse_controller_js_test
         daemonhealthmonitor_test
         dbussecurityguard_test
         policyengine_test

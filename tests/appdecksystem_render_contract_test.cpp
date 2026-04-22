@@ -58,6 +58,24 @@ private slots:
         QVERIFY(dockWindow.contains(QStringLiteral("required property var pulseResultsModel")));
         QVERIFY(dockWindow.contains(QStringLiteral("readonly property var dockItem: collapsedView.dockItem")));
     }
+
+    void collapsedMode_limitsLayerSurfaceInputRegion()
+    {
+        const QString path = QStringLiteral(DESKTOP_SOURCE_DIR) + QStringLiteral("/Qml/components/overlay/AppDeckWindow.qml");
+        const QString text = readTextFile(path);
+        QVERIFY2(!text.isEmpty(), qPrintable(QStringLiteral("failed to read %1").arg(path)));
+
+        QVERIFY(text.contains(QStringLiteral("readonly property int collapsedInputX")));
+        QVERIFY(text.contains(QStringLiteral("readonly property int collapsedInputY")));
+        QVERIFY(text.contains(QStringLiteral("readonly property int collapsedInputWidth")));
+        QVERIFY(text.contains(QStringLiteral("readonly property int collapsedInputHeight")));
+        QVERIFY(text.contains(QStringLiteral("WlrLayerShell.setLayerSurfaceInputRegion(root,")));
+        QVERIFY(text.contains(QStringLiteral("root.collapsedInputX")));
+        QVERIFY(text.contains(QStringLiteral("root.collapsedInputY")));
+        QVERIFY(text.contains(QStringLiteral("root.collapsedInputWidth")));
+        QVERIFY(text.contains(QStringLiteral("root.collapsedInputHeight")));
+        QVERIFY(text.contains(QStringLiteral("target: collapsedView && collapsedView.dockItem ? collapsedView.dockItem : null")));
+    }
 };
 
 QTEST_MAIN(AppDeckSystemRenderContractTest)
