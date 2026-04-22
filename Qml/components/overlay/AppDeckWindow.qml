@@ -53,11 +53,18 @@ Window {
     readonly property bool contextMode: appdeckState === "context"
     readonly property bool hiddenMode: appdeckState === "hidden"
     readonly property bool immersiveMode: expandedMode || contextMode
+    readonly property int motionSurfaceDuration: Theme.durationNormal
+    readonly property int motionCrossfadeDuration: Theme.durationFast
+    readonly property int motionQuickDuration: Theme.durationSm
 
     // Shared transition progress: 0 = collapsed surface, 1 = expanded/context surface.
     property real surfaceTransition: immersiveMode ? 1.0 : 0.0
     property real expandedTransition: expandedMode ? 1.0 : 0.0
     property real contextTransition: contextMode ? 1.0 : 0.0
+    property bool appdeckLifecycleActive: false
+    property bool appdeckProfilePinned: false
+    property string appdeckPrevChannel: ""
+    property string appdeckPrevPreset: ""
 
     readonly property var targetScreenGeometry: {
         if (rootWindow && rootWindow.screen) {
@@ -130,6 +137,52 @@ Window {
     function focusSearchField() {
         if (contextView && contextView.focusSearchField) {
             contextView.focusSearchField()
+        }
+    }
+
+    function beginAppDeckLifecycle(reason) {
+        void reason
+        if (typeof MotionController === "undefined" || !MotionController) {
+            return
+        }
+        if (!MotionController.beginLifecycleTransition || !MotionController.endLifecycleTransition) {
+            return
+        }
+        if (!root.appdeckProfilePinned) {
+            root.appdeckPrevChannel = String(MotionController.channel || "")
+            root.appdeckPrevPreset = String(MotionController.preset || "")
+            root.appdeckProfilePinned = true
+        }
+        if (MotionController.channel !== "appdeck.surface") {
+            MotionController.channel = "appdeck.surface"
+        }
+        if (MotionController.preset !== "smooth") {
+            MotionController.preset = "smooth"
+        }
+        MotionController.beginLifecycleTransition("appdeck.surface", MotionController.MediumPriority)
+        root.appdeckLifecycleActive = true
+        appdeckLifecycleReleaseTimer.restart()
+    }
+
+    function endAppDeckLifecycle() {
+        if (typeof MotionController === "undefined" || !MotionController ||
+                !MotionController.endLifecycleTransition) {
+            return
+        }
+        if (root.appdeckLifecycleActive) {
+            MotionController.endLifecycleTransition("appdeck.surface")
+            root.appdeckLifecycleActive = false
+        }
+        if (root.appdeckProfilePinned) {
+            if (root.appdeckPrevChannel.length > 0 && MotionController.channel !== root.appdeckPrevChannel) {
+                MotionController.channel = root.appdeckPrevChannel
+            }
+            if (root.appdeckPrevPreset.length > 0 && MotionController.preset !== root.appdeckPrevPreset) {
+                MotionController.preset = root.appdeckPrevPreset
+            }
+            root.appdeckProfilePinned = false
+            root.appdeckPrevChannel = ""
+            root.appdeckPrevPreset = ""
         }
     }
 
@@ -208,50 +261,50 @@ Window {
 
     Behavior on surfaceTransition {
         NumberAnimation {
-            duration: 210
-            easing.type: Easing.InOutCubic
+            duration: root.motionSurfaceDuration
+            easing.type: Theme.easingDefault
         }
     }
 
     Behavior on expandedTransition {
         NumberAnimation {
-            duration: 190
-            easing.type: Easing.InOutCubic
+            duration: root.motionSurfaceDuration
+            easing.type: Theme.easingDefault
         }
     }
 
     Behavior on contextTransition {
         NumberAnimation {
-            duration: 190
-            easing.type: Easing.InOutCubic
+            duration: root.motionSurfaceDuration
+            easing.type: Theme.easingDefault
         }
     }
 
     Behavior on width {
         NumberAnimation {
-            duration: 210
-            easing.type: Easing.InOutCubic
+            duration: root.motionSurfaceDuration
+            easing.type: Theme.easingDefault
         }
     }
 
     Behavior on height {
         NumberAnimation {
-            duration: 210
-            easing.type: Easing.InOutCubic
+            duration: root.motionSurfaceDuration
+            easing.type: Theme.easingDefault
         }
     }
 
     Behavior on x {
         NumberAnimation {
-            duration: 210
-            easing.type: Easing.InOutCubic
+            duration: root.motionSurfaceDuration
+            easing.type: Theme.easingDefault
         }
     }
 
     Behavior on y {
         NumberAnimation {
-            duration: 210
-            easing.type: Easing.InOutCubic
+            duration: root.motionSurfaceDuration
+            easing.type: Theme.easingDefault
         }
     }
 
@@ -377,8 +430,8 @@ Window {
 
             Behavior on opacity {
                 NumberAnimation {
-                    duration: 180
-                    easing.type: Easing.OutCubic
+                    duration: root.motionCrossfadeDuration
+                    easing.type: Theme.easingDecelerate
                 }
             }
         }
@@ -413,7 +466,7 @@ Window {
             opacity: 0.04 + (0.18 * root.surfaceTransition)
 
             Behavior on opacity {
-                NumberAnimation { duration: 170; easing.type: Easing.OutCubic }
+                NumberAnimation { duration: root.motionCrossfadeDuration; easing.type: Theme.easingDecelerate }
             }
         }
 
@@ -456,8 +509,8 @@ Window {
 
             Behavior on opacity {
                 NumberAnimation {
-                    duration: 170
-                    easing.type: Easing.OutCubic
+                    duration: root.motionCrossfadeDuration
+                    easing.type: Theme.easingDecelerate
                 }
             }
         }
@@ -549,8 +602,8 @@ Window {
 
             Behavior on opacity {
                 NumberAnimation {
-                    duration: 170
-                    easing.type: Easing.OutCubic
+                    duration: root.motionCrossfadeDuration
+                    easing.type: Theme.easingDecelerate
                 }
             }
         }
@@ -583,17 +636,24 @@ Window {
 
             Behavior on opacity {
                 NumberAnimation {
-                    duration: 170
-                    easing.type: Easing.OutCubic
+                    duration: root.motionCrossfadeDuration
+                    easing.type: Theme.easingDecelerate
                 }
             }
             Behavior on scale {
                 NumberAnimation {
-                    duration: 170
-                    easing.type: Easing.OutCubic
+                    duration: root.motionCrossfadeDuration
+                    easing.type: Theme.easingDecelerate
                 }
             }
         }
+    }
+
+    Timer {
+        id: appdeckLifecycleReleaseTimer
+        interval: Math.max(1, Number(root.motionSurfaceDuration || Theme.durationNormal))
+        repeat: false
+        onTriggered: root.endAppDeckLifecycle()
     }
 
     Timer {
@@ -609,6 +669,7 @@ Window {
     }
 
     onAppdeckStateChanged: {
+        root.beginAppDeckLifecycle(appdeckState)
         root.syncLayerSurfaceSize()
         if (contextMode) {
             requestActivate()
@@ -626,6 +687,8 @@ Window {
         }
         if (visible && !root.layerShellSupported) {
             Qt.callLater(function() { root.raise() })
+        } else if (!visible) {
+            root.endAppDeckLifecycle()
         }
         root.syncLayerSurfaceSize()
     }
@@ -667,6 +730,7 @@ Window {
     }
 
     Component.onDestruction: {
+        root.endAppDeckLifecycle()
         root._sendOverlayCommand("overlay unregister appdeck")
     }
 }

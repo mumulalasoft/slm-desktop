@@ -56,6 +56,9 @@ Item {
     readonly property real bestPhase: _phase(root.revealProgress, 0.18, 0.72)
     readonly property real sectionsPhase: _phase(root.revealProgress, 0.32, 1.0)
     readonly property real footerPhase: _phase(root.revealProgress, 0.45, 1.0)
+    readonly property int motionRevealDuration: Theme.durationNormal
+    readonly property int motionFastDuration: Theme.durationFast
+    readonly property int motionNormalDuration: Theme.durationNormal
 
     function focusSearchField() {
         if (queryHeader && queryHeader.focusInput) {
@@ -739,8 +742,8 @@ Item {
         property: "revealProgress"
         from: 0.0
         to: 1.0
-        duration: 220
-        easing.type: Easing.OutCubic
+        duration: root.motionRevealDuration
+        easing.type: Theme.easingDecelerate
     }
 
     Keys.onPressed: function(event) {
@@ -794,13 +797,13 @@ Item {
         scale: 0.985 + (0.015 * root.revealProgress)
 
         Behavior on opacity {
-            NumberAnimation { duration: 150; easing.type: Easing.OutQuad }
+            NumberAnimation { duration: root.motionFastDuration; easing.type: Theme.easingLight }
         }
         Behavior on y {
-            NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
+            NumberAnimation { duration: root.motionNormalDuration; easing.type: Theme.easingDecelerate }
         }
         Behavior on scale {
-            NumberAnimation { duration: 170; easing.type: Easing.OutCubic }
+            NumberAnimation { duration: root.motionNormalDuration; easing.type: Theme.easingDecelerate }
         }
 
         Rectangle {
@@ -833,7 +836,7 @@ Item {
                 opacity: root.headerPhase
 
                 Behavior on opacity {
-                    NumberAnimation { duration: 150; easing.type: Easing.OutCubic }
+                    NumberAnimation { duration: root.motionFastDuration; easing.type: Theme.easingDecelerate }
                 }
 
                 PulseQueryHeader {
@@ -887,7 +890,7 @@ Item {
                 opacity: root.sectionsPhase
 
                 Behavior on opacity {
-                    NumberAnimation { duration: 160; easing.type: Easing.OutCubic }
+                    NumberAnimation { duration: root.motionFastDuration; easing.type: Theme.easingDecelerate }
                 }
 
                 StackLayout {
@@ -950,7 +953,7 @@ Item {
                 opacity: 0.4 + (0.6 * root.footerPhase)
 
                 Behavior on opacity {
-                    NumberAnimation { duration: 140; easing.type: Easing.OutQuad }
+                    NumberAnimation { duration: root.motionFastDuration; easing.type: Theme.easingLight }
                 }
 
                 PulseFooterHints {

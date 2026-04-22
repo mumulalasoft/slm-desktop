@@ -9,6 +9,8 @@ Item {
     property bool selected: false
     property bool prominent: false
     property real pressScale: 1.0
+    readonly property int motionFastDuration: Theme.durationFast
+    readonly property int motionSnapDuration: Theme.durationSm
     readonly property real cardRadius: (typeof Theme !== "undefined"
                                         && Theme
                                         && Theme.radiusCard !== undefined)
@@ -102,10 +104,10 @@ Item {
     scale: root.pressScale
 
     Behavior on liftOffset {
-        NumberAnimation { duration: 120; easing.type: Easing.OutCubic }
+        NumberAnimation { duration: root.motionFastDuration; easing.type: Theme.easingDecelerate }
     }
     Behavior on scale {
-        NumberAnimation { duration: 90; easing.type: Easing.OutQuad }
+        NumberAnimation { duration: root.motionSnapDuration; easing.type: Theme.easingLight }
     }
 
     Rectangle {
@@ -120,13 +122,13 @@ Item {
         opacity: root.selected ? 0.95 : 1.0
 
         Behavior on color {
-            ColorAnimation { duration: 120; easing.type: Easing.OutCubic }
+            ColorAnimation { duration: root.motionFastDuration; easing.type: Theme.easingDecelerate }
         }
         Behavior on border.color {
-            ColorAnimation { duration: 120; easing.type: Easing.OutCubic }
+            ColorAnimation { duration: root.motionFastDuration; easing.type: Theme.easingDecelerate }
         }
         Behavior on opacity {
-            NumberAnimation { duration: 120; easing.type: Easing.OutQuad }
+            NumberAnimation { duration: root.motionFastDuration; easing.type: Theme.easingLight }
         }
     }
 

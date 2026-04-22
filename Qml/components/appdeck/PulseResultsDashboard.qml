@@ -13,6 +13,7 @@ Item {
     property int twoColumnThreshold: 980
     property real layoutWidth: 0
     property bool active: false
+    readonly property int motionDuration: Theme.durationFast
 
     signal itemHovered(string resultId)
     signal itemActivated(string resultId)
@@ -37,10 +38,10 @@ Item {
     y: active ? 0 : 8
 
     Behavior on opacity {
-        NumberAnimation { duration: 170; easing.type: Easing.OutCubic }
+        NumberAnimation { duration: root.motionDuration; easing.type: Theme.easingDecelerate }
     }
     Behavior on y {
-        NumberAnimation { duration: 170; easing.type: Easing.OutCubic }
+        NumberAnimation { duration: root.motionDuration; easing.type: Theme.easingDecelerate }
     }
 
     ColumnLayout {

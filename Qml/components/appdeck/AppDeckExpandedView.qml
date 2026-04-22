@@ -91,7 +91,7 @@ FocusScope {
         from: 0.0
         to: 1.0
         duration: Theme.durationNormal
-        easing.type: Easing.InOutCubic
+        easing.type: Theme.easingDefault
     }
 
     Keys.onPressed: function(event) {
