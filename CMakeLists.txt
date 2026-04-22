@@ -944,8 +944,6 @@ set(DESKTOP_SHELL_QML_FILES
     Qml/components/appdeck/AppDeckReorderController.qml
     Qml/components/appdeck/AppDeckReorderMarker.qml
     Qml/components/appdeck/AppDeckDropPulse.qml
-    Qml/components/appdeck/zones/FavoritesZone.qml
-    Qml/components/appdeck/zones/RunningZone.qml
     Qml/components/appdeck/zones/SuggestedZone.qml
     Qml/components/appdeck/zones/ContextZone.qml
     Qml/components/shell/ShellShortcutTile.qml

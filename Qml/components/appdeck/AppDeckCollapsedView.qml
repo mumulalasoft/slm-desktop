@@ -1,6 +1,5 @@
 import QtQuick 2.15
 import "." as AppDeckComp
-import "zones" as Zones
 
 Item {
     id: root
@@ -15,18 +14,6 @@ Item {
 
     signal appActivated(string appName)
     signal apphubRequested()
-
-    // Legacy behavior mapping:
-    // collapsed = quick access (pinned + running indicators).
-    Zones.FavoritesZone {
-        id: favoritesZone
-        appsModel: root.appsModel
-    }
-
-    Zones.RunningZone {
-        id: runningZone
-        appsModel: root.appsModel
-    }
 
     AppDeckComp.AppDeck {
         id: dockSurface
