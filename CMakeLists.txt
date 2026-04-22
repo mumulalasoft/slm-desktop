@@ -85,10 +85,10 @@ endif()
 include(cmake/Sources.cmake)
 include(cmake/StructureGuard.cmake)
 slm_require_project_paths(
-    Qml/DockController.qml
-    src/core/wayland/layershell/docklayerwindow.cpp
-    src/core/wayland/layershell/docklayerwindow.h
-    tests/docksystem_render_contract_test.cpp
+    Qml/AppDeckController.qml
+    src/core/wayland/layershell/appdecklayerwindow.cpp
+    src/core/wayland/layershell/appdecklayerwindow.h
+    tests/appdecksystem_render_contract_test.cpp
 )
 
 # FileManager integration mode:
@@ -450,10 +450,10 @@ qt_add_executable(slmcapdemo
     src/core/launcher/launchenvresolver.h
     src/apps/settings/modules/developer/envserviceclient.cpp
     src/apps/settings/modules/developer/envserviceclient.h
-    src/core/dock/dockidentity.cpp
-    src/core/dock/dockidentity.h
-    src/core/dock/dockmodel.cpp
-    src/core/dock/dockmodel.h
+    src/core/appdeck/appdeckidentity.cpp
+    src/core/appdeck/appdeckidentity.h
+    src/core/appdeck/appdeckmodel.cpp
+    src/core/appdeck/appdeckmodel.h
     src/core/shortcutmodel.cpp
     src/core/shortcutmodel.h
     src/core/actions/framework/slmdesktopentryscanner.cpp
@@ -790,10 +790,10 @@ add_custom_target(lint_integration_contracts
     COMMENT "Checking desktop integration contracts"
 )
 
-add_custom_target(lint_topbar_popup_contract
-    COMMAND ${CMAKE_SOURCE_DIR}/scripts/check-topbar-popup-contract.sh
+add_custom_target(lint_crown_popup_contract
+    COMMAND ${CMAKE_SOURCE_DIR}/scripts/check-crown-popup-contract.sh
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-    COMMENT "Checking topbar popup contract"
+    COMMENT "Checking crown popup contract"
 )
 
 set_source_files_properties(Qml/IndicatorRegistry.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
@@ -803,10 +803,9 @@ set_source_files_properties(
 )
 set_source_files_properties(Qml/ShellState.qml  PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
 set_source_files_properties(Qml/ShellZOrder.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
-set_source_files_properties(Qml/DockSystem.qml  PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
-set_source_files_properties(Qml/DockController.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
+set_source_files_properties(Qml/AppDeckController.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
 set_source_files_properties(Qml/BadgeService.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
-set_source_files_properties(Qml/TopBarPopupController.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
+set_source_files_properties(Qml/CrownPopupController.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
 
 set(DESKTOP_SHELL_QML_FILES
     Main.qml
@@ -814,10 +813,9 @@ set(DESKTOP_SHELL_QML_FILES
     Qml/IndicatorRegistry.qml
     Qml/ShellState.qml
     Qml/ShellZOrder.qml
-    Qml/DockSystem.qml
-    Qml/DockController.qml
+    Qml/AppDeckController.qml
     Qml/BadgeService.qml
-    Qml/TopBarPopupController.qml
+    Qml/CrownPopupController.qml
     Qml/DesktopScene.qml
     Qml/apps/filemanager/FileManagerShareSheet.qml
     Qml/apps/filemanager/RecursiveMenu.qml
@@ -831,9 +829,9 @@ set(DESKTOP_SHELL_QML_FILES
     Qml/components/desktop/DesktopViewController.qml
     Qml/components/desktop/DesktopMenuProvider.qml
     Qml/components/desktop/DesktopSurface.qml
-    Qml/components/dock/Dock.qml
-    Qml/components/dock/DockItem.qml
-    Qml/components/launchpad/Launchpad.qml
+    Qml/components/appdeck/AppDeck.qml
+    Qml/components/appdeck/AppDeckItem.qml
+    Qml/components/apphub/AppHub.qml
     # Qml/components/NetworkIndicator.qml
     # Qml/components/BluetoothIndicator.qml
     # Qml/components/SoundIndicator.qml
@@ -844,11 +842,10 @@ set(DESKTOP_SHELL_QML_FILES
     Qml/components/overlay/ShellServiceBridge.qml
     Qml/components/overlay/ShellEventBridge.qml
     Qml/components/overlay/ShellSystemWindows.qml
-    Qml/components/overlay/TopBarWindow.qml
+    Qml/components/overlay/CrownWindow.qml
     Qml/components/overlay/PopupHostLayer.qml
-    Qml/components/overlay/TopBarPopupStateController.qml
-    Qml/components/overlay/DockWindow.qml
-    Qml/components/overlay/LaunchpadWindow.qml
+    Qml/components/overlay/CrownPopupStateController.qml
+    Qml/components/overlay/AppDeckWindow.qml
     Qml/components/overlay/DetachedFileManagerWindow.qml
     Qml/components/overlay/PortalFileChooserWindow.qml
     Qml/components/overlay/AreaShotSelectorWindow.qml
@@ -858,7 +855,7 @@ set(DESKTOP_SHELL_QML_FILES
     Qml/components/overlay/LockScreenWindow.qml
     Qml/components/overlay/PortalConsentDialogWindow.qml
     Qml/components/overlay/FirewallPromptDialog.qml
-    Qml/components/overlay/LaunchpadActions.js
+    Qml/components/overlay/AppHubActions.js
     Qml/components/overlay/SecuritySettingsRouting.js
     # Qml/components/NotificationIndicator.qml
     Qml/components/applet/ScreencastIndicator.qml
@@ -884,7 +881,7 @@ set(DESKTOP_SHELL_QML_FILES
     Qml/components/contextmenu/WindowContextMenu.qml
     Qml/components/contextmenu/NotificationContextMenu.qml
     # Qml/components/BatteryIndicator.qml
-    Qml/components/topbar/TopBar.qml
+    Qml/components/crown/Crown.qml
     Qml/components/indicators/IndicatorManager.qml
     Qml/components/indicators/AppIndicatorItem.qml
     Qml/components/indicators/IndicatorMenu.qml
@@ -919,25 +916,38 @@ set(DESKTOP_SHELL_QML_FILES
     Qml/components/globalmenu/GlobalMenuAppIdentity.qml
     Qml/components/globalmenu/GlobalMenuCategoryButton.qml
     Qml/components/globalmenu/GlobalMenuDropdown.qml
-    Qml/components/topbar/TopBarBrandSection.qml
-    Qml/components/topbar/TopBarAnchoredMenu.qml
-    Qml/components/topbar/TopBarAnchoredPopup.qml
-    Qml/components/topbar/TopBarMainMenuControl.qml
-    Qml/components/topbar/TopBarSearchButton.qml
-    Qml/components/topbar/TopBarScreenshotControl.qml
+    Qml/components/crown/CrownBrandSection.qml
+    Qml/components/crown/CrownAnchoredMenu.qml
+    Qml/components/crown/CrownAnchoredPopup.qml
+    Qml/components/crown/CrownMainMenuControl.qml
+    Qml/components/crown/CrownSearchButton.qml
+    Qml/components/crown/CrownScreenshotControl.qml
     Qml/components/compositor/CompositorSwitcherOverlay.qml
     Qml/components/workspace/WorkspaceOverlay.qml
     Qml/components/workspace/WorkspaceStrip.qml
     Qml/components/workspace/WorkspaceOverviewScene.qml
     Qml/components/workspace/WindowThumbnail.qml
     Qml/apps/filemanager/FileManagerWindow.qml
-    Qml/components/tothespot/TothespotOverlay.qml
-    Qml/components/tothespot/TothespotDismissWindow.qml
-    Qml/components/tothespot/TothespotWindow.qml
-    Qml/components/dock/DockAppDelegate.qml
-    Qml/components/dock/DockReorderController.qml
-    Qml/components/dock/DockReorderMarker.qml
-    Qml/components/dock/DockDropPulse.qml
+    Qml/components/pulse/PulseOverlay.qml
+    Qml/components/pulse/PulseSurface.qml
+    Qml/components/pulse/PulseInput.qml
+    Qml/components/pulse/PulseTopResult.qml
+    Qml/components/pulse/PulseSection.qml
+    Qml/components/pulse/PulseGridSection.qml
+    Qml/components/pulse/PulseListSection.qml
+    Qml/components/pulse/PulseActionRow.qml
+    Qml/components/pulse/PulseCommandPreview.qml
+    Qml/components/appdeck/AppDeckAppDelegate.qml
+    Qml/components/appdeck/AppDeckCollapsedView.qml
+    Qml/components/appdeck/AppDeckExpandedView.qml
+    Qml/components/appdeck/AppDeckContextView.qml
+    Qml/components/appdeck/AppDeckReorderController.qml
+    Qml/components/appdeck/AppDeckReorderMarker.qml
+    Qml/components/appdeck/AppDeckDropPulse.qml
+    Qml/components/appdeck/zones/FavoritesZone.qml
+    Qml/components/appdeck/zones/RunningZone.qml
+    Qml/components/appdeck/zones/SuggestedZone.qml
+    Qml/components/appdeck/zones/ContextZone.qml
     Qml/components/shell/ShellShortcutTile.qml
     Qml/components/shell/ShellSelectionRect.qml
     Qml/components/shell/ShellDragGhost.qml
@@ -998,8 +1008,8 @@ set(DESKTOP_SHELL_QML_FILES
     Qml/components/screenshot/ScreenshotController.js
     Qml/components/screenshot/ScreenshotSaveController.js
     Qml/components/shell/ShellUtils.js
-    Qml/components/shell/TothespotController.js
-    Qml/components/dock/DockMath.js
+    Qml/components/shell/PulseController.js
+    Qml/components/appdeck/AppDeckMath.js
     Qml/apps/filemanager/FileManagerContentView.qml
     Qml/apps/filemanager/FileManagerRecentItem.qml
     Qml/apps/filemanager/FileManagerFavoriteItem.qml
@@ -1048,9 +1058,11 @@ set(DESKTOP_SHELL_RESOURCE_FILES
     assets/icons/logo.svg
     assets/icons/dark/logo.svg
      assets/icons/light/logo.svg
+     assets/icons/dark/pulse.svg
+      assets/icons/light/pulse.svg
     assets/icons/logo_white.svg
     assets/icons/logo_black.svg
-    assets/icons/launchpad.svg
+    assets/icons/apphub.svg
     assets/icons/wifi_1_bar.svg
     assets/icons/wifi_1_bar_white.svg
     assets/icons/wifi_2_bar.svg
@@ -1093,12 +1105,12 @@ target_link_libraries(slm-desktop
 )
 if(TARGET Qt6::WaylandClient)
     target_sources(slm-desktop PRIVATE
-        src/core/wayland/layershell/dockbootstrapstate.cpp
-        src/core/wayland/layershell/dockbootstrapstate.h
+        src/core/wayland/layershell/appdeckbootstrapstate.cpp
+        src/core/wayland/layershell/appdeckbootstrapstate.h
         src/core/wayland/layershell/wlrlayershell.cpp
         src/core/wayland/layershell/wlrlayershell.h
-        src/core/wayland/layershell/docklayerwindow.cpp
-        src/core/wayland/layershell/docklayerwindow.h
+        src/core/wayland/layershell/appdecklayerwindow.cpp
+        src/core/wayland/layershell/appdecklayerwindow.h
         src/core/wayland/layershell/qwayland-wlr-layer-shell-unstable-v1.cpp
         src/core/wayland/layershell/qwayland-wlr-layer-shell-unstable-v1.h
         src/core/wayland/layershell/wlr-layer-shell-protocol.c
@@ -1333,19 +1345,19 @@ target_link_libraries(secretservice_contract_test
 target_include_directories(secretservice_contract_test PRIVATE ${CMAKE_SOURCE_DIR})
 add_test(NAME secretservice_contract_test COMMAND secretservice_contract_test)
 
-qt_add_executable(dock_identity_test
-    src/core/dock/dockidentity.cpp
-    src/core/dock/dockidentity.h
-    tests/dock_identity_test.cpp
+qt_add_executable(appdeck_identity_test
+    src/core/appdeck/appdeckidentity.cpp
+    src/core/appdeck/appdeckidentity.h
+    tests/appdeck_identity_test.cpp
 )
 
-target_link_libraries(dock_identity_test
+target_link_libraries(appdeck_identity_test
     PRIVATE
         Qt6::Core
         Qt6::Test
 )
 
-add_test(NAME dock_identity_test COMMAND dock_identity_test)
+add_test(NAME appdeck_identity_test COMMAND appdeck_identity_test)
 
 qt_add_executable(slmmotioncore_test
     src/core/motion/slmmotiontypes.cpp
@@ -1491,10 +1503,10 @@ set(SLM_ACTION_TEST_SOURCES
     src/core/launcher/launchenvresolver.h
     src/apps/settings/modules/developer/envserviceclient.cpp
     src/apps/settings/modules/developer/envserviceclient.h
-    src/core/dock/dockidentity.cpp
-    src/core/dock/dockidentity.h
-    src/core/dock/dockmodel.cpp
-    src/core/dock/dockmodel.h
+    src/core/appdeck/appdeckidentity.cpp
+    src/core/appdeck/appdeckidentity.h
+    src/core/appdeck/appdeckmodel.cpp
+    src/core/appdeck/appdeckmodel.h
     src/core/shortcutmodel.cpp
     src/core/shortcutmodel.h
 )
@@ -1846,22 +1858,22 @@ target_link_libraries(motion_scheduler_ui_guard_test
 
 add_test(NAME motion_scheduler_ui_guard_test COMMAND motion_scheduler_ui_guard_test)
 
-qt_add_executable(topbar_mainmenu_recent_icons_guard_test
-    tests/topbar_mainmenu_recent_icons_guard_test.cpp
+qt_add_executable(crown_mainmenu_recent_icons_guard_test
+    tests/crown_mainmenu_recent_icons_guard_test.cpp
 )
 
-target_compile_definitions(topbar_mainmenu_recent_icons_guard_test
+target_compile_definitions(crown_mainmenu_recent_icons_guard_test
     PRIVATE
         DESKTOP_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\"
 )
 
-target_link_libraries(topbar_mainmenu_recent_icons_guard_test
+target_link_libraries(crown_mainmenu_recent_icons_guard_test
     PRIVATE
         Qt6::Core
         Qt6::Test
 )
 
-add_test(NAME topbar_mainmenu_recent_icons_guard_test COMMAND topbar_mainmenu_recent_icons_guard_test)
+add_test(NAME crown_mainmenu_recent_icons_guard_test COMMAND crown_mainmenu_recent_icons_guard_test)
 
 qt_add_executable(notification_animation_contract_test
     tests/notification_animation_contract_test.cpp
@@ -1918,39 +1930,39 @@ target_link_libraries(notificationmanager_priority_routing_test
 
 add_test(NAME notificationmanager_priority_routing_test COMMAND notificationmanager_priority_routing_test)
 
-qt_add_executable(docksystem_render_contract_test
-    tests/docksystem_render_contract_test.cpp
+qt_add_executable(appdecksystem_render_contract_test
+    tests/appdecksystem_render_contract_test.cpp
 )
 
-target_compile_definitions(docksystem_render_contract_test
+target_compile_definitions(appdecksystem_render_contract_test
     PRIVATE
         DESKTOP_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\"
 )
 
-target_link_libraries(docksystem_render_contract_test
+target_link_libraries(appdecksystem_render_contract_test
     PRIVATE
         Qt6::Core
         Qt6::Test
 )
 
-add_test(NAME docksystem_render_contract_test COMMAND docksystem_render_contract_test)
+add_test(NAME appdecksystem_render_contract_test COMMAND appdecksystem_render_contract_test)
 
-qt_add_executable(desktopscene_launchpad_ssot_contract_test
-    tests/desktopscene_launchpad_ssot_contract_test.cpp
+qt_add_executable(desktopscene_apphub_ssot_contract_test
+    tests/desktopscene_apphub_ssot_contract_test.cpp
 )
 
-target_compile_definitions(desktopscene_launchpad_ssot_contract_test
+target_compile_definitions(desktopscene_apphub_ssot_contract_test
     PRIVATE
         DESKTOP_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\"
 )
 
-target_link_libraries(desktopscene_launchpad_ssot_contract_test
+target_link_libraries(desktopscene_apphub_ssot_contract_test
     PRIVATE
         Qt6::Core
         Qt6::Test
 )
 
-add_test(NAME desktopscene_launchpad_ssot_contract_test COMMAND desktopscene_launchpad_ssot_contract_test)
+add_test(NAME desktopscene_apphub_ssot_contract_test COMMAND desktopscene_apphub_ssot_contract_test)
 
 qt_add_executable(main_search_ssot_contract_test
     tests/main_search_ssot_contract_test.cpp
@@ -1969,22 +1981,22 @@ target_link_libraries(main_search_ssot_contract_test
 
 add_test(NAME main_search_ssot_contract_test COMMAND main_search_ssot_contract_test)
 
-qt_add_executable(dockcontroller_ssot_contract_test
-    tests/dockcontroller_ssot_contract_test.cpp
+qt_add_executable(appdeckcontroller_ssot_contract_test
+    tests/appdeckcontroller_ssot_contract_test.cpp
 )
 
-target_compile_definitions(dockcontroller_ssot_contract_test
+target_compile_definitions(appdeckcontroller_ssot_contract_test
     PRIVATE
         DESKTOP_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\"
 )
 
-target_link_libraries(dockcontroller_ssot_contract_test
+target_link_libraries(appdeckcontroller_ssot_contract_test
     PRIVATE
         Qt6::Core
         Qt6::Test
 )
 
-add_test(NAME dockcontroller_ssot_contract_test COMMAND dockcontroller_ssot_contract_test)
+add_test(NAME appdeckcontroller_ssot_contract_test COMMAND appdeckcontroller_ssot_contract_test)
 
 qt_add_executable(drag_session_broker_contract_test
     tests/drag_session_broker_contract_test.cpp
@@ -2514,10 +2526,10 @@ qt_add_executable(filemanagerapi_daemon_recovery_test
     src/core/launcher/launchenvresolver.h
     src/apps/settings/modules/developer/envserviceclient.cpp
     src/apps/settings/modules/developer/envserviceclient.h
-    src/core/dock/dockidentity.cpp
-    src/core/dock/dockidentity.h
-    src/core/dock/dockmodel.cpp
-    src/core/dock/dockmodel.h
+    src/core/appdeck/appdeckidentity.cpp
+    src/core/appdeck/appdeckidentity.h
+    src/core/appdeck/appdeckmodel.cpp
+    src/core/appdeck/appdeckmodel.h
     src/core/shortcutmodel.cpp
     src/core/shortcutmodel.h
     src/apps/filemanager/include/filemanagerapi.h
@@ -2637,10 +2649,10 @@ qt_add_executable(filemanagerapi_fileops_contract_test
     src/core/launcher/launchenvresolver.h
     src/apps/settings/modules/developer/envserviceclient.cpp
     src/apps/settings/modules/developer/envserviceclient.h
-    src/core/dock/dockidentity.cpp
-    src/core/dock/dockidentity.h
-    src/core/dock/dockmodel.cpp
-    src/core/dock/dockmodel.h
+    src/core/appdeck/appdeckidentity.cpp
+    src/core/appdeck/appdeckidentity.h
+    src/core/appdeck/appdeckmodel.cpp
+    src/core/appdeck/appdeckmodel.h
     src/core/shortcutmodel.cpp
     src/core/shortcutmodel.h
     src/apps/filemanager/include/filemanagerapi.h
@@ -2697,10 +2709,10 @@ qt_add_executable(filemanager_shell_contract_test
     ${SLM_PERMISSION_TEST_SOURCES}
     src/core/appmodel.cpp
     src/core/appmodel.h
-    src/core/dock/dockidentity.cpp
-    src/core/dock/dockidentity.h
-    src/core/dock/dockmodel.cpp
-    src/core/dock/dockmodel.h
+    src/core/appdeck/appdeckidentity.cpp
+    src/core/appdeck/appdeckidentity.h
+    src/core/appdeck/appdeckmodel.cpp
+    src/core/appdeck/appdeckmodel.h
     src/core/shortcutmodel.cpp
     src/core/shortcutmodel.h
     src/core/execution/appexecutiongate.cpp
@@ -3819,28 +3831,28 @@ target_link_libraries(daemonservicebootstraprunner_test
 
 add_test(NAME daemonservicebootstraprunner_test COMMAND daemonservicebootstraprunner_test)
 
-qt_add_executable(topbar_popups_smoke_test
-    tests/topbar_popups_smoke_test.cpp
+qt_add_executable(crown_popups_smoke_test
+    tests/crown_popups_smoke_test.cpp
 )
 
 if (DESKTOP_SHELL_QML_JS_FILES)
-    qt6_add_resources(topbar_popups_smoke_test topbar_smoke_qml_js_raw
+    qt6_add_resources(crown_popups_smoke_test crown_smoke_qml_js_raw
         PREFIX "/qt/qml/Slm_Desktop"
         FILES ${DESKTOP_SHELL_QML_JS_FILES}
     )
 endif()
-qt6_add_resources(topbar_popups_smoke_test topbar_smoke_qml_raw
+qt6_add_resources(crown_popups_smoke_test crown_smoke_qml_raw
     PREFIX "/qt/qml/Slm_Desktop"
     FILES ${DESKTOP_SHELL_QML_FILES}
 )
 
-target_compile_definitions(topbar_popups_smoke_test
+target_compile_definitions(crown_popups_smoke_test
     PRIVATE
         BUILD_QML_IMPORT_ROOT=\"${CMAKE_CURRENT_BINARY_DIR}\"
-        TOPBAR_QML_COMPONENT_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/Qml/components/topbar\"
+        TOPBAR_QML_COMPONENT_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/Qml/components/crown\"
 )
 
-target_link_libraries(topbar_popups_smoke_test
+target_link_libraries(crown_popups_smoke_test
     PRIVATE
         Qt6::Core
         Qt6::Qml
@@ -3848,8 +3860,8 @@ target_link_libraries(topbar_popups_smoke_test
         Qt6::Test
 )
 
-add_test(NAME topbar_popups_smoke_test COMMAND topbar_popups_smoke_test)
-set_tests_properties(topbar_popups_smoke_test PROPERTIES
+add_test(NAME crown_popups_smoke_test COMMAND crown_popups_smoke_test)
+set_tests_properties(crown_popups_smoke_test PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
@@ -4273,45 +4285,45 @@ add_test(NAME slmcapabilityservice_dbus_test
         $<TARGET_FILE:slmcapabilityservice_dbus_test>
 )
 
-qt_add_executable(tothespot_contextmenuhelper_test
-    src/services/search/tothespotcontextmenuhelper.cpp
-    src/services/search/tothespotcontextmenuhelper.h
-    tests/tothespot_contextmenuhelper_test.cpp
+qt_add_executable(pulse_contextmenuhelper_test
+    src/services/search/pulsecontextmenuhelper.cpp
+    src/services/search/pulsecontextmenuhelper.h
+    tests/pulse_contextmenuhelper_test.cpp
 )
 
-target_link_libraries(tothespot_contextmenuhelper_test
+target_link_libraries(pulse_contextmenuhelper_test
     PRIVATE
         Qt6::Core
         Qt6::Test
 )
 
-add_test(NAME tothespot_contextmenuhelper_test COMMAND tothespot_contextmenuhelper_test)
+add_test(NAME pulse_contextmenuhelper_test COMMAND pulse_contextmenuhelper_test)
 
-qt_add_executable(tothespot_texthighlighter_test
-    src/services/search/tothespottexthighlighter.cpp
-    src/services/search/tothespottexthighlighter.h
-    tests/tothespot_texthighlighter_test.cpp
+qt_add_executable(pulse_texthighlighter_test
+    src/services/search/pulsetexthighlighter.cpp
+    src/services/search/pulsetexthighlighter.h
+    tests/pulse_texthighlighter_test.cpp
 )
 
-target_link_libraries(tothespot_texthighlighter_test
+target_link_libraries(pulse_texthighlighter_test
     PRIVATE
         Qt6::Core
         Qt6::Test
 )
 
-add_test(NAME tothespot_texthighlighter_test COMMAND tothespot_texthighlighter_test)
+add_test(NAME pulse_texthighlighter_test COMMAND pulse_texthighlighter_test)
 
-qt_add_executable(tothespotservice_dbus_test
-    src/services/search/tothespotservice.cpp
-    src/services/search/tothespotservice.h
+qt_add_executable(pulseservice_dbus_test
+    src/services/search/pulseservice.cpp
+    src/services/search/pulseservice.h
     src/core/utils/resourcepaths.h
     ${SLM_ACTION_TEST_SOURCES}
     ${SLM_ACTION_FRAMEWORK_TEST_SOURCES}
     ${SLM_PERMISSION_TEST_SOURCES}
-    tests/tothespotservice_dbus_test.cpp
+    tests/pulseservice_dbus_test.cpp
 )
 
-target_link_libraries(tothespotservice_dbus_test
+target_link_libraries(pulseservice_dbus_test
     PRIVATE
         Qt6::Core
         Qt6::Gui
@@ -4321,10 +4333,10 @@ target_link_libraries(tothespotservice_dbus_test
         PkgConfig::GIO
 )
 
-add_test(NAME tothespotservice_dbus_test
+add_test(NAME pulseservice_dbus_test
     COMMAND ${CMAKE_COMMAND} -E env
         QT_QPA_PLATFORM=offscreen
-        $<TARGET_FILE:tothespotservice_dbus_test>
+        $<TARGET_FILE:pulseservice_dbus_test>
 )
 
 qt_add_executable(settingsapp_deeplink_anchor_test
@@ -4979,10 +4991,10 @@ qt_add_executable(slmactionregistry_test
     src/core/launcher/launchenvresolver.h
     src/apps/settings/modules/developer/envserviceclient.cpp
     src/apps/settings/modules/developer/envserviceclient.h
-    src/core/dock/dockidentity.cpp
-    src/core/dock/dockidentity.h
-    src/core/dock/dockmodel.cpp
-    src/core/dock/dockmodel.h
+    src/core/appdeck/appdeckidentity.cpp
+    src/core/appdeck/appdeckidentity.h
+    src/core/appdeck/appdeckmodel.cpp
+    src/core/appdeck/appdeckmodel.h
     src/core/shortcutmodel.cpp
     src/core/shortcutmodel.h
     tests/slmactionregistry_test.cpp
@@ -5021,10 +5033,10 @@ qt_add_executable(slmcapability_framework_test
     src/core/launcher/launchenvresolver.h
     src/apps/settings/modules/developer/envserviceclient.cpp
     src/apps/settings/modules/developer/envserviceclient.h
-    src/core/dock/dockidentity.cpp
-    src/core/dock/dockidentity.h
-    src/core/dock/dockmodel.cpp
-    src/core/dock/dockmodel.h
+    src/core/appdeck/appdeckidentity.cpp
+    src/core/appdeck/appdeckidentity.h
+    src/core/appdeck/appdeckmodel.cpp
+    src/core/appdeck/appdeckmodel.h
     src/core/shortcutmodel.cpp
     src/core/shortcutmodel.h
     src/core/actions/framework/slmframeworktypes.h
@@ -5092,7 +5104,7 @@ add_custom_target(test_headless
         ${CMAKE_SOURCE_DIR}/scripts/test.sh
         ${CMAKE_BINARY_DIR}
     DEPENDS
-        dock_identity_test
+        appdeck_identity_test
         appcommandrouter_test
         windowingbackendmanager_test
         kwinwaylandstatemodel_test
@@ -5136,11 +5148,11 @@ add_custom_target(test_headless
         workspace_shortcuts_guard_test
         workspace_overlay_guard_test
         motion_scheduler_ui_guard_test
-        topbar_mainmenu_recent_icons_guard_test
+        crown_mainmenu_recent_icons_guard_test
         notification_animation_contract_test
         notification_visual_contract_test
         notificationmanager_priority_routing_test
-        docksystem_render_contract_test
+        appdecksystem_render_contract_test
         daemonhealthmonitor_test
         dbussecurityguard_test
         policyengine_test

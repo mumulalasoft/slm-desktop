@@ -10,13 +10,12 @@ import "Qml/components/overlay" as OverlayComp
 import "Qml/components/portalchooser" as PortalChooserComp
 import "Qml/components/print" as PrintComp
 import "Qml/components/screenshot" as ScreenshotComp
-import "Qml/components/overlay/LaunchpadActions.js" as LaunchpadActions
 import "Qml/apps/filemanager/FileManagerGlobalMenuController.js" as FileManagerGlobalMenuController
 import "Qml/components/screenshot/ScreenshotController.js" as ScreenshotController
 import "Qml/components/screenshot/ScreenshotSaveController.js" as ScreenshotSaveController
 import "Qml/components/shell" as ShellComp
 import "Qml/components/shell/ShellUtils.js" as ShellUtils
-import "Qml/components/shell/TothespotController.js" as TothespotController
+import "Qml/components/shell/PulseController.js" as PulseController
 
 ApplicationWindow {
     id: root
@@ -61,7 +60,7 @@ ApplicationWindow {
     function markStartupTopbarItemsReady() {
         if (!startupTopbarItemsReady) {
             startupTopbarItemsReady = true
-            startupQmlMark("main.topbarItems.ready")
+            startupQmlMark("main.crownItems.ready")
         }
         if (!dockLoadGateOpen) {
             dockLoadGateOpen = true
@@ -89,7 +88,7 @@ ApplicationWindow {
     property var desktopMenuProviderRef: null
     property var appModelRef: null
     property var fileManagerApiRef: null
-    property var tothespotServiceRef: null
+    property var pulseServiceRef: null
     function openFileManagerFromShortcut(pathValue) {
         var targetPath = String(pathValue && String(pathValue).length > 0 ? pathValue : "~")
         ShellUtils.openDetachedFileManager(root, targetPath)
@@ -252,39 +251,39 @@ ApplicationWindow {
     readonly property bool searchVisible: (typeof ShellStateController !== "undefined" && ShellStateController)
                                           ? !!ShellStateController.searchVisible
                                           : _searchVisibleLocal
-    // Compatibility alias while older callsites still use tothespot naming.
-    readonly property bool tothespotVisible: searchVisible
+    // Compatibility alias while older callsites still use pulse naming.
+    readonly property bool pulseVisible: searchVisible
     property bool clipboardOverlayVisible: false
     property bool lockScreenVisible: false
-    property double tothespotLastCloseMs: 0
+    property double pulseLastCloseMs: 0
     property string _searchQueryLocal: ""
     readonly property string searchQuery: (typeof ShellStateController !== "undefined" && ShellStateController)
                                           ? String(ShellStateController.searchQuery || "")
                                           : _searchQueryLocal
-    // Compatibility alias while older callsites still use tothespot naming.
-    readonly property string tothespotQuery: searchQuery
-    property string tothespotLastLoadedQuery: ""
-    property int tothespotQueryGeneration: 0
-    property int tothespotAppliedGeneration: -1
-    property int tothespotSelectedIndex: -1
-    property var tothespotProfileMeta: ({})
-    property var tothespotTelemetryMeta: ({})
-    property var tothespotTelemetryLast: ({})
-    property var tothespotProviderStats: ({})
-    property var tothespotPreviewData: ({})
-    property bool tothespotShowDebug: !!readSetting("debug.verboseLogging", false)
-    property bool tothespotNotifyClipboardResolveSuccess: !!readSetting("tothespot.notifyClipboardResolveSuccess", true)
-    property string tothespotBind: String(readSetting("tothespot.bindToggle", "Alt+Space"))
-    property int tothespotSavedX: Number(readSetting("tothespot.windowX", -1))
-    property int tothespotSavedY: Number(readSetting("tothespot.windowY", -1))
-    property int tothespotSavedWidth: Number(readSetting("tothespot.windowWidth", -1))
-    property int tothespotSavedHeight: Number(readSetting("tothespot.windowHeight", -1))
-    property bool tothespotRestoringGeometry: false
+    // Compatibility alias while older callsites still use pulse naming.
+    readonly property string pulseQuery: searchQuery
+    property string pulseLastLoadedQuery: ""
+    property int pulseQueryGeneration: 0
+    property int pulseAppliedGeneration: -1
+    property int pulseSelectedIndex: -1
+    property var pulseProfileMeta: ({})
+    property var pulseTelemetryMeta: ({})
+    property var pulseTelemetryLast: ({})
+    property var pulseProviderStats: ({})
+    property var pulsePreviewData: ({})
+    property bool pulseShowDebug: !!readSetting("debug.verboseLogging", false)
+    property bool pulseNotifyClipboardResolveSuccess: !!readSetting("pulse.notifyClipboardResolveSuccess", true)
+    property string pulseBind: String(readSetting("pulse.bindToggle", "Alt+Space"))
+    property int pulseSavedX: Number(readSetting("pulse.windowX", -1))
+    property int pulseSavedY: Number(readSetting("pulse.windowY", -1))
+    property int pulseSavedWidth: Number(readSetting("pulse.windowWidth", -1))
+    property int pulseSavedHeight: Number(readSetting("pulse.windowHeight", -1))
+    property bool pulseRestoringGeometry: false
     function setSearchVisible(visible) {
         var v = !!visible
         if (typeof ShellStateController !== "undefined" && ShellStateController
-                && ShellStateController.setToTheSpotVisible) {
-            ShellStateController.setToTheSpotVisible(v)
+                && ShellStateController.setPulseVisible) {
+            ShellStateController.setPulseVisible(v)
         } else {
             _searchVisibleLocal = v
         }
@@ -304,15 +303,15 @@ ApplicationWindow {
             return
         }
         if (!searchVisible) {
-            tothespotLastCloseMs = Date.now()
+            pulseLastCloseMs = Date.now()
             return
         }
-        ShellUtils.restoreTothespotGeometry(root)
-        TothespotController.refreshProfileMeta(root)
-        TothespotController.refreshTelemetryMeta(root)
-        TothespotController.refreshTelemetryLast(root)
-        tothespotDebounce.stop()
-        TothespotController.refreshResults(root, tothespotResultsModel, true)
+        ShellUtils.restorePulseGeometry(root)
+        PulseController.refreshProfileMeta(root)
+        PulseController.refreshTelemetryMeta(root)
+        PulseController.refreshTelemetryLast(root)
+        pulseDebounce.stop()
+        PulseController.refreshResults(root, pulseResultsModel, true)
     }
     onMotionDebugOverlayEnabledChanged: {
         ShellUtils.refreshMotionDebugRows(root)
@@ -326,7 +325,7 @@ ApplicationWindow {
         clipboardOverlayVisible = false
         shellContextMenuOpen = false
         if (desktopScene) {
-            desktopScene.launchpadVisible = false
+            desktopScene.apphubVisible = false
             desktopScene.workspaceVisible = false
             desktopScene.styleGalleryVisible = false
         }
@@ -399,7 +398,7 @@ ApplicationWindow {
     // Only covers phases that are emitted through Main.qml's startupQmlMark.
     readonly property var startupPhaseBudgets: ({
         "main.deferredInit.begin":      50,
-        "main.topbarBootstrap.ready":   400,
+        "main.crownBootstrap.ready":   400,
         "main.dockLoader.activated":    300,
         "main.deferredInit.end":        200,
         "main.nonCriticalWindows.ready": 2000
@@ -451,7 +450,7 @@ ApplicationWindow {
         requestStyleThemeSync()
         Qt.callLater(function() {
             startupQmlMark("main.deferredInit.begin")
-            // 5-minute threshold — 30 s default is too short for normal launchpad browsing.
+            // 5-minute threshold — 30 s default is too short for normal apphub browsing.
             if (typeof ShellLayerWatchdog !== "undefined" && ShellLayerWatchdog) {
                 ShellLayerWatchdog.overlayStuckThresholdMs = 300000
             }
@@ -461,8 +460,8 @@ ApplicationWindow {
             if (typeof FileManagerApi !== "undefined" && FileManagerApi) {
                 fileManagerApiRef = FileManagerApi
             }
-            if (typeof TothespotService !== "undefined" && TothespotService) {
-                tothespotServiceRef = TothespotService
+            if (typeof PulseService !== "undefined" && PulseService) {
+                pulseServiceRef = PulseService
             }
             root.desktopMenuProviderRef = desktopMenuProvider
             ShellUtils.applyUserFontScalePreference(root)
@@ -490,7 +489,7 @@ ApplicationWindow {
         repeat: false
         onTriggered: {
             root.startupTopbarBootstrapReady = true
-            root.startupQmlMark("main.topbarBootstrap.ready")
+            root.startupQmlMark("main.crownBootstrap.ready")
         }
     }
 
@@ -551,7 +550,7 @@ ApplicationWindow {
         rootWindow: root
         fileManagerContent: root.fileManagerContent
         detachedFileManagerWindow: detachedFileManagerWindow
-        onRequestFocusTothespot: TothespotController.focusFromMenu(root, tothespotWindowLoader ? tothespotWindowLoader.item : null)
+        onRequestFocusPulse: PulseController.focusFromMenu(root, dockWindowLoader ? dockWindowLoader.item : null)
         onRequestHelpMessage: function(message) {
             if (typeof NotificationManager !== "undefined" && NotificationManager && NotificationManager.Notify) {
                 NotificationManager.Notify("Slm Desktop",
@@ -615,16 +614,16 @@ ApplicationWindow {
     }
 
     Shortcut {
-        sequence: root.tothespotBind
+        sequence: root.pulseBind
         onActivated: {
-            if (typeof ShellInputRouter !== "undefined" && !ShellInputRouter.canDispatch("shell.tothespot")) return
-            root.setSearchVisible(!root.tothespotVisible)
-            if (root.tothespotVisible) {
+            if (typeof ShellInputRouter !== "undefined" && !ShellInputRouter.canDispatch("shell.pulse")) return
+            root.setSearchVisible(!root.pulseVisible)
+            if (root.pulseVisible) {
                 root.clipboardOverlayVisible = false
             }
-            if (root.tothespotVisible) {
+            if (root.pulseVisible) {
                 Qt.callLater(function() {
-                    const tw = tothespotWindowLoader ? tothespotWindowLoader.item : null
+                    const tw = dockWindowLoader ? dockWindowLoader.item : null
                     if (tw && tw.focusSearchField) {
                         tw.focusSearchField()
                     }
@@ -710,11 +709,11 @@ ApplicationWindow {
     }
 
     Timer {
-        id: tothespotDebounce
+        id: pulseDebounce
         interval: 150
         repeat: false
         running: false
-        onTriggered: TothespotController.refreshResults(root, tothespotResultsModel, false)
+        onTriggered: PulseController.refreshResults(root, pulseResultsModel, false)
     }
 
     Timer {
@@ -739,13 +738,13 @@ ApplicationWindow {
         portalUiBridge: (typeof PortalUiBridge !== "undefined") ? PortalUiBridge : null
         portalChooserApi: portalChooserApi
         fileManagerApi: (typeof FileManagerApi !== "undefined") ? FileManagerApi : null
-        tothespotService: (typeof TothespotService !== "undefined") ? TothespotService : null
-        tothespotResultsModel: tothespotResultsModel
+        pulseService: (typeof PulseService !== "undefined") ? PulseService : null
+        pulseResultsModel: pulseResultsModel
         desktopSettings: (typeof DesktopSettings !== "undefined") ? DesktopSettings : null
     }
 
     ListModel {
-        id: tothespotResultsModel
+        id: pulseResultsModel
     }
 
     ListModel {
@@ -778,7 +777,7 @@ ApplicationWindow {
     DesktopScene {
         id: desktopScene
         anchors.fill: parent
-        dockItem: DockSystem.activeDockItem
+        dockItem: (dockWindowLoader && dockWindowLoader.item) ? dockWindowLoader.item.dockItem : null
         shellApi: root
         desktopViewController: desktopViewController
         desktopMenuProvider: desktopMenuProvider
@@ -1001,7 +1000,7 @@ ApplicationWindow {
     }
     readonly property var detachedFileManagerWindow: detachedFileManagerWindowLoader.item
 
-    OverlayComp.TopBarWindow {
+    OverlayComp.CrownWindow {
         id: topBarWindow
         rootWindow: root
         desktopScene: desktopScene
@@ -1013,19 +1012,19 @@ ApplicationWindow {
                 root.markStartupTopbarItemsReady()
             }
         }
-        onLauncherRequested: desktopScene.launchpadVisible = !desktopScene.launchpadVisible
-        onTothespotRequested: {
-            if (root.tothespotVisible) {
+        onLauncherRequested: desktopScene.apphubVisible = !desktopScene.apphubVisible
+        onPulseRequested: {
+            if (root.pulseVisible) {
                 root.setSearchVisible(false)
                 return
             }
-            if ((Date.now() - Number(root.tothespotLastCloseMs || 0)) < 220) {
+            if ((Date.now() - Number(root.pulseLastCloseMs || 0)) < 220) {
                 return
             }
             root.setSearchVisible(true)
         }
         onScreenshotCaptureRequested: function(mode, delaySec, grabPointer, concealText) {
-            ScreenshotController.startFromTopBar(root, mode, delaySec, grabPointer, concealText)
+            ScreenshotController.startFromCrown(root, mode, delaySec, grabPointer, concealText)
         }
     }
 
@@ -1036,7 +1035,7 @@ ApplicationWindow {
         shellApi: root
     }
 
-    OverlayComp.TopBarPopupStateController {
+    OverlayComp.CrownPopupStateController {
         id: topBarPopupStateController
         shellContextMenuOpen: root.shellContextMenuOpen
         anyPopupOpen: !!(topBarWindow && topBarWindow.anyPopupOpen)
@@ -1052,7 +1051,7 @@ ApplicationWindow {
         desktopMenuProvider: desktopMenuProvider
     }
 
-    // DockWindow — single persistent Dock surface (wlr-layer-shell).
+    // AppDeckWindow — single persistent AppDeck surface (wlr-layer-shell).
     // Deferred out of critical startup path to prioritize first desktop frame.
     Loader {
         id: dockWindowLoader
@@ -1060,10 +1059,11 @@ ApplicationWindow {
                 && !!root.dockLoadGateOpen
         asynchronous: false
         sourceComponent: Component {
-            OverlayComp.DockWindow {
+            OverlayComp.AppDeckWindow {
                 rootWindow: root
                 desktopScene: desktopScene
-                appsModel: DockModel
+                appsModel: AppDeckModel
+                pulseResultsModel: pulseResultsModel
             }
         }
         onActiveChanged: {
@@ -1073,66 +1073,17 @@ ApplicationWindow {
         }
     }
 
-    // LaunchpadWindow — transient frameless Window above application windows.
-    // DockWindow (wlr-layer-shell LayerTop) sits above it at the compositor level.
-    // Deferred Loader with error boundary so load failures don't crash Main.qml.
-    Loader {
-        id: launchpadWindowLoader
-        // Capture desktopScene here (Loader scope) to avoid the name-collision
-        // that occurs when Component bindings resolve 'desktopScene' to
-        // LaunchpadWindow's own required property instead of Main.qml's ID.
-        readonly property var sceneRef: desktopScene
-        active: !!root.visible
-                && !!desktopScene
-                && !!desktopScene.launchpadVisible
-        asynchronous: false
-        sourceComponent: Component {
-            OverlayComp.LaunchpadWindow {
-                rootWindow: root
-                desktopScene: launchpadWindowLoader.sceneRef
-                appsModel: AppModel
-                onAppChosen: function(appData) { LaunchpadActions.handleAppChosen(appData) }
-                onAddToDockRequested: function(appData) { LaunchpadActions.handleAddToDock(appData) }
-                onAddToDesktopRequested: function(appData) { LaunchpadActions.handleAddToDesktop(appData, launchpadWindowLoader.sceneRef) }
-            }
-        }
-        onStatusChanged: {
-            if (status === Loader.Error) {
-                console.error("[shell] LaunchpadWindow failed to load:", errorString())
-                if (typeof ShellStateController !== "undefined" && ShellStateController) {
-                    ShellStateController.setLaunchpadVisible(false)
-                }
-                if (typeof ShellLayerWatchdog !== "undefined" && ShellLayerWatchdog) {
-                    ShellLayerWatchdog.reportOverlayLoadError("launchpad")
-                }
-            }
-        }
-    }
-
     Connections {
         target: desktopScene
         ignoreUnknownSignals: true
-        function onLaunchpadVisibleChanged() {
+        function onAppHubVisibleChanged() {
             root.sendOverlayCommand("overlay restack")
             if (!dockWindowLoader || !dockWindowLoader.item || !dockWindowLoader.item.visible) {
                 return
             }
             // Keep overlay order deterministic in non-layer-shell environments:
-            // app windows < launchpad < dock
+            // app windows < apphub < appdeck
             Qt.callLater(function() { dockWindowLoader.item.raise() })
-        }
-    }
-
-    Loader {
-        id: tothespotDismissWindowLoader
-        active: !!root.tothespotVisible
-        asynchronous: false
-        sourceComponent: Component {
-            TothespotDismissWindow {
-                rootWindow: root
-                overlayVisible: root.tothespotVisible
-                onDismissRequested: root.setSearchVisible(false)
-            }
         }
     }
 
@@ -1147,61 +1098,6 @@ ApplicationWindow {
                 overlayVisible: root.clipboardOverlayVisible && !root.lockScreenVisible
                 client: (typeof ClipboardServiceClient !== "undefined") ? ClipboardServiceClient : null
                 onCloseRequested: root.clipboardOverlayVisible = false
-            }
-        }
-    }
-
-    // TothespotWindow — deferred Loader with error boundary.
-    Loader {
-        id: tothespotWindowLoader
-        active: !!root.visible
-                && !!root.tothespotVisible
-                && !root.lockScreenVisible
-        asynchronous: false
-        sourceComponent: Component {
-            TothespotWindow {
-                rootWindow: root
-                panelHeight: desktopScene.panelHeight
-                overlayVisible: root.tothespotVisible && !root.lockScreenVisible
-                showDebugInfo: root.tothespotShowDebug
-                searchProfileMeta: root.tothespotProfileMeta
-                telemetryMeta: root.tothespotTelemetryMeta
-                telemetryLast: root.tothespotTelemetryLast
-                providerStats: root.tothespotProviderStats
-                previewData: root.tothespotPreviewData
-                queryText: root.tothespotQuery
-                resultsModel: tothespotResultsModel
-                selectedIndex: root.tothespotSelectedIndex
-                onGeometryEdited: ShellUtils.saveTothespotGeometry(root)
-                onOpeningRequested: ShellUtils.restoreTothespotGeometry(root)
-                onDismissRequested: root.setSearchVisible(false)
-                onQueryTextChangedRequest: function(text) {
-                    root.setSearchQuery(text)
-                    root.tothespotQueryGeneration = Number(root.tothespotQueryGeneration || 0) + 1
-                    tothespotDebounce.restart()
-                }
-                onSelectedIndexChangedByUser: function(indexValue) {
-                    root.tothespotSelectedIndex = indexValue
-                    TothespotController.refreshPreview(root, tothespotResultsModel)
-                }
-                onResultActivated: function(indexValue) {
-                    TothespotController.activateResult(root, tothespotResultsModel, indexValue)
-                }
-                onResultContextAction: function(indexValue, action) {
-                    TothespotController.activateContextAction(root, tothespotResultsModel, indexValue, action)
-                }
-            }
-        }
-        onStatusChanged: {
-            if (status === Loader.Error) {
-                console.error("[shell] TothespotWindow failed to load:", errorString())
-                root.setSearchVisible(false)
-                if (typeof ShellStateController !== "undefined" && ShellStateController) {
-                    ShellStateController.setToTheSpotVisible(false)
-                }
-                if (typeof ShellLayerWatchdog !== "undefined" && ShellLayerWatchdog) {
-                    ShellLayerWatchdog.reportOverlayLoadError("tothespot")
-                }
             }
         }
     }
@@ -1238,7 +1134,7 @@ ApplicationWindow {
         ignoreUnknownSignals: true
         function onPersistentLayerRestored() {
             if (topBarWindow && !topBarWindow.visible) {
-                console.warn("[shell] persistent-layer restore: re-showing TopBar")
+                console.warn("[shell] persistent-layer restore: re-showing Crown")
                 topBarWindow.visible = Qt.binding(function() { return !!root && root.visible })
             }
         }
@@ -1264,16 +1160,16 @@ ApplicationWindow {
         target: (typeof AppModel !== "undefined") ? AppModel : null
         ignoreUnknownSignals: true
         function onModelReset() {
-            if (!root.tothespotVisible) {
+            if (!root.pulseVisible) {
                 return
             }
-            if (String(root.tothespotQuery || "").trim().length > 0) {
+            if (String(root.pulseQuery || "").trim().length > 0) {
                 return
             }
-            if (tothespotResultsModel && Number(tothespotResultsModel.count || 0) > 0) {
+            if (pulseResultsModel && Number(pulseResultsModel.count || 0) > 0) {
                 return
             }
-            TothespotController.refreshResults(root, tothespotResultsModel, true)
+            PulseController.refreshResults(root, pulseResultsModel, true)
         }
     }
 

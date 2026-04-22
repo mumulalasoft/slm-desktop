@@ -13,12 +13,15 @@ Item {
     readonly property var desktopFileManagerContent: shell ? shell.desktopFileManagerContent : null
 
     property var dockItem: null
-    // launchpadVisible owner: ShellStateController (SSOT).
+    // apphubVisible owner: ShellStateController (SSOT).
     // Keep a local fallback only when controller is unavailable.
-    property bool _launchpadVisibleLocal: false
-    readonly property bool launchpadVisible: ShellStateController
-                                            ? !!ShellStateController.launchpadVisible
-                                            : _launchpadVisibleLocal
+    property bool _apphubVisibleLocal: false
+    readonly property bool apphubVisible: ShellStateController
+                                            ? !!ShellStateController.apphubVisible
+                                            : _apphubVisibleLocal
+    readonly property string apphubSearchSeed: ShellStateController
+                                                  ? String(ShellStateController.appHubSearchSeed || "")
+                                                  : ""
     property bool styleGalleryVisible: false
     property bool workspaceVisible: MultitaskingController.workspaceVisible
     // Compatibility alias during rebrand (overview -> workspace).
@@ -35,7 +38,7 @@ Item {
     property int lastPushedActiveSpace: -1
     property int lastKnownActiveSpace: -1
     property bool spaceHudBootstrapped: false
-    property int lastPushedLaunchpadState: -1
+    property int lastPushedAppHubState: -1
     property int dockHideDurationMs: 450
     property bool dockSmartOccluded: false
     property bool shellPointerBlocked: false
@@ -73,8 +76,8 @@ Item {
     readonly property bool layerShellSupported: layerShellAvailable && !!WlrLayerShell.isSupported()
     readonly property bool dockLayerReady: !layerShellAvailable
                                            || !layerShellSupported
-                                           || ((typeof DockBootstrapState !== "undefined" && DockBootstrapState)
-                                               ? !!DockBootstrapState.readyToRender
+                                           || ((typeof AppDeckBootstrapState !== "undefined" && AppDeckBootstrapState)
+                                               ? !!AppDeckBootstrapState.readyToRender
                                                : true)
     property real dockShownY: height - dockHeight - dockBottomMargin
     property real dockHiddenY: height - 10
@@ -115,9 +118,9 @@ Item {
         text += " t=" + now
         console.warn(text)
     }
-    // Note: launchpadVisible is intentionally excluded from dockRevealWanted.
-    // DockWindow (z=200) is above LaunchpadWindow (z=190) in the scene graph —
-    // the dock renders on top of the launchpad without any exclusion zone.
+    // Note: apphubVisible is intentionally excluded from dockRevealWanted.
+    // AppDeckWindow owns expanded/context rendering directly, so dock reveal
+    // policy is independent from legacy multi-window overlay behavior.
 
     ShellComp.Shell {
         id: shell
@@ -133,7 +136,7 @@ Item {
         contextMenuOnly: false
         onAddToDockRequested: function(appData) {
             if (appData && appData.desktopFile && appData.desktopFile.length > 0) {
-                DockModel.addDesktopEntry(appData.desktopFile)
+                AppDeckModel.addDesktopEntry(appData.desktopFile)
             }
         }
         onDockDropHover: function(active, globalX, iconPath) {
@@ -188,7 +191,7 @@ Item {
         id: workspaceSwipeDrag
         target: null
         enabled: !root.shellPointerBlocked &&
-                 !root.launchpadVisible &&
+                 !root.apphubVisible &&
                  !root.workspaceVisible &&
                  !root.styleGalleryVisible &&
                  !!(typeof SpacesManager !== "undefined" && SpacesManager && Number(SpacesManager.spaceCount || 1) > 1)
@@ -277,7 +280,7 @@ Item {
             root.pushSpaceToCompositor()
             root.pushWorkspaceVisibilityToCompositor()
             root.syncWorkspaceLifecycleState()
-            root.pushLaunchpadToCompositor()
+            root.pushAppHubToCompositor()
             root.lastKnownActiveSpace = Number(SpacesManager && SpacesManager.activeSpace ? SpacesManager.activeSpace : 1)
             startupQmlMark("desktopScene.deferredInit.end")
         })
@@ -326,7 +329,7 @@ Item {
 
     Rectangle {
         id: dockRevealHint
-        visible: !root.dockShownState && !root.launchpadVisible && !root.workspaceVisible
+        visible: !root.dockShownState && !root.apphubVisible && !root.workspaceVisible
         width: 120
         height: 6
         radius: Theme.radiusXs
@@ -349,8 +352,8 @@ Item {
         ignoreUnknownSignals: true
         function onWidthChanged() { root.refreshDockSmartOcclusion() }
         function onHeightChanged() { root.refreshDockSmartOcclusion() }
-        function onAppActivated() { root.setLaunchpadVisible(false) }
-        function onLaunchpadRequested() { root.setLaunchpadVisible(!root.launchpadVisible) }
+        function onAppActivated() { root.setAppHubVisible(false) }
+        function onAppHubRequested() { root.setAppHubVisible(!root.apphubVisible) }
     }
 
     Rectangle {
@@ -479,12 +482,12 @@ Item {
             } else if (event === "workspace-toggle" || event === "overview-toggle") {
                 root.lastPushedWorkspaceState = root.workspaceVisible ? 0 : 1
                 root.workspaceVisible = !root.workspaceVisible
-            } else if (event === "launchpad-open") {
-                root.lastPushedLaunchpadState = 1
-                root.setLaunchpadVisible(true)
-            } else if (event === "launchpad-close") {
-                root.lastPushedLaunchpadState = 0
-                root.setLaunchpadVisible(false)
+            } else if (event === "apphub-open") {
+                root.lastPushedAppHubState = 1
+                root.setAppHubVisible(true)
+            } else if (event === "apphub-close") {
+                root.lastPushedAppHubState = 0
+                root.setAppHubVisible(false)
             }
         }
     }
@@ -562,17 +565,17 @@ Item {
         }
     }
 
-    onLaunchpadVisibleChanged: {
-        if (launchpadVisible) {
+    onApphubVisibleChanged: {
+        if (apphubVisible) {
             console.info("LAUNCHPAD show requested")
             if (!dockLayerReady) {
                 console.info("LAUNCHPAD show allowed dockReady=false")
-                root.setLaunchpadVisible(false)
+                root.setAppHubVisible(false)
                 return
             }
             console.info("LAUNCHPAD show allowed dockReady=true")
         }
-        pushLaunchpadToCompositor()
+        pushAppHubToCompositor()
     }
     onWorkspaceVisibleChanged: {
         if (ShellStateController) ShellStateController.setWorkspaceOverviewVisible(workspaceVisible)
@@ -645,7 +648,7 @@ Item {
         target: (typeof DesktopSettings !== "undefined") ? DesktopSettings : null
         function onSettingChanged(path) {
             var p = String(path || "")
-            if (p === "dock.hideMode" || p === "dock.hideDurationMs" || p === "dock.autoHideEnabled") {
+            if (p === "appdeck.hideMode" || p === "appdeck.hideDurationMs" || p === "appdeck.autoHideEnabled") {
                 root.syncDockHidePrefs()
             } else if (p === "notifications.bubbleDurationMs") {
                 root.syncNotificationPrefs()
@@ -657,10 +660,10 @@ Item {
         var mode = "duration_hide"
         var duration = 450
         if (typeof DesktopSettings !== "undefined" && DesktopSettings && DesktopSettings.settingValue) {
-            var legacyAuto = !!DesktopSettings.settingValue("dock.autoHideEnabled", false)
-            mode = String(DesktopSettings.settingValue("dock.hideMode",
+            var legacyAuto = !!DesktopSettings.settingValue("appdeck.autoHideEnabled", false)
+            mode = String(DesktopSettings.settingValue("appdeck.hideMode",
                                                        legacyAuto ? "duration_hide" : "no_hide"))
-            duration = Number(DesktopSettings.settingValue("dock.hideDurationMs", 450))
+            duration = Number(DesktopSettings.settingValue("appdeck.hideDurationMs", 450))
         }
         mode = mode.trim().toLowerCase()
         if (mode === "snart_hide") {
@@ -705,7 +708,7 @@ Item {
             return
         }
         if (typeof WindowingBackend !== "undefined" && WindowingBackend && WindowingBackend.sendCommand) {
-            if (WindowingBackend.sendCommand("dock mode " + mode)) {
+            if (WindowingBackend.sendCommand("appdeck mode " + mode)) {
                 root.lastPushedDockHideMode = mode
             }
         }
@@ -809,7 +812,7 @@ Item {
         root.windowLifecycleActive = true
         windowLifecycleReleaseTimer.restart()
 
-        // Dock visual feedback: bounce the matching icon on open/minimize.
+        // AppDeck visual feedback: bounce the matching icon on open/minimize.
         var appId = String(payload.appId || payload.app_id || payload.appid || "")
         if (appId.length > 0 && root.dockItem && root.dockItem.notifyWindowLifecycle) {
             root.dockItem.notifyWindowLifecycle(eventName, appId)
@@ -905,32 +908,35 @@ Item {
         spaceSwitchShellAnim.restart()
     }
 
-    function pushLaunchpadToCompositor() {
-        var state = root.launchpadVisible ? 1 : 0
-        if (state === root.lastPushedLaunchpadState) {
+    function pushAppHubToCompositor() {
+        var state = root.apphubVisible ? 1 : 0
+        if (state === root.lastPushedAppHubState) {
             return
         }
-        if (root.launchpadVisible &&
+        if (root.apphubVisible &&
                 typeof WorkspaceManager !== "undefined" && WorkspaceManager &&
                 WorkspaceManager.ShowAppGrid) {
             WorkspaceManager.ShowAppGrid()
-            root.lastPushedLaunchpadState = state
+            root.lastPushedAppHubState = state
             return
         }
         if (typeof WindowingBackend !== "undefined" && WindowingBackend && WindowingBackend.sendCommand) {
-            if (WindowingBackend.sendCommand("launchpad " + (root.launchpadVisible ? "on" : "off"))) {
-                root.lastPushedLaunchpadState = state
+            if (WindowingBackend.sendCommand("apphub " + (root.apphubVisible ? "on" : "off"))) {
+                root.lastPushedAppHubState = state
                 WindowingBackend.sendCommand("overlay restack")
             }
         }
     }
 
-    function setLaunchpadVisible(visible) {
+    function setAppHubVisible(visible) {
         var v = !!visible
-        if (ShellStateController && ShellStateController.setLaunchpadVisible) {
-            ShellStateController.setLaunchpadVisible(v)
+        if (ShellStateController && ShellStateController.setAppHubVisible) {
+            ShellStateController.setAppHubVisible(v)
+            if (!v && ShellStateController.setAppHubSearchSeed) {
+                ShellStateController.setAppHubSearchSeed("")
+            }
         } else {
-            root._launchpadVisibleLocal = v
+            root._apphubVisibleLocal = v
         }
     }
 
