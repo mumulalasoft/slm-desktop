@@ -52,6 +52,17 @@ Item {
     readonly property bool showNoResultState: !emptyQuery && !modelHasRows
     readonly property bool showResultsState: hasResults
     readonly property bool showBestMatch: showResultsState && !emptyQuery && !!bestMatch
+    readonly property var selectedResult: _resultById(selectedResultId)
+    readonly property string selectedResultType: selectedResult ? String(selectedResult.type || "").toLowerCase() : ""
+    readonly property string selectedResultSection: selectedResult ? String(selectedResult.section || "").toLowerCase() : ""
+    readonly property bool selectedResultIsFile: selectedResult
+                                                 && (selectedResultType === "file"
+                                                     || selectedResultType === "path"
+                                                     || selectedResultType === "folder"
+                                                     || selectedResultType === "recent"
+                                                     || selectedResultSection === "files"
+                                                     || selectedResultSection === "recent")
+    readonly property bool showFilePreviewCard: showResultsState && selectedResultIsFile
     readonly property real headerPhase: _phase(root.revealProgress, 0.0, 0.55)
     readonly property real bestPhase: _phase(root.revealProgress, 0.18, 0.72)
     readonly property real sectionsPhase: _phase(root.revealProgress, 0.32, 1.0)
@@ -790,7 +801,7 @@ Item {
         anchors.topMargin: root.panelHeight + 16
         radius: Math.max(18, Theme.radiusWindow + 4)
         color: Theme.color("windowCard")
-        border.width: 0
+        border.width: Theme.borderWidthNone
         border.color: "transparent"
         opacity: root.active ? 1.0 : 0.0
         y: (root.panelHeight + 16) + (1.0 - root.revealProgress) * 14
@@ -810,7 +821,7 @@ Item {
             anchors.fill: parent
             radius: parent.radius
             color: "transparent"
-            border.width: 0
+            border.width: Theme.borderWidthNone
             border.color: "transparent"
         }
 
@@ -821,7 +832,7 @@ Item {
             height: Math.min(120, parent.height * 0.24)
             radius: parent.radius
             color: Qt.rgba(1, 1, 1, 0.18)
-            opacity: 0.7
+            opacity: Theme.opacityMuted
         }
 
         ColumnLayout {
@@ -857,6 +868,85 @@ Item {
                     onNavigateSection: function(delta) { root.moveSelectionAcross(delta) }
                     onActivateCurrent: root.activateSelected()
                     onEscapePressed: root.requestCollapse()
+                }
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: visible ? 72 : 0
+                visible: root.showFilePreviewCard
+                radius: Theme.radiusCard
+                color: Theme.color("windowCard")
+                border.width: Theme.borderWidthThin
+                border.color: Theme.color("windowCardBorder")
+                opacity: root.sectionsPhase
+
+                Behavior on opacity {
+                    NumberAnimation { duration: root.motionFastDuration; easing.type: Theme.easingDecelerate }
+                }
+
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: Theme.spacingMd
+                    anchors.rightMargin: Theme.spacingMd
+                    spacing: Theme.spacingMd
+
+                    Rectangle {
+                        Layout.preferredWidth: 38
+                        Layout.preferredHeight: 38
+                        radius: width * 0.5
+                        color: Theme.color("shellIconPlateBg")
+                        border.width: Theme.borderWidthNone
+
+                        Image {
+                            id: selectedFileIcon
+                            anchors.fill: parent
+                            source: root.selectedResult ? String(root.selectedResult.iconSource || "") : ""
+                            fillMode: Image.PreserveAspectFit
+                            mipmap: false
+                            smooth: true
+                            visible: String(source).length > 0 && status !== Image.Error
+                        }
+
+                        Label {
+                            anchors.centerIn: parent
+                            visible: !selectedFileIcon.visible
+                            text: "F"
+                            color: Theme.color("textSecondary")
+                            font.pixelSize: Theme.fontSize("small")
+                            font.weight: Theme.fontWeight("semibold")
+                        }
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingXxs
+
+                        Label {
+                            Layout.fillWidth: true
+                            text: root.selectedResult ? String(root.selectedResult.title || "") : ""
+                            color: Theme.color("textPrimary")
+                            font.pixelSize: Theme.fontSize("body")
+                            font.weight: Theme.fontWeight("semibold")
+                            elide: Text.ElideRight
+                        }
+
+                        Label {
+                            Layout.fillWidth: true
+                            text: root.selectedResult ? String(root.selectedResult.subtitle || "") : ""
+                            color: Theme.color("textSecondary")
+                            font.pixelSize: Theme.fontSize("xs")
+                            elide: Text.ElideMiddle
+                        }
+                    }
+
+                    Label {
+                        text: "File Preview"
+                        color: Theme.color("textSecondary")
+                        font.pixelSize: Theme.fontSize("xs")
+                        font.weight: Theme.fontWeight("medium")
+                        opacity: Theme.opacityMuted
+                    }
                 }
             }
 
@@ -950,7 +1040,7 @@ Item {
             Item {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 30
-                opacity: 0.4 + (0.6 * root.footerPhase)
+                opacity: Theme.opacitySubtle + ((Theme.opacityMuted - Theme.opacitySubtle) * root.footerPhase)
 
                 Behavior on opacity {
                     NumberAnimation { duration: root.motionFastDuration; easing.type: Theme.easingLight }

@@ -5,21 +5,29 @@ import Slm_Desktop
 Item {
     id: root
 
-    property var resultData: ({})
+    property var resultData: null
+    property bool active: false
+    property real revealAmount: active ? 1.0 : 0.0
     property bool selected: false
     property real pressScale: 1.0
     readonly property int motionFastDuration: Theme.durationFast
-    readonly property int motionSnapDuration: Theme.durationSm
+    readonly property int motionNormalDuration: Theme.durationNormal
     readonly property real cardRadius: (typeof Theme !== "undefined"
                                         && Theme
-                                        && Theme.radiusCard !== undefined)
-                                       ? Number(Theme.radiusCard) : 10
-    readonly property string resultId: String(resultData && resultData.resultId ? resultData.resultId : "")
-    readonly property string titleText: String(resultData && resultData.title ? resultData.title : "")
-    readonly property string subtitleText: String(resultData && resultData.subtitle ? resultData.subtitle : "")
-    readonly property string typeText: String(resultData && resultData.type ? resultData.type : "action")
-    readonly property string iconName: String(resultData && resultData.icon ? resultData.icon : "")
-    readonly property string iconPath: String(resultData && resultData.iconSource ? resultData.iconSource : "")
+                                        && Theme.radiusWindow !== undefined)
+                                       ? Number(Theme.radiusWindow) : 14
+    readonly property real pillRadius: (typeof Theme !== "undefined"
+                                        && Theme
+                                        && Theme.radiusPill !== undefined)
+                                       ? Number(Theme.radiusPill) : 12
+
+    readonly property bool available: !!resultData
+    readonly property string resultId: available ? String(resultData.resultId || "") : ""
+    readonly property string titleText: available ? String(resultData.title || "") : ""
+    readonly property string subtitleText: available ? String(resultData.subtitle || "") : ""
+    readonly property string typeText: available ? String(resultData.type || "best") : "best"
+    readonly property string iconName: available ? String(resultData.icon || "") : ""
+    readonly property string iconPath: available ? String(resultData.iconSource || "") : ""
     readonly property bool iconPathIsUrl: iconPath.indexOf("/") === 0
                                           || iconPath.indexOf("file:/") === 0
                                           || iconPath.indexOf("qrc:/") === 0
@@ -49,7 +57,13 @@ Item {
         }
         return v
     }
-    readonly property string defaultIconName: "system-run-symbolic"
+    readonly property string defaultIconName: {
+        var t = String(typeText || "").toLowerCase()
+        if (t === "app") return "application-x-executable-symbolic"
+        if (t === "file" || t === "path" || t === "folder" || t === "recent") return "text-x-generic-symbolic"
+        if (t === "action" || t === "command") return "system-run-symbolic"
+        return "application-x-executable-symbolic"
+    }
     readonly property string effectiveIconName: cleanedIconName.length > 0 ? cleanedIconName : defaultIconName
     readonly property string themeIconSource: {
         if (effectiveIconName.indexOf("/") === 0
@@ -67,56 +81,65 @@ Item {
     }
     readonly property string primaryIconSource: iconPathIsUrl ? iconPath : themeIconSource
     readonly property string effectiveIconSource: primaryIconSource.length > 0 ? primaryIconSource : themeIconSource
-    readonly property string qrcFallbackSource: "qrc:/icons/dark/pulse.svg"
+    readonly property string qrcFallbackSource: {
+        var t = String(typeText || "").toLowerCase()
+        if (t === "app") return "qrc:/icons/apphub.svg"
+        if (t === "file" || t === "path" || t === "folder" || t === "recent") return "qrc:/icons/logo.svg"
+        if (t === "action" || t === "command") return "qrc:/icons/dark/pulse.svg"
+        return "qrc:/icons/logo.svg"
+    }
 
     signal hovered(string resultId)
     signal activated(string resultId)
-    signal contextActionRequested(string resultId, string action)
 
-    implicitHeight: 44
-    property real liftOffset: root.selected ? -1 : (hover.containsMouse ? -1 : 0)
-    transform: Translate { y: root.liftOffset }
-    scale: root.pressScale
+    implicitHeight: 112
+    visible: available
+    opacity: revealAmount
+    y: (1.0 - revealAmount) * 7
+    scale: (0.985 + (0.015 * revealAmount)) * pressScale
 
-    Behavior on liftOffset {
+    Behavior on opacity {
         NumberAnimation { duration: root.motionFastDuration; easing.type: Theme.easingDecelerate }
     }
+    Behavior on y {
+        NumberAnimation { duration: root.motionNormalDuration; easing.type: Theme.easingDecelerate }
+    }
     Behavior on scale {
-        NumberAnimation { duration: root.motionSnapDuration; easing.type: Theme.easingLight }
+        NumberAnimation { duration: root.motionFastDuration; easing.type: Theme.easingDecelerate }
     }
 
     Rectangle {
         anchors.fill: parent
         radius: root.cardRadius
-        color: root.selected
-               ? Theme.color("pulseRowActive")
-               : (hover.containsMouse ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(1, 1, 1, 0.06))
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: root.selected ? Qt.rgba(1.0, 0.82, 0.46, 0.92) : Qt.rgba(0.90, 0.94, 0.99, 0.94) }
+            GradientStop { position: 1.0; color: root.selected ? Qt.rgba(1.0, 0.76, 0.36, 0.92) : Qt.rgba(0.84, 0.90, 0.98, 0.92) }
+        }
         border.width: root.selected ? Theme.borderWidthThin : 0
         border.color: Theme.color("panelBorderStrong")
-        opacity: root.selected ? 0.95 : 1.0
+        opacity: hover.containsMouse ? 1.0 : 0.98
 
-        Behavior on color {
-            ColorAnimation { duration: root.motionFastDuration; easing.type: Theme.easingDecelerate }
-        }
-        Behavior on border.color {
-            ColorAnimation { duration: root.motionFastDuration; easing.type: Theme.easingDecelerate }
+        Behavior on opacity {
+            NumberAnimation { duration: root.motionFastDuration; easing.type: Theme.easingLight }
         }
     }
 
     Rectangle {
-        id: iconPlate
-        width: 24
-        height: 24
+        width: 58
+        height: 58
         radius: width * 0.5
         anchors.left: parent.left
-        anchors.leftMargin: 8
+        anchors.leftMargin: 18
         anchors.verticalCenter: parent.verticalCenter
         color: Theme.color("shellIconPlateBg")
-        border.width: Theme.borderWidthNone
+        border.width: Theme.borderWidthThin
+        border.color: Theme.color("panelBorder")
 
         Image {
             id: iconImage
-            anchors.fill: parent
+            anchors.centerIn: parent
+            width: 38
+            height: 38
             source: root.effectiveIconSource
             fillMode: Image.PreserveAspectFit
             visible: String(source).length > 0 && status !== Image.Error
@@ -124,7 +147,9 @@ Item {
 
         Image {
             id: iconQrcFallback
-            anchors.fill: parent
+            anchors.centerIn: parent
+            width: iconImage.width
+            height: iconImage.height
             source: root.qrcFallbackSource
             asynchronous: false
             fillMode: Image.PreserveAspectFit
@@ -134,43 +159,56 @@ Item {
         Label {
             anchors.centerIn: parent
             visible: !iconImage.visible && !iconQrcFallback.visible
-            text: ">"
-            color: Theme.color("textSecondary")
-            font.pixelSize: Theme.fontSize("small")
+            text: root.titleText.length > 0 ? root.titleText.charAt(0).toUpperCase() : "?"
+            color: Theme.color("textPrimary")
+            font.pixelSize: Theme.fontSize("title")
             font.weight: Theme.fontWeight("semibold")
         }
     }
 
-    Label {
+    Column {
         anchors.left: parent.left
-        anchors.leftMargin: 38
-        anchors.right: badge.left
-        anchors.rightMargin: 8
+        anchors.leftMargin: 96
+        anchors.right: parent.right
+        anchors.rightMargin: 104
         anchors.verticalCenter: parent.verticalCenter
-        text: root.titleText.length > 0 ? root.titleText : root.subtitleText
-        color: Theme.color("textPrimary")
-        font.pixelSize: Theme.fontSize("small")
-        font.weight: Theme.fontWeight("medium")
-        elide: Text.ElideRight
+        spacing: 4
+
+        Label {
+            text: root.titleText
+            color: Theme.color("textPrimary")
+            font.pixelSize: Theme.fontSize("title")
+            font.weight: Theme.fontWeight("semibold")
+            elide: Text.ElideRight
+        }
+
+        Label {
+            text: root.subtitleText
+            visible: text.length > 0
+            color: Theme.color("textSecondary")
+            font.pixelSize: Theme.fontSize("small")
+            elide: Text.ElideRight
+        }
     }
 
     Rectangle {
-        id: badge
         anchors.right: parent.right
-        anchors.rightMargin: 8
+        anchors.rightMargin: 14
         anchors.verticalCenter: parent.verticalCenter
-        height: 18
-        width: Math.max(46, badgeLabel.implicitWidth + 12)
-        radius: height / 2
+        height: 26
+        width: Math.max(60, typeLabel.implicitWidth + 16)
+        radius: root.pillRadius
         color: Theme.color("pulseBadgeBg")
-        border.width: Theme.borderWidthNone
+        border.width: Theme.borderWidthThin
+        border.color: Theme.color("pulseBadgeBorder")
 
         Label {
-            id: badgeLabel
+            id: typeLabel
             anchors.centerIn: parent
             text: root.typeText
             color: Theme.color("textSecondary")
             font.pixelSize: Theme.fontSize("xs")
+            font.weight: Theme.fontWeight("semibold")
         }
     }
 

@@ -141,7 +141,7 @@ Item {
         anchors.leftMargin: 10
         anchors.verticalCenter: parent.verticalCenter
         color: root.selected ? Theme.color("accentSoft") : Theme.color("shellIconPlateBg")
-        border.width: 0
+        border.width: Theme.borderWidthNone
 
         Image {
             id: iconImage
@@ -204,7 +204,7 @@ Item {
         radius: root.pillRadius
         width: Math.max(48, badgeLabel.implicitWidth + 14)
         color: root.selected ? Theme.color("accentSoft") : Theme.color("pulseBadgeBg")
-        border.width: 0
+        border.width: Theme.borderWidthNone
 
         Label {
             id: badgeLabel
@@ -221,13 +221,18 @@ Item {
         anchors.fill: parent
         hoverEnabled: true
         acceptedButtons: Qt.LeftButton | Qt.RightButton
-        onEntered: root.hovered(root.resultId)
         onPressed: root.pressScale = 0.99
         onReleased: root.pressScale = 1.0
         onCanceled: root.pressScale = 1.0
         onClicked: function(mouse) {
             if (mouse.button === Qt.RightButton) {
                 root.contextActionRequested(root.resultId, "openContainingFolder")
+                return
+            }
+            root.hovered(root.resultId)
+        }
+        onDoubleClicked: function(mouse) {
+            if (mouse.button !== Qt.LeftButton) {
                 return
             }
             root.activated(root.resultId)
