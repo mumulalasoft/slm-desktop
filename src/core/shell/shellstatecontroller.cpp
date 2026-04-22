@@ -6,10 +6,11 @@ ShellStateController::ShellStateController(QObject *parent)
     recomputeDerivedState();
 }
 
-bool ShellStateController::launchpadVisible() const        { return m_launchpadVisible; }
+bool ShellStateController::apphubVisible() const        { return m_apphubVisible; }
 bool ShellStateController::workspaceOverviewVisible() const { return m_workspaceOverviewVisible; }
 bool ShellStateController::toTheSpotVisible() const        { return m_toTheSpotVisible; }
 QString ShellStateController::searchQuery() const           { return m_searchQuery; }
+QString ShellStateController::appHubSearchSeed() const      { return m_appHubSearchSeed; }
 bool ShellStateController::styleGalleryVisible() const     { return m_styleGalleryVisible; }
 bool ShellStateController::showDesktop() const             { return m_showDesktop; }
 bool ShellStateController::lockScreenActive() const        { return m_lockScreenActive; }
@@ -26,11 +27,11 @@ qreal ShellStateController::workspaceBlurAlpha() const         { return m_worksp
 bool ShellStateController::workspaceInteractionBlocked() const  { return m_workspaceInteractionBlocked; }
 bool ShellStateController::anyOverlayVisible() const           { return m_anyOverlayVisible; }
 
-void ShellStateController::setLaunchpadVisible(bool visible)
+void ShellStateController::setAppHubVisible(bool visible)
 {
-    if (m_launchpadVisible == visible) return;
-    m_launchpadVisible = visible;
-    emit launchpadVisibleChanged(visible);
+    if (m_apphubVisible == visible) return;
+    m_apphubVisible = visible;
+    emit apphubVisibleChanged(visible);
     recomputeDerivedState();
 }
 
@@ -42,7 +43,7 @@ void ShellStateController::setWorkspaceOverviewVisible(bool visible)
     recomputeDerivedState();
 }
 
-void ShellStateController::setToTheSpotVisible(bool visible)
+void ShellStateController::setPulseVisible(bool visible)
 {
     if (m_toTheSpotVisible == visible) return;
     m_toTheSpotVisible = visible;
@@ -57,6 +58,14 @@ void ShellStateController::setSearchQuery(const QString &query)
     if (m_searchQuery == normalized) return;
     m_searchQuery = normalized;
     emit searchQueryChanged(m_searchQuery);
+}
+
+void ShellStateController::setAppHubSearchSeed(const QString &seed)
+{
+    const QString normalized = seed;
+    if (m_appHubSearchSeed == normalized) return;
+    m_appHubSearchSeed = normalized;
+    emit appHubSearchSeedChanged(m_appHubSearchSeed);
 }
 
 void ShellStateController::setStyleGalleryVisible(bool visible)
@@ -128,9 +137,9 @@ void ShellStateController::clearDragSession()
     emit dragSessionChanged(m_dragSession);
 }
 
-void ShellStateController::toggleLaunchpad()
+void ShellStateController::toggleAppHub()
 {
-    setLaunchpadVisible(!m_launchpadVisible);
+    setAppHubVisible(!m_apphubVisible);
 }
 
 void ShellStateController::toggleWorkspaceOverview()
@@ -138,37 +147,37 @@ void ShellStateController::toggleWorkspaceOverview()
     setWorkspaceOverviewVisible(!m_workspaceOverviewVisible);
 }
 
-void ShellStateController::toggleToTheSpot()
+void ShellStateController::togglePulse()
 {
-    setToTheSpotVisible(!m_toTheSpotVisible);
+    setPulseVisible(!m_toTheSpotVisible);
 }
 
 void ShellStateController::dismissAllOverlays()
 {
-    setLaunchpadVisible(false);
+    setAppHubVisible(false);
     setWorkspaceOverviewVisible(false);
-    setToTheSpotVisible(false);
+    setPulseVisible(false);
     setStyleGalleryVisible(false);
 }
 
 void ShellStateController::recomputeDerivedState()
 {
-    // topBarOpacity: hidden during launchpad, full otherwise
-    const qreal newTopBarOpacity = m_launchpadVisible ? 0.0 : 1.0;
-    if (!qFuzzyCompare(m_topBarOpacity, newTopBarOpacity)) {
-        m_topBarOpacity = newTopBarOpacity;
+    // topBarOpacity: hidden during apphub, full otherwise
+    const qreal newCrownOpacity = m_apphubVisible ? 0.0 : 1.0;
+    if (!qFuzzyCompare(m_topBarOpacity, newCrownOpacity)) {
+        m_topBarOpacity = newCrownOpacity;
         emit topBarOpacityChanged(m_topBarOpacity);
     }
 
-    // dockOpacity: hidden during show-desktop only; dock remains visible during launchpad.
+    // dockOpacity: hidden during show-desktop only; appdeck remains visible during apphub.
     const qreal newDockOpacity = m_showDesktop ? 0.0 : 1.0;
     if (!qFuzzyCompare(m_dockOpacity, newDockOpacity)) {
         m_dockOpacity = newDockOpacity;
         emit dockOpacityChanged(m_dockOpacity);
     }
 
-    // workspaceBlurred: blurred when launchpad or show-desktop is active
-    const bool newWorkspaceBlurred = m_launchpadVisible || m_showDesktop;
+    // workspaceBlurred: blurred when apphub or show-desktop is active
+    const bool newWorkspaceBlurred = m_apphubVisible || m_showDesktop;
     if (m_workspaceBlurred != newWorkspaceBlurred) {
         m_workspaceBlurred = newWorkspaceBlurred;
         emit workspaceBlurredChanged(m_workspaceBlurred);
@@ -176,7 +185,7 @@ void ShellStateController::recomputeDerivedState()
 
     // workspaceBlurAlpha: per-mode blur intensity
     qreal newBlurAlpha = 0.0;
-    if (m_launchpadVisible) {
+    if (m_apphubVisible) {
         newBlurAlpha = 0.50;
     } else if (m_showDesktop) {
         newBlurAlpha = 0.40;
@@ -186,15 +195,15 @@ void ShellStateController::recomputeDerivedState()
         emit workspaceBlurAlphaChanged(m_workspaceBlurAlpha);
     }
 
-    // workspaceInteractionBlocked: blocked when launchpad is visible
-    const bool newBlocked = m_launchpadVisible;
+    // workspaceInteractionBlocked: blocked when apphub is visible
+    const bool newBlocked = m_apphubVisible;
     if (m_workspaceInteractionBlocked != newBlocked) {
         m_workspaceInteractionBlocked = newBlocked;
         emit workspaceInteractionBlockedChanged(m_workspaceInteractionBlocked);
     }
 
     // anyOverlayVisible: any transient overlay is active
-    const bool newAnyOverlay = m_launchpadVisible || m_workspaceOverviewVisible
+    const bool newAnyOverlay = m_apphubVisible || m_workspaceOverviewVisible
                                || m_toTheSpotVisible || m_styleGalleryVisible;
     if (m_anyOverlayVisible != newAnyOverlay) {
         m_anyOverlayVisible = newAnyOverlay;

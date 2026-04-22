@@ -6,7 +6,7 @@
 #include <QObject>
 #include <QWindow>
 
-class DockBootstrapState;
+class AppDeckBootstrapState;
 
 // ── WlrLayerShell ─────────────────────────────────────────────────────────────
 // Global singleton binding to zwlr_layer_shell_v1.
@@ -31,10 +31,12 @@ public:
                                              const QString &nameSpace);
 
     // Update the exclusive zone of an already-configured layer surface.
-    // Call this whenever the dock height changes so the compositor keeps the
+    // Call this whenever the appdeck height changes so the compositor keeps the
     // correct reservation at the bottom of the screen.
     Q_INVOKABLE bool setExclusiveZone(QWindow *window, int exclusiveZone);
-    void setDockBootstrapState(DockBootstrapState *state);
+    // Update the configured size of an already-configured layer surface.
+    Q_INVOKABLE bool setLayerSurfaceSize(QWindow *window, int width, int height);
+    void setAppDeckBootstrapState(AppDeckBootstrapState *state);
 
     // Layer constants (mirrors zwlr_layer_shell_v1_layer).
     enum Layer {
@@ -55,7 +57,7 @@ public:
     Q_ENUM(Anchor)
 
 private:
-    DockBootstrapState *m_dockBootstrapState = nullptr;
+    AppDeckBootstrapState *m_dockBootstrapState = nullptr;
 };
 
 // ── WlrLayerSurfaceV1 ─────────────────────────────────────────────────────────
@@ -76,6 +78,8 @@ public:
 
     // Update the exclusive zone on this surface and flush to the compositor.
     void setExclusiveZone(int zone);
+    // Update the layer-surface size for mode transitions (collapsed/expanded/context).
+    void setSurfaceSize(int width, int height);
 
 signals:
     void configured();

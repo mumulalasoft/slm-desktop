@@ -1,5 +1,5 @@
 #include "wlrlayershell.h"
-#include "dockbootstrapstate.h"
+#include "appdeckbootstrapstate.h"
 
 #include <QDebug>
 #include <QGuiApplication>
@@ -19,7 +19,7 @@ bool WlrLayerShell::isSupported() const
     return isActive();
 }
 
-void WlrLayerShell::setDockBootstrapState(DockBootstrapState *state)
+void WlrLayerShell::setAppDeckBootstrapState(AppDeckBootstrapState *state)
 {
     m_dockBootstrapState = state;
 }
@@ -89,9 +89,9 @@ bool WlrLayerShell::configureAsLayerSurface(QWindow *window,
     if (m_dockBootstrapState) {
         m_dockBootstrapState->setLayerRoleBound(true);
         QObject::connect(surfaceObj, &WlrLayerSurfaceV1::firstConfigureReceived,
-                         m_dockBootstrapState, &DockBootstrapState::markFirstConfigureReceived);
+                         m_dockBootstrapState, &AppDeckBootstrapState::markFirstConfigureReceived);
         QObject::connect(surfaceObj, &WlrLayerSurfaceV1::configureAcked,
-                         m_dockBootstrapState, &DockBootstrapState::markConfigureAcked);
+                         m_dockBootstrapState, &AppDeckBootstrapState::markConfigureAcked);
     }
     QObject::connect(surfaceObj, &WlrLayerSurfaceV1::configured, window, [window]() {
         // Commit the surface after configuration so the compositor shows it.
@@ -132,6 +132,22 @@ bool WlrLayerShell::setExclusiveZone(QWindow *window, int exclusiveZone)
     return true;
 }
 
+bool WlrLayerShell::setLayerSurfaceSize(QWindow *window, int width, int height)
+{
+    if (!window) return false;
+    auto *surf = window->findChild<WlrLayerSurfaceV1 *>();
+    if (!surf || !surf->isConfigured()) return false;
+    surf->setSurfaceSize(width, height);
+    if (auto *iface = QGuiApplication::platformNativeInterface()) {
+        struct ::wl_display *display = static_cast<struct ::wl_display *>(
+            iface->nativeResourceForIntegration(QByteArrayLiteral("wl_display")));
+        if (display) wl_display_flush(display);
+    }
+    qDebug() << "[WlrLayerShell] updated size=" << width << "x" << height
+             << "for" << window->title();
+    return true;
+}
+
 // ── WlrLayerSurfaceV1 ─────────────────────────────────────────────────────────
 
 WlrLayerSurfaceV1::WlrLayerSurfaceV1(struct ::zwlr_layer_surface_v1 *surface,
@@ -156,6 +172,13 @@ bool WlrLayerSurfaceV1::isConfigured() const
 void WlrLayerSurfaceV1::setExclusiveZone(int zone)
 {
     set_exclusive_zone(zone);
+}
+
+void WlrLayerSurfaceV1::setSurfaceSize(int width, int height)
+{
+    const uint32_t w = static_cast<uint32_t>(qMax(1, width));
+    const uint32_t h = static_cast<uint32_t>(qMax(1, height));
+    set_size(w, h);
 }
 
 void WlrLayerSurfaceV1::zwlr_layer_surface_v1_configure(uint32_t serial,

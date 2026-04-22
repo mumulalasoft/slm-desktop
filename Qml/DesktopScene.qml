@@ -353,7 +353,6 @@ Item {
         function onWidthChanged() { root.refreshDockSmartOcclusion() }
         function onHeightChanged() { root.refreshDockSmartOcclusion() }
         function onAppActivated() { root.setAppHubVisible(false) }
-        function onAppHubRequested() { root.setAppHubVisible(!root.apphubVisible) }
     }
 
     Rectangle {
@@ -566,15 +565,6 @@ Item {
     }
 
     onApphubVisibleChanged: {
-        if (apphubVisible) {
-            console.info("LAUNCHPAD show requested")
-            if (!dockLayerReady) {
-                console.info("LAUNCHPAD show allowed dockReady=false")
-                root.setAppHubVisible(false)
-                return
-            }
-            console.info("LAUNCHPAD show allowed dockReady=true")
-        }
         pushAppHubToCompositor()
     }
     onWorkspaceVisibleChanged: {

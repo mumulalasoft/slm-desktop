@@ -33,11 +33,17 @@ Window {
         if (!rootWindow || rootWindow.lockScreenVisible) {
             return "hidden"
         }
+        var apphubOn = false
+        if (typeof ShellStateController !== "undefined" && ShellStateController) {
+            apphubOn = (ShellStateController.apphubVisible === true)
+        } else if (desktopScene) {
+            apphubOn = (desktopScene.apphubVisible === true)
+        }
+        if (apphubOn) {
+            return "expanded"
+        }
         if (rootWindow.searchVisible === true) {
             return "context"
-        }
-        if (desktopScene && desktopScene.apphubVisible === true) {
-            return "expanded"
         }
         return "collapsed"
     }
@@ -64,10 +70,31 @@ Window {
         }
     }
 
-    function enterCollapsedMode() {
-        if (desktopScene && desktopScene.setAppHubVisible) {
-            desktopScene.setAppHubVisible(false)
+    function setAppHubVisibility(visible) {
+        var v = !!visible
+        var handledController = false
+        var handledDesktopScene = false
+
+        if (typeof ShellStateController !== "undefined"
+                && ShellStateController
+                && ShellStateController.setAppHubVisible) {
+            ShellStateController.setAppHubVisible(v)
+            if (!v && ShellStateController.setAppHubSearchSeed) {
+                ShellStateController.setAppHubSearchSeed("")
+            }
+            handledController = true
         }
+
+        // Keep desktopScene fallback for local-only mode (without controller).
+        if (desktopScene && desktopScene.setAppHubVisible && !handledController) {
+            desktopScene.setAppHubVisible(v)
+            handledDesktopScene = true
+        }
+        void handledDesktopScene
+    }
+
+    function enterCollapsedMode() {
+        setAppHubVisibility(false)
         if (rootWindow && rootWindow.setSearchVisible) {
             rootWindow.setSearchVisible(false)
         }
@@ -77,15 +104,11 @@ Window {
         if (rootWindow && rootWindow.setSearchVisible) {
             rootWindow.setSearchVisible(false)
         }
-        if (desktopScene && desktopScene.setAppHubVisible) {
-            desktopScene.setAppHubVisible(true)
-        }
+        setAppHubVisibility(true)
     }
 
     function enterContextMode() {
-        if (desktopScene && desktopScene.setAppHubVisible) {
-            desktopScene.setAppHubVisible(false)
-        }
+        setAppHubVisibility(false)
         if (rootWindow && rootWindow.setSearchVisible) {
             rootWindow.setSearchVisible(true)
         }
@@ -95,9 +118,7 @@ Window {
         if (rootWindow && rootWindow.setSearchVisible) {
             rootWindow.setSearchVisible(false)
         }
-        if (desktopScene && desktopScene.setAppHubVisible) {
-            desktopScene.setAppHubVisible(false)
-        }
+        setAppHubVisibility(false)
     }
 
     function focusSearchField() {
@@ -193,6 +214,17 @@ Window {
                 && typeof WlrLayerShell !== "undefined" && WlrLayerShell) {
             WlrLayerShell.setExclusiveZone(root, root.exclusiveZone)
         }
+    }
+
+    function syncLayerSurfaceSize() {
+        if (!root.layerConfigured
+                || typeof WlrLayerShell === "undefined"
+                || !WlrLayerShell) {
+            return
+        }
+        WlrLayerShell.setLayerSurfaceSize(root,
+                                          Math.max(1, Math.round(root.width)),
+                                          Math.max(1, Math.round(root.height)))
     }
 
     Timer {
@@ -353,6 +385,7 @@ Window {
     }
 
     onAppdeckStateChanged: {
+        root.syncLayerSurfaceSize()
         if (contextMode) {
             requestActivate()
             Qt.callLater(function() {
@@ -370,7 +403,10 @@ Window {
         if (visible && !root.layerShellSupported) {
             Qt.callLater(function() { root.raise() })
         }
+        root.syncLayerSurfaceSize()
     }
+    onWidthChanged: root.syncLayerSurfaceSize()
+    onHeightChanged: root.syncLayerSurfaceSize()
 
     Connections {
         target: root.desktopScene ? root.desktopScene : null

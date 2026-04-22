@@ -325,7 +325,9 @@ ApplicationWindow {
         clipboardOverlayVisible = false
         shellContextMenuOpen = false
         if (desktopScene) {
-            desktopScene.apphubVisible = false
+            if (desktopScene.setAppHubVisible) {
+                desktopScene.setAppHubVisible(false)
+            }
             desktopScene.workspaceVisible = false
             desktopScene.styleGalleryVisible = false
         }
@@ -1012,7 +1014,11 @@ ApplicationWindow {
                 root.markStartupTopbarItemsReady()
             }
         }
-        onLauncherRequested: desktopScene.apphubVisible = !desktopScene.apphubVisible
+        onLauncherRequested: {
+            if (desktopScene && desktopScene.setAppHubVisible) {
+                desktopScene.setAppHubVisible(!desktopScene.apphubVisible)
+            }
+        }
         onPulseRequested: {
             if (root.pulseVisible) {
                 root.setSearchVisible(false)
