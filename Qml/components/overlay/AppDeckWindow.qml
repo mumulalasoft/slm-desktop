@@ -56,6 +56,8 @@ Window {
     readonly property int motionSurfaceDuration: Theme.durationNormal
     readonly property int motionCrossfadeDuration: Theme.durationFast
     readonly property int motionQuickDuration: Theme.durationSm
+    readonly property real morphBaseOpacity: Theme.opacityFaint - Theme.opacityFaint
+    readonly property real morphRangeOpacity: Theme.opacityFaint
 
     // Shared transition progress: 0 = collapsed surface, 1 = expanded/context surface.
     property real surfaceTransition: immersiveMode ? 1.0 : 0.0
@@ -462,8 +464,8 @@ Window {
             height: sourceH + (targetH - sourceH) * root.surfaceTransition
             radius: Theme.radiusWindow + (10 * root.surfaceTransition)
             color: Theme.color("panel")
-            border.width: 0
-            opacity: 0.04 + (0.18 * root.surfaceTransition)
+            border.width: Theme.borderWidthNone
+            opacity: root.morphBaseOpacity + (root.morphRangeOpacity * root.surfaceTransition)
 
             Behavior on opacity {
                 NumberAnimation { duration: root.motionCrossfadeDuration; easing.type: Theme.easingDecelerate }
@@ -501,7 +503,7 @@ Window {
                 root.enterCollapsedMode()
             }
             onAddToDockRequested: function(appData) {
-                AppHubActions.handleAddToDock(appData)
+                AppHubActions.handleAddToDock(appData, root.appsModel)
             }
             onAddToDesktopRequested: function(appData) {
                 AppHubActions.handleAddToDesktop(appData, root.desktopScene)
