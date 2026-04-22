@@ -127,8 +127,6 @@ bool WlrLayerShell::setExclusiveZone(QWindow *window, int exclusiveZone)
             iface->nativeResourceForIntegration(QByteArrayLiteral("wl_display")));
         if (display) wl_display_flush(display);
     }
-    qDebug() << "[WlrLayerShell] updated exclusiveZone=" << exclusiveZone
-             << "for" << window->title();
     return true;
 }
 
@@ -143,8 +141,6 @@ bool WlrLayerShell::setLayerSurfaceSize(QWindow *window, int width, int height)
             iface->nativeResourceForIntegration(QByteArrayLiteral("wl_display")));
         if (display) wl_display_flush(display);
     }
-    qDebug() << "[WlrLayerShell] updated size=" << width << "x" << height
-             << "for" << window->title();
     return true;
 }
 
