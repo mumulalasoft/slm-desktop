@@ -1,15 +1,26 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
-import "../pulse" as PulseComp
-import "zones" as Zones
+import QtQuick.Layouts 1.15
 
 Item {
     id: root
 
     property bool active: false
     property int panelHeight: 0
-    property string queryText: ""
-    property var resultsModel: null
+
+    // Required API for Pulse Context Mode
+    property var pulseResultsModel: null
+    property var appModelRef: null
+    property var appDeckModelRef: null
+    property string currentQuery: ""
+    property int resultsGeneration: -1
+    signal openResultRequested(string resultId)
+    signal collapseRequested()
+    signal queryChanged(string text)
+
+    // Compatibility API for existing call sites
+    property alias resultsModel: root.pulseResultsModel
+    property alias queryText: root.currentQuery
     property int selectedIndex: -1
     property bool showDebugInfo: false
     property var searchProfileMeta: ({})
@@ -24,89 +35,933 @@ Item {
     signal resultActivated(int indexValue)
     signal resultContextAction(int indexValue, string action)
 
+    property var bestMatch: null
+    property var appsResults: []
+    property var filesResults: []
+    property var actionsResults: []
+    property var recentResults: []
+    property var suggestedResults: []
+    property var navigationResults: []
+    property string selectedResultId: ""
+    property real revealProgress: active ? 1.0 : 0.0
+
+    readonly property bool emptyQuery: String(root.currentQuery || "").trim().length <= 0
+    readonly property bool modelHasRows: _countModel(root.pulseResultsModel) > 0
+    readonly property bool hasResults: navigationResults.length > 0
+    readonly property bool showEmptyState: emptyQuery && !modelHasRows
+    readonly property bool showNoResultState: !emptyQuery && !modelHasRows
+    readonly property bool showResultsState: hasResults
+    readonly property bool showBestMatch: showResultsState && !emptyQuery && !!bestMatch
+    readonly property real headerPhase: _phase(root.revealProgress, 0.0, 0.55)
+    readonly property real bestPhase: _phase(root.revealProgress, 0.18, 0.72)
+    readonly property real sectionsPhase: _phase(root.revealProgress, 0.32, 1.0)
+    readonly property real footerPhase: _phase(root.revealProgress, 0.45, 1.0)
+
     function focusSearchField() {
-        if (pulseContent && pulseContent.focusSearch) {
-            pulseContent.focusSearch()
+        if (queryHeader && queryHeader.focusInput) {
+            queryHeader.focusInput()
         }
+    }
+
+    function _countModel(model) {
+        if (!model) {
+            return 0
+        }
+        return Number(model.count || 0)
+    }
+
+    function _phase(value, start, end) {
+        var v = Number(value || 0)
+        var s = Number(start || 0)
+        var e = Number(end || 1)
+        if (v <= s) return 0.0
+        if (v >= e) return 1.0
+        return (v - s) / Math.max(0.0001, (e - s))
+    }
+
+    function _modelRow(model, index) {
+        if (!model || !model.get) {
+            return null
+        }
+        return model.get(index)
+    }
+
+
+    function _deriveType(row) {
+        var raw = String((row && row.type) || "").toLowerCase()
+        var kind = String((row && row.resultKind) || "").toLowerCase()
+        var sectionTitle = String((row && row.sectionTitle) || "").toLowerCase()
+        if (kind === "app") return "app"
+        if (kind === "action") return "action"
+        if (kind === "file" || kind === "folder") return "file"
+        if (sectionTitle === "top apps") return "app"
+        if (sectionTitle === "actions" || sectionTitle === "settings") return "action"
+        if (sectionTitle === "recent files" || sectionTitle === "folders") return "file"
+        if (raw === "desktop" || raw === "application") return "app"
+        if (raw.length > 0) {
+            return raw
+        }
+        if (row && row.isApp) return "app"
+        if (row && row.isDir) return "folder"
+        var provider = String((row && row.provider) || "").toLowerCase()
+        if (provider === "apps") return "app"
+        if (provider === "recent") return "recent"
+        if (provider === "slm_actions" || provider === "settings" || provider === "global_menu") return "action"
+        return "item"
+    }
+
+    function _deriveSection(row, typeValue) {
+        var explicitSection = String((row && row.section) || "").toLowerCase()
+        var sectionTitle = String((row && row.sectionTitle) || "").toLowerCase()
+        if (sectionTitle === "top apps") return "apps"
+        if (sectionTitle === "actions" || sectionTitle === "settings") return "actions"
+        if (sectionTitle === "recent files" || sectionTitle === "folders") return "files"
+        if (explicitSection.length > 0) {
+            return explicitSection
+        }
+        if (row && row.isBestMatch) {
+            return "best"
+        }
+        var provider = String((row && row.provider) || "").toLowerCase()
+        if (provider === "recent") return "recent"
+        if (typeValue === "app") return "apps"
+        if (typeValue === "file" || typeValue === "folder" || typeValue === "path") return "files"
+        if (typeValue === "action" || typeValue === "command") return "actions"
+        return "suggestions"
+    }
+
+    function _buildAppIconCatalog() {
+        var catalog = ({})
+        function desktopBase(value) {
+            var v = String(value || "").trim().toLowerCase()
+            if (v.length <= 0) {
+                return ""
+            }
+            if (v.indexOf("/") >= 0) {
+                var parts = v.split("/")
+                v = String(parts[parts.length - 1] || "")
+            }
+            if (v.length > 8 && v.slice(v.length - 8) === ".desktop") {
+                v = v.slice(0, v.length - 8)
+            }
+            return v
+        }
+        function putKey(key, iconNameValue, iconSourceValue) {
+            var k = String(key || "").trim().toLowerCase()
+            if (k.length <= 0 || catalog[k]) {
+                return
+            }
+            catalog[k] = {
+                "iconName": String(iconNameValue || ""),
+                "iconSource": String(iconSourceValue || "")
+            }
+        }
+        function scanModel(modelObj, maxScan) {
+            if (!modelObj) {
+                return
+            }
+            var rows = []
+            var limit = Math.max(64, Number(maxScan || 280))
+            if (modelObj.page) {
+                rows = modelObj.page(0, limit, "") || []
+            } else if (modelObj.get && typeof modelObj.count !== "undefined") {
+                var c = Math.min(limit, Number(modelObj.count || 0))
+                for (var i = 0; i < c; ++i) {
+                    var r = modelObj.get(i)
+                    if (r) rows.push(r)
+                }
+            }
+            for (var j = 0; j < rows.length; ++j) {
+                var row = rows[j]
+                if (!row) continue
+                var did = String(row.desktopId || "")
+                var dfile = String(row.desktopFile || "")
+                var exe = String(row.executable || "")
+                var name = String(row.name || row.display || "")
+                var iconN = String(row.iconName || "")
+                var iconS = String(row.iconSource || row.icon || "")
+                putKey("did:" + did, iconN, iconS)
+                putKey("dfile:" + dfile, iconN, iconS)
+                putKey("exe:" + exe, iconN, iconS)
+                putKey("name:" + name, iconN, iconS)
+                putKey("base:" + desktopBase(did), iconN, iconS)
+                putKey("base:" + desktopBase(dfile), iconN, iconS)
+            }
+        }
+
+        if (root.appDeckModelRef) {
+            scanModel(root.appDeckModelRef, 340)
+        } else if (typeof AppDeckModel !== "undefined" && AppDeckModel) {
+            scanModel(AppDeckModel, 340)
+        }
+        if (root.appModelRef) {
+            scanModel(root.appModelRef, 340)
+        } else if (typeof AppModel !== "undefined" && AppModel) {
+            scanModel(AppModel, 340)
+        }
+        return catalog
+    }
+
+    function _lookupAppIcon(row, catalog) {
+        if (!row || !catalog) return ({})
+        var did = String(row.desktopId || "")
+        var dfile = String(row.desktopFile || "")
+        var exe = String(row.executable || "")
+        var pathValue = String(row.path || "")
+        var name = String(row.name || row.title || "")
+        function desktopBase(value) {
+            var v = String(value || "").trim().toLowerCase()
+            if (v.length <= 0) {
+                return ""
+            }
+            if (v.indexOf("/") >= 0) {
+                var parts = v.split("/")
+                v = String(parts[parts.length - 1] || "")
+            }
+            if (v.length > 8 && v.slice(v.length - 8) === ".desktop") {
+                v = v.slice(0, v.length - 8)
+            }
+            return v
+        }
+        var pathBase = desktopBase(pathValue)
+        var didBase = desktopBase(did)
+        var dfileBase = desktopBase(dfile)
+        var hit = catalog["did:" + did.toLowerCase()]
+                  || catalog["dfile:" + dfile.toLowerCase()]
+                  || catalog["exe:" + exe.toLowerCase()]
+                  || catalog["base:" + pathBase]
+                  || catalog["base:" + didBase]
+                  || catalog["base:" + dfileBase]
+                  || catalog["name:" + name.toLowerCase()]
+        return hit ? hit : ({})
+    }
+
+    function _sanitizeIconName(rawValue) {
+        var v = String(rawValue || "").trim()
+        if (v.length <= 0) {
+            return ""
+        }
+        var comma = v.indexOf(",")
+        if (comma > 0) {
+            v = v.slice(0, comma).trim()
+        }
+        var parts = v.split(/\s+/)
+        for (var i = 0; i < parts.length; ++i) {
+            var p = String(parts[i] || "").trim()
+            if (p.length <= 0) continue
+            if (p === "GThemedIcon" || p === "ThemedIcon" || p === ".") continue
+            return p
+        }
+        return v
+    }
+
+    function _isExplicitIconSource(value) {
+        var v = String(value || "").trim().toLowerCase()
+        return v.indexOf("qrc:/") === 0
+               || v.indexOf("file:/") === 0
+               || v.indexOf("http://") === 0
+               || v.indexOf("https://") === 0
+               || v.indexOf("image://") === 0
+               || v.indexOf("/") === 0
+    }
+
+    function _themeIconSource(iconNameValue) {
+        var n = _sanitizeIconName(iconNameValue)
+        if (n.length <= 0) {
+            return ""
+        }
+        if (_isExplicitIconSource(n)) {
+            return n
+        }
+        var rev = ((typeof ThemeIconController !== "undefined" && ThemeIconController)
+                   ? ThemeIconController.revision : 0)
+        return "image://themeicon/" + n + "?v=" + rev
+    }
+
+    function _normalizeResult(row, sourceIndex, appCatalog) {
+        var title = String((row && (row.title || row.name)) || "").trim()
+        var subtitle = String((row && (row.subtitle || row.path || row.intent || row.sectionTitle)) || "").trim()
+        var typeValue = _deriveType(row)
+        var sectionValue = _deriveSection(row, typeValue)
+        var rowIconRaw = String((row && row.icon) || "")
+        var rowIconNameRaw = String((row && row.iconName) || "")
+        var rowIconSourceRaw = String((row && row.iconSource) || "")
+        // Follow AppHub icon routing:
+        // 1) iconName -> theme icon
+        // 2) explicit source from iconSource/icon
+        // 3) non-explicit icon token -> theme icon
+        var iconValue = _sanitizeIconName(rowIconNameRaw)
+        var iconSourceValue = _isExplicitIconSource(rowIconSourceRaw) ? rowIconSourceRaw : ""
+        if (iconSourceValue.length <= 0 && _isExplicitIconSource(rowIconRaw)) {
+            iconSourceValue = rowIconRaw
+        }
+        if (iconValue.length <= 0 && iconSourceValue.length <= 0) {
+            iconValue = _sanitizeIconName(rowIconRaw)
+        }
+
+        // App rows: prefer real app icon metadata from app catalog over symbolic fallbacks.
+        if (typeValue === "app" || sectionValue === "apps") {
+            var appIcon = _lookupAppIcon(row, appCatalog)
+            var appIconName = _sanitizeIconName(String((appIcon && appIcon.iconName) || ""))
+            var appIconSource = String((appIcon && appIcon.iconSource) || "")
+            if (appIconSource.length > 0) {
+                iconSourceValue = appIconSource
+            }
+            if (appIconName.length > 0) {
+                iconValue = appIconName
+            }
+            if (iconValue.length <= 0) {
+                iconValue = "application-x-executable-symbolic"
+            }
+        }
+
+        // Keep robust fallback by default to theme icons for files/recent.
+        if ((typeValue === "file" || typeValue === "path" || sectionValue === "files" || sectionValue === "recent")
+                && iconValue.length <= 0) {
+            iconValue = (row && row.isDir) ? "folder-symbolic" : "text-x-generic-symbolic"
+        }
+        if ((typeValue === "action" || typeValue === "command" || sectionValue === "actions")
+                && iconValue.length <= 0) {
+            iconValue = "system-run-symbolic"
+        }
+        if (iconSourceValue.length <= 0 && iconValue.length > 0) {
+            iconSourceValue = _themeIconSource(iconValue)
+        }
+        // Hard guarantee: Pulse delegates must always receive a concrete iconSource.
+        if (iconSourceValue.length <= 0) {
+            if (typeValue === "app" || sectionValue === "apps") {
+                iconSourceValue = "qrc:/icons/apphub.svg"
+            } else if (typeValue === "action" || typeValue === "command" || sectionValue === "actions") {
+                iconSourceValue = "qrc:/icons/dark/pulse.svg"
+            } else {
+                iconSourceValue = "qrc:/icons/logo.svg"
+            }
+        }
+
+        var stableId = String((row && row.resultId) || "")
+        if (stableId.length <= 0) {
+            stableId = String((row && (row.desktopId || row.desktopFile || row.path || row.actionId || row.name)) || "")
+        }
+        if (stableId.length <= 0) {
+            stableId = "row-" + sourceIndex
+        }
+        return {
+            "resultId": stableId,
+            "title": title.length > 0 ? title : "Untitled",
+            "subtitle": subtitle,
+            "icon": iconValue,
+            "iconSource": iconSourceValue,
+            "type": typeValue,
+            "score": Number((row && row.score) || 0),
+            "section": sectionValue,
+            "actionId": String((row && row.actionId) || ""),
+            "isBestMatch": !!(row && row.isBestMatch),
+            "sourceIndex": Number(sourceIndex)
+        }
+    }
+
+    function _groupResult(item,
+                          appsBucket,
+                          filesBucket,
+                          actionsBucket,
+                          recentBucket,
+                          suggestedBucket) {
+        if (!item) {
+            return
+        }
+        if (item.section === "apps") {
+            appsBucket.push(item)
+            return
+        }
+        if (item.section === "files") {
+            filesBucket.push(item)
+            return
+        }
+        if (item.section === "actions") {
+            actionsBucket.push(item)
+            return
+        }
+        if (item.section === "recent") {
+            recentBucket.push(item)
+            return
+        }
+        suggestedBucket.push(item)
+    }
+
+    function _bestMatchPriority(item, queryText) {
+        if (!item) {
+            return -999999
+        }
+        var p = Number(item.score || 0)
+        var q = String(queryText || "").trim().toLowerCase()
+        var title = String(item.title || "").toLowerCase()
+        var subtitle = String(item.subtitle || "").toLowerCase()
+        var hay = (title + " " + subtitle).trim()
+        var section = String(item.section || "")
+        var typeValue = String(item.type || "")
+
+        if (q.length > 0) {
+            // Query relevance must dominate best-match pick.
+            if (title === q) {
+                p += 260
+            } else if (title.indexOf(q) === 0) {
+                p += 200
+            } else if (title.indexOf(q) >= 0) {
+                p += 140
+            } else if (hay.indexOf(q) >= 0) {
+                p += 70
+            } else {
+                p -= 220
+            }
+
+            // Intent bias for typed app names.
+            if (typeValue === "app" || section === "apps") {
+                p += 80
+            } else if (typeValue === "action" || section === "actions") {
+                p += 8
+            } else if (typeValue === "file" || typeValue === "path" || section === "files") {
+                p -= 12
+            }
+
+            if (item.isBestMatch) {
+                p += 30
+            }
+            return p
+        }
+
+        // Empty query: respect provider hint and keep apps discoverable.
+        if (item.isBestMatch) p += 120
+        if (section === "apps") p += 30
+        return p
+    }
+
+    function _rebuildSections() {
+        var rows = []
+        var count = _countModel(root.pulseResultsModel)
+        var appCatalog = _buildAppIconCatalog()
+        for (var i = 0; i < count; ++i) {
+            var row = _modelRow(root.pulseResultsModel, i)
+            if (!row) {
+                continue
+            }
+            rows.push(_normalizeResult(row, i, appCatalog))
+        }
+
+        rows.sort(function(a, b) {
+            return Number(b.score || 0) - Number(a.score || 0)
+        })
+
+        var nextBestMatch = null
+        var nextApps = []
+        var nextFiles = []
+        var nextActions = []
+        var nextRecent = []
+        var nextSuggested = []
+        var nextNavigation = []
+
+        if (rows.length > 0) {
+            var bestIndex = 0
+            var bestPriority = -999999
+            for (var j = 0; j < rows.length; ++j) {
+                var candidatePriority = _bestMatchPriority(rows[j], root.currentQuery)
+                if (candidatePriority > bestPriority) {
+                    bestPriority = candidatePriority
+                    bestIndex = j
+                }
+            }
+            nextBestMatch = rows[bestIndex]
+
+            for (var k = 0; k < rows.length; ++k) {
+                if (k === bestIndex) {
+                    continue
+                }
+                _groupResult(rows[k],
+                             nextApps,
+                             nextFiles,
+                             nextActions,
+                             nextRecent,
+                             nextSuggested)
+            }
+
+            nextNavigation.push(nextBestMatch)
+            for (var a = 0; a < nextApps.length; ++a) nextNavigation.push(nextApps[a])
+            for (var f = 0; f < nextFiles.length; ++f) nextNavigation.push(nextFiles[f])
+            for (var r = 0; r < nextRecent.length; ++r) nextNavigation.push(nextRecent[r])
+            for (var ac = 0; ac < nextActions.length; ++ac) nextNavigation.push(nextActions[ac])
+            for (var s = 0; s < nextSuggested.length; ++s) nextNavigation.push(nextSuggested[s])
+        }
+
+        bestMatch = nextBestMatch
+        appsResults = nextApps
+        filesResults = nextFiles
+        actionsResults = nextActions
+        recentResults = nextRecent
+        suggestedResults = nextSuggested
+        navigationResults = nextNavigation
+
+        if (navigationResults.length <= 0) {
+            selectedResultId = ""
+            selectedIndexChangedByUser(-1)
+            console.log("[appdeck-pulse] rebuild query=\"" + String(root.currentQuery || "")
+                        + "\" modelRows=" + Number(count || 0)
+                        + " navRows=0")
+            return
+        }
+
+        var keep = false
+        for (var m = 0; m < navigationResults.length; ++m) {
+            if (String(navigationResults[m].resultId) === selectedResultId) {
+                keep = true
+                break
+            }
+        }
+        if (!keep) {
+            selectedResultId = String(navigationResults[0].resultId || "")
+        }
+        _emitSelectedSourceIndex()
+        console.log("[appdeck-pulse] rebuild query=\"" + String(root.currentQuery || "")
+                    + "\" modelRows=" + Number(count || 0)
+                    + " navRows=" + Number(navigationResults.length || 0)
+                    + " apps=" + Number(appsResults.length || 0)
+                    + " files=" + Number(filesResults.length || 0)
+                    + " recent=" + Number(recentResults.length || 0)
+                    + " actions=" + Number(actionsResults.length || 0)
+                    + " suggestions=" + Number(suggestedResults.length || 0))
+    }
+
+    function _selectedNavigationIndex() {
+        for (var i = 0; i < navigationResults.length; ++i) {
+            if (String(navigationResults[i].resultId || "") === selectedResultId) {
+                return i
+            }
+        }
+        return -1
+    }
+
+    function _sourceIndexForResult(resultId) {
+        var id = String(resultId || "")
+        for (var i = 0; i < navigationResults.length; ++i) {
+            var item = navigationResults[i]
+            if (String(item.resultId || "") === id) {
+                return Number(item.sourceIndex)
+            }
+        }
+        return -1
+    }
+
+    function _emitSelectedSourceIndex() {
+        var index = _sourceIndexForResult(selectedResultId)
+        selectedIndexChangedByUser(index)
+    }
+
+    function selectResult(resultId) {
+        var id = String(resultId || "")
+        if (id.length <= 0) {
+            return
+        }
+        selectedResultId = id
+        _emitSelectedSourceIndex()
+    }
+
+    function moveSelection(delta) {
+        if (navigationResults.length <= 0) {
+            return
+        }
+        var current = _selectedNavigationIndex()
+        if (current < 0) {
+            current = 0
+        }
+        var step = Number(delta || 0)
+        if (step === 0) {
+            return
+        }
+        var next = current + step
+        while (next < 0) {
+            next += navigationResults.length
+        }
+        next = next % navigationResults.length
+        selectedResultId = String(navigationResults[next].resultId || "")
+        _emitSelectedSourceIndex()
+    }
+
+    function _resultById(resultId) {
+        var id = String(resultId || "")
+        if (id.length <= 0) {
+            return null
+        }
+        for (var i = 0; i < navigationResults.length; ++i) {
+            var item = navigationResults[i]
+            if (String(item.resultId || "") === id) {
+                return item
+            }
+        }
+        return null
+    }
+
+    function _rowsForSection(sectionName) {
+        var target = String(sectionName || "")
+        var out = []
+        for (var i = 0; i < navigationResults.length; ++i) {
+            var item = navigationResults[i]
+            if (!item) {
+                continue
+            }
+            if (String(item.section || "") === target) {
+                out.push(item)
+            }
+        }
+        return out
+    }
+
+    function _indexInSection(sectionName, resultId) {
+        var rows = _rowsForSection(sectionName)
+        var rid = String(resultId || "")
+        for (var i = 0; i < rows.length; ++i) {
+            if (String(rows[i].resultId || "") === rid) {
+                return i
+            }
+        }
+        return 0
+    }
+
+    function _pickFromSections(sectionNames, preferredPos) {
+        var pos = Math.max(0, Number(preferredPos || 0))
+        for (var i = 0; i < sectionNames.length; ++i) {
+            var rows = _rowsForSection(sectionNames[i])
+            if (rows.length <= 0) {
+                continue
+            }
+            var idx = Math.min(rows.length - 1, pos)
+            return rows[idx]
+        }
+        return null
+    }
+
+    function moveSelectionAcross(delta) {
+        if (navigationResults.length <= 0) {
+            return
+        }
+        var current = _resultById(selectedResultId)
+        if (!current) {
+            selectedResultId = String(navigationResults[0].resultId || "")
+            _emitSelectedSourceIndex()
+            return
+        }
+
+        var currentSection = String(current.section || "")
+        var currentPos = _indexInSection(currentSection, current.resultId)
+        var step = Number(delta || 0)
+        if (step === 0) {
+            return
+        }
+
+        var target = null
+        if (step > 0) {
+            // Left rail (apps/actions) -> Right rail (files/recent/suggestions)
+            if (currentSection === "apps" || currentSection === "actions" || currentSection === "best") {
+                target = _pickFromSections(["files", "recent", "suggestions"], currentPos)
+            }
+        } else {
+            // Right rail (files/recent/suggestions) -> Left rail (apps/actions/best)
+            if (currentSection === "files" || currentSection === "recent" || currentSection === "suggestions") {
+                target = _pickFromSections(["apps", "actions", "best"], currentPos)
+            }
+        }
+
+        if (!target) {
+            return
+        }
+        selectedResultId = String(target.resultId || "")
+        _emitSelectedSourceIndex()
+    }
+
+    function activateResult(resultId) {
+        var id = String(resultId || "")
+        if (id.length <= 0) {
+            return
+        }
+        openResultRequested(id)
+    }
+
+    function activateSelected() {
+        if (selectedResultId.length <= 0) {
+            return
+        }
+        activateResult(selectedResultId)
+    }
+
+    function requestCollapse() {
+        collapseRequested()
+        dismissRequested()
     }
 
     anchors.fill: parent
     visible: active
+    focus: active
 
-    MouseArea {
-        anchors.fill: parent
-        enabled: root.active
-        acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
-        onPressed: function(mouse) {
-            var pt = mapToItem(contextCard, mouse.x, mouse.y)
-            var inside = pt.x >= 0 && pt.y >= 0
-                         && pt.x <= contextCard.width
-                         && pt.y <= contextCard.height
-            if (!inside) {
-                root.dismissRequested()
-                mouse.accepted = true
+    onCurrentQueryChanged: _rebuildSections()
+    onPulseResultsModelChanged: _rebuildSections()
+    onResultsGenerationChanged: _rebuildSections()
+    onSelectedIndexChanged: {
+        var target = Number(selectedIndex)
+        if (target < 0) {
+            return
+        }
+        for (var i = 0; i < navigationResults.length; ++i) {
+            if (Number(navigationResults[i].sourceIndex) === target) {
+                selectedResultId = String(navigationResults[i].resultId || "")
+                break
             }
+        }
+    }
+    Connections {
+        target: root.pulseResultsModel || null
+        ignoreUnknownSignals: true
+        function onCountChanged() { root._rebuildSections() }
+        function onDataChanged() { root._rebuildSections() }
+        function onRowsInserted() { root._rebuildSections() }
+        function onRowsRemoved() { root._rebuildSections() }
+        function onModelReset() { root._rebuildSections() }
+    }
+
+    onVisibleChanged: {
+        if (visible) {
+            revealAnim.restart()
+            Qt.callLater(function() {
+                root.focusSearchField()
+            })
+        }
+    }
+
+    NumberAnimation {
+        id: revealAnim
+        target: root
+        property: "revealProgress"
+        from: 0.0
+        to: 1.0
+        duration: 220
+        easing.type: Easing.OutCubic
+    }
+
+    Keys.onPressed: function(event) {
+        if (!root.active) {
+            return
+        }
+        if (event.key === Qt.Key_Escape) {
+            root.requestCollapse()
+            event.accepted = true
+            return
+        }
+        if (event.key === Qt.Key_Up) {
+            root.moveSelection(-1)
+            event.accepted = true
+            return
+        }
+        if (event.key === Qt.Key_Down) {
+            root.moveSelection(1)
+            event.accepted = true
+            return
+        }
+        if (event.key === Qt.Key_Left) {
+            root.moveSelectionAcross(-1)
+            event.accepted = true
+            return
+        }
+        if (event.key === Qt.Key_Right) {
+            root.moveSelectionAcross(1)
+            event.accepted = true
+            return
+        }
+        if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+            root.activateSelected()
+            event.accepted = true
         }
     }
 
     Rectangle {
-        id: contextCard
-        width: Math.min(760, Math.max(540, root.width - 120))
-        height: Math.min(520, Math.max(360, root.height - 180))
+        id: contextSurface
+        width: Math.min(980, Math.max(620, root.width - 80))
+        height: Math.max(420, root.height - (root.panelHeight + 74))
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.top: parent.top
-        anchors.topMargin: Math.max(root.panelHeight + 12, Math.round(root.height * 0.08))
-        radius: Theme.radiusWindow
-        color: "transparent"
+        anchors.topMargin: root.panelHeight + 16
+        radius: Math.max(18, Theme.radiusWindow + 4)
+        color: Theme.color("windowCard")
+        border.width: 0
+        border.color: "transparent"
         opacity: root.active ? 1.0 : 0.0
-        scale: root.active ? 1.0 : 0.97
+        y: (root.panelHeight + 16) + (1.0 - root.revealProgress) * 14
+        scale: 0.985 + (0.015 * root.revealProgress)
 
         Behavior on opacity {
-            NumberAnimation {
-                duration: Theme.durationFast
-                easing.type: Theme.easingLight
-            }
+            NumberAnimation { duration: 150; easing.type: Easing.OutQuad }
         }
-
+        Behavior on y {
+            NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
+        }
         Behavior on scale {
-            NumberAnimation {
-                duration: Theme.durationFast
-                easing.type: Theme.easingLight
-            }
+            NumberAnimation { duration: 170; easing.type: Easing.OutCubic }
         }
 
-        Zones.ContextZone {
+        Rectangle {
             anchors.fill: parent
+            radius: parent.radius
+            color: "transparent"
+            border.width: 0
+            border.color: "transparent"
+        }
 
-            PulseComp.PulseOverlay {
-                id: pulseContent
-                anchors.fill: parent
+        Rectangle {
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            height: Math.min(120, parent.height * 0.24)
+            radius: parent.radius
+            color: Qt.rgba(1, 1, 1, 0.18)
+            opacity: 0.7
+        }
+
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 18
+            spacing: 12
+
+            Item {
+                id: queryHeaderContainer
+                Layout.fillWidth: true
+                implicitHeight: queryHeader.implicitHeight
+                opacity: root.headerPhase
+
+                Behavior on opacity {
+                    NumberAnimation { duration: 150; easing.type: Easing.OutCubic }
+                }
+
+                PulseQueryHeader {
+                    id: queryHeader
+                    anchors.fill: parent
+                    active: root.active
+                    queryText: root.currentQuery
+                    onQueryEdited: function(text) {
+                        root.queryChanged(text)
+                        root.queryTextChangedRequest(text)
+                    }
+                    onClearRequested: {
+                        root.queryChanged("")
+                        root.queryTextChangedRequest("")
+                    }
+                    onCloseRequested: root.requestCollapse()
+                    onNavigate: function(delta) { root.moveSelection(delta) }
+                    onNavigateSection: function(delta) { root.moveSelectionAcross(delta) }
+                    onActivateCurrent: root.activateSelected()
+                    onEscapePressed: root.requestCollapse()
+                }
+            }
+
+            Label {
+                Layout.fillWidth: true
+                text: "Best Match"
+                color: Theme.color("textSecondary")
+                font.pixelSize: Theme.fontSize("small")
+                font.weight: Theme.fontWeight("semibold")
+                visible: root.showBestMatch
+                opacity: root.bestPhase * Theme.opacityMuted
+            }
+
+            PulseBestMatchCard {
+                Layout.fillWidth: true
+                visible: root.showBestMatch
                 active: root.active
-                focus: active
-                compactWindow: true
-                showDebugInfo: root.showDebugInfo
-                searchProfileMeta: root.searchProfileMeta
-                telemetryMeta: root.telemetryMeta
-                telemetryLast: root.telemetryLast
-                providerStats: root.providerStats
-                previewData: root.previewData
-                queryText: root.queryText
-                resultsModel: root.resultsModel
-                selectedIndex: root.selectedIndex
-                onQueryTextChangedRequest: function(text) {
-                    root.queryTextChangedRequest(text)
+                revealAmount: root.bestPhase
+                resultData: root.bestMatch
+                selected: root.selectedResultId.length > 0
+                          && root.bestMatch
+                          && String(root.bestMatch.resultId || "") === root.selectedResultId
+                onHovered: function(resultId) { root.selectResult(resultId) }
+                onActivated: function(resultId) { root.activateResult(resultId) }
+            }
+
+            Item {
+                id: sectionsContainer
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                opacity: root.sectionsPhase
+
+                Behavior on opacity {
+                    NumberAnimation { duration: 160; easing.type: Easing.OutCubic }
                 }
-                onSelectedIndexChanged: {
-                    root.selectedIndexChangedByUser(selectedIndex)
+
+                StackLayout {
+                    anchors.fill: parent
+                    currentIndex: root.showEmptyState
+                                  ? 0
+                                  : (root.showNoResultState ? 1 : 2)
+
+                PulseEmptyState {
+                    active: root.showEmptyState
+                    onSuggestionChosen: function(text) {
+                        root.queryChanged(text)
+                        root.queryTextChangedRequest(text)
+                    }
                 }
-                onResultActivated: function(indexValue) {
-                    root.resultActivated(indexValue)
+
+                PulseNoResultState {
+                    active: root.showNoResultState
+                    queryText: root.currentQuery
+                    onSuggestionChosen: function(text) {
+                        root.queryChanged(text)
+                        root.queryTextChangedRequest(text)
+                    }
                 }
-                onResultContextAction: function(indexValue, action) {
-                    root.resultContextAction(indexValue, action)
+
+                Flickable {
+                    clip: true
+                    interactive: root.showResultsState
+                    contentWidth: width
+                    contentHeight: dashboard.implicitHeight
+
+                    PulseResultsDashboard {
+                        id: dashboard
+                        width: parent.width
+                        active: root.showResultsState && root.active
+                        layoutWidth: contextSurface.width
+                        appsResults: root.appsResults
+                        filesResults: root.filesResults
+                        actionsResults: root.actionsResults
+                        recentResults: root.recentResults
+                        suggestedResults: root.suggestedResults
+                        selectedResultId: root.selectedResultId
+                        twoColumnThreshold: 620
+                        onItemHovered: function(resultId) { root.selectResult(resultId) }
+                        onItemActivated: function(resultId) { root.activateResult(resultId) }
+                        onItemContextAction: function(resultId, action) {
+                            var source = root._sourceIndexForResult(resultId)
+                            if (source >= 0) {
+                                root.resultContextAction(source, action)
+                            }
+                        }
+                    }
                 }
-                onDismissRequested: root.dismissRequested()
+                }
+            }
+
+            Item {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 30
+                opacity: 0.4 + (0.6 * root.footerPhase)
+
+                Behavior on opacity {
+                    NumberAnimation { duration: 140; easing.type: Easing.OutQuad }
+                }
+
+                PulseFooterHints {
+                    anchors.left: parent.left
+                    anchors.verticalCenter: parent.verticalCenter
+                    active: root.active
+                    emphasize: root.selectedResultId.length > 0
+                }
             }
         }
     }
+
+    Component.onCompleted: _rebuildSections()
 }

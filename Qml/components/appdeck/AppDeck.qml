@@ -54,6 +54,12 @@ Rectangle {
     readonly property real contentVPadding: 3
     readonly property real baseHeight: 68 + (contentVPadding * 2)
     readonly property real rowX: dockRow.x
+    // Export precise interactive bounds so host surface can map input region
+    // to the visible dock body instead of full component bounds.
+    readonly property real inputRegionX: dockBackground.x
+    readonly property real inputRegionY: Math.max(0, dockBackground.y - Math.max(0, Number(liftMax || 0)))
+    readonly property real inputRegionWidth: dockBackground.width
+    readonly property real inputRegionHeight: dockBackground.height + Math.max(0, Number(liftMax || 0))
     property string activeAppName: ""
     property alias draggingFromIndex: reorderState.draggingFromIndex
     property alias draggingToIndex: reorderState.draggingToIndex
@@ -692,7 +698,7 @@ Rectangle {
         height: root.baseHeight
         radius: Theme.radiusWindow
         visible: !root.dockTransparent
-        color: root.dockTransparent ? "transparent" : Theme.color("panelBg")
+        color: root.dockTransparent ? "transparent" : Theme.color("windowCard")
         border.color: root.dockTransparent ? "transparent" : Theme.color("panelBorder")
         border.width: root.dockTransparent ? Theme.borderWidthNone : Theme.borderWidthThin
 
