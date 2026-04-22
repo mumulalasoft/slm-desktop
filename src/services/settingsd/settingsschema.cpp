@@ -101,6 +101,7 @@ SettingsSchema::SettingsSchema()
     reg(strKey(QStringLiteral("shellTheme.accentColor"), QStringLiteral("#4aa3ff")));
     reg(intKey(QStringLiteral("shellTheme.radius"), 12, 0, 32));
     reg(boolKey(QStringLiteral("shellTheme.blur"), true));
+    reg(boolKey(QStringLiteral("shellTheme.topbarTransparent"), false));
     reg(enumKey(QStringLiteral("shellTheme.panelStyle"),
                 QStringLiteral("floating"),
                 {QStringLiteral("floating"), QStringLiteral("solid"), QStringLiteral("minimal")}));
@@ -191,6 +192,8 @@ SettingsSchema::SettingsSchema()
     reg(strKey(QStringLiteral("shortcuts.workspaceNext"),     QStringLiteral("Meta+Right")));
     reg(strKey(QStringLiteral("shortcuts.moveWindowPrev"),    QStringLiteral("Meta+Shift+Left")));
     reg(strKey(QStringLiteral("shortcuts.moveWindowNext"),    QStringLiteral("Meta+Shift+Right")));
+    reg(strKey(QStringLiteral("shortcuts.openSettings"),      QStringLiteral("Meta+Shift+I")));
+    reg(strKey(QStringLiteral("shortcuts.openFiles"),         QStringLiteral("Meta+Shift+E")));
 
     // ── fonts ─────────────────────────────────────────────────────────────────
     reg(strKey(QStringLiteral("fonts.defaultFont"),    QStringLiteral(""), true));

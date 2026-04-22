@@ -1084,9 +1084,30 @@ Item {
                         }
 
                         SettingCard {
+                            label: qsTr("Transparent Background")
+                            description: qsTr("Remove the panel background color.")
+                            Layout.fillWidth: true
+                            SettingToggle {
+                                id: topbarTransparentToggle
+                                checked: DesktopSettings.settingValue("shellTheme.topbarTransparent", false) === true
+                                onToggled: DesktopSettings.setSettingValue("shellTheme.topbarTransparent", checked)
+                                Connections {
+                                    target: DesktopSettings
+                                    function onSettingChanged(path) {
+                                        if (path === "shellTheme.topbarTransparent") {
+                                            topbarTransparentToggle.checked = DesktopSettings.settingValue("shellTheme.topbarTransparent", false) === true
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        SettingCard {
                             label: qsTr("Blur")
                             description: qsTr("Apply a blur effect behind the top panel.")
                             Layout.fillWidth: true
+                            enabled: !topbarTransparentToggle.checked
+                            opacity: enabled ? 1.0 : Theme.opacityHint
                             SettingToggle {
                                 id: topbarBlurToggle
                                 checked: DesktopSettings.settingValue("shellTheme.blur", true) !== false

@@ -234,6 +234,25 @@ Flickable {
             }
         }
 
+        // ── Shortcuts — Applications ──────────────────────────────────────
+        SettingGroup {
+            title: qsTr("Application Shortcuts")
+            Layout.fillWidth: true
+
+            SettingCard {
+                label: qsTr("System Settings")
+                description: qsTr("Open the System Settings app.")
+                Layout.fillWidth: true
+                ShortcutKey { prefKey: "shortcuts.openSettings"; defaultVal: "Meta+Shift+I" }
+            }
+            SettingCard {
+                label: qsTr("File Manager")
+                description: qsTr("Open the file manager.")
+                Layout.fillWidth: true
+                ShortcutKey { prefKey: "shortcuts.openFiles"; defaultVal: "Meta+Shift+E" }
+            }
+        }
+
         // ── Shortcuts — Workspace ─────────────────────────────────────────
         SettingGroup {
             title: qsTr("Workspace Shortcuts")

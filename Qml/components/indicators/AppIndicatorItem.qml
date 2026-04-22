@@ -9,6 +9,32 @@ Item {
     property var modelData: null
     property var host: null
 
+    opacity: 0
+    scale: 0.82
+
+    Component.onCompleted: {
+        if (microAnimationAllowed()) {
+            appIndicatorEntranceAnim.start()
+        } else {
+            root.opacity = 1.0
+            root.scale = 1.0
+        }
+    }
+
+    ParallelAnimation {
+        id: appIndicatorEntranceAnim
+        NumberAnimation {
+            target: root; property: "opacity"
+            to: 1.0; duration: Theme.durationMd
+            easing.type: Theme.easingDecelerate
+        }
+        NumberAnimation {
+            target: root; property: "scale"
+            to: 1.0; duration: Theme.durationMd
+            easing.type: Theme.easingDecelerate
+        }
+    }
+
     readonly property string itemId: String((modelData && modelData.id) ? modelData.id : "")
     readonly property string iconName: String((modelData && modelData.iconName) ? modelData.iconName : "application-x-executable-symbolic")
     readonly property string iconSource: String((modelData && modelData.iconSource) ? modelData.iconSource : "")

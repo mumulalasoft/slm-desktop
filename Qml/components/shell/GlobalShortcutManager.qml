@@ -30,6 +30,8 @@ Item {
     readonly property string workspaceNextBind: prefShortcut("shortcuts.workspaceNext", "Meta+Right")
     readonly property string moveWindowPrevBind: prefShortcut("shortcuts.moveWindowPrev", "Ctrl+Meta+Left")
     readonly property string moveWindowNextBind: prefShortcut("shortcuts.moveWindowNext", "Ctrl+Meta+Right")
+    readonly property string openSettingsBind: prefShortcut("shortcuts.openSettings", "Meta+Shift+I")
+    readonly property string openFilesBind: prefShortcut("shortcuts.openFiles", "Meta+Shift+E")
 
     function triggerFullscreenQuickSave(sourceTag) {
         if (!shellRoot) {
@@ -168,6 +170,30 @@ Item {
                     && !ShellInputRouter.canDispatch("window.move_workspace_next")) return
             if (desktopSceneRef && desktopSceneRef.moveFocusedWindowByDelta) {
                 desktopSceneRef.moveFocusedWindowByDelta(1)
+            }
+        }
+    }
+
+    Shortcut {
+        sequence: root.openSettingsBind
+        context: Qt.ApplicationShortcut
+        enabled: String(sequence || "").length > 0
+        onActivated: {
+            if (typeof AppCommandRouter !== "undefined" && AppCommandRouter && AppCommandRouter.route) {
+                AppCommandRouter.route("app.desktopid", {desktopId: "slm-settings.desktop"}, "shortcut-settings")
+            } else if (typeof AppExecutionGate !== "undefined" && AppExecutionGate && AppExecutionGate.launchDesktopId) {
+                AppExecutionGate.launchDesktopId("slm-settings.desktop", "shortcut-settings")
+            }
+        }
+    }
+
+    Shortcut {
+        sequence: root.openFilesBind
+        context: Qt.ApplicationShortcut
+        enabled: String(sequence || "").length > 0
+        onActivated: {
+            if (typeof AppCommandRouter !== "undefined" && AppCommandRouter && AppCommandRouter.route) {
+                AppCommandRouter.route("filemanager.open", {target: ""}, "shortcut-files")
             }
         }
     }

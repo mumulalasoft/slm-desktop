@@ -695,6 +695,7 @@ target_link_libraries(slm-settingsd
     PRIVATE
         Qt6::Core
         Qt6::DBus
+        Qt6::Sql
 )
 target_include_directories(slm-settingsd PRIVATE ${CMAKE_SOURCE_DIR})
 
@@ -1224,6 +1225,11 @@ install(TARGETS slm-envd
 
 install(TARGETS slm-settingsd
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
+install(DIRECTORY share/slm/defaults/
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/slm/defaults
+    FILES_MATCHING PATTERN "*.toml"
 )
 
 install(TARGETS slm-firewalld
@@ -2845,6 +2851,12 @@ qt_add_executable(settingsservice_dbus_test
     src/services/settingsd/settingsstore.h
     src/services/settingsd/settingsservice.cpp
     src/services/settingsd/settingsservice.h
+    src/services/settingsd/settingsschema.cpp
+    src/services/settingsd/settingsschema.h
+    src/services/settingsd/settingssqlstore.cpp
+    src/services/settingsd/settingssqlstore.h
+    src/services/settingsd/settingstomlloader.cpp
+    src/services/settingsd/settingstomlloader.h
     src/services/theme-policy/appthemeclassifier.cpp
     src/services/theme-policy/appthemeclassifier.h
     src/services/theme-policy/themepolicyengine.cpp
@@ -2858,6 +2870,7 @@ target_link_libraries(settingsservice_dbus_test
     PRIVATE
         Qt6::Core
         Qt6::DBus
+        Qt6::Sql
         Qt6::Test
 )
 
@@ -2908,6 +2921,12 @@ qt_add_executable(firewallservice_dbus_contract_test
     src/services/settingsd/settingsstore.h
     src/services/settingsd/settingsservice.cpp
     src/services/settingsd/settingsservice.h
+    src/services/settingsd/settingsschema.cpp
+    src/services/settingsd/settingsschema.h
+    src/services/settingsd/settingssqlstore.cpp
+    src/services/settingsd/settingssqlstore.h
+    src/services/settingsd/settingstomlloader.cpp
+    src/services/settingsd/settingstomlloader.h
     src/services/theme-policy/appthemeclassifier.cpp
     src/services/theme-policy/appthemeclassifier.h
     src/services/theme-policy/themepolicyengine.cpp
@@ -2921,6 +2940,7 @@ target_link_libraries(firewallservice_dbus_contract_test
     PRIVATE
         Qt6::Core
         Qt6::DBus
+        Qt6::Sql
         Qt6::Test
 )
 
@@ -3032,6 +3052,12 @@ qt_add_executable(firewallserviceclient_dbus_signal_flow_test
     src/services/settingsd/settingsstore.h
     src/services/settingsd/settingsservice.cpp
     src/services/settingsd/settingsservice.h
+    src/services/settingsd/settingsschema.cpp
+    src/services/settingsd/settingsschema.h
+    src/services/settingsd/settingssqlstore.cpp
+    src/services/settingsd/settingssqlstore.h
+    src/services/settingsd/settingstomlloader.cpp
+    src/services/settingsd/settingstomlloader.h
     src/services/theme-policy/appthemeclassifier.cpp
     src/services/theme-policy/appthemeclassifier.h
     src/services/theme-policy/themepolicyengine.cpp
@@ -3047,6 +3073,7 @@ target_link_libraries(firewallserviceclient_dbus_signal_flow_test
     PRIVATE
         Qt6::Core
         Qt6::DBus
+        Qt6::Sql
         Qt6::Test
 )
 

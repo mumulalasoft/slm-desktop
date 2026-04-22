@@ -1,0 +1,125 @@
+# SLM Desktop — System Default Configuration
+# This file is the system-provided baseline for all settings.
+# Values here are overridden by admin policy (/etc/slm/policy.toml)
+# and then by user settings (SQLite DB).
+
+[appearance]
+theme_mode   = "dark"
+accent_color = "#4aa3ff"
+
+[globalAppearance]
+colorMode       = "dark"
+accentColor     = "#4aa3ff"
+fontFamily      = "Sans Serif"
+fontSize        = 10
+uiScale         = 1.0
+iconSizeClass   = "medium"
+cursorTheme     = "default"
+highContrast    = false
+
+[shellTheme]
+name            = "slm"
+mode            = "dark"
+accentColor     = "#4aa3ff"
+radius          = 12
+blur            = true
+panelStyle      = "floating"
+surfaceStyle    = "default"
+animationPreset = "balanced"
+networkShowIp   = false
+
+[dock]
+motionPreset        = "subtle"
+autoHideEnabled     = false
+dropPulseEnabled    = true
+magnificationEnabled = true
+iconSize            = "medium"
+icon_size           = 48
+auto_hide           = false
+position            = "bottom"
+dragThresholdMouse           = 6
+dragThresholdTouchpad        = 3
+desktopExportMinUpwardPx     = 28
+desktopExportVerticalRatioPercent   = 135
+desktopExportMaxHorizontalDriftPx   = 42
+
+[contextAutomation]
+autoReduceAnimation     = true
+autoDisableBlur         = true
+autoDisableHeavyEffects = true
+
+[contextTime]
+mode        = "local"
+sunriseHour = 6
+sunsetHour  = 18
+
+[desktop]
+wallpaper_uri = ""
+
+[topbar]
+clock_24h = false
+
+[notifications]
+do_not_disturb = false
+
+[windowing]
+animationEnabled = true
+controlsSide     = "right"
+bindClose        = "Alt+F4"
+bindMinimize     = "Alt+F9"
+bindMaximize     = "Alt+Up"
+bindTileLeft     = "Alt+Left"
+bindTileRight    = "Alt+Right"
+bindSwitchNext   = "Alt+F11"
+bindSwitchPrev   = "Alt+F12"
+bindWorkspace    = "Alt+F3"
+
+[shortcuts]
+workspaceOverview = "Meta+S"
+workspacePrev     = "Meta+Left"
+workspaceNext     = "Meta+Right"
+moveWindowPrev    = "Meta+Shift+Left"
+moveWindowNext    = "Meta+Shift+Right"
+
+[fonts]
+defaultFont   = ""
+documentFont  = ""
+monospaceFont = ""
+titlebarFont  = ""
+
+[wallpaper]
+uri = ""
+
+[firewall]
+enabled               = true
+mode                  = "home"
+defaultIncomingPolicy = "deny"
+defaultOutgoingPolicy = "allow"
+promptCooldownSeconds = 20
+
+[gtkThemeRouting]
+themeDark      = "SLM-GTK-Dark"
+themeLight     = "SLM-GTK-Light"
+iconThemeDark  = "SLM-Icons-Dark"
+iconThemeLight = "SLM-Icons-Light"
+
+[kdeThemeRouting]
+themeDark      = "SLM-KDE-Dark"
+themeLight     = "SLM-KDE-Light"
+iconThemeDark  = "SLM-Icons-Dark"
+iconThemeLight = "SLM-Icons-Light"
+
+[appThemePolicy]
+gtkAppsUseGtkTheme                  = true
+kdeAppsUseKdeTheme                  = true
+qtGenericAllowKdeCompat             = true
+qtIncompatibleUseDesktopFallback    = true
+shellUsesShellThemeOnly             = true
+
+[fallbackPolicy]
+safeFallbackCategory         = "qt-desktop-fallback"
+unknownUsesSafeFallback      = true
+desktopFallbackThemeDark     = "slm-dark"
+desktopFallbackThemeLight    = "slm-light"
+desktopFallbackIconDark      = "SLM-Icons-Dark"
+desktopFallbackIconLight     = "SLM-Icons-Light"

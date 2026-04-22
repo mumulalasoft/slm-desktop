@@ -58,10 +58,11 @@ Rectangle {
         onTriggered: root.popupOpenHint = false
     }
 
-    color: Theme.color("panelBg")
-    border.color: Theme.color("panelBorder")
-    border.width: Theme.borderWidthThin
+    property bool topbarTransparent: false
 
+    color: root.topbarTransparent ? "transparent" : Theme.color("panelBg")
+    border.color: root.topbarTransparent ? "transparent" : Theme.color("panelBorder")
+    border.width: root.topbarTransparent ? Theme.borderWidthNone : Theme.borderWidthThin
 
     Behavior on color {
         ColorAnimation {
@@ -271,6 +272,9 @@ Rectangle {
     Component.onCompleted: {
         startupQmlMark("topbar.onCompleted.begin")
         root.timeText = Qt.formatDateTime(new Date(), "ddd MMM d  hh:mm")
+        if (typeof DesktopSettings !== "undefined" && DesktopSettings && DesktopSettings.settingValue) {
+            root.topbarTransparent = DesktopSettings.settingValue("shellTheme.topbarTransparent", false) === true
+        }
         Qt.callLater(function() {
             startupQmlMark("topbar.deferredInit.begin")
             refreshSearchProfilesModel()
@@ -332,6 +336,8 @@ Rectangle {
             } else if (k === "ui/fontScale" || k === "ui.fontScale") {
                 Theme.userFontScale = root.normalizedFontScale(
                             DesktopSettings.settingValue("ui.fontScale", 1.0))
+            } else if (k === "shellTheme.topbarTransparent") {
+                root.topbarTransparent = DesktopSettings.settingValue("shellTheme.topbarTransparent", false) === true
             } else if (k.startsWith("shellTheme.applets.")) {
                 var appletName = k.slice("shellTheme.applets.".length)
                 if (appletName === "tothespot") {

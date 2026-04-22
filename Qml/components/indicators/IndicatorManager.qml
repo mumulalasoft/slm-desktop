@@ -207,7 +207,9 @@ RowLayout {
     Repeater {
         model: IndicatorRegistry.entries
         delegate: Loader {
+            id: indicatorSlot
             required property var modelData
+            required property int index
             active: !!modelData && modelData.enabled !== false
             visible: !!modelData && modelData.visible !== false
             asynchronous: true
@@ -229,6 +231,38 @@ RowLayout {
             Layout.maximumWidth: slotVisible ? implicitWidth : 0
             Layout.preferredHeight: root.indicatorSlotHeight
             Layout.alignment: Qt.AlignVCenter
+
+            opacity: 0
+            scale: 0.82
+
+            Component.onCompleted: {
+                if (Theme.animationsEnabled) {
+                    indicatorEntranceTimer.start()
+                } else {
+                    indicatorSlot.opacity = 1.0
+                    indicatorSlot.scale = 1.0
+                }
+            }
+
+            Timer {
+                id: indicatorEntranceTimer
+                interval: indicatorSlot.index * 40
+                onTriggered: indicatorEntranceAnim.start()
+            }
+
+            ParallelAnimation {
+                id: indicatorEntranceAnim
+                NumberAnimation {
+                    target: indicatorSlot; property: "opacity"
+                    to: 1.0; duration: Theme.durationMd
+                    easing.type: Theme.easingDecelerate
+                }
+                NumberAnimation {
+                    target: indicatorSlot; property: "scale"
+                    to: 1.0; duration: Theme.durationMd
+                    easing.type: Theme.easingDecelerate
+                }
+            }
 
             onLoaded: {
                 if (!item || !modelData) {
@@ -269,7 +303,9 @@ RowLayout {
         model: (typeof ExternalIndicatorRegistry !== "undefined" && ExternalIndicatorRegistry)
                ? ExternalIndicatorRegistry.entries : []
         delegate: Loader {
+            id: extIndicatorSlot
             required property var modelData
+            required property int index
             active: !!modelData && modelData.enabled !== false
             visible: !!modelData && modelData.visible !== false
             asynchronous: true
@@ -281,6 +317,38 @@ RowLayout {
             Layout.maximumWidth: slotVisible ? implicitWidth : 0
             Layout.preferredHeight: root.indicatorSlotHeight
             Layout.alignment: Qt.AlignVCenter
+
+            opacity: 0
+            scale: 0.82
+
+            Component.onCompleted: {
+                if (Theme.animationsEnabled) {
+                    extEntranceTimer.start()
+                } else {
+                    extIndicatorSlot.opacity = 1.0
+                    extIndicatorSlot.scale = 1.0
+                }
+            }
+
+            Timer {
+                id: extEntranceTimer
+                interval: extIndicatorSlot.index * 40
+                onTriggered: extEntranceAnim.start()
+            }
+
+            ParallelAnimation {
+                id: extEntranceAnim
+                NumberAnimation {
+                    target: extIndicatorSlot; property: "opacity"
+                    to: 1.0; duration: Theme.durationMd
+                    easing.type: Theme.easingDecelerate
+                }
+                NumberAnimation {
+                    target: extIndicatorSlot; property: "scale"
+                    to: 1.0; duration: Theme.durationMd
+                    easing.type: Theme.easingDecelerate
+                }
+            }
 
             onLoaded: {
                 if (!item || !modelData) {

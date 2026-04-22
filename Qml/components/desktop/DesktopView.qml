@@ -83,6 +83,8 @@ Item {
     property bool selectionRectArmed: false
     property bool selectionRectActive: false
     property bool suppressBackgroundClick: false
+    property int editingIndex: -1
+    property string editingName: ""
     property real selectionPressX: 0
     property real selectionPressY: 0
     property real selectionCurrentX: 0
@@ -97,6 +99,8 @@ Item {
     signal contextMenuRequested(int index, real x, real y)
     signal pointerPressed(real x, real y, int button, bool onItem)
     signal clearSelectionRequested()
+    signal renameCommitRequested(int index, string name)
+    signal renameCanceled()
     signal selectionRectRequested(var indexes, int modifiers, int anchorIndex, var baseIndexes)
     signal dragStartRequested(int index, string path, string name, bool isDir, bool copyMode, real sceneX, real sceneY)
     signal dragMoveRequested(real sceneX, real sceneY, int hoverIndex, bool copyMode)
@@ -443,8 +447,27 @@ Item {
             }
             var itemX = Number(row.x || 0) + ((cellWidth - tileWidth) * 0.5)
             var itemY = Number(row.y || 0) + ((cellHeight - tileHeight) * 0.5)
-            if (px >= itemX && px <= (itemX + tileWidth)
-                    && py >= itemY && py <= (itemY + tileHeight)) {
+
+            // Editing item: pass through entire tile so the TextField receives all clicks
+            if (modelIndex === root.editingIndex) {
+                if (px >= itemX && px <= (itemX + tileWidth)
+                        && py >= itemY && py <= (itemY + tileHeight)) {
+                    return modelIndex
+                }
+                continue
+            }
+
+            var iconSize = Math.min(tileWidth, Math.max(24, tileHeight - 38))
+            var iconX = itemX + ((tileWidth - iconSize) * 0.5)
+            var iconY = itemY
+            var iconHit = (px >= iconX && px <= (iconX + iconSize)
+                           && py >= iconY && py <= (iconY + iconSize))
+
+            var labelTop = itemY + Math.max(0, tileHeight - 36)
+            var labelHit = (px >= (itemX + 8) && px <= (itemX + tileWidth - 8)
+                            && py >= labelTop && py <= (itemY + tileHeight))
+
+            if (iconHit || labelHit) {
                 return modelIndex
             }
         }
@@ -462,6 +485,26 @@ Item {
                                Number(selectionPressModifiers || Qt.NoModifier),
                                anchor,
                                selectionBaseIndexes ? selectionBaseIndexes.slice(0) : [])
+    }
+
+    function startInlineRename(indexValue, nameValue) {
+        editingIndex = Number(indexValue)
+        editingName = String(nameValue || "")
+    }
+
+    function stopInlineRename() {
+        editingIndex = -1
+        editingName = ""
+    }
+
+    function _commitInlineRename() {
+        if (editingIndex < 0) {
+            return
+        }
+        var idx = Number(editingIndex)
+        var nextName = String(editingName || "")
+        stopInlineRename()
+        renameCommitRequested(idx, nextName)
     }
 
     onEntriesModelChanged: _relayout()
@@ -488,18 +531,22 @@ Item {
     MouseArea {
         id: backgroundArea
         anchors.fill: parent
+        z: 1000
         acceptedButtons: Qt.LeftButton | Qt.RightButton
         hoverEnabled: true
         onPressed: function(mouse) {
             if (root.dragActive) {
                 return
             }
+            var hitIndex = root._modelIndexAtPoint(mouse.x, mouse.y)
+            if (hitIndex >= 0) {
+                mouse.accepted = false
+                return
+            }
+            root._commitInlineRename()
             root.pointerPressed(mouse.x, mouse.y, mouse.button, false)
             if (mouse.button === Qt.RightButton) {
                 if (Date.now() < Number(root.suppressRightBackgroundMenuUntilMs || 0)) {
-                    return
-                }
-                if (root._modelIndexAtPoint(mouse.x, mouse.y) >= 0) {
                     return
                 }
                 root.clearSelectionRequested()
@@ -519,6 +566,10 @@ Item {
             root.selectionCurrentY = mouse.y
             root.selectionPressModifiers = Number(mouse.modifiers || Qt.NoModifier)
             root.selectionBaseIndexes = root.selectedIndexes ? root.selectedIndexes.slice(0) : []
+            // Ctrl = additive rubber-band: keep existing selection visible until rect forms
+            if (!(root.selectionPressModifiers & Qt.ControlModifier)) {
+                root.clearSelectionRequested()
+            }
         }
         onPositionChanged: function(mouse) {
             if (!root.selectionRectArmed || !(mouse.buttons & Qt.LeftButton)) {
@@ -530,7 +581,11 @@ Item {
             var dy = mouse.y - root.selectionPressY
             if (!root.selectionRectActive && ((dx * dx) + (dy * dy)) >= 36) {
                 root.selectionRectActive = true
-                root.clearSelectionRequested()
+                // Non-additive: ensure clean slate (already cleared on press, but guard
+                // against any edge cases where onPressed didn't clear)
+                if (!(root.selectionPressModifiers & Qt.ControlModifier)) {
+                    root.clearSelectionRequested()
+                }
             }
             if (root.selectionRectActive) {
                 root._emitSelectionRect()
@@ -612,8 +667,32 @@ Item {
                     previewCandidate: !isDir && String(thumbnailSource || "").length > 0
                     tileWidth: root.tileWidth
                     tileHeight: root.tileHeight
+                    editing: root.editingIndex === modelIndex
+                    editText: (root.editingIndex === modelIndex) ? root.editingName : ""
+
+                    onEditValueChanged: function(text) {
+                        if (root.editingIndex === modelIndex) {
+                            root.editingName = String(text || "")
+                        }
+                    }
+                    onEditCommitted: function(text) {
+                        if (root.editingIndex === modelIndex) {
+                            root.editingName = String(text || "")
+                            root._commitInlineRename()
+                        }
+                    }
+                    onEditCanceled: {
+                        if (root.editingIndex === modelIndex) {
+                            root.stopInlineRename()
+                            root.renameCanceled()
+                        }
+                    }
+
 
                     onPressed: function(px, py, button, buttons, modifiers) {
+                        if (root.editingIndex >= 0 && root.editingIndex !== modelIndex) {
+                            root._commitInlineRename()
+                        }
                         var lp = desktopItem.mapToItem(root, px, py)
                         root.pointerPressed(lp.x, lp.y, button, true)
                         if (button === Qt.RightButton) {
@@ -669,6 +748,9 @@ Item {
                     }
 
                     onClicked: function(button, modifiers, px, py) {
+                        if (root.editingIndex === modelIndex) {
+                            return
+                        }
                         if (cellItem.suppressClick) {
                             return
                         }
@@ -726,7 +808,7 @@ Item {
         width: Number(bounds.width || 0)
         height: Number(bounds.height || 0)
         color: Theme.color("accentSoft")
-        opacity: Theme.opacitySubtle
+        opacity: Theme.opacityMuted
         border.width: Theme.borderWidthThin
         border.color: Theme.color("dragGhostBorder")
         radius: Theme.radiusCard
