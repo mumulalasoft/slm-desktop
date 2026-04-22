@@ -188,6 +188,28 @@ Window {
     readonly property int exclusiveZone: collapsedMode
                                          ? Math.max(0, Math.ceil(collapsedView.dockItem ? collapsedView.dockItem.height : 0))
                                          : 0
+    readonly property int collapsedInputX: Math.max(
+                                               0,
+                                               Math.round(
+                                                   (collapsedView ? Number(collapsedView.x || 0) : 0)
+                                                   + (collapsedView.dockItem ? Number(collapsedView.dockItem.x || 0) : 0)
+                                               )
+                                           )
+    readonly property int collapsedInputY: Math.max(
+                                               0,
+                                               Math.round(
+                                                   (collapsedView ? Number(collapsedView.y || 0) : 0)
+                                                   + (collapsedView.dockItem ? Number(collapsedView.dockItem.y || 0) : 0)
+                                               )
+                                           )
+    readonly property int collapsedInputWidth: Math.max(
+                                                   1,
+                                                   Math.round(collapsedView.dockItem ? Number(collapsedView.dockItem.width || 1) : 1)
+                                               )
+    readonly property int collapsedInputHeight: Math.max(
+                                                    1,
+                                                    Math.round(collapsedView.dockItem ? Number(collapsedView.dockItem.height || 1) : 1)
+                                                )
 
     function tryConfigureLayerShell() {
         if (root.layerConfigured) return
@@ -225,6 +247,19 @@ Window {
         WlrLayerShell.setLayerSurfaceSize(root,
                                           Math.max(1, Math.round(root.width)),
                                           Math.max(1, Math.round(root.height)))
+        if (root.collapsedMode) {
+            WlrLayerShell.setLayerSurfaceInputRegion(root,
+                                                     root.collapsedInputX,
+                                                     root.collapsedInputY,
+                                                     root.collapsedInputWidth,
+                                                     root.collapsedInputHeight)
+        } else {
+            WlrLayerShell.setLayerSurfaceInputRegion(root,
+                                                     0,
+                                                     0,
+                                                     Math.max(1, Math.round(root.width)),
+                                                     Math.max(1, Math.round(root.height)))
+        }
     }
 
     Timer {
@@ -417,6 +452,15 @@ Window {
             }
             Qt.callLater(function() { root.raise() })
         }
+    }
+
+    Connections {
+        target: collapsedView && collapsedView.dockItem ? collapsedView.dockItem : null
+        ignoreUnknownSignals: true
+        function onXChanged() { root.syncLayerSurfaceSize() }
+        function onYChanged() { root.syncLayerSurfaceSize() }
+        function onWidthChanged() { root.syncLayerSurfaceSize() }
+        function onHeightChanged() { root.syncLayerSurfaceSize() }
     }
 
     Component.onCompleted: {

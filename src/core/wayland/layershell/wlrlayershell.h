@@ -7,6 +7,8 @@
 #include <QWindow>
 
 class AppDeckBootstrapState;
+struct wl_surface;
+struct wl_compositor;
 
 // ── WlrLayerShell ─────────────────────────────────────────────────────────────
 // Global singleton binding to zwlr_layer_shell_v1.
@@ -36,6 +38,12 @@ public:
     Q_INVOKABLE bool setExclusiveZone(QWindow *window, int exclusiveZone);
     // Update the configured size of an already-configured layer surface.
     Q_INVOKABLE bool setLayerSurfaceSize(QWindow *window, int width, int height);
+    // Update input region so transparent areas do not intercept pointer events.
+    Q_INVOKABLE bool setLayerSurfaceInputRegion(QWindow *window,
+                                                int x,
+                                                int y,
+                                                int width,
+                                                int height);
     void setAppDeckBootstrapState(AppDeckBootstrapState *state);
 
     // Layer constants (mirrors zwlr_layer_shell_v1_layer).
@@ -71,6 +79,7 @@ class WlrLayerSurfaceV1 : public QObject,
 
 public:
     explicit WlrLayerSurfaceV1(struct ::zwlr_layer_surface_v1 *surface,
+                               struct ::wl_surface *wlSurface,
                                QObject *parent = nullptr);
     ~WlrLayerSurfaceV1() override;
 
@@ -80,6 +89,12 @@ public:
     void setExclusiveZone(int zone);
     // Update the layer-surface size for mode transitions (collapsed/expanded/context).
     void setSurfaceSize(int width, int height);
+    // Limit pointer focus to a sub-rect of the layer surface.
+    void setInputRegionRect(struct ::wl_compositor *compositor,
+                            int x,
+                            int y,
+                            int width,
+                            int height);
 
 signals:
     void configured();
@@ -96,4 +111,5 @@ protected:
 private:
     bool m_configured = false;
     bool m_firstConfigureReceived = false;
+    struct ::wl_surface *m_surface = nullptr;
 };
