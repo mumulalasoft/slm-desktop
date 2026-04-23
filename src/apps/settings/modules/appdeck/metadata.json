@@ -1,0 +1,54 @@
+{
+    "id": "appdeck",
+    "hidden": true,
+    "name": "AppDeck",
+    "icon": "preferences-desktop",
+    "group": "Desktop",
+    "description": "Customize the AppDeck appearance and behavior.",
+    "keywords": ["appdeck", "appdeck", "icon", "magnification", "launcher", "taskbar", "drag", "desktop", "threshold"],
+    "main": "DockPage.qml",
+    "settings": [
+        {
+            "id": "icon-size",
+            "label": "Icon Size",
+            "description": "Set the size of AppDeck icons",
+            "keywords": ["icon", "size", "small", "large"],
+            "type": "select"
+        },
+        {
+            "id": "magnification",
+            "label": "Magnification",
+            "description": "Enlarge icons when hovering",
+            "keywords": ["magnification", "hover", "zoom"],
+            "type": "toggle"
+        },
+        {
+            "id": "desktop-export-preset",
+            "label": "Desktop Export Preset",
+            "description": "Quick presets for AppDeck-to-desktop drag behavior",
+            "keywords": ["desktop", "drag", "preset", "strict", "balanced", "easy"],
+            "type": "select"
+        },
+        {
+            "id": "desktop-export-upward",
+            "label": "Desktop Export Upward Distance",
+            "description": "Minimum upward drag distance before AppDeck item exports to desktop",
+            "keywords": ["desktop", "drag", "upward", "distance"],
+            "type": "number"
+        },
+        {
+            "id": "desktop-export-ratio",
+            "label": "Desktop Export Vertical Ratio",
+            "description": "How vertical the drag must be to trigger desktop export",
+            "keywords": ["desktop", "drag", "ratio", "vertical"],
+            "type": "number"
+        },
+        {
+            "id": "desktop-export-drift",
+            "label": "Desktop Export Max Horizontal Drift",
+            "description": "Maximum horizontal drift allowed during desktop export drag",
+            "keywords": ["desktop", "drag", "drift", "horizontal"],
+            "type": "number"
+        }
+    ]
+}

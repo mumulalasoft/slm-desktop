@@ -62,6 +62,7 @@ Item {
         if (t === "app") return "application-x-executable-symbolic"
         if (t === "file" || t === "path" || t === "folder" || t === "recent") return "text-x-generic-symbolic"
         if (t === "action" || t === "command") return "system-run-symbolic"
+        if (t === "calculator") return "accessories-calculator-symbolic"
         return "application-x-executable-symbolic"
     }
     readonly property string effectiveIconName: cleanedIconName.length > 0 ? cleanedIconName : defaultIconName
@@ -86,6 +87,7 @@ Item {
         if (t === "app") return "qrc:/icons/apphub.svg"
         if (t === "file" || t === "path" || t === "folder" || t === "recent") return "qrc:/icons/logo.svg"
         if (t === "action" || t === "command") return "qrc:/icons/dark/pulse.svg"
+        if (t === "calculator") return "qrc:/icons/dark/pulse.svg"
         return "qrc:/icons/logo.svg"
     }
 
@@ -205,7 +207,7 @@ Item {
         Label {
             id: typeLabel
             anchors.centerIn: parent
-            text: root.typeText
+            text: root.typeText === "calculator" ? "CALC" : root.typeText
             color: Theme.color("textSecondary")
             font.pixelSize: Theme.fontSize("xs")
             font.weight: Theme.fontWeight("semibold")

@@ -24,6 +24,17 @@ Item {
     readonly property string titleText: String(resultData && resultData.title ? resultData.title : "")
     readonly property string subtitleText: String(resultData && resultData.subtitle ? resultData.subtitle : "")
     readonly property string typeText: String(resultData && resultData.type ? resultData.type : "item")
+    readonly property string clipboardType: String(resultData && resultData.clipboardType ? resultData.clipboardType : "")
+    readonly property string badgeText: {
+        var t = String(typeText || "").toLowerCase()
+        if (t === "clipboard") {
+            return clipboardType.length > 0 ? clipboardType.toUpperCase() : "CLIPBOARD"
+        }
+        if (t === "calculator") {
+            return "CALC"
+        }
+        return String(typeText || "item")
+    }
     readonly property string iconName: String(resultData && resultData.icon ? resultData.icon : "")
     readonly property string iconPath: String(resultData && resultData.iconSource ? resultData.iconSource : "")
     readonly property bool iconPathIsUrl: iconPath.indexOf("/") === 0
@@ -60,6 +71,8 @@ Item {
         if (t === "app") return "application-x-executable-symbolic"
         if (t === "file" || t === "path" || t === "folder" || t === "recent") return "text-x-generic-symbolic"
         if (t === "action" || t === "command") return "system-run-symbolic"
+        if (t === "clipboard") return "edit-paste-symbolic"
+        if (t === "calculator") return "accessories-calculator-symbolic"
         return "application-x-executable-symbolic"
     }
     readonly property string effectiveIconName: cleanedIconName.length > 0 ? cleanedIconName : defaultIconName
@@ -84,6 +97,7 @@ Item {
         if (t === "app") return "qrc:/icons/apphub.svg"
         if (t === "file" || t === "path" || t === "folder" || t === "recent") return "qrc:/icons/logo.svg"
         if (t === "action" || t === "command") return "qrc:/icons/dark/pulse.svg"
+        if (t === "calculator") return "qrc:/icons/dark/pulse.svg"
         return "qrc:/icons/logo.svg"
     }
     readonly property string fallbackGlyph: {
@@ -91,6 +105,8 @@ Item {
         if (t === "app") return "A"
         if (t === "file" || t === "path" || t === "folder") return "F"
         if (t === "action" || t === "command") return ">"
+        if (t === "clipboard") return "C"
+        if (t === "calculator") return "="
         return "•"
     }
 
@@ -209,7 +225,7 @@ Item {
         Label {
             id: badgeLabel
             anchors.centerIn: parent
-            text: root.typeText
+            text: root.badgeText
             color: Theme.color("textSecondary")
             font.pixelSize: Theme.fontSize("xs")
             font.weight: Theme.fontWeight("medium")
@@ -226,7 +242,11 @@ Item {
         onCanceled: root.pressScale = 1.0
         onClicked: function(mouse) {
             if (mouse.button === Qt.RightButton) {
-                root.contextActionRequested(root.resultId, "openContainingFolder")
+                if (String(root.typeText || "").toLowerCase() === "clipboard") {
+                    root.contextActionRequested(root.resultId, "paste")
+                } else {
+                    root.contextActionRequested(root.resultId, "openContainingFolder")
+                }
                 return
             }
             root.hovered(root.resultId)

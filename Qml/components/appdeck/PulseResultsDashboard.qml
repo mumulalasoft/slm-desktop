@@ -6,6 +6,7 @@ Item {
 
     property var appsResults: []
     property var filesResults: []
+    property var clipboardResults: []
     property var actionsResults: []
     property var recentResults: []
     property var suggestedResults: []
@@ -96,6 +97,22 @@ Item {
             }
         }
 
+        PulseResultsSection {
+            Layout.fillWidth: true
+            titleText: "Clipboard"
+            items: root.clipboardResults
+            sectionType: "clipboard"
+            active: root.active
+            revealDelayMs: 72
+            selectedResultId: root.selectedResultId
+            visible: root.twoColumnMode && items && items.length > 0
+            onItemHovered: function(resultId) { root.itemHovered(resultId) }
+            onItemActivated: function(resultId) { root.itemActivated(resultId) }
+            onItemContextAction: function(resultId, action) {
+                root.itemContextAction(resultId, action)
+            }
+        }
+
         ColumnLayout {
             Layout.fillWidth: true
             spacing: 10
@@ -123,6 +140,21 @@ Item {
                 sectionType: "file"
                 active: root.active
                 revealDelayMs: 40
+                selectedResultId: root.selectedResultId
+                onItemHovered: function(resultId) { root.itemHovered(resultId) }
+                onItemActivated: function(resultId) { root.itemActivated(resultId) }
+                onItemContextAction: function(resultId, action) {
+                    root.itemContextAction(resultId, action)
+                }
+            }
+
+            PulseResultsSection {
+                Layout.fillWidth: true
+                titleText: "Clipboard"
+                items: root.clipboardResults
+                sectionType: "clipboard"
+                active: root.active
+                revealDelayMs: 72
                 selectedResultId: root.selectedResultId
                 onItemHovered: function(resultId) { root.itemHovered(resultId) }
                 onItemActivated: function(resultId) { root.itemActivated(resultId) }

@@ -16,6 +16,19 @@ Item {
     signal appActivated(string appName)
     signal apphubRequested()
 
+    function syncHideBorder() {
+        if (!dockSurface || !dockSurface.hasOwnProperty) {
+            return
+        }
+        if (dockSurface.hasOwnProperty("hideBackgroundBorder")) {
+            dockSurface.hideBackgroundBorder = root.hideBorder
+        } else if (dockSurface.hasOwnProperty("hideBorder")) {
+            dockSurface.hideBorder = root.hideBorder
+        }
+    }
+
+    onHideBorderChanged: syncHideBorder()
+
     AppDeckComp.AppDeck {
         id: dockSurface
         anchors.horizontalCenter: parent.horizontalCenter
@@ -23,8 +36,8 @@ Item {
         hostName: root.hostName
         acceptsInput: root.acceptsInput
         rendererActive: root.rendererActive
-        hideBackgroundBorder: root.hideBorder
         appsModel: root.appsModel
+        Component.onCompleted: root.syncHideBorder()
         onAppActivated: function(appName) { root.appActivated(appName) }
         onApphubRequested: {
             root.apphubRequested()

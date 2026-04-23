@@ -53,7 +53,8 @@ Rectangle {
     readonly property real glowWidth: layoutGlowWidth >= 0 ? layoutGlowWidth : 170
     readonly property real baseWidth: Math.max(320, (appsRepeater.count + 1) * iconSlotWidth + 8)
     readonly property real contentVPadding: 3
-    readonly property real baseHeight: 68 + (contentVPadding * 2)
+    readonly property real backgroundHeightBoost: Math.max(0, iconSlotWidth - 58)
+    readonly property real baseHeight: 68 + (contentVPadding * 2) + backgroundHeightBoost
     readonly property real rowX: dockRow.x
     // Export precise interactive bounds so host surface can map input region
     // to the visible dock body instead of full component bounds.

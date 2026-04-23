@@ -27,12 +27,12 @@ Item {
         id: sectionPlate
         width: root.width
         implicitHeight: contentColumn.implicitHeight + 12
-        radius: 12
+        radius: Theme.radiusCard
         gradient: Gradient {
             GradientStop { position: 0.0; color: Qt.rgba(1, 1, 1, 0.11) }
             GradientStop { position: 1.0; color: Qt.rgba(1, 1, 1, 0.06) }
         }
-        border.width: 0
+        border.width: Theme.borderWidthNone
 
         Column {
             id: contentColumn
@@ -68,7 +68,9 @@ Item {
             }
 
             Repeater {
-                model: (root.sectionType === "app" || root.sectionType === "suggestion") ? root.items : []
+                model: (root.sectionType === "app"
+                        || root.sectionType === "suggestion"
+                        || root.sectionType === "clipboard") ? root.items : []
                 PulseResultItem {
                     width: contentColumn.width
                     resultData: modelData
