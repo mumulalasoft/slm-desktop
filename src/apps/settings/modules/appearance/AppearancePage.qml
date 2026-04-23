@@ -240,6 +240,11 @@ Item {
         root.syncPulseQuerySettings()
         root.syncPulseRankingSettings()
         root.syncPulseTrackerSettings()
+        requestThemeAndIconComboSync()
+        if (comboDebugEnabled) {
+            console.warn("[appearance-combo-debug] loaded rev=" + comboDebugRevision)
+            logThemeAndIconComboState("component-completed", true)
+        }
     }
 
     Connections {
@@ -370,13 +375,6 @@ Item {
         })
     }
 
-    Component.onCompleted: {
-        requestThemeAndIconComboSync()
-        if (comboDebugEnabled) {
-            console.warn("[appearance-combo-debug] loaded rev=" + comboDebugRevision)
-            logThemeAndIconComboState("component-completed", true)
-        }
-    }
     onCurrentIndexChanged: {
         if (currentIndex === 2 || currentIndex === 3) {
             requestThemeAndIconComboSync()

@@ -2,6 +2,7 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import Slm_Desktop
+import SlmStyle as DSStyle
 
 // ContentPanel — module detail page.
 // Loads the active module's QML via a Loader. The title bar / back button
@@ -9,7 +10,7 @@ import Slm_Desktop
 
 Rectangle {
     id: root
-    color: Theme.color("windowBg")
+    color: "transparent"
 
     function applySettingFocus(settingId) {
         const sid = String(settingId || "")
@@ -47,7 +48,7 @@ Rectangle {
     }
 
     // Loading indicator while async Loader is working
-    BusyIndicator {
+    DSStyle.BusyIndicator {
         anchors.centerIn: parent
         running: modulePageLoader.status === Loader.Loading
         visible: running

@@ -2,16 +2,19 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import Slm_Desktop
+import SlmStyle as DSStyle
 
 // Sidebar — Settings home page.
 // Shows all modules as an icon grid grouped by category.
 
 Rectangle {
     id: root
-    color: Theme.color("windowBg")
+    color: "transparent"
 
     property var    moduleModel: []
     property string searchQuery: ""
+    readonly property int horizontalMargin: Math.max(28, Math.min(64, width * 0.06))
+    readonly property int tileMinWidth: 240
 
     signal moduleSelected(string id)
 
@@ -75,18 +78,28 @@ Rectangle {
 
         ColumnLayout {
             width: parent.width
-            spacing: 0
+            spacing: Theme.metric("spacingLg")
 
-            // Empty search state
             Item {
                 Layout.fillWidth: true
+                implicitHeight: Theme.metric("spacingLg")
+            }
+
+            // Empty search state
+            DSStyle.Card {
+                Layout.fillWidth: true
+                Layout.leftMargin: root.horizontalMargin
+                Layout.rightMargin: root.horizontalMargin
                 implicitHeight: 80
                 visible: root.searchQuery.trim().length > 0 && root.groupedModules.length === 0
+                cardColor: Theme.color("surface")
+                cardBorderColor: Theme.color("panelBorder")
+                elevation: "low"
 
                 Text {
                     anchors.centerIn: parent
                     text: qsTr("No results for \"%1\"").arg(root.searchQuery)
-                    font.pixelSize: Theme.fontSize("sm")
+                    font.pixelSize: Theme.fontSize("body")
                     color: Theme.color("textSecondary")
                 }
             }
@@ -98,20 +111,22 @@ Rectangle {
 
                 delegate: ColumnLayout {
                     Layout.fillWidth: true
-                    spacing: 0
+                    Layout.leftMargin: root.horizontalMargin
+                    Layout.rightMargin: root.horizontalMargin
+                    spacing: Theme.metric("spacingSm")
 
                     // ── Group header ────────────────────────────────────────
                     Item {
                         Layout.fillWidth: true
-                        height: 38
+                        height: 30
 
                         Text {
                             anchors.left: parent.left
-                            anchors.leftMargin: 28
+                            anchors.leftMargin: Theme.metric("spacingXs")
                             anchors.bottom: parent.bottom
-                            anchors.bottomMargin: 6
+                            anchors.bottomMargin: Theme.metric("spacingXxs")
                             text: modelData.name
-                            font.pixelSize: Theme.fontSize("xs")
+                            font.pixelSize: Theme.fontSize("small")
                             font.weight: Theme.fontWeight("semibold")
                             color: Theme.color("textSecondary")
                             textFormat: Text.PlainText
@@ -121,32 +136,31 @@ Rectangle {
                     // ── Module tiles ────────────────────────────────────────
                     Item {
                         Layout.fillWidth: true
-                        implicitHeight: tilesFlow.implicitHeight + 16
+                        implicitHeight: tilesFlow.implicitHeight
 
                         Flow {
                             id: tilesFlow
                             anchors.left: parent.left
                             anchors.right: parent.right
                             anchors.top: parent.top
-                            anchors.leftMargin: 20
-                            anchors.rightMargin: 20
-                            spacing: 10
+                            spacing: Theme.metric("spacingMd")
 
                             Repeater {
                                 model: modelData.items
 
                                 delegate: ItemDelegate {
-                                    width: Math.floor((tilesFlow.width - 20) / 3)
-                                    height: 64
+                                    readonly property int columnCount: Math.max(2, Math.floor((tilesFlow.width + tilesFlow.spacing) / (root.tileMinWidth + tilesFlow.spacing)))
+                                    width: Math.floor((tilesFlow.width - (tilesFlow.spacing * (columnCount - 1))) / columnCount)
+                                    height: 86
                                     padding: 0
                                     readonly property int moduleBadge: root.moduleBadgeCount(modelData.id)
 
                                     background: Rectangle {
-                                        radius: Theme.radiusCard || 8
-                                        color: parent.hovered
-                                            ? Theme.color("controlBgHover")
-                                            : Theme.color("surface")
-                                        border.color: Theme.color("panelBorder")
+                                        radius: Theme.radiusCard
+                                        color: parent.down
+                                            ? Theme.color("controlBgPressed")
+                                            : (parent.hovered ? Theme.color("controlBgHover") : Theme.color("surface"))
+                                        border.color: parent.hovered ? Theme.color("panelBorderStrong") : Theme.color("panelBorder")
                                         border.width: Theme.borderWidthThin
                                         Behavior on color {
                                             enabled: root.microAnimationAllowed()
@@ -156,30 +170,50 @@ Rectangle {
 
                                     contentItem: RowLayout {
                                         anchors.fill: parent
-                                        anchors.leftMargin: 14
-                                        anchors.rightMargin: 10
-                                        spacing: 12
+                                        anchors.leftMargin: Theme.metric("spacingLg")
+                                        anchors.rightMargin: Theme.metric("spacingLg")
+                                        spacing: Theme.metric("spacingLg")
 
                                         // Module icon
-                                        Image {
-                                            source: "image://icon/" + (modelData.icon || "preferences-system")
-                                            Layout.preferredWidth: 36
-                                            Layout.preferredHeight: 36
-                                            smooth: true
+                                        Rectangle {
+                                            Layout.preferredWidth: 46
+                                            Layout.preferredHeight: 46
+                                            radius: Theme.radiusControlLarge
+                                            color: Theme.color("accentSubtle")
                                             Layout.alignment: Qt.AlignVCenter
+
+                                            Image {
+                                                anchors.centerIn: parent
+                                                source: "image://icon/" + (modelData.icon || "preferences-system")
+                                                width: 30
+                                                height: 30
+                                                smooth: true
+                                            }
                                         }
 
                                         // Module name
-                                        Text {
+                                        ColumnLayout {
                                             Layout.fillWidth: true
-                                            text: modelData.name || ""
-                                            font.pixelSize: Theme.fontSize("sm")
-                                            font.weight: Theme.fontWeight("medium")
-                                            color: Theme.color("textPrimary")
-                                            wrapMode: Text.WordWrap
-                                            elide: Text.ElideRight
-                                            maximumLineCount: 2
                                             Layout.alignment: Qt.AlignVCenter
+                                            spacing: Theme.metric("spacingXxs")
+
+                                            Text {
+                                                Layout.fillWidth: true
+                                                text: modelData.name || ""
+                                                font.pixelSize: Theme.fontSize("body")
+                                                font.weight: Theme.fontWeight("semibold")
+                                                color: Theme.color("textPrimary")
+                                                elide: Text.ElideRight
+                                            }
+
+                                            Text {
+                                                Layout.fillWidth: true
+                                                text: (modelData.keywords || []).slice(0, 3).join("  ·  ")
+                                                visible: text.length > 0
+                                                font.pixelSize: Theme.fontSize("xs")
+                                                color: Theme.color("textSecondary")
+                                                elide: Text.ElideRight
+                                            }
                                         }
 
                                         Rectangle {
@@ -206,7 +240,7 @@ Rectangle {
                                     onClicked: root.moduleSelected(modelData.id || "")
 
                                     // Subtle press scale
-                                    scale: pressed ? 0.97 : 1.0
+                                    scale: pressed ? 0.98 : 1.0
                                     Behavior on scale {
                                         enabled: root.microAnimationAllowed()
                                         NumberAnimation { duration: Theme.durationMicro; easing.type: Theme.easingDefault }
@@ -219,10 +253,8 @@ Rectangle {
                     // Section divider (not after last group)
                     Rectangle {
                         Layout.fillWidth: true
-                        Layout.leftMargin: 20
-                        Layout.rightMargin: 20
                         height: 1
-                        color: Theme.color("panelBorder")
+                        color: Theme.darkMode ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(0, 0, 0, 0.08)
                         visible: index < root.groupedModules.length - 1
                     }
                 }

@@ -6,10 +6,10 @@ import SlmStyle as DSStyle
 Rectangle {
     id: root
     Layout.fillWidth: true
-    radius: 8
-    color: "#F4F5F7"
-    border.width: 1
-    border.color: "#E5E7EB"
+    radius: Theme.radiusControl
+    color: Theme.color("warningSubtle")
+    border.width: Theme.borderWidthThin
+    border.color: Theme.color("warning")
     visible: requiresAuthorization && !authorized
 
     property bool requiresAuthorization: false
@@ -25,18 +25,18 @@ Rectangle {
     signal authorizationDecision(string decision)
     signal resetRequested()
 
-    implicitHeight: content.implicitHeight + 14
+    implicitHeight: content.implicitHeight + Theme.metric("spacingLg")
 
     RowLayout {
         id: content
         anchors.fill: parent
-        anchors.margins: 7
-        spacing: 8
+        anchors.margins: Theme.metric("spacingSm")
+        spacing: Theme.metric("spacingSm")
 
         DSStyle.Label {
             text: "\uD83D\uDD12"
-            font.pixelSize: 13
-            color: "#6B7280"
+            font.pixelSize: Theme.fontSize("menu")
+            color: Theme.color("textSecondary")
             Layout.alignment: Qt.AlignTop
         }
 
@@ -45,8 +45,8 @@ Rectangle {
             text: root.reason.length > 0
                       ? qsTr("Permission required: %1").arg(root.reason)
                       : root.defaultMessage
-            color: "#6B7280"
-            font.pixelSize: 12
+            color: Theme.color("textSecondary")
+            font.pixelSize: Theme.fontSize("small")
             wrapMode: Text.WordWrap
         }
 

@@ -24,7 +24,7 @@ Item {
         id: card
         anchors.left: parent.left
         anchors.right: parent.right
-        radius: 8
+        radius: Theme.radiusControl
         color: Theme.color("warningBg")
         border.width: Theme.borderWidthThin
         border.color: Theme.color("warning")
