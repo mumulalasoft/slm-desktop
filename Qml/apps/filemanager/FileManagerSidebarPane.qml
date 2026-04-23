@@ -41,10 +41,10 @@ Rectangle {
         return ({ "ok": true, "path": rowPath })
     }
 
-    color: Theme.color("fileManagerSidebarBg")
+    color: Theme.darkMode ? Qt.rgba(1, 1, 1, 0.045) : Qt.rgba(1, 1, 1, 0.46)
     radius: Theme.radiusWindow
     border.width: Theme.borderWidthThin
-    border.color: Theme.color("fileManagerSidebarBorder")
+    border.color: Theme.darkMode ? Qt.rgba(1, 1, 1, 0.10) : Qt.rgba(0, 0, 0, 0.10)
     antialiasing: true
     clip: true
 
@@ -81,10 +81,10 @@ Rectangle {
         anchors.right: parent.right
         anchors.top: sidebarTopChrome.bottom
         anchors.bottom: sidebarBottomBar.top
-        anchors.leftMargin: 8
-        anchors.rightMargin: 8
-        anchors.topMargin: 6
-        anchors.bottomMargin: 8
+        anchors.leftMargin: Theme.metric("spacingSm")
+        anchors.rightMargin: Theme.metric("spacingSm")
+        anchors.topMargin: Theme.metric("spacingXs")
+        anchors.bottomMargin: Theme.metric("spacingSm")
         clip: true
         model: sidebarModel
         spacing: 1
@@ -127,8 +127,14 @@ Rectangle {
                 radius: Theme.radiusMdPlus
                 color: (isInteractiveRow && hostRoot.dndActive
                         && hostRoot.dndSidebarHoverPath
-                        === path) ? Theme.color(
-                                        "fileManagerTabActive") : ((isInteractiveRow && hostRoot.selectedSidebarPath === path) ? Theme.color("selectedItem") : ((isInteractiveRow && sidebarMouse.containsMouse) ? Theme.color("hoverItem") : "transparent"))
+                        === path) ? Theme.color("accentSubtle")
+                                  : ((isInteractiveRow && hostRoot.selectedSidebarPath === path)
+                                     ? Theme.color("accentSubtle")
+                                     : ((isInteractiveRow && sidebarMouse.containsMouse)
+                                        ? Theme.color("hoverItem") : "transparent"))
+                border.width: (isInteractiveRow && hostRoot.selectedSidebarPath === path)
+                              ? Theme.borderWidthThin : Theme.borderWidthNone
+                border.color: Theme.color("panelBorderStrong")
 
                 Row {
                     anchors.verticalCenter: parent.verticalCenter
@@ -152,8 +158,10 @@ Rectangle {
                         width: sidebarList.width - (rowType === "storage" ? 66 : 34)
                                - (Math.max(0, Number(depth || 0)) * 16)
                         text: label
-                        color: isStorageGroupRow ? Theme.color("textSecondary")
-                                                 : Theme.color("textPrimary")
+                        color: (isInteractiveRow && hostRoot.selectedSidebarPath === path)
+                               ? Theme.color("textPrimary")
+                               : (isStorageGroupRow ? Theme.color("textSecondary")
+                                                    : Theme.color("textPrimary"))
                         font.family: Theme.fontFamilyUi
                         font.pixelSize: isStorageGroupRow ? Theme.fontSize("caption")
                                                           : Theme.fontSize("menu")
@@ -276,7 +284,7 @@ Rectangle {
 
         Rectangle {
             anchors.fill: parent
-            color: Theme.color("fileManagerSidebarBg")
+            color: "transparent"
             radius: Theme.radiusWindow
             antialiasing: true
         }
@@ -286,7 +294,7 @@ Rectangle {
             anchors.right: parent.right
             anchors.top: parent.top
             height: 1
-            color: Theme.color("fileManagerSidebarBorder")
+            color: Theme.darkMode ? Qt.rgba(1, 1, 1, 0.10) : Qt.rgba(0, 0, 0, 0.10)
         }
 
         Rectangle {

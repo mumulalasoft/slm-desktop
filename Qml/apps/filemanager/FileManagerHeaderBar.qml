@@ -44,17 +44,17 @@ Rectangle {
 
     RowLayout {
         anchors.fill: parent
-        anchors.leftMargin: 8
-        anchors.rightMargin: 12
-        spacing: 8
+        anchors.leftMargin: Theme.metric("spacingSm")
+        anchors.rightMargin: Theme.metric("spacingMd")
+        spacing: Theme.metric("spacingSm")
 
         Rectangle {
             Layout.preferredWidth: 76
             Layout.preferredHeight: Theme.fileManagerControlHeight
             radius: Theme.radiusWindowAlt
-            color: Theme.color("fileManagerControlBg")
-            border.width: Theme.borderWidthNone
-            border.color: Theme.color("fileManagerControlBorder")
+            color: Theme.darkMode ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(1, 1, 1, 0.52)
+            border.width: Theme.borderWidthThin
+            border.color: Theme.color("panelBorder")
 
             RowLayout {
                 anchors.fill: parent
@@ -66,7 +66,8 @@ Rectangle {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     radius: Theme.radiusCard
-                    color: prevMouse.containsMouse ? Theme.color("fileManagerTabActive") : "transparent"
+                    color: prevMouse.containsMouse ? Theme.color("controlBgHover") : "transparent"
+                    opacity: prevMouse.enabled ? 1.0 : Theme.opacityFaint
                     Image {
                         anchors.centerIn: parent
                         width: 12
@@ -89,7 +90,8 @@ Rectangle {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     radius: Theme.radiusCard
-                    color: nextMouse.containsMouse ? Theme.color("fileManagerTabActive") : "transparent"
+                    color: nextMouse.containsMouse ? Theme.color("controlBgHover") : "transparent"
+                    opacity: nextMouse.enabled ? 1.0 : Theme.opacityFaint
                     Image {
                         anchors.centerIn: parent
                         width: 12
@@ -145,15 +147,15 @@ Rectangle {
 
         RowLayout {
             visible: !hostRoot.trashView
-            spacing: 8
+            spacing: Theme.metric("spacingSm")
 
             Rectangle {
                 width: 138
                 height: Theme.fileManagerControlHeight
                 radius: Theme.radiusWindowAlt
-                color: Theme.color("fileManagerControlBg")
-                border.width: Theme.borderWidthNone
-                border.color: Theme.color("fileManagerControlBorder")
+                color: Theme.darkMode ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(1, 1, 1, 0.52)
+                border.width: Theme.borderWidthThin
+                border.color: Theme.color("panelBorder")
                 Row {
                     anchors.fill: parent
                     anchors.margins: 3
@@ -177,7 +179,7 @@ Rectangle {
                             height: parent.height
                             radius: Theme.radiusLg
                             color: hostRoot.viewMode === String(
-                                       modelData.mode) ? Theme.color("fileManagerTabActive") : "transparent"
+                                       modelData.mode) ? Theme.color("accentSubtle") : "transparent"
                             border.width: Theme.borderWidthNone
                             border.color: Theme.color("fileManagerControlBorder")
 
@@ -225,11 +227,18 @@ Rectangle {
                     width: hostRoot.toolbarSearchExpanded ? 220 : 40
                     height: Theme.fileManagerControlHeight
                     radius: Theme.radiusWindowAlt
-                    color: Theme.color("fileManagerControlBg")
-                    border.width: Theme.borderWidthNone
-                    border.color: Theme.color("fileManagerControlBorder")
+                    color: Theme.darkMode ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(1, 1, 1, 0.52)
+                    border.width: Theme.borderWidthThin
+                    border.color: toolbarSearchField.activeFocus ? Theme.color("focusRing") : Theme.color("panelBorder")
                     clip: true
                     z: 8
+                    Behavior on border.color {
+                        enabled: root.microAnimationAllowed()
+                        ColorAnimation {
+                            duration: Theme.durationFast
+                            easing.type: Theme.easingDefault
+                        }
+                    }
                     Behavior on width {
                         enabled: root.microAnimationAllowed()
                         NumberAnimation {

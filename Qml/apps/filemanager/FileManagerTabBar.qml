@@ -16,18 +16,18 @@ Rectangle {
 
     RowLayout {
         anchors.fill: parent
-        anchors.leftMargin: 6
-        anchors.rightMargin: 6
-        spacing: 4
+        anchors.leftMargin: Theme.metric("spacingXs")
+        anchors.rightMargin: Theme.metric("spacingXs")
+        spacing: Theme.metric("spacingXxs")
 
         Rectangle {
             id: addTabPill
             Layout.preferredWidth: 24
             Layout.preferredHeight: Theme.controlHeightCompact
             radius: Theme.radiusMd
-            color: addTabMouse.containsMouse ? Theme.color("fileManagerTabCloseHover") : Theme.color("fileManagerControlBg")
-            border.width: Theme.borderWidthNone
-            border.color: Theme.color("fileManagerTabsBorder")
+            color: addTabMouse.containsMouse ? Theme.color("controlBgHover") : "transparent"
+            border.width: addTabMouse.containsMouse ? Theme.borderWidthThin : Theme.borderWidthNone
+            border.color: Theme.color("panelBorder")
 
             Text {
                 anchors.centerIn: parent
@@ -73,9 +73,11 @@ Rectangle {
                     width: Math.max(96, Math.floor(availableTabsWidth / tabCountValue))
                     height: Theme.controlHeightCompact
                     radius: Theme.radiusControl
-                    color: hostRoot.activeTabIndex === index ? Theme.color("fileManagerTabActive") : "transparent"
-                    border.width: Theme.borderWidthNone
-                    border.color: Theme.color("fileManagerTabsBorder")
+                    color: hostRoot.activeTabIndex === index
+                           ? (Theme.darkMode ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(1, 1, 1, 0.58))
+                           : "transparent"
+                    border.width: hostRoot.activeTabIndex === index ? Theme.borderWidthThin : Theme.borderWidthNone
+                    border.color: Theme.color("panelBorder")
 
                     Text {
                         anchors.centerIn: parent

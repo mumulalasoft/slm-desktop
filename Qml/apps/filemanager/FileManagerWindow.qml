@@ -255,6 +255,12 @@ Rectangle {
     readonly property real sidebarActionIconPx: Math.max(
                                                     13, Math.round(
                                                         sidebarMenuFontPx * 0.95))
+    readonly property color windowChromeTopColor: Theme.darkMode
+                                                   ? Qt.rgba(1, 1, 1, 0.055)
+                                                   : Qt.rgba(1, 1, 1, 0.72)
+    readonly property color windowChromeBottomColor: Theme.darkMode
+                                                      ? Qt.rgba(0, 0, 0, 0.12)
+                                                      : Theme.color("fileManagerWindowBg")
 
     color: "transparent"
     radius: Theme.radiusWindow
@@ -266,11 +272,17 @@ Rectangle {
     Rectangle {
         anchors.fill: parent
         radius: root.radius
-        color: Theme.color("fileManagerWindowBg")
+        color: Theme.color("surface")
         border.width: Theme.borderWidthThin
         border.color: Theme.color("fileManagerWindowBorder")
         antialiasing: true
         z: -1
+
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: root.windowChromeTopColor }
+            GradientStop { position: 0.42; color: Theme.color("fileManagerWindowBg") }
+            GradientStop { position: 1.0; color: root.windowChromeBottomColor }
+        }
     }
 
     function openPath(pathValue) { FileManagerPathOps.openPath(root, fileManagerApiRef, pathValue) }
