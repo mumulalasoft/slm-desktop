@@ -14,6 +14,7 @@ Rectangle {
     property string hostName: "appdeck"
     property bool acceptsInput: true
     property bool rendererActive: true
+    property bool hideBackgroundBorder: false
     property real layoutIconSlotWidth: -1
     property real layoutItemSpacing: -1
     property real layoutEdgePadding: -1
@@ -699,8 +700,12 @@ Rectangle {
         radius: Theme.radiusWindow
         visible: !root.dockTransparent
         color: root.dockTransparent ? "transparent" : Theme.color("windowCard")
-        border.color: root.dockTransparent ? "transparent" : Theme.color("panelBorder")
-        border.width: root.dockTransparent ? Theme.borderWidthNone : Theme.borderWidthThin
+        border.color: (root.dockTransparent || root.hideBackgroundBorder)
+                      ? "transparent"
+                      : Theme.color("panelBorder")
+        border.width: (root.dockTransparent || root.hideBackgroundBorder)
+                      ? Theme.borderWidthNone
+                      : Theme.borderWidthThin
 
         Behavior on color {
             enabled: root.microAnimationAllowed()

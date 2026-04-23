@@ -1,5 +1,6 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
+import QtQuick.Layouts 1.15
 import Slm_Desktop
 import "." as AppDeckComp
 
@@ -9,7 +10,12 @@ Item {
     property var appModel: null
     property string filterText: ""
     property var filteredApps: []
+    property var pagedApps: []
     property int selectedIndex: -1
+    property int currentPage: 0
+    property int pendingPage: -1
+    property int pendingPageDirection: 0
+    property real pageShiftX: 0
     property bool pinFlightVisible: false
     property string pinFlightIcon: ""
     property real pinFlightX: 0
@@ -34,6 +40,13 @@ Item {
                                            Math.floor((grid.width + gridSpacing)
                                                       / (Math.max(1, minCellWidth) + gridSpacing))
                                        )
+    readonly property int rowCount: Math.max(1, Math.floor(grid.height / Math.max(1, grid.cellHeight)))
+    readonly property int pageSize: Math.max(1, columnCount * rowCount)
+    readonly property int pageCount: Math.max(1, Math.ceil(filteredApps.length / Math.max(1, pageSize)))
+    readonly property bool hasPreviousPage: currentPage > 0
+    readonly property bool hasNextPage: currentPage + 1 < pageCount
+    readonly property real pageSwitchOffset: Math.max(28, Math.round(grid.width * 0.16))
+    readonly property real swipeThreshold: Math.max(36, grid.width * 0.14)
 
     signal appActivated(var appData)
     signal collapseRequested()
@@ -108,6 +121,78 @@ Item {
         return rows
     }
 
+    function _pageForGlobalIndex(globalIndex) {
+        if (globalIndex < 0) {
+            return 0
+        }
+        return Math.floor(globalIndex / Math.max(1, pageSize))
+    }
+
+    function _updatePagedApps() {
+        var size = Math.max(1, pageSize)
+        var start = Math.max(0, Math.min(filteredApps.length, currentPage * size))
+        var end = Math.max(start, Math.min(filteredApps.length, start + size))
+        var next = []
+        for (var i = start; i < end; ++i) {
+            next.push(filteredApps[i])
+        }
+        pagedApps = next
+        var localIndex = selectedIndex - start
+        grid.currentIndex = (localIndex >= 0 && localIndex < next.length) ? localIndex : -1
+    }
+
+    function _ensureSelectionOnCurrentPage() {
+        if (pagedApps.length <= 0) {
+            grid.currentIndex = -1
+            return
+        }
+        var start = currentPage * Math.max(1, pageSize)
+        var endExclusive = start + pagedApps.length
+        if (selectedIndex < start || selectedIndex >= endExclusive) {
+            selectedIndex = start
+        }
+        grid.currentIndex = selectedIndex - start
+    }
+
+    function switchToPage(pageIndex, animated, directionHint) {
+        if (filteredApps.length <= 0) {
+            return false
+        }
+        var clamped = Math.max(0, Math.min(pageCount - 1, pageIndex))
+        if (clamped === currentPage) {
+            pageShiftX = 0
+            _updatePagedApps()
+            return false
+        }
+        if (animated) {
+            pendingPage = clamped
+            pendingPageDirection = (directionHint !== 0)
+                                   ? directionHint
+                                   : (clamped > currentPage ? 1 : -1)
+            pageSwitchAnim.restart()
+            return true
+        }
+        currentPage = clamped
+        pageShiftX = 0
+        _updatePagedApps()
+        _ensureSelectionOnCurrentPage()
+        return true
+    }
+
+    function _syncPaginationToSelection() {
+        if (filteredApps.length <= 0) {
+            currentPage = 0
+            pagedApps = []
+            grid.currentIndex = -1
+            return
+        }
+        var targetPage = Math.max(0, Math.min(pageCount - 1, _pageForGlobalIndex(selectedIndex)))
+        currentPage = targetPage
+        pageShiftX = 0
+        _updatePagedApps()
+        _ensureSelectionOnCurrentPage()
+    }
+
     function _rebuildModel() {
         var needle = String(filterText || "").trim().toLowerCase()
         var raw = _loadAppsByPage(needle)
@@ -121,13 +206,16 @@ Item {
         filteredApps = next
         if (filteredApps.length <= 0) {
             selectedIndex = -1
+            currentPage = 0
+            pagedApps = []
+            pageShiftX = 0
             grid.currentIndex = -1
             return
         }
         if (selectedIndex < 0 || selectedIndex >= filteredApps.length) {
             selectedIndex = 0
         }
-        grid.currentIndex = selectedIndex
+        _syncPaginationToSelection()
     }
 
     function _pinFlightSize() {
@@ -171,8 +259,20 @@ Item {
             return
         }
         selectedIndex = indexValue
-        grid.currentIndex = indexValue
+        switchToPage(_pageForGlobalIndex(indexValue), false, 0)
+        grid.currentIndex = indexValue - (currentPage * Math.max(1, pageSize))
         appActivated(filteredApps[indexValue])
+    }
+
+    onPageSizeChanged: _syncPaginationToSelection()
+    onPageCountChanged: {
+        if (filteredApps.length <= 0) {
+            return
+        }
+        if (currentPage >= pageCount) {
+            currentPage = Math.max(0, pageCount - 1)
+        }
+        _updatePagedApps()
     }
 
     onFilterTextChanged: _rebuildModel()
@@ -196,82 +296,244 @@ Item {
         function onRowsRemoved() { root._rebuildModel() }
     }
 
-    GridView {
-        id: grid
+    SequentialAnimation {
+        id: pageSwitchAnim
+        NumberAnimation {
+            target: root
+            property: "pageShiftX"
+            to: -root.pendingPageDirection * root.pageSwitchOffset
+            duration: Theme.durationFast
+            easing.type: Theme.easingLight
+        }
+        ScriptAction {
+            script: {
+                root.currentPage = root.pendingPage
+                root._updatePagedApps()
+                root._ensureSelectionOnCurrentPage()
+                root.pageShiftX = root.pendingPageDirection * root.pageSwitchOffset
+            }
+        }
+        NumberAnimation {
+            target: root
+            property: "pageShiftX"
+            to: 0
+            duration: Theme.durationNormal
+            easing.type: Theme.easingDecelerate
+        }
+        onStopped: {
+            root.pendingPage = -1
+            root.pendingPageDirection = 0
+            root.pageShiftX = 0
+        }
+    }
+
+    ColumnLayout {
         anchors.fill: parent
-        clip: true
-        model: root.filteredApps
-        cellWidth: Math.max(
+        spacing: 8
+
+        Item {
+            Layout.fillWidth: true
+            implicitHeight: headerLabel.implicitHeight
+
+            Label {
+                id: headerLabel
+                text: "All Application"
+                font.pixelSize: Theme.fontSize("body")
+                font.weight: Theme.fontWeight("bold")
+                color: Theme.color("textPrimary")
+                opacity: Theme.opacityMuted
+                anchors.left: parent.left
+                anchors.verticalCenter: parent.verticalCenter
+                // visible: root.favoritesModel.length > 0
+            }
+
+            MouseArea {
+                anchors.fill: parent
+                acceptedButtons: Qt.LeftButton
+                onClicked: root.collapseRequested()
+            }
+        }
+
+        GridView {
+            id: grid
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            clip: true
+            x: root.pageShiftX
+            model: root.pagedApps
+            cellWidth: Math.max(
                        root.minCellWidth,
                        Math.min(root.maxCellWidth,
                                 Math.floor((width - Math.max(0, root.columnCount - 1) * root.gridSpacing)
                                            / Math.max(1, root.columnCount)))
                    )
-        cellHeight: 130
-        interactive: contentHeight > height
-        currentIndex: root.selectedIndex
-        focus: true
-        keyNavigationWraps: false
-        boundsBehavior: Flickable.StopAtBounds
+            cellHeight: 130
+            interactive: false
+            currentIndex: -1
+            focus: true
+            keyNavigationWraps: false
+            boundsBehavior: Flickable.StopAtBounds
 
-        delegate: Item {
-            width: grid.cellWidth
-            height: grid.cellHeight
+            delegate: Item {
+                width: grid.cellWidth
+                height: grid.cellHeight
+                readonly property int globalIndex: (root.currentPage * Math.max(1, root.pageSize)) + index
 
-            AppDeckComp.AppDeckItemDelegate {
-                id: delegateItem
-                anchors.horizontalCenter: parent.horizontalCenter
-                anchors.verticalCenter: parent.verticalCenter
-                width: Math.max(96, grid.cellWidth - 6)
-                height: grid.cellHeight - 6
-                appData: modelData
-                title: String((modelData && modelData.display) || "")
-                iconSource: String((modelData && modelData.icon) || "")
-                running: !!(modelData && modelData.running)
-                selected: GridView.isCurrentItem
-                onHovered: {
-                    root.selectedIndex = index
-                    grid.currentIndex = index
+                AppDeckComp.AppDeckItemDelegate {
+                    id: delegateItem
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: Math.max(96, grid.cellWidth - 6)
+                    height: grid.cellHeight - 6
+                    appData: modelData
+                    title: String((modelData && modelData.display) || "")
+                    iconSource: String((modelData && modelData.icon) || "")
+                    running: !!(modelData && modelData.running)
+                    selected: root.selectedIndex === parent.globalIndex
+                    onHovered: {
+                        root.selectedIndex = parent.globalIndex
+                        grid.currentIndex = index
+                    }
+                    onActivated: function(appData) { root.activateIndex(parent.globalIndex) }
+                    onContextMenuRequested: function(appData) {
+                        menu.actionAppData = appData || ({})
+                        console.log("[apphub] context menu requested app=", JSON.stringify(menu.actionAppData))
+                        menu.popup()
+                    }
                 }
-                onActivated: function(appData) { root.activateIndex(index) }
-                onContextMenuRequested: function(appData) {
-                    menu.actionAppData = appData || ({})
-                    console.log("[apphub] context menu requested app=", JSON.stringify(menu.actionAppData))
-                    menu.popup()
+
+                Menu {
+                    id: menu
+                    property var actionAppData: ({})
+                    MenuItem {
+                        text: "Pin to Appdeck"
+                        onTriggered: {
+                            var payload = menu.actionAppData || modelData || ({})
+                            console.log("[apphub] pin triggered payload=", JSON.stringify(payload))
+                            root.playPinToDockFlight(delegateItem, payload)
+                            root.addToDockRequested(payload)
+                        }
+                    }
+                    MenuItem {
+                        text: "Add to Desktop"
+                        onTriggered: {
+                            var payload = menu.actionAppData || modelData || ({})
+                            root.addToDesktopRequested(payload)
+                        }
+                    }
                 }
             }
 
-            Menu {
-                id: menu
-                property var actionAppData: ({})
-                MenuItem {
-                    text: "Pin to Appdeck"
-                    onTriggered: {
-                        var payload = menu.actionAppData || modelData || ({})
-                        console.log("[apphub] pin triggered payload=", JSON.stringify(payload))
-                        root.playPinToDockFlight(delegateItem, payload)
-                        root.addToDockRequested(payload)
+            Keys.onPressed: function(event) {
+                if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+                    var globalIndex = (root.currentPage * Math.max(1, root.pageSize)) + grid.currentIndex
+                    root.activateIndex(globalIndex)
+                    event.accepted = true
+                    return
+                }
+                if (event.key === Qt.Key_Left) {
+                    if (grid.currentIndex > 0) {
+                        return
+                    }
+                    if (root.switchToPage(root.currentPage - 1, true, -1)) {
+                        event.accepted = true
+                    }
+                    return
+                }
+                if (event.key === Qt.Key_Right) {
+                    if (grid.currentIndex + 1 < root.pagedApps.length) {
+                        return
+                    }
+                    if (root.switchToPage(root.currentPage + 1, true, 1)) {
+                        event.accepted = true
+                    }
+                    return
+                }
+                if (event.key === Qt.Key_Escape) {
+                    root.collapseRequested()
+                    event.accepted = true
+                }
+            }
+
+            DragHandler {
+                id: pageSwipe
+                target: null
+                enabled: root.pageCount > 1 && !pageSwitchAnim.running
+                xAxis.enabled: true
+                yAxis.enabled: false
+                onTranslationChanged: {
+                    if (!active) {
+                        return
+                    }
+                    var damped = translation.x * 0.35
+                    if ((damped > 0 && !root.hasPreviousPage) || (damped < 0 && !root.hasNextPage)) {
+                        damped = damped * 0.4
+                    }
+                    root.pageShiftX = Math.max(-root.pageSwitchOffset, Math.min(root.pageSwitchOffset, damped))
+                }
+                onActiveChanged: {
+                    if (active) {
+                        return
+                    }
+                    var deltaX = translation.x
+                    root.pageShiftX = 0
+                    if (Math.abs(deltaX) < root.swipeThreshold) {
+                        return
+                    }
+                    if (deltaX < 0) {
+                        root.switchToPage(root.currentPage + 1, true, 1)
+                    } else {
+                        root.switchToPage(root.currentPage - 1, true, -1)
                     }
                 }
-                MenuItem {
-                    text: "Add to Desktop"
-                    onTriggered: {
-                        var payload = menu.actionAppData || modelData || ({})
-                        root.addToDesktopRequested(payload)
-                    }
+            }
+
+            MouseArea {
+                id: emptyGridClickArea
+                anchors.fill: parent
+                acceptedButtons: Qt.LeftButton
+                z: 99
+                preventStealing: true
+                propagateComposedEvents: true
+                onPressed: function(mouse) {
+                    var idx = grid.indexAt(mouse.x + grid.contentX, mouse.y + grid.contentY)
+                    mouse.accepted = (idx < 0)
+                }
+                onClicked: function(mouse) {
+                    root.collapseRequested()
+                    mouse.accepted = true
                 }
             }
         }
 
-        Keys.onPressed: function(event) {
-            if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-                root.activateIndex(grid.currentIndex)
-                event.accepted = true
-                return
-            }
-            if (event.key === Qt.Key_Escape) {
-                root.collapseRequested()
-                event.accepted = true
+        Row {
+            Layout.fillWidth: true
+            Layout.alignment: Qt.AlignHCenter
+            spacing: 6
+            visible: root.pageCount > 1
+
+            Repeater {
+                model: root.pageCount
+                delegate: Rectangle {
+                    width: index === root.currentPage ? 16 : 6
+                    height: 6
+                    radius: height * 0.5
+                    color: index === root.currentPage ? Theme.color("accent") : Theme.color("textSecondary")
+                    opacity: index === root.currentPage ? Theme.opacityHint : Theme.opacityFaint
+
+                    Behavior on width {
+                        NumberAnimation {
+                            duration: Theme.durationFast
+                            easing.type: Theme.easingDecelerate
+                        }
+                    }
+                    Behavior on opacity {
+                        NumberAnimation {
+                            duration: Theme.durationFast
+                            easing.type: Theme.easingLight
+                        }
+                    }
+                }
             }
         }
     }
@@ -300,7 +562,7 @@ Item {
                 source: root.pinFlightIcon
                 fillMode: Image.PreserveAspectFit
                 smooth: true
-                mipmap: true
+                mipmap: false
             }
         }
 

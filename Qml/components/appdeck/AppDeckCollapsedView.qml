@@ -8,6 +8,7 @@ Item {
 
     property bool acceptsInput: true
     property bool rendererActive: true
+    property bool hideBorder: false
     property string hostName: "appdeck"
 
     readonly property alias dockItem: dockSurface
@@ -22,8 +23,11 @@ Item {
         hostName: root.hostName
         acceptsInput: root.acceptsInput
         rendererActive: root.rendererActive
+        hideBackgroundBorder: root.hideBorder
         appsModel: root.appsModel
         onAppActivated: function(appName) { root.appActivated(appName) }
-        onApphubRequested: root.apphubRequested()
+        onApphubRequested: {
+            root.apphubRequested()
+        }
     }
 }

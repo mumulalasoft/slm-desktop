@@ -614,14 +614,17 @@ Window {
             id: collapsedView
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottom: parent.bottom
-            visible: (!root.hiddenMode && root.collapsedMode) || opacity > 0.01
-            opacity: 1.0 - root.surfaceTransition
+            visible: !root.hiddenMode && (root.collapsedMode || root.expandedMode)
+            opacity: root.collapsedMode ? (1.0 - root.surfaceTransition)
+                                       : (root.expandedMode ? 1.0 : 0.0)
             scale: 1.0 - (0.03 * root.surfaceTransition)
             transform: Translate { y: root.surfaceTransition * 10 }
             z: 3
             hostName: "appdeck"
+            hideBorder: root.expandedMode
             acceptsInput: root.dockAcceptsInput && root.collapsedMode && root.surfaceTransition < 0.05
             rendererActive: root.visible && root.dockLayerReady && root.dockHostVisible
+                            && (root.collapsedMode || root.expandedMode)
             appsModel: root.appsModel
             onAppActivated: function(appName) {
                 root.requestOpenApp(String(appName || ""))

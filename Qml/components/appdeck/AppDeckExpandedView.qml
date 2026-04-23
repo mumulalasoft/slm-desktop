@@ -132,35 +132,64 @@ FocusScope {
             anchors.fill: parent
             spacing: 12
 
-            AppDeckComp.AppHubHeader {
-                id: header
+            Item {
+                id: headerHitLayer
                 Layout.fillWidth: true
-                title: "AppHub"
-                searchText: root.filterText
-                totalCount: root.totalAppCount
-                filteredCount: appsGrid.filteredCount
-                onQueryChanged: function(text) {
-                    root.filterText = text
+                Layout.preferredHeight: header.implicitHeight
+
+                MouseArea {
+                    anchors.fill: parent
+                    acceptedButtons: Qt.LeftButton
+                    onClicked: root.dismissRequested()
                 }
-                onCollapseRequested: root.dismissRequested()
-                onFocusGridRequested: appsGrid.forceActiveFocus()
+
+                AppDeckComp.AppHubHeader {
+                    id: header
+                    anchors.fill: parent
+                    title: "AppHub"
+                    searchText: root.filterText
+                    totalCount: root.totalAppCount
+                    filteredCount: appsGrid.filteredCount
+                    onQueryChanged: function(text) {
+                        root.filterText = text
+                    }
+                    onCollapseRequested: root.dismissRequested()
+                    onFocusGridRequested: appsGrid.forceActiveFocus()
+                }
             }
 
-            AppDeckComp.AppHubFavoritesRow {
-                id: favoritesRow
+            Item {
+                id: favoritesHitLayer
                 Layout.fillWidth: true
-                Layout.preferredHeight: implicitHeight
+                Layout.preferredHeight: visible ? favoritesRow.implicitHeight : 0
                 visible: root.filterText.trim().length === 0 && favoriteApps.length > 0
                 opacity: visible ? 1.0 : 0.0
-                favoritesModel: root.favoriteApps
-                onAppActivated: function(appData) {
-                    root.appChosen(appData)
+
+                MouseArea {
+                    anchors.fill: parent
+                    acceptedButtons: Qt.LeftButton
+                    onClicked: root.dismissRequested()
+                }
+
+                AppDeckComp.AppHubFavoritesRow {
+                    id: favoritesRow
+                    anchors.fill: parent
+                    favoritesModel: root.favoriteApps
+                    onAppActivated: function(appData) {
+                        root.appChosen(appData)
+                    }
                 }
             }
 
             Item {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
+
+                MouseArea {
+                    anchors.fill: parent
+                    acceptedButtons: Qt.LeftButton
+                    onClicked: root.dismissRequested()
+                }
 
                 AppDeckComp.AppHubGrid {
                     id: appsGrid
