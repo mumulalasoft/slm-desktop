@@ -101,7 +101,8 @@ SettingsSchema::SettingsSchema()
     reg(strKey(QStringLiteral("shellTheme.accentColor"), QStringLiteral("#4aa3ff")));
     reg(intKey(QStringLiteral("shellTheme.radius"), 12, 0, 32));
     reg(boolKey(QStringLiteral("shellTheme.blur"), true));
-    reg(boolKey(QStringLiteral("shellTheme.topbarTransparent"), false));
+    reg(boolKey(QStringLiteral("shellTheme.crownTransparent"), false));
+    reg(boolKey(QStringLiteral("shellTheme.dockTransparent"),   false));
     reg(enumKey(QStringLiteral("shellTheme.panelStyle"),
                 QStringLiteral("floating"),
                 {QStringLiteral("floating"), QStringLiteral("solid"), QStringLiteral("minimal")}));
@@ -154,21 +155,51 @@ SettingsSchema::SettingsSchema()
     reg(intKey(QStringLiteral("contextTime.sunriseHour"), 6,  0, 23));
     reg(intKey(QStringLiteral("contextTime.sunsetHour"),  18, 0, 23));
 
-    // ── dock ──────────────────────────────────────────────────────────────────
-    reg(enumKey(QStringLiteral("dock.motionPreset"),
+    // ── appdeck ──────────────────────────────────────────────────────────────────
+    reg(enumKey(QStringLiteral("appdeck.motionPreset"),
                 QStringLiteral("subtle"),
                 {QStringLiteral("subtle"), QStringLiteral("macos-lively")}));
-    reg(boolKey(QStringLiteral("dock.autoHideEnabled"),    false));
-    reg(boolKey(QStringLiteral("dock.dropPulseEnabled"),   true));
-    reg(boolKey(QStringLiteral("dock.magnificationEnabled"), true));
-    reg(enumKey(QStringLiteral("dock.iconSize"),
+    reg(enumKey(QStringLiteral("pulse.searchProfile"),
+                QStringLiteral("balanced"),
+                {QStringLiteral("balanced"), QStringLiteral("apps-first"), QStringLiteral("files-first")}));
+    reg(boolKey(QStringLiteral("pulse.notifyClipboardResolveSuccess"), true));
+    reg(strKey(QStringLiteral("pulse.excludeScanDirectories"), QStringLiteral("")));
+    reg(boolKey(QStringLiteral("pulse.includeApps"), true));
+    reg(boolKey(QStringLiteral("pulse.includeRecent"), true));
+    reg(boolKey(QStringLiteral("pulse.includeClipboard"), true));
+    reg(boolKey(QStringLiteral("pulse.includeTracker"), true));
+    reg(boolKey(QStringLiteral("pulse.includeActions"), true));
+    reg(boolKey(QStringLiteral("pulse.includeSettings"), true));
+    reg(boolKey(QStringLiteral("pulse.enablePreview"), true));
+    reg(intKey(QStringLiteral("pulse.resultLimit"), 24, 8, 256));
+    reg(boolKey(QStringLiteral("pulse.autoFocusOnOpen"), true));
+    reg(boolKey(QStringLiteral("pulse.enterOpensFirstResult"), true));
+    reg(boolKey(QStringLiteral("pulse.autoCloseAfterLaunch"), true));
+    reg(intKey(QStringLiteral("pulse.rankBoostApps"), 0, -40, 80));
+    reg(intKey(QStringLiteral("pulse.rankBoostRecent"), 0, -40, 80));
+    reg(intKey(QStringLiteral("pulse.rankBoostClipboard"), 0, -40, 80));
+    reg(intKey(QStringLiteral("pulse.rankBoostTracker"), 0, -40, 80));
+    reg(intKey(QStringLiteral("pulse.rankBoostActions"), 0, -40, 80));
+    reg(intKey(QStringLiteral("pulse.rankBoostSettings"), 0, -40, 80));
+    reg(intKey(QStringLiteral("pulse.trackerInitialDelaySec"), 120, 0, 3600));
+    reg(intKey(QStringLiteral("pulse.trackerCpuLimit"), 15, 1, 100));
+    reg(boolKey(QStringLiteral("pulse.trackerIdleOnly"), true));
+    reg(boolKey(QStringLiteral("pulse.trackerChargingOnly"), true));
+    reg(enumKey(QStringLiteral("appdeck.hideMode"),
+                QStringLiteral("no_hide"),
+                {QStringLiteral("smart_hide"), QStringLiteral("duration_hide"), QStringLiteral("no_hide")}));
+    reg(intKey(QStringLiteral("appdeck.hideDurationMs"), 450, 100, 5000));
+    reg(boolKey(QStringLiteral("appdeck.autoHideEnabled"),    false));
+    reg(boolKey(QStringLiteral("appdeck.dropPulseEnabled"),   true));
+    reg(boolKey(QStringLiteral("appdeck.magnificationEnabled"), true));
+    reg(enumKey(QStringLiteral("appdeck.iconSize"),
                 QStringLiteral("medium"),
                 {QStringLiteral("small"), QStringLiteral("medium"), QStringLiteral("large")}));
-    reg(intKey(QStringLiteral("dock.dragThresholdMouse"),                  6,   2,   24));
-    reg(intKey(QStringLiteral("dock.dragThresholdTouchpad"),               3,   2,   24));
-    reg(intKey(QStringLiteral("dock.desktopExportMinUpwardPx"),           28,   8,   96));
-    reg(intKey(QStringLiteral("dock.desktopExportVerticalRatioPercent"), 135, 100,  260));
-    reg(intKey(QStringLiteral("dock.desktopExportMaxHorizontalDriftPx"),  42,   8,  140));
+    reg(intKey(QStringLiteral("appdeck.dragThresholdMouse"),                  6,   2,   24));
+    reg(intKey(QStringLiteral("appdeck.dragThresholdTouchpad"),               3,   2,   24));
+    reg(intKey(QStringLiteral("appdeck.desktopExportMinUpwardPx"),           28,   8,   96));
+    reg(intKey(QStringLiteral("appdeck.desktopExportVerticalRatioPercent"), 135, 100,  260));
+    reg(intKey(QStringLiteral("appdeck.desktopExportMaxHorizontalDriftPx"),  42,   8,  140));
 
     // ── print ─────────────────────────────────────────────────────────────────
     reg(strKey(QStringLiteral("print.pdfFallbackPrinterId"), QStringLiteral("")));
@@ -226,18 +257,18 @@ SettingsSchema::SettingsSchema()
                 {QStringLiteral("dark"), QStringLiteral("light"), QStringLiteral("system")}));
     reg(strKey(QStringLiteral("appearance.accent_color"), QStringLiteral("#4aa3ff")));
 
-    // ── dock (new canonical keys) ─────────────────────────────────────────────
-    reg(intKey(QStringLiteral("dock.icon_size"), 48, 16, 256));
-    reg(boolKey(QStringLiteral("dock.auto_hide"), false));
-    reg(enumKey(QStringLiteral("dock.position"),
+    // ── appdeck (new canonical keys) ─────────────────────────────────────────────
+    reg(intKey(QStringLiteral("appdeck.icon_size"), 48, 16, 256));
+    reg(boolKey(QStringLiteral("appdeck.auto_hide"), false));
+    reg(enumKey(QStringLiteral("appdeck.position"),
                 QStringLiteral("bottom"),
                 {QStringLiteral("left"), QStringLiteral("right"), QStringLiteral("bottom")}));
 
     // ── desktop ────────────────────────────────────────────────────────────────
     reg(strKey(QStringLiteral("desktop.wallpaper_uri"), QStringLiteral("")));
 
-    // ── topbar ────────────────────────────────────────────────────────────────
-    reg(boolKey(QStringLiteral("topbar.clock_24h"), false));
+    // ── crown ────────────────────────────────────────────────────────────────
+    reg(boolKey(QStringLiteral("crown.clock_24h"), false));
 
     // ── notifications ─────────────────────────────────────────────────────────
     reg(boolKey(QStringLiteral("notifications.do_not_disturb"), false));

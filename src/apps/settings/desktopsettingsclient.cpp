@@ -6,6 +6,8 @@
 #include <QDBusVariant>
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
+#include <QFileSystemWatcher>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QSaveFile>
@@ -151,6 +153,46 @@ DesktopSettingsClient::DesktopSettingsClient(QObject *parent)
                 this,
                 SLOT(onNameOwnerChanged(QString,QString,QString)));
 
+    const QString localStorePath = settingsStorePath();
+    const QString localStoreDir = QFileInfo(localStorePath).absolutePath();
+    m_localStoreWatcher = new QFileSystemWatcher(this);
+    m_localStoreReloadTimer = new QTimer(this);
+    m_localStoreReloadTimer->setSingleShot(true);
+    m_localStoreReloadTimer->setInterval(120);
+
+    const auto ensureLocalStoreWatchPaths = [this, localStorePath, localStoreDir]() {
+        if (!m_localStoreWatcher) {
+            return;
+        }
+        if (!localStoreDir.isEmpty() && !m_localStoreWatcher->directories().contains(localStoreDir)) {
+            m_localStoreWatcher->addPath(localStoreDir);
+        }
+        if (QFile::exists(localStorePath) && !m_localStoreWatcher->files().contains(localStorePath)) {
+            m_localStoreWatcher->addPath(localStorePath);
+        }
+    };
+
+    ensureLocalStoreWatchPaths();
+    connect(m_localStoreWatcher, &QFileSystemWatcher::fileChanged, this, [=](const QString &) {
+        ensureLocalStoreWatchPaths();
+        if (m_localStoreReloadTimer) {
+            m_localStoreReloadTimer->start();
+        }
+    });
+    connect(m_localStoreWatcher, &QFileSystemWatcher::directoryChanged, this, [=](const QString &) {
+        ensureLocalStoreWatchPaths();
+        if (m_localStoreReloadTimer) {
+            m_localStoreReloadTimer->start();
+        }
+    });
+    connect(m_localStoreReloadTimer, &QTimer::timeout, this, [this]() {
+        // Always ingest local snapshot first; if settingsd is up, let service state win.
+        loadFromLocalStore();
+        if (ensureIface()) {
+            loadFromService();
+        }
+    });
+
     loadFromLocalStore();
     QTimer::singleShot(0, this, [this]() {
         if (ensureIface()) loadFromService();
@@ -179,6 +221,7 @@ QString DesktopSettingsClient::contextTimeMode() const { return m_contextTimeMod
 int DesktopSettingsClient::contextTimeSunriseHour() const { return m_contextTimeSunriseHour; }
 int DesktopSettingsClient::contextTimeSunsetHour() const { return m_contextTimeSunsetHour; }
 bool DesktopSettingsClient::highContrast() const { return m_highContrast; }
+bool DesktopSettingsClient::dockTransparent() const { return m_dockTransparent; }
 QString DesktopSettingsClient::dockMotionPreset() const { return m_dockMotionPreset; }
 bool DesktopSettingsClient::dockAutoHideEnabled() const { return m_dockAutoHideEnabled; }
 bool DesktopSettingsClient::dockDropPulseEnabled() const { return m_dockDropPulseEnabled; }
@@ -455,7 +498,7 @@ bool DesktopSettingsClient::setDockMotionPreset(const QString &preset)
     const QString normalized = (preset.trimmed().toLower() == QLatin1String("macos-lively"))
             ? QStringLiteral("macos-lively")
             : QStringLiteral("subtle");
-    if (setSetting(QStringLiteral("dock.motionPreset"), normalized)) {
+    if (setSetting(QStringLiteral("appdeck.motionPreset"), normalized)) {
         if (m_dockMotionPreset != normalized) {
             m_dockMotionPreset = normalized;
             emit dockMotionPresetChanged();
@@ -467,7 +510,7 @@ bool DesktopSettingsClient::setDockMotionPreset(const QString &preset)
 
 bool DesktopSettingsClient::setDockAutoHideEnabled(bool enabled)
 {
-    if (setSetting(QStringLiteral("dock.autoHideEnabled"), enabled)) {
+    if (setSetting(QStringLiteral("appdeck.autoHideEnabled"), enabled)) {
         if (m_dockAutoHideEnabled != enabled) {
             m_dockAutoHideEnabled = enabled;
             emit dockAutoHideEnabledChanged();
@@ -477,9 +520,9 @@ bool DesktopSettingsClient::setDockAutoHideEnabled(bool enabled)
     return false;
 }
 
-bool DesktopSettingsClient::setDockDropPulseEnabled(bool enabled)
+bool DesktopSettingsClient::setAppDeckDropPulseEnabled(bool enabled)
 {
-    if (setSetting(QStringLiteral("dock.dropPulseEnabled"), enabled)) {
+    if (setSetting(QStringLiteral("appdeck.dropPulseEnabled"), enabled)) {
         if (m_dockDropPulseEnabled != enabled) {
             m_dockDropPulseEnabled = enabled;
             emit dockDropPulseEnabledChanged();
@@ -492,7 +535,7 @@ bool DesktopSettingsClient::setDockDropPulseEnabled(bool enabled)
 bool DesktopSettingsClient::setDockDragThresholdMouse(int value)
 {
     const int normalized = qBound(2, value, 24);
-    if (setSetting(QStringLiteral("dock.dragThresholdMouse"), normalized)) {
+    if (setSetting(QStringLiteral("appdeck.dragThresholdMouse"), normalized)) {
         if (m_dockDragThresholdMouse != normalized) {
             m_dockDragThresholdMouse = normalized;
             emit dockDragThresholdMouseChanged();
@@ -505,7 +548,7 @@ bool DesktopSettingsClient::setDockDragThresholdMouse(int value)
 bool DesktopSettingsClient::setDockDragThresholdTouchpad(int value)
 {
     const int normalized = qBound(2, value, 24);
-    if (setSetting(QStringLiteral("dock.dragThresholdTouchpad"), normalized)) {
+    if (setSetting(QStringLiteral("appdeck.dragThresholdTouchpad"), normalized)) {
         if (m_dockDragThresholdTouchpad != normalized) {
             m_dockDragThresholdTouchpad = normalized;
             emit dockDragThresholdTouchpadChanged();
@@ -518,7 +561,7 @@ bool DesktopSettingsClient::setDockDragThresholdTouchpad(int value)
 bool DesktopSettingsClient::setDockDesktopExportMinUpwardPx(int value)
 {
     const int normalized = qBound(8, value, 96);
-    if (setSetting(QStringLiteral("dock.desktopExportMinUpwardPx"), normalized)) {
+    if (setSetting(QStringLiteral("appdeck.desktopExportMinUpwardPx"), normalized)) {
         if (m_dockDesktopExportMinUpwardPx != normalized) {
             m_dockDesktopExportMinUpwardPx = normalized;
             emit dockDesktopExportMinUpwardPxChanged();
@@ -531,7 +574,7 @@ bool DesktopSettingsClient::setDockDesktopExportMinUpwardPx(int value)
 bool DesktopSettingsClient::setDockDesktopExportVerticalRatioPercent(int value)
 {
     const int normalized = qBound(100, value, 260);
-    if (setSetting(QStringLiteral("dock.desktopExportVerticalRatioPercent"), normalized)) {
+    if (setSetting(QStringLiteral("appdeck.desktopExportVerticalRatioPercent"), normalized)) {
         if (m_dockDesktopExportVerticalRatioPercent != normalized) {
             m_dockDesktopExportVerticalRatioPercent = normalized;
             emit dockDesktopExportVerticalRatioPercentChanged();
@@ -544,7 +587,7 @@ bool DesktopSettingsClient::setDockDesktopExportVerticalRatioPercent(int value)
 bool DesktopSettingsClient::setDockDesktopExportMaxHorizontalDriftPx(int value)
 {
     const int normalized = qBound(8, value, 140);
-    if (setSetting(QStringLiteral("dock.desktopExportMaxHorizontalDriftPx"), normalized)) {
+    if (setSetting(QStringLiteral("appdeck.desktopExportMaxHorizontalDriftPx"), normalized)) {
         if (m_dockDesktopExportMaxHorizontalDriftPx != normalized) {
             m_dockDesktopExportMaxHorizontalDriftPx = normalized;
             emit dockDesktopExportMaxHorizontalDriftPxChanged();
@@ -563,7 +606,7 @@ bool DesktopSettingsClient::setDockIconSize(const QString &value)
         }
         return QStringLiteral("medium");
     }();
-    if (setSetting(QStringLiteral("dock.iconSize"), normalized)) {
+    if (setSetting(QStringLiteral("appdeck.iconSize"), normalized)) {
         if (m_dockIconSize != normalized) {
             m_dockIconSize = normalized;
             emit dockIconSizeChanged();
@@ -575,7 +618,7 @@ bool DesktopSettingsClient::setDockIconSize(const QString &value)
 
 bool DesktopSettingsClient::setDockMagnificationEnabled(bool enabled)
 {
-    if (setSetting(QStringLiteral("dock.magnificationEnabled"), enabled)) {
+    if (setSetting(QStringLiteral("appdeck.magnificationEnabled"), enabled)) {
         if (m_dockMagnificationEnabled != enabled) {
             m_dockMagnificationEnabled = enabled;
             emit dockMagnificationEnabledChanged();
@@ -765,7 +808,18 @@ QVariant DesktopSettingsClient::settingValue(const QString &path, const QVariant
 
 bool DesktopSettingsClient::setSettingValue(const QString &path, const QVariant &value)
 {
-    return setSetting(path.trimmed(), value);
+    const QString normalizedPath = path.trimmed();
+    if (!setSetting(normalizedPath, value)) {
+        return false;
+    }
+    if (normalizedPath == QLatin1String("shellTheme.dockTransparent")) {
+        const bool v = value.toBool();
+        if (m_dockTransparent != v) {
+            m_dockTransparent = v;
+            emit dockTransparentChanged();
+        }
+    }
+    return true;
 }
 
 void DesktopSettingsClient::refresh()
@@ -877,7 +931,13 @@ void DesktopSettingsClient::onSettingChanged(const QString &path, const QDBusVar
             m_highContrast = v;
             emit highContrastChanged();
         }
-    } else if (path == QLatin1String("dock.motionPreset")) {
+    } else if (path == QLatin1String("shellTheme.dockTransparent")) {
+        const bool v = rawValue.toBool();
+        if (m_dockTransparent != v) {
+            m_dockTransparent = v;
+            emit dockTransparentChanged();
+        }
+    } else if (path == QLatin1String("appdeck.motionPreset")) {
         const QString v = (rawValue.toString().trimmed().toLower() == QLatin1String("macos-lively"))
                 ? QStringLiteral("macos-lively")
                 : QStringLiteral("subtle");
@@ -885,49 +945,49 @@ void DesktopSettingsClient::onSettingChanged(const QString &path, const QDBusVar
             m_dockMotionPreset = v;
             emit dockMotionPresetChanged();
         }
-    } else if (path == QLatin1String("dock.autoHideEnabled")) {
+    } else if (path == QLatin1String("appdeck.autoHideEnabled")) {
         const bool v = rawValue.toBool();
         if (m_dockAutoHideEnabled != v) {
             m_dockAutoHideEnabled = v;
             emit dockAutoHideEnabledChanged();
         }
-    } else if (path == QLatin1String("dock.dropPulseEnabled")) {
+    } else if (path == QLatin1String("appdeck.dropPulseEnabled")) {
         const bool v = rawValue.toBool();
         if (m_dockDropPulseEnabled != v) {
             m_dockDropPulseEnabled = v;
             emit dockDropPulseEnabledChanged();
         }
-    } else if (path == QLatin1String("dock.dragThresholdMouse")) {
+    } else if (path == QLatin1String("appdeck.dragThresholdMouse")) {
         const int v = qBound(2, rawValue.toInt(), 24);
         if (m_dockDragThresholdMouse != v) {
             m_dockDragThresholdMouse = v;
             emit dockDragThresholdMouseChanged();
         }
-    } else if (path == QLatin1String("dock.dragThresholdTouchpad")) {
+    } else if (path == QLatin1String("appdeck.dragThresholdTouchpad")) {
         const int v = qBound(2, rawValue.toInt(), 24);
         if (m_dockDragThresholdTouchpad != v) {
             m_dockDragThresholdTouchpad = v;
             emit dockDragThresholdTouchpadChanged();
         }
-    } else if (path == QLatin1String("dock.desktopExportMinUpwardPx")) {
+    } else if (path == QLatin1String("appdeck.desktopExportMinUpwardPx")) {
         const int v = qBound(8, rawValue.toInt(), 96);
         if (m_dockDesktopExportMinUpwardPx != v) {
             m_dockDesktopExportMinUpwardPx = v;
             emit dockDesktopExportMinUpwardPxChanged();
         }
-    } else if (path == QLatin1String("dock.desktopExportVerticalRatioPercent")) {
+    } else if (path == QLatin1String("appdeck.desktopExportVerticalRatioPercent")) {
         const int v = qBound(100, rawValue.toInt(), 260);
         if (m_dockDesktopExportVerticalRatioPercent != v) {
             m_dockDesktopExportVerticalRatioPercent = v;
             emit dockDesktopExportVerticalRatioPercentChanged();
         }
-    } else if (path == QLatin1String("dock.desktopExportMaxHorizontalDriftPx")) {
+    } else if (path == QLatin1String("appdeck.desktopExportMaxHorizontalDriftPx")) {
         const int v = qBound(8, rawValue.toInt(), 140);
         if (m_dockDesktopExportMaxHorizontalDriftPx != v) {
             m_dockDesktopExportMaxHorizontalDriftPx = v;
             emit dockDesktopExportMaxHorizontalDriftPxChanged();
         }
-    } else if (path == QLatin1String("dock.iconSize")) {
+    } else if (path == QLatin1String("appdeck.iconSize")) {
         const QString v = [&]() {
             const QString raw = rawValue.toString().trimmed().toLower();
             if (raw == QLatin1String("small") || raw == QLatin1String("large")) {
@@ -939,7 +999,7 @@ void DesktopSettingsClient::onSettingChanged(const QString &path, const QDBusVar
             m_dockIconSize = v;
             emit dockIconSizeChanged();
         }
-    } else if (path == QLatin1String("dock.magnificationEnabled")) {
+    } else if (path == QLatin1String("appdeck.magnificationEnabled")) {
         const bool v = rawValue.toBool();
         if (m_dockMagnificationEnabled != v) {
             m_dockMagnificationEnabled = v;
@@ -1155,7 +1215,7 @@ void DesktopSettingsClient::applySettingsMap(const QVariantMap &settings)
     const QVariantMap fallback = snapshot.value(QStringLiteral("fallbackPolicy")).toMap();
     const QVariantMap contextAutomation = snapshot.value(QStringLiteral("contextAutomation")).toMap();
     const QVariantMap contextTime = snapshot.value(QStringLiteral("contextTime")).toMap();
-    const QVariantMap dock = snapshot.value(QStringLiteral("dock")).toMap();
+    const QVariantMap appdeck = snapshot.value(QStringLiteral("appdeck")).toMap();
     const QVariantMap print = snapshot.value(QStringLiteral("print")).toMap();
     const QVariantMap windowing = snapshot.value(QStringLiteral("windowing")).toMap();
     const QVariantMap shortcuts = snapshot.value(QStringLiteral("shortcuts")).toMap();
@@ -1166,6 +1226,13 @@ void DesktopSettingsClient::applySettingsMap(const QVariantMap &settings)
     if (m_highContrast != highContrastValue) {
         m_highContrast = highContrastValue;
         emit highContrastChanged();
+    }
+    const bool dockTransparentValue = snapshot.value(QStringLiteral("shellTheme")).toMap()
+                                          .value(QStringLiteral("dockTransparent"), false)
+                                          .toBool();
+    if (m_dockTransparent != dockTransparentValue) {
+        m_dockTransparent = dockTransparentValue;
+        emit dockTransparentChanged();
     }
 
     {
@@ -1296,7 +1363,7 @@ void DesktopSettingsClient::applySettingsMap(const QVariantMap &settings)
         emit contextTimeChanged();
     }
 
-    const QString dockMotion = (dock.value(QStringLiteral("motionPreset"), QStringLiteral("subtle"))
+    const QString dockMotion = (appdeck.value(QStringLiteral("motionPreset"), QStringLiteral("subtle"))
                                         .toString().trimmed().toLower() == QLatin1String("macos-lively"))
             ? QStringLiteral("macos-lively")
             : QStringLiteral("subtle");
@@ -1304,43 +1371,43 @@ void DesktopSettingsClient::applySettingsMap(const QVariantMap &settings)
         m_dockMotionPreset = dockMotion;
         emit dockMotionPresetChanged();
     }
-    const bool dockAutoHide = dock.value(QStringLiteral("autoHideEnabled"), false).toBool();
+    const bool dockAutoHide = appdeck.value(QStringLiteral("autoHideEnabled"), false).toBool();
     if (m_dockAutoHideEnabled != dockAutoHide) {
         m_dockAutoHideEnabled = dockAutoHide;
         emit dockAutoHideEnabledChanged();
     }
-    const bool dockDropPulse = dock.value(QStringLiteral("dropPulseEnabled"), true).toBool();
+    const bool dockDropPulse = appdeck.value(QStringLiteral("dropPulseEnabled"), true).toBool();
     if (m_dockDropPulseEnabled != dockDropPulse) {
         m_dockDropPulseEnabled = dockDropPulse;
         emit dockDropPulseEnabledChanged();
     }
-    const int dockMouse = qBound(2, dock.value(QStringLiteral("dragThresholdMouse"), 6).toInt(), 24);
+    const int dockMouse = qBound(2, appdeck.value(QStringLiteral("dragThresholdMouse"), 6).toInt(), 24);
     if (m_dockDragThresholdMouse != dockMouse) {
         m_dockDragThresholdMouse = dockMouse;
         emit dockDragThresholdMouseChanged();
     }
-    const int dockTouchpad = qBound(2, dock.value(QStringLiteral("dragThresholdTouchpad"), 3).toInt(), 24);
+    const int dockTouchpad = qBound(2, appdeck.value(QStringLiteral("dragThresholdTouchpad"), 3).toInt(), 24);
     if (m_dockDragThresholdTouchpad != dockTouchpad) {
         m_dockDragThresholdTouchpad = dockTouchpad;
         emit dockDragThresholdTouchpadChanged();
     }
-    const int dockExportMinUpward = qBound(8, dock.value(QStringLiteral("desktopExportMinUpwardPx"), 28).toInt(), 96);
+    const int dockExportMinUpward = qBound(8, appdeck.value(QStringLiteral("desktopExportMinUpwardPx"), 28).toInt(), 96);
     if (m_dockDesktopExportMinUpwardPx != dockExportMinUpward) {
         m_dockDesktopExportMinUpwardPx = dockExportMinUpward;
         emit dockDesktopExportMinUpwardPxChanged();
     }
-    const int dockExportRatioPercent = qBound(100, dock.value(QStringLiteral("desktopExportVerticalRatioPercent"), 135).toInt(), 260);
+    const int dockExportRatioPercent = qBound(100, appdeck.value(QStringLiteral("desktopExportVerticalRatioPercent"), 135).toInt(), 260);
     if (m_dockDesktopExportVerticalRatioPercent != dockExportRatioPercent) {
         m_dockDesktopExportVerticalRatioPercent = dockExportRatioPercent;
         emit dockDesktopExportVerticalRatioPercentChanged();
     }
-    const int dockExportMaxDrift = qBound(8, dock.value(QStringLiteral("desktopExportMaxHorizontalDriftPx"), 42).toInt(), 140);
+    const int dockExportMaxDrift = qBound(8, appdeck.value(QStringLiteral("desktopExportMaxHorizontalDriftPx"), 42).toInt(), 140);
     if (m_dockDesktopExportMaxHorizontalDriftPx != dockExportMaxDrift) {
         m_dockDesktopExportMaxHorizontalDriftPx = dockExportMaxDrift;
         emit dockDesktopExportMaxHorizontalDriftPxChanged();
     }
     const QString dockIconSize = [&]() {
-        const QString raw = dock.value(QStringLiteral("iconSize"), QStringLiteral("medium"))
+        const QString raw = appdeck.value(QStringLiteral("iconSize"), QStringLiteral("medium"))
                                 .toString().trimmed().toLower();
         if (raw == QLatin1String("small") || raw == QLatin1String("large")) {
             return raw;
@@ -1351,7 +1418,7 @@ void DesktopSettingsClient::applySettingsMap(const QVariantMap &settings)
         m_dockIconSize = dockIconSize;
         emit dockIconSizeChanged();
     }
-    const bool dockMagnification = dock.value(QStringLiteral("magnificationEnabled"), true).toBool();
+    const bool dockMagnification = appdeck.value(QStringLiteral("magnificationEnabled"), true).toBool();
     if (m_dockMagnificationEnabled != dockMagnification) {
         m_dockMagnificationEnabled = dockMagnification;
         emit dockMagnificationEnabledChanged();

@@ -28,8 +28,10 @@ surfaceStyle    = "default"
 animationPreset = "balanced"
 networkShowIp   = false
 
-[dock]
+[appdeck]
 motionPreset        = "subtle"
+hideMode            = "no_hide"
+hideDurationMs      = 450
 autoHideEnabled     = false
 dropPulseEnabled    = true
 magnificationEnabled = true
@@ -42,6 +44,32 @@ dragThresholdTouchpad        = 3
 desktopExportMinUpwardPx     = 28
 desktopExportVerticalRatioPercent   = 135
 desktopExportMaxHorizontalDriftPx   = 42
+
+[pulse]
+searchProfile = "balanced"
+notifyClipboardResolveSuccess = true
+excludeScanDirectories = ""
+includeApps = true
+includeRecent = true
+includeClipboard = true
+includeTracker = true
+includeActions = true
+includeSettings = true
+enablePreview = true
+resultLimit = 24
+autoFocusOnOpen = true
+enterOpensFirstResult = true
+autoCloseAfterLaunch = true
+rankBoostApps = 0
+rankBoostRecent = 0
+rankBoostClipboard = 0
+rankBoostTracker = 0
+rankBoostActions = 0
+rankBoostSettings = 0
+trackerInitialDelaySec = 120
+trackerCpuLimit = 15
+trackerIdleOnly = true
+trackerChargingOnly = true
 
 [contextAutomation]
 autoReduceAnimation     = true
@@ -56,7 +84,7 @@ sunsetHour  = 18
 [desktop]
 wallpaper_uri = ""
 
-[topbar]
+[crown]
 clock_24h = false
 
 [notifications]

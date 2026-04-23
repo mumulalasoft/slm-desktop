@@ -65,23 +65,250 @@ Item {
         const idx = list.indexOf(stored)
         return idx >= 0 ? idx + 1 : 0
     }
+    function toBool(value, fallback) {
+        if (value === undefined || value === null) {
+            return !!fallback
+        }
+        if (typeof value === "boolean") {
+            return value
+        }
+        if (typeof value === "number") {
+            return value !== 0
+        }
+        var normalized = String(value).trim().toLowerCase()
+        return normalized === "1"
+                || normalized === "true"
+                || normalized === "yes"
+                || normalized === "on"
+    }
+    function settingBool(path, fallback) {
+        if (typeof DesktopSettings === "undefined" || !DesktopSettings || !DesktopSettings.settingValue) {
+            return !!fallback
+        }
+        return root.toBool(DesktopSettings.settingValue(path, fallback), fallback)
+    }
+    function settingString(path, fallback) {
+        if (typeof DesktopSettings === "undefined" || !DesktopSettings || !DesktopSettings.settingValue) {
+            return String(fallback || "")
+        }
+        var value = DesktopSettings.settingValue(path, fallback)
+        return String(value === undefined || value === null ? fallback : value)
+    }
+    function pulseSettingBool(path, fallback) {
+        return root.settingBool(path, fallback)
+    }
+    function pulseProfileIndex() {
+        var profile = root.settingString("pulse.searchProfile", "balanced").trim().toLowerCase()
+        if (profile === "apps-first") {
+            return 1
+        }
+        if (profile === "files-first") {
+            return 2
+        }
+        return 0
+    }
+    function pulseNormalizeDirectoryToken(token) {
+        return String(token || "").trim()
+    }
+    function pulseDirectoryListFromSetting() {
+        if (typeof DesktopSettings === "undefined" || !DesktopSettings || !DesktopSettings.settingValue) {
+            return []
+        }
+        var raw = DesktopSettings.settingValue("pulse.excludeScanDirectories", "")
+        if (raw === undefined || raw === null) {
+            return []
+        }
+        if (typeof raw === "string") {
+            raw = raw.trim()
+            if (raw.length <= 0) {
+                return []
+            }
+            var parts = raw.split(/[;\n,]+/)
+            var out = []
+            for (var i = 0; i < parts.length; ++i) {
+                var token = pulseNormalizeDirectoryToken(parts[i])
+                if (token.length > 0) {
+                    out.push(token)
+                }
+            }
+            return out
+        }
+        if (raw && raw.length !== undefined) {
+            var outList = []
+            for (var j = 0; j < raw.length; ++j) {
+                var tokenList = pulseNormalizeDirectoryToken(raw[j])
+                if (tokenList.length > 0) {
+                    outList.push(tokenList)
+                }
+            }
+            return outList
+        }
+        var fallback = pulseNormalizeDirectoryToken(raw)
+        return fallback.length > 0 ? [fallback] : []
+    }
+    function pulseDirectorySettingValue(entries) {
+        var out = []
+        var seen = {}
+        for (var i = 0; i < entries.length; ++i) {
+            var token = pulseNormalizeDirectoryToken(entries[i])
+            var key = token.toLowerCase()
+            if (token.length > 0 && !seen[key]) {
+                seen[key] = true
+                out.push(token)
+            }
+        }
+        return out.join("; ")
+    }
+    function pulseUniqueEntries(entries) {
+        var out = []
+        var seen = {}
+        for (var i = 0; i < entries.length; ++i) {
+            var token = pulseNormalizeDirectoryToken(entries[i])
+            var key = token.toLowerCase()
+            if (token.length > 0 && !seen[key]) {
+                seen[key] = true
+                out.push(token)
+            }
+        }
+        return out
+    }
+    function addPulseExcludeEntry() {
+        var token = pulseNormalizeDirectoryToken(root.pulseExcludeDraft)
+        if (token.length <= 0) {
+            return
+        }
+        var next = root.pulseUniqueEntries(root.pulseExcludeEntries.concat([token]))
+        root.pulseExcludeEntries = next
+        root.pulseExcludeDraft = ""
+        root.setPulseSetting("pulse.excludeScanDirectories", root.pulseDirectorySettingValue(next))
+    }
+    function setPulseSetting(path, value) {
+        if (typeof DesktopSettings !== "undefined" && DesktopSettings && DesktopSettings.setSettingValue) {
+            DesktopSettings.setSettingValue(path, value)
+        }
+    }
+    function syncPulseSourceSettings() {
+        root.pulseIncludeApps = root.settingBool("pulse.includeApps", true)
+        root.pulseIncludeRecent = root.settingBool("pulse.includeRecent", true)
+        root.pulseIncludeClipboard = root.settingBool("pulse.includeClipboard", true)
+        root.pulseIncludeTracker = root.settingBool("pulse.includeTracker", true)
+        root.pulseIncludeActions = root.settingBool("pulse.includeActions", true)
+        root.pulseIncludeSettings = root.settingBool("pulse.includeSettings", true)
+        root.pulseEnablePreview = root.settingBool("pulse.enablePreview", true)
+    }
+    function syncPulseQuerySettings() {
+        root.pulseResultLimit = Number(root.settingString("pulse.resultLimit", "24"))
+        if (isNaN(root.pulseResultLimit) || root.pulseResultLimit < 8) {
+            root.pulseResultLimit = 24
+        } else if (root.pulseResultLimit > 256) {
+            root.pulseResultLimit = 256
+        }
+        root.pulseAutoFocusOnOpen = root.settingBool("pulse.autoFocusOnOpen", true)
+        root.pulseEnterOpensFirstResult = root.settingBool("pulse.enterOpensFirstResult", true)
+        root.pulseAutoCloseAfterLaunch = root.settingBool("pulse.autoCloseAfterLaunch", true)
+    }
+    function syncPulseRankingSettings() {
+        root.pulseBoostApps = Number(root.settingString("pulse.rankBoostApps", "0"))
+        root.pulseBoostRecent = Number(root.settingString("pulse.rankBoostRecent", "0"))
+        root.pulseBoostClipboard = Number(root.settingString("pulse.rankBoostClipboard", "0"))
+        root.pulseBoostTracker = Number(root.settingString("pulse.rankBoostTracker", "0"))
+        root.pulseBoostActions = Number(root.settingString("pulse.rankBoostActions", "0"))
+        root.pulseBoostSettings = Number(root.settingString("pulse.rankBoostSettings", "0"))
+        if (isNaN(root.pulseBoostApps)) root.pulseBoostApps = 0
+        if (isNaN(root.pulseBoostRecent)) root.pulseBoostRecent = 0
+        if (isNaN(root.pulseBoostClipboard)) root.pulseBoostClipboard = 0
+        if (isNaN(root.pulseBoostTracker)) root.pulseBoostTracker = 0
+        if (isNaN(root.pulseBoostActions)) root.pulseBoostActions = 0
+        if (isNaN(root.pulseBoostSettings)) root.pulseBoostSettings = 0
+    }
+    function syncPulseTrackerSettings() {
+        root.pulseTrackerInitialDelaySec = Number(root.settingString("pulse.trackerInitialDelaySec", "120"))
+        root.pulseTrackerCpuLimit = Number(root.settingString("pulse.trackerCpuLimit", "15"))
+        root.pulseTrackerIdleOnly = root.settingBool("pulse.trackerIdleOnly", true)
+        root.pulseTrackerChargingOnly = root.settingBool("pulse.trackerChargingOnly", true)
+        if (isNaN(root.pulseTrackerInitialDelaySec) || root.pulseTrackerInitialDelaySec < 0) {
+            root.pulseTrackerInitialDelaySec = 120
+        }
+        if (isNaN(root.pulseTrackerCpuLimit) || root.pulseTrackerCpuLimit < 1) {
+            root.pulseTrackerCpuLimit = 15
+        }
+    }
+
+    Component.onCompleted: {
+        root.pulseExcludeEntries = root.pulseDirectoryListFromSetting()
+        root.syncPulseSourceSettings()
+        root.syncPulseQuerySettings()
+        root.syncPulseRankingSettings()
+        root.syncPulseTrackerSettings()
+    }
+
+    Connections {
+        target: DesktopSettings
+        function onSettingChanged(path) {
+            if (String(path || "") === "pulse.excludeScanDirectories") {
+                root.pulseExcludeEntries = root.pulseDirectoryListFromSetting()
+            } else if (String(path || "").indexOf("pulse.include") === 0) {
+                root.syncPulseSourceSettings()
+            } else if (String(path || "") === "pulse.enablePreview") {
+                root.syncPulseSourceSettings()
+            } else if (String(path || "") === "pulse.resultLimit") {
+                root.syncPulseQuerySettings()
+            } else if (String(path || "") === "pulse.autoFocusOnOpen"
+                    || String(path || "") === "pulse.enterOpensFirstResult"
+                    || String(path || "") === "pulse.autoCloseAfterLaunch") {
+                root.syncPulseQuerySettings()
+            } else if (String(path || "").indexOf("pulse.rankBoost") === 0) {
+                root.syncPulseRankingSettings()
+            } else if (String(path || "").indexOf("pulse.tracker") === 0) {
+                root.syncPulseTrackerSettings()
+            }
+        }
+    }
 
     // ── Nav model ──────────────────────────────────────────────────────────
+    // Branding map (user-facing):
+    // - AppHub  => app launcher overlay (internal: apphub)
+    // - AppDeck => bottom app bar (internal: appdeck)
+    // - Pulse   => quick search overlay (internal: pulse)
+    // - Crown   => top deskcrown (internal: crown)
 
     readonly property var pages: [
         { id: "appearance", label: qsTr("Appearance"), icon: "preferences-desktop-theme"    },
         { id: "fonts",      label: qsTr("Fonts"),      icon: "preferences-desktop-font"     },
         { id: "theme",      label: qsTr("Theme"),      icon: "applications-graphics"        },
         { id: "icons",      label: qsTr("Icons"),      icon: "preferences-desktop-icons"    },
-        { id: "dock",       label: qsTr("Dock"),        icon: "user-desktop"                 },
+        { id: "appdeck",       label: qsTr("AppDeck"),     icon: "user-desktop"                 },
         { id: "desktop",    label: qsTr("Desktop"),    icon: "video-display"                },
-        { id: "topbar",     label: qsTr("Topbar"),     icon: "go-top"                       },
+        { id: "crown",     label: qsTr("Crown"),      icon: "go-top"                       },
     ]
 
     property int currentIndex: 0
     property bool _themeComboSyncPending: false
     property int _themeComboSyncRetries: 0
     property bool _ignoreComboActivated: false
+    property var pulseExcludeEntries: []
+    property string pulseExcludeDraft: ""
+    property bool pulseIncludeApps: true
+    property bool pulseIncludeRecent: true
+    property bool pulseIncludeClipboard: true
+    property bool pulseIncludeTracker: true
+    property bool pulseIncludeActions: true
+    property bool pulseIncludeSettings: true
+    property bool pulseEnablePreview: true
+    property int pulseResultLimit: 24
+    property bool pulseAutoFocusOnOpen: true
+    property bool pulseEnterOpensFirstResult: true
+    property bool pulseAutoCloseAfterLaunch: true
+    property int pulseBoostApps: 0
+    property int pulseBoostRecent: 0
+    property int pulseBoostClipboard: 0
+    property int pulseBoostTracker: 0
+    property int pulseBoostActions: 0
+    property int pulseBoostSettings: 0
+    property int pulseTrackerInitialDelaySec: 120
+    property int pulseTrackerCpuLimit: 15
+    property bool pulseTrackerIdleOnly: true
+    property bool pulseTrackerChargingOnly: true
     readonly property bool comboDebugEnabled: false
     readonly property string comboDebugRevision: "appearance-combo-debug-r1"
     property string _lastComboDebugSnapshot: ""
@@ -840,7 +1067,7 @@ Item {
                 }
             }
 
-            // ── 4: Dock ────────────────────────────────────────────────────
+            // ── 4: AppDeck ────────────────────────────────────────────────────
             Flickable {
                 contentHeight: dockCol.implicitHeight + 48
                 clip: true
@@ -853,12 +1080,12 @@ Item {
                     spacing: 24
 
                     SettingGroup {
-                        title: qsTr("Dock")
+                        title: qsTr("AppDeck")
                         Layout.fillWidth: true
 
                         SettingCard {
                             label: qsTr("Icon Size")
-                            description: qsTr("Set the size of dock icons.")
+                            description: qsTr("Set the size of AppDeck icons.")
                             Layout.fillWidth: true
                             ComboBox {
                                 model: [qsTr("Small"), qsTr("Medium"), qsTr("Large")]
@@ -874,86 +1101,44 @@ Item {
                         }
 
                         SettingCard {
-                            label: qsTr("Magnification")
-                            description: qsTr("Enlarge icons when hovering over the dock.")
-                            Layout.fillWidth: true
-                            SettingToggle {
-                                checked: DesktopSettings.dockMagnificationEnabled !== false
-                                onToggled: DesktopSettings.setDockMagnificationEnabled(checked)
-                            }
-                        }
-
-                        SettingCard {
-                            label: qsTr("Animation Style")
-                            description: qsTr("Controls how dock icons animate when launching apps.")
+                            label: qsTr("Appearance")
+                            description: qsTr("Choose how AppDeck appears when idle.")
                             Layout.fillWidth: true
                             ComboBox {
-                                model: [qsTr("Lively"), qsTr("Subtle")]
-                                currentIndex: DesktopSettings.dockMotionPreset === "subtle" ? 1 : 0
-                                Layout.preferredWidth: 160
-                                onActivated: DesktopSettings.setDockMotionPreset(
-                                    currentIndex === 0 ? "macos-lively" : "subtle")
-                            }
-                        }
-
-                        SettingCard {
-                            label: qsTr("Auto-hide")
-                            description: qsTr("Automatically hide the dock when not in use.")
-                            Layout.fillWidth: true
-                            SettingToggle {
-                                checked: DesktopSettings.dockAutoHideEnabled
-                                onToggled: DesktopSettings.setDockAutoHideEnabled(checked)
-                            }
-                        }
-
-                        SettingCard {
-                            label: qsTr("Drop Pulse")
-                            description: qsTr("Animate dock items when a file is dragged over them.")
-                            Layout.fillWidth: true
-                            SettingToggle {
-                                checked: DesktopSettings.dockDropPulseEnabled
-                                onToggled: DesktopSettings.setDockDropPulseEnabled(checked)
-                            }
-                        }
-
-                        SettingCard {
-                            label: qsTr("Drag Sensitivity (Mouse)")
-                            description: qsTr("Minimum pointer movement before a dock drag begins.")
-                            Layout.fillWidth: true
-                            RowLayout {
-                                spacing: 10
-                                Slider {
-                                    from: 2; to: 24; stepSize: 1
-                                    value: DesktopSettings.dockDragThresholdMouse
-                                    Layout.preferredWidth: 160
-                                    onMoved: DesktopSettings.setDockDragThresholdMouse(Math.round(value))
+                                id: dockAppearanceCombo
+                                model: [qsTr("Autohide"), qsTr("Duration"), qsTr("Always show")]
+                                currentIndex: {
+                                    var legacyAuto = !!DesktopSettings.settingValue("appdeck.autoHideEnabled", false)
+                                    var mode = String(DesktopSettings.settingValue("appdeck.hideMode",
+                                                                                   legacyAuto ? "duration_hide" : "no_hide"))
+                                            .trim().toLowerCase()
+                                    if (mode === "snart_hide") {
+                                        mode = "smart_hide"
+                                    }
+                                    if (mode === "smart_hide") {
+                                        return 0
+                                    }
+                                    if (mode === "duration_hide") {
+                                        return 1
+                                    }
+                                    return 2
                                 }
-                                Text {
-                                    text: DesktopSettings.dockDragThresholdMouse + qsTr(" px")
-                                    font.pixelSize: Theme.fontSize("small")
-                                    color: Theme.color("textSecondary")
-                                    Layout.preferredWidth: 40
-                                }
-                            }
-                        }
-
-                        SettingCard {
-                            label: qsTr("Drag Sensitivity (Touchpad)")
-                            description: qsTr("Minimum movement before a dock drag begins on touchpad.")
-                            Layout.fillWidth: true
-                            RowLayout {
-                                spacing: 10
-                                Slider {
-                                    from: 2; to: 24; stepSize: 1
-                                    value: DesktopSettings.dockDragThresholdTouchpad
-                                    Layout.preferredWidth: 160
-                                    onMoved: DesktopSettings.setDockDragThresholdTouchpad(Math.round(value))
-                                }
-                                Text {
-                                    text: DesktopSettings.dockDragThresholdTouchpad + qsTr(" px")
-                                    font.pixelSize: Theme.fontSize("small")
-                                    color: Theme.color("textSecondary")
-                                    Layout.preferredWidth: 40
+                                Layout.preferredWidth: 180
+                                onActivated: {
+                                    var mode = "duration_hide"
+                                    if (currentIndex === 0) {
+                                        mode = "smart_hide"
+                                    } else if (currentIndex === 2) {
+                                        mode = "no_hide"
+                                    }
+                                    DesktopSettings.setSettingValue("appdeck.hideMode", mode)
+                                    DesktopSettings.setSettingValue("appdeck.autoHideEnabled", mode !== "no_hide")
+                                    if (mode === "duration_hide") {
+                                        var duration = Number(DesktopSettings.settingValue("appdeck.hideDurationMs", 450))
+                                        if (isNaN(duration) || duration < 100 || duration > 5000) {
+                                            DesktopSettings.setSettingValue("appdeck.hideDurationMs", 450)
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -961,7 +1146,625 @@ Item {
                 }
             }
 
-            // ── 5: Desktop ─────────────────────────────────────────────────
+            // ── 5: Pulse ──────────────────────────────────────────────────────
+            Flickable {
+                contentHeight: pulseCol.implicitHeight + 48
+                clip: true
+
+                ColumnLayout {
+                    id: pulseCol
+                    anchors.left: parent.left; anchors.right: parent.right
+                    anchors.top: parent.top
+                    anchors.margins: 24; anchors.topMargin: 24
+                    spacing: 24
+
+                    SettingGroup {
+                        title: qsTr("Pulse")
+                        Layout.fillWidth: true
+
+                        SettingCard {
+                            label: qsTr("Search Profile")
+                            description: qsTr("Choose how Pulse ranks results.")
+                            Layout.fillWidth: true
+                            ComboBox {
+                                model: [qsTr("Balanced"), qsTr("Apps First"), qsTr("Files First")]
+                                currentIndex: root.pulseProfileIndex()
+                                Layout.preferredWidth: 180
+                                onActivated: function(index) {
+                                    var profile = "balanced"
+                                    if (index === 1) {
+                                        profile = "apps-first"
+                                    } else if (index === 2) {
+                                        profile = "files-first"
+                                    }
+                                    root.setPulseSetting("pulse.searchProfile", profile)
+                                }
+                            }
+                        }
+
+                        SettingCard {
+                            label: qsTr("Search Sources")
+                            description: qsTr("Choose which data sources Pulse includes in search results.")
+                            Layout.fillWidth: true
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 8
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 10
+                                    Label {
+                                        Layout.fillWidth: true
+                                        text: qsTr("Apps")
+                                        color: Theme.color("textPrimary")
+                                        font.pixelSize: Theme.fontSize("small")
+                                    }
+                                    SettingToggle {
+                                        checked: root.pulseIncludeApps
+                                        onToggled: {
+                                            root.pulseIncludeApps = checked
+                                            root.setPulseSetting("pulse.includeApps", checked)
+                                        }
+                                    }
+                                }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 10
+                                    Label {
+                                        Layout.fillWidth: true
+                                        text: qsTr("Recent files")
+                                        color: Theme.color("textPrimary")
+                                        font.pixelSize: Theme.fontSize("small")
+                                    }
+                                    SettingToggle {
+                                        checked: root.pulseIncludeRecent
+                                        onToggled: {
+                                            root.pulseIncludeRecent = checked
+                                            root.setPulseSetting("pulse.includeRecent", checked)
+                                        }
+                                    }
+                                }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 10
+                                    Label {
+                                        Layout.fillWidth: true
+                                        text: qsTr("Clipboard")
+                                        color: Theme.color("textPrimary")
+                                        font.pixelSize: Theme.fontSize("small")
+                                    }
+                                    SettingToggle {
+                                        checked: root.pulseIncludeClipboard
+                                        onToggled: {
+                                            root.pulseIncludeClipboard = checked
+                                            root.setPulseSetting("pulse.includeClipboard", checked)
+                                        }
+                                    }
+                                }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 10
+                                    Label {
+                                        Layout.fillWidth: true
+                                        text: qsTr("Tracker")
+                                        color: Theme.color("textPrimary")
+                                        font.pixelSize: Theme.fontSize("small")
+                                    }
+                                    SettingToggle {
+                                        checked: root.pulseIncludeTracker
+                                        onToggled: {
+                                            root.pulseIncludeTracker = checked
+                                            root.setPulseSetting("pulse.includeTracker", checked)
+                                        }
+                                    }
+                                }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 10
+                                    Label {
+                                        Layout.fillWidth: true
+                                        text: qsTr("Actions")
+                                        color: Theme.color("textPrimary")
+                                        font.pixelSize: Theme.fontSize("small")
+                                    }
+                                    SettingToggle {
+                                        checked: root.pulseIncludeActions
+                                        onToggled: {
+                                            root.pulseIncludeActions = checked
+                                            root.setPulseSetting("pulse.includeActions", checked)
+                                        }
+                                    }
+                                }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 10
+                                    Label {
+                                        Layout.fillWidth: true
+                                        text: qsTr("Settings")
+                                        color: Theme.color("textPrimary")
+                                        font.pixelSize: Theme.fontSize("small")
+                                    }
+                                    SettingToggle {
+                                        checked: root.pulseIncludeSettings
+                                        onToggled: {
+                                            root.pulseIncludeSettings = checked
+                                            root.setPulseSetting("pulse.includeSettings", checked)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        SettingCard {
+                            label: qsTr("Preview Behavior")
+                            description: qsTr("Control whether Pulse shows inline previews for results.")
+                            Layout.fillWidth: true
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 10
+                                Label {
+                                    Layout.fillWidth: true
+                                    text: qsTr("Enable preview")
+                                    color: Theme.color("textPrimary")
+                                    font.pixelSize: Theme.fontSize("small")
+                                }
+                                SettingToggle {
+                                    checked: root.pulseEnablePreview
+                                    onToggled: {
+                                        root.pulseEnablePreview = checked
+                                        root.setPulseSetting("pulse.enablePreview", checked)
+                                    }
+                                }
+                            }
+                        }
+
+                        SettingCard {
+                            label: qsTr("Result Limit")
+                            description: qsTr("Maximum number of results Pulse shows for a query.")
+                            Layout.fillWidth: true
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 10
+                                Label {
+                                    Layout.fillWidth: true
+                                    text: qsTr("Maximum results")
+                                    color: Theme.color("textPrimary")
+                                    font.pixelSize: Theme.fontSize("small")
+                                }
+                                SpinBox {
+                                    id: pulseResultLimitSpin
+                                    from: 8
+                                    to: 256
+                                    stepSize: 4
+                                    editable: true
+                                    value: root.pulseResultLimit
+                                    Layout.preferredWidth: 140
+                                    onValueModified: {
+                                        root.pulseResultLimit = value
+                                        root.setPulseSetting("pulse.resultLimit", value)
+                                    }
+                                }
+                            }
+                        }
+
+                        SettingCard {
+                            label: qsTr("Search Behavior")
+                            description: qsTr("Control how Pulse focuses and launches results.")
+                            Layout.fillWidth: true
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 8
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 10
+                                    Label {
+                                        Layout.fillWidth: true
+                                        text: qsTr("Auto-focus on open")
+                                        color: Theme.color("textPrimary")
+                                        font.pixelSize: Theme.fontSize("small")
+                                    }
+                                    SettingToggle {
+                                        checked: root.pulseAutoFocusOnOpen
+                                        onToggled: {
+                                            root.pulseAutoFocusOnOpen = checked
+                                            root.setPulseSetting("pulse.autoFocusOnOpen", checked)
+                                        }
+                                    }
+                                }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 10
+                                    Label {
+                                        Layout.fillWidth: true
+                                        text: qsTr("Enter opens first result")
+                                        color: Theme.color("textPrimary")
+                                        font.pixelSize: Theme.fontSize("small")
+                                    }
+                                    SettingToggle {
+                                        checked: root.pulseEnterOpensFirstResult
+                                        onToggled: {
+                                            root.pulseEnterOpensFirstResult = checked
+                                            root.setPulseSetting("pulse.enterOpensFirstResult", checked)
+                                        }
+                                    }
+                                }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 10
+                                    Label {
+                                        Layout.fillWidth: true
+                                        text: qsTr("Auto-close after launch")
+                                        color: Theme.color("textPrimary")
+                                        font.pixelSize: Theme.fontSize("small")
+                                    }
+                                    SettingToggle {
+                                        checked: root.pulseAutoCloseAfterLaunch
+                                        onToggled: {
+                                            root.pulseAutoCloseAfterLaunch = checked
+                                            root.setPulseSetting("pulse.autoCloseAfterLaunch", checked)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        SettingCard {
+                            label: qsTr("Ranking Tuning")
+                            description: qsTr("Adjust how strongly each result source is boosted.")
+                            Layout.fillWidth: true
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 8
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 10
+                                    Label {
+                                        Layout.fillWidth: true
+                                        text: qsTr("Apps")
+                                        color: Theme.color("textPrimary")
+                                        font.pixelSize: Theme.fontSize("small")
+                                    }
+                                    SpinBox {
+                                        id: pulseBoostAppsSpin
+                                        from: -40
+                                        to: 80
+                                        stepSize: 1
+                                        editable: true
+                                        value: root.pulseBoostApps
+                                        Layout.preferredWidth: 140
+                                        onValueModified: {
+                                            root.pulseBoostApps = value
+                                            root.setPulseSetting("pulse.rankBoostApps", value)
+                                        }
+                                    }
+                                }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 10
+                                    Label {
+                                        Layout.fillWidth: true
+                                        text: qsTr("Recent files")
+                                        color: Theme.color("textPrimary")
+                                        font.pixelSize: Theme.fontSize("small")
+                                    }
+                                    SpinBox {
+                                        id: pulseBoostRecentSpin
+                                        from: -40
+                                        to: 80
+                                        stepSize: 1
+                                        editable: true
+                                        value: root.pulseBoostRecent
+                                        Layout.preferredWidth: 140
+                                        onValueModified: {
+                                            root.pulseBoostRecent = value
+                                            root.setPulseSetting("pulse.rankBoostRecent", value)
+                                        }
+                                    }
+                                }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 10
+                                    Label {
+                                        Layout.fillWidth: true
+                                        text: qsTr("Clipboard")
+                                        color: Theme.color("textPrimary")
+                                        font.pixelSize: Theme.fontSize("small")
+                                    }
+                                    SpinBox {
+                                        id: pulseBoostClipboardSpin
+                                        from: -40
+                                        to: 80
+                                        stepSize: 1
+                                        editable: true
+                                        value: root.pulseBoostClipboard
+                                        Layout.preferredWidth: 140
+                                        onValueModified: {
+                                            root.pulseBoostClipboard = value
+                                            root.setPulseSetting("pulse.rankBoostClipboard", value)
+                                        }
+                                    }
+                                }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 10
+                                    Label {
+                                        Layout.fillWidth: true
+                                        text: qsTr("Tracker")
+                                        color: Theme.color("textPrimary")
+                                        font.pixelSize: Theme.fontSize("small")
+                                    }
+                                    SpinBox {
+                                        id: pulseBoostTrackerSpin
+                                        from: -40
+                                        to: 80
+                                        stepSize: 1
+                                        editable: true
+                                        value: root.pulseBoostTracker
+                                        Layout.preferredWidth: 140
+                                        onValueModified: {
+                                            root.pulseBoostTracker = value
+                                            root.setPulseSetting("pulse.rankBoostTracker", value)
+                                        }
+                                    }
+                                }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 10
+                                    Label {
+                                        Layout.fillWidth: true
+                                        text: qsTr("Actions")
+                                        color: Theme.color("textPrimary")
+                                        font.pixelSize: Theme.fontSize("small")
+                                    }
+                                    SpinBox {
+                                        id: pulseBoostActionsSpin
+                                        from: -40
+                                        to: 80
+                                        stepSize: 1
+                                        editable: true
+                                        value: root.pulseBoostActions
+                                        Layout.preferredWidth: 140
+                                        onValueModified: {
+                                            root.pulseBoostActions = value
+                                            root.setPulseSetting("pulse.rankBoostActions", value)
+                                        }
+                                    }
+                                }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 10
+                                    Label {
+                                        Layout.fillWidth: true
+                                        text: qsTr("Settings")
+                                        color: Theme.color("textPrimary")
+                                        font.pixelSize: Theme.fontSize("small")
+                                    }
+                                    SpinBox {
+                                        id: pulseBoostSettingsSpin
+                                        from: -40
+                                        to: 80
+                                        stepSize: 1
+                                        editable: true
+                                        value: root.pulseBoostSettings
+                                        Layout.preferredWidth: 140
+                                        onValueModified: {
+                                            root.pulseBoostSettings = value
+                                            root.setPulseSetting("pulse.rankBoostSettings", value)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        SettingCard {
+                            label: qsTr("Tracker Policy")
+                            description: qsTr("Tune when indexed file search is allowed to run.")
+                            Layout.fillWidth: true
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 8
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 10
+                                    Label {
+                                        Layout.fillWidth: true
+                                        text: qsTr("Initial delay")
+                                        color: Theme.color("textPrimary")
+                                        font.pixelSize: Theme.fontSize("small")
+                                    }
+                                    SpinBox {
+                                        id: pulseTrackerDelaySpin
+                                        from: 0
+                                        to: 3600
+                                        stepSize: 10
+                                        editable: true
+                                        value: root.pulseTrackerInitialDelaySec
+                                        Layout.preferredWidth: 140
+                                        onValueModified: {
+                                            root.pulseTrackerInitialDelaySec = value
+                                            root.setPulseSetting("pulse.trackerInitialDelaySec", value)
+                                        }
+                                    }
+                                }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 10
+                                    Label {
+                                        Layout.fillWidth: true
+                                        text: qsTr("CPU limit")
+                                        color: Theme.color("textPrimary")
+                                        font.pixelSize: Theme.fontSize("small")
+                                    }
+                                    SpinBox {
+                                        id: pulseTrackerCpuSpin
+                                        from: 1
+                                        to: 100
+                                        editable: true
+                                        value: root.pulseTrackerCpuLimit
+                                        textFromValue: function(v) { return String(v) + "%" }
+                                        valueFromText: function(t) {
+                                            var n = parseInt(String(t).replace("%", ""))
+                                            return isNaN(n) ? 15 : n
+                                        }
+                                        Layout.preferredWidth: 140
+                                        onValueModified: {
+                                            root.pulseTrackerCpuLimit = value
+                                            root.setPulseSetting("pulse.trackerCpuLimit", value)
+                                        }
+                                    }
+                                }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 10
+                                    Label {
+                                        Layout.fillWidth: true
+                                        text: qsTr("Idle only")
+                                        color: Theme.color("textPrimary")
+                                        font.pixelSize: Theme.fontSize("small")
+                                    }
+                                    SettingToggle {
+                                        checked: root.pulseTrackerIdleOnly
+                                        onToggled: {
+                                            root.pulseTrackerIdleOnly = checked
+                                            root.setPulseSetting("pulse.trackerIdleOnly", checked)
+                                        }
+                                    }
+                                }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 10
+                                    Label {
+                                        Layout.fillWidth: true
+                                        text: qsTr("Charging only")
+                                        color: Theme.color("textPrimary")
+                                        font.pixelSize: Theme.fontSize("small")
+                                    }
+                                    SettingToggle {
+                                        checked: root.pulseTrackerChargingOnly
+                                        onToggled: {
+                                            root.pulseTrackerChargingOnly = checked
+                                            root.setPulseSetting("pulse.trackerChargingOnly", checked)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        SettingCard {
+                            label: qsTr("Exclude scan directory")
+                            description: qsTr("Directories ignored by Pulse tracker scans.")
+                            Layout.fillWidth: true
+                            ColumnLayout {
+                                spacing: 8
+                                Layout.fillWidth: true
+
+                                Flow {
+                                    Layout.fillWidth: true
+                                    spacing: 8
+
+                                    Repeater {
+                                        model: root.pulseExcludeEntries
+                                        delegate: Rectangle {
+                                            radius: Theme.radiusPill
+                                            color: Theme.color("panelBorder")
+                                            border.color: Theme.color("panelBorderStrong")
+                                            border.width: Theme.borderWidthThin
+                                            implicitHeight: 32
+                                            implicitWidth: chipRow.implicitWidth + 18
+
+                                            RowLayout {
+                                                id: chipRow
+                                                anchors.fill: parent
+                                                anchors.leftMargin: 10
+                                                anchors.rightMargin: 8
+                                                spacing: 8
+
+                                                Text {
+                                                    text: String(modelData || "")
+                                                    color: Theme.color("textPrimary")
+                                                    font.pixelSize: Theme.fontSize("small")
+                                                    elide: Text.ElideRight
+                                                }
+
+                                                ToolButton {
+                                                    text: "x"
+                                                    Layout.preferredWidth: 22
+                                                    Layout.preferredHeight: 22
+                                                    onClicked: {
+                                                        var next = root.pulseExcludeEntries.slice(0)
+                                                        next.splice(index, 1)
+                                                        root.pulseExcludeEntries = next
+                                                        root.setPulseSetting("pulse.excludeScanDirectories",
+                                                                             root.pulseDirectorySettingValue(next))
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 8
+
+                                    TextField {
+                                        id: pulseExcludeField
+                                        text: root.pulseExcludeDraft
+                                        placeholderText: qsTr("/home/user/Downloads")
+                                        selectByMouse: true
+                                        Layout.fillWidth: true
+                                        onTextEdited: root.pulseExcludeDraft = text
+                                        onAccepted: root.addPulseExcludeEntry()
+                                    }
+
+                                    Button {
+                                        text: qsTr("Add")
+                                        onClicked: root.addPulseExcludeEntry()
+                                    }
+                                }
+
+                                Label {
+                                    text: qsTr("You can use absolute paths or simple directory names.")
+                                    color: Theme.color("textSecondary")
+                                    font.pixelSize: Theme.fontSize("small")
+                                    wrapMode: Text.WordWrap
+                                    Layout.fillWidth: true
+                                }
+                            }
+                        }
+
+                        SettingCard {
+                            label: qsTr("Notify Clipboard Resolve Success")
+                            description: qsTr("Show a success hint when Pulse resolves a clipboard item.")
+                            Layout.fillWidth: true
+                            SettingToggle {
+                                checked: root.settingBool("pulse.notifyClipboardResolveSuccess", true)
+                                onToggled: root.setPulseSetting("pulse.notifyClipboardResolveSuccess", checked)
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ── 6: Desktop ─────────────────────────────────────────────────
             Flickable {
                 id: desktopFlickable
                 contentHeight: desktopCol.implicitHeight + 48
@@ -1037,13 +1840,13 @@ Item {
                 }
             }
 
-            // ── 6: Topbar ──────────────────────────────────────────────────
+            // ── 7: Topbar ──────────────────────────────────────────────────
             Flickable {
-                contentHeight: topbarCol.implicitHeight + 48
+                contentHeight: crownCol.implicitHeight + 48
                 clip: true
 
                 ColumnLayout {
-                    id: topbarCol
+                    id: crownCol
                     anchors.left: parent.left; anchors.right: parent.right
                     anchors.top: parent.top
                     anchors.margins: 24; anchors.topMargin: 24
@@ -1088,14 +1891,14 @@ Item {
                             description: qsTr("Remove the panel background color.")
                             Layout.fillWidth: true
                             SettingToggle {
-                                id: topbarTransparentToggle
-                                checked: DesktopSettings.settingValue("shellTheme.topbarTransparent", false) === true
-                                onToggled: DesktopSettings.setSettingValue("shellTheme.topbarTransparent", checked)
+                                id: crownTransparentToggle
+                                checked: DesktopSettings.settingValue("shellTheme.crownTransparent", false) === true
+                                onToggled: DesktopSettings.setSettingValue("shellTheme.crownTransparent", checked)
                                 Connections {
                                     target: DesktopSettings
                                     function onSettingChanged(path) {
-                                        if (path === "shellTheme.topbarTransparent") {
-                                            topbarTransparentToggle.checked = DesktopSettings.settingValue("shellTheme.topbarTransparent", false) === true
+                                        if (path === "shellTheme.crownTransparent") {
+                                            crownTransparentToggle.checked = DesktopSettings.settingValue("shellTheme.crownTransparent", false) === true
                                         }
                                     }
                                 }
@@ -1106,17 +1909,17 @@ Item {
                             label: qsTr("Blur")
                             description: qsTr("Apply a blur effect behind the top panel.")
                             Layout.fillWidth: true
-                            enabled: !topbarTransparentToggle.checked
+                            enabled: !crownTransparentToggle.checked
                             opacity: enabled ? 1.0 : Theme.opacityHint
                             SettingToggle {
-                                id: topbarBlurToggle
+                                id: crownBlurToggle
                                 checked: DesktopSettings.settingValue("shellTheme.blur", true) !== false
                                 onToggled: DesktopSettings.setSettingValue("shellTheme.blur", checked)
                                 Connections {
                                     target: DesktopSettings
                                     function onSettingChanged(path) {
                                         if (path === "shellTheme.blur") {
-                                            topbarBlurToggle.checked = DesktopSettings.settingValue("shellTheme.blur", true) !== false
+                                            crownBlurToggle.checked = DesktopSettings.settingValue("shellTheme.blur", true) !== false
                                         }
                                     }
                                 }
@@ -1216,7 +2019,7 @@ Item {
                         // ── Remaining applets ───────────────────────────────
                         Repeater {
                             model: [
-                                { key: "tothespot",     label: qsTr("Search"),         description: qsTr("Quick search button (ToTheSpot)."),         locked: true  },
+                                { key: "pulse",     label: qsTr("Search"),         description: qsTr("Quick search button (Pulse)."),             locked: true  },
                                 { key: "controlcenter", label: qsTr("Control Center"), description: qsTr("Quick settings panel."),                    locked: true  },
                                 { key: "datetime",      label: qsTr("Date & Time"),    description: qsTr("Clock and calendar popup."),                locked: true  },
                                 { key: "bluetooth",     label: qsTr("Bluetooth"),      description: qsTr("Bluetooth device management."),             locked: false },

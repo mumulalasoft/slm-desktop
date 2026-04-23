@@ -7,6 +7,8 @@
 #include <QVariantMap>
 
 class QDBusInterface;
+class QFileSystemWatcher;
+class QTimer;
 
 class DesktopSettingsClient : public QObject
 {
@@ -33,6 +35,7 @@ class DesktopSettingsClient : public QObject
     Q_PROPERTY(int contextTimeSunriseHour READ contextTimeSunriseHour NOTIFY contextTimeChanged)
     Q_PROPERTY(int contextTimeSunsetHour READ contextTimeSunsetHour NOTIFY contextTimeChanged)
     Q_PROPERTY(bool highContrast READ highContrast NOTIFY highContrastChanged)
+    Q_PROPERTY(bool dockTransparent READ dockTransparent NOTIFY dockTransparentChanged)
     Q_PROPERTY(QString dockMotionPreset READ dockMotionPreset NOTIFY dockMotionPresetChanged)
     Q_PROPERTY(bool dockAutoHideEnabled READ dockAutoHideEnabled NOTIFY dockAutoHideEnabledChanged)
     Q_PROPERTY(bool dockDropPulseEnabled READ dockDropPulseEnabled NOTIFY dockDropPulseEnabledChanged)
@@ -78,6 +81,7 @@ public:
     int contextTimeSunriseHour() const;
     int contextTimeSunsetHour() const;
     bool highContrast() const;
+    bool dockTransparent() const;
     QString dockMotionPreset() const;
     bool dockAutoHideEnabled() const;
     bool dockDropPulseEnabled() const;
@@ -121,7 +125,7 @@ public:
     Q_INVOKABLE bool setHighContrast(bool enabled);
     Q_INVOKABLE bool setDockMotionPreset(const QString &preset);
     Q_INVOKABLE bool setDockAutoHideEnabled(bool enabled);
-    Q_INVOKABLE bool setDockDropPulseEnabled(bool enabled);
+    Q_INVOKABLE bool setAppDeckDropPulseEnabled(bool enabled);
     Q_INVOKABLE bool setDockDragThresholdMouse(int value);
     Q_INVOKABLE bool setDockDragThresholdTouchpad(int value);
     Q_INVOKABLE bool setDockDesktopExportMinUpwardPx(int value);
@@ -168,6 +172,7 @@ signals:
     void contextAutomationChanged();
     void contextTimeChanged();
     void highContrastChanged();
+    void dockTransparentChanged();
     void dockMotionPresetChanged();
     void dockAutoHideEnabledChanged();
     void dockDropPulseEnabledChanged();
@@ -233,6 +238,7 @@ private:
     int m_contextTimeSunriseHour = 6;
     int m_contextTimeSunsetHour = 18;
     bool m_highContrast = false;
+    bool m_dockTransparent = false;
     QString m_dockMotionPreset = QStringLiteral("subtle");
     bool m_dockAutoHideEnabled = false;
     bool m_dockDropPulseEnabled = true;
@@ -254,4 +260,6 @@ private:
     QString m_wallpaperUri;
     QVariantMap m_keyboardShortcuts;
     QVariantMap m_settingsSnapshot;
+    QFileSystemWatcher *m_localStoreWatcher = nullptr;
+    QTimer *m_localStoreReloadTimer = nullptr;
 };
