@@ -38,6 +38,7 @@ Item {
     property var bestMatch: null
     property var appsResults: []
     property var filesResults: []
+    property var clipboardResults: []
     property var actionsResults: []
     property var recentResults: []
     property var suggestedResults: []
@@ -51,7 +52,7 @@ Item {
     readonly property bool showEmptyState: emptyQuery && !modelHasRows
     readonly property bool showNoResultState: !emptyQuery && !modelHasRows
     readonly property bool showResultsState: hasResults
-    readonly property bool showBestMatch: showResultsState && !emptyQuery && !!bestMatch
+    readonly property bool showBestMatch: showResultsState && !emptyQuery && !!bestMatch && !showCalculatorPreviewCard
     readonly property var selectedResult: _resultById(selectedResultId)
     readonly property string selectedResultType: selectedResult ? String(selectedResult.type || "").toLowerCase() : ""
     readonly property string selectedResultSection: selectedResult ? String(selectedResult.section || "").toLowerCase() : ""
@@ -62,7 +63,19 @@ Item {
                                                      || selectedResultType === "recent"
                                                      || selectedResultSection === "files"
                                                      || selectedResultSection === "recent")
+    readonly property bool selectedResultIsClipboard: selectedResult
+                                                      && (selectedResultType === "clipboard"
+                                                          || selectedResultSection === "clipboard")
+    readonly property bool selectedResultIsCalculator: selectedResult
+                                                        && (selectedResultType === "calculator"
+                                                            || selectedResultSection === "calculator")
     readonly property bool showFilePreviewCard: showResultsState && selectedResultIsFile
+    readonly property bool showClipboardPreviewCard: showResultsState
+                                                     && (selectedResultIsClipboard
+                                                         || String((root.previewData && root.previewData.kind) || "").toLowerCase() === "clipboard")
+    readonly property bool showCalculatorPreviewCard: showResultsState
+                                                      && (selectedResultIsCalculator
+                                                          || String((root.previewData && root.previewData.kind) || "").toLowerCase() === "calculator")
     readonly property real headerPhase: _phase(root.revealProgress, 0.0, 0.55)
     readonly property real bestPhase: _phase(root.revealProgress, 0.18, 0.72)
     readonly property real sectionsPhase: _phase(root.revealProgress, 0.32, 1.0)
@@ -93,6 +106,24 @@ Item {
         return (v - s) / Math.max(0.0001, (e - s))
     }
 
+    function _calculatorPreviewHint(compoundLabel, calcKind) {
+        var labelMap = ({
+            "torque": "Torque result",
+            "momentum": "Momentum result",
+            "force": "Force result",
+            "power": "Power result",
+            "pressure": "Pressure result",
+            "energy": "Energy result"
+        })
+        if (labelMap[compoundLabel]) {
+            return labelMap[compoundLabel]
+        }
+        if (calcKind === "conversion") {
+            return "Supports calc/convert, natural unit conversion, compound units like N*m, newton meter, kilogram meter per second, and J/s, joule per second, percent/ratio, angle/frequency, data rate like MBps and MiBps, acceleration, density, flow, force, temperature scales, pressure, energy, power, and ans"
+        }
+        return "Supports ans"
+    }
+
     function _modelRow(model, index) {
         if (!model || !model.get) {
             return null
@@ -107,11 +138,15 @@ Item {
         var sectionTitle = String((row && row.sectionTitle) || "").toLowerCase()
         if (kind === "app") return "app"
         if (kind === "action") return "action"
+        if (kind === "clipboard") return "clipboard"
+        if (kind === "calculator") return "calculator"
         if (kind === "file" || kind === "folder") return "file"
         if (sectionTitle === "top apps") return "app"
         if (sectionTitle === "actions" || sectionTitle === "settings") return "action"
         if (sectionTitle === "recent files" || sectionTitle === "folders") return "file"
         if (raw === "desktop" || raw === "application") return "app"
+        if (raw === "clipboard") return "clipboard"
+        if (raw === "calculator") return "calculator"
         if (raw.length > 0) {
             return raw
         }
@@ -120,6 +155,8 @@ Item {
         var provider = String((row && row.provider) || "").toLowerCase()
         if (provider === "apps") return "app"
         if (provider === "recent") return "recent"
+        if (provider === "clipboard") return "clipboard"
+        if (provider === "calculator") return "calculator"
         if (provider === "slm_actions" || provider === "settings" || provider === "global_menu") return "action"
         return "item"
     }
@@ -138,8 +175,12 @@ Item {
         }
         var provider = String((row && row.provider) || "").toLowerCase()
         if (provider === "recent") return "recent"
+        if (provider === "clipboard") return "clipboard"
+        if (provider === "calculator") return "best"
         if (typeValue === "app") return "apps"
         if (typeValue === "file" || typeValue === "folder" || typeValue === "path") return "files"
+        if (typeValue === "clipboard") return "clipboard"
+        if (typeValue === "calculator") return "best"
         if (typeValue === "action" || typeValue === "command") return "actions"
         return "suggestions"
     }
@@ -370,6 +411,17 @@ Item {
             "section": sectionValue,
             "actionId": String((row && row.actionId) || ""),
             "isBestMatch": !!(row && row.isBestMatch),
+            "isCalculator": !!(row && row.isCalculator),
+            "expression": String((row && row.expression) || ""),
+            "resultText": String((row && row.resultText) || ""),
+            "copyText": String((row && row.copyText) || ""),
+            "clipboardType": String((row && row.clipboardType) || ""),
+            "sourceApplication": String((row && row.sourceApplication) || ""),
+            "timestamp": Number((row && row.timestamp) || 0),
+            "timestampBucket": Number((row && row.timestampBucket) || 0),
+            "isSensitive": !!(row && row.isSensitive),
+            "compoundLabel": String((row && row.compoundLabel) || ""),
+            "previewData": (row && row.preview) ? row.preview : ({}),
             "sourceIndex": Number(sourceIndex)
         }
     }
@@ -377,6 +429,7 @@ Item {
     function _groupResult(item,
                           appsBucket,
                           filesBucket,
+                          clipboardBucket,
                           actionsBucket,
                           recentBucket,
                           suggestedBucket) {
@@ -389,6 +442,10 @@ Item {
         }
         if (item.section === "files") {
             filesBucket.push(item)
+            return
+        }
+        if (item.section === "clipboard") {
+            clipboardBucket.push(item)
             return
         }
         if (item.section === "actions") {
@@ -440,6 +497,9 @@ Item {
             if (item.isBestMatch) {
                 p += 30
             }
+            if (typeValue === "calculator" || section === "best") {
+                p += 2600
+            }
             return p
         }
 
@@ -468,6 +528,7 @@ Item {
         var nextBestMatch = null
         var nextApps = []
         var nextFiles = []
+        var nextClipboard = []
         var nextActions = []
         var nextRecent = []
         var nextSuggested = []
@@ -492,6 +553,7 @@ Item {
                 _groupResult(rows[k],
                              nextApps,
                              nextFiles,
+                             nextClipboard,
                              nextActions,
                              nextRecent,
                              nextSuggested)
@@ -500,6 +562,7 @@ Item {
             nextNavigation.push(nextBestMatch)
             for (var a = 0; a < nextApps.length; ++a) nextNavigation.push(nextApps[a])
             for (var f = 0; f < nextFiles.length; ++f) nextNavigation.push(nextFiles[f])
+            for (var c = 0; c < nextClipboard.length; ++c) nextNavigation.push(nextClipboard[c])
             for (var r = 0; r < nextRecent.length; ++r) nextNavigation.push(nextRecent[r])
             for (var ac = 0; ac < nextActions.length; ++ac) nextNavigation.push(nextActions[ac])
             for (var s = 0; s < nextSuggested.length; ++s) nextNavigation.push(nextSuggested[s])
@@ -508,6 +571,7 @@ Item {
         bestMatch = nextBestMatch
         appsResults = nextApps
         filesResults = nextFiles
+        clipboardResults = nextClipboard
         actionsResults = nextActions
         recentResults = nextRecent
         suggestedResults = nextSuggested
@@ -538,6 +602,7 @@ Item {
                     + " navRows=" + Number(navigationResults.length || 0)
                     + " apps=" + Number(appsResults.length || 0)
                     + " files=" + Number(filesResults.length || 0)
+                    + " clipboard=" + Number(clipboardResults.length || 0)
                     + " recent=" + Number(recentResults.length || 0)
                     + " actions=" + Number(actionsResults.length || 0)
                     + " suggestions=" + Number(suggestedResults.length || 0))
@@ -673,11 +738,11 @@ Item {
         if (step > 0) {
             // Left rail (apps/actions) -> Right rail (files/recent/suggestions)
             if (currentSection === "apps" || currentSection === "actions" || currentSection === "best") {
-                target = _pickFromSections(["files", "recent", "suggestions"], currentPos)
+                target = _pickFromSections(["files", "clipboard", "recent", "suggestions"], currentPos)
             }
         } else {
             // Right rail (files/recent/suggestions) -> Left rail (apps/actions/best)
-            if (currentSection === "files" || currentSection === "recent" || currentSection === "suggestions") {
+            if (currentSection === "files" || currentSection === "clipboard" || currentSection === "recent" || currentSection === "suggestions") {
                 target = _pickFromSections(["apps", "actions", "best"], currentPos)
             }
         }
@@ -873,6 +938,212 @@ Item {
 
             Rectangle {
                 Layout.fillWidth: true
+                Layout.preferredHeight: visible ? 108 : 0
+                visible: root.showClipboardPreviewCard
+                radius: Theme.radiusCard
+                color: Theme.color("windowCard")
+                border.width: Theme.borderWidthThin
+                border.color: Theme.color("windowCardBorder")
+                opacity: root.sectionsPhase
+
+                Behavior on opacity {
+                    NumberAnimation { duration: root.motionFastDuration; easing.type: Theme.easingDecelerate }
+                }
+
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: Theme.spacingMd
+                    anchors.rightMargin: Theme.spacingMd
+                    spacing: Theme.spacingMd
+
+                    Rectangle {
+                        Layout.preferredWidth: 38
+                        Layout.preferredHeight: 38
+                        radius: width * 0.5
+                        color: Theme.color("shellIconPlateBg")
+                        border.width: Theme.borderWidthNone
+
+                        Image {
+                            id: clipboardIcon
+                            anchors.fill: parent
+                            source: root.selectedResult ? String(root.selectedResult.iconSource || "") : ""
+                            fillMode: Image.PreserveAspectFit
+                            mipmap: false
+                            smooth: true
+                            visible: String(source).length > 0 && status !== Image.Error
+                        }
+
+                        Label {
+                            anchors.centerIn: parent
+                            visible: !clipboardIcon.visible
+                            text: "C"
+                            color: Theme.color("textSecondary")
+                            font.pixelSize: Theme.fontSize("small")
+                            font.weight: Theme.fontWeight("semibold")
+                        }
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingXxs
+
+                        Label {
+                            Layout.fillWidth: true
+                            text: root.previewData && String(root.previewData.title || root.previewData.name || "").length > 0
+                                  ? String(root.previewData.title || root.previewData.name || "")
+                                  : (root.selectedResult ? String(root.selectedResult.title || "") : "")
+                            color: Theme.color("textPrimary")
+                            font.pixelSize: Theme.fontSize("body")
+                            font.weight: Theme.fontWeight("semibold")
+                            elide: Text.ElideRight
+                        }
+
+                        Label {
+                            Layout.fillWidth: true
+                            text: root.previewData && String(root.previewData.subtitle || "").length > 0
+                                  ? String(root.previewData.subtitle || "")
+                                  : (root.selectedResult ? String(root.selectedResult.subtitle || "") : "")
+                            color: Theme.color("textSecondary")
+                            font.pixelSize: Theme.fontSize("xs")
+                            elide: Text.ElideMiddle
+                        }
+
+                        Label {
+                            Layout.fillWidth: true
+                            visible: root.previewData && String(root.previewData.preview || "").length > 0
+                            text: String(root.previewData.preview || "")
+                            color: Theme.color("textSecondary")
+                            font.pixelSize: Theme.fontSize("small")
+                            wrapMode: Text.WordWrap
+                            maximumLineCount: 2
+                            elide: Text.ElideRight
+                        }
+                    }
+
+                    Column {
+                        spacing: Theme.spacingXxs
+
+                        Label {
+                            text: "Clipboard Preview"
+                            color: Theme.color("textSecondary")
+                            font.pixelSize: Theme.fontSize("xs")
+                            font.weight: Theme.fontWeight("medium")
+                            opacity: Theme.opacityMuted
+                        }
+
+                        Button {
+                            text: "Paste"
+                            enabled: root.selectedResultId.length > 0
+                            onClicked: root.openResultRequested(root.selectedResultId)
+                        }
+                    }
+                }
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: visible ? 112 : 0
+                visible: root.showCalculatorPreviewCard
+                radius: Theme.radiusCard
+                color: Theme.color("windowCard")
+                border.width: Theme.borderWidthThin
+                border.color: Theme.color("windowCardBorder")
+                opacity: root.sectionsPhase
+
+                Behavior on opacity {
+                    NumberAnimation { duration: root.motionFastDuration; easing.type: Theme.easingDecelerate }
+                }
+
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: Theme.spacingMd
+                    anchors.rightMargin: Theme.spacingMd
+                    spacing: Theme.spacingMd
+
+                    Rectangle {
+                        Layout.preferredWidth: 42
+                        Layout.preferredHeight: 42
+                        radius: width * 0.5
+                        color: Theme.color("accentSoft")
+                        border.width: Theme.borderWidthNone
+
+                        Label {
+                            anchors.centerIn: parent
+                            text: "="
+                            color: Theme.color("textPrimary")
+                            font.pixelSize: Theme.fontSize("bodyLarge")
+                            font.weight: Theme.fontWeight("bold")
+                        }
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingXxs
+
+                        Label {
+                            Layout.fillWidth: true
+                            text: root.previewData && String(root.previewData.result || "").length > 0
+                                  ? String(root.previewData.result || "")
+                                  : (root.selectedResult ? String(root.selectedResult.title || "") : "")
+                            color: Theme.color("textPrimary")
+                            font.pixelSize: Theme.fontSize("title")
+                            font.weight: Theme.fontWeight("bold")
+                            elide: Text.ElideRight
+                        }
+
+                        Label {
+                            Layout.fillWidth: true
+                            text: root.previewData && String(root.previewData.expression || "").length > 0
+                                  ? String(root.previewData.expression || "")
+                                  : (root.selectedResult ? String(root.selectedResult.subtitle || "") : "")
+                            color: Theme.color("textSecondary")
+                            font.pixelSize: Theme.fontSize("small")
+                            elide: Text.ElideMiddle
+                        }
+
+                        Label {
+                            Layout.fillWidth: true
+                            text: {
+                                var kind = String((root.previewData && root.previewData.kind) || "").toLowerCase()
+                                if (kind === "calculator" && String((root.previewData && root.previewData.expression) || "").length > 0) {
+                                    var compoundLabel = String((root.previewData && root.previewData.compoundLabel) || "").toLowerCase()
+                                    var calcKind = String((root.previewData && root.previewData.calculatorKind) || "").toLowerCase()
+                                    return _calculatorPreviewHint(compoundLabel, calcKind)
+                                }
+                                return "Enter copies the result"
+                            }
+                            color: Theme.color("textSecondary")
+                            font.pixelSize: Theme.fontSize("xs")
+                            opacity: Theme.opacityMuted
+                        }
+                    }
+
+                    Column {
+                        spacing: Theme.spacingXxs
+
+                        Label {
+                            text: "Calculator"
+                            color: Theme.color("textSecondary")
+                            font.pixelSize: Theme.fontSize("xs")
+                            font.weight: Theme.fontWeight("medium")
+                            opacity: Theme.opacityMuted
+                        }
+
+                        Button {
+                            text: "Copy"
+                            enabled: root.selectedIndex >= 0
+                            onClicked: {
+                                if (root.selectedIndex >= 0) {
+                                    root.resultActivated(root.selectedIndex)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
                 Layout.preferredHeight: visible ? 72 : 0
                 visible: root.showFilePreviewCard
                 radius: Theme.radiusCard
@@ -1019,6 +1290,7 @@ Item {
                         layoutWidth: contextSurface.width
                         appsResults: root.appsResults
                         filesResults: root.filesResults
+                        clipboardResults: root.clipboardResults
                         actionsResults: root.actionsResults
                         recentResults: root.recentResults
                         suggestedResults: root.suggestedResults
