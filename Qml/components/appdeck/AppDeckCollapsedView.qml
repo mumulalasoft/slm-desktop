@@ -9,6 +9,7 @@ Item {
     property bool acceptsInput: true
     property bool rendererActive: true
     property bool hideBorder: false
+    property bool transparentBackground: false
     property string hostName: "appdeck"
 
     readonly property alias dockItem: dockSurface
@@ -25,9 +26,13 @@ Item {
         } else if (dockSurface.hasOwnProperty("hideBorder")) {
             dockSurface.hideBorder = root.hideBorder
         }
+        if (dockSurface.hasOwnProperty("forceTransparentBackground")) {
+            dockSurface.forceTransparentBackground = root.transparentBackground
+        }
     }
 
     onHideBorderChanged: syncHideBorder()
+    onTransparentBackgroundChanged: syncHideBorder()
 
     AppDeckComp.AppDeck {
         id: dockSurface
@@ -36,6 +41,7 @@ Item {
         hostName: root.hostName
         acceptsInput: root.acceptsInput
         rendererActive: root.rendererActive
+        forceTransparentBackground: root.transparentBackground
         appsModel: root.appsModel
         Component.onCompleted: root.syncHideBorder()
         onAppActivated: function(appName) { root.appActivated(appName) }

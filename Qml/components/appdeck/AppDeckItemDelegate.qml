@@ -1,5 +1,6 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
+import QtQuick.Effects
 import Slm_Desktop
 
 Item {
@@ -12,10 +13,11 @@ Item {
     property bool running: false
     property bool selected: false
     property bool compact: false
+    readonly property bool hoverActive: mouse.containsMouse
     readonly property real cornerRadius: (typeof Theme !== "undefined"
                                           && Theme
                                           && Theme.radiusCard !== undefined)
-                                         ? Number(Theme.radiusCard) : 12
+                                         ? Math.min(8, Number(Theme.radiusCard)) : 8
 
     signal activated(var appData)
     signal hovered()
@@ -30,9 +32,14 @@ Item {
         radius: root.cornerRadius
         color: root.selected
                ? Theme.color("accentSoft")
-               : (mouse.containsMouse ? Theme.color("hoverItem") : "transparent")
+               : (root.hoverActive ? Theme.color("hoverItem") : "transparent")
         border.width: root.selected ? Theme.borderWidthThin : Theme.borderWidthNone
         border.color: root.selected ? Theme.color("accent") : "transparent"
+        opacity: root.selected || root.hoverActive ? 1.0 : 0.0
+
+        Behavior on opacity {
+            NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingDecelerate }
+        }
     }
 
     Item {
@@ -40,15 +47,41 @@ Item {
         width: root.compact ? 54 : 62
         height: width
         anchors.top: parent.top
-        anchors.topMargin: root.compact ? 8 : 12
+        anchors.topMargin: root.compact ? 9 : 13
         anchors.horizontalCenter: parent.horizontalCenter
+        scale: root.hoverActive ? 1.045 : 1.0
+        layer.enabled: root.hoverActive || root.selected
+        layer.effect: MultiEffect {
+            shadowEnabled: true
+            shadowColor: Qt.rgba(0, 0, 0, Theme.darkMode ? 0.28 : 0.16)
+            shadowBlur: 0.34
+            shadowVerticalOffset: 3
+            shadowHorizontalOffset: 0
+        }
+
+        Behavior on scale {
+            NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingDecelerate }
+        }
 
         Rectangle {
             anchors.fill: parent
             radius: root.cornerRadius
-            color: Theme.color("windowCard")
-            // border.width: Theme.borderWidthThin
-            // border.color: Theme.color("windowCardBorder")
+            color: root.hoverActive || root.selected ? Theme.color("surface") : "transparent"
+            border.width: root.selected ? Theme.borderWidthThin : Theme.borderWidthNone
+            border.color: root.selected ? Theme.color("accent") : "transparent"
+
+            Rectangle {
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.leftMargin: 5
+                anchors.rightMargin: 5
+                anchors.topMargin: 1
+                height: 1
+                radius: Theme.radiusHairline
+                color: Qt.rgba(1, 1, 1, Theme.darkMode ? 0.18 : 0.55)
+                opacity: root.hoverActive || root.selected ? 1.0 : 0.0
+            }
         }
 
         Image {
@@ -84,7 +117,8 @@ Item {
         maximumLineCount: 1
         text: root.title
         font.pixelSize: Theme.fontSize("menu")
-        color: Theme.color("textPrimary")
+        font.weight: root.selected ? Theme.fontWeight("semibold") : Theme.fontWeight("regular")
+        color: root.selected ? Theme.color("textPrimary") : Theme.color("textSecondary")
     }
 
     Rectangle {

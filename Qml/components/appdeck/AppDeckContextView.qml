@@ -7,6 +7,10 @@ Item {
 
     property bool active: false
     property int panelHeight: 0
+    property real preferredSurfaceX: -1
+    property real preferredSurfaceY: -1
+    property real preferredSurfaceWidth: -1
+    property real preferredSurfaceHeight: -1
 
     // Required API for Pulse Context Mode
     property var pulseResultsModel: null
@@ -859,17 +863,20 @@ Item {
 
     Rectangle {
         id: contextSurface
-        width: Math.min(980, Math.max(620, root.width - 80))
-        height: Math.max(420, root.height - (root.panelHeight + 74))
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.top: parent.top
-        anchors.topMargin: root.panelHeight + 16
+        width: root.preferredSurfaceWidth > 0
+               ? root.preferredSurfaceWidth
+               : Math.min(980, Math.max(620, root.width - 80))
+        height: root.preferredSurfaceHeight > 0
+                ? root.preferredSurfaceHeight
+                : Math.max(420, root.height - (root.panelHeight + 74))
+        x: root.preferredSurfaceX >= 0 ? root.preferredSurfaceX : Math.round((parent.width - width) * 0.5)
+        y: (root.preferredSurfaceY >= 0 ? root.preferredSurfaceY : root.panelHeight + 16)
+           + (1.0 - root.revealProgress) * 14
         radius: Math.max(18, Theme.radiusWindow + 4)
-        color: Theme.color("windowCard")
+        color: "transparent"
         border.width: Theme.borderWidthNone
         border.color: "transparent"
         opacity: root.active ? 1.0 : 0.0
-        y: (root.panelHeight + 16) + (1.0 - root.revealProgress) * 14
         scale: 0.985 + (0.015 * root.revealProgress)
 
         Behavior on opacity {
@@ -888,16 +895,6 @@ Item {
             color: "transparent"
             border.width: Theme.borderWidthNone
             border.color: "transparent"
-        }
-
-        Rectangle {
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.top: parent.top
-            height: Math.min(120, parent.height * 0.24)
-            radius: parent.radius
-            color: Qt.rgba(1, 1, 1, 0.18)
-            opacity: Theme.opacityMuted
         }
 
         ColumnLayout {

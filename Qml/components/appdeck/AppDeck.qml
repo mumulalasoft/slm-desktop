@@ -1,5 +1,6 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
+import QtQuick.Effects
 import Slm_Desktop
 import "."
 
@@ -15,6 +16,7 @@ Rectangle {
     property bool acceptsInput: true
     property bool rendererActive: true
     property bool hideBackgroundBorder: false
+    property bool forceTransparentBackground: false
     property real layoutIconSlotWidth: -1
     property real layoutItemSpacing: -1
     property real layoutEdgePadding: -1
@@ -127,10 +129,11 @@ Rectangle {
     border.color: "transparent"
     clip: false
 
-    readonly property bool dockTransparent: (typeof DesktopSettings !== "undefined"
-                                             && DesktopSettings
-                                             && DesktopSettings.dockTransparent !== undefined)
-                                            ? !!DesktopSettings.dockTransparent : false
+    readonly property bool dockTransparent: forceTransparentBackground
+                                             || ((typeof DesktopSettings !== "undefined"
+                                                  && DesktopSettings
+                                                  && DesktopSettings.dockTransparent !== undefined)
+                                                 ? !!DesktopSettings.dockTransparent : false)
 
     AppDeckReorderController {
         id: reorderState
@@ -700,13 +703,39 @@ Rectangle {
         height: root.baseHeight
         radius: Theme.radiusWindow
         visible: !root.dockTransparent
-        color: root.dockTransparent ? "transparent" : Theme.color("windowCard")
+        color: root.dockTransparent ? "transparent" : Theme.color("dockBg")
         border.color: (root.dockTransparent || root.hideBackgroundBorder)
                       ? "transparent"
                       : Theme.color("panelBorder")
         border.width: (root.dockTransparent || root.hideBackgroundBorder)
                       ? Theme.borderWidthNone
                       : Theme.borderWidthThin
+        layer.enabled: visible
+        layer.effect: MultiEffect {
+            shadowEnabled: true
+            shadowColor: Qt.rgba(0, 0, 0, Theme.darkMode ? 0.34 : 0.18)
+            shadowBlur: 0.42
+            shadowVerticalOffset: 6
+            shadowHorizontalOffset: 0
+        }
+
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: Theme.color("dockGlassTop") }
+            GradientStop { position: 1.0; color: Theme.color("dockGlassBottom") }
+        }
+
+        Rectangle {
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.leftMargin: 10
+            anchors.rightMargin: 10
+            anchors.topMargin: 1
+            height: 1
+            radius: Theme.radiusHairline
+            color: Theme.color("dockSpecLine")
+            opacity: root.hideBackgroundBorder ? 0.0 : 0.68
+        }
 
         Behavior on color {
             enabled: root.microAnimationAllowed()
@@ -726,8 +755,8 @@ Rectangle {
 
         spacing: layoutItemSpacing >= 0 ? layoutItemSpacing : 0
 
-    AppDeckItem {
-        id: apphubItem
+        AppDeckItem {
+            id: apphubItem
             label: "AppHub"
             iconPath: "qrc:/icons/apphub.svg"
             baseSlotWidth: root.iconSlotWidth
@@ -793,8 +822,8 @@ Rectangle {
         x: Math.max(0, Math.min(root.width - width, root.hoverX - width * 0.5))
         y: Math.round((root.height - height) * 0.5)
         z: -2.5
-        color: Theme.darkMode ? "#46cfe8ff" : "#55cde8ff"
-        opacity: root.hovered ? 0.48 : 0.0
+        color: Theme.color("dockRevealHint")
+        opacity: root.hovered ? 0.34 : 0.0
 
         Behavior on x {
             enabled: root.microAnimationAllowed()

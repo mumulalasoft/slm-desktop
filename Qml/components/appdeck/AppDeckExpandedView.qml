@@ -12,12 +12,18 @@ FocusScope {
 
     property int panelHeight: 0
     property int bottomSafeInset: 160
+    property real preferredPanelX: -1
+    property real preferredPanelY: -1
+    property real preferredPanelWidth: -1
+    property real preferredPanelHeight: -1
     property string apphubSearchSeed: ""
     property string filterText: ""
     property real revealProgress: 1.0
 
     readonly property var allAppsModel: (typeof AppModel !== "undefined" && AppModel)
                                          ? AppModel : appsModel
+    readonly property int contentTopInset: preferredPanelY >= 0 ? preferredPanelY : Math.max(18, root.panelHeight + 14)
+    readonly property int contentBottomInset: Math.max(24, root.bottomSafeInset)
     readonly property int totalAppCount: allAppsModel && typeof allAppsModel.count !== "undefined"
                                          ? Number(allAppsModel.count || 0) : 0
     readonly property var favoriteApps: {
@@ -101,12 +107,6 @@ FocusScope {
         }
     }
 
-    Rectangle {
-        anchors.fill: parent
-        color: Theme.color("windowCard")
-        opacity: 1.0
-    }
-
     MouseArea {
         anchors.fill: parent
         hoverEnabled: false
@@ -120,17 +120,21 @@ FocusScope {
 
     Item {
         id: contentFrame
-        anchors.fill: parent
-        anchors.leftMargin: Math.max(28, parent.width * 0.06)
-        anchors.rightMargin: Math.max(28, parent.width * 0.06)
-        anchors.topMargin: Math.max(14, root.panelHeight + 8)
-        anchors.bottomMargin: Math.max(24, root.bottomSafeInset)
+        width: preferredPanelWidth > 0
+               ? preferredPanelWidth
+               : Math.min(1180, Math.max(320, parent.width - (Math.max(28, parent.width * 0.07) * 2)))
+        height: preferredPanelHeight > 0
+                ? preferredPanelHeight
+                : Math.min(760, Math.max(360, parent.height - root.contentTopInset - root.contentBottomInset))
+        x: preferredPanelX >= 0 ? preferredPanelX : Math.round((parent.width - width) * 0.5)
+        y: root.contentTopInset
         opacity: Math.max(0.0, Math.min(1.0, root.revealProgress))
         transform: Translate { y: (1.0 - root.revealProgress) * 18 }
 
         ColumnLayout {
             anchors.fill: parent
-            spacing: 12
+            anchors.margins: 18
+            spacing: 14
 
             Item {
                 id: headerHitLayer

@@ -32,19 +32,35 @@ Item {
     readonly property bool hasResults: filteredApps.length > 0
     readonly property bool noResultState: !hasResults && String(filterText || "").trim().length > 0
     readonly property bool emptyState: !hasResults && String(filterText || "").trim().length === 0
-    readonly property int minCellWidth: 104
-    readonly property int maxCellWidth: 146
-    readonly property int gridSpacing: 12
+    readonly property int minCellWidth: 112
+    readonly property int maxCellWidth: 148
+    readonly property int gridSpacing: 14
+    readonly property int gridSideInset: 6
+    readonly property int footerHeight: 24
+    readonly property bool showPagination: pageCount > 1
+    readonly property real usableGridWidth: Math.max(1, grid.width - (gridSideInset * 2))
+    readonly property real usableGridHeight: Math.max(1, grid.height)
     readonly property int columnCount: Math.max(
                                            1,
-                                           Math.floor((grid.width + gridSpacing)
+                                           Math.floor((usableGridWidth + gridSpacing)
                                                       / (Math.max(1, minCellWidth) + gridSpacing))
                                        )
-    readonly property int rowCount: Math.max(1, Math.floor(grid.height / Math.max(1, grid.cellHeight)))
+    readonly property int rowCount: Math.max(1, Math.floor(usableGridHeight / Math.max(1, grid.cellHeight)))
     readonly property int pageSize: Math.max(1, columnCount * rowCount)
     readonly property int pageCount: Math.max(1, Math.ceil(filteredApps.length / Math.max(1, pageSize)))
     readonly property bool hasPreviousPage: currentPage > 0
     readonly property bool hasNextPage: currentPage + 1 < pageCount
+    readonly property int pageButtonSize: 34
+    readonly property string pageRangeText: {
+        if (!showPagination || filteredApps.length <= 0) {
+            return ""
+        }
+        return String(pageStart(currentPage) + 1)
+                + "-"
+                + String(pageEnd(currentPage))
+                + " of "
+                + String(filteredApps.length)
+    }
     readonly property real pageSwitchOffset: Math.max(28, Math.round(grid.width * 0.16))
     readonly property real swipeThreshold: Math.max(36, grid.width * 0.14)
 
@@ -177,6 +193,15 @@ Item {
         _updatePagedApps()
         _ensureSelectionOnCurrentPage()
         return true
+    }
+
+    function pageStart(pageIndex) {
+        return Math.max(0, Math.min(filteredApps.length, pageIndex * Math.max(1, pageSize)))
+    }
+
+    function pageEnd(pageIndex) {
+        return Math.max(pageStart(pageIndex),
+                        Math.min(filteredApps.length, pageStart(pageIndex) + Math.max(1, pageSize)))
     }
 
     function _syncPaginationToSelection() {
@@ -329,22 +354,31 @@ Item {
 
     ColumnLayout {
         anchors.fill: parent
-        spacing: 8
+        spacing: 10
 
         Item {
             Layout.fillWidth: true
-            implicitHeight: headerLabel.implicitHeight
+            implicitHeight: Math.max(headerLabel.implicitHeight, countLabel.implicitHeight)
 
             Label {
                 id: headerLabel
-                text: "All Application"
+                text: "Applications"
                 font.pixelSize: Theme.fontSize("body")
-                font.weight: Theme.fontWeight("bold")
+                font.weight: Theme.fontWeight("semibold")
                 color: Theme.color("textPrimary")
-                opacity: Theme.opacityMuted
+                opacity: Theme.opacityHint
                 anchors.left: parent.left
                 anchors.verticalCenter: parent.verticalCenter
-                // visible: root.favoritesModel.length > 0
+            }
+
+            Label {
+                id: countLabel
+                text: String(root.filteredCount) + (root.filteredCount === 1 ? " app" : " apps")
+                font.pixelSize: Theme.fontSize("small")
+                color: Theme.color("textSecondary")
+                opacity: Theme.opacityMuted
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
             }
 
             MouseArea {
@@ -364,10 +398,12 @@ Item {
             cellWidth: Math.max(
                        root.minCellWidth,
                        Math.min(root.maxCellWidth,
-                                Math.floor((width - Math.max(0, root.columnCount - 1) * root.gridSpacing)
+                                Math.floor((root.usableGridWidth - Math.max(0, root.columnCount - 1) * root.gridSpacing)
                                            / Math.max(1, root.columnCount)))
                    )
-            cellHeight: 130
+            cellHeight: 132
+            leftMargin: root.gridSideInset
+            rightMargin: root.gridSideInset
             interactive: false
             currentIndex: -1
             focus: true
@@ -383,8 +419,8 @@ Item {
                     id: delegateItem
                     anchors.horizontalCenter: parent.horizontalCenter
                     anchors.verticalCenter: parent.verticalCenter
-                    width: Math.max(96, grid.cellWidth - 6)
-                    height: grid.cellHeight - 6
+                    width: Math.max(96, grid.cellWidth - 8)
+                    height: grid.cellHeight - 10
                     appData: modelData
                     title: String((modelData && modelData.display) || "")
                     iconSource: String((modelData && modelData.icon) || "")
@@ -406,7 +442,7 @@ Item {
                     id: menu
                     property var actionAppData: ({})
                     MenuItem {
-                        text: "Pin to Appdeck"
+                        text: "Pin to AppDeck"
                         onTriggered: {
                             var payload = menu.actionAppData || modelData || ({})
                             console.log("[apphub] pin triggered payload=", JSON.stringify(payload))
@@ -460,9 +496,12 @@ Item {
                 target: null
                 enabled: root.pageCount > 1 && !pageSwitchAnim.running
                 xAxis.enabled: true
-                yAxis.enabled: false
                 onTranslationChanged: {
                     if (!active) {
+                        return
+                    }
+                    if (Math.abs(translation.y) > Math.abs(translation.x) * 0.85) {
+                        root.pageShiftX = 0
                         return
                     }
                     var damped = translation.x * 0.35
@@ -506,34 +545,136 @@ Item {
             }
         }
 
-        Row {
+        Item {
+            id: paginationRow
             Layout.fillWidth: true
+            Layout.preferredHeight: root.showPagination ? root.pageButtonSize : 0
             Layout.alignment: Qt.AlignHCenter
-            spacing: 6
-            visible: root.pageCount > 1
+            visible: root.showPagination
+            opacity: root.showPagination ? 1.0 : 0.0
 
-            Repeater {
-                model: root.pageCount
-                delegate: Rectangle {
-                    width: index === root.currentPage ? 16 : 6
-                    height: 6
-                    radius: height * 0.5
-                    color: index === root.currentPage ? Theme.color("accent") : Theme.color("textSecondary")
-                    opacity: index === root.currentPage ? Theme.opacityHint : Theme.opacityFaint
+            Behavior on opacity {
+                NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingDecelerate }
+            }
 
-                    Behavior on width {
-                        NumberAnimation {
-                            duration: Theme.durationFast
-                            easing.type: Theme.easingDecelerate
+            Rectangle {
+                id: previousButton
+                width: root.pageButtonSize
+                height: root.pageButtonSize
+                radius: Math.min(8, Theme.radiusControl)
+                anchors.left: parent.left
+                anchors.verticalCenter: parent.verticalCenter
+                color: previousHover.containsMouse && root.hasPreviousPage
+                       ? Theme.color("controlBgHover")
+                       : Theme.color("controlBg")
+                border.width: Theme.borderWidthThin
+                border.color: root.hasPreviousPage ? Theme.color("panelBorder") : Theme.color("controlDisabledBorder")
+                opacity: root.hasPreviousPage ? 1.0 : 0.45
+
+                Label {
+                    anchors.centerIn: parent
+                    text: "<"
+                    font.pixelSize: Theme.fontSize("body")
+                    font.weight: Theme.fontWeight("bold")
+                    color: root.hasPreviousPage ? Theme.color("textPrimary") : Theme.color("textDisabled")
+                }
+
+                MouseArea {
+                    id: previousHover
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    enabled: root.hasPreviousPage
+                    acceptedButtons: Qt.LeftButton
+                    onClicked: root.switchToPage(root.currentPage - 1, true, -1)
+                }
+            }
+
+            Row {
+                anchors.centerIn: parent
+                spacing: 7
+
+                Repeater {
+                    model: root.pageCount
+                    delegate: Item {
+                        width: index === root.currentPage ? 20 : 12
+                        height: root.footerHeight
+
+                        Rectangle {
+                            anchors.centerIn: parent
+                            width: index === root.currentPage ? 18 : 6
+                            height: 6
+                            radius: height * 0.5
+                            color: index === root.currentPage ? Theme.color("accent") : Theme.color("textSecondary")
+                            opacity: index === root.currentPage ? Theme.opacityHint : Theme.opacityFaint
+
+                            Behavior on width {
+                                NumberAnimation {
+                                    duration: Theme.durationFast
+                                    easing.type: Theme.easingDecelerate
+                                }
+                            }
+                            Behavior on opacity {
+                                NumberAnimation {
+                                    duration: Theme.durationFast
+                                    easing.type: Theme.easingLight
+                                }
+                            }
                         }
-                    }
-                    Behavior on opacity {
-                        NumberAnimation {
-                            duration: Theme.durationFast
-                            easing.type: Theme.easingLight
+
+                        MouseArea {
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            acceptedButtons: Qt.LeftButton
+                            onClicked: {
+                                if (index !== root.currentPage) {
+                                    root.switchToPage(index, true, index > root.currentPage ? 1 : -1)
+                                }
+                            }
                         }
                     }
                 }
+            }
+
+            Rectangle {
+                id: nextButton
+                width: root.pageButtonSize
+                height: root.pageButtonSize
+                radius: Math.min(8, Theme.radiusControl)
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                color: nextHover.containsMouse && root.hasNextPage
+                       ? Theme.color("controlBgHover")
+                       : Theme.color("controlBg")
+                border.width: Theme.borderWidthThin
+                border.color: root.hasNextPage ? Theme.color("panelBorder") : Theme.color("controlDisabledBorder")
+                opacity: root.hasNextPage ? 1.0 : 0.45
+
+                Label {
+                    anchors.centerIn: parent
+                    text: ">"
+                    font.pixelSize: Theme.fontSize("body")
+                    font.weight: Theme.fontWeight("bold")
+                    color: root.hasNextPage ? Theme.color("textPrimary") : Theme.color("textDisabled")
+                }
+
+                MouseArea {
+                    id: nextHover
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    enabled: root.hasNextPage
+                    acceptedButtons: Qt.LeftButton
+                    onClicked: root.switchToPage(root.currentPage + 1, true, 1)
+                }
+            }
+
+            Label {
+                anchors.right: nextButton.left
+                anchors.rightMargin: 10
+                anchors.verticalCenter: parent.verticalCenter
+                text: root.pageRangeText
+                font.pixelSize: Theme.fontSize("small")
+                color: Theme.color("textSecondary")
+                opacity: Theme.opacityMuted
             }
         }
     }

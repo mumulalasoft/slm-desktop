@@ -1,5 +1,6 @@
 import QtQuick 2.15
 import QtQuick.Window 2.15
+import QtQuick.Effects
 import Slm_Desktop
 import "../appdeck" as AppDeckComp
 import "./AppHubActions.js" as AppHubActions
@@ -56,11 +57,52 @@ Window {
     readonly property int motionSurfaceDuration: Theme.durationNormal
     readonly property int motionCrossfadeDuration: Theme.durationFast
     readonly property int motionQuickDuration: Theme.durationSm
-    readonly property real morphBaseOpacity: Theme.opacityFaint - Theme.opacityFaint
-    readonly property real morphRangeOpacity: Theme.opacityFaint
+    readonly property real sharedPanelMarginX: Math.max(28, root.width * 0.07)
+    readonly property real sharedPanelTopInset: Math.max(18, Number(root.desktopScene ? root.desktopScene.panelHeight : 0) + 14)
+    readonly property real sharedPanelBottomInset: Math.max(
+                                                        24,
+                                                        Math.round(
+                                                            (collapsedView.dockItem ? Number(collapsedView.dockItem.height || 120) : 120)
+                                                            + (root.desktopScene ? Number(root.desktopScene.dockBottomMargin || 0) : 0)
+                                                            + 20
+                                                        )
+                                                    )
+    readonly property real sharedDockWidth: Math.max(320, Number(root.collapsedInputWidth || 1) + 20)
+    readonly property real expandedContentW: Math.min(1180, Math.max(320, root.width - (sharedPanelMarginX * 2)))
+    readonly property real expandedContentH: Math.min(940, Math.max(360, root.height - sharedPanelTopInset - sharedPanelBottomInset))
+    readonly property real expandedContentX: Math.round((root.width - expandedContentW) * 0.5)
+    readonly property real expandedContentY: sharedPanelTopInset
+    readonly property real expandedSurfaceW: Math.max(expandedContentW, sharedDockWidth)
+    readonly property real expandedSurfaceH: Math.max(expandedContentH, root.height - expandedContentY - 8)
+    readonly property real expandedSurfaceX: Math.round((root.width - expandedSurfaceW) * 0.5)
+    readonly property real expandedSurfaceY: expandedContentY
+    readonly property real contextContentW: Math.min(980, Math.max(620, root.width - 80))
+    readonly property real contextContentY: Math.max(16, Number(root.desktopScene ? root.desktopScene.panelHeight : 0) + 16)
+    readonly property real contextContentH: Math.max(420, root.height - (contextContentY + 40))
+    readonly property real contextContentX: Math.round((root.width - contextContentW) * 0.5)
+    readonly property real contextSurfaceW: Math.max(contextContentW, sharedDockWidth)
+    readonly property real contextSurfaceH: Math.max(contextContentH, root.height - contextContentY - 8)
+    readonly property real contextSurfaceX: Math.round((root.width - contextSurfaceW) * 0.5)
+    readonly property real contextSurfaceY: contextContentY
+    readonly property real collapsedDockBottomMargin: Math.max(
+                                                      8,
+                                                      Number(root.desktopScene ? root.desktopScene.dockBottomMargin : 0)
+                                                  )
 
+    readonly property bool motionEngineReady: typeof MotionController !== "undefined"
+                                                && MotionController
+                                                && MotionController.startFromCurrent
+                                                && MotionController.retarget
+                                                && MotionController.cancelAndSettle
+    readonly property real surfaceTarget: immersiveMode ? 1.0 : 0.0
+    property real fallbackSurfaceTransition: surfaceTarget
     // Shared transition progress: 0 = collapsed surface, 1 = expanded/context surface.
-    property real surfaceTransition: immersiveMode ? 1.0 : 0.0
+    readonly property real engineSurfaceTransition: motionEngineReady
+                                               ? Math.max(0.0, Math.min(1.0, Number(MotionController.value || 0)))
+                                               : fallbackSurfaceTransition
+    readonly property real surfaceTransition: immersiveMode
+                                               ? Math.max(engineSurfaceTransition, fallbackSurfaceTransition)
+                                               : fallbackSurfaceTransition
     property real expandedTransition: expandedMode ? 1.0 : 0.0
     property real contextTransition: contextMode ? 1.0 : 0.0
     property bool appdeckLifecycleActive: false
@@ -142,6 +184,44 @@ Window {
         }
     }
 
+    function syncAppDeckMotionChannel() {
+        if (!root.motionEngineReady) {
+            return false
+        }
+        if (MotionController.channel !== "appdeck.surface") {
+            MotionController.channel = "appdeck.surface"
+        }
+        if (MotionController.preset !== "launcher") {
+            MotionController.preset = "launcher"
+        }
+        if (MotionController.ensureRunning) {
+            MotionController.ensureRunning()
+        }
+        return true
+    }
+
+    function driveSurfaceTransition(target, immediate) {
+        var t = Math.max(0.0, Math.min(1.0, Number(target || 0)))
+        fallbackSurfaceTransition = t
+        if (!root.syncAppDeckMotionChannel()) {
+            return
+        }
+        if (immediate) {
+            MotionController.cancelAndSettle(t)
+            return
+        }
+        if (t <= 0.0) {
+            MotionController.cancelAndSettle(0.0)
+            return
+        }
+        if (MotionController.shouldCoalesceEvent
+                && MotionController.shouldCoalesceEvent("appdeck.surface.retarget", 48)) {
+            MotionController.retarget(t)
+            return
+        }
+        MotionController.startFromCurrent(t)
+    }
+
     function beginAppDeckLifecycle(reason) {
         void reason
         if (typeof MotionController === "undefined" || !MotionController) {
@@ -158,8 +238,8 @@ Window {
         if (MotionController.channel !== "appdeck.surface") {
             MotionController.channel = "appdeck.surface"
         }
-        if (MotionController.preset !== "smooth") {
-            MotionController.preset = "smooth"
+        if (MotionController.preset !== "launcher") {
+            MotionController.preset = "launcher"
         }
         MotionController.beginLifecycleTransition("appdeck.surface", MotionController.MediumPriority)
         root.appdeckLifecycleActive = true
@@ -261,7 +341,7 @@ Window {
 
     opacity: root.dockLayerReady ? 1.0 : 0.0
 
-    Behavior on surfaceTransition {
+    Behavior on fallbackSurfaceTransition {
         NumberAnimation {
             duration: root.motionSurfaceDuration
             easing.type: Theme.easingDefault
@@ -425,12 +505,13 @@ Window {
 
         Rectangle {
             anchors.fill: parent
-            visible: root.surfaceTransition > 0.001
+            visible: root.immersiveMode && root.surfaceTransition > 0.001
             color: Theme.color("screenshotScrim")
             opacity: root.surfaceTransition
             z: 0
 
             Behavior on opacity {
+                enabled: !root.motionEngineReady
                 NumberAnimation {
                     duration: root.motionCrossfadeDuration
                     easing.type: Theme.easingDecelerate
@@ -441,34 +522,100 @@ Window {
         Rectangle {
             id: surfaceMorph
             z: 0
-            visible: root.surfaceTransition > 0.001
+            visible: !root.hiddenMode && root.immersiveMode && root.surfaceTransition > 0.001
             readonly property real sourceX: Number(root.collapsedInputX || 0)
             readonly property real sourceY: Number(root.collapsedInputY || 0)
             readonly property real sourceW: Number(root.collapsedInputWidth || 1)
             readonly property real sourceH: Number(root.collapsedInputHeight || 1)
-            readonly property real targetMarginX: Math.max(28, root.width * 0.06)
-            readonly property real targetX: contextMode ? Math.round((root.width - targetW) * 0.5) : targetMarginX
-            readonly property real targetY: contextMode
-                                            ? Math.max(16, Number(root.desktopScene ? root.desktopScene.panelHeight : 0) + 16)
-                                            : Math.max(12, Number(root.desktopScene ? root.desktopScene.panelHeight : 0) + 8)
-            readonly property real targetW: contextMode
-                                            ? Math.min(980, Math.max(620, root.width - 80))
-                                            : Math.max(640, root.width - (targetMarginX * 2))
-            readonly property real targetH: contextMode
-                                            ? Math.max(420, root.height - (targetY + 40))
-                                            : Math.max(460, root.height - (targetY + 24))
+            readonly property real targetX: contextMode ? root.contextSurfaceX : root.expandedSurfaceX
+            readonly property real targetY: contextMode ? root.contextSurfaceY : root.expandedSurfaceY
+            readonly property real targetW: contextMode ? root.contextSurfaceW : root.expandedSurfaceW
+            readonly property real targetH: contextMode ? root.contextSurfaceH : root.expandedSurfaceH
 
             x: sourceX + (targetX - sourceX) * root.surfaceTransition
             y: sourceY + (targetY - sourceY) * root.surfaceTransition
             width: sourceW + (targetW - sourceW) * root.surfaceTransition
             height: sourceH + (targetH - sourceH) * root.surfaceTransition
-            radius: Theme.radiusWindow + (10 * root.surfaceTransition)
-            color: Theme.color("panel")
-            border.width: Theme.borderWidthNone
-            opacity: root.morphBaseOpacity + (root.morphRangeOpacity * root.surfaceTransition)
+            radius: Theme.radiusWindow + (Math.min(8, Theme.radiusWindow) * root.surfaceTransition)
+            color: root.immersiveMode ? Theme.color("windowCard") : Theme.color("dockBg")
+            border.width: Theme.borderWidthThin
+            border.color: Theme.color("panelBorder")
+            opacity: root.immersiveMode ? 1.0 : 0.0
+            layer.enabled: visible
+            layer.effect: MultiEffect {
+                shadowEnabled: true
+                shadowColor: Qt.rgba(0, 0, 0, Theme.darkMode ? 0.42 : 0.24)
+                shadowBlur: 0.54
+                shadowVerticalOffset: 10 + (6 * root.surfaceTransition)
+                shadowHorizontalOffset: 0
+            }
+
+            Rectangle {
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.leftMargin: 14
+                anchors.rightMargin: 14
+                anchors.topMargin: 1
+                height: 1
+                radius: Theme.radiusHairline
+                color: Qt.rgba(1, 1, 1, Theme.darkMode ? 0.16 : 0.58)
+                opacity: root.surfaceTransition
+            }
 
             Behavior on opacity {
+                enabled: !root.motionEngineReady
                 NumberAnimation { duration: root.motionCrossfadeDuration; easing.type: Theme.easingDecelerate }
+            }
+            Behavior on x {
+                enabled: !root.motionEngineReady
+                NumberAnimation { duration: root.motionSurfaceDuration; easing.type: Theme.easingDefault }
+            }
+            Behavior on y {
+                enabled: !root.motionEngineReady
+                NumberAnimation { duration: root.motionSurfaceDuration; easing.type: Theme.easingDefault }
+            }
+            Behavior on width {
+                enabled: !root.motionEngineReady
+                NumberAnimation { duration: root.motionSurfaceDuration; easing.type: Theme.easingDefault }
+            }
+            Behavior on height {
+                enabled: !root.motionEngineReady
+                NumberAnimation { duration: root.motionSurfaceDuration; easing.type: Theme.easingDefault }
+            }
+            Behavior on radius {
+                enabled: !root.motionEngineReady
+                NumberAnimation { duration: root.motionSurfaceDuration; easing.type: Theme.easingDefault }
+            }
+            Behavior on color {
+                ColorAnimation { duration: root.motionCrossfadeDuration; easing.type: Theme.easingStandard }
+            }
+        }
+
+        Rectangle {
+            id: steadyImmersiveSurface
+            z: 0.5
+            visible: root.immersiveMode
+            x: root.contextMode ? root.contextSurfaceX : root.expandedSurfaceX
+            y: root.contextMode ? root.contextSurfaceY : root.expandedSurfaceY
+            width: root.contextMode ? root.contextSurfaceW : root.expandedSurfaceW
+            height: root.contextMode ? root.contextSurfaceH : root.expandedSurfaceH
+            radius: Theme.radiusWindow + Math.min(8, Theme.radiusWindow)
+            color: Theme.color("windowCard")
+            border.width: Theme.borderWidthThin
+            border.color: Theme.color("panelBorder")
+            opacity: root.immersiveMode ? 1.0 : 0.0
+
+            Rectangle {
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.leftMargin: 14
+                anchors.rightMargin: 14
+                anchors.topMargin: 1
+                height: 1
+                radius: Theme.radiusHairline
+                color: Qt.rgba(1, 1, 1, Theme.darkMode ? 0.16 : 0.58)
             }
         }
 
@@ -482,6 +629,10 @@ Window {
             appsModel: root.appsModel
             desktopScene: root.desktopScene
             panelHeight: root.desktopScene ? root.desktopScene.panelHeight : 0
+            preferredPanelX: root.expandedContentX
+            preferredPanelY: root.expandedContentY
+            preferredPanelWidth: root.expandedContentW
+            preferredPanelHeight: root.expandedContentH
             apphubSearchSeed: root.desktopScene
                               ? String(root.desktopScene.apphubSearchSeed || "")
                               : ""
@@ -526,6 +677,10 @@ Window {
             opacity: root.contextTransition
             transform: Translate { y: (1.0 - root.contextTransition) * 12 }
             panelHeight: root.desktopScene ? root.desktopScene.panelHeight : 0
+            preferredSurfaceX: root.contextContentX
+            preferredSurfaceY: root.contextContentY
+            preferredSurfaceWidth: root.contextContentW
+            preferredSurfaceHeight: root.contextContentH
             currentQuery: root.rootWindow ? String(root.rootWindow.pulseQuery || "") : ""
             pulseResultsModel: root.pulseResultsModel
             // Keep icon lookup source aligned with AppHub: prefer global AppModel context.
@@ -614,17 +769,18 @@ Window {
             id: collapsedView
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottom: parent.bottom
-            visible: !root.hiddenMode && (root.collapsedMode || root.expandedMode)
-            opacity: root.collapsedMode ? (1.0 - root.surfaceTransition)
-                                       : (root.expandedMode ? 1.0 : 0.0)
-            scale: 1.0 - (0.03 * root.surfaceTransition)
-            transform: Translate { y: root.surfaceTransition * 10 }
+            anchors.bottomMargin: root.collapsedMode ? root.collapsedDockBottomMargin : 0
+            visible: !root.hiddenMode && (root.collapsedMode || root.expandedMode || root.contextMode || opacity > 0.01)
+            opacity: 1.0
+            scale: root.collapsedMode ? 1.0 : (1.0 - (0.03 * root.surfaceTransition))
+            transform: Translate { y: root.collapsedMode ? 0 : root.surfaceTransition * 10 }
             z: 3
             hostName: "appdeck"
-            hideBorder: root.expandedMode
-            acceptsInput: root.dockAcceptsInput && root.collapsedMode && root.surfaceTransition < 0.05
+            hideBorder: root.immersiveMode
+            transparentBackground: root.immersiveMode
+            acceptsInput: root.dockAcceptsInput && root.collapsedMode
             rendererActive: root.visible && root.dockLayerReady && root.dockHostVisible
-                            && (root.collapsedMode || root.expandedMode)
+                            && !root.hiddenMode
             appsModel: root.appsModel
             onAppActivated: function(appName) {
                 root.requestOpenApp(String(appName || ""))
@@ -640,12 +796,14 @@ Window {
             }
 
             Behavior on opacity {
+                enabled: !root.motionEngineReady
                 NumberAnimation {
                     duration: root.motionCrossfadeDuration
                     easing.type: Theme.easingDecelerate
                 }
             }
             Behavior on scale {
+                enabled: !root.motionEngineReady
                 NumberAnimation {
                     duration: root.motionCrossfadeDuration
                     easing.type: Theme.easingDecelerate
@@ -675,6 +833,7 @@ Window {
 
     onAppdeckStateChanged: {
         root.beginAppDeckLifecycle(appdeckState)
+        root.driveSurfaceTransition(root.surfaceTarget, false)
         root.syncLayerSurfaceSize()
         if (contextMode) {
             requestActivate()
@@ -726,6 +885,7 @@ Window {
 
     Component.onCompleted: {
         console.info("[AppDeckWindow] DOCK_CREATED ptr=" + root)
+        root.driveSurfaceTransition(root.surfaceTarget, true)
         root.tryConfigureLayerShell()
         root._sendOverlayCommand("overlay register appdeck slm-appdeck")
         root._sendOverlayCommand("overlay restack")
