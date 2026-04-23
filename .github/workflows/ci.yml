@@ -173,12 +173,12 @@ jobs:
         run: |
           scripts/smoke-backends.sh --build-dir build --app-bin build/slm-desktop
 
-      - name: Smoke tothespot
+      - name: Smoke pulse
         env:
           QT_QPA_PLATFORM: offscreen
           SLM_SMOKE_BUILD: "0"
         run: |
-          scripts/smoke-tothespot-contextmenu.sh --build-dir build --app-bin build/slm-desktop
+          scripts/smoke-pulse-contextmenu.sh --build-dir build --app-bin build/slm-desktop
 
   build-and-test:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
@@ -593,7 +593,7 @@ jobs:
         run: |
           ctest --test-dir build -R "(portal_portals_conf_strategy_test|portal_install_script_integration_test|portal_profile_snapshot_test|portal_slm_portal_snapshot_test|portal_dbus_service_template_snapshot_test|portal_systemd_unit_template_snapshot_test|portal_profile_smoke_test|portal_installed_artifacts_smoke_test)" --output-on-failure
 
-  tothespot-quick:
+  pulse-quick:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
@@ -631,12 +631,12 @@ jobs:
       - name: Build
         run: cmake --build build -j
 
-      - name: Tothespot CI gate (quick)
+      - name: Pulse CI gate (quick)
         env:
           QT_QPA_PLATFORM: offscreen
-        run: scripts/test-tothespot.sh
+        run: scripts/test-pulse.sh
 
-  tothespot-full:
+  pulse-full:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
@@ -674,7 +674,7 @@ jobs:
       - name: Build
         run: cmake --build build -j
 
-      - name: Tothespot CI gate (full)
+      - name: Pulse CI gate (full)
         env:
           QT_QPA_PLATFORM: offscreen
-        run: scripts/test-tothespot.sh --full
+        run: scripts/test-pulse.sh --full

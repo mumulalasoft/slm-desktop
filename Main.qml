@@ -281,6 +281,14 @@ ApplicationWindow {
     property bool pulseRestoringGeometry: false
     function setSearchVisible(visible) {
         var v = !!visible
+        if (v) {
+            if (typeof ShellStateController !== "undefined" && ShellStateController
+                    && ShellStateController.setAppHubVisible) {
+                ShellStateController.setAppHubVisible(false)
+            } else if (desktopScene && desktopScene.setAppHubVisible) {
+                desktopScene.setAppHubVisible(false)
+            }
+        }
         if (typeof ShellStateController !== "undefined" && ShellStateController
                 && ShellStateController.setPulseVisible) {
             ShellStateController.setPulseVisible(v)
@@ -311,7 +319,15 @@ ApplicationWindow {
         PulseController.refreshTelemetryMeta(root)
         PulseController.refreshTelemetryLast(root)
         pulseDebounce.stop()
-        PulseController.refreshResults(root, pulseResultsModel, true)
+        PulseController.refreshResults(root, pulseResultsStore, true)
+    }
+    onSearchQueryChanged: {
+        // Keep Pulse results refresh resilient regardless of which UI surface
+        // updates the query (context input, shortcut, or programmatic set).
+        if (!searchVisible) {
+            return
+        }
+        pulseDebounce.restart()
     }
     onMotionDebugOverlayEnabledChanged: {
         ShellUtils.refreshMotionDebugRows(root)
@@ -715,7 +731,7 @@ ApplicationWindow {
         interval: 150
         repeat: false
         running: false
-        onTriggered: PulseController.refreshResults(root, pulseResultsModel, false)
+        onTriggered: PulseController.refreshResults(root, pulseResultsStore, false)
     }
 
     Timer {
@@ -741,12 +757,12 @@ ApplicationWindow {
         portalChooserApi: portalChooserApi
         fileManagerApi: (typeof FileManagerApi !== "undefined") ? FileManagerApi : null
         pulseService: (typeof PulseService !== "undefined") ? PulseService : null
-        pulseResultsModel: pulseResultsModel
+        pulseResultsModel: pulseResultsStore
         desktopSettings: (typeof DesktopSettings !== "undefined") ? DesktopSettings : null
     }
 
     ListModel {
-        id: pulseResultsModel
+        id: pulseResultsStore
     }
 
     ListModel {
@@ -1069,7 +1085,7 @@ ApplicationWindow {
                 rootWindow: root
                 desktopScene: desktopScene
                 appsModel: AppDeckModel
-                pulseResultsModel: pulseResultsModel
+                pulseResultsModel: pulseResultsStore
             }
         }
         onActiveChanged: {
@@ -1172,10 +1188,10 @@ ApplicationWindow {
             if (String(root.pulseQuery || "").trim().length > 0) {
                 return
             }
-            if (pulseResultsModel && Number(pulseResultsModel.count || 0) > 0) {
+            if (pulseResultsStore && Number(pulseResultsStore.count || 0) > 0) {
                 return
             }
-            PulseController.refreshResults(root, pulseResultsModel, true)
+            PulseController.refreshResults(root, pulseResultsStore, true)
         }
     }
 

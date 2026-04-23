@@ -13,7 +13,7 @@ QString readTextFile(const QString &path)
 }
 }
 
-class TopBarMainMenuRecentIconsGuardTest : public QObject
+class CrownMainMenuRecentIconsGuardTest : public QObject
 {
     Q_OBJECT
 
@@ -21,7 +21,7 @@ private slots:
     void recentSubmenus_presentAndIconBound()
     {
         const QString path = QStringLiteral(DESKTOP_SOURCE_DIR)
-                + QStringLiteral("/Qml/components/topbar/TopBarMainMenuControl.qml");
+                + QStringLiteral("/Qml/components/crown/CrownMainMenuControl.qml");
         const QString text = readTextFile(path);
         QVERIFY2(!text.isEmpty(), qPrintable(QStringLiteral("failed to read %1").arg(path)));
 
@@ -31,14 +31,14 @@ private slots:
         QVERIFY(text.contains(QStringLiteral("enabled: recentFilesInstantiator.count > 0")));
         QVERIFY(text.contains(QStringLiteral("delegate: DSStyle.MenuItem")));
         QVERIFY(text.contains(QStringLiteral("iconSource: String(entry.iconSource || \"\")")));
-        QVERIFY(text.contains(QStringLiteral("fallbackIconSource: \"qrc:/icons/launchpad.svg\"")));
+        QVERIFY(text.contains(QStringLiteral("fallbackIconSource: \"qrc:/icons/apphub.svg\"")));
         QVERIFY(text.contains(QStringLiteral("fallbackIconSource: root._themeIconSource(\"text-x-generic\")")));
     }
 
     void recentFiles_fallbackChain_present()
     {
         const QString path = QStringLiteral(DESKTOP_SOURCE_DIR)
-                + QStringLiteral("/Qml/components/topbar/TopBarMainMenuControl.qml");
+                + QStringLiteral("/Qml/components/crown/CrownMainMenuControl.qml");
         const QString text = readTextFile(path);
         QVERIFY2(!text.isEmpty(), qPrintable(QStringLiteral("failed to read %1").arg(path)));
 
@@ -65,5 +65,5 @@ private slots:
     }
 };
 
-QTEST_MAIN(TopBarMainMenuRecentIconsGuardTest)
-#include "topbar_mainmenu_recent_icons_guard_test.moc"
+QTEST_MAIN(CrownMainMenuRecentIconsGuardTest)
+#include "crown_mainmenu_recent_icons_guard_test.moc"

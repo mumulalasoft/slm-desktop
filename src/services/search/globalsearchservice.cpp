@@ -25,6 +25,7 @@
 #include <QRegularExpression>
 #include <QSettings>
 #include <QStandardPaths>
+#include <QMetaType>
 #include <QTimer>
 #include <QUrl>
 #include <QTimeZone>
@@ -63,6 +64,84 @@ QString normalizedSearchProfile(const QVariantMap &options)
     return QStringLiteral("balanced");
 }
 
+QVariant desktopSettingValue(QObject *settings, const QString &path, const QVariant &fallback)
+{
+    if (!settings) {
+        return fallback;
+    }
+    QVariant value = fallback;
+    const bool ok = QMetaObject::invokeMethod(settings,
+                                              "settingValue",
+                                              Q_RETURN_ARG(QVariant, value),
+                                              Q_ARG(QString, path),
+                                              Q_ARG(QVariant, fallback));
+    return ok ? value : fallback;
+}
+
+int desktopSettingIntValue(QObject *settings, const QString &path, int fallback)
+{
+    const QVariant value = desktopSettingValue(settings, path, fallback);
+    bool ok = false;
+    const int parsed = value.toInt(&ok);
+    return ok ? parsed : fallback;
+}
+
+bool desktopSettingBoolValue(QObject *settings, const QString &path, bool fallback)
+{
+    const QVariant value = desktopSettingValue(settings, path, fallback);
+    if (value.metaType().id() == QMetaType::Bool) {
+        return value.toBool();
+    }
+    if (value.metaType().id() == QMetaType::Int || value.metaType().id() == QMetaType::LongLong) {
+        return value.toInt() != 0;
+    }
+    const QString normalized = value.toString().trimmed().toLower();
+    if (normalized.isEmpty()) {
+        return fallback;
+    }
+    return normalized == QStringLiteral("1")
+           || normalized == QStringLiteral("true")
+           || normalized == QStringLiteral("yes")
+           || normalized == QStringLiteral("on");
+}
+
+QStringList stringListFromSettingValue(const QVariant &value)
+{
+    if (value.metaType().id() == QMetaType::QStringList) {
+        return value.toStringList();
+    }
+    if (value.metaType().id() == QMetaType::QVariantList) {
+        QStringList out;
+        const QVariantList list = value.toList();
+        out.reserve(list.size());
+        for (const QVariant &item : list) {
+            const QString token = item.toString().trimmed();
+            if (!token.isEmpty()) {
+                out.push_back(token);
+            }
+        }
+        return out;
+    }
+    const QString raw = value.toString().trimmed();
+    if (raw.isEmpty()) {
+        return {};
+    }
+    QStringList out;
+    const QStringList parts = raw.split(QRegularExpression(QStringLiteral("[;,\n\r]")),
+                                        Qt::SkipEmptyParts);
+    out.reserve(parts.size());
+    for (const QString &part : parts) {
+        const QString token = part.trimmed();
+        if (!token.isEmpty()) {
+            out.push_back(token);
+        }
+    }
+    if (out.isEmpty()) {
+        out.push_back(raw);
+    }
+    return out;
+}
+
 int keywordMatchBonus(const QStringList &keywords, const QString &query)
 {
     const QString q = query.trimmed().toLower();
@@ -98,6 +177,43 @@ QStringList splitSemicolonList(const QString &value)
         }
     }
     return out;
+}
+
+QString normalizePulseDirectoryTokenValue(const QString &value)
+{
+    QString token = QDir::cleanPath(QDir::fromNativeSeparators(value.trimmed()));
+    if (token.startsWith(QStringLiteral("~/"))) {
+        token = QDir::cleanPath(QDir::homePath() + token.mid(1));
+    } else if (token == QStringLiteral("~")) {
+        token = QDir::homePath();
+    }
+    return token.trimmed();
+}
+
+bool pulsePathMatchesExclusionValue(const QString &path, const QStringList &excluded)
+{
+    const QString normalizedPath = QDir::cleanPath(QDir::fromNativeSeparators(path.trimmed()));
+    if (normalizedPath.isEmpty()) {
+        return false;
+    }
+    const QString lowerPath = normalizedPath.toLower();
+    const QString fileName = QFileInfo(normalizedPath).fileName().toLower();
+    for (const QString &rawToken : excluded) {
+        const QString token = normalizePulseDirectoryTokenValue(rawToken);
+        if (token.isEmpty()) {
+            continue;
+        }
+        const QString lowerToken = token.toLower();
+        if (lowerPath == lowerToken || lowerPath.startsWith(lowerToken + QLatin1Char('/'))) {
+            return true;
+        }
+        if (!lowerToken.contains(QLatin1Char('/'))) {
+            if (fileName == lowerToken || lowerPath.contains(QLatin1String("/") + lowerToken + QLatin1String("/"))) {
+                return true;
+            }
+        }
+    }
+    return false;
 }
 
 bool tokenListContains(const QStringList &list, const QString &needle)
@@ -496,6 +612,12 @@ GlobalSearchService::GlobalSearchService(DesktopAppModel *appModel,
     registerDbusService();
     m_trackerPolicy.ignoredDirectories = defaultIgnoredTrackerDirs();
     m_searchProfileUpdatedAtUtc = QDateTime::currentDateTimeUtc();
+    if (m_desktopSettings) {
+        QObject::connect(m_desktopSettings,
+                         SIGNAL(settingChanged(QString)),
+                         this,
+                         SLOT(handleDesktopSettingChanged(QString)));
+    }
 
     registerProvider(QStringLiteral("apps"));
     registerProvider(QStringLiteral("recent_files"));
@@ -507,8 +629,48 @@ GlobalSearchService::GlobalSearchService(DesktopAppModel *appModel,
     registerProvider(QStringLiteral("slm_actions"));
 
     QTimer::singleShot(0, this, [this]() {
-        ConfigureTrackerPreset(QVariantMap{});
+        applyTrackerPresetFromSettings();
     });
+}
+
+QStringList GlobalSearchService::pulseExcludedScanDirectories() const
+{
+    const QVariant raw = desktopSettingValue(m_desktopSettings,
+                                             QStringLiteral("pulse.excludeScanDirectories"),
+                                             QStringLiteral(""));
+    return stringListFromSettingValue(raw);
+}
+
+QString GlobalSearchService::normalizedPulseDirectoryToken(const QString &value)
+{
+    return normalizePulseDirectoryTokenValue(value);
+}
+
+bool GlobalSearchService::pulsePathMatchesExclusion(const QString &path, const QStringList &excluded)
+{
+    return pulsePathMatchesExclusionValue(path, excluded);
+}
+
+void GlobalSearchService::handleDesktopSettingChanged(const QString &path)
+{
+    const QString key = path.trimmed();
+    if (key == QLatin1String("pulse.searchProfile")) {
+        m_searchProfileUpdatedAtUtc = QDateTime::currentDateTimeUtc();
+        emit SearchProfileChanged(GetActiveSearchProfile());
+        return;
+    }
+
+    if (key == QLatin1String("pulse.excludeScanDirectories")) {
+        applyTrackerPresetFromSettings();
+        return;
+    }
+
+    if (key == QLatin1String("pulse.trackerInitialDelaySec")
+        || key == QLatin1String("pulse.trackerCpuLimit")
+        || key == QLatin1String("pulse.trackerIdleOnly")
+        || key == QLatin1String("pulse.trackerChargingOnly")) {
+        applyTrackerPresetFromSettings();
+    }
 }
 
 GlobalSearchService::~GlobalSearchService()
@@ -569,7 +731,10 @@ SearchResultList GlobalSearchService::Query(const QString &text, const QVariantM
     const bool includeSettings = !effectiveOptions.contains(QStringLiteral("includeSettings"))
             || effectiveOptions.value(QStringLiteral("includeSettings")).toBool();
     const bool includePreview = !effectiveOptions.contains(QStringLiteral("includePreview"))
-            || effectiveOptions.value(QStringLiteral("includePreview")).toBool();
+            ? desktopSettingBoolValue(m_desktopSettings,
+                                      QStringLiteral("pulse.enablePreview"),
+                                      true)
+            : effectiveOptions.value(QStringLiteral("includePreview")).toBool();
     const int appBoost = sourceBoost(effectiveOptions, QStringLiteral("apps"), 0);
     const int recentBoost = sourceBoost(effectiveOptions, QStringLiteral("recent_files"), 0);
     const int clipboardBoost = sourceBoost(effectiveOptions, QStringLiteral("clipboard"), 0);
@@ -696,6 +861,8 @@ SearchResultList GlobalSearchService::Query(const QString &text, const QVariantM
             entry.id = resultId;
             QVariantMap metadata;
             metadata.insert(QStringLiteral("provider"), QStringLiteral("clipboard"));
+            metadata.insert(QStringLiteral("type"), QStringLiteral("clipboard"));
+            metadata.insert(QStringLiteral("resultKind"), QStringLiteral("clipboard"));
             metadata.insert(QStringLiteral("title"), row.value(QStringLiteral("title")).toString());
             metadata.insert(QStringLiteral("subtitle"), row.value(QStringLiteral("subtitle")).toString());
             metadata.insert(QStringLiteral("icon"), row.value(QStringLiteral("iconName")).toString());
@@ -703,6 +870,9 @@ SearchResultList GlobalSearchService::Query(const QString &text, const QVariantM
                             row.value(QStringLiteral("score")).toInt() + clipboardBoost);
             metadata.insert(QStringLiteral("clipboardId"), row.value(QStringLiteral("clipboardId")).toLongLong());
             metadata.insert(QStringLiteral("clipboardType"), row.value(QStringLiteral("clipboardType")).toString());
+            metadata.insert(QStringLiteral("timestamp"), row.value(QStringLiteral("timestamp")).toLongLong());
+            metadata.insert(QStringLiteral("timestampBucket"), row.value(QStringLiteral("timestampBucket")).toLongLong());
+            metadata.insert(QStringLiteral("sourceApplication"), row.value(QStringLiteral("sourceApplication")).toString());
             metadata.insert(QStringLiteral("isSensitive"), row.value(QStringLiteral("isSensitive")).toBool());
             metadata.insert(QStringLiteral("preview"), includePreview
                                 ? row.value(QStringLiteral("preview")).toMap()
@@ -1017,6 +1187,10 @@ QVariantMap GlobalSearchService::PreviewResult(const QString &id)
 {
     const QString requestId = SlmDbusLog::nextRequestId();
     const QString caller = calledFromDBus() ? message().service() : QString();
+    const bool previewEnabled = !m_desktopSettings
+                                || desktopSettingBoolValue(m_desktopSettings,
+                                                            QStringLiteral("pulse.enablePreview"),
+                                                            true);
     if (!allowSearchCapability(Slm::Permissions::Capability::SearchQueryFiles,
                                QVariantMap{
                                    {QStringLiteral("resourceType"), QStringLiteral("search-preview")},
@@ -1030,6 +1204,22 @@ QVariantMap GlobalSearchService::PreviewResult(const QString &id)
             {QStringLiteral("error"), QStringLiteral("permission-denied")},
             {QStringLiteral("id"), id},
         };
+    }
+    if (!previewEnabled) {
+        QVariantMap out{
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), QStringLiteral("preview-disabled")},
+            {QStringLiteral("id"), id},
+        };
+        SlmDbusLog::logEvent(QString::fromLatin1(kService),
+                             QStringLiteral("PreviewResult"),
+                             requestId,
+                             caller,
+                             id,
+                             QStringLiteral("finish"),
+                             {{QStringLiteral("ok"), false},
+                              {QStringLiteral("error"), QStringLiteral("preview-disabled")}});
+        return out;
     }
     QVariantMap out;
     const QVariantMap meta = m_resultIndex.value(id);
@@ -1244,7 +1434,7 @@ QString GlobalSearchService::GetActiveSearchProfile() const
     const bool okInvoke = QMetaObject::invokeMethod(m_desktopSettings,
                                                      "settingValue",
                                                      Q_RETURN_ARG(QVariant, configured),
-                                                     Q_ARG(QString, QStringLiteral("tothespot.searchProfile")),
+                                                     Q_ARG(QString, QStringLiteral("pulse.searchProfile")),
                                                      Q_ARG(QVariant, QVariant(QStringLiteral("balanced"))));
     if (!okInvoke) {
         return QStringLiteral("balanced");
@@ -1280,7 +1470,7 @@ bool GlobalSearchService::SetActiveSearchProfile(const QString &profileId)
     const bool okInvoke = QMetaObject::invokeMethod(m_desktopSettings,
                                                      "setSettingValue",
                                                      Q_RETURN_ARG(bool, changed),
-                                                     Q_ARG(QString, QStringLiteral("tothespot.searchProfile")),
+                                                     Q_ARG(QString, QStringLiteral("pulse.searchProfile")),
                                                      Q_ARG(QVariant, QVariant(normalized)));
     if (!okInvoke) {
         return false;
@@ -1668,6 +1858,9 @@ QVariantList GlobalSearchService::queryTracker(const QString &text, int limit) c
         if (!fi.exists()) {
             continue;
         }
+        if (pulsePathMatchesExclusion(fi.absoluteFilePath(), m_trackerPolicy.ignoredDirectories)) {
+            continue;
+        }
         QVariantMap row;
         row.insert(QStringLiteral("name"), fi.fileName());
         row.insert(QStringLiteral("path"), fi.absoluteFilePath());
@@ -1698,11 +1891,11 @@ QVariantList GlobalSearchService::querySlmSearchActions(const QString &text,
 
     QVariantMap context;
     context.insert(QStringLiteral("scope"),
-                   options.value(QStringLiteral("scope"), QStringLiteral("tothespot")).toString());
+                   options.value(QStringLiteral("scope"), QStringLiteral("pulse")).toString());
     context.insert(QStringLiteral("selection_count"),
                    options.value(QStringLiteral("selection_count"), 0).toInt());
     context.insert(QStringLiteral("source_app"),
-                   options.value(QStringLiteral("source_app"), QStringLiteral("org.slm.tothespot")).toString());
+                   options.value(QStringLiteral("source_app"), QStringLiteral("org.slm.pulse")).toString());
     context.insert(QStringLiteral("text"), query);
 
     QDBusInterface iface(QString::fromLatin1(kCapabilityService),
@@ -1736,6 +1929,49 @@ QVariantList GlobalSearchService::querySlmSearchActions(const QString &text,
         out = out.mid(0, limit);
     }
     return out;
+}
+
+QVariantMap GlobalSearchService::trackerPresetFromSettings() const
+{
+    QVariantMap preset;
+    const int initialDelayFallback = m_trackerPolicy.initialDelaySec > 0 ? m_trackerPolicy.initialDelaySec : 120;
+    const int cpuLimitFallback = m_trackerPolicy.cpuLimit > 0 ? m_trackerPolicy.cpuLimit : 15;
+    const bool idleOnlyFallback = m_trackerPolicy.idleOnly;
+    const bool chargingOnlyFallback = m_trackerPolicy.chargingOnly;
+    preset.insert(QStringLiteral("initialDelaySec"),
+                  desktopSettingIntValue(m_desktopSettings,
+                                         QStringLiteral("pulse.trackerInitialDelaySec"),
+                                         initialDelayFallback));
+    preset.insert(QStringLiteral("cpuLimit"),
+                  desktopSettingIntValue(m_desktopSettings,
+                                         QStringLiteral("pulse.trackerCpuLimit"),
+                                         cpuLimitFallback));
+    preset.insert(QStringLiteral("idleOnly"),
+                  desktopSettingBoolValue(m_desktopSettings,
+                                          QStringLiteral("pulse.trackerIdleOnly"),
+                                          idleOnlyFallback));
+    preset.insert(QStringLiteral("chargingOnly"),
+                  desktopSettingBoolValue(m_desktopSettings,
+                                          QStringLiteral("pulse.trackerChargingOnly"),
+                                          chargingOnlyFallback));
+
+    QStringList ignored = defaultIgnoredTrackerDirs();
+    const QStringList custom = pulseExcludedScanDirectories();
+    for (const QString &token : custom) {
+        const QString normalized = normalizedPulseDirectoryToken(token);
+        if (!normalized.isEmpty() && !ignored.contains(normalized, Qt::CaseInsensitive)) {
+            ignored.push_back(normalized);
+        }
+    }
+    preset.insert(QStringLiteral("ignoredDirectories"), ignored);
+    return preset;
+}
+
+void GlobalSearchService::applyTrackerPresetFromSettings()
+{
+    const QVariantMap preset = trackerPresetFromSettings();
+    ConfigureTrackerPreset(preset);
+    m_trackerCache.clear();
 }
 
 QVariantMap GlobalSearchService::applyTrackerPresetInternal(const QVariantMap &preset, bool resetOnly) const
@@ -1957,13 +2193,14 @@ int GlobalSearchService::sourceBoost(const QVariantMap &options,
         }
     }
 
+    int explicitBoost = 0;
     const QVariantMap boosts = options.value(QStringLiteral("sourceBoost")).toMap();
     if (boosts.contains(provider)) {
-        return boosts.value(provider).toInt();
+        explicitBoost += boosts.value(provider).toInt();
     }
     const QString perProviderKey = provider + QStringLiteral("Boost");
     if (options.contains(perProviderKey)) {
-        return options.value(perProviderKey).toInt();
+        explicitBoost += options.value(perProviderKey).toInt();
     }
-    return profileBoost;
+    return profileBoost + explicitBoost;
 }

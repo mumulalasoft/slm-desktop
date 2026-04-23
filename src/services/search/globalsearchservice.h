@@ -89,6 +89,9 @@ signals:
     void ProviderRegistered(const QString &provider_id);
     void SearchProfileChanged(const QString &profile_id);
 
+private slots:
+    void handleDesktopSettingChanged(const QString &path);
+
 private:
     struct TrackerPresetPolicy {
         int initialDelaySec = 120;
@@ -111,7 +114,12 @@ private:
     QVariantList querySlmSearchActions(const QString &text,
                                        const QVariantMap &options,
                                        int limit) const;
+    QVariantMap trackerPresetFromSettings() const;
+    void applyTrackerPresetFromSettings();
     QVariantMap applyTrackerPresetInternal(const QVariantMap &preset, bool resetOnly) const;
+    QStringList pulseExcludedScanDirectories() const;
+    static QString normalizedPulseDirectoryToken(const QString &value);
+    static bool pulsePathMatchesExclusion(const QString &path, const QStringList &excluded);
     bool canUseTrackerNow(QVariantMap *reason) const;
     bool isSessionIdle() const;
     bool isOnACPower() const;

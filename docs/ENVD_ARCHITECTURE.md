@@ -13,7 +13,7 @@
 │                                                                      │
 │  ┌─────────────────┐  ┌──────────────────────────┐  ┌────────────┐  │
 │  │  Settings App   │  │   Launcher Abstraction   │  │  Terminal  │  │
-│  │  (D-Bus client) │  │  dock · grid · cmd-pal   │  │  (client)  │  │
+│  │  (D-Bus client) │  │  appdeck · grid · cmd-pal   │  │  (client)  │  │
 │  │                 │  │  search · open-with      │  │            │  │
 │  └────────┬────────┘  └────────────┬─────────────┘  └─────┬──────┘  │
 │           │                        │                       │         │
@@ -76,7 +76,7 @@ Minimal binary. Registers on the **system** D-Bus. Activated on demand.
 
 ### Launcher Abstraction
 
-All app-launch paths (dock, app grid, command palette, global search, open-with from file manager) **must** call a single `AppLauncher::launch(appId, desktopEntry, extraEnv)` function.
+All app-launch paths (appdeck, app grid, command palette, global search, open-with from file manager) **must** call a single `AppLauncher::launch(appId, desktopEntry, extraEnv)` function.
 
 - Calls `GetLaunchEnvironment(app_id, extra)` from slm-envd
 - Falls back to current process environment if service is unavailable (with log warning)
@@ -283,7 +283,7 @@ Result:    PATH=/home/user/.local/bin:/opt/company/bin:/usr/bin:/bin
 ## Launch Application GUI Flow
 
 ```
-User clicks app (dock / grid / search / open-with)
+User clicks app (appdeck / grid / search / open-with)
         │
         ▼
 AppLauncher::launch(appId, desktopEntry, extraEnv={})

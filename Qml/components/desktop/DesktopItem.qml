@@ -95,7 +95,11 @@ Item {
             height: 16
             visible: root.networkShared
             fillMode: Image.PreserveAspectFit
-            source: "qrc:/icons/emblems/emblem-shared-symbolic.svg"
+            source: {
+                var rev = ((typeof ThemeIconController !== "undefined" && ThemeIconController)
+                           ? ThemeIconController.revision : 0)
+                return "image://themeicon/emblem-shared-symbolic?v=" + rev
+            }
         }
     }
 

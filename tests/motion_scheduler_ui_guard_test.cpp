@@ -22,12 +22,12 @@ private slots:
     {
         const QString base = QStringLiteral(DESKTOP_SOURCE_DIR);
         const QStringList files{
-            base + QStringLiteral("/Qml/components/dock/DockItem.qml"),
-            base + QStringLiteral("/Qml/components/dock/Dock.qml"),
-            base + QStringLiteral("/Qml/components/topbar/TopBarSearchButton.qml"),
-            base + QStringLiteral("/Qml/components/topbar/TopBarMainMenuControl.qml"),
-            base + QStringLiteral("/Qml/components/topbar/TopBarScreenshotControl.qml"),
-            base + QStringLiteral("/Qml/components/topbar/TopBarBrandSection.qml"),
+            base + QStringLiteral("/Qml/components/appdeck/AppDeckItem.qml"),
+            base + QStringLiteral("/Qml/components/appdeck/AppDeck.qml"),
+            base + QStringLiteral("/Qml/components/crown/CrownSearchButton.qml"),
+            base + QStringLiteral("/Qml/components/crown/CrownMainMenuControl.qml"),
+            base + QStringLiteral("/Qml/components/crown/CrownScreenshotControl.qml"),
+            base + QStringLiteral("/Qml/components/crown/CrownBrandSection.qml"),
             base + QStringLiteral("/Qml/components/shell/ShellShortcutTile.qml"),
             base + QStringLiteral("/Qml/components/notification/NotificationCard.qml"),
             base + QStringLiteral("/Qml/components/notification/BannerContainer.qml"),

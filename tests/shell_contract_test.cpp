@@ -48,9 +48,9 @@ private slots:
         ShellStateController state;
 
         for (int i = 0; i < 1000; ++i) {
-            state.setLaunchpadVisible(i % 2 == 0);
+            state.setAppHubVisible(i % 2 == 0);
             state.setWorkspaceOverviewVisible(i % 3 == 0);
-            state.setToTheSpotVisible(i % 5 == 0);
+            state.setPulseVisible(i % 5 == 0);
             state.setStyleGalleryVisible(i % 7 == 0);
             state.setShowDesktop(i % 11 == 0);
 
@@ -71,21 +71,21 @@ private slots:
     void persistentLayer_topBarOpacity_neverZero_afterDismissAll()
     {
         ShellStateController state;
-        state.setLaunchpadVisible(true);  // hides topBar
+        state.setAppHubVisible(true);  // hides topBar
         state.dismissAllOverlays();
         QCOMPARE(state.topBarOpacity(), 1.0);
     }
 
-    void persistentLayer_dockOpacity_remainsVisibleDuringLaunchpad()
+    void persistentLayer_dockOpacity_remainsVisibleDuringAppHub()
     {
         ShellStateController state;
-        state.setLaunchpadVisible(true);
-        QCOMPARE(state.dockOpacity(), 1.0);  // dock stays visible during launchpad
-        state.setLaunchpadVisible(false);
+        state.setAppHubVisible(true);
+        QCOMPARE(state.dockOpacity(), 1.0);  // appdeck stays visible during apphub
+        state.setAppHubVisible(false);
         QCOMPARE(state.dockOpacity(), 1.0);  // still visible after dismiss
     }
 
-    void persistentLayer_showDesktop_hideDock_butNotTopBar()
+    void persistentLayer_showDesktop_hideDock_butNotCrown()
     {
         ShellStateController state;
         state.setShowDesktop(true);
@@ -96,28 +96,28 @@ private slots:
     // ══════════════════════════════════════════════════════════════════════════
     // 2. overlay_isolation_test
     //    An overlay crash (via ShellLayerWatchdog.reportOverlayLoadError) must
-    //    not corrupt the persistent layer state (topBar/dock remain accessible).
+    //    not corrupt the persistent layer state (topBar/appdeck remain accessible).
     // ══════════════════════════════════════════════════════════════════════════
 
-    void overlayIsolation_loadError_doesNotAffectTopBarOpacity()
+    void overlayIsolation_loadError_doesNotAffectCrownOpacity()
     {
         ShellStateController state;
         ShellLayerWatchdog watchdog(&state);
 
-        // All overlays active — topBarOpacity is hidden (0.0) by launchpad
-        state.setLaunchpadVisible(true);
+        // All overlays active — topBarOpacity is hidden (0.0) by apphub
+        state.setAppHubVisible(true);
         state.setWorkspaceOverviewVisible(true);
-        state.setToTheSpotVisible(true);
+        state.setPulseVisible(true);
 
         // Simulate load errors for all overlays
-        watchdog.reportOverlayLoadError(QStringLiteral("launchpad"));
+        watchdog.reportOverlayLoadError(QStringLiteral("apphub"));
         watchdog.reportOverlayLoadError(QStringLiteral("workspace"));
-        watchdog.reportOverlayLoadError(QStringLiteral("tothespot"));
+        watchdog.reportOverlayLoadError(QStringLiteral("pulse"));
 
         // Persistent layer must be fully restored
         QCOMPARE(state.topBarOpacity(), 1.0);
         QCOMPARE(state.dockOpacity(), 1.0);
-        QVERIFY(!state.launchpadVisible());
+        QVERIFY(!state.apphubVisible());
         QVERIFY(!state.workspaceOverviewVisible());
         QVERIFY(!state.toTheSpotVisible());
     }
@@ -127,7 +127,7 @@ private slots:
         ShellStateController state;
         ShellLayerWatchdog watchdog(&state);
 
-        state.setLaunchpadVisible(true);
+        state.setAppHubVisible(true);
         state.setWorkspaceOverviewVisible(true);
 
         watchdog.requestRecovery();
@@ -144,8 +144,8 @@ private slots:
 
         // Simulate repeated load errors (crash-loop scenario)
         for (int i = 0; i < 10; ++i) {
-            state.setLaunchpadVisible(true);
-            watchdog.reportOverlayLoadError(QStringLiteral("launchpad"));
+            state.setAppHubVisible(true);
+            watchdog.reportOverlayLoadError(QStringLiteral("apphub"));
             QCOMPARE(state.topBarOpacity(), 1.0);
             QCOMPARE(state.dockOpacity(), 1.0);
         }
@@ -169,14 +169,14 @@ private slots:
         QVERIFY(!state.workspaceInteractionBlocked());
     }
 
-    void stateMachine_launchpadOn_derivedState()
+    void stateMachine_apphubOn_derivedState()
     {
         ShellStateController state;
-        state.setLaunchpadVisible(true);
+        state.setAppHubVisible(true);
 
         QVERIFY(state.anyOverlayVisible());
-        QCOMPARE(state.topBarOpacity(), 0.0);   // hidden behind launchpad fullscreen
-        QCOMPARE(state.dockOpacity(), 1.0);     // dock stays visible (launchpad has its own dock row)
+        QCOMPARE(state.topBarOpacity(), 0.0);   // hidden behind apphub fullscreen
+        QCOMPARE(state.dockOpacity(), 1.0);     // appdeck stays visible (apphub has its own appdeck row)
         QVERIFY(state.workspaceBlurred());
         QVERIFY(state.workspaceInteractionBlocked());
     }
@@ -187,7 +187,7 @@ private slots:
         state.setWorkspaceOverviewVisible(true);
 
         QVERIFY(state.anyOverlayVisible());
-        // WorkspaceOverview is a separate Window — it doesn't dim TopBar or Dock
+        // WorkspaceOverview is a separate Window — it doesn't dim Crown or AppDeck
         QCOMPARE(state.topBarOpacity(), 1.0);
         QCOMPARE(state.dockOpacity(), 1.0);
         QVERIFY(!state.workspaceBlurred());
@@ -197,7 +197,7 @@ private slots:
     void stateMachine_toTheSpot_doesNotAffectPersistentLayers()
     {
         ShellStateController state;
-        state.setToTheSpotVisible(true);
+        state.setPulseVisible(true);
 
         QVERIFY(state.anyOverlayVisible());
         QCOMPARE(state.topBarOpacity(), 1.0);
@@ -217,21 +217,21 @@ private slots:
         QVERIFY(qFuzzyCompare(state.workspaceBlurAlpha(), 0.40));
     }
 
-    void stateMachine_launchpadPlusShoDesktop_dockHidden()
+    void stateMachine_apphubPlusShoDesktop_dockHidden()
     {
         ShellStateController state;
         state.setShowDesktop(true);
-        state.setLaunchpadVisible(true);
-        // Both conditions hide the dock — opacity must still be 0, not negative
+        state.setAppHubVisible(true);
+        // Both conditions hide the appdeck — opacity must still be 0, not negative
         QCOMPARE(state.dockOpacity(), 0.0);
     }
 
     void stateMachine_dismissAll_resetsToBaseline()
     {
         ShellStateController state;
-        state.setLaunchpadVisible(true);
+        state.setAppHubVisible(true);
         state.setWorkspaceOverviewVisible(true);
-        state.setToTheSpotVisible(true);
+        state.setPulseVisible(true);
         state.setStyleGalleryVisible(true);
 
         state.dismissAllOverlays();
@@ -247,19 +247,19 @@ private slots:
     void stateMachine_toggles_areIdempotent()
     {
         ShellStateController state;
-        state.toggleLaunchpad();
-        QVERIFY(state.launchpadVisible());
-        state.toggleLaunchpad();
-        QVERIFY(!state.launchpadVisible());
+        state.toggleAppHub();
+        QVERIFY(state.apphubVisible());
+        state.toggleAppHub();
+        QVERIFY(!state.apphubVisible());
 
         state.toggleWorkspaceOverview();
         QVERIFY(state.workspaceOverviewVisible());
         state.toggleWorkspaceOverview();
         QVERIFY(!state.workspaceOverviewVisible());
 
-        state.toggleToTheSpot();
+        state.togglePulse();
         QVERIFY(state.toTheSpotVisible());
-        state.toggleToTheSpot();
+        state.togglePulse();
         QVERIFY(!state.toTheSpotVisible());
     }
 
@@ -268,7 +268,7 @@ private slots:
         ShellStateController state;
         state.setLockScreenActive(true);
         // Lock screen is drawn by the compositor — ShellStateController
-        // must not dim TopBar or Dock in response.
+        // must not dim Crown or AppDeck in response.
         QCOMPARE(state.topBarOpacity(), 1.0);
         QCOMPARE(state.dockOpacity(), 1.0);
         QVERIFY(!state.workspaceBlurred());
@@ -295,7 +295,7 @@ private slots:
             QStringLiteral("wallpaper"),
             QStringLiteral("desktopIcons"),
             QStringLiteral("workspaceSurfaces"),
-            QStringLiteral("dock"),
+            QStringLiteral("appdeck"),
             QStringLiteral("topBar"),
             QStringLiteral("pointerCapture"),
             QStringLiteral("debugOverlay"),
@@ -310,19 +310,19 @@ private slots:
     {
         const auto props = parseQmlIntProperties(
             QStringLiteral(SLM_SOURCE_DIR "/Qml/ShellZOrder.qml"));
-        QVERIFY2(props.value(QStringLiteral("dock")) > props.value(QStringLiteral("workspaceSurfaces")),
-                 "dock must render above workspaceSurfaces");
+        QVERIFY2(props.value(QStringLiteral("appdeck")) > props.value(QStringLiteral("workspaceSurfaces")),
+                 "appdeck must render above workspaceSurfaces");
     }
 
     void zOrderPolicy_topBarAboveDock()
     {
         const auto props = parseQmlIntProperties(
             QStringLiteral(SLM_SOURCE_DIR "/Qml/ShellZOrder.qml"));
-        QVERIFY2(props.value(QStringLiteral("topBar")) > props.value(QStringLiteral("dock")),
-                 "topBar must render above dock");
+        QVERIFY2(props.value(QStringLiteral("topBar")) > props.value(QStringLiteral("appdeck")),
+                 "topBar must render above appdeck");
     }
 
-    void zOrderPolicy_pointerCaptureAboveTopBar()
+    void zOrderPolicy_pointerCaptureAboveCrown()
     {
         const auto props = parseQmlIntProperties(
             QStringLiteral(SLM_SOURCE_DIR "/Qml/ShellZOrder.qml"));
@@ -373,9 +373,9 @@ private slots:
         timer.start();
 
         for (int i = 0; i < kIterations; ++i) {
-            state.setLaunchpadVisible(i % 2 == 0);
+            state.setAppHubVisible(i % 2 == 0);
             state.setWorkspaceOverviewVisible(i % 3 == 0);
-            state.setToTheSpotVisible(i % 5 == 0);
+            state.setPulseVisible(i % 5 == 0);
             state.setShowDesktop(i % 7 == 0);
             state.dismissAllOverlays();
         }
@@ -403,7 +403,7 @@ private slots:
         timer.start();
 
         for (int i = 0; i < 500; ++i) {
-            state.setLaunchpadVisible(true);
+            state.setAppHubVisible(true);
             state.dismissAllOverlays();
         }
 

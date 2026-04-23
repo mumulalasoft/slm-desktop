@@ -7,7 +7,7 @@ Dokumen ini menjelaskan jalur service untuk framework capability (`org.freedeskt
 ```mermaid
 flowchart LR
     Client["Clients
-FileManager / Tothespot / ShareSheet / Launcher / Dock"] --> DBus["DBus Service
+FileManager / Pulse / ShareSheet / Launcher / AppDeck"] --> DBus["DBus Service
 SlmCapabilityService / SlmCapabilityFrameworkService"]
     DBus --> Framework["SlmActionFramework"]
     Framework --> Scanner["DesktopEntryScanner (GIO)"]

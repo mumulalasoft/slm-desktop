@@ -35,7 +35,7 @@
 #include "src/services/power/batterymanager.h"
 #include "src/services/power/powerbridge.h"
 #include "src/services/bluetooth/bluetoothmanager.h"
-#include "src/core/dock/dockmodel.h"
+#include "src/core/appdeck/appdeckmodel.h"
 #include "src/services/media/mediasessionmanager.h"
 #include "src/services/network/networkmanager.h"
 #include "src/services/notifications/notificationmanager.h"
@@ -68,9 +68,9 @@
 #include "src/services/screenshot/screenshotsavehelper.h"
 #include "src/services/portal/portaluibridge.h"
 #include "src/services/fileindex/metadataindexserver.h"
-#include "src/services/search/tothespotservice.h"
-#include "src/services/search/tothespotcontextmenuhelper.h"
-#include "src/services/search/tothespottexthighlighter.h"
+#include "src/services/search/pulseservice.h"
+#include "src/services/search/pulsecontextmenuhelper.h"
+#include "src/services/search/pulsetexthighlighter.h"
 #include "src/services/clipboard/ClipboardServiceClient.h"
 #include "src/services/session/SessionStateClient.h"
 #include "src/apps/filemanager/include/filemanagerapi.h"
@@ -86,7 +86,7 @@
 #include "src/core/shell/shellinputrouter.h"
 #include "src/core/shell/shelllayerwatchdog.h"
 #ifdef SLM_HAVE_WAYLANDCLIENT
-#include "src/core/wayland/layershell/dockbootstrapstate.h"
+#include "src/core/wayland/layershell/appdeckbootstrapstate.h"
 #include "src/core/wayland/layershell/wlrlayershell.h"
 #endif
 #include "src/core/system/missingcomponentcontroller.h"
@@ -354,7 +354,7 @@ int main(int argc, char *argv[])
     NetworkManager networkManager;
     DesktopAppModel appModel;
     ShortcutModel shortcutModel;
-    DockModel dockModel;
+    AppDeckModel dockModel;
     SpacesManager spacesManager;
     CursorController cursorController;
     DesktopSettingsClient desktopSettings;
@@ -372,9 +372,9 @@ int main(int argc, char *argv[])
     FileManagerModel fileManagerModel(&fileManagerApi, &metadataIndexServer);
     FileManagerModelFactory fileManagerModelFactory(&fileManagerApi, &metadataIndexServer);
     GlobalProgressCenter globalProgressCenter;
-    TothespotService tothespotService;
-    TothespotContextMenuHelper tothespotContextMenuHelper;
-    TothespotTextHighlighter tothespotTextHighlighter;
+    PulseService pulseService;
+    PulseContextMenuHelper pulseContextMenuHelper;
+    PulseTextHighlighter pulseTextHighlighter;
     Slm::Clipboard::ClipboardServiceClient clipboardServiceClient;
     Slm::Session::SessionStateClient sessionStateClient;
     Slm::Motion::MotionController motionController;
@@ -385,9 +385,9 @@ int main(int argc, char *argv[])
     Slm::ContextMenu::ContextMenuService contextMenuService;
     Slm::System::MissingComponentController missingComponentController;
 #ifdef SLM_HAVE_WAYLANDCLIENT
-    DockBootstrapState dockBootstrapState;
+    AppDeckBootstrapState dockBootstrapState;
     WlrLayerShell wlrLayerShell;
-    wlrLayerShell.setDockBootstrapState(&dockBootstrapState);
+    wlrLayerShell.setAppDeckBootstrapState(&dockBootstrapState);
     QObject::connect(&wlrLayerShell, &WlrLayerShell::activeChanged, &app, [&]() {
         dockBootstrapState.setIntegrationEnabled(wlrLayerShell.isActive());
     });
@@ -534,7 +534,7 @@ int main(int argc, char *argv[])
                           << (QDateTime::currentMSecsSinceEpoch() - t0) << "ms";
     }
     startupMark(QStringLiteral("managers.constructed"));
-    AppStartupBridge::registerTopBarIndicatorContext(engine.rootContext(),
+    AppStartupBridge::registerCrownIndicatorContext(engine.rootContext(),
                                                      &networkManager,
                                                      &bluetoothManager,
                                                      &soundManager,
@@ -572,9 +572,9 @@ int main(int argc, char *argv[])
                                           &fileManagerModel,
                                           &fileManagerModelFactory,
                                           &globalProgressCenter,
-                                          &tothespotService,
-                                          &tothespotContextMenuHelper,
-                                          &tothespotTextHighlighter,
+                                          &pulseService,
+                                          &pulseContextMenuHelper,
+                                          &pulseTextHighlighter,
                                           &metadataIndexServer,
                                           &clipboardServiceClient,
                                           &motionController,
@@ -610,7 +610,7 @@ int main(int argc, char *argv[])
                                              slmActionTreeDebug);
 #ifdef SLM_HAVE_WAYLANDCLIENT
     engine.rootContext()->setContextProperty(QStringLiteral("WlrLayerShell"), &wlrLayerShell);
-    engine.rootContext()->setContextProperty(QStringLiteral("DockBootstrapState"), &dockBootstrapState);
+    engine.rootContext()->setContextProperty(QStringLiteral("AppDeckBootstrapState"), &dockBootstrapState);
 #endif
     engine.rootContext()->setContextProperty(QStringLiteral("SessionStateClient"), &sessionStateClient);
     engine.rootContext()->setContextProperty(QStringLiteral("FirewallServiceClient"), &firewallServiceClient);

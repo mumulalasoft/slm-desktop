@@ -152,7 +152,7 @@ QString quickActionScopeToString(QuickActionScope scope)
 {
     switch (scope) {
     case QuickActionScope::Launcher: return QStringLiteral("launcher");
-    case QuickActionScope::Dock: return QStringLiteral("dock");
+    case QuickActionScope::AppDeck: return QStringLiteral("appdeck");
     case QuickActionScope::AppMenu: return QStringLiteral("appmenu");
     default: break;
     }
@@ -163,7 +163,7 @@ QuickActionScope quickActionScopeFromString(const QString &value)
 {
     const QString n = normalize(value);
     if (n == QStringLiteral("launcher")) return QuickActionScope::Launcher;
-    if (n == QStringLiteral("dock")) return QuickActionScope::Dock;
+    if (n == QStringLiteral("appdeck")) return QuickActionScope::AppDeck;
     if (n == QStringLiteral("appmenu")) return QuickActionScope::AppMenu;
     return QuickActionScope::Unknown;
 }
@@ -302,7 +302,7 @@ QString searchActionScopeToString(SearchActionScope scope)
 {
     switch (scope) {
     case SearchActionScope::Launcher: return QStringLiteral("launcher");
-    case SearchActionScope::Tothespot: return QStringLiteral("tothespot");
+    case SearchActionScope::Pulse: return QStringLiteral("pulse");
     case SearchActionScope::CommandPalette: return QStringLiteral("commandpalette");
     case SearchActionScope::FileSearch: return QStringLiteral("filesearch");
     default: break;
@@ -314,8 +314,8 @@ SearchActionScope searchActionScopeFromString(const QString &value)
 {
     const QString n = normalize(value);
     if (n == QStringLiteral("launcher")) return SearchActionScope::Launcher;
-    if (n == QStringLiteral("tothespot") || n == QStringLiteral("spotlight")) {
-        return SearchActionScope::Tothespot;
+    if (n == QStringLiteral("pulse") || n == QStringLiteral("spotlight")) {
+        return SearchActionScope::Pulse;
     }
     if (n == QStringLiteral("commandpalette")) return SearchActionScope::CommandPalette;
     if (n == QStringLiteral("filesearch")) return SearchActionScope::FileSearch;

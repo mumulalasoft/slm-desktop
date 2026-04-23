@@ -3,7 +3,7 @@
 // Controller non-visual yang meng-expose trash item count ke panel/applet.
 // Menghubungkan FileManagerShellBridge.trashCountChanged ke badge property.
 //
-// Cara pakai di Dock atau panel:
+// Cara pakai di AppDeck atau panel:
 //   TrashBadgeController {
 //       id: trashBadge
 //   }

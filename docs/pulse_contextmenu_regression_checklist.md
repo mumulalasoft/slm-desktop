@@ -1,16 +1,16 @@
-# SLM Desktop: Tothespot Context Menu Regression Checklist
+# SLM Desktop: Pulse Context Menu Regression Checklist
 
 Tanggal baseline: 2026-03-04
 
 Tujuan:
-- memastikan konteks menu Tothespot stabil (posisi, aksi, keyboard),
+- memastikan konteks menu Pulse stabil (posisi, aksi, keyboard),
 - mencegah regresi “labil”, salah posisi, atau menu stale setelah hasil berubah.
 
 ## Quick smoke (semi-otomatis)
 Jalankan:
 
 ```bash
-./scripts/smoke-tothespot-contextmenu.sh
+./scripts/smoke-pulse-contextmenu.sh
 ```
 
 Catatan:
@@ -21,7 +21,7 @@ Catatan:
 Jalankan:
 
 ```bash
-./scripts/test-tothespot.sh
+./scripts/test-pulse.sh
 ```
 
 Mode opsional:
@@ -30,7 +30,7 @@ Mode opsional:
 
 ## Prasyarat
 - Jalankan SLM Desktop di sesi yang biasa dipakai (kwin-wayland host atau mode pengujian tim).
-- Buka Tothespot dengan data campuran:
+- Buka Pulse dengan data campuran:
   - ada item aplikasi,
   - ada item file,
   - ada item folder.

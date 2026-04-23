@@ -18,17 +18,17 @@ printf "\n"
 cat <<'TXT'
 Run these checks in one session:
 
-[1] Launchpad -> Context Menu -> Add to Desktop
-- Right click app A in Launchpad, choose "Add to Desktop".
+[1] AppHub -> Context Menu -> Add to Desktop
+- Right click app A in AppHub, choose "Add to Desktop".
 - Expected: icon appears on desktop, label/icon correct, no duplicate first icon.
 
-[2] Launchpad Drag -> Desktop Drop
-- Drag app B from Launchpad and drop at a distinct desktop position.
+[2] AppHub Drag -> Desktop Drop
+- Drag app B from AppHub and drop at a distinct desktop position.
 - Expected: shortcut created, item appears near drop cell.
 
-[3] Dock Drag -> Desktop Drop
-- Drag a pinned dock app upward into desktop area.
-- Expected: desktop shortcut created (copy semantics), dock order unchanged.
+[3] AppDeck Drag -> Desktop Drop
+- Drag a pinned appdeck app upward into desktop area.
+- Expected: desktop shortcut created (copy semantics), appdeck order unchanged.
 
 [4] Desktop Context Menu Actions
 - Desktop right click -> Arrange Icons submenu.

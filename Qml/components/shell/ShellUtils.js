@@ -75,7 +75,7 @@ function applyUserFontScalePreference(shell) {
     Theme.userFontScale = normalizedUserFontScale(v)
 }
 
-function clampTothespotGeometry(shell, geom) {
+function clampPulseGeometry(shell, geom) {
     var minW = 540
     var minH = 360
     var maxW = Math.max(minW, shell.width - 24)
@@ -97,49 +97,49 @@ function clampTothespotGeometry(shell, geom) {
     return ({ "x": Math.round(x), "y": Math.round(y), "width": Math.round(w), "height": Math.round(h) })
 }
 
-function restoreTothespotGeometry(shell) {
-    if (!shell.tothespotWindow) {
+function restorePulseGeometry(shell) {
+    if (!shell.pulseWindow) {
         return
     }
     var defaultW = Math.min(760, Math.max(540, shell.width - 120))
     var defaultH = Math.min(520, Math.max(360, shell.height - 180))
     var candidate = {
-        "width": (shell.tothespotSavedWidth > 0 ? shell.tothespotSavedWidth : defaultW),
-        "height": (shell.tothespotSavedHeight > 0 ? shell.tothespotSavedHeight : defaultH)
+        "width": (shell.pulseSavedWidth > 0 ? shell.pulseSavedWidth : defaultW),
+        "height": (shell.pulseSavedHeight > 0 ? shell.pulseSavedHeight : defaultH)
     }
     var centeredX = shell.x + Math.round((shell.width - Number(candidate.width)) / 2)
     var centeredY = shell.y + Math.max(shell.desktopScene.panelHeight + 12, Math.round(shell.height * 0.08))
-    candidate.x = (shell.tothespotSavedX >= 0 ? shell.tothespotSavedX : centeredX)
-    candidate.y = (shell.tothespotSavedY >= 0 ? shell.tothespotSavedY : centeredY)
-    var clamped = clampTothespotGeometry(shell, candidate)
-    shell.tothespotRestoringGeometry = true
-    shell.tothespotWindow.width = clamped.width
-    shell.tothespotWindow.height = clamped.height
-    shell.tothespotWindow.x = clamped.x
-    shell.tothespotWindow.y = clamped.y
-    shell.tothespotRestoringGeometry = false
-    saveTothespotGeometry(shell)
+    candidate.x = (shell.pulseSavedX >= 0 ? shell.pulseSavedX : centeredX)
+    candidate.y = (shell.pulseSavedY >= 0 ? shell.pulseSavedY : centeredY)
+    var clamped = clampPulseGeometry(shell, candidate)
+    shell.pulseRestoringGeometry = true
+    shell.pulseWindow.width = clamped.width
+    shell.pulseWindow.height = clamped.height
+    shell.pulseWindow.x = clamped.x
+    shell.pulseWindow.y = clamped.y
+    shell.pulseRestoringGeometry = false
+    savePulseGeometry(shell)
 }
 
-function saveTothespotGeometry(shell) {
-    if (shell.tothespotRestoringGeometry || !shell.tothespotWindow) {
+function savePulseGeometry(shell) {
+    if (shell.pulseRestoringGeometry || !shell.pulseWindow) {
         return
     }
-    var clamped = clampTothespotGeometry(shell, {
-                                             "x": shell.tothespotWindow.x,
-                                             "y": shell.tothespotWindow.y,
-                                             "width": shell.tothespotWindow.width,
-                                             "height": shell.tothespotWindow.height
+    var clamped = clampPulseGeometry(shell, {
+                                             "x": shell.pulseWindow.x,
+                                             "y": shell.pulseWindow.y,
+                                             "width": shell.pulseWindow.width,
+                                             "height": shell.pulseWindow.height
                                          })
-    shell.tothespotSavedX = clamped.x
-    shell.tothespotSavedY = clamped.y
-    shell.tothespotSavedWidth = clamped.width
-    shell.tothespotSavedHeight = clamped.height
+    shell.pulseSavedX = clamped.x
+    shell.pulseSavedY = clamped.y
+    shell.pulseSavedWidth = clamped.width
+    shell.pulseSavedHeight = clamped.height
     if (typeof DesktopSettings !== "undefined" && DesktopSettings && DesktopSettings.setSettingValue) {
-        DesktopSettings.setSettingValue("tothespot.windowX", shell.tothespotSavedX)
-        DesktopSettings.setSettingValue("tothespot.windowY", shell.tothespotSavedY)
-        DesktopSettings.setSettingValue("tothespot.windowWidth", shell.tothespotSavedWidth)
-        DesktopSettings.setSettingValue("tothespot.windowHeight", shell.tothespotSavedHeight)
+        DesktopSettings.setSettingValue("pulse.windowX", shell.pulseSavedX)
+        DesktopSettings.setSettingValue("pulse.windowY", shell.pulseSavedY)
+        DesktopSettings.setSettingValue("pulse.windowWidth", shell.pulseSavedWidth)
+        DesktopSettings.setSettingValue("pulse.windowHeight", shell.pulseSavedHeight)
     }
 }
 
@@ -185,7 +185,7 @@ function requestDetachedProperties(shell, pathValue) {
     })
 }
 
-function tothespotIconForMime(mimeType, isDir, fallbackIcon) {
+function pulseIconForMime(mimeType, isDir, fallbackIcon) {
     if (isDir) {
         return "folder"
     }

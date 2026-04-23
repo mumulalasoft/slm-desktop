@@ -9,8 +9,8 @@ scripts/manual/desktop_add_smoke_checklist.sh
 ```
 
 Prints the end-to-end manual scenarios for:
-- Launchpad add/drag to desktop
-- Dock drag to desktop
+- AppHub add/drag to desktop
+- AppDeck drag to desktop
 - Arrange/Snap/Clean up actions
 - Sync + persistence checks
 

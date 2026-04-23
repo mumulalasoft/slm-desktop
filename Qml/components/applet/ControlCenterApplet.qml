@@ -162,7 +162,7 @@ Item {
 
     IndicatorMenu {
         id: menu
-        appletId: "topbar.controlcenter"
+        appletId: "crown.controlcenter"
         anchorItem: indicatorButton
         popupHost: root.popupHost
         popupGap: root.popupGap

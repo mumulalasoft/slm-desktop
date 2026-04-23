@@ -691,7 +691,7 @@ private slots:
         QCOMPARE(activeAfterInvalidReply.value(), QStringLiteral("balanced"));
 
         // Validate searchProfile affects score calculation.
-        settings.setSettingValue(QStringLiteral("tothespot.searchProfile"), QStringLiteral("balanced"));
+        settings.setSettingValue(QStringLiteral("pulse.searchProfile"), QStringLiteral("balanced"));
         QVariantMap appOnlyBalanced;
         appOnlyBalanced.insert(QStringLiteral("limit"), 1);
         appOnlyBalanced.insert(QStringLiteral("includeApps"), true);

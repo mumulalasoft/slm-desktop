@@ -64,7 +64,7 @@ bash dev/dev-rebuild.sh
 |---|---|
 | `FileManagerSidebarIntegration` | Sidebar places, mount events, trash count |
 | `FileOperationsProgressOverlay` | Progress bar operasi copy/move/delete |
-| `TrashBadgeController` | Badge jumlah item trash di dock |
+| `TrashBadgeController` | Badge jumlah item trash di appdeck |
 | `FileManagerRecentFilesModel` | Model recent files untuk quick access |
 | `FileManagerSearchBridge` | In-process search dengan debounce |
 | `FileManagerOpenWithSheet` | Bottom sheet pilih aplikasi untuk open-with |

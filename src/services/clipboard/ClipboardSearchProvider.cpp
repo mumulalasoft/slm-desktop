@@ -156,6 +156,8 @@ QVariantList ClipboardSearchProvider::query(const QString &text,
         const qint64 tsBucket = ts > 0 ? (ts / 60000) * 60000 : 0;
         mapped.insert(QStringLiteral("id"), QStringLiteral("clipboard:%1").arg(id));
         mapped.insert(QStringLiteral("provider"), QStringLiteral("clipboard"));
+        mapped.insert(QStringLiteral("type"), QStringLiteral("clipboard"));
+        mapped.insert(QStringLiteral("resultKind"), QStringLiteral("clipboard"));
         mapped.insert(QStringLiteral("title"),
                       sensitive ? QStringLiteral("Sensitive item")
                                 : (preview.isEmpty() ? QStringLiteral("Clipboard item") : preview));
@@ -169,12 +171,16 @@ QVariantList ClipboardSearchProvider::query(const QString &text,
         mapped.insert(QStringLiteral("clipboardId"), id);
         mapped.insert(QStringLiteral("clipboardType"), type);
         mapped.insert(QStringLiteral("timestampBucket"), tsBucket);
+        mapped.insert(QStringLiteral("timestamp"), ts);
+        mapped.insert(QStringLiteral("sourceApplication"), row.value(QStringLiteral("sourceApplication")).toString());
         mapped.insert(QStringLiteral("isSensitive"), sensitive);
         mapped.insert(QStringLiteral("preview"), QVariantMap{
                           {QStringLiteral("type"), QStringLiteral("clipboard")},
                           {QStringLiteral("contentType"), type},
                           {QStringLiteral("preview"), sensitive ? QStringLiteral("Sensitive item") : preview},
                           {QStringLiteral("timestampBucket"), tsBucket},
+                          {QStringLiteral("timestamp"), ts},
+                          {QStringLiteral("sourceApplication"), row.value(QStringLiteral("sourceApplication")).toString()},
                           {QStringLiteral("isSensitive"), sensitive},
                       });
         out.push_back(mapped);

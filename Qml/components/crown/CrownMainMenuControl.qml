@@ -255,9 +255,9 @@ Item {
 
     // ── Menu ──────────────────────────────────────────────────────────────────
 
-    TB.TopBarAnchoredMenu {
+    TB.CrownAnchoredMenu {
         id: mainMenu
-        appletId: "topbar.mainmenu"
+        appletId: "crown.mainmenu"
         anchorItem: mainButton
         popupHost: root.popupHost
         popupGap: root.popupGap
@@ -296,7 +296,7 @@ Item {
         Menu {
             id: recentAppsMenu
             title: qsTr("Recent Applications")
-            property string entryIconSource: "qrc:/icons/launchpad.svg"
+            property string entryIconSource: "qrc:/icons/apphub.svg"
             property string entryIconName: "application-x-executable-symbolic"
             icon.name: "application-x-executable-symbolic"
             icon.source: root._themeIconSource("application-x-executable-symbolic")
@@ -310,7 +310,7 @@ Item {
                     text: String(entry.label || "")
                     enabled: text.length > 0
                     iconSource: String(entry.iconSource || "")
-                    fallbackIconSource: "qrc:/icons/launchpad.svg"
+                    fallbackIconSource: "qrc:/icons/apphub.svg"
                     onTriggered: {
                         mainMenu.close()
                         if (typeof AppCommandRouter === "undefined" || !AppCommandRouter) return

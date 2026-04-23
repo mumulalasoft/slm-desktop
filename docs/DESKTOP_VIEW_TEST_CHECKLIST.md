@@ -14,7 +14,7 @@ It is focused on runtime behavior, menu source, selection dynamics, fallback pol
 
 1. Build and run current shell build.
 2. Ensure `~/Desktop` exists (or allow auto-create test).
-3. Ensure TopBar global menu is visible.
+3. Ensure Crown global menu is visible.
 4. Ensure no detached File Manager window is active at test start.
 
 ---
@@ -138,7 +138,7 @@ Expected:
 
 Steps:
 1. Ensure no active app window.
-2. Open topbar global menu.
+2. Open crown global menu.
 
 Expected:
 1. Menu remains available.
@@ -148,7 +148,7 @@ Expected:
 
 Steps:
 1. Focus an app window that exports menu.
-2. Open topbar global menu.
+2. Open crown global menu.
 
 Expected:
 1. App menu is used.
@@ -159,7 +159,7 @@ Expected:
 Steps:
 1. Unfocus/close active app.
 2. Click desktop.
-3. Open topbar global menu.
+3. Open crown global menu.
 
 Expected:
 1. Desktop menu provider becomes active again.
@@ -172,7 +172,7 @@ Expected:
 ### E1. Desktop surface placement
 
 Expected visual order:
-1. TopBar / Dock / Launchpad overlays above windows.
+1. Crown / AppDeck / AppHub overlays above windows.
 2. App windows above DesktopSurface.
 3. DesktopSurface above wallpaper.
 

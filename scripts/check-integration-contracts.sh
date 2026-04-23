@@ -20,7 +20,7 @@ required_states=(
   runningApps
   pinnedApps
   appWindowMap
-  launchpadVisible
+  apphubVisible
   searchVisible
   searchQuery
   dockVisibilityMode

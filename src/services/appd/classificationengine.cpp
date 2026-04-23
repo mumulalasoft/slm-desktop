@@ -36,7 +36,7 @@ const QStringList kShells = {
     QStringLiteral("ksh"),
 };
 
-// Shell/compositor apps that should never surface in dock.
+// Shell/compositor apps that should never surface in appdeck.
 const QStringList kShellAppIds = {
     QStringLiteral("appdesktop_shell"),
     QStringLiteral("org.slm.shell"),

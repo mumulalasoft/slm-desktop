@@ -8,7 +8,7 @@ QtObject {
     property var fileManagerContent: null
     property var detachedFileManagerWindow: null
 
-    signal requestFocusTothespot()
+    signal requestFocusPulse()
     signal requestHelpMessage(string message)
     signal requestMenuNotification(bool ok, string summary, string body, string iconName)
 
@@ -339,7 +339,7 @@ QtObject {
                     }
                     return
                 }
-                if (item === 3) { requestFocusTothespot(); return }
+                if (item === 3) { requestFocusPulse(); return }
                 if (item === 4) { unsupported("Batch Rename"); return }
                 if (item === 5 && fileManagerContent.compressSelection) { fileManagerContent.compressSelection(); return }
                 if (item === 6) {
@@ -408,7 +408,7 @@ QtObject {
                 return
             }
             if (item === 3) { // Open...
-                requestFocusTothespot()
+                requestFocusPulse()
                 return
             }
             if (item === 6) { // Print...
@@ -475,7 +475,7 @@ QtObject {
                 return
             }
             if (item === 4) {
-                requestFocusTothespot()
+                requestFocusPulse()
                 return
             }
             return
@@ -593,7 +593,7 @@ QtObject {
             }
             requestHelpMessage("Pilih drive di sidebar terlebih dahulu.")
         } else if (menu === 2006) { // Help
-            requestHelpMessage("SLM Desktop Help: use top bar menu and shortcuts.")
+            requestHelpMessage("SLM Desktop Help: use Crown menu and shortcuts.")
             return
         }
     }

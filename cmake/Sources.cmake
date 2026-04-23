@@ -17,10 +17,10 @@ set(DESKTOP_SHELL_MODELS_AND_RUNTIME
     src/bootstrap/daemonservicebootstraprunner.h
     src/core/execution/appcommandrouter.cpp
     src/core/execution/appcommandrouter.h
-    src/core/dock/dockidentity.cpp
-    src/core/dock/dockidentity.h
-    src/core/dock/dockmodel.cpp
-    src/core/dock/dockmodel.h
+    src/core/appdeck/appdeckidentity.cpp
+    src/core/appdeck/appdeckidentity.h
+    src/core/appdeck/appdeckmodel.cpp
+    src/core/appdeck/appdeckmodel.h
     src/core/shortcutmodel.cpp
     src/core/shortcutmodel.h
     src/core/execution/appruntimeregistry.cpp
@@ -259,12 +259,12 @@ set(DESKTOP_SHELL_SERVICES
     src/services/portal/portaluibridge.h
     src/services/fileindex/metadataindexserver.cpp
     src/services/fileindex/metadataindexserver.h
-    src/services/search/tothespotservice.cpp
-    src/services/search/tothespotservice.h
-    src/services/search/tothespotcontextmenuhelper.cpp
-    src/services/search/tothespotcontextmenuhelper.h
-    src/services/search/tothespottexthighlighter.cpp
-    src/services/search/tothespottexthighlighter.h
+    src/services/search/pulseservice.cpp
+    src/services/search/pulseservice.h
+    src/services/search/pulsecontextmenuhelper.cpp
+    src/services/search/pulsecontextmenuhelper.h
+    src/services/search/pulsetexthighlighter.cpp
+    src/services/search/pulsetexthighlighter.h
     ${FILEMANAGER_APP_SOURCES}
     ${FILEMANAGER_PROGRESS_SOURCES}
     src/filemanager/FileManagerShellBridge.cpp
@@ -359,10 +359,10 @@ set(DESKTOPD_SOURCES
     src/daemon/desktopd/desktopd_main.cpp
     src/core/appmodel.cpp
     src/core/appmodel.h
-    src/core/dock/dockidentity.cpp
-    src/core/dock/dockidentity.h
-    src/core/dock/dockmodel.cpp
-    src/core/dock/dockmodel.h
+    src/core/appdeck/appdeckidentity.cpp
+    src/core/appdeck/appdeckidentity.h
+    src/core/appdeck/appdeckmodel.cpp
+    src/core/appdeck/appdeckmodel.h
     src/core/shortcutmodel.cpp
     src/core/shortcutmodel.h
     src/services/search/globalsearchservice.cpp

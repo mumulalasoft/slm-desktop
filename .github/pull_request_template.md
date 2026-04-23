@@ -16,7 +16,7 @@
 - [ ] Local smoke (if relevant) executed
   - [ ] `scripts/smoke-runtime.sh`
   - [ ] `scripts/smoke-backends.sh`
-  - [ ] `scripts/smoke-tothespot-contextmenu.sh`
+  - [ ] `scripts/smoke-pulse-contextmenu.sh`
 
 ## Risk & Rollback
 - Risk:

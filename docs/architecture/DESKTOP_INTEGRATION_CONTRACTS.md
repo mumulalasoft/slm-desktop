@@ -14,7 +14,7 @@ Dokumen ini adalah kontrak integrasi operasional lintas shell, app model, worksp
 | `runningApps` | `desktop-appd` |
 | `pinnedApps` | `desktop-appd` |
 | `appWindowMap` | `desktop-appd` |
-| `launchpadVisible` | `desktop-shelld` |
+| `apphubVisible` | `desktop-shelld` |
 | `searchVisible` | `desktop-shelld` |
 | `searchQuery` | `desktop-shelld` (broker to `desktop-searchd`) |
 | `dockVisibilityMode` | `desktop-settingsd` |
@@ -44,7 +44,7 @@ Rule:
 - State layer:
   - state global dibaca melalui service contracts (DBus/client bridge), bukan state lokal per-UI
 - UI layer:
-  - Dock, Launchpad, Shell, FileManager, TopBar bertindak sebagai renderer/interactor
+  - AppDeck, AppHub, Shell, FileManager, Crown bertindak sebagai renderer/interactor
 - IPC/Event contracts:
   - kontrak event minimum ada pada section 4
 
@@ -67,32 +67,32 @@ Planned/ongoing integration:
 
 | Event | Owner | Primary Consumers |
 |---|---|---|
-| `app.launched` | `desktop-appd` | shell, dock, search |
-| `app.activated` | `desktop-shelld` | dock, workspace UI |
-| `app.closed` | `desktop-appd` | shell, dock |
-| `workspace.switched` | `desktop-workspaced` | shell, dock, overview |
-| `window.active.changed` | `desktop-shelld` | dock, topbar, workspace |
-| `dock.item.invoked` | `desktop-shelld` | appd/workspaced router |
-| `launchpad.opened` | `desktop-shelld` | shell overlays |
-| `launchpad.closed` | `desktop-shelld` | shell overlays |
-| `drag.started` | `desktop-shelld` | dock, filemanager, workspace |
-| `drag.updated` | `desktop-shelld` | dock, filemanager, workspace |
-| `drag.ended` | `desktop-shelld` | dock, filemanager, workspace |
+| `app.launched` | `desktop-appd` | shell, appdeck, search |
+| `app.activated` | `desktop-shelld` | appdeck, workspace UI |
+| `app.closed` | `desktop-appd` | shell, appdeck |
+| `workspace.switched` | `desktop-workspaced` | shell, appdeck, overview |
+| `window.active.changed` | `desktop-shelld` | appdeck, crown, workspace |
+| `appdeck.item.invoked` | `desktop-shelld` | appd/workspaced router |
+| `apphub.opened` | `desktop-shelld` | shell overlays |
+| `apphub.closed` | `desktop-shelld` | shell overlays |
+| `drag.started` | `desktop-shelld` | appdeck, filemanager, workspace |
+| `drag.updated` | `desktop-shelld` | appdeck, filemanager, workspace |
+| `drag.ended` | `desktop-shelld` | appdeck, filemanager, workspace |
 | `fileop.started` | `desktop-fileopsd` | notify, shell, filemanager |
 | `fileop.progress` | `desktop-fileopsd` | notify, shell, filemanager |
 | `fileop.completed` | `desktop-fileopsd` | notify, shell, filemanager |
 | `fileop.failed` | `desktop-fileopsd` | notify, shell, filemanager |
 | `mount.added` | `desktop-storaged` | shell, filemanager |
 | `mount.removed` | `desktop-storaged` | shell, filemanager |
-| `recent.changed` | `desktop-storaged` | dock, search, filemanager |
-| `notification.posted` | `desktop-notifyd` | shell, dock |
-| `notification.cleared` | `desktop-notifyd` | shell, dock |
-| `settings.changed` | `desktop-settingsd` | shell, dock, launchpad, filemanager |
+| `recent.changed` | `desktop-storaged` | appdeck, search, filemanager |
+| `notification.posted` | `desktop-notifyd` | shell, appdeck |
+| `notification.cleared` | `desktop-notifyd` | shell, appdeck |
+| `settings.changed` | `desktop-settingsd` | shell, appdeck, apphub, filemanager |
 
 ## 5. Integration Guard Rules
 
-- Dock tidak boleh menjadi owner `pinnedApps`/`runningApps`.
-- Launchpad tidak boleh menyimpan app registry lokal.
+- AppDeck tidak boleh menjadi owner `pinnedApps`/`runningApps`.
+- AppHub tidak boleh menyimpan app registry lokal.
 - FileManager tidak boleh menjadi owner `mountedVolumes` global.
 - Search UI mana pun tidak boleh memakai backend terpisah dari broker global.
 - Semua perubahan owner state wajib update dokumen ini.

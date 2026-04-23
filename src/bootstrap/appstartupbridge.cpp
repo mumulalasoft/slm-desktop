@@ -23,7 +23,7 @@
 #include "../services/portal/inputcaptureprivacymodel.h"
 #include "../core/appmodel.h"
 #include "../core/shortcutmodel.h"
-#include "../core/dock/dockmodel.h"
+#include "../core/appdeck/appdeckmodel.h"
 #include "../core/workspace/spacesmanager.h"
 #include "../core/execution/appexecutiongate.h"
 #include "../core/execution/appcommandrouter.h"
@@ -43,9 +43,9 @@
 #include "../../src/apps/filemanager/include/filemanagermodel.h"
 #include "../../src/apps/filemanager/include/filemanagermodelfactory.h"
 #include "../apps/filemanager/ops/globalprogresscenter.h"
-#include "../services/search/tothespotservice.h"
-#include "../services/search/tothespotcontextmenuhelper.h"
-#include "../services/search/tothespottexthighlighter.h"
+#include "../services/search/pulseservice.h"
+#include "../services/search/pulsecontextmenuhelper.h"
+#include "../services/search/pulsetexthighlighter.h"
 #include "../services/fileindex/metadataindexserver.h"
 #include "../services/clipboard/ClipboardServiceClient.h"
 #include "../core/motion/slmmotioncontroller.h"
@@ -100,7 +100,7 @@ void hideBatchProgress(GlobalProgressCenter *globalProgressCenter,
 }
 
 namespace AppStartupBridge {
-void registerTopBarIndicatorContext(QQmlContext *context,
+void registerCrownIndicatorContext(QQmlContext *context,
                                     NetworkManager *networkManager,
                                     BluetoothManager *bluetoothManager,
                                     SoundManager *soundManager,
@@ -136,7 +136,7 @@ void registerTopBarIndicatorContext(QQmlContext *context,
 void registerCoreContext(QQmlContext *context,
                          DesktopAppModel *appModel,
                          ShortcutModel *shortcutModel,
-                         DockModel *dockModel,
+                         AppDeckModel *dockModel,
                          SpacesManager *spacesManager,
                          AppExecutionGate *appExecutionGate,
                          AppCommandRouter *appCommandRouter,
@@ -157,9 +157,9 @@ void registerCoreContext(QQmlContext *context,
                          FileManagerModel *fileManagerModel,
                          FileManagerModelFactory *fileManagerModelFactory,
                          GlobalProgressCenter *globalProgressCenter,
-                         TothespotService *tothespotService,
-                         TothespotContextMenuHelper *tothespotContextMenuHelper,
-                         TothespotTextHighlighter *tothespotTextHighlighter,
+                         PulseService *pulseService,
+                         PulseContextMenuHelper *pulseContextMenuHelper,
+                         PulseTextHighlighter *pulseTextHighlighter,
                          MetadataIndexServer *metadataIndexServer,
                          Slm::Clipboard::ClipboardServiceClient *clipboardServiceClient,
                          Slm::Motion::MotionController *motionController,
@@ -173,7 +173,7 @@ void registerCoreContext(QQmlContext *context,
         {"AppModel", appModel},
         {"AppManager", appModel},
         {"ShortcutModel", shortcutModel},
-        {"DockModel", dockModel},
+        {"AppDeckModel", dockModel},
         {"SpacesManager", spacesManager},
         {"AppExecutionGate", appExecutionGate},
         {"AppCommandRouter", appCommandRouter},
@@ -197,9 +197,9 @@ void registerCoreContext(QQmlContext *context,
         {"FileManagerModel", fileManagerModel},
         {"FileManagerModelFactory", fileManagerModelFactory},
         {"GlobalProgressCenter", globalProgressCenter},
-        {"TothespotService", tothespotService},
-        {"TothespotContextMenuHelper", tothespotContextMenuHelper},
-        {"TothespotTextHighlighter", tothespotTextHighlighter},
+        {"PulseService", pulseService},
+        {"PulseContextMenuHelper", pulseContextMenuHelper},
+        {"PulseTextHighlighter", pulseTextHighlighter},
         {"MetadataIndexServer", metadataIndexServer},
         {"ClipboardServiceClient", clipboardServiceClient},
         {"MotionController", motionController},

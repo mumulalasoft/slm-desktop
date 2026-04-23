@@ -40,9 +40,9 @@ run_default_suite() {
   local skip_ui_lint="${SLM_TEST_SKIP_UI_LINT:-0}"
   local skip_animation_lint="${SLM_TEST_SKIP_ANIMATION_LINT:-0}"
   local skip_cap_matrix_lint="${SLM_TEST_SKIP_CAPABILITY_MATRIX_LINT:-0}"
-  local skip_topbar_popup_lint="${SLM_TEST_SKIP_TOPBAR_POPUP_LINT:-0}"
-  local skip_topbar_recent_menu_guard="${SLM_TEST_SKIP_TOPBAR_RECENT_MENU_GUARD:-0}"
-  local topbar_recent_menu_guard_regex="${SLM_TEST_TOPBAR_RECENT_MENU_GUARD_REGEX:-^topbar_mainmenu_recent_icons_guard_test$}"
+  local skip_crown_popup_lint="${SLM_TEST_SKIP_TOPBAR_POPUP_LINT:-0}"
+  local skip_crown_recent_menu_guard="${SLM_TEST_SKIP_TOPBAR_RECENT_MENU_GUARD:-0}"
+  local crown_recent_menu_guard_regex="${SLM_TEST_TOPBAR_RECENT_MENU_GUARD_REGEX:-^crown_mainmenu_recent_icons_guard_test$}"
   local skip_notification_animation_guard="${SLM_TEST_SKIP_NOTIFICATION_ANIMATION_GUARD:-0}"
   local notification_animation_guard_regex="${SLM_TEST_NOTIFICATION_ANIMATION_GUARD_REGEX:-^notification_animation_contract_test$}"
   local skip_notification_visual_guard="${SLM_TEST_SKIP_NOTIFICATION_VISUAL_GUARD:-0}"
@@ -66,19 +66,19 @@ run_default_suite() {
     "${ROOT_DIR}/scripts/check-capability-matrix.sh"
   fi
 
-  if [[ "${skip_topbar_popup_lint}" != "1" ]]; then
-    echo "[test] running topbar popup contract lint"
-    "${ROOT_DIR}/scripts/check-topbar-popup-contract.sh"
+  if [[ "${skip_crown_popup_lint}" != "1" ]]; then
+    echo "[test] running crown popup contract lint"
+    "${ROOT_DIR}/scripts/check-crown-popup-contract.sh"
   fi
 
   echo "[test] running file operations contract suite: ${fileops_regex}"
   QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-offscreen}" \
   ctest --test-dir "${build_dir}" --output-on-failure -R "${fileops_regex}"
 
-  if [[ "${skip_topbar_recent_menu_guard}" != "1" ]]; then
-    echo "[test] running topbar recent menu guard suite: ${topbar_recent_menu_guard_regex}"
+  if [[ "${skip_crown_recent_menu_guard}" != "1" ]]; then
+    echo "[test] running crown recent menu guard suite: ${crown_recent_menu_guard_regex}"
     QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-offscreen}" \
-    ctest --test-dir "${build_dir}" --output-on-failure -R "${topbar_recent_menu_guard_regex}"
+    ctest --test-dir "${build_dir}" --output-on-failure -R "${crown_recent_menu_guard_regex}"
   fi
 
   if [[ "${skip_notification_animation_guard}" != "1" ]]; then

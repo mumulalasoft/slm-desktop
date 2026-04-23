@@ -47,8 +47,8 @@ QVariantMap kwinWaylandCapabilities()
         { QStringLiteral("command.overlay.unregister"), false },
         { QStringLiteral("command.overlay.restack"), false },
         { QStringLiteral("command.overlay.set-state"), false },
-        { QStringLiteral("command.dock-mode"), false },
-        { QStringLiteral("command.launchpad"), false },
+        { QStringLiteral("command.appdeck-mode"), false },
+        { QStringLiteral("command.apphub"), false },
         { QStringLiteral("command.progress-hide"), false },
     };
 }
@@ -159,8 +159,8 @@ QVariantMap WindowingBackendManager::capabilities() const
     caps.insert(QStringLiteral("command.overlay.unregister"), overlaySupported);
     caps.insert(QStringLiteral("command.overlay.restack"), overlaySupported);
     caps.insert(QStringLiteral("command.overlay.set-state"), overlaySupported);
-    caps.insert(QStringLiteral("command.dock-mode"), overlaySupported);
-    caps.insert(QStringLiteral("command.launchpad"), overlaySupported);
+    caps.insert(QStringLiteral("command.appdeck-mode"), overlaySupported);
+    caps.insert(QStringLiteral("command.apphub"), overlaySupported);
     return caps;
 }
 

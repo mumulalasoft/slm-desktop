@@ -1,6 +1,5 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
-import QtQuick.Controls.impl 2.15
 import Slm_Desktop
 
 Rectangle {
@@ -31,7 +30,7 @@ Rectangle {
         ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault }
     }
 
-    IconImage {
+    Image {
         id: searchIcon
         anchors.centerIn: parent
         width: root.iconGlyph
@@ -39,10 +38,9 @@ Rectangle {
         fillMode: Image.PreserveAspectFit
         asynchronous: true
         cache: true
-        source: "image://themeicon/system-search-symbolic?v=" +
-                ((typeof ThemeIconController !== "undefined" && ThemeIconController)
-                 ? ThemeIconController.revision : 0)
-        color: Theme.color("textOnGlass")
+        source: Theme.darkMode
+                ? "qrc:/icons/dark/pulse.svg"
+                : "qrc:/icons/light/pulse.svg"
     }
 
     Label {

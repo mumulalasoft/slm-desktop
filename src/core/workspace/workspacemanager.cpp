@@ -124,7 +124,7 @@ void WorkspaceManager::ToggleWorkspace()
 
 void WorkspaceManager::ShowAppGrid()
 {
-    sendCommand(QStringLiteral("launchpad on"));
+    sendCommand(QStringLiteral("apphub on"));
 }
 
 void WorkspaceManager::ShowDesktop()

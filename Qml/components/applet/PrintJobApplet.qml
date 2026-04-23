@@ -5,7 +5,7 @@ import QtQuick.Layouts 1.15
 import Slm_Desktop
 import SlmStyle
 
-// PrintJobApplet — topbar indicator for active print jobs.
+// PrintJobApplet — crown indicator for active print jobs.
 //
 // Visible only when there is at least one tracked job.
 // Shows a spinner animation while any job is printing.

@@ -1,6 +1,6 @@
 import QtQuick 2.15
 import Slm_Desktop
-import "../shell/TothespotController.js" as TothespotController
+import "../shell/PulseController.js" as PulseController
 import "../shell/ShellUtils.js" as ShellUtils
 import "SecuritySettingsRouting.js" as SecuritySettingsRouting
 
@@ -11,8 +11,8 @@ Item {
     property var portalUiBridge: null
     property var portalChooserApi: null
     property var fileManagerApi: null
-    property var tothespotService: null
-    property var tothespotResultsModel: null
+    property var pulseService: null
+    property var pulseResultsModel: null
     property var desktopSettings: null
     property bool consentDialogVisible: false
     property string consentRequestPath: ""
@@ -134,14 +134,14 @@ Item {
     }
 
     Connections {
-        target: root.tothespotService
+        target: root.pulseService
         ignoreUnknownSignals: true
         function onSearchProfileChanged(profileId) {
-            TothespotController.refreshProfileMeta(root.shellApi)
-            TothespotController.refreshTelemetryMeta(root.shellApi)
-            if (root.shellApi.tothespotVisible
-                    && String(root.shellApi.tothespotQuery || "").trim().length >= 2) {
-                TothespotController.refreshResults(root.shellApi, root.tothespotResultsModel, true)
+            PulseController.refreshProfileMeta(root.shellApi)
+            PulseController.refreshTelemetryMeta(root.shellApi)
+            if (root.shellApi.pulseVisible
+                    && String(root.shellApi.pulseQuery || "").trim().length >= 1) {
+                PulseController.refreshResults(root.shellApi, root.pulseResultsModel, true)
             }
         }
     }
@@ -152,7 +152,7 @@ Item {
         function onSettingChanged(path) {
             var k = String(path || "")
             if (k === "debug.verboseLogging") {
-                root.shellApi.tothespotShowDebug = !!root.desktopSettings.settingValue(
+                root.shellApi.pulseShowDebug = !!root.desktopSettings.settingValue(
                             "debug.verboseLogging", false)
             } else if (k === "motion.debugOverlay") {
                 root.shellApi.motionDebugOverlayEnabled = !!root.desktopSettings.settingValue(
@@ -169,9 +169,9 @@ Item {
             } else if (k === "globalAppearance.uiScale") {
                 Theme.userFontScale = ShellUtils.normalizedUserFontScale(
                             root.desktopSettings.settingValue("globalAppearance.uiScale", 1.0))
-            } else if (k === "tothespot.notifyClipboardResolveSuccess") {
-                root.shellApi.tothespotNotifyClipboardResolveSuccess = !!root.desktopSettings.settingValue(
-                            "tothespot.notifyClipboardResolveSuccess", true)
+            } else if (k === "pulse.notifyClipboardResolveSuccess") {
+                root.shellApi.pulseNotifyClipboardResolveSuccess = !!root.desktopSettings.settingValue(
+                            "pulse.notifyClipboardResolveSuccess", true)
             }
         }
     }

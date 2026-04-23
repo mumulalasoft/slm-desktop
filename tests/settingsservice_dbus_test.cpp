@@ -108,7 +108,7 @@ private slots:
         QVERIFY(settings.contains(QStringLiteral("globalAppearance")));
         QVERIFY(settings.contains(QStringLiteral("contextAutomation")));
         QVERIFY(settings.contains(QStringLiteral("contextTime")));
-        QVERIFY(settings.contains(QStringLiteral("dock")));
+        QVERIFY(settings.contains(QStringLiteral("appdeck")));
         QVERIFY(settings.contains(QStringLiteral("print")));
         QVERIFY(settings.contains(QStringLiteral("windowing")));
         QVERIFY(settings.contains(QStringLiteral("shortcuts")));
@@ -126,18 +126,18 @@ private slots:
         const int sunsetHour = contextTime.value(QStringLiteral("sunsetHour")).toInt();
         QVERIFY(sunriseHour >= 0 && sunriseHour <= 23);
         QVERIFY(sunsetHour >= 0 && sunsetHour <= 23);
-        const QVariantMap dock = settings.value(QStringLiteral("dock")).toMap();
-        const QString motionPreset = dock.value(QStringLiteral("motionPreset")).toString();
+        const QVariantMap appdeck = settings.value(QStringLiteral("appdeck")).toMap();
+        const QString motionPreset = appdeck.value(QStringLiteral("motionPreset")).toString();
         QVERIFY(motionPreset == QLatin1String("subtle") || motionPreset == QLatin1String("macos-lively"));
-        const QString iconSize = dock.value(QStringLiteral("iconSize")).toString();
+        const QString iconSize = appdeck.value(QStringLiteral("iconSize")).toString();
         QVERIFY(iconSize == QLatin1String("small")
                 || iconSize == QLatin1String("medium")
                 || iconSize == QLatin1String("large"));
-        QVERIFY(dock.contains(QStringLiteral("magnificationEnabled")));
-        QVERIFY(dock.value(QStringLiteral("dragThresholdMouse")).toInt() >= 2);
-        QVERIFY(dock.value(QStringLiteral("dragThresholdMouse")).toInt() <= 24);
-        QVERIFY(dock.value(QStringLiteral("dragThresholdTouchpad")).toInt() >= 2);
-        QVERIFY(dock.value(QStringLiteral("dragThresholdTouchpad")).toInt() <= 24);
+        QVERIFY(appdeck.contains(QStringLiteral("magnificationEnabled")));
+        QVERIFY(appdeck.value(QStringLiteral("dragThresholdMouse")).toInt() >= 2);
+        QVERIFY(appdeck.value(QStringLiteral("dragThresholdMouse")).toInt() <= 24);
+        QVERIFY(appdeck.value(QStringLiteral("dragThresholdTouchpad")).toInt() >= 2);
+        QVERIFY(appdeck.value(QStringLiteral("dragThresholdTouchpad")).toInt() <= 24);
         const QVariantMap print = settings.value(QStringLiteral("print")).toMap();
         QVERIFY(print.contains(QStringLiteral("pdfFallbackPrinterId")));
         const QVariantMap windowing = settings.value(QStringLiteral("windowing")).toMap();
@@ -360,35 +360,35 @@ private slots:
 
         QDBusReply<QVariantMap> setMotionOk =
             iface.call(QStringLiteral("SetSetting"),
-                       QStringLiteral("dock.motionPreset"),
+                       QStringLiteral("appdeck.motionPreset"),
                        QVariant::fromValue(QDBusVariant(QVariant(QStringLiteral("macos-lively")))));
         QVERIFY(setMotionOk.isValid());
         QVERIFY(setMotionOk.value().value(QStringLiteral("ok")).toBool());
 
         QDBusReply<QVariantMap> setMotionInvalid =
             iface.call(QStringLiteral("SetSetting"),
-                       QStringLiteral("dock.motionPreset"),
+                       QStringLiteral("appdeck.motionPreset"),
                        QVariant::fromValue(QDBusVariant(QVariant(QStringLiteral("neon")))));
         QVERIFY(setMotionInvalid.isValid());
         QVERIFY(!setMotionInvalid.value().value(QStringLiteral("ok")).toBool());
 
         QDBusReply<QVariantMap> setThresholdInvalid =
             iface.call(QStringLiteral("SetSetting"),
-                       QStringLiteral("dock.dragThresholdMouse"),
+                       QStringLiteral("appdeck.dragThresholdMouse"),
                        QVariant::fromValue(QDBusVariant(QVariant(40))));
         QVERIFY(setThresholdInvalid.isValid());
         QVERIFY(!setThresholdInvalid.value().value(QStringLiteral("ok")).toBool());
 
         QDBusReply<QVariantMap> setIconSizeOk =
             iface.call(QStringLiteral("SetSetting"),
-                       QStringLiteral("dock.iconSize"),
+                       QStringLiteral("appdeck.iconSize"),
                        QVariant::fromValue(QDBusVariant(QVariant(QStringLiteral("large")))));
         QVERIFY(setIconSizeOk.isValid());
         QVERIFY(setIconSizeOk.value().value(QStringLiteral("ok")).toBool());
 
         QDBusReply<QVariantMap> setIconSizeInvalid =
             iface.call(QStringLiteral("SetSetting"),
-                       QStringLiteral("dock.iconSize"),
+                       QStringLiteral("appdeck.iconSize"),
                        QVariant::fromValue(QDBusVariant(QVariant(QStringLiteral("xlarge")))));
         QVERIFY(setIconSizeInvalid.isValid());
         QVERIFY(!setIconSizeInvalid.value().value(QStringLiteral("ok")).toBool());

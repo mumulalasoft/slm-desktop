@@ -38,7 +38,7 @@ Slm_Desktop/
       ops/
     search/
       global/
-      tothespot/
+      pulse/
     portal/
       core/
       bridge/
@@ -55,8 +55,8 @@ Slm_Desktop/
       workspacectl/
   Qml/
     components/
-      topbar/
-      dock/
+      crown/
+      appdeck/
       filemanager/
       shell/
   Style/

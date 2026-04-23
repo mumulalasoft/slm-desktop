@@ -239,8 +239,8 @@ QtObject {
             if (item === 1) { _route("filemanager.open", { "target": desktopSurface.desktopPath || "~/Desktop" }); return }
             if (item === 2) { _route("filemanager.open", { "target": desktopSurface.desktopPath || "~/Desktop" }); return }
             if (item === 3) {
-                if (typeof ShellStateController !== "undefined" && ShellStateController && ShellStateController.setToTheSpotVisible) {
-                    ShellStateController.setToTheSpotVisible(true)
+                if (typeof ShellStateController !== "undefined" && ShellStateController && ShellStateController.setPulseVisible) {
+                    ShellStateController.setPulseVisible(true)
                 }
                 return
             }

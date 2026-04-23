@@ -1053,7 +1053,7 @@ void DesktopAppModel::refresh()
         if (!desktopInfo) {
             // Some test desktop entries may not be accepted by GDesktopAppInfo
             // (e.g. Exec points to a command not currently resolvable in PATH).
-            // Keep them discoverable in Launchpad via a permissive keyfile parse.
+            // Keep them discoverable in AppHub via a permissive keyfile parse.
             GKeyFile *kf = g_key_file_new();
             GError *loadError = nullptr;
             const gboolean loaded = g_key_file_load_from_file(

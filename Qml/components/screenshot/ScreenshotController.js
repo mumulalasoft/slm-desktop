@@ -154,7 +154,7 @@ function performCapture(shell, modeValue) {
                             "height": Math.round(Number(geom.height || 0)),
                             "outputPath": outPath
                         },
-                        "topbar.screenshot.window")
+                        "crown.screenshot.window")
             var winPayload = winResult && winResult.payload ? winResult.payload : {}
             if (!!(winResult && winResult.ok)) {
                 ScreenshotSaveController.openSaveDialog(shell,
@@ -171,7 +171,7 @@ function performCapture(shell, modeValue) {
         var result = AppCommandRouter.routeWithResult(
                     "screenshot.fullscreen",
                     { "outputPath": outPath },
-                    "topbar.screenshot")
+                    "crown.screenshot")
         var payload = result && result.payload ? result.payload : {}
         if (!!(result && result.ok)) {
             ScreenshotSaveController.openSaveDialog(shell,
@@ -183,11 +183,11 @@ function performCapture(shell, modeValue) {
     }
 }
 
-function startFromTopBar(shell, modeValue, delaySecValue, grabPointerValue, concealTextValue) {
+function startFromCrown(shell, modeValue, delaySecValue, grabPointerValue, concealTextValue) {
     if (!shell) {
         return
     }
-    ScreenshotSaveController.beginRequest(shell, "topbar")
+    ScreenshotSaveController.beginRequest(shell, "crown")
     shell.pendingScreenshotMode = String(modeValue || "screen")
     shell.pendingScreenshotDelaySec = Math.max(0, Number(delaySecValue || 0))
     if (typeof grabPointerValue !== "undefined" || typeof concealTextValue !== "undefined") {

@@ -118,8 +118,8 @@ Format per version:
 - Added
   - None.
 - Changed
-  - Search scope canonical renamed to `tothespot`.
-  - Clients must send `scope=tothespot` in search/action contexts.
+  - Search scope canonical renamed to `pulse`.
+  - Clients must send `scope=pulse` in search/action contexts.
 - Deprecated
   - Legacy non-canonical scope naming.
 - Removed

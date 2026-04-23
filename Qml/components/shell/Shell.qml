@@ -46,7 +46,7 @@ Item {
         if (dockTopY <= 0 || dockTopY >= height) {
             return 20
         }
-        // Keep the shortcut area ending just above the dock top edge.
+        // Keep the shortcut area ending just above the appdeck top edge.
         return Math.max(20, (height - dockTopY) + 8)
     }
 
@@ -291,7 +291,7 @@ Item {
     }
 
     function visibleRows() {
-        // Use full rows only, so no shortcut row can spill into dock area.
+        // Use full rows only, so no shortcut row can spill into appdeck area.
         return Math.max(1, Math.floor(shortcutFlick.height / cellHeight))
     }
 

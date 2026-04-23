@@ -927,8 +927,8 @@ Item {
         if (!_isDesktopLauncherRow(row)) {
             return
         }
-        if (typeof DockModel !== "undefined" && DockModel && DockModel.addDesktopEntry) {
-            DockModel.addDesktopEntry(String(row.path || ""))
+        if (typeof AppDeckModel !== "undefined" && AppDeckModel && AppDeckModel.addDesktopEntry) {
+            AppDeckModel.addDesktopEntry(String(row.path || ""))
         }
     }
 
@@ -1065,8 +1065,8 @@ Item {
         }
         var canPinToDock = _isDesktopLauncherPath(dndSourcePath)
         if (!droppedInFolder && canPinToDock && _isDockDropZone(dndLastY)
-                && typeof DockModel !== "undefined" && DockModel && DockModel.addDesktopEntry) {
-            DockModel.addDesktopEntry(dndSourcePath)
+                && typeof AppDeckModel !== "undefined" && AppDeckModel && AppDeckModel.addDesktopEntry) {
+            AppDeckModel.addDesktopEntry(dndSourcePath)
         }
         if (!droppedInFolder && !_isDockDropZone(dndLastY) && target >= 0 && !dndCopyMode) {
             _persistReorderedSlots(source, dndSourceIndex, _entryPathAt(target), target)
@@ -1823,7 +1823,7 @@ Item {
             }
         }
         MenuItem {
-            text: "Add to Dock"
+            text: "Add to AppDeck"
             enabled: root._isDesktopLauncherRow(root.contextEntryRow)
             visible: enabled
             height: visible ? implicitHeight : 0

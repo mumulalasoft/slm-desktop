@@ -19,7 +19,7 @@ class ScreencastPrivacyModel;
 class InputCapturePrivacyModel;
 class DesktopAppModel;
 class ShortcutModel;
-class DockModel;
+class AppDeckModel;
 class SpacesManager;
 class AppExecutionGate;
 class AppCommandRouter;
@@ -39,9 +39,9 @@ class FileManagerApi;
 class FileManagerModel;
 class FileManagerModelFactory;
 class GlobalProgressCenter;
-class TothespotService;
-class TothespotContextMenuHelper;
-class TothespotTextHighlighter;
+class PulseService;
+class PulseContextMenuHelper;
+class PulseTextHighlighter;
 class MetadataIndexServer;
 namespace Slm::Clipboard {
 class ClipboardServiceClient;
@@ -58,7 +58,7 @@ class ContextMenuService;
 }
 
 namespace AppStartupBridge {
-void registerTopBarIndicatorContext(QQmlContext *context,
+void registerCrownIndicatorContext(QQmlContext *context,
                                     NetworkManager *networkManager,
                                     BluetoothManager *bluetoothManager,
                                     SoundManager *soundManager,
@@ -76,7 +76,7 @@ void registerTopBarIndicatorContext(QQmlContext *context,
 void registerCoreContext(QQmlContext *context,
                          DesktopAppModel *appModel,
                          ShortcutModel *shortcutModel,
-                         DockModel *dockModel,
+                         AppDeckModel *dockModel,
                          SpacesManager *spacesManager,
                          AppExecutionGate *appExecutionGate,
                          AppCommandRouter *appCommandRouter,
@@ -97,9 +97,9 @@ void registerCoreContext(QQmlContext *context,
                          FileManagerModel *fileManagerModel,
                          FileManagerModelFactory *fileManagerModelFactory,
                          GlobalProgressCenter *globalProgressCenter,
-                         TothespotService *tothespotService,
-                         TothespotContextMenuHelper *tothespotContextMenuHelper,
-                         TothespotTextHighlighter *tothespotTextHighlighter,
+                         PulseService *pulseService,
+                         PulseContextMenuHelper *pulseContextMenuHelper,
+                         PulseTextHighlighter *pulseTextHighlighter,
                          MetadataIndexServer *metadataIndexServer,
                          Slm::Clipboard::ClipboardServiceClient *clipboardServiceClient,
                          Slm::Motion::MotionController *motionController,

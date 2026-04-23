@@ -148,14 +148,14 @@ bool KWinWaylandIpcClient::sendCommand(const QString &command)
                 ok = false;
             }
         }
-    } else if (cmd.startsWith(QStringLiteral("launchpad "))) {
-        const QString state = cmd.mid(QStringLiteral("launchpad ").size()).trimmed().toLower();
+    } else if (cmd.startsWith(QStringLiteral("apphub "))) {
+        const QString state = cmd.mid(QStringLiteral("apphub ").size()).trimmed().toLower();
         if (state != QStringLiteral("on") && state != QStringLiteral("off")) {
-            error = QStringLiteral("invalid-launchpad-state");
+            error = QStringLiteral("invalid-apphub-state");
             ok = false;
         } else {
             ok = invokeOverlayBridge(QStringLiteral("set-state"),
-                                     QStringList{QStringLiteral("launchpad"), state},
+                                     QStringList{QStringLiteral("apphub"), state},
                                      &error);
         }
     } else if (cmd == QStringLiteral("show-desktop")) {
@@ -254,15 +254,15 @@ bool KWinWaylandIpcClient::sendCommand(const QString &command)
                || cmd.startsWith(QStringLiteral("shellpopup "))) {
         // Managed by shell UI state; not a compositor capability on KWin path.
         ok = true;
-    } else if (cmd.startsWith(QStringLiteral("dock mode "))) {
-        const QString mode = cmd.mid(QStringLiteral("dock mode ").size()).trimmed().toLower();
+    } else if (cmd.startsWith(QStringLiteral("appdeck mode "))) {
+        const QString mode = cmd.mid(QStringLiteral("appdeck mode ").size()).trimmed().toLower();
         if (mode != QStringLiteral("no_hide")
                 && mode != QStringLiteral("duration_hide")
                 && mode != QStringLiteral("smart_hide")) {
-            error = QStringLiteral("invalid-dock-mode");
+            error = QStringLiteral("invalid-appdeck-mode");
             ok = false;
         } else {
-            ok = invokeOverlayBridge(QStringLiteral("dock-mode"),
+            ok = invokeOverlayBridge(QStringLiteral("appdeck-mode"),
                                      QStringList{mode},
                                      &error);
         }
@@ -657,10 +657,10 @@ bool KWinWaylandIpcClient::invokeOverlayBridge(const QString &operation,
             || args.at(1).trimmed().toLower() == QStringLiteral("true");
         result = callOverlayBridge(QStringLiteral("SetOverlayState"),
                                    QVariantList{args.at(0), enabled});
-    } else if (op == QStringLiteral("dock-mode")) {
+    } else if (op == QStringLiteral("appdeck-mode")) {
         if (args.isEmpty()) {
             if (errorOut) {
-                *errorOut = QStringLiteral("missing-dock-mode");
+                *errorOut = QStringLiteral("missing-appdeck-mode");
             }
             return false;
         }

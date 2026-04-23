@@ -66,5 +66,5 @@ SLM_UI_LINT_USE_ALLOWLIST=0 scripts/lint-ui-style.sh all
 ```bash
 scripts/smoke-runtime.sh --build-dir build --app-bin build/appSlm_Desktop
 scripts/smoke-backends.sh --build-dir build --app-bin build/appSlm_Desktop
-scripts/smoke-tothespot-contextmenu.sh --build-dir build --app-bin build/appSlm_Desktop
+scripts/smoke-pulse-contextmenu.sh --build-dir build --app-bin build/appSlm_Desktop
 ```

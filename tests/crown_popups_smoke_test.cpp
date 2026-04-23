@@ -20,7 +20,7 @@ public:
 
 }
 
-class TopBarPopupsSmokeTest : public QObject
+class CrownPopupsSmokeTest : public QObject
 {
     Q_OBJECT
 
@@ -33,7 +33,7 @@ private:
     QQuickItem *createTopbarComponent(const QString &fileName)
     {
         const QString importRoot = QString::fromUtf8(BUILD_QML_IMPORT_ROOT);
-        const QString topbarDir = QString::fromUtf8(TOPBAR_QML_COMPONENT_DIR);
+        const QString crownDir = QString::fromUtf8(TOPBAR_QML_COMPONENT_DIR);
         const QString qtQmlImportsPath = QLibraryInfo::path(QLibraryInfo::QmlImportsPath);
         if (!qtQmlImportsPath.isEmpty()) {
             m_engine.addImportPath(qtQmlImportsPath);
@@ -41,7 +41,7 @@ private:
         m_engine.addImportPath(importRoot);
         m_engine.rootContext()->setContextProperty(QStringLiteral("ThemeIconController"), &m_themeIconController);
 
-        QQmlComponent component(&m_engine, QUrl::fromLocalFile(topbarDir + QLatin1Char('/') + fileName));
+        QQmlComponent component(&m_engine, QUrl::fromLocalFile(crownDir + QLatin1Char('/') + fileName));
         if (!component.isReady()) {
             m_lastComponentError = component.errorString();
             qWarning().noquote() << m_lastComponentError;
@@ -81,13 +81,13 @@ private slots:
 
     void mainMenu_openCloseRepeatedly()
     {
-        std::unique_ptr<QQuickItem> item(createTopbarComponent(QStringLiteral("TopBarMainMenuControl.qml")));
+        std::unique_ptr<QQuickItem> item(createTopbarComponent(QStringLiteral("CrownMainMenuControl.qml")));
         if (!item) {
             if (m_lastComponentError.contains(QStringLiteral("QtQuick.Controls"), Qt::CaseInsensitive) ||
                 m_lastComponentError.contains(QStringLiteral("QtQml.WorkerScript"), Qt::CaseInsensitive)) {
                 QSKIP("Qt QML runtime modules are unavailable in this environment.");
             }
-            QFAIL(qPrintable(QStringLiteral("Failed to create TopBarMainMenuControl: %1").arg(m_lastComponentError)));
+            QFAIL(qPrintable(QStringLiteral("Failed to create CrownMainMenuControl: %1").arg(m_lastComponentError)));
         }
 
         for (int i = 0; i < 20; ++i) {
@@ -102,13 +102,13 @@ private slots:
 
     void screenshot_openCloseAndOutsideClose()
     {
-        std::unique_ptr<QQuickItem> item(createTopbarComponent(QStringLiteral("TopBarScreenshotControl.qml")));
+        std::unique_ptr<QQuickItem> item(createTopbarComponent(QStringLiteral("CrownScreenshotControl.qml")));
         if (!item) {
             if (m_lastComponentError.contains(QStringLiteral("QtQuick.Controls"), Qt::CaseInsensitive) ||
                 m_lastComponentError.contains(QStringLiteral("QtQml.WorkerScript"), Qt::CaseInsensitive)) {
                 QSKIP("Qt QML runtime modules are unavailable in this environment.");
             }
-            QFAIL(qPrintable(QStringLiteral("Failed to create TopBarScreenshotControl: %1").arg(m_lastComponentError)));
+            QFAIL(qPrintable(QStringLiteral("Failed to create CrownScreenshotControl: %1").arg(m_lastComponentError)));
         }
 
         QTest::mouseClick(&m_window, Qt::LeftButton, Qt::NoModifier, clickPointFor(item.get()));
@@ -130,5 +130,5 @@ private slots:
     }
 };
 
-QTEST_MAIN(TopBarPopupsSmokeTest)
-#include "topbar_popups_smoke_test.moc"
+QTEST_MAIN(CrownPopupsSmokeTest)
+#include "crown_popups_smoke_test.moc"

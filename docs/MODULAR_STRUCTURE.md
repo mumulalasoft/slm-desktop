@@ -38,7 +38,7 @@ Reusable Qt Quick Controls style:
 ### `apps/slm-desktop`
 
 Desktop shell app only:
-- panel, dock, launchpad, shell surface
+- panel, appdeck, apphub, shell surface
 - compositing/session integration
 - feature managers (network/bluetooth/sound/notification/global menu)
 

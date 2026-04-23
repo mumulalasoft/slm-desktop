@@ -91,13 +91,13 @@ Item {
     }
 
     function _preferredWidth(defaultWidth) {
-        var preferred = TopBarPopupController.activePreferredSize || ({})
+        var preferred = CrownPopupController.activePreferredSize || ({})
         var width = Number(preferred.width || 0)
         return width > 0 ? width : defaultWidth
     }
 
     function _preferredHeight(defaultHeight) {
-        var preferred = TopBarPopupController.activePreferredSize || ({})
+        var preferred = CrownPopupController.activePreferredSize || ({})
         var height = Number(preferred.height || 0)
         return height > 0 ? height : defaultHeight
     }
@@ -115,17 +115,17 @@ Item {
             popup.height = height
         }
 
-        var pos = _resolvePopupPosition(TopBarPopupController.activeAnchorRectGlobal,
+        var pos = _resolvePopupPosition(CrownPopupController.activeAnchorRectGlobal,
                                         Number(width || 0),
                                         Number(height || 0),
-                                        TopBarPopupController.activeAlignment)
+                                        CrownPopupController.activeAlignment)
         popup.x = pos.x
         popup.y = pos.y
     }
 
     function _openRequestedPopup() {
         _closeAndDestroyActivePopup()
-        var comp = TopBarPopupController.activePopupComponent
+        var comp = CrownPopupController.activePopupComponent
         if (!comp) {
             return
         }
@@ -139,7 +139,7 @@ Item {
         }
         if (!popup) {
             activePopupOwnedByHost = false
-            TopBarPopupController.closeActivePopup()
+            CrownPopupController.closeActivePopup()
             return
         }
 
@@ -176,10 +176,10 @@ Item {
         target: root.activePopupObject
         ignoreUnknownSignals: true
         function onAboutToHide() {
-            TopBarPopupController.closeActivePopup()
+            CrownPopupController.closeActivePopup()
         }
         function onClosed() {
-            TopBarPopupController.closeActivePopup()
+            CrownPopupController.closeActivePopup()
         }
         function onWidthChanged() {
             root._applyGeometryToPopup(root.activePopupObject)
@@ -190,10 +190,10 @@ Item {
     }
 
     Connections {
-        target: TopBarPopupController
+        target: CrownPopupController
         ignoreUnknownSignals: true
         function onRequestSerialChanged() {
-            if (!TopBarPopupController.activeAppletId.length || !TopBarPopupController.activePopupComponent) {
+            if (!CrownPopupController.activeAppletId.length || !CrownPopupController.activePopupComponent) {
                 root._closeAndDestroyActivePopup()
                 return
             }

@@ -15,7 +15,7 @@ constexpr auto kService = "org.desktop.Apps";
 constexpr auto kPath    = "/org/desktop/Apps";
 constexpr auto kIface   = "org.desktop.Apps";
 
-// Active states that count as "running" for dock indicators.
+// Active states that count as "running" for appdeck indicators.
 bool isRunningState(const QString &state)
 {
     return state == QStringLiteral("running")

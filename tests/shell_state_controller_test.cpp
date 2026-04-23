@@ -9,7 +9,7 @@ private slots:
     void defaultState_allOverlaysHidden()
     {
         ShellStateController ctrl;
-        QVERIFY(!ctrl.launchpadVisible());
+        QVERIFY(!ctrl.apphubVisible());
         QVERIFY(!ctrl.workspaceOverviewVisible());
         QVERIFY(!ctrl.toTheSpotVisible());
         QVERIFY(!ctrl.styleGalleryVisible());
@@ -27,7 +27,7 @@ private slots:
         QVERIFY(!ctrl.workspaceInteractionBlocked());
     }
 
-    void setLaunchpadVisible_updatesDerivedState()
+    void setAppHubVisible_updatesDerivedState()
     {
         ShellStateController ctrl;
         QSignalSpy topBarSpy(&ctrl, &ShellStateController::topBarOpacityChanged);
@@ -36,9 +36,9 @@ private slots:
         QSignalSpy blockSpy(&ctrl, &ShellStateController::workspaceInteractionBlockedChanged);
         QSignalSpy overlaySpy(&ctrl, &ShellStateController::anyOverlayVisibleChanged);
 
-        ctrl.setLaunchpadVisible(true);
+        ctrl.setAppHubVisible(true);
 
-        QVERIFY(ctrl.launchpadVisible());
+        QVERIFY(ctrl.apphubVisible());
         QVERIFY(ctrl.anyOverlayVisible());
         QCOMPARE(ctrl.topBarOpacity(), 0.0);
         QCOMPARE(ctrl.dockOpacity(), 1.0);
@@ -53,13 +53,13 @@ private slots:
         QCOMPARE(overlaySpy.count(), 1);
     }
 
-    void setLaunchpadVisible_false_restoresDerivedState()
+    void setAppHubVisible_false_restoresDerivedState()
     {
         ShellStateController ctrl;
-        ctrl.setLaunchpadVisible(true);
-        ctrl.setLaunchpadVisible(false);
+        ctrl.setAppHubVisible(true);
+        ctrl.setAppHubVisible(false);
 
-        QVERIFY(!ctrl.launchpadVisible());
+        QVERIFY(!ctrl.apphubVisible());
         QCOMPARE(ctrl.topBarOpacity(), 1.0);
         QCOMPARE(ctrl.dockOpacity(), 1.0);
         QVERIFY(!ctrl.workspaceBlurred());
@@ -76,45 +76,45 @@ private slots:
         QCOMPARE(ctrl.dockOpacity(), 0.0);
         QVERIFY(ctrl.workspaceBlurred());
         QCOMPARE(ctrl.workspaceBlurAlpha(), 0.40);
-        // TopBar is unaffected by show-desktop
+        // Crown is unaffected by show-desktop
         QCOMPARE(ctrl.topBarOpacity(), 1.0);
-        // Workspace interaction is not blocked in show-desktop (only in launchpad)
+        // Workspace interaction is not blocked in show-desktop (only in apphub)
         QVERIFY(!ctrl.workspaceInteractionBlocked());
         // show-desktop is not an overlay
         QVERIFY(!ctrl.anyOverlayVisible());
     }
 
-    void setLaunchpad_noSignalOnNoop()
+    void setAppHub_noSignalOnNoop()
     {
         ShellStateController ctrl;
-        ctrl.setLaunchpadVisible(true);
+        ctrl.setAppHubVisible(true);
 
-        QSignalSpy spy(&ctrl, &ShellStateController::launchpadVisibleChanged);
-        ctrl.setLaunchpadVisible(true); // same value — no signal
+        QSignalSpy spy(&ctrl, &ShellStateController::apphubVisibleChanged);
+        ctrl.setAppHubVisible(true); // same value — no signal
         QCOMPARE(spy.count(), 0);
     }
 
-    void toggleLaunchpad_flipsState()
+    void toggleAppHub_flipsState()
     {
         ShellStateController ctrl;
-        QVERIFY(!ctrl.launchpadVisible());
-        ctrl.toggleLaunchpad();
-        QVERIFY(ctrl.launchpadVisible());
-        ctrl.toggleLaunchpad();
-        QVERIFY(!ctrl.launchpadVisible());
+        QVERIFY(!ctrl.apphubVisible());
+        ctrl.toggleAppHub();
+        QVERIFY(ctrl.apphubVisible());
+        ctrl.toggleAppHub();
+        QVERIFY(!ctrl.apphubVisible());
     }
 
     void dismissAllOverlays_clearsEverything()
     {
         ShellStateController ctrl;
-        ctrl.setLaunchpadVisible(true);
+        ctrl.setAppHubVisible(true);
         ctrl.setWorkspaceOverviewVisible(true);
-        ctrl.setToTheSpotVisible(true);
+        ctrl.setPulseVisible(true);
         ctrl.setStyleGalleryVisible(true);
 
         ctrl.dismissAllOverlays();
 
-        QVERIFY(!ctrl.launchpadVisible());
+        QVERIFY(!ctrl.apphubVisible());
         QVERIFY(!ctrl.workspaceOverviewVisible());
         QVERIFY(!ctrl.toTheSpotVisible());
         QVERIFY(!ctrl.styleGalleryVisible());
@@ -130,7 +130,7 @@ private slots:
         }
         {
             ShellStateController ctrl;
-            ctrl.setToTheSpotVisible(true);
+            ctrl.setPulseVisible(true);
             QVERIFY(ctrl.anyOverlayVisible());
         }
         {
@@ -140,36 +140,36 @@ private slots:
         }
     }
 
-    void launchpad_overridesShowDesktop_forDockOpacity()
+    void apphub_overridesShowDesktop_forDockOpacity()
     {
-        // Both showDesktop and launchpad active — dock stays hidden
+        // Both showDesktop and apphub active — appdeck stays hidden
         ShellStateController ctrl;
         ctrl.setShowDesktop(true);
-        ctrl.setLaunchpadVisible(true);
+        ctrl.setAppHubVisible(true);
         QCOMPARE(ctrl.dockOpacity(), 0.0);
     }
 
-    void launchpadBlurAlpha_precedesShowDesktop()
+    void apphubBlurAlpha_precedesShowDesktop()
     {
         ShellStateController ctrl;
         ctrl.setShowDesktop(true);
-        ctrl.setLaunchpadVisible(true);
-        // Launchpad has higher blur intensity than show-desktop
+        ctrl.setAppHubVisible(true);
+        // AppHub has higher blur intensity than show-desktop
         QCOMPARE(ctrl.workspaceBlurAlpha(), 0.50);
     }
 
-    void searchVisible_aliasesToTheSpotVisibility()
+    void searchVisible_aliasesPulseVisibility()
     {
         ShellStateController ctrl;
         QSignalSpy searchSpy(&ctrl, &ShellStateController::searchVisibleChanged);
         QSignalSpy toTheSpotSpy(&ctrl, &ShellStateController::toTheSpotVisibleChanged);
 
-        ctrl.setToTheSpotVisible(true);
+        ctrl.setPulseVisible(true);
         QVERIFY(ctrl.toTheSpotVisible());
         QCOMPARE(searchSpy.count(), 1);
         QCOMPARE(toTheSpotSpy.count(), 1);
 
-        ctrl.setToTheSpotVisible(false);
+        ctrl.setPulseVisible(false);
         QVERIFY(!ctrl.toTheSpotVisible());
         QCOMPARE(searchSpy.count(), 2);
         QCOMPARE(toTheSpotSpy.count(), 2);
@@ -192,16 +192,33 @@ private slots:
         QCOMPARE(spy.count(), 2);
     }
 
+    void appHubSearchSeed_roundTrips()
+    {
+        ShellStateController ctrl;
+        QSignalSpy spy(&ctrl, &ShellStateController::appHubSearchSeedChanged);
+
+        ctrl.setAppHubSearchSeed(QStringLiteral("utilities"));
+        QCOMPARE(ctrl.appHubSearchSeed(), QStringLiteral("utilities"));
+        QCOMPARE(spy.count(), 1);
+
+        ctrl.setAppHubSearchSeed(QStringLiteral("utilities"));
+        QCOMPARE(spy.count(), 1);
+
+        ctrl.setAppHubSearchSeed(QStringLiteral(""));
+        QCOMPARE(ctrl.appHubSearchSeed(), QStringLiteral(""));
+        QCOMPARE(spy.count(), 2);
+    }
+
     void dockHoveredItem_roundTrips()
     {
         ShellStateController ctrl;
         QSignalSpy spy(&ctrl, &ShellStateController::dockHoveredItemChanged);
 
-        ctrl.setDockHoveredItem(QStringLiteral("launchpad"));
-        QCOMPARE(ctrl.dockHoveredItem(), QStringLiteral("launchpad"));
+        ctrl.setDockHoveredItem(QStringLiteral("apphub"));
+        QCOMPARE(ctrl.dockHoveredItem(), QStringLiteral("apphub"));
         QCOMPARE(spy.count(), 1);
 
-        ctrl.setDockHoveredItem(QStringLiteral("launchpad"));
+        ctrl.setDockHoveredItem(QStringLiteral("apphub"));
         QCOMPARE(spy.count(), 1);
 
         ctrl.setDockHoveredItem(QStringLiteral(""));
@@ -232,14 +249,14 @@ private slots:
         QSignalSpy spy(&ctrl, &ShellStateController::dragSessionChanged);
 
         QVariantMap session{
-            {QStringLiteral("source"), QStringLiteral("dock")},
+            {QStringLiteral("source"), QStringLiteral("appdeck")},
             {QStringLiteral("item_id"), QStringLiteral("org.example.App.desktop")},
             {QStringLiteral("active"), true},
             {QStringLiteral("position"), 12.0},
         };
         ctrl.setDragSession(session);
         QCOMPARE(ctrl.dragSession().value(QStringLiteral("source")).toString(),
-                 QStringLiteral("dock"));
+                 QStringLiteral("appdeck"));
         QCOMPARE(ctrl.dragSession().value(QStringLiteral("item_id")).toString(),
                  QStringLiteral("org.example.App.desktop"));
         QCOMPARE(spy.count(), 1);

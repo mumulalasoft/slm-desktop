@@ -1,6 +1,6 @@
 import QtQuick 2.15
 import Slm_Desktop
-import "../topbar" as TopBarComp
+import "../crown" as CrownComp
 
 Item {
     id: root
@@ -17,7 +17,7 @@ Item {
     readonly property int popupHeadroom: Math.round(Math.min((rootWindow ? rootWindow.height : 0) * 0.45, 420))
 
     signal launcherRequested()
-    signal tothespotRequested()
+    signal pulseRequested()
     signal screenshotCaptureRequested(string mode, int delaySec, bool grabPointer, bool concealText)
     signal startupItemsReadyReached()
 
@@ -27,8 +27,8 @@ Item {
         }
     }
 
-    // TopBar is a persistent layer — never hidden by overlay state.
-    // Opacity dims when launchpad is open so it blends with the frosted backdrop.
+    // Crown is a persistent layer — never hidden by overlay state.
+    // Opacity dims when apphub is open so it blends with the frosted backdrop.
     visible: !!rootWindow && rootWindow.visible
     opacity: ShellState.topBarOpacity
     z: ShellZOrder.topBar
@@ -51,7 +51,7 @@ Item {
         anchors.fill: parent
         clip: !root.anyPopupOpen
 
-        TopBarComp.TopBar {
+        CrownComp.Crown {
             id: topBarSurface
             anchors.left: parent.left
             anchors.right: parent.right
@@ -68,7 +68,7 @@ Item {
             desktopMenuProvider: root.desktopMenuProvider
 
             onLauncherRequested: root.launcherRequested()
-            onTothespotRequested: root.tothespotRequested()
+            onPulseRequested: root.pulseRequested()
             onScreenshotCaptureRequested: function(mode, delaySec, grabPointer, concealText) {
                 root.screenshotCaptureRequested(mode, delaySec, grabPointer, concealText)
             }

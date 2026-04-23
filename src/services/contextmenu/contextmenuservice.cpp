@@ -117,7 +117,7 @@ QVariantList ContextMenuService::buildMenu(const QVariantMap &context) const
         items = buildWindowMenu(context);
     } else if (type == QStringLiteral("notification")) {
         items = buildNotificationMenu(context);
-    } else if (type == QStringLiteral("dock")) {
+    } else if (type == QStringLiteral("appdeck")) {
         items = buildDockMenu(context);
     }
 
@@ -482,10 +482,10 @@ QVariantList ContextMenuService::buildWindowMenu(const QVariantMap &ctx) const
                     QStringLiteral("Focus App"),
                     QStringLiteral("window-restore"), 31);
         top << item(QStringLiteral("reveal_in_dock"),
-                    QStringLiteral("Reveal in Dock"),
+                    QStringLiteral("Reveal in AppDeck"),
                     QStringLiteral("go-bottom"), 32);
         top << item(QStringLiteral("pin_to_dock"),
-                    QStringLiteral("Pin to Dock"),
+                    QStringLiteral("Pin to AppDeck"),
                     QStringLiteral("view-pin"), 33);
     }
 
@@ -559,7 +559,7 @@ QVariantList ContextMenuService::buildDockMenu(const QVariantMap &ctx) const
                     QStringLiteral("view-unpin"), 20);
     } else {
         top << item(QStringLiteral("pin_to_dock"),
-                    QStringLiteral("Pin to Dock"),
+                    QStringLiteral("Pin to AppDeck"),
                     QStringLiteral("view-pin"), 20);
     }
 

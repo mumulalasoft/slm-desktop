@@ -18,7 +18,7 @@ QString readTextFile(const QString &path)
 // Contract test: verifies that the appd D-Bus service wires all granular app
 // lifecycle signals (AppAdded / AppRemoved / AppStateChanged / AppFocusChanged)
 // from the LifecycleEngine through to the D-Bus boundary.
-// If any leg of this chain is cut the Dock / App Switcher / Global Search stop
+// If any leg of this chain is cut the AppDeck / App Switcher / Global Search stop
 // receiving live updates, which is a silent regression with no build error.
 class AppdSignalContractTest : public QObject
 {
@@ -83,7 +83,7 @@ private slots:
     {
         // AppService::connectRegistry() must forward every LifecycleEngine signal
         // to its D-Bus counterpart. A missing connect() here would silently break
-        // Dock / App Switcher live state.
+        // AppDeck / App Switcher live state.
         const QString sourcePath = QStringLiteral(DESKTOP_SOURCE_DIR)
                 + QStringLiteral("/src/services/appd/appservice.cpp");
         const QString text = readTextFile(sourcePath);
@@ -123,7 +123,7 @@ private slots:
 
     void uiExposurePolicy_correctlyGatesDockswitcher()
     {
-        // UIExposurePolicy must exist and restrict dock/switcher access.
+        // UIExposurePolicy must exist and restrict appdeck/switcher access.
         const QString headerPath = QStringLiteral(DESKTOP_SOURCE_DIR)
                 + QStringLiteral("/src/services/appd/uiexposurepolicy.h");
         const QString sourcePath = QStringLiteral(DESKTOP_SOURCE_DIR)
@@ -134,12 +134,12 @@ private slots:
         QVERIFY2(!header.isEmpty(), qPrintable(QStringLiteral("failed to read %1").arg(headerPath)));
         QVERIFY2(!source.isEmpty(), qPrintable(QStringLiteral("failed to read %1").arg(sourcePath)));
 
-        // Policy must deny shell and system-ignore from dock/switcher.
+        // Policy must deny shell and system-ignore from appdeck/switcher.
         QVERIFY(source.contains(QStringLiteral("AppCategory::Shell")));
         QVERIFY(source.contains(QStringLiteral("AppCategory::SystemIgnore")));
-        // CLI apps must be restricted (systemMonitor only, no dock).
+        // CLI apps must be restricted (systemMonitor only, no appdeck).
         QVERIFY(source.contains(QStringLiteral("AppCategory::CliApp")));
-        // GUI apps must be granted dock access.
+        // GUI apps must be granted appdeck access.
         QVERIFY(source.contains(QStringLiteral("AppCategory::GuiApp")));
         QVERIFY(source.contains(QStringLiteral("AppCategory::Gtk")));
         QVERIFY(source.contains(QStringLiteral("AppCategory::Kde")));

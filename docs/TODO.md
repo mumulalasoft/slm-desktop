@@ -2,7 +2,586 @@
 
 > Canonical session summary: `docs/SESSION_STATE.md`
 
+## REFINE PULSE CONTEXT MODE LAYOUT - STOP USING SINGLE LISTVIEW
+
+Tujuan: merombak layout UI Pulse Context Mode agar tidak lagi menggunakan satu ListView vertikal untuk semua hasil. Pulse berjalan di area AppDeck yang lebar, sehingga layout harus memanfaatkan ruang horizontal dengan lebih efektif.
+
+==================================================
+1. MASALAH YANG HARUS DIPERBAIKI
+==================================================
+
+Implementasi saat ini menampilkan hampir semua hasil Pulse dalam satu ListView vertikal.
+Ini dianggap gagal secara UX karena:
+- membuang area horizontal yang lebar
+- membuat scanning hasil lambat
+- tidak memberi hierarchy visual yang jelas
+- semua tipe hasil terasa setara
+- best match tenggelam dalam list
+- files, apps, actions, recent dicampur dalam pola baca linear
+
+JANGAN lanjut mempertahankan single vertical ListView sebagai layout utama di Pulse Context Mode.
+
+==================================================
+2. TUJUAN LAYOUT BARU
+==================================================
+
+Pulse Context Mode harus terasa seperti:
+- intelligent result surface
+- dashboard hasil intent
+- adaptive structured search space
+
+Bukan:
+- list hasil panjang
+- popup search biasa
+- file picker
+- launchpad + search bar
+
+==================================================
+3. PRINSIP LAYOUT BARU
+==================================================
+
+Gunakan layout campuran:
+- Best Match besar di atas
+- Section hasil di bawah
+- gunakan 2 kolom pada area lebar
+- gunakan fallback 1 kolom pada area sempit
+
+Prinsip:
+- hasil tidak dibaca linear saja
+- hasil harus dipindai per kelompok
+- area lebar harus dipakai untuk multi-section layout
+
+==================================================
+4. STRUKTUR UI BARU WAJIB
+==================================================
+
+Pulse Context Mode harus terdiri dari:
+
+A. Query Header
+- icon Pulse
+- input
+- clear / close action
+- keyboard hint opsional
+
+B. Best Match Hero
+- hasil terbaik tampil besar
+- bukan item list biasa
+- tampil di bagian atas
+
+C. Results Sections Area
+- area utama hasil
+- gunakan layout 2 kolom jika lebar cukup
+- gunakan layout 1 kolom jika sempit
+
+D. Footer Hints opsional
+- Enter to open
+- Esc to close
+- arrows to navigate
+
+==================================================
+5. SECTION LAYOUT YANG DIWAJIBKAN
+==================================================
+
+Minimal gunakan section berikut jika data tersedia:
+- Applications
+- Files
+- Actions
+- Recent / Suggestions
+
+Aturan:
+- Best Match tampil terpisah
+- Applications jangan dicampur dalam list yang sama dengan Files
+- Files harus punya ruang subtitle/path lebih lebar
+- Actions tampil ringkas
+- Recent/Suggestions bisa di section samping
+
+==================================================
+6. LAYOUT RESPONSIVE WAJIB
+==================================================
+
+Jika AppDeck context area lebar:
+- gunakan 2 kolom
+
+Contoh:
+kolom kiri:
+- Applications
+- Actions
+
+kolom kanan:
+- Files
+- Recent / Suggestions
+
+Jika lebar sedang:
+- gunakan 1 kolom tetapi tetap dengan section terpisah
+
+Jika lebar sempit:
+- boleh fallback ke list terstruktur per section
+
+Catatan:
+ListView tunggal hanya boleh jadi fallback responsive, bukan layout utama default.
+
+==================================================
+7. BEST MATCH HERO WAJIB DIPISAH
+==================================================
+
+Best Match harus:
+- tampil sebagai card utama
+- lebih besar dari item lain
+- punya hierarchy kuat
+- bisa memuat icon, title, subtitle, type badge
+
+JANGAN:
+- menaruh best match di urutan pertama ListView biasa
+
+==================================================
+8. KOMPONEN QML YANG HARUS DIBUAT / DIREFACTOR
+==================================================
+
+Buat/refactor komponen berikut:
+
+appdeck/
+  AppDeckContextView.qml
+  PulseQueryHeader.qml
+  PulseBestMatchCard.qml
+  PulseResultsDashboard.qml
+  PulseResultsColumn.qml
+  PulseResultsSection.qml
+  PulseResultItem.qml
+  PulseFileResultItem.qml
+  PulseActionResultItem.qml
+  PulseEmptyState.qml
+  PulseNoResultState.qml
+  PulseFooterHints.qml
+
+==================================================
+9. STRUKTUR QML YANG DIHARAPKAN
+==================================================
+
+AppDeckContextView harus memakai struktur seperti ini:
+
+ColumnLayout
+ ├── PulseQueryHeader
+ ├── PulseBestMatchCard (visible if exists)
+ ├── Loader / Stack for:
+ │    ├── EmptyState
+ │    ├── NoResultState
+ │    └── ResultsDashboard
+ └── PulseFooterHints
+
+PulseResultsDashboard:
+- jika width cukup besar → 2 columns
+- jika tidak → 1 column
+
+==================================================
+10. CONTOH KOMPOSISI DASHBOARD
+==================================================
+
+Layout lebar:
+
+ResultsDashboard
+ ├── LeftColumn
+ │    ├── ApplicationsSection
+ │    └── ActionsSection
+ └── RightColumn
+      ├── FilesSection
+      └── RecentSection
+
+Layout sempit:
+
+ResultsDashboard
+ ├── ApplicationsSection
+ ├── FilesSection
+ ├── ActionsSection
+ └── RecentSection
+
+==================================================
+11. QML IMPLEMENTATION RULES
+==================================================
+
+JANGAN gunakan satu ListView untuk semua hasil campuran.
+
+WAJIB:
+- pecah results berdasarkan section/type
+- gunakan beberapa section component
+- tiap section boleh pakai Repeater, ListView kecil, atau Column
+- gunakan Flickable/ScrollView untuk keseluruhan area bila perlu
+- manfaatkan RowLayout/ColumnLayout/GridLayout responsif
+
+==================================================
+12. CONTOH TEKNIS YANG DIHARAPKAN
+==================================================
+
+Agent harus mengarah ke struktur seperti ini:
+
+- QueryHeader fixed di atas
+- BestMatchCard fixed di bawah header
+- Scrollable dashboard di bawahnya
+- Dashboard berisi 2 kolom jika width > threshold
+- masing-masing kolom berisi beberapa PulseResultsSection
+
+Threshold contoh:
+- if width >= 980 → two-column mode
+- else → single-column mode
+
+==================================================
+13. SECTION COMPONENT RULES
+==================================================
+
+PulseResultsSection harus:
+- punya title
+- punya spacing jelas
+- tidak memakai border keras
+- punya item count opsional
+- bisa diisi item delegate berbeda sesuai type
+
+Contoh section:
+- Applications memakai PulseResultItem
+- Files memakai PulseFileResultItem
+- Actions memakai PulseActionResultItem
+
+==================================================
+14. ITEM DIFFERENTIATION WAJIB
+==================================================
+
+Aplikasi, file, dan action tidak boleh dirender identik semua.
+
+Minimal:
+- app item: icon + title + running indicator opsional
+- file item: icon + title + path/subtitle lebih dominan
+- action item: compact, cepat dibaca, bisa ada shortcut hint
+
+==================================================
+15. EMPTY / NO RESULT STATE
+==================================================
+
+Jika query kosong:
+- tampilkan recent, suggestions, frequent apps
+- jangan area kosong
+
+Jika no results:
+- tampilkan no result state elegan
+- opsional tampilkan suggested alternatives
+- jangan dead-end
+
+==================================================
+16. INTERAKSI WAJIB
+==================================================
+
+Harus mendukung:
+- keyboard navigation
+- hover highlight
+- click/tap activate
+- Enter activate selected
+- Esc collapse
+- real-time rerender saat query berubah
+
+Selection logic:
+- best match bisa jadi default selection
+- arrow keys pindah antar item/section dengan masuk akal
+
+==================================================
+17. ANIMASI DAN TRANSISI
+==================================================
+
+Saat masuk context mode:
+- QueryHeader muncul halus
+- BestMatch card muncul lebih dulu
+- sections muncul bertahap ringan
+- tidak terasa seperti popup baru
+
+Saat hasil berubah:
+- hindari full refresh yang membuat layout “meloncat”
+- gunakan transisi opacity/position ringan
+
+==================================================
+18. DELIVERABLE WAJIB
+==================================================
+
+Agent harus memberikan:
+1. AppDeckContextView hasil refactor
+2. PulseResultsDashboard.qml
+3. minimal 3 section component
+4. best match card terpisah
+5. responsive layout logic
+6. fallback narrow layout
+7. contoh binding model per section
+8. interaction dasar keyboard/mouse
+
+==================================================
+19. VALIDATION CHECKLIST
+==================================================
+
+Implementasi dianggap benar jika:
+
+[ ] Tidak ada single ListView utama untuk semua hasil
+[ ] Best Match terpisah dari list biasa
+[ ] Ada grouping per section
+[ ] Area lebar memakai 2 kolom
+[ ] Ada fallback 1 kolom
+[ ] Files, apps, dan actions tampil berbeda
+[ ] Query header tetap jelas
+[ ] Empty state ada
+[ ] No result state ada
+[ ] UI terasa lebih efektif di area lebar
+[ ] Pulse context tidak terasa seperti popup search biasa
+
+==================================================
+20. PRINSIP AKHIR
+==================================================
+
+“Pulse Context Mode bukan list hasil.
+Pulse Context Mode adalah dashboard intent yang terstruktur.”
+
+“Lebar layar harus dipakai untuk hierarchy, bukan dihabiskan oleh satu kolom list.”
+
+END PROMPT
+
 ## Fokus Aktif (Prioritas Tinggi)
+
+### Implement SLM Pulse UI (Command-First, Non-Spotlight, Anti-Failure)
+
+OBJECTIVE:
+Bangun Pulse sebagai command surface + discovery system, bukan search bar dan bukan clone Spotlight.
+
+Pulse harus:
+- cepat, ringan, keyboard-first
+- punya multi-section UI
+- punya command mode
+- punya quick actions
+- terintegrasi dengan AppHub, AppDeck, dan Crown
+
+Pulse BUKAN:
+- dialog search biasa
+- list vertikal panjang
+- launcher pengganti AppHub
+
+--------------------------------------------------
+
+CORE UX MODEL:
+
+Ganti model list tunggal dengan multi-section layout:
+
+[ Input ]
+
+[ Top Result ]
+
+[ Quick Actions ]
+
+[ Apps ]   [ Files ]
+
+[ System / Commands ]
+
+WAJIB:
+- tidak boleh single vertical list
+- top result harus dominan
+- setiap section punya identitas
+
+--------------------------------------------------
+
+ARCHITECTURE:
+
+Gunakan single controller:
+
+PulseController:
+- isOpen
+- searchText
+- mode (idle / search / command)
+- focusedSection
+- focusedItem
+- results (grouped)
+
+Layer:
+- PulseLayer (overlay)
+- di atas AppHub
+- tidak menutup Crown
+- tidak menutupi AppDeck sepenuhnya
+
+--------------------------------------------------
+
+COMPONENTS:
+
+- PulseLayer
+- PulseSurface
+- PulseInput
+- PulseTopResult
+- PulseSection
+- PulseGridSection
+- PulseListSection
+- PulseActionRow
+- PulseCommandPreview
+
+--------------------------------------------------
+
+MODES:
+
+1. Idle Mode (tanpa input):
+- recent apps
+- suggested apps
+- quick toggles (wifi, bluetooth, dark mode)
+
+2. Search Mode:
+- realtime update
+- highlight top result
+
+3. Command Mode:
+Trigger:
+- ">" atau "/"
+
+Contoh:
+> wifi off
+> open settings
+> shutdown
+
+WAJIB:
+- tampilkan preview aksi
+- tampilkan dampak aksi
+
+--------------------------------------------------
+
+RESULT SYSTEM:
+
+Ranking:
+1. exact match
+2. frequency
+3. recent
+4. keyword match
+5. context
+
+DILARANG:
+- urutan alfabet saja
+- hasil random
+
+--------------------------------------------------
+
+TOP RESULT:
+
+WAJIB:
+- lebih besar
+- highlight jelas
+- langsung actionable
+
+Contoh:
+App:
+- Open
+- Open Incognito
+- Pin to AppDeck
+
+--------------------------------------------------
+
+QUICK ACTION SYSTEM:
+
+Setiap item wajib punya aksi:
+
+App:
+- Open
+- Pin to AppDeck
+- Open new window
+
+File:
+- Open
+- Reveal
+- Copy path
+
+Setting:
+- Toggle langsung
+
+--------------------------------------------------
+
+KEYBOARD UX:
+
+- ↑ ↓ : navigasi item
+- Tab : pindah section
+- → : buka action
+- Enter : aksi utama
+- Shift+Enter : aksi alternatif
+- Esc : close
+
+WAJIB:
+- focus tidak hilang saat update
+- highlight jelas
+
+--------------------------------------------------
+
+VISUAL STYLE:
+
+Gunakan:
+- panel ringan, rounded
+- spacing lega
+- accent untuk focus
+
+Hindari:
+- list polos
+- UI sempit
+- blur berat
+- tampilan mirip Spotlight
+
+--------------------------------------------------
+
+ANIMATION:
+
+Open:
+- fade + scale (0.95 → 1.0)
+- <200ms
+
+Update:
+- smooth, tanpa flicker
+
+Close:
+- reverse animation
+
+--------------------------------------------------
+
+INTEGRATION:
+
+AppDeck:
+- launch update running state
+- bisa pin langsung
+
+AppHub:
+- bisa buka kategori
+
+Crown:
+- toggle system update real-time
+
+--------------------------------------------------
+
+HARD RULES:
+
+DILARANG:
+- clone Spotlight
+- single list panjang
+- tanpa command mode
+- tanpa quick actions
+- delay saat buka
+
+WAJIB:
+- multi-section UI
+- command-first design
+- fast response
+- keyboard-first
+
+--------------------------------------------------
+
+CHECKLIST:
+
+- [ ] bukan Spotlight clone
+- [x] multi-section layout
+- [x] command mode ada
+- [x] top result dominan
+- [x] quick actions ada
+- [x] idle mode ada
+- [x] keyboard navigation lengkap
+- [ ] tidak ada flicker
+- [x] integrasi AppDeck jalan
+
+--------------------------------------------------
+
+SUCCESS:
+
+Pulse terasa seperti:
+- pusat kontrol cepat
+- sistem pintar
+- bukan search biasa
 
 ### Storage & Automount
 - [ ] QA cold reboot penuh (bukan hanya restart service) untuk persistence policy mount/automount.
@@ -106,7 +685,7 @@
 - [ ] Hardening multi-monitor behavior.
 
 ## Parking Lot (Tidak Aktif Sekarang)
-- Struktur Dock: **dibekukan** pada state "last good" sampai siklus pengujian berikutnya.
+- Struktur AppDeck: **dibekukan** pada state "last good" sampai siklus pengujian berikutnya.
 - Rencana refactor arsitektur shell yang besar: lanjut setelah milestone stabilitas/firewall tercapai.
 
 ---
@@ -635,7 +1214,7 @@ MenuContext:
 
 Layer order:
 
-TopBar > Dock > Launchpad > Windows > DesktopSurface > Wallpaper
+Crown > AppDeck > AppHub > Windows > DesktopSurface > Wallpaper
 
 FAIL if:
 - Desktop overlaps windows
@@ -732,7 +1311,7 @@ Anything else is INVALID.
 - [ ] User dapat memindah icon ke area kosong mana saja secara bebas.
 - [ ] Posisi icon stabil, tidak lompat-lompat.
 - [ ] Perubahan isi `~/Desktop` tersinkron otomatis.
-- [ ] Drop dari Launchpad dan Dock membuat shortcut valid lalu ditempatkan ke slot kosong yang legal.
+- [ ] Drop dari AppHub dan AppDeck membuat shortcut valid lalu ditempatkan ke slot kosong yang legal.
 - [ ] Re-arrange otomatis/manual tersedia.
 - [ ] Siap untuk perubahan ukuran layar, work area, scale factor, dan jalur multi-monitor.
 
@@ -754,7 +1333,7 @@ Anything else is INVALID.
   - [ ] `mtime` / `version`
 - [ ] Buat `DesktopPlacementEngine` sebagai satu-satunya source of truth posisi.
 - [ ] Buat `DesktopFileWatcher` untuk event add/remove/rename/move/metadata + debounce.
-- [ ] Buat `DesktopShortcutImporter` untuk drop Launchpad/Dock.
+- [ ] Buat `DesktopShortcutImporter` untuk drop AppHub/AppDeck.
 - [ ] Buat `DesktopPositionStore` untuk persist posisi restart-safe.
 
 ### Larangan Implementasi (Hard Rule)
@@ -765,7 +1344,7 @@ Anything else is INVALID.
 
 ### Desain Grid Logis (Virtual Grid)
 - [ ] Definisikan `cellWidth` dan `cellHeight` tetap.
-- [ ] Definisikan `workArea` valid (exclude topbar + reserved margins + policy dock overlap).
+- [ ] Definisikan `workArea` valid (exclude crown + reserved margins + policy appdeck overlap).
 - [ ] Hitung `columns = max(1, floor(workAreaWidth / cellWidth))`.
 - [ ] Hitung `rows = max(1, floor(workAreaHeight / cellHeight))`.
 - [ ] Validasi cell:
@@ -810,7 +1389,7 @@ Anything else is INVALID.
 - [ ] Rename/move: pertahankan posisi bila identity masih match.
 - [ ] Tangani atomic rename agar tidak menimbulkan ghost duplicate.
 
-### Integrasi Launchpad dan Dock
+### Integrasi AppHub dan AppDeck
 - [ ] Definisikan payload drag internal:
   - [ ] `application/x-slm-app-entry`
   - [ ] `application/x-slm-desktop-item`
@@ -861,8 +1440,8 @@ Anything else is INVALID.
 - [ ] Item pertama di `(0,0)` tampil benar.
 - [ ] Drag item ke row `0` berhasil.
 - [ ] Drag item ke column `0` berhasil.
-- [ ] Drop shortcut dari Launchpad ke desktop berhasil.
-- [ ] Drop shortcut dari Dock ke desktop berhasil.
+- [ ] Drop shortcut dari AppHub ke desktop berhasil.
+- [ ] Drop shortcut dari AppDeck ke desktop berhasil.
 - [ ] File baru di `~/Desktop` muncul otomatis.
 - [ ] File dihapus dari `~/Desktop` hilang otomatis.
 - [ ] Restart shell mempertahankan posisi.
@@ -878,7 +1457,7 @@ Anything else is INVALID.
 - [ ] Implementasi `DesktopItem.qml`.
 - [ ] Implementasi `DesktopPlacementEngine` (C++ preferred, JS helper acceptable jika rapi).
 - [ ] Integrasi watcher `~/Desktop`.
-- [ ] Integrasi drop Launchpad dan Dock.
+- [ ] Integrasi drop AppHub dan AppDeck.
 - [ ] Integrasi penyimpanan posisi persisten.
 - [ ] Checklist bugfix row 0 / column 0.
 - [ ] Skenario test manual.
@@ -901,13 +1480,13 @@ Anything else is INVALID.
 - [ ] Implement `DesktopFileWatcher` debounced (100-300ms).
 - [ ] Implement `DesktopPositionStore` (identity stabil + restore posisi).
 - [ ] Implement startup flow: scan desktop -> load posisi -> resolve collision -> place missing.
-- [ ] Integrasi drop payload Launchpad (`application/x-slm-app-entry`).
-- [ ] Integrasi drop payload Dock (`application/x-slm-desktop-item`).
+- [ ] Integrasi drop payload AppHub (`application/x-slm-app-entry`).
+- [ ] Integrasi drop payload AppDeck (`application/x-slm-desktop-item`).
 - [ ] Implement `DesktopShortcutImporter` + pembuatan shortcut aman.
 - [ ] DoD M2:
   - [ ] File add/remove/rename/move di `~/Desktop` sinkron tanpa full reset.
   - [ ] Restart shell mempertahankan posisi.
-  - [ ] Drop Launchpad/Dock membuat item valid dan langsung terpasang.
+  - [ ] Drop AppHub/AppDeck membuat item valid dan langsung terpasang.
 
 #### M3 - Re-arrange, Hardening, QA (Target: Week 3)
 - [ ] Implement `Snap to Grid` dan `Clean Up Desktop`.
@@ -955,7 +1534,7 @@ Anything else is INVALID.
 - [ ] `DesktopShortcutImporter` + shortcut creation policy.
   - Owner: Integration Engineer
   - Estimasi: 1.5 hari
-- [ ] Integrasi drop payload Launchpad + Dock.
+- [ ] Integrasi drop payload AppHub + AppDeck.
   - Owner: Integration Engineer + QML UI Engineer
   - Estimasi: 1 hari
 - [ ] Regression pass sinkronisasi `~/Desktop`.
@@ -1002,7 +1581,7 @@ Anything else is INVALID.
 - [ ] P0 - M1: `DesktopItem.qml` state lengkap (select/hover/drag/rename-ready). (Owner: QML UI Engineer)
 - [ ] P1 - M2: `DesktopFileWatcher` debounced + event classifier. (Owner: Platform/Filesystem Engineer)
 - [ ] P1 - M2: `DesktopPositionStore` + restore/migration posisi. (Owner: Platform/Filesystem Engineer)
-- [ ] P1 - M2: `DesktopShortcutImporter` + drop Launchpad/Dock. (Owner: Integration Engineer)
+- [ ] P1 - M2: `DesktopShortcutImporter` + drop AppHub/AppDeck. (Owner: Integration Engineer)
 - [ ] P2 - M3: Re-arrange (sort/snap/cleanup) via PlacementEngine. (Owner: Core Shell Engineer)
 - [ ] P2 - M3: Geometry reflow hardening (resize/scale/workarea). (Owner: Core Shell Engineer)
 - [ ] P2 - M3: QA full checklist + stabilization. (Owner: QA Engineer)
@@ -1014,7 +1593,7 @@ Anything else is INVALID.
 - [ ] Migrasi desktop surface ke source of truth placement engine (hilangkan ketergantungan posisi pada flow delegate grid bawaan).
   - Owner: QML UI Engineer
   - Target output: `DesktopView.qml` + `DesktopItem.qml` awal terintegrasi.
-- [ ] Definisikan kontrak payload drop Launchpad/Dock dan importer shortcut tunggal.
+- [ ] Definisikan kontrak payload drop AppHub/AppDeck dan importer shortcut tunggal.
   - Owner: Integration Engineer
   - Target output: dokumen kontrak + adaptor import awal.
 
@@ -1068,7 +1647,7 @@ Anything else is INVALID.
   - Dampak: ghost item, duplicate, missing icon sementara.
   - Mitigasi: debounce + coalescing event + reconciliation pass terjadwal.
   - Owner: Platform/Filesystem Engineer
-- [ ] R3: Drag-drop Launchpad/Dock tidak konsisten payload.
+- [ ] R3: Drag-drop AppHub/AppDeck tidak konsisten payload.
   - Dampak: shortcut gagal dibuat atau metadata tidak lengkap.
   - Mitigasi: kontrak payload tunggal + validator + fallback wrapper policy.
   - Owner: Integration Engineer
@@ -1096,7 +1675,7 @@ Anything else is INVALID.
 #### Gate M2 (Harus Lulus Semua)
 - [ ] File watcher sinkron add/remove/rename/move tanpa full reset.
 - [ ] Posisi restart-safe dari position store.
-- [ ] Drop Launchpad dan Dock membuat shortcut valid + terpasang benar.
+- [ ] Drop AppHub dan AppDeck membuat shortcut valid + terpasang benar.
 - [ ] Tidak ada duplicate/ghost dari atomic rename.
 - [ ] Bukti artefak:
   - [ ] commit/PR
@@ -1133,7 +1712,7 @@ Anything else is INVALID.
 - [ ] Selasa:
   - [ ] implement `DesktopPositionStore` + restore path.
 - [ ] Rabu-Kamis:
-  - [ ] integrasi `DesktopShortcutImporter` untuk Launchpad/Dock.
+  - [ ] integrasi `DesktopShortcutImporter` untuk AppHub/AppDeck.
   - [ ] validasi payload + kebijakan wrapper shortcut.
 - [ ] Jumat:
   - [ ] test sinkronisasi filesystem + restart-safe.
@@ -1220,7 +1799,7 @@ Anything else is INVALID.
   - Referensi: implementasi watcher + debounce timer (artefak commit/PR internal tim).
 - [x] `DesktopPositionStore` baseline tersambung untuk restore posisi startup.
   - Referensi: store metadata posisi per identity key.
-- [x] Integrasi awal importer shortcut Launchpad/Dock ke pipeline desktop item.
+- [x] Integrasi awal importer shortcut AppHub/AppDeck ke pipeline desktop item.
   - Referensi: adaptor payload drag internal + validasi minimum.
 
 #### Risiko dan Blocker

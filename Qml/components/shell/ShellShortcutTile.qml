@@ -267,7 +267,7 @@ Item {
                 }
             }
             MenuItem {
-                text: "Add to Dock"
+                text: "Add to AppDeck"
                 enabled: root.hasEntry
                          && root.entryMap
                          && root.entryMap.type === "desktop"
@@ -275,7 +275,7 @@ Item {
                          && root.entryMap.desktopFile.length > 0
                 onTriggered: {
                     if (root.entryMap.desktopFile && root.entryMap.desktopFile.length > 0) {
-                        DockModel.addDesktopEntry(root.entryMap.desktopFile)
+                        AppDeckModel.addDesktopEntry(root.entryMap.desktopFile)
                         root.shellRoot.addToDockRequested(root.entryMap)
                     }
                 }

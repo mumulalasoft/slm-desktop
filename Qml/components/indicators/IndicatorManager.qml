@@ -154,7 +154,7 @@ RowLayout {
             return
         }
         for (var i = 0; i < commands.length; ++i) {
-            if (AppExecutionGate.launchCommand(commands[i], "", "topbar.datetime")) {
+            if (AppExecutionGate.launchCommand(commands[i], "", "crown.datetime")) {
                 if (datetimeApplet && datetimeApplet.popup) datetimeApplet.popup.close()
                 return
             }

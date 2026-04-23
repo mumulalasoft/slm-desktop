@@ -16,12 +16,12 @@ private slots:
         QCOMPARE(router.activeLayer(), ShellInputRouter::ShellLayer::BaseLayer);
     }
 
-    void launchpadLayer_whenLaunchpadVisible()
+    void apphubLayer_whenAppHubVisible()
     {
         ShellStateController state;
         ShellInputRouter router(&state);
-        state.setLaunchpadVisible(true);
-        QCOMPARE(router.activeLayer(), ShellInputRouter::ShellLayer::Launchpad);
+        state.setAppHubVisible(true);
+        QCOMPARE(router.activeLayer(), ShellInputRouter::ShellLayer::AppHub);
     }
 
     void workspaceOverviewLayer_whenWorkspaceVisible()
@@ -32,31 +32,31 @@ private slots:
         QCOMPARE(router.activeLayer(), ShellInputRouter::ShellLayer::WorkspaceOverview);
     }
 
-    void toTheSpotLayer_whenToTheSpotVisible()
+    void toTheSpotLayer_whenPulseVisible()
     {
         ShellStateController state;
         ShellInputRouter router(&state);
-        state.setToTheSpotVisible(true);
-        QCOMPARE(router.activeLayer(), ShellInputRouter::ShellLayer::ToTheSpot);
+        state.setPulseVisible(true);
+        QCOMPARE(router.activeLayer(), ShellInputRouter::ShellLayer::Pulse);
     }
 
     void lockScreenLayer_isHighestPriority()
     {
         ShellStateController state;
         ShellInputRouter router(&state);
-        state.setLaunchpadVisible(true);
-        state.setToTheSpotVisible(true);
+        state.setAppHubVisible(true);
+        state.setPulseVisible(true);
         state.setLockScreenActive(true);
         QCOMPARE(router.activeLayer(), ShellInputRouter::ShellLayer::LockScreen);
     }
 
-    void toTheSpot_outprioritisesLaunchpad()
+    void toTheSpot_outprioritisesAppHub()
     {
         ShellStateController state;
         ShellInputRouter router(&state);
-        state.setLaunchpadVisible(true);
-        state.setToTheSpotVisible(true);
-        QCOMPARE(router.activeLayer(), ShellInputRouter::ShellLayer::ToTheSpot);
+        state.setAppHubVisible(true);
+        state.setPulseVisible(true);
+        QCOMPARE(router.activeLayer(), ShellInputRouter::ShellLayer::Pulse);
     }
 
     // ── canDispatch / layer blocking ─────────────────────────────────────────
@@ -68,7 +68,7 @@ private slots:
         state.setLockScreenActive(true);
 
         QVERIFY(!router.canDispatch(QStringLiteral("shell.file_manager")));
-        QVERIFY(!router.canDispatch(QStringLiteral("shell.tothespot")));
+        QVERIFY(!router.canDispatch(QStringLiteral("shell.pulse")));
         QVERIFY(!router.canDispatch(QStringLiteral("shell.settings")));
         QVERIFY(!router.canDispatch(QStringLiteral("workspace.prev")));
         QVERIFY(!router.canDispatch(QStringLiteral("workspace.next")));
@@ -77,11 +77,11 @@ private slots:
         QVERIFY(router.canDispatch(QStringLiteral("shell.lock")));
     }
 
-    void launchpad_blocksWorkspaceNav()
+    void apphub_blocksWorkspaceNav()
     {
         ShellStateController state;
         ShellInputRouter router(&state);
-        state.setLaunchpadVisible(true);
+        state.setAppHubVisible(true);
 
         QVERIFY(!router.canDispatch(QStringLiteral("workspace.prev")));
         QVERIFY(!router.canDispatch(QStringLiteral("workspace.next")));
@@ -92,13 +92,13 @@ private slots:
         QVERIFY(router.canDispatch(QStringLiteral("shell.settings")));
     }
 
-    void workspaceOverview_blocksTothespot_andClipboard()
+    void workspaceOverview_blocksPulse_andClipboard()
     {
         ShellStateController state;
         ShellInputRouter router(&state);
         state.setWorkspaceOverviewVisible(true);
 
-        QVERIFY(!router.canDispatch(QStringLiteral("shell.tothespot")));
+        QVERIFY(!router.canDispatch(QStringLiteral("shell.pulse")));
         QVERIFY(!router.canDispatch(QStringLiteral("shell.clipboard")));
         // Workspace nav remains allowed inside overview
         QVERIFY(router.canDispatch(QStringLiteral("workspace.prev")));
@@ -110,7 +110,7 @@ private slots:
     {
         ShellStateController state;
         ShellInputRouter router(&state);
-        state.setToTheSpotVisible(true);
+        state.setPulseVisible(true);
 
         QVERIFY(!router.canDispatch(QStringLiteral("shell.workspace_overview")));
         QVERIFY(!router.canDispatch(QStringLiteral("workspace.prev")));
@@ -128,7 +128,7 @@ private slots:
         const QStringList allActions{
             QStringLiteral("shell.file_manager"),
             QStringLiteral("shell.print"),
-            QStringLiteral("shell.tothespot"),
+            QStringLiteral("shell.pulse"),
             QStringLiteral("shell.clipboard"),
             QStringLiteral("shell.settings"),
             QStringLiteral("shell.workspace_overview"),
@@ -180,9 +180,9 @@ private slots:
         ShellInputRouter router(&state);
 
         for (int i = 0; i < 200; ++i) {
-            state.setLaunchpadVisible(i % 2 == 0);
+            state.setAppHubVisible(i % 2 == 0);
             state.setWorkspaceOverviewVisible(i % 3 == 0);
-            state.setToTheSpotVisible(i % 5 == 0);
+            state.setPulseVisible(i % 5 == 0);
             router.dispatch(QStringLiteral("workspace.prev"));
             router.dispatch(QStringLiteral("shell.settings"));
             router.dispatch(QStringLiteral("overlay.dismiss"));
@@ -199,12 +199,12 @@ private slots:
         ShellInputRouter router(&state);
         QSignalSpy spy(&router, &ShellInputRouter::layerChanged);
 
-        state.setLaunchpadVisible(true);
+        state.setAppHubVisible(true);
         QCOMPARE(spy.count(), 1);
         QCOMPARE(spy.last().first().value<ShellInputRouter::ShellLayer>(),
-                 ShellInputRouter::ShellLayer::Launchpad);
+                 ShellInputRouter::ShellLayer::AppHub);
 
-        state.setLaunchpadVisible(false);
+        state.setAppHubVisible(false);
         QCOMPARE(spy.count(), 2);
         QCOMPARE(spy.last().first().value<ShellInputRouter::ShellLayer>(),
                  ShellInputRouter::ShellLayer::BaseLayer);
@@ -214,10 +214,10 @@ private slots:
     {
         ShellStateController state;
         ShellInputRouter router(&state);
-        state.setLaunchpadVisible(true);
+        state.setAppHubVisible(true);
 
         QSignalSpy spy(&router, &ShellInputRouter::layerChanged);
-        state.setLaunchpadVisible(true); // same value
+        state.setAppHubVisible(true); // same value
         QCOMPARE(spy.count(), 0);
     }
 
@@ -232,8 +232,8 @@ private slots:
         QSignalSpy timeoutSpy(&router, &ShellInputRouter::overlayDismissTimedOut);
 
         // Overlay already gone before timeout fires
-        state.setLaunchpadVisible(false);
-        router.scheduleForceDismiss(QStringLiteral("launchpad"));
+        state.setAppHubVisible(false);
+        router.scheduleForceDismiss(QStringLiteral("apphub"));
         QTest::qWait(40); // let timer fire
 
         QCOMPARE(timeoutSpy.count(), 0);
@@ -247,13 +247,13 @@ private slots:
 
         QSignalSpy timeoutSpy(&router, &ShellInputRouter::overlayDismissTimedOut);
 
-        state.setLaunchpadVisible(true);
-        router.scheduleForceDismiss(QStringLiteral("launchpad"));
+        state.setAppHubVisible(true);
+        router.scheduleForceDismiss(QStringLiteral("apphub"));
         QTest::qWait(40); // let timer fire
 
         QCOMPARE(timeoutSpy.count(), 1);
-        QCOMPARE(timeoutSpy.first().first().toString(), QStringLiteral("launchpad"));
-        QVERIFY(!state.launchpadVisible());
+        QCOMPARE(timeoutSpy.first().first().toString(), QStringLiteral("apphub"));
+        QVERIFY(!state.apphubVisible());
     }
 
     void forceDismiss_canBeCancelled()
@@ -264,14 +264,14 @@ private slots:
 
         QSignalSpy timeoutSpy(&router, &ShellInputRouter::overlayDismissTimedOut);
 
-        state.setLaunchpadVisible(true);
-        router.scheduleForceDismiss(QStringLiteral("launchpad"));
-        router.cancelForceDismiss(QStringLiteral("launchpad"));
+        state.setAppHubVisible(true);
+        router.scheduleForceDismiss(QStringLiteral("apphub"));
+        router.cancelForceDismiss(QStringLiteral("apphub"));
         QTest::qWait(60); // well past the original timeout
 
         QCOMPARE(timeoutSpy.count(), 0);
         // Overlay is still visible because we cancelled the force-dismiss
-        QVERIFY(state.launchpadVisible());
+        QVERIFY(state.apphubVisible());
     }
 };
 

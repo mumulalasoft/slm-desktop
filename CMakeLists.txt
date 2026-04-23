@@ -831,7 +831,6 @@ set(DESKTOP_SHELL_QML_FILES
     Qml/components/desktop/DesktopSurface.qml
     Qml/components/appdeck/AppDeck.qml
     Qml/components/appdeck/AppDeckItem.qml
-    Qml/components/apphub/AppHub.qml
     # Qml/components/NetworkIndicator.qml
     # Qml/components/BluetoothIndicator.qml
     # Qml/components/SoundIndicator.qml
@@ -938,9 +937,24 @@ set(DESKTOP_SHELL_QML_FILES
     Qml/components/pulse/PulseActionRow.qml
     Qml/components/pulse/PulseCommandPreview.qml
     Qml/components/appdeck/AppDeckAppDelegate.qml
+    Qml/components/appdeck/AppDeckItemDelegate.qml
     Qml/components/appdeck/AppDeckCollapsedView.qml
     Qml/components/appdeck/AppDeckExpandedView.qml
+    Qml/components/appdeck/AppHubHeader.qml
+    Qml/components/appdeck/AppHubGrid.qml
+    Qml/components/appdeck/AppHubFavoritesRow.qml
     Qml/components/appdeck/AppDeckContextView.qml
+    Qml/components/appdeck/PulseQueryHeader.qml
+    Qml/components/appdeck/PulseBestMatchCard.qml
+    Qml/components/appdeck/PulseResultsDashboard.qml
+    Qml/components/appdeck/PulseResultsColumn.qml
+    Qml/components/appdeck/PulseResultsSection.qml
+    Qml/components/appdeck/PulseResultItem.qml
+    Qml/components/appdeck/PulseFileResultItem.qml
+    Qml/components/appdeck/PulseActionResultItem.qml
+    Qml/components/appdeck/PulseEmptyState.qml
+    Qml/components/appdeck/PulseNoResultState.qml
+    Qml/components/appdeck/PulseFooterHints.qml
     Qml/components/appdeck/AppDeckReorderController.qml
     Qml/components/appdeck/AppDeckReorderMarker.qml
     Qml/components/appdeck/AppDeckDropPulse.qml

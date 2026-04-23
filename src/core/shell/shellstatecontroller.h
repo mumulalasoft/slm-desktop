@@ -13,12 +13,13 @@ class ShellStateController : public QObject
     // on the compiler search path — fragile across cmake invocations. Context
     // properties work fully (bindings, signals, invokables) without registration.
 
-    Q_PROPERTY(bool launchpadVisible READ launchpadVisible WRITE setLaunchpadVisible NOTIFY launchpadVisibleChanged)
+    Q_PROPERTY(bool apphubVisible READ apphubVisible WRITE setAppHubVisible NOTIFY apphubVisibleChanged)
     Q_PROPERTY(bool workspaceOverviewVisible READ workspaceOverviewVisible WRITE setWorkspaceOverviewVisible NOTIFY workspaceOverviewVisibleChanged)
-    Q_PROPERTY(bool toTheSpotVisible READ toTheSpotVisible WRITE setToTheSpotVisible NOTIFY toTheSpotVisibleChanged)
+    Q_PROPERTY(bool toTheSpotVisible READ toTheSpotVisible WRITE setPulseVisible NOTIFY toTheSpotVisibleChanged)
     // searchVisible is an explicit compatibility alias for toTheSpotVisible.
-    Q_PROPERTY(bool searchVisible READ toTheSpotVisible WRITE setToTheSpotVisible NOTIFY searchVisibleChanged)
+    Q_PROPERTY(bool searchVisible READ toTheSpotVisible WRITE setPulseVisible NOTIFY searchVisibleChanged)
     Q_PROPERTY(QString searchQuery READ searchQuery WRITE setSearchQuery NOTIFY searchQueryChanged)
+    Q_PROPERTY(QString appHubSearchSeed READ appHubSearchSeed WRITE setAppHubSearchSeed NOTIFY appHubSearchSeedChanged)
     Q_PROPERTY(bool styleGalleryVisible READ styleGalleryVisible WRITE setStyleGalleryVisible NOTIFY styleGalleryVisibleChanged)
     Q_PROPERTY(bool showDesktop READ showDesktop WRITE setShowDesktop NOTIFY showDesktopChanged)
     Q_PROPERTY(bool lockScreenActive READ lockScreenActive WRITE setLockScreenActive NOTIFY lockScreenActiveChanged)
@@ -39,10 +40,11 @@ class ShellStateController : public QObject
 public:
     explicit ShellStateController(QObject *parent = nullptr);
 
-    bool launchpadVisible() const;
+    bool apphubVisible() const;
     bool workspaceOverviewVisible() const;
     bool toTheSpotVisible() const;
     QString searchQuery() const;
+    QString appHubSearchSeed() const;
     bool styleGalleryVisible() const;
     bool showDesktop() const;
     bool lockScreenActive() const;
@@ -59,10 +61,11 @@ public:
     bool workspaceInteractionBlocked() const;
     bool anyOverlayVisible() const;
 
-    Q_INVOKABLE void setLaunchpadVisible(bool visible);
+    Q_INVOKABLE void setAppHubVisible(bool visible);
     Q_INVOKABLE void setWorkspaceOverviewVisible(bool visible);
-    Q_INVOKABLE void setToTheSpotVisible(bool visible);
+    Q_INVOKABLE void setPulseVisible(bool visible);
     Q_INVOKABLE void setSearchQuery(const QString &query);
+    Q_INVOKABLE void setAppHubSearchSeed(const QString &seed);
     Q_INVOKABLE void setStyleGalleryVisible(bool visible);
     Q_INVOKABLE void setShowDesktop(bool active);
     Q_INVOKABLE void setLockScreenActive(bool active);
@@ -73,17 +76,18 @@ public:
     Q_INVOKABLE void setDragSession(const QVariantMap &session);
     Q_INVOKABLE void clearDragSession();
 
-    Q_INVOKABLE void toggleLaunchpad();
+    Q_INVOKABLE void toggleAppHub();
     Q_INVOKABLE void toggleWorkspaceOverview();
-    Q_INVOKABLE void toggleToTheSpot();
+    Q_INVOKABLE void togglePulse();
     Q_INVOKABLE void dismissAllOverlays();
 
 signals:
-    void launchpadVisibleChanged(bool visible);
+    void apphubVisibleChanged(bool visible);
     void workspaceOverviewVisibleChanged(bool visible);
     void toTheSpotVisibleChanged(bool visible);
     void searchVisibleChanged(bool visible);
     void searchQueryChanged(const QString &query);
+    void appHubSearchSeedChanged(const QString &seed);
     void styleGalleryVisibleChanged(bool visible);
     void showDesktopChanged(bool active);
     void lockScreenActiveChanged(bool active);
@@ -103,10 +107,11 @@ signals:
 private:
     void recomputeDerivedState();
 
-    bool m_launchpadVisible = false;
+    bool m_apphubVisible = false;
     bool m_workspaceOverviewVisible = false;
     bool m_toTheSpotVisible = false;
     QString m_searchQuery;
+    QString m_appHubSearchSeed;
     bool m_styleGalleryVisible = false;
     bool m_showDesktop = false;
     bool m_lockScreenActive = false;

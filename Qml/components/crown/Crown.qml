@@ -5,6 +5,11 @@ import Slm_Desktop
 import SlmStyle as DSStyle
 import "." as TB
 
+// Branding definition:
+// - Crown = user-facing name for the desktop crown.
+// - Internal state/config may continue using "crown" naming.
+// - New UI copy should use "Crown".
+
 Rectangle {
     id: root
     property var fileManagerContent: null
@@ -25,7 +30,7 @@ Rectangle {
     readonly property int popupHintMs: 320
 
     signal launcherRequested()
-    signal tothespotRequested()
+    signal pulseRequested()
     signal screenshotCaptureRequested(string mode, int delaySec, bool grabPointer, bool concealText)
     signal startupItemsReadyReached()
     property string timeText: ""
@@ -58,11 +63,11 @@ Rectangle {
         onTriggered: root.popupOpenHint = false
     }
 
-    property bool topbarTransparent: false
+    property bool crownTransparent: false
 
-    color: root.topbarTransparent ? "transparent" : Theme.color("panelBg")
-    border.color: root.topbarTransparent ? "transparent" : Theme.color("panelBorder")
-    border.width: root.topbarTransparent ? Theme.borderWidthNone : Theme.borderWidthThin
+    color: root.crownTransparent ? "transparent" : Theme.color("panelBg")
+    border.color: root.crownTransparent ? "transparent" : Theme.color("panelBorder")
+    border.width: root.crownTransparent ? Theme.borderWidthNone : Theme.borderWidthThin
 
     Behavior on color {
         ColorAnimation {
@@ -111,8 +116,8 @@ Rectangle {
 
     function refreshSearchProfilesModel() {
         var profiles = []
-        if (typeof TothespotService !== "undefined" && TothespotService && TothespotService.searchProfiles) {
-            var rows = TothespotService.searchProfiles()
+        if (typeof PulseService !== "undefined" && PulseService && PulseService.searchProfiles) {
+            var rows = PulseService.searchProfiles()
             for (var i = 0; i < rows.length; ++i) {
                 var row = rows[i]
                 if (!row || !row.id) {
@@ -131,10 +136,10 @@ Rectangle {
         searchProfilesModel = profiles
 
         var active = "balanced"
-        if (typeof TothespotService !== "undefined" && TothespotService && TothespotService.activeSearchProfile) {
-            active = normalizeProfileId(TothespotService.activeSearchProfile())
+        if (typeof PulseService !== "undefined" && PulseService && PulseService.activeSearchProfile) {
+            active = normalizeProfileId(PulseService.activeSearchProfile())
         } else if (typeof DesktopSettings !== "undefined" && DesktopSettings && DesktopSettings.settingValue) {
-            active = normalizeProfileId(DesktopSettings.settingValue("tothespot.searchProfile", "balanced"))
+            active = normalizeProfileId(DesktopSettings.settingValue("pulse.searchProfile", "balanced"))
         }
         activeSearchProfileId = active
     }
@@ -270,25 +275,25 @@ Rectangle {
     }
 
     Component.onCompleted: {
-        startupQmlMark("topbar.onCompleted.begin")
+        startupQmlMark("crown.onCompleted.begin")
         root.timeText = Qt.formatDateTime(new Date(), "ddd MMM d  hh:mm")
         if (typeof DesktopSettings !== "undefined" && DesktopSettings && DesktopSettings.settingValue) {
-            root.topbarTransparent = DesktopSettings.settingValue("shellTheme.topbarTransparent", false) === true
+            root.crownTransparent = DesktopSettings.settingValue("shellTheme.crownTransparent", false) === true
         }
         Qt.callLater(function() {
-            startupQmlMark("topbar.deferredInit.begin")
+            startupQmlMark("crown.deferredInit.begin")
             refreshSearchProfilesModel()
             registerCoreIndicators()
-            startupQmlMark("topbar.deferredInit.end")
+            startupQmlMark("crown.deferredInit.end")
         })
-        startupQmlMark("topbar.onCompleted.end")
+        startupQmlMark("crown.onCompleted.end")
     }
 
     onDeferredReadyChanged: {
         if (!deferredReady) {
             return
         }
-        startupQmlMark("topbar.deferredReady")
+        startupQmlMark("crown.deferredReady")
         Qt.callLater(function() {
             registerCoreIndicators()
         })
@@ -296,7 +301,7 @@ Rectangle {
 
     onStartupItemsReadyChanged: {
         if (startupItemsReady) {
-            startupQmlMark("topbar.startupItems.ready")
+            startupQmlMark("crown.startupItems.ready")
             startupItemsReadyReached()
         }
     }
@@ -309,7 +314,7 @@ Rectangle {
         onTriggered: {
             if (!stagedIndicatorQueue || stagedIndicatorQueue.length <= 0) {
                 stop()
-                root.startupQmlMark("topbar.stagedIndicators.done")
+                root.startupQmlMark("crown.stagedIndicators.done")
                 return
             }
             var next = stagedIndicatorQueue[0]
@@ -317,11 +322,11 @@ Rectangle {
             if (typeof IndicatorRegistry !== "undefined" && IndicatorRegistry
                     && IndicatorRegistry.setIndicatorEnabledByName) {
                 IndicatorRegistry.setIndicatorEnabledByName(next, root.appletEnabled(next))
-                root.startupQmlMark("topbar.stagedIndicator.enabled", "name=" + String(next))
+                root.startupQmlMark("crown.stagedIndicator.enabled", "name=" + String(next))
             }
             if (stagedIndicatorQueue.length <= 0) {
                 stop()
-                root.startupQmlMark("topbar.stagedIndicators.done")
+                root.startupQmlMark("crown.stagedIndicators.done")
             }
         }
     }
@@ -330,17 +335,17 @@ Rectangle {
         target: (typeof DesktopSettings !== "undefined") ? DesktopSettings : null
         function onSettingChanged(path) {
             var k = String(path || "")
-            if (k === "tothespot/searchProfile" || k === "tothespot.searchProfile") {
+            if (k === "pulse/searchProfile" || k === "pulse.searchProfile") {
                 root.activeSearchProfileId = root.normalizeProfileId(
-                            DesktopSettings.settingValue("tothespot.searchProfile", "balanced"))
+                            DesktopSettings.settingValue("pulse.searchProfile", "balanced"))
             } else if (k === "ui/fontScale" || k === "ui.fontScale") {
                 Theme.userFontScale = root.normalizedFontScale(
                             DesktopSettings.settingValue("ui.fontScale", 1.0))
-            } else if (k === "shellTheme.topbarTransparent") {
-                root.topbarTransparent = DesktopSettings.settingValue("shellTheme.topbarTransparent", false) === true
+            } else if (k === "shellTheme.crownTransparent") {
+                root.crownTransparent = DesktopSettings.settingValue("shellTheme.crownTransparent", false) === true
             } else if (k.startsWith("shellTheme.applets.")) {
                 var appletName = k.slice("shellTheme.applets.".length)
-                if (appletName === "tothespot") {
+                if (appletName === "pulse") {
                     searchButton.visible = true
                 } else if (typeof IndicatorRegistry !== "undefined" && IndicatorRegistry
                            && IndicatorRegistry.setIndicatorEnabledByName) {
@@ -351,7 +356,7 @@ Rectangle {
     }
 
     Connections {
-        target: (typeof TothespotService !== "undefined") ? TothespotService : null
+        target: (typeof PulseService !== "undefined") ? PulseService : null
         function onSearchProfileChanged(profileId) {
             root.activeSearchProfileId = root.normalizeProfileId(profileId)
         }
@@ -379,7 +384,7 @@ Rectangle {
             active: root.deferredReady
             asynchronous: true
             sourceComponent: Component {
-                TB.TopBarMainMenuControl {
+                TB.CrownMainMenuControl {
                     iconButtonW: root.iconButtonW
                     iconButtonH: root.iconButtonH
                     iconGlyph: root.iconGlyph
@@ -397,25 +402,25 @@ Rectangle {
                     onSearchProfileSetRequested: function(profileId) {
                         root.activeSearchProfileId = profileId
                         var handled = false
-                        if (typeof TothespotService !== "undefined" && TothespotService
-                                && TothespotService.setActiveSearchProfile) {
-                            handled = !!TothespotService.setActiveSearchProfile(profileId)
+                        if (typeof PulseService !== "undefined" && PulseService
+                                && PulseService.setActiveSearchProfile) {
+                            handled = !!PulseService.setActiveSearchProfile(profileId)
                         }
                         if (!handled && typeof DesktopSettings !== "undefined" && DesktopSettings
                                 && DesktopSettings.setSettingValue) {
-                            DesktopSettings.setSettingValue("tothespot.searchProfile", profileId)
+                            DesktopSettings.setSettingValue("pulse.searchProfile", profileId)
                         }
                     }
                     onSearchProfileResetRequested: {
                         root.activeSearchProfileId = "balanced"
                         var handled = false
-                        if (typeof TothespotService !== "undefined" && TothespotService
-                                && TothespotService.setActiveSearchProfile) {
-                            handled = !!TothespotService.setActiveSearchProfile("balanced")
+                        if (typeof PulseService !== "undefined" && PulseService
+                                && PulseService.setActiveSearchProfile) {
+                            handled = !!PulseService.setActiveSearchProfile("balanced")
                         }
                         if (!handled && typeof DesktopSettings !== "undefined" && DesktopSettings
                                 && DesktopSettings.setSettingValue) {
-                            DesktopSettings.setSettingValue("tothespot.searchProfile", "balanced")
+                            DesktopSettings.setSettingValue("pulse.searchProfile", "balanced")
                         }
                         root.refreshSearchProfilesModel()
                     }
@@ -423,7 +428,7 @@ Rectangle {
                 }
             }
         }
-        TB.TopBarBrandSection {
+        TB.CrownBrandSection {
             id: brandSection
             fileManagerContent: root.fileManagerContent
             desktopMenuProvider: root.desktopMenuProvider
@@ -439,7 +444,7 @@ Rectangle {
         active: root.deferredReady
         asynchronous: true
         sourceComponent: Component {
-            TB.TopBarScreenshotControl {
+            TB.CrownScreenshotControl {
                 iconButtonW: root.iconButtonW
                 iconButtonH: root.iconButtonH
                 iconGlyph: root.iconGlyph
@@ -459,7 +464,7 @@ Rectangle {
         }
     }
 
-    TB.TopBarSearchButton {
+    TB.CrownSearchButton {
         id: searchButton
         anchors.right: indicatorManagerLoader.left
         anchors.rightMargin: visible ? Theme.metric("spacingSm") : 0
@@ -468,7 +473,7 @@ Rectangle {
         iconButtonW: root.iconButtonW
         iconButtonH: root.iconButtonH
         iconGlyph: root.iconGlyph
-        onClicked: root.tothespotRequested()
+        onClicked: root.pulseRequested()
     }
 
     Loader {

@@ -264,20 +264,20 @@ Row {
             if (i === 2 && session) { session.lock(); return }
         }
         if (m === 9002) {
-            if (i === 1 && shell)  { shell.setLaunchpadVisible(true); return }
+            if (i === 1 && shell)  { shell.setAppHubVisible(true); return }
             if (i === 2 && router) { router.route("filemanager.open", { "target": "~" }, "global-menu-fallback"); return }
             if (i === 3 && router) { router.route("app.desktopid", { "desktopId": "slm-settings.desktop" }, "global-menu-fallback"); return }
         }
         if (m === 9003 && router)  { router.route("app.desktopid", { "desktopId": "slm-settings.desktop" }, "global-menu-fallback"); return }
         if (m === 9101) {
-            if (i === 1 && shell)  { shell.setToTheSpotVisible(true); return }
+            if (i === 1 && shell)  { shell.setPulseVisible(true); return }
             if (i === 2 && router) { router.route("filemanager.open", { "target": "~" }, "global-menu-fallback"); return }
         }
         if ((m === 9103 || m === 9105) && i === 1 && router) {
             router.route("workspace.toggle", {}, "global-menu-fallback")
         }
         if (m === 9201) {
-            if (i === 1 && shell)  { shell.setToTheSpotVisible(true); return }
+            if (i === 1 && shell)  { shell.setPulseVisible(true); return }
             if (i === 2 && router) { router.route("filemanager.open", { "target": "~" }, "global-menu-fallback"); return }
         }
         if (m === 9203 && i === 1 && router) {

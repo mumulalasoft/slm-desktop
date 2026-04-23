@@ -4,9 +4,9 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="${SLM_SMOKE_BUILD_DIR:-${ROOT_DIR}/build}"
 APP_BIN_ARG=""
-QML_FILE="${ROOT_DIR}/Qml/components/tothespot/TothespotOverlay.qml"
+QML_FILE="${ROOT_DIR}/Qml/components/pulse/PulseOverlay.qml"
 MAIN_QML_FILE="${ROOT_DIR}/Main.qml"
-CONTROLLER_JS_FILE="${ROOT_DIR}/Qml/components/shell/TothespotController.js"
+CONTROLLER_JS_FILE="${ROOT_DIR}/Qml/components/shell/PulseController.js"
 SMOKE_RUNTIME="${ROOT_DIR}/scripts/smoke-runtime.sh"
 
 find_fixed_pattern() {
@@ -23,7 +23,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --build-dir)
       if [[ $# -lt 2 ]]; then
-        echo "[smoke-tothespot] --build-dir requires a value" >&2
+        echo "[smoke-pulse] --build-dir requires a value" >&2
         exit 2
       fi
       BUILD_DIR="$2"
@@ -31,7 +31,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     --app-bin)
       if [[ $# -lt 2 ]]; then
-        echo "[smoke-tothespot] --app-bin requires a value" >&2
+        echo "[smoke-pulse] --app-bin requires a value" >&2
         exit 2
       fi
       APP_BIN_ARG="$2"
@@ -42,7 +42,7 @@ while [[ $# -gt 0 ]]; do
       if [[ -z "${APP_BIN_ARG}" ]]; then
         APP_BIN_ARG="$1"
       else
-        echo "[smoke-tothespot] unknown arg: $1" >&2
+        echo "[smoke-pulse] unknown arg: $1" >&2
         echo "usage: $0 [--build-dir <dir>] [--app-bin <path>] [legacy_app_bin]" >&2
         exit 2
       fi
@@ -52,29 +52,29 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ ! -f "${QML_FILE}" ]]; then
-  echo "[smoke-tothespot] missing file: ${QML_FILE}" >&2
+  echo "[smoke-pulse] missing file: ${QML_FILE}" >&2
   exit 2
 fi
 if [[ ! -f "${MAIN_QML_FILE}" ]]; then
-  echo "[smoke-tothespot] missing file: ${MAIN_QML_FILE}" >&2
+  echo "[smoke-pulse] missing file: ${MAIN_QML_FILE}" >&2
   exit 2
 fi
 if [[ ! -f "${CONTROLLER_JS_FILE}" ]]; then
-  echo "[smoke-tothespot] missing file: ${CONTROLLER_JS_FILE}" >&2
+  echo "[smoke-pulse] missing file: ${CONTROLLER_JS_FILE}" >&2
   exit 2
 fi
 
 if [[ ! -x "${SMOKE_RUNTIME}" ]]; then
-  echo "[smoke-tothespot] missing runtime smoke script: ${SMOKE_RUNTIME}" >&2
+  echo "[smoke-pulse] missing runtime smoke script: ${SMOKE_RUNTIME}" >&2
   exit 2
 fi
 
 if [[ "${SLM_SMOKE_BUILD:-1}" == "1" ]]; then
-  echo "[smoke-tothespot] building slm-desktop"
+  echo "[smoke-pulse] building slm-desktop"
   cmake --build "${BUILD_DIR}" -j4 --target slm-desktop
 fi
 
-echo "[smoke-tothespot] running runtime smoke"
+echo "[smoke-pulse] running runtime smoke"
 if [[ -n "${APP_BIN_ARG}" ]]; then
   "${SMOKE_RUNTIME}" --build-dir "${BUILD_DIR}" --app-bin "${APP_BIN_ARG}"
 else
@@ -82,61 +82,60 @@ else
 fi
 
 declare -a REQUIRED_PATTERNS=(
-  "rowMouse.mapToGlobal("
-  "function moveContextMenuSelection("
-  "function moveSelectionByGroup("
-  "function triggerContextMenuAction("
-  "function highlightQueryText("
-  "text: root.highlightQueryText(name, root.queryText)"
-  "textFormat: Text.StyledText"
-  "section.labelPositioning: ViewSection.InlineLabels | ViewSection.CurrentLabelAtStart"
-  "if (event.key === Qt.Key_C"
-  "if (event.key === Qt.Key_K"
+  "property string mode: \"idle\" // idle | search | command"
+  "if (trimmed.charAt(0) === \">\" || trimmed.charAt(0) === \"/\")"
+  "PulseComp.PulseTopResult {"
+  "PulseComp.PulseActionRow {"
+  "PulseComp.PulseListSection {"
+  "titleText: \"Apps\""
+  "titleText: \"Files\""
+  "PulseComp.PulseCommandPreview {"
+  "PulseComp.PulseGridSection {"
+  "titleText: commandMode ? \"Commands\" : \"System / Commands\""
+  "if (c === \"open apphub\" || c.indexOf(\"open apphub \") === 0)"
   "if (event.key === Qt.Key_Tab"
-  "if (event.key >= Qt.Key_1 && event.key <= Qt.Key_9)"
-  "if (event.modifiers & Qt.ShiftModifier)"
-  "if (event.modifiers & Qt.AltModifier)"
-  "if (event.key === Qt.Key_L && (event.modifiers & Qt.ControlModifier))"
-  "onContentYChanged: root.closeContextMenu()"
-  "if ((Date.now() - root.contextMenuOpenedAtMs) < 120)"
-  "acceptedButtons: Qt.LeftButton"
+  "if (event.key === Qt.Key_Right)"
+  "if (event.key === Qt.Key_Up || event.key === Qt.Key_Down)"
+  "if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter)"
+  "if (event.key === Qt.Key_Escape)"
 )
 
 declare -a REQUIRED_MAIN_PATTERNS=(
-  "property int tothespotQueryGeneration: 0"
-  "property int tothespotAppliedGeneration: -1"
+  "property int pulseQueryGeneration: 0"
+  "property int pulseAppliedGeneration: -1"
   "interval: 150"
-  "TothespotController.activateResult(root, tothespotResultsModel, indexValue)"
+  "PulseController.activateResult(root, pulseResultsModel, indexValue)"
 )
 
 declare -a REQUIRED_CONTROLLER_PATTERNS=(
-  "TothespotService.activateResult(rid, {"
+  "PulseService.activateResult(rid, {"
   "\"action\": action"
   "if (act === \"copyPath\" || act === \"copyName\" || act === \"copyUri\") {"
+  "if (act === \"pinToAppDeck\") {"
 )
 
-echo "[smoke-tothespot] validating QML guards"
+echo "[smoke-pulse] validating QML guards"
 for pattern in "${REQUIRED_PATTERNS[@]}"; do
   if ! find_fixed_pattern "${pattern}" "${QML_FILE}"; then
-    echo "[smoke-tothespot] missing guard pattern: ${pattern}" >&2
+    echo "[smoke-pulse] missing guard pattern: ${pattern}" >&2
     exit 1
   fi
 done
 
-echo "[smoke-tothespot] validating Main.qml guards"
+echo "[smoke-pulse] validating Main.qml guards"
 for pattern in "${REQUIRED_MAIN_PATTERNS[@]}"; do
   if ! find_fixed_pattern "${pattern}" "${MAIN_QML_FILE}"; then
-    echo "[smoke-tothespot] missing Main.qml guard pattern: ${pattern}" >&2
+    echo "[smoke-pulse] missing Main.qml guard pattern: ${pattern}" >&2
     exit 1
   fi
 done
 
-echo "[smoke-tothespot] validating TothespotController guards"
+echo "[smoke-pulse] validating PulseController guards"
 for pattern in "${REQUIRED_CONTROLLER_PATTERNS[@]}"; do
   if ! find_fixed_pattern "${pattern}" "${CONTROLLER_JS_FILE}"; then
-    echo "[smoke-tothespot] missing TothespotController guard pattern: ${pattern}" >&2
+    echo "[smoke-pulse] missing PulseController guard pattern: ${pattern}" >&2
     exit 1
   fi
 done
 
-echo "[smoke-tothespot] PASS"
+echo "[smoke-pulse] PASS"

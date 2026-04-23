@@ -2,15 +2,20 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import Slm_Desktop
 
-Menu {
+Popup {
     id: control
 
     property var anchorItem: null
     property var popupHost: null
     property int popupGap: Theme.metric("spacingSm")
     property int outerPadding: Theme.metric("spacingSm")
-    property bool alignRightToAnchor: false
+    property bool alignRightToAnchor: true
+    property bool alignCenterToAnchor: false
+    property int popupKind: Popup.Window
+    property bool useManualPosition: false
     property bool hostManagedPosition: false
+    property real manualX: 0
+    property real manualY: 0
     property string appletId: ""
     property string _runtimeAppletId: ""
     readonly property var anchorWindow: (anchorItem && anchorItem.Window && anchorItem.Window.window)
@@ -21,10 +26,10 @@ Menu {
                                        ? popupHost
                                        : ((anchorWindow && anchorWindow.overlay)
                                           ? anchorWindow.overlay : null)
-    readonly property bool windowPopupKind: control.popupType === Popup.Window
+    readonly property bool windowPopupKind: popupKind === Popup.Window
 
     parent: windowPopupKind ? null : popupParent
-    popupType: Popup.Window
+    popupType: popupKind
     z: 3000
     modal: false
     focus: false
@@ -78,6 +83,9 @@ Menu {
 
     function _targetX() {
         var p = _anchorPoint()
+        if (alignCenterToAnchor) {
+            return _clampX(p.x + ((anchorItem ? anchorItem.width : 0) - control.width) * 0.5)
+        }
         if (alignRightToAnchor) {
             return _clampX(p.x + (anchorItem ? anchorItem.width : 0) - control.width)
         }
@@ -93,17 +101,29 @@ Menu {
         target: control
         property: "x"
         when: !control.hostManagedPosition
-        value: control._targetX()
+        value: control.useManualPosition ? Math.round(control.manualX) : control._targetX()
     }
     Binding {
         target: control
         property: "y"
         when: !control.hostManagedPosition
-        value: control._targetY()
+        value: control.useManualPosition ? Math.round(control.manualY) : control._targetY()
     }
 
     onOpened: {
-        if (!hostManagedPosition) {
+        if (!hostManagedPosition && !useManualPosition) {
+            x = _targetX()
+            y = _targetY()
+        }
+    }
+    onWidthChanged: {
+        if (!hostManagedPosition && opened && !useManualPosition) {
+            x = _targetX()
+            y = _targetY()
+        }
+    }
+    onHeightChanged: {
+        if (!hostManagedPosition && opened && !useManualPosition) {
             x = _targetX()
             y = _targetY()
         }
@@ -141,23 +161,23 @@ Menu {
 
     Component.onCompleted: {
         if (!_runtimeAppletId.length) {
-            _runtimeAppletId = "topbar-menu-" + Date.now() + "-" + Math.floor(Math.random() * 1000000)
+            _runtimeAppletId = "crown-popup-" + Date.now() + "-" + Math.floor(Math.random() * 1000000)
         }
     }
 
     onAboutToShow: {
-        TopBarPopupController.requestTogglePopup(
+        CrownPopupController.requestTogglePopup(
                     resolvedAppletId(),
                     buildAnchorRectGlobal(),
                     control,
                     { "width": Number(control.width || 0),
                       "height": Number(control.height || 0) },
-                    alignRightToAnchor ? "right" : "left")
+                    alignCenterToAnchor ? "center" : (alignRightToAnchor ? "right" : "left"))
     }
 
     onAboutToHide: {
-        if (TopBarPopupController.isPopupOpen(resolvedAppletId())) {
-            TopBarPopupController.closeActivePopup()
+        if (CrownPopupController.isPopupOpen(resolvedAppletId())) {
+            CrownPopupController.closeActivePopup()
         }
     }
 }

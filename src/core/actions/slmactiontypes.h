@@ -45,7 +45,7 @@ enum class ShareMode {
 enum class QuickActionScope {
     Unknown = 0,
     Launcher,
-    Dock,
+    AppDeck,
     AppMenu,
 };
 
@@ -89,7 +89,7 @@ enum class DragDropBehavior {
 enum class SearchActionScope {
     Unknown = 0,
     Launcher,
-    Tothespot,
+    Pulse,
     CommandPalette,
     FileSearch,
 };

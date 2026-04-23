@@ -196,6 +196,9 @@ bool WlrLayerSurfaceV1::isConfigured() const
 void WlrLayerSurfaceV1::setExclusiveZone(int zone)
 {
     set_exclusive_zone(zone);
+    if (m_surface) {
+        wl_surface_commit(m_surface);
+    }
 }
 
 void WlrLayerSurfaceV1::setSurfaceSize(int width, int height)
@@ -203,6 +206,9 @@ void WlrLayerSurfaceV1::setSurfaceSize(int width, int height)
     const uint32_t w = static_cast<uint32_t>(qMax(1, width));
     const uint32_t h = static_cast<uint32_t>(qMax(1, height));
     set_size(w, h);
+    if (m_surface) {
+        wl_surface_commit(m_surface);
+    }
 }
 
 void WlrLayerSurfaceV1::setInputRegionRect(struct ::wl_compositor *compositor,
@@ -226,6 +232,7 @@ void WlrLayerSurfaceV1::setInputRegionRect(struct ::wl_compositor *compositor,
     }
     wl_region_add(region, safeX, safeY, safeW, safeH);
     wl_surface_set_input_region(m_surface, region);
+    wl_surface_commit(m_surface);
     wl_region_destroy(region);
 }
 

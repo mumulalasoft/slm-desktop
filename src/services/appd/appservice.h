@@ -15,7 +15,7 @@ namespace Slm::Appd {
 
 // AppService — D-Bus service for org.desktop.Apps.
 //
-// Exposes the full AppEntry registry to consumers (Dock, Launchpad,
+// Exposes the full AppEntry registry to consumers (AppDeck, AppHub,
 // App Switcher, Global Search, Notification Routing, System Monitor).
 class AppService : public QObject
 {

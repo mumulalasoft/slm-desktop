@@ -20,7 +20,7 @@ private slots:
         const QString uri = QStringLiteral("https://example.com/docs?id=42");
         const QVariantMap options{
             {QStringLiteral("activate"), true},
-            {QStringLiteral("source"), QStringLiteral("topbar")},
+            {QStringLiteral("source"), QStringLiteral("crown")},
             {QStringLiteral("dryRun"), true},
         };
 

@@ -1,6 +1,6 @@
 #include "appexecutiongate.h"
 
-#include "../dock/dockmodel.h"
+#include "../appdeck/appdeckmodel.h"
 #include "../shortcutmodel.h"
 #include "../../core/launcher/applauncher.h"
 #include "../../core/launcher/launchenvresolver.h"
@@ -65,7 +65,7 @@ bool launchDesktopFileViaGio(const QString &desktopFilePath,
 }
 }
 
-AppExecutionGate::AppExecutionGate(DockModel *dockModel, ShortcutModel *shortcutModel,
+AppExecutionGate::AppExecutionGate(AppDeckModel *dockModel, ShortcutModel *shortcutModel,
                                    QObject *desktopSettings,
                                    QObject *parent)
     : QObject(parent)
