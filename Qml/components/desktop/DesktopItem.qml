@@ -20,6 +20,8 @@ Item {
     property bool previewCandidate: false
     property bool editing: false
     property string editText: ""
+    property bool interactable: true
+    readonly property real _shadowLift: dragging ? 1.0 : ((hovered || selected) ? 0.45 : 0.0)
 
     signal pressed(real x, real y, int button, int buttons, int modifiers)
     signal moved(real x, real y, int buttons, int modifiers)
@@ -70,12 +72,12 @@ Item {
         width: parent.width
         height: Math.max(48, parent.height - 38)
         anchors.top: parent.top
-        layer.enabled: root.hovered || root.selected || root.dragging
+        layer.enabled: true
         layer.effect: MultiEffect {
             shadowEnabled: true
             shadowColor: Qt.rgba(0, 0, 0, Theme.darkMode ? 0.52 : 0.38)
-            shadowBlur: root.dragging ? 0.72 : 0.44
-            shadowVerticalOffset: root.dragging ? 16 : 7
+            shadowBlur: 0.16 + (root._shadowLift * 0.56)
+            shadowVerticalOffset: 2 + (root._shadowLift * 14)
             shadowHorizontalOffset: 0
         }
 
@@ -210,7 +212,7 @@ Item {
         hoverEnabled: true
         acceptedButtons: Qt.LeftButton | Qt.RightButton
         preventStealing: true
-        enabled: !root.editing
+        enabled: !root.editing && root.interactable
         onEntered: root.hovered = true
         onExited: root.hovered = false
         onPressed: function(mouse) {
@@ -227,6 +229,13 @@ Item {
         }
         onDoubleClicked: function(mouse) {
             root.doubleClicked(mouse.button, mouse.modifiers, mouse.x, mouse.y)
+        }
+    }
+
+    Behavior on _shadowLift {
+        NumberAnimation {
+            duration: Theme.durationFast
+            easing.type: Theme.easingDefault
         }
     }
 

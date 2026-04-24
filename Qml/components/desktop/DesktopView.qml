@@ -657,11 +657,19 @@ Item {
                 readonly property real baseX: Number(placedRow.x || 0) + ((root.cellWidth - root.tileWidth) * 0.5)
                 readonly property real baseY: Number(placedRow.y || 0) + ((root.cellHeight - root.tileHeight) * 0.5)
 
-                x: draggingSelf ? root.dragItemX : baseX
-                y: draggingSelf ? root.dragItemY : baseY
+                x: baseX
+                y: baseY
                 width: root.tileWidth
                 height: root.tileHeight
-                z: draggingSelf ? 1200 : 10
+                z: 10
+                opacity: draggingSelf ? 0.28 : 1.0
+
+                Behavior on opacity {
+                    NumberAnimation {
+                        duration: Theme.durationSm
+                        easing.type: Theme.easingDefault
+                    }
+                }
 
                 property bool leftPressed: false
                 property bool dragArmed: false
@@ -677,7 +685,7 @@ Item {
                     iconSource: String(sourceRow && sourceRow.iconSource ? sourceRow.iconSource : "")
                     thumbnailSource: String(sourceRow && sourceRow.thumbnailPath ? sourceRow.thumbnailPath : "")
                     selected: root._isSelected(modelIndex)
-                    dragging: cellItem.draggingSelf
+                    dragging: false
                     isDir: !!(sourceRow && sourceRow.isDir)
                     networkShared: !!(sourceRow && sourceRow.networkShared)
                     previewCandidate: !isDir && String(thumbnailSource || "").length > 0
@@ -791,6 +799,30 @@ Item {
                     onTriggered: cellItem.suppressClick = false
                 }
             }
+        }
+
+        DesktopItem {
+            id: dragOverlay
+            visible: root.dragActive
+            z: 1200
+            x: root.dragItemX
+            y: root.dragItemY
+            width: root.tileWidth
+            height: root.tileHeight
+            interactable: false
+
+            readonly property var _dragRow: root._entryAtModelIndex(root.dragModelIndex)
+            displayName: _dragRow ? String(_dragRow.name || "") : ""
+            iconName: _dragRow ? String(_dragRow.iconName || "") : ""
+            iconSource: _dragRow ? String(_dragRow.iconSource || "") : ""
+            thumbnailSource: _dragRow ? String(_dragRow.thumbnailPath || "") : ""
+            isDir: _dragRow ? !!_dragRow.isDir : false
+            networkShared: _dragRow ? !!_dragRow.networkShared : false
+            previewCandidate: !isDir && String(thumbnailSource || "").length > 0
+            selected: root.dragActive && root._isSelected(root.dragModelIndex)
+            dragging: root.dragActive
+            tileWidth: root.tileWidth
+            tileHeight: root.tileHeight
         }
     }
 
