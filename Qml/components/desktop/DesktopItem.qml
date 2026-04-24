@@ -21,7 +21,7 @@ Item {
     property bool editing: false
     property string editText: ""
     property bool interactable: true
-    readonly property real _shadowLift: dragging ? 1.0 : ((hovered || selected) ? 0.45 : 0.0)
+    property real _shadowLift: dragging ? 1.0 : ((hovered || selected) ? 0.45 : 0.0)
 
     signal pressed(real x, real y, int button, int buttons, int modifiers)
     signal moved(real x, real y, int buttons, int modifiers)
