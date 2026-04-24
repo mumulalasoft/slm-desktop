@@ -32,7 +32,7 @@ Item {
 
     width: tileWidth
     height: tileHeight
-    scale: root.dragging ? (1.0 + (Theme.opacityFaint * 0.16)) : 1.0
+    scale: root.dragging ? 1.06 : 1.0
 
     Rectangle {
         id: selectionBg
@@ -40,12 +40,12 @@ Item {
         anchors.right: parent.right
         anchors.top: parent.top
         anchors.bottom: parent.bottom
-        anchors.leftMargin: Theme.metric("spacingXxs")
-        anchors.rightMargin: Theme.metric("spacingXxs")
+        anchors.leftMargin: 2
+        anchors.rightMargin: 2
         radius: Theme.radiusCard
         color: root.selected
                ? Theme.color("accentSubtle")
-               : (root.hovered ? Qt.rgba(1, 1, 1, Theme.darkMode ? 0.08 : 0.22) : "transparent")
+               : (root.hovered ? Qt.rgba(1, 1, 1, Theme.darkMode ? 0.12 : 0.22) : "transparent")
         border.width: root.selected ? Theme.borderWidthThin : Theme.borderWidthNone
         border.color: Theme.color("panelBorderStrong")
         opacity: root.dragging ? Theme.opacityMuted : 1.0
@@ -70,21 +70,12 @@ Item {
         width: parent.width
         height: Math.max(48, parent.height - 38)
         anchors.top: parent.top
-        scale: root.hovered && !root.dragging ? (1.0 + (Theme.opacityFaint * 0.08)) : 1.0
-
-        Behavior on scale {
-            NumberAnimation {
-                duration: Theme.durationFast
-                easing.type: Theme.easingDefault
-            }
-        }
-
         layer.enabled: root.hovered || root.selected || root.dragging
         layer.effect: MultiEffect {
             shadowEnabled: true
-            shadowColor: Qt.rgba(0, 0, 0, Theme.darkMode ? 0.42 : 0.28)
-            shadowBlur: root.dragging ? 0.62 : 0.34
-            shadowVerticalOffset: root.dragging ? 12 : 4
+            shadowColor: Qt.rgba(0, 0, 0, Theme.darkMode ? 0.52 : 0.38)
+            shadowBlur: root.dragging ? 0.72 : 0.44
+            shadowVerticalOffset: root.dragging ? 16 : 7
             shadowHorizontalOffset: 0
         }
 
@@ -162,8 +153,9 @@ Item {
         padding: Theme.metric("spacingXxs")
         background: Rectangle {
             radius: Theme.radiusMd
-            color: root.selected ? Theme.color("accent") : Qt.rgba(0, 0, 0, Theme.darkMode ? 0.30 : 0.24)
-            opacity: root.selected ? 1.0 : Theme.opacityMuted
+            color: root.selected
+                   ? Theme.color("accent")
+                   : Qt.rgba(0, 0, 0, Theme.darkMode ? 0.40 : 0.32)
         }
     }
 
@@ -240,8 +232,9 @@ Item {
 
     Behavior on scale {
         NumberAnimation {
-            duration: Theme.durationFast
-            easing.type: Theme.easingDefault
+            duration: Theme.durationNormal
+            easing.type: Theme.easingSpring
+            easing.overshoot: 0.4
         }
     }
 
