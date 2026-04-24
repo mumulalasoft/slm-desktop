@@ -1,5 +1,6 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
+import QtQuick.Effects
 import Slm_Desktop
 
 Item {
@@ -31,16 +32,37 @@ Item {
 
     width: tileWidth
     height: tileHeight
+    scale: root.dragging ? (1.0 + (Theme.opacityFaint * 0.16)) : 1.0
 
     Rectangle {
         id: selectionBg
-        anchors.fill: parent
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        anchors.leftMargin: Theme.metric("spacingXxs")
+        anchors.rightMargin: Theme.metric("spacingXxs")
         radius: Theme.radiusCard
-        color: root.selected ? Theme.color("accentSoft") : "transparent"
+        color: root.selected
+               ? Theme.color("accentSubtle")
+               : (root.hovered ? Qt.rgba(1, 1, 1, Theme.darkMode ? 0.08 : 0.22) : "transparent")
         border.width: root.selected ? Theme.borderWidthThin : Theme.borderWidthNone
-        border.color: Theme.color("dragGhostBorder")
-        opacity: root.dragging ? 0.72 : 1.0
-        visible: !root.editing
+        border.color: Theme.color("panelBorderStrong")
+        opacity: root.dragging ? Theme.opacityMuted : 1.0
+        visible: !root.editing && (root.selected || root.hovered || root.dragging)
+
+        Behavior on color {
+            ColorAnimation {
+                duration: Theme.durationFast
+                easing.type: Theme.easingDefault
+            }
+        }
+        Behavior on opacity {
+            NumberAnimation {
+                duration: Theme.durationFast
+                easing.type: Theme.easingDefault
+            }
+        }
     }
 
     Item {
@@ -48,6 +70,23 @@ Item {
         width: parent.width
         height: Math.max(48, parent.height - 38)
         anchors.top: parent.top
+        scale: root.hovered && !root.dragging ? (1.0 + (Theme.opacityFaint * 0.08)) : 1.0
+
+        Behavior on scale {
+            NumberAnimation {
+                duration: Theme.durationFast
+                easing.type: Theme.easingDefault
+            }
+        }
+
+        layer.enabled: root.hovered || root.selected || root.dragging
+        layer.effect: MultiEffect {
+            shadowEnabled: true
+            shadowColor: Qt.rgba(0, 0, 0, Theme.darkMode ? 0.42 : 0.28)
+            shadowBlur: root.dragging ? 0.62 : 0.34
+            shadowVerticalOffset: root.dragging ? 12 : 4
+            shadowHorizontalOffset: 0
+        }
 
         Image {
             id: thumbImage
@@ -105,9 +144,10 @@ Item {
 
     Label {
         id: nameText
-        anchors.left: parent.left
-        anchors.right: parent.right
+        anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
+        width: Math.min(parent.width - Theme.metric("spacingSm"), implicitWidth + Theme.metric("spacingSm"))
+        height: Math.min(implicitHeight + Theme.metric("spacingXxs"), parent.height * 0.42)
         visible: !root.editing
         horizontalAlignment: Text.AlignHCenter
         verticalAlignment: Text.AlignTop
@@ -119,6 +159,12 @@ Item {
         lineHeight: Theme.lineHeight("tight")
         color: root.selected ? Theme.color("accentText") : Theme.color("selectedItemText")
         font.pixelSize: Theme.fontSize("small")
+        padding: Theme.metric("spacingXxs")
+        background: Rectangle {
+            radius: Theme.radiusMd
+            color: root.selected ? Theme.color("accent") : Qt.rgba(0, 0, 0, Theme.darkMode ? 0.30 : 0.24)
+            opacity: root.selected ? 1.0 : Theme.opacityMuted
+        }
     }
 
     TextField {
@@ -189,6 +235,13 @@ Item {
         }
         onDoubleClicked: function(mouse) {
             root.doubleClicked(mouse.button, mouse.modifiers, mouse.x, mouse.y)
+        }
+    }
+
+    Behavior on scale {
+        NumberAnimation {
+            duration: Theme.durationFast
+            easing.type: Theme.easingDefault
         }
     }
 

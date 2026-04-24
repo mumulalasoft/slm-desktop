@@ -1625,9 +1625,9 @@ Item {
             iconSizeMode: root.iconSizeMode
             gridSpacingMode: root.gridSpacingMode
             suppressItemContextMenu: !!(desktopCtxMenu && desktopCtxMenu.menuVisible)
-            topPadding: 42
-            leftPadding: 20
-            rightPadding: 20
+            topPadding: 54
+            leftPadding: 24
+            rightPadding: 28
             bottomPadding: root.desktopShellBottomMargin
 
             onSelectedIndexRequested: function(index, modifiers) {

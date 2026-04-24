@@ -35,4 +35,48 @@ Rectangle {
             }
         }
     }
+
+    Rectangle {
+        anchors.fill: parent
+        gradient: Gradient {
+            GradientStop {
+                position: 0.0
+                color: Theme.darkMode ? Qt.rgba(0, 0, 0, 0.18) : Qt.rgba(1, 1, 1, 0.10)
+            }
+            GradientStop {
+                position: 0.54
+                color: Qt.rgba(0, 0, 0, 0.0)
+            }
+            GradientStop {
+                position: 1.0
+                color: Theme.darkMode ? Qt.rgba(0, 0, 0, 0.32) : Qt.rgba(0, 0, 0, 0.16)
+            }
+        }
+    }
+
+    Rectangle {
+        anchors.fill: parent
+        color: "transparent"
+        border.width: Theme.borderWidthNone
+        opacity: Theme.darkMode ? Theme.opacityFaint : Theme.opacitySubtle
+        gradient: Gradient {
+            orientation: Gradient.Horizontal
+            GradientStop {
+                position: 0.0
+                color: Qt.rgba(0, 0, 0, Theme.darkMode ? 0.22 : 0.10)
+            }
+            GradientStop {
+                position: 0.18
+                color: Qt.rgba(0, 0, 0, 0.0)
+            }
+            GradientStop {
+                position: 0.82
+                color: Qt.rgba(0, 0, 0, 0.0)
+            }
+            GradientStop {
+                position: 1.0
+                color: Qt.rgba(0, 0, 0, Theme.darkMode ? 0.22 : 0.10)
+            }
+        }
+    }
 }

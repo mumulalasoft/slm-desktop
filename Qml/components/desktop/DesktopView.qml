@@ -15,13 +15,13 @@ Item {
     property int gridSpacingMode: 1
     property bool suppressItemContextMenu: false
 
-    property real topPadding: 42
-    property real leftPadding: 20
-    property real rightPadding: 20
+    property real topPadding: 54
+    property real leftPadding: 24
+    property real rightPadding: 28
     property real bottomPadding: 20
 
     property string fillMode: "vertical-first"
-    property string anchorMode: "top-left"
+    property string anchorMode: "top-right"
 
     readonly property real workX: leftPadding
     readonly property real workY: topPadding
@@ -92,7 +92,6 @@ Item {
     property int selectionPressModifiers: Qt.NoModifier
     property var selectionBaseIndexes: []
     property double suppressRightBackgroundMenuUntilMs: 0
-
     signal selectedIndexRequested(int index, int modifiers)
     signal activateRequested(int index)
     signal backgroundContextRequested(real x, real y)
@@ -626,6 +625,23 @@ Item {
         anchors.fill: parent
         clip: true
 
+        Rectangle {
+            anchors.fill: parent
+            color: "transparent"
+            border.width: Theme.borderWidthNone
+            visible: root.positionedEntries.length <= 0
+
+            Text {
+                anchors.centerIn: parent
+                text: qsTr("Desktop")
+                color: Theme.color("selectedItemText")
+                opacity: Theme.opacityFaint
+                font.family: Theme.fontFamilyDisplay
+                font.pixelSize: Theme.fontSize("hero")
+                font.weight: Theme.fontWeight("semibold")
+            }
+        }
+
         Repeater {
             id: itemsRepeater
             model: root.positionedEntries
@@ -785,10 +801,10 @@ Item {
         width: root.tileWidth
         height: root.tileHeight
         radius: Theme.radiusCard
-        color: Theme.color("accentSoft")
-        opacity: Theme.opacityMuted
+        color: Theme.color("accentSubtle")
+        opacity: Theme.opacityHint
         border.width: Theme.borderWidthThin
-        border.color: Theme.color("dragGhostBorder")
+        border.color: Theme.color("focusRing")
 
         readonly property var cell: placement.slotToCell(root.dragHoverSlot)
         x: Number(root.workX) + Number((cell.valid ? cell.cellX : 0) * root.cellWidth) + ((root.cellWidth - width) * 0.5)
@@ -807,11 +823,11 @@ Item {
         y: Number(bounds.top || 0)
         width: Number(bounds.width || 0)
         height: Number(bounds.height || 0)
-        color: Theme.color("accentSoft")
-        opacity: Theme.opacityMuted
+        color: Theme.color("selectionRectFill")
+        opacity: Theme.opacityGhost
         border.width: Theme.borderWidthThin
-        border.color: Theme.color("dragGhostBorder")
-        radius: Theme.radiusCard
+        border.color: Theme.color("selectionRectBorder")
+        radius: Theme.radiusControl
     }
 
     DropArea {
