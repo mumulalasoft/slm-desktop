@@ -39,7 +39,10 @@ Item {
     RowLayout {
         id: contentLayout
         anchors.fill: parent
-        anchors.margins: 16
+        anchors.leftMargin: 16
+        anchors.rightMargin: 16
+        anchors.topMargin: 12
+        anchors.bottomMargin: 12
         spacing: 16
 
         ColumnLayout {

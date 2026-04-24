@@ -1,11 +1,12 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import Slm_Desktop
 import "../../../../../Qml/apps/settings/components"
 
 Flickable {
     id: root
-    contentHeight: contentColumn.height
+    contentHeight: contentColumn.implicitHeight + 48
     clip: true
     property string highlightSettingId: ""
     property var resolutionBinding: SettingsApp.createBindingFor("display", "resolution", "2560 x 1600 (16:10)")
@@ -16,32 +17,27 @@ Flickable {
         id: contentColumn
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.margins: 20
+        anchors.top: parent.top
+        anchors.margins: 24
+        anchors.topMargin: 24
         spacing: 24
 
-        Text {
-            text: "Display"
-            font.pixelSize: 28
-            font.weight: Font.Bold
-            color: "#ffffff"
-        }
-
-        // Resolution Section
         SettingGroup {
-            title: "Resolution & Scaling"
+            title: qsTr("Resolution & Scaling")
             Layout.fillWidth: true
 
             SettingCard {
                 objectName: "resolution"
                 highlighted: root.highlightSettingId === "resolution"
-                label: "Resolution"
-                description: "Built-in Display (2560 x 1600)"
-                
+                label: qsTr("Resolution")
+                description: qsTr("Built-in Display (2560 × 1600)")
+                Layout.fillWidth: true
+
                 ComboBox {
                     id: resolutionCombo
                     model: ["2560 x 1600 (16:10)", "2048 x 1280", "1920 x 1200", "1680 x 1050"]
                     currentIndex: Math.max(0, model.indexOf(String(root.resolutionBinding.value)))
-                    Layout.preferredWidth: 200
+                    implicitWidth: 200
                     onActivated: root.resolutionBinding.value = currentText
                 }
             }
@@ -49,30 +45,31 @@ Flickable {
             SettingCard {
                 objectName: "scaling"
                 highlighted: root.highlightSettingId === "scaling"
-                label: "Scaling"
-                description: "Adjust the size of text and icons"
-                
+                label: qsTr("Scaling")
+                description: qsTr("Adjust the size of text and icons.")
+                Layout.fillWidth: true
+
                 ComboBox {
                     id: scalingCombo
                     model: ["100%", "125%", "150%", "200%"]
                     currentIndex: Math.max(0, model.indexOf(String(root.scalingBinding.value)))
-                    Layout.preferredWidth: 100
+                    implicitWidth: 100
                     onActivated: root.scalingBinding.value = currentText
                 }
             }
         }
 
-        // Night Light Section
         SettingGroup {
-            title: "Night Light"
+            title: qsTr("Night Light")
             Layout.fillWidth: true
 
             SettingCard {
                 objectName: "night-light"
                 highlighted: root.highlightSettingId === "night-light"
-                label: "Night Light"
-                description: "Make screen colors warmer to help you sleep"
-                
+                label: qsTr("Night Light")
+                description: qsTr("Warm screen colors help reduce eye strain in the evening.")
+                Layout.fillWidth: true
+
                 SettingToggle {
                     id: nightLightToggle
                     checked: Boolean(root.nightLightBinding.value)
@@ -81,30 +78,39 @@ Flickable {
             }
 
             SettingCard {
-                label: "Schedule"
+                label: qsTr("Schedule")
                 visible: nightLightToggle.checked
-                
+                Layout.fillWidth: true
+
                 RowLayout {
-                    spacing: 10
-                    Text { text: "From"; color: "#aaaaaa" }
+                    spacing: Theme.metric("spacingSm")
+                    Text {
+                        text: qsTr("From")
+                        color: Theme.color("textSecondary")
+                        font.pixelSize: Theme.fontSize("body")
+                    }
                     Button { text: "21:00"; flat: true }
-                    Text { text: "to"; color: "#aaaaaa" }
+                    Text {
+                        text: qsTr("to")
+                        color: Theme.color("textSecondary")
+                        font.pixelSize: Theme.fontSize("body")
+                    }
                     Button { text: "07:00"; flat: true }
                 }
             }
         }
 
-        // Multiple Displays
         SettingGroup {
-            title: "Multiple Displays"
+            title: qsTr("Multiple Displays")
             Layout.fillWidth: true
 
             SettingCard {
-                label: "Arrangement"
-                description: "Mirror or extend desktop"
-                
+                label: qsTr("Arrangement")
+                description: qsTr("Mirror or extend your desktop across displays.")
+                Layout.fillWidth: true
+
                 Button {
-                    text: "Configure..."
+                    text: qsTr("Configure…")
                 }
             }
         }

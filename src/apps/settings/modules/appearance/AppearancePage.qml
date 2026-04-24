@@ -469,7 +469,9 @@ Item {
                         color: highlighted
                             ? Theme.color("accent")
                             : (parent.hovered ? Theme.color("controlBgHover") : "transparent")
-                        Behavior on color { ColorAnimation { duration: 120 } }
+                        Behavior on color {
+                            ColorAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault }
+                        }
                     }
 
                     contentItem: RowLayout {
@@ -487,11 +489,13 @@ Item {
                         Text {
                             Layout.fillWidth: true
                             text: modelData.label
-                            font.pixelSize: Theme.fontSize("sm")
-                            font.weight: highlighted ? Font.DemiBold : Font.Normal
+                            font.pixelSize: Theme.fontSize("small")
+                            font.weight: highlighted ? Theme.fontWeight("semibold") : Theme.fontWeight("normal")
                             color: highlighted ? Theme.color("accentText") : Theme.color("textPrimary")
                             elide: Text.ElideRight
-                            Behavior on color { ColorAnimation { duration: 100 } }
+                            Behavior on color {
+                                ColorAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault }
+                            }
                         }
                     }
 
@@ -548,19 +552,9 @@ Item {
                             label: qsTr("High Contrast")
                             description: qsTr("Increase contrast for text and UI elements.")
                             Layout.fillWidth: true
-                            RowLayout {
-                                Layout.fillWidth: true
-                                spacing: 10
-                                Label {
-                                    Layout.fillWidth: true
-                                    text: qsTr("Enable high contrast mode")
-                                    color: Theme.color("textPrimary")
-                                    font.pixelSize: Theme.fontSize("small")
-                                }
-                                SettingToggle {
-                                    checked: DesktopSettings.highContrast
-                                    onToggled: DesktopSettings.setHighContrast(checked)
-                                }
+                            SettingToggle {
+                                checked: DesktopSettings.highContrast
+                                onToggled: DesktopSettings.setHighContrast(checked)
                             }
                         }
 

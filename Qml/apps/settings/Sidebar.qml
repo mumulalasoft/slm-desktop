@@ -179,7 +179,7 @@ Rectangle {
                                             Layout.preferredWidth: 46
                                             Layout.preferredHeight: 46
                                             radius: Theme.radiusControlLarge
-                                            color: Theme.color("accentSubtle")
+                                            color: Theme.color("controlBg")
                                             Layout.alignment: Qt.AlignVCenter
 
                                             Image {

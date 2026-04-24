@@ -367,21 +367,6 @@ ApplicationWindow {
             }
         }
 
-        // ── Debug telemetry ───────────────────────────────────────────────
-        DSStyle.Label {
-            anchors.right: parent.right
-            anchors.bottom: parent.bottom
-            anchors.rightMargin: 12; anchors.bottomMargin: 6
-            z: 90
-            text: SearchEngine
-                ? ("search " + SearchEngine.lastSearchLatencyMs + "ms"
-                   + " • results " + SearchEngine.lastSearchResultCount
-                   + " • module " + (SettingsApp ? SettingsApp.lastModuleOpenLatencyMs : 0) + "ms")
-                : ""
-            color: Theme.color("textDisabled")
-            font.pixelSize: Theme.fontSize("xs")
-        }
-
         // ── Command palette overlay ───────────────────────────────────────
         Rectangle {
             anchors.fill: parent
