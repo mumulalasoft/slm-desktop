@@ -26,7 +26,7 @@ Rectangle {
     property real layoutMagnificationSigma: -1
     property real liftMax: 10
     property real influenceRadius: 140
-    property int animationDuration: 150
+    property int animationDuration: Theme.durationSm
     property var appsModel: []
     // hoverX and dockHovered live in AppDeckController — renderer is state-free.
     readonly property real hoverX: AppDeckController.hoverX

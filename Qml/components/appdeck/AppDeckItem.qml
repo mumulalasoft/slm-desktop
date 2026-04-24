@@ -12,7 +12,7 @@ Item {
     property real influence: 0
     property real hoverLift: 5
     property real liftOffset: 0
-    property int animationDuration: 150
+    property int animationDuration: Theme.durationSm
     property real gapWidthExtra: 28
     property real gapSpring: Theme.physicsSpringDefault
     property real gapDamping: Theme.physicsDampingDefault

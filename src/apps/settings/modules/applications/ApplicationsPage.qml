@@ -82,7 +82,7 @@ Item {
                             color: highlighted
                                 ? Theme.color("accent")
                                 : (parent.hovered ? Theme.color("controlBgHover") : "transparent")
-                            Behavior on color { ColorAnimation { duration: 120 } }
+                            Behavior on color { ColorAnimation { duration: Theme.durationSm } }
                         }
 
                         contentItem: RowLayout {
@@ -106,7 +106,7 @@ Item {
                                     ? Theme.color("accentText")
                                     : Theme.color("textPrimary")
                                 elide: Text.ElideRight
-                                Behavior on color { ColorAnimation { duration: 100 } }
+                                Behavior on color { ColorAnimation { duration: Theme.durationSm } }
                             }
                         }
 
@@ -150,7 +150,7 @@ Item {
                         background: Rectangle {
                             radius: 6
                             color: parent.hovered ? Theme.color("controlBgHover") : "transparent"
-                            Behavior on color { ColorAnimation { duration: 100 } }
+                            Behavior on color { ColorAnimation { duration: Theme.durationSm } }
                         }
 
                         contentItem: RowLayout {
@@ -480,7 +480,7 @@ Item {
                                         color: parent.hovered
                                             ? Theme.color("controlBgHover")
                                             : "transparent"
-                                        Behavior on color { ColorAnimation { duration: 100 } }
+                                        Behavior on color { ColorAnimation { duration: Theme.durationSm } }
                                     }
 
                                     contentItem: RowLayout {
@@ -617,7 +617,7 @@ Item {
 
                     background: Rectangle {
                         color: parent.hovered ? Theme.color("controlBgHover") : "transparent"
-                        Behavior on color { ColorAnimation { duration: 80 } }
+                        Behavior on color { ColorAnimation { duration: Theme.durationMicro } }
                     }
 
                     contentItem: RowLayout {

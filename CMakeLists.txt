@@ -806,6 +806,7 @@ set_source_files_properties(Qml/ShellZOrder.qml PROPERTIES QT_QML_SINGLETON_TYPE
 set_source_files_properties(Qml/AppDeckController.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
 set_source_files_properties(Qml/BadgeService.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
 set_source_files_properties(Qml/CrownPopupController.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
+set_source_files_properties(Qml/MotionController.qml    PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
 
 set(DESKTOP_SHELL_QML_FILES
     Main.qml
@@ -816,6 +817,7 @@ set(DESKTOP_SHELL_QML_FILES
     Qml/AppDeckController.qml
     Qml/BadgeService.qml
     Qml/CrownPopupController.qml
+    Qml/MotionController.qml
     Qml/DesktopScene.qml
     Qml/apps/filemanager/FileManagerShareSheet.qml
     Qml/apps/filemanager/RecursiveMenu.qml
@@ -964,6 +966,7 @@ set(DESKTOP_SHELL_QML_FILES
     Qml/components/shell/ShellSelectionRect.qml
     Qml/components/shell/ShellDragGhost.qml
     Qml/components/shell/GlobalShortcutManager.qml
+    Qml/components/shell/MotionMonitor.qml
     Qml/apps/filemanager/FileManagerSidebar.qml
     Qml/apps/filemanager/FileManagerSidebarPane.qml
     Qml/apps/filemanager/FileManagerTabBar.qml

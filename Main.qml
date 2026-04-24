@@ -801,6 +801,8 @@ ApplicationWindow {
         desktopMenuProvider: desktopMenuProvider
     }
 
+    ShellComp.MotionMonitor { }
+
     ShellComp.GlobalShortcutManager {
         shellRoot: root
         topBarWindowRef: topBarWindow
