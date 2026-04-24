@@ -1,5 +1,6 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
+import QtQuick.Layouts 1.15
 import Slm_Desktop
 import SlmStyle as DSStyle
 
@@ -172,7 +173,7 @@ Item {
                     spacing: Theme.metric("spacingSm")
 
                     DSStyle.Label {
-                        text: "Take Screenshot"
+                        text: "Screenshot"
                         color: Theme.color("textPrimary")
                         font.pixelSize: Theme.fontSize("body")
                         font.weight: Theme.fontWeight("bold")
@@ -231,7 +232,7 @@ Item {
 
                     DSStyle.IndicatorSectionRow {
                         width: contentColumn.width
-                        text: "Grab pointer"
+                        text: "Include pointer"
                         rowSpacing: root.popupGap
                         DSStyle.Switch {
                             checked: screenshotPopup.grabPointer
@@ -241,7 +242,7 @@ Item {
 
                     DSStyle.IndicatorSectionRow {
                         width: contentColumn.width
-                        text: "Conceal text"
+                        text: "Blur sensitive text"
                         rowSpacing: root.popupGap
                         DSStyle.Switch {
                             checked: screenshotPopup.concealText
@@ -296,21 +297,18 @@ Item {
                         color: Theme.color("menuBorder")
                     }
 
-                    Row {
+                    RowLayout {
                         width: contentColumn.width
                         spacing: root.popupGap
-                        Item {
-                            width: Math.max(0, contentColumn.width - 210)
-                            height: 1
-                        }
+                        Item { Layout.fillWidth: true }
                         DSStyle.Button {
                             text: "Cancel"
-                            width: 100
+                            Layout.preferredWidth: 96
                             onClicked: screenshotPopup.close()
                         }
                         DSStyle.Button {
-                            text: "Take Screenshot"
-                            width: 102
+                            text: "Capture"
+                            Layout.preferredWidth: 110
                             onClicked: {
                                 var modeValue = screenshotPopup.mode
                                 var delayValue = screenshotPopup.delaySec

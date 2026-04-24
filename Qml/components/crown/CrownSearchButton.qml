@@ -58,4 +58,10 @@ Rectangle {
         cursorShape: Qt.PointingHandCursor
         onClicked: root.clicked()
     }
+
+    ToolTip {
+        visible: searchMouse.containsMouse
+        text: qsTr("Search")
+        delay: 800
+    }
 }

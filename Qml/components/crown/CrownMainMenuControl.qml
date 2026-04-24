@@ -21,7 +21,7 @@ Item {
     signal searchProfileResetRequested()
     signal refreshSearchProfilesRequested()
 
-    implicitWidth: Math.max(iconButtonW, desktopLabel.implicitWidth + Theme.metric("spacingMd") * 2)
+    implicitWidth: iconButtonW
     implicitHeight: iconButtonH
 
     property double lastCloseMs: 0
@@ -225,13 +225,24 @@ Item {
             ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault }
         }
 
-        Text {
-            id: desktopLabel
+        Image {
+            id: crownLogo
             anchors.centerIn: parent
-            text: "Desktop"
+            width: root.iconGlyph
+            height: root.iconGlyph
+            fillMode: Image.PreserveAspectFit
+            asynchronous: true
+            cache: true
+            source: Theme.darkMode ? "qrc:/icons/dark/logo.svg" : "qrc:/icons/light/logo.svg"
+            opacity: Theme.opacityIconMuted
+        }
+
+        Label {
+            anchors.centerIn: parent
+            visible: crownLogo.status !== Image.Ready
+            text: "⌘"
             color: Theme.color("textOnGlass")
             font.pixelSize: Theme.fontSize("bodyLarge")
-            font.weight: Theme.fontWeight("bold")
         }
 
         MouseArea {
@@ -376,6 +387,21 @@ Item {
 
         MenuSeparator {}
 
+        // ── Force Quit ────────────────────────────────────────────────────────
+
+        MenuItem {
+            text: qsTr("Force Quit…")
+            onTriggered: {
+                mainMenu.close()
+                if (typeof AppCommandRouter !== "undefined" && AppCommandRouter
+                        && AppCommandRouter.route) {
+                    AppCommandRouter.route("app.forcequit", {}, "main-menu")
+                }
+            }
+        }
+
+        MenuSeparator {}
+
         // ── Power actions ─────────────────────────────────────────────────────
 
         MenuItem {
@@ -410,16 +436,16 @@ Item {
         // ── Session actions ───────────────────────────────────────────────────
 
         MenuItem {
+            text: qsTr("Lock Screen")
+            onTriggered: root._lockScreen()
+        }
+
+        MenuItem {
             text: qsTr("Log Out\u2026")
             onTriggered: {
                 mainMenu.close()
                 if (typeof PowerBridge !== "undefined" && PowerBridge) PowerBridge.logout()
             }
-        }
-
-        MenuItem {
-            text: qsTr("Lock Screen")
-            onTriggered: root._lockScreen()
         }
     }
 }
