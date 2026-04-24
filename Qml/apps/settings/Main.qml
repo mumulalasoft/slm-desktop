@@ -258,8 +258,8 @@ ApplicationWindow {
                 anchors.left: trafficLights.right
                 anchors.leftMargin: 6
                 anchors.verticalCenter: parent.verticalCenter
-                width: 30
-                height: 30
+                width: 36
+                height: 36
                 padding: 0
                 opacity: window.atHome ? 0 : 1
                 visible: opacity > 0
@@ -281,30 +281,16 @@ ApplicationWindow {
                 ToolTip.delay: 500
             }
 
-            // ── Module icon + name (centered, module state only) ──────────
-            Row {
+            // ── Module name (centered, module state only) ─────────────────
+            Text {
                 anchors.centerIn: parent
-                spacing: 8
                 opacity: window.atHome ? 0 : 1
                 visible: opacity > 0
                 Behavior on opacity { NumberAnimation { duration: Theme.durationMd; easing.type: Theme.easingDefault } }
-
-                Image {
-                    source: window.currentModule
-                        ? "image://icon/" + (window.currentModule.icon || "preferences-system")
-                        : ""
-                    width: 18; height: 18
-                    visible: window.currentModule !== null
-                    anchors.verticalCenter: parent.verticalCenter
-                    smooth: true
-                }
-                Text {
-                    text: window.currentModule ? (window.currentModule.name || "") : ""
-                    font.pixelSize: Theme.fontSize("body")
-                    font.weight: Theme.fontWeight("semibold")
-                    color: Theme.color("textPrimary")
-                    anchors.verticalCenter: parent.verticalCenter
-                }
+                text: window.currentModule ? (window.currentModule.name || "") : ""
+                font.pixelSize: Theme.fontSize("body")
+                font.weight: Theme.fontWeight("semibold")
+                color: Theme.color("textPrimary")
             }
 
             // ── Search field (right-aligned, home state only) ─────────────

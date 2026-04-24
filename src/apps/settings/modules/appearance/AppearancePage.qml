@@ -282,9 +282,10 @@ Item {
         { id: "fonts",      label: qsTr("Fonts"),      icon: "preferences-desktop-font"     },
         { id: "theme",      label: qsTr("Theme"),      icon: "applications-graphics"        },
         { id: "icons",      label: qsTr("Icons"),      icon: "preferences-desktop-icons"    },
-        { id: "appdeck",       label: qsTr("AppDeck"),     icon: "user-desktop"                 },
+        { id: "appdeck",    label: qsTr("AppDeck"),    icon: "user-desktop"                 },
+        { id: "search",     label: qsTr("Search"),     icon: "edit-find-symbolic"           },
         { id: "desktop",    label: qsTr("Desktop"),    icon: "video-display"                },
-        { id: "crown",     label: qsTr("Crown"),      icon: "go-top"                       },
+        { id: "crown",      label: qsTr("Crown"),      icon: "go-top"                       },
     ]
 
     property int currentIndex: 0
@@ -530,19 +531,63 @@ Item {
                             label: qsTr("Color Theme")
                             description: qsTr("Choose how the system looks.")
                             Layout.fillWidth: true
-                            RowLayout {
-                                spacing: 8
-                                Repeater {
-                                    model: [
-                                        { key: "light", label: qsTr("Light") },
-                                        { key: "dark",  label: qsTr("Dark")  },
-                                        { key: "auto",  label: qsTr("Auto")  }
-                                    ]
-                                    delegate: Button {
-                                        required property var modelData
-                                        text: modelData.label
-                                        highlighted: DesktopSettings.themeMode === modelData.key
-                                        onClicked: DesktopSettings.setThemeMode(modelData.key)
+
+                            // Segmented control
+                            Rectangle {
+                                id: themeSegControl
+                                implicitHeight: 32
+                                implicitWidth: themeSegRow.implicitWidth + 4
+                                radius: Theme.radiusControl
+                                color: Theme.color("controlBg")
+                                border.color: Theme.color("panelBorder")
+                                border.width: Theme.borderWidthThin
+
+                                RowLayout {
+                                    id: themeSegRow
+                                    anchors.centerIn: parent
+                                    spacing: 2
+
+                                    Repeater {
+                                        model: [
+                                            { key: "light", label: qsTr("Light") },
+                                            { key: "dark",  label: qsTr("Dark")  },
+                                            { key: "auto",  label: qsTr("Auto")  }
+                                        ]
+                                        delegate: Item {
+                                            required property var modelData
+                                            readonly property bool isSelected: DesktopSettings.themeMode === modelData.key
+
+                                            implicitWidth: segLabel.implicitWidth + 20
+                                            implicitHeight: 28
+
+                                            Rectangle {
+                                                anchors.fill: parent
+                                                anchors.margins: 1
+                                                radius: Theme.radiusMd
+                                                color: isSelected ? Theme.color("accent") : "transparent"
+                                                Behavior on color {
+                                                    ColorAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault }
+                                                }
+                                            }
+
+                                            Text {
+                                                id: segLabel
+                                                anchors.centerIn: parent
+                                                text: modelData.label
+                                                font.pixelSize: Theme.fontSize("small")
+                                                font.weight: isSelected ? Theme.fontWeight("semibold") : Theme.fontWeight("normal")
+                                                color: isSelected ? Theme.color("onAccent") : Theme.color("textPrimary")
+                                                Behavior on color {
+                                                    ColorAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault }
+                                                }
+                                            }
+
+                                            MouseArea {
+                                                anchors.fill: parent
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: DesktopSettings.setThemeMode(modelData.key)
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -563,155 +608,40 @@ Item {
                             description: qsTr("Change the system accent color.")
                             Layout.fillWidth: true
                             RowLayout {
-                                spacing: 8
+                                spacing: 6
                                 Repeater {
                                     model: root.accentPresets
-                                    delegate: Rectangle {
+                                    delegate: Item {
                                         required property string modelData
-                                        width: 26; height: 26; radius: width / 2
-                                        color: modelData
-                                        border.color: DesktopSettings.accentColor === modelData
-                                            ? Theme.color("textPrimary") : "transparent"
-                                        border.width: Theme.borderWidthThick
-                                        MouseArea {
+                                        readonly property bool isSelected: DesktopSettings.accentColor === modelData
+                                        width: 32; height: 32
+
+                                        // Selection ring — always same size, no layout shift
+                                        Rectangle {
                                             anchors.fill: parent
-                                            onClicked: DesktopSettings.setAccentColor(modelData)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        SettingCard {
-                            label: qsTr("Adaptive UI Automation")
-                            description: qsTr("Allow context-aware performance tuning based on power and system load.")
-                            Layout.fillWidth: true
-                            ColumnLayout {
-                                Layout.fillWidth: true
-                                spacing: 8
-
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 10
-                                    Label {
-                                        Layout.fillWidth: true
-                                        text: qsTr("Auto reduce animations")
-                                        color: Theme.color("textPrimary")
-                                        font.pixelSize: Theme.fontSize("small")
-                                    }
-                                    SettingToggle {
-                                        checked: DesktopSettings.contextAutoReduceAnimation
-                                        onToggled: DesktopSettings.setContextAutoReduceAnimation(checked)
-                                    }
-                                }
-
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 10
-                                    Label {
-                                        Layout.fillWidth: true
-                                        text: qsTr("Auto disable blur")
-                                        color: Theme.color("textPrimary")
-                                        font.pixelSize: Theme.fontSize("small")
-                                    }
-                                    SettingToggle {
-                                        checked: DesktopSettings.contextAutoDisableBlur
-                                        onToggled: DesktopSettings.setContextAutoDisableBlur(checked)
-                                    }
-                                }
-
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 10
-                                    Label {
-                                        Layout.fillWidth: true
-                                        text: qsTr("Auto disable heavy effects")
-                                        color: Theme.color("textPrimary")
-                                        font.pixelSize: Theme.fontSize("small")
-                                    }
-                                    SettingToggle {
-                                        checked: DesktopSettings.contextAutoDisableHeavyEffects
-                                        onToggled: DesktopSettings.setContextAutoDisableHeavyEffects(checked)
-                                    }
-                                }
-
-                                Rectangle {
-                                    Layout.fillWidth: true
-                                    Layout.topMargin: 2
-                                    height: Theme.borderWidthThin
-                                    color: Theme.color("panelBorder")
-                                }
-
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 10
-                                    Label {
-                                        Layout.fillWidth: true
-                                        text: qsTr("Time period source")
-                                        color: Theme.color("textPrimary")
-                                        font.pixelSize: Theme.fontSize("small")
-                                    }
-                                    ComboBox {
-                                        id: contextTimeModeCombo
-                                        Layout.preferredWidth: 160
-                                        textRole: "label"
-                                        model: [
-                                            { key: "local", label: qsTr("Local Time") },
-                                            { key: "sun", label: qsTr("Sunrise/Sunset") }
-                                        ]
-                                        currentIndex: DesktopSettings.contextTimeMode === "sun" ? 1 : 0
-                                        onActivated: {
-                                            const entry = model[currentIndex]
-                                            if (entry && entry.key) {
-                                                DesktopSettings.setContextTimeMode(entry.key)
+                                            radius: width / 2
+                                            color: "transparent"
+                                            border.width: Theme.borderWidthThick
+                                            border.color: isSelected
+                                                ? Theme.color("textPrimary")
+                                                : Qt.rgba(0, 0, 0, 0.0)
+                                            Behavior on border.color {
+                                                ColorAnimation { duration: Theme.durationFast }
                                             }
                                         }
-                                    }
-                                }
 
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 10
-                                    enabled: DesktopSettings.contextTimeMode === "sun"
-                                    opacity: enabled ? 1.0 : Theme.opacityHint
+                                        Rectangle {
+                                            anchors.centerIn: parent
+                                            width: 24; height: 24
+                                            radius: width / 2
+                                            color: modelData
+                                        }
 
-                                    Label {
-                                        Layout.fillWidth: true
-                                        text: qsTr("Sunrise hour")
-                                        color: Theme.color("textPrimary")
-                                        font.pixelSize: Theme.fontSize("small")
-                                    }
-                                    SpinBox {
-                                        id: sunriseHourSpin
-                                        from: 0
-                                        to: 23
-                                        editable: true
-                                        value: DesktopSettings.contextTimeSunriseHour
-                                        Layout.preferredWidth: 100
-                                        onValueModified: DesktopSettings.setContextTimeSunriseHour(value)
-                                    }
-                                }
-
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 10
-                                    enabled: DesktopSettings.contextTimeMode === "sun"
-                                    opacity: enabled ? 1.0 : Theme.opacityHint
-
-                                    Label {
-                                        Layout.fillWidth: true
-                                        text: qsTr("Sunset hour")
-                                        color: Theme.color("textPrimary")
-                                        font.pixelSize: Theme.fontSize("small")
-                                    }
-                                    SpinBox {
-                                        id: sunsetHourSpin
-                                        from: 0
-                                        to: 23
-                                        editable: true
-                                        value: DesktopSettings.contextTimeSunsetHour
-                                        Layout.preferredWidth: 100
-                                        onValueModified: DesktopSettings.setContextTimeSunsetHour(value)
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: DesktopSettings.setAccentColor(modelData)
+                                        }
                                     }
                                 }
                             }
@@ -722,7 +652,7 @@ Item {
                             description: qsTr("Choose whether titlebar buttons appear on the left or right side.")
                             Layout.fillWidth: true
                             ComboBox {
-                                Layout.preferredWidth: 220
+                                implicitWidth: 220
                                 model: [
                                     { key: "left",  label: qsTr("Left (macOS-like)") },
                                     { key: "right", label: qsTr("Right")             }
@@ -730,6 +660,100 @@ Item {
                                 textRole: "label"
                                 currentIndex: ThemeManager.windowControlsSide === "left" ? 0 : 1
                                 onActivated: ThemeManager.setWindowControlsSide(model[currentIndex].key)
+                            }
+                        }
+                    }
+
+                    SettingGroup {
+                        title: qsTr("Motion & Effects")
+                        Layout.fillWidth: true
+
+                        SettingCard {
+                            label: qsTr("Reduce Animations")
+                            description: qsTr("Automatically limit motion when performance is degraded.")
+                            Layout.fillWidth: true
+                            SettingToggle {
+                                checked: DesktopSettings.contextAutoReduceAnimation
+                                onToggled: DesktopSettings.setContextAutoReduceAnimation(checked)
+                            }
+                        }
+
+                        SettingCard {
+                            label: qsTr("Reduce Blur Effects")
+                            description: qsTr("Disable background blur under high system load.")
+                            Layout.fillWidth: true
+                            SettingToggle {
+                                checked: DesktopSettings.contextAutoDisableBlur
+                                onToggled: DesktopSettings.setContextAutoDisableBlur(checked)
+                            }
+                        }
+
+                        SettingCard {
+                            label: qsTr("Reduce Heavy Effects")
+                            description: qsTr("Turn off compositing effects when under load.")
+                            Layout.fillWidth: true
+                            SettingToggle {
+                                checked: DesktopSettings.contextAutoDisableHeavyEffects
+                                onToggled: DesktopSettings.setContextAutoDisableHeavyEffects(checked)
+                            }
+                        }
+                    }
+
+                    SettingGroup {
+                        title: qsTr("Auto Dark Mode")
+                        Layout.fillWidth: true
+
+                        SettingCard {
+                            label: qsTr("Time Period Source")
+                            description: qsTr("Determines when Light/Dark mode switches automatically.")
+                            Layout.fillWidth: true
+                            ComboBox {
+                                id: contextTimeModeCombo
+                                implicitWidth: 180
+                                textRole: "label"
+                                model: [
+                                    { key: "local", label: qsTr("Local Time") },
+                                    { key: "sun",   label: qsTr("Sunrise/Sunset") }
+                                ]
+                                currentIndex: DesktopSettings.contextTimeMode === "sun" ? 1 : 0
+                                onActivated: {
+                                    const entry = model[currentIndex]
+                                    if (entry && entry.key) {
+                                        DesktopSettings.setContextTimeMode(entry.key)
+                                    }
+                                }
+                            }
+                        }
+
+                        SettingCard {
+                            label: qsTr("Sunrise")
+                            description: qsTr("Hour when light mode begins (0–23).")
+                            enabled: DesktopSettings.contextTimeMode === "sun"
+                            opacity: enabled ? 1.0 : Theme.opacityHint
+                            Layout.fillWidth: true
+                            SpinBox {
+                                id: sunriseHourSpin
+                                from: 0; to: 23
+                                editable: true
+                                value: DesktopSettings.contextTimeSunriseHour
+                                implicitWidth: 100
+                                onValueModified: DesktopSettings.setContextTimeSunriseHour(value)
+                            }
+                        }
+
+                        SettingCard {
+                            label: qsTr("Sunset")
+                            description: qsTr("Hour when dark mode begins (0–23).")
+                            enabled: DesktopSettings.contextTimeMode === "sun"
+                            opacity: enabled ? 1.0 : Theme.opacityHint
+                            Layout.fillWidth: true
+                            SpinBox {
+                                id: sunsetHourSpin
+                                from: 0; to: 23
+                                editable: true
+                                value: DesktopSettings.contextTimeSunsetHour
+                                implicitWidth: 100
+                                onValueModified: DesktopSettings.setContextTimeSunsetHour(value)
                             }
                         }
                     }
@@ -1138,7 +1162,7 @@ Item {
                 }
             }
 
-            // ── 5: Pulse ──────────────────────────────────────────────────────
+            // ── 5: Search ─────────────────────────────────────────────────────
             Flickable {
                 contentHeight: pulseCol.implicitHeight + 48
                 clip: true
@@ -1151,518 +1175,197 @@ Item {
                     spacing: 24
 
                     SettingGroup {
-                        title: qsTr("Pulse")
+                        title: qsTr("Search")
                         Layout.fillWidth: true
 
                         SettingCard {
                             label: qsTr("Search Profile")
-                            description: qsTr("Choose how Pulse ranks results.")
+                            description: qsTr("How Pulse weights and ranks results.")
                             Layout.fillWidth: true
                             ComboBox {
+                                implicitWidth: 180
                                 model: [qsTr("Balanced"), qsTr("Apps First"), qsTr("Files First")]
                                 currentIndex: root.pulseProfileIndex()
-                                Layout.preferredWidth: 180
                                 onActivated: function(index) {
                                     var profile = "balanced"
-                                    if (index === 1) {
-                                        profile = "apps-first"
-                                    } else if (index === 2) {
-                                        profile = "files-first"
-                                    }
+                                    if (index === 1) profile = "apps-first"
+                                    else if (index === 2) profile = "files-first"
                                     root.setPulseSetting("pulse.searchProfile", profile)
                                 }
                             }
                         }
 
                         SettingCard {
-                            label: qsTr("Search Sources")
-                            description: qsTr("Choose which data sources Pulse includes in search results.")
+                            label: qsTr("Inline Previews")
+                            description: qsTr("Show a preview panel alongside search results.")
                             Layout.fillWidth: true
-                            ColumnLayout {
-                                Layout.fillWidth: true
-                                spacing: 8
-
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 10
-                                    Label {
-                                        Layout.fillWidth: true
-                                        text: qsTr("Apps")
-                                        color: Theme.color("textPrimary")
-                                        font.pixelSize: Theme.fontSize("small")
-                                    }
-                                    SettingToggle {
-                                        checked: root.pulseIncludeApps
-                                        onToggled: {
-                                            root.pulseIncludeApps = checked
-                                            root.setPulseSetting("pulse.includeApps", checked)
-                                        }
-                                    }
-                                }
-
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 10
-                                    Label {
-                                        Layout.fillWidth: true
-                                        text: qsTr("Recent files")
-                                        color: Theme.color("textPrimary")
-                                        font.pixelSize: Theme.fontSize("small")
-                                    }
-                                    SettingToggle {
-                                        checked: root.pulseIncludeRecent
-                                        onToggled: {
-                                            root.pulseIncludeRecent = checked
-                                            root.setPulseSetting("pulse.includeRecent", checked)
-                                        }
-                                    }
-                                }
-
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 10
-                                    Label {
-                                        Layout.fillWidth: true
-                                        text: qsTr("Clipboard")
-                                        color: Theme.color("textPrimary")
-                                        font.pixelSize: Theme.fontSize("small")
-                                    }
-                                    SettingToggle {
-                                        checked: root.pulseIncludeClipboard
-                                        onToggled: {
-                                            root.pulseIncludeClipboard = checked
-                                            root.setPulseSetting("pulse.includeClipboard", checked)
-                                        }
-                                    }
-                                }
-
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 10
-                                    Label {
-                                        Layout.fillWidth: true
-                                        text: qsTr("Tracker")
-                                        color: Theme.color("textPrimary")
-                                        font.pixelSize: Theme.fontSize("small")
-                                    }
-                                    SettingToggle {
-                                        checked: root.pulseIncludeTracker
-                                        onToggled: {
-                                            root.pulseIncludeTracker = checked
-                                            root.setPulseSetting("pulse.includeTracker", checked)
-                                        }
-                                    }
-                                }
-
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 10
-                                    Label {
-                                        Layout.fillWidth: true
-                                        text: qsTr("Actions")
-                                        color: Theme.color("textPrimary")
-                                        font.pixelSize: Theme.fontSize("small")
-                                    }
-                                    SettingToggle {
-                                        checked: root.pulseIncludeActions
-                                        onToggled: {
-                                            root.pulseIncludeActions = checked
-                                            root.setPulseSetting("pulse.includeActions", checked)
-                                        }
-                                    }
-                                }
-
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 10
-                                    Label {
-                                        Layout.fillWidth: true
-                                        text: qsTr("Settings")
-                                        color: Theme.color("textPrimary")
-                                        font.pixelSize: Theme.fontSize("small")
-                                    }
-                                    SettingToggle {
-                                        checked: root.pulseIncludeSettings
-                                        onToggled: {
-                                            root.pulseIncludeSettings = checked
-                                            root.setPulseSetting("pulse.includeSettings", checked)
-                                        }
-                                    }
+                            SettingToggle {
+                                checked: root.pulseEnablePreview
+                                onToggled: {
+                                    root.pulseEnablePreview = checked
+                                    root.setPulseSetting("pulse.enablePreview", checked)
                                 }
                             }
                         }
 
                         SettingCard {
-                            label: qsTr("Preview Behavior")
-                            description: qsTr("Control whether Pulse shows inline previews for results.")
+                            label: qsTr("Maximum Results")
+                            description: qsTr("Cap on results shown per query (8–256).")
                             Layout.fillWidth: true
-                            RowLayout {
-                                Layout.fillWidth: true
-                                spacing: 10
-                                Label {
-                                    Layout.fillWidth: true
-                                    text: qsTr("Enable preview")
-                                    color: Theme.color("textPrimary")
-                                    font.pixelSize: Theme.fontSize("small")
-                                }
-                                SettingToggle {
-                                    checked: root.pulseEnablePreview
-                                    onToggled: {
-                                        root.pulseEnablePreview = checked
-                                        root.setPulseSetting("pulse.enablePreview", checked)
-                                    }
+                            SpinBox {
+                                id: pulseResultLimitSpin
+                                from: 8; to: 256; stepSize: 4
+                                editable: true
+                                value: root.pulseResultLimit
+                                implicitWidth: 140
+                                onValueModified: {
+                                    root.pulseResultLimit = value
+                                    root.setPulseSetting("pulse.resultLimit", value)
                                 }
                             }
                         }
 
                         SettingCard {
-                            label: qsTr("Result Limit")
-                            description: qsTr("Maximum number of results Pulse shows for a query.")
+                            label: qsTr("Auto-Focus on Open")
+                            description: qsTr("Move keyboard focus to the search field automatically.")
                             Layout.fillWidth: true
-                            RowLayout {
-                                Layout.fillWidth: true
-                                spacing: 10
-                                Label {
-                                    Layout.fillWidth: true
-                                    text: qsTr("Maximum results")
-                                    color: Theme.color("textPrimary")
-                                    font.pixelSize: Theme.fontSize("small")
-                                }
-                                SpinBox {
-                                    id: pulseResultLimitSpin
-                                    from: 8
-                                    to: 256
-                                    stepSize: 4
-                                    editable: true
-                                    value: root.pulseResultLimit
-                                    Layout.preferredWidth: 140
-                                    onValueModified: {
-                                        root.pulseResultLimit = value
-                                        root.setPulseSetting("pulse.resultLimit", value)
-                                    }
+                            SettingToggle {
+                                checked: root.pulseAutoFocusOnOpen
+                                onToggled: {
+                                    root.pulseAutoFocusOnOpen = checked
+                                    root.setPulseSetting("pulse.autoFocusOnOpen", checked)
                                 }
                             }
                         }
 
                         SettingCard {
-                            label: qsTr("Search Behavior")
-                            description: qsTr("Control how Pulse focuses and launches results.")
+                            label: qsTr("Enter Opens First Result")
+                            description: qsTr("Pressing Return immediately launches the top match.")
                             Layout.fillWidth: true
-                            ColumnLayout {
-                                Layout.fillWidth: true
-                                spacing: 8
-
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 10
-                                    Label {
-                                        Layout.fillWidth: true
-                                        text: qsTr("Auto-focus on open")
-                                        color: Theme.color("textPrimary")
-                                        font.pixelSize: Theme.fontSize("small")
-                                    }
-                                    SettingToggle {
-                                        checked: root.pulseAutoFocusOnOpen
-                                        onToggled: {
-                                            root.pulseAutoFocusOnOpen = checked
-                                            root.setPulseSetting("pulse.autoFocusOnOpen", checked)
-                                        }
-                                    }
-                                }
-
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 10
-                                    Label {
-                                        Layout.fillWidth: true
-                                        text: qsTr("Enter opens first result")
-                                        color: Theme.color("textPrimary")
-                                        font.pixelSize: Theme.fontSize("small")
-                                    }
-                                    SettingToggle {
-                                        checked: root.pulseEnterOpensFirstResult
-                                        onToggled: {
-                                            root.pulseEnterOpensFirstResult = checked
-                                            root.setPulseSetting("pulse.enterOpensFirstResult", checked)
-                                        }
-                                    }
-                                }
-
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 10
-                                    Label {
-                                        Layout.fillWidth: true
-                                        text: qsTr("Auto-close after launch")
-                                        color: Theme.color("textPrimary")
-                                        font.pixelSize: Theme.fontSize("small")
-                                    }
-                                    SettingToggle {
-                                        checked: root.pulseAutoCloseAfterLaunch
-                                        onToggled: {
-                                            root.pulseAutoCloseAfterLaunch = checked
-                                            root.setPulseSetting("pulse.autoCloseAfterLaunch", checked)
-                                        }
-                                    }
+                            SettingToggle {
+                                checked: root.pulseEnterOpensFirstResult
+                                onToggled: {
+                                    root.pulseEnterOpensFirstResult = checked
+                                    root.setPulseSetting("pulse.enterOpensFirstResult", checked)
                                 }
                             }
                         }
 
                         SettingCard {
-                            label: qsTr("Ranking Tuning")
-                            description: qsTr("Adjust how strongly each result source is boosted.")
+                            label: qsTr("Close After Launch")
+                            description: qsTr("Dismiss the search overlay after opening a result.")
                             Layout.fillWidth: true
-                            ColumnLayout {
-                                Layout.fillWidth: true
-                                spacing: 8
-
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 10
-                                    Label {
-                                        Layout.fillWidth: true
-                                        text: qsTr("Apps")
-                                        color: Theme.color("textPrimary")
-                                        font.pixelSize: Theme.fontSize("small")
-                                    }
-                                    SpinBox {
-                                        id: pulseBoostAppsSpin
-                                        from: -40
-                                        to: 80
-                                        stepSize: 1
-                                        editable: true
-                                        value: root.pulseBoostApps
-                                        Layout.preferredWidth: 140
-                                        onValueModified: {
-                                            root.pulseBoostApps = value
-                                            root.setPulseSetting("pulse.rankBoostApps", value)
-                                        }
-                                    }
-                                }
-
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 10
-                                    Label {
-                                        Layout.fillWidth: true
-                                        text: qsTr("Recent files")
-                                        color: Theme.color("textPrimary")
-                                        font.pixelSize: Theme.fontSize("small")
-                                    }
-                                    SpinBox {
-                                        id: pulseBoostRecentSpin
-                                        from: -40
-                                        to: 80
-                                        stepSize: 1
-                                        editable: true
-                                        value: root.pulseBoostRecent
-                                        Layout.preferredWidth: 140
-                                        onValueModified: {
-                                            root.pulseBoostRecent = value
-                                            root.setPulseSetting("pulse.rankBoostRecent", value)
-                                        }
-                                    }
-                                }
-
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 10
-                                    Label {
-                                        Layout.fillWidth: true
-                                        text: qsTr("Clipboard")
-                                        color: Theme.color("textPrimary")
-                                        font.pixelSize: Theme.fontSize("small")
-                                    }
-                                    SpinBox {
-                                        id: pulseBoostClipboardSpin
-                                        from: -40
-                                        to: 80
-                                        stepSize: 1
-                                        editable: true
-                                        value: root.pulseBoostClipboard
-                                        Layout.preferredWidth: 140
-                                        onValueModified: {
-                                            root.pulseBoostClipboard = value
-                                            root.setPulseSetting("pulse.rankBoostClipboard", value)
-                                        }
-                                    }
-                                }
-
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 10
-                                    Label {
-                                        Layout.fillWidth: true
-                                        text: qsTr("Tracker")
-                                        color: Theme.color("textPrimary")
-                                        font.pixelSize: Theme.fontSize("small")
-                                    }
-                                    SpinBox {
-                                        id: pulseBoostTrackerSpin
-                                        from: -40
-                                        to: 80
-                                        stepSize: 1
-                                        editable: true
-                                        value: root.pulseBoostTracker
-                                        Layout.preferredWidth: 140
-                                        onValueModified: {
-                                            root.pulseBoostTracker = value
-                                            root.setPulseSetting("pulse.rankBoostTracker", value)
-                                        }
-                                    }
-                                }
-
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 10
-                                    Label {
-                                        Layout.fillWidth: true
-                                        text: qsTr("Actions")
-                                        color: Theme.color("textPrimary")
-                                        font.pixelSize: Theme.fontSize("small")
-                                    }
-                                    SpinBox {
-                                        id: pulseBoostActionsSpin
-                                        from: -40
-                                        to: 80
-                                        stepSize: 1
-                                        editable: true
-                                        value: root.pulseBoostActions
-                                        Layout.preferredWidth: 140
-                                        onValueModified: {
-                                            root.pulseBoostActions = value
-                                            root.setPulseSetting("pulse.rankBoostActions", value)
-                                        }
-                                    }
-                                }
-
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 10
-                                    Label {
-                                        Layout.fillWidth: true
-                                        text: qsTr("Settings")
-                                        color: Theme.color("textPrimary")
-                                        font.pixelSize: Theme.fontSize("small")
-                                    }
-                                    SpinBox {
-                                        id: pulseBoostSettingsSpin
-                                        from: -40
-                                        to: 80
-                                        stepSize: 1
-                                        editable: true
-                                        value: root.pulseBoostSettings
-                                        Layout.preferredWidth: 140
-                                        onValueModified: {
-                                            root.pulseBoostSettings = value
-                                            root.setPulseSetting("pulse.rankBoostSettings", value)
-                                        }
-                                    }
+                            SettingToggle {
+                                checked: root.pulseAutoCloseAfterLaunch
+                                onToggled: {
+                                    root.pulseAutoCloseAfterLaunch = checked
+                                    root.setPulseSetting("pulse.autoCloseAfterLaunch", checked)
                                 }
                             }
                         }
 
                         SettingCard {
-                            label: qsTr("Tracker Policy")
-                            description: qsTr("Tune when indexed file search is allowed to run.")
+                            label: qsTr("Clipboard Resolve Notification")
+                            description: qsTr("Show a hint when Pulse resolves a clipboard item.")
                             Layout.fillWidth: true
-                            ColumnLayout {
-                                Layout.fillWidth: true
-                                spacing: 8
+                            SettingToggle {
+                                checked: root.settingBool("pulse.notifyClipboardResolveSuccess", true)
+                                onToggled: root.setPulseSetting("pulse.notifyClipboardResolveSuccess", checked)
+                            }
+                        }
+                    }
 
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 10
-                                    Label {
-                                        Layout.fillWidth: true
-                                        text: qsTr("Initial delay")
-                                        color: Theme.color("textPrimary")
-                                        font.pixelSize: Theme.fontSize("small")
-                                    }
-                                    SpinBox {
-                                        id: pulseTrackerDelaySpin
-                                        from: 0
-                                        to: 3600
-                                        stepSize: 10
-                                        editable: true
-                                        value: root.pulseTrackerInitialDelaySec
-                                        Layout.preferredWidth: 140
-                                        onValueModified: {
-                                            root.pulseTrackerInitialDelaySec = value
-                                            root.setPulseSetting("pulse.trackerInitialDelaySec", value)
-                                        }
-                                    }
-                                }
+                    SettingGroup {
+                        title: qsTr("Search Sources")
+                        Layout.fillWidth: true
 
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 10
-                                    Label {
-                                        Layout.fillWidth: true
-                                        text: qsTr("CPU limit")
-                                        color: Theme.color("textPrimary")
-                                        font.pixelSize: Theme.fontSize("small")
-                                    }
-                                    SpinBox {
-                                        id: pulseTrackerCpuSpin
-                                        from: 1
-                                        to: 100
-                                        editable: true
-                                        value: root.pulseTrackerCpuLimit
-                                        textFromValue: function(v) { return String(v) + "%" }
-                                        valueFromText: function(t) {
-                                            var n = parseInt(String(t).replace("%", ""))
-                                            return isNaN(n) ? 15 : n
-                                        }
-                                        Layout.preferredWidth: 140
-                                        onValueModified: {
-                                            root.pulseTrackerCpuLimit = value
-                                            root.setPulseSetting("pulse.trackerCpuLimit", value)
-                                        }
-                                    }
-                                }
-
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 10
-                                    Label {
-                                        Layout.fillWidth: true
-                                        text: qsTr("Idle only")
-                                        color: Theme.color("textPrimary")
-                                        font.pixelSize: Theme.fontSize("small")
-                                    }
-                                    SettingToggle {
-                                        checked: root.pulseTrackerIdleOnly
-                                        onToggled: {
-                                            root.pulseTrackerIdleOnly = checked
-                                            root.setPulseSetting("pulse.trackerIdleOnly", checked)
-                                        }
-                                    }
-                                }
-
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 10
-                                    Label {
-                                        Layout.fillWidth: true
-                                        text: qsTr("Charging only")
-                                        color: Theme.color("textPrimary")
-                                        font.pixelSize: Theme.fontSize("small")
-                                    }
-                                    SettingToggle {
-                                        checked: root.pulseTrackerChargingOnly
-                                        onToggled: {
-                                            root.pulseTrackerChargingOnly = checked
-                                            root.setPulseSetting("pulse.trackerChargingOnly", checked)
-                                        }
-                                    }
+                        SettingCard {
+                            label: qsTr("Apps")
+                            description: qsTr("Include installed applications.")
+                            Layout.fillWidth: true
+                            SettingToggle {
+                                checked: root.pulseIncludeApps
+                                onToggled: {
+                                    root.pulseIncludeApps = checked
+                                    root.setPulseSetting("pulse.includeApps", checked)
                                 }
                             }
                         }
 
                         SettingCard {
-                            label: qsTr("Exclude scan directory")
-                            description: qsTr("Directories ignored by Pulse tracker scans.")
+                            label: qsTr("Recent Files")
+                            description: qsTr("Include recently opened documents.")
+                            Layout.fillWidth: true
+                            SettingToggle {
+                                checked: root.pulseIncludeRecent
+                                onToggled: {
+                                    root.pulseIncludeRecent = checked
+                                    root.setPulseSetting("pulse.includeRecent", checked)
+                                }
+                            }
+                        }
+
+                        SettingCard {
+                            label: qsTr("Clipboard")
+                            description: qsTr("Include clipboard history.")
+                            Layout.fillWidth: true
+                            SettingToggle {
+                                checked: root.pulseIncludeClipboard
+                                onToggled: {
+                                    root.pulseIncludeClipboard = checked
+                                    root.setPulseSetting("pulse.includeClipboard", checked)
+                                }
+                            }
+                        }
+
+                        SettingCard {
+                            label: qsTr("File Index")
+                            description: qsTr("Include results from the Tracker file index.")
+                            Layout.fillWidth: true
+                            SettingToggle {
+                                checked: root.pulseIncludeTracker
+                                onToggled: {
+                                    root.pulseIncludeTracker = checked
+                                    root.setPulseSetting("pulse.includeTracker", checked)
+                                }
+                            }
+                        }
+
+                        SettingCard {
+                            label: qsTr("Actions")
+                            description: qsTr("Include system and app actions.")
+                            Layout.fillWidth: true
+                            SettingToggle {
+                                checked: root.pulseIncludeActions
+                                onToggled: {
+                                    root.pulseIncludeActions = checked
+                                    root.setPulseSetting("pulse.includeActions", checked)
+                                }
+                            }
+                        }
+
+                        SettingCard {
+                            label: qsTr("Settings")
+                            description: qsTr("Include system settings panels.")
+                            Layout.fillWidth: true
+                            SettingToggle {
+                                checked: root.pulseIncludeSettings
+                                onToggled: {
+                                    root.pulseIncludeSettings = checked
+                                    root.setPulseSetting("pulse.includeSettings", checked)
+                                }
+                            }
+                        }
+                    }
+
+                    SettingGroup {
+                        title: qsTr("Excluded Directories")
+                        Layout.fillWidth: true
+
+                        SettingCard {
+                            label: qsTr("Excluded Paths")
+                            description: qsTr("Directories skipped by the file index scan.")
+                            hideSeparator: true
                             Layout.fillWidth: true
                             ColumnLayout {
                                 spacing: 8
@@ -1697,7 +1400,7 @@ Item {
                                                 }
 
                                                 ToolButton {
-                                                    text: "x"
+                                                    text: "×"
                                                     Layout.preferredWidth: 22
                                                     Layout.preferredHeight: 22
                                                     onClicked: {
@@ -1732,24 +1435,178 @@ Item {
                                         onClicked: root.addPulseExcludeEntry()
                                     }
                                 }
+                            }
+                        }
+                    }
 
-                                Label {
-                                    text: qsTr("You can use absolute paths or simple directory names.")
-                                    color: Theme.color("textSecondary")
-                                    font.pixelSize: Theme.fontSize("small")
-                                    wrapMode: Text.WordWrap
-                                    Layout.fillWidth: true
+                    SettingGroup {
+                        title: qsTr("Advanced")
+                        Layout.fillWidth: true
+
+                        SettingCard {
+                            label: qsTr("Apps Rank Boost")
+                            description: qsTr("Score offset applied to app results (−40 to +80).")
+                            Layout.fillWidth: true
+                            SpinBox {
+                                id: pulseBoostAppsSpin
+                                from: -40; to: 80; stepSize: 1
+                                editable: true
+                                value: root.pulseBoostApps
+                                implicitWidth: 140
+                                onValueModified: {
+                                    root.pulseBoostApps = value
+                                    root.setPulseSetting("pulse.rankBoostApps", value)
                                 }
                             }
                         }
 
                         SettingCard {
-                            label: qsTr("Notify Clipboard Resolve Success")
-                            description: qsTr("Show a success hint when Pulse resolves a clipboard item.")
+                            label: qsTr("Recent Files Rank Boost")
+                            description: qsTr("Score offset applied to recent-file results (−40 to +80).")
+                            Layout.fillWidth: true
+                            SpinBox {
+                                id: pulseBoostRecentSpin
+                                from: -40; to: 80; stepSize: 1
+                                editable: true
+                                value: root.pulseBoostRecent
+                                implicitWidth: 140
+                                onValueModified: {
+                                    root.pulseBoostRecent = value
+                                    root.setPulseSetting("pulse.rankBoostRecent", value)
+                                }
+                            }
+                        }
+
+                        SettingCard {
+                            label: qsTr("Clipboard Rank Boost")
+                            description: qsTr("Score offset applied to clipboard results (−40 to +80).")
+                            Layout.fillWidth: true
+                            SpinBox {
+                                id: pulseBoostClipboardSpin
+                                from: -40; to: 80; stepSize: 1
+                                editable: true
+                                value: root.pulseBoostClipboard
+                                implicitWidth: 140
+                                onValueModified: {
+                                    root.pulseBoostClipboard = value
+                                    root.setPulseSetting("pulse.rankBoostClipboard", value)
+                                }
+                            }
+                        }
+
+                        SettingCard {
+                            label: qsTr("File Index Rank Boost")
+                            description: qsTr("Score offset applied to file index results (−40 to +80).")
+                            Layout.fillWidth: true
+                            SpinBox {
+                                id: pulseBoostTrackerSpin
+                                from: -40; to: 80; stepSize: 1
+                                editable: true
+                                value: root.pulseBoostTracker
+                                implicitWidth: 140
+                                onValueModified: {
+                                    root.pulseBoostTracker = value
+                                    root.setPulseSetting("pulse.rankBoostTracker", value)
+                                }
+                            }
+                        }
+
+                        SettingCard {
+                            label: qsTr("Actions Rank Boost")
+                            description: qsTr("Score offset applied to action results (−40 to +80).")
+                            Layout.fillWidth: true
+                            SpinBox {
+                                id: pulseBoostActionsSpin
+                                from: -40; to: 80; stepSize: 1
+                                editable: true
+                                value: root.pulseBoostActions
+                                implicitWidth: 140
+                                onValueModified: {
+                                    root.pulseBoostActions = value
+                                    root.setPulseSetting("pulse.rankBoostActions", value)
+                                }
+                            }
+                        }
+
+                        SettingCard {
+                            label: qsTr("Settings Rank Boost")
+                            description: qsTr("Score offset applied to settings results (−40 to +80).")
+                            Layout.fillWidth: true
+                            SpinBox {
+                                id: pulseBoostSettingsSpin
+                                from: -40; to: 80; stepSize: 1
+                                editable: true
+                                value: root.pulseBoostSettings
+                                implicitWidth: 140
+                                onValueModified: {
+                                    root.pulseBoostSettings = value
+                                    root.setPulseSetting("pulse.rankBoostSettings", value)
+                                }
+                            }
+                        }
+
+                        SettingCard {
+                            label: qsTr("Index Startup Delay")
+                            description: qsTr("Seconds before file indexing begins after login (0–3600).")
+                            Layout.fillWidth: true
+                            SpinBox {
+                                id: pulseTrackerDelaySpin
+                                from: 0; to: 3600; stepSize: 10
+                                editable: true
+                                value: root.pulseTrackerInitialDelaySec
+                                implicitWidth: 140
+                                onValueModified: {
+                                    root.pulseTrackerInitialDelaySec = value
+                                    root.setPulseSetting("pulse.trackerInitialDelaySec", value)
+                                }
+                            }
+                        }
+
+                        SettingCard {
+                            label: qsTr("Index CPU Limit")
+                            description: qsTr("Maximum CPU% the file indexer is allowed to use.")
+                            Layout.fillWidth: true
+                            SpinBox {
+                                id: pulseTrackerCpuSpin
+                                from: 1; to: 100
+                                editable: true
+                                value: root.pulseTrackerCpuLimit
+                                textFromValue: function(v) { return String(v) + "%" }
+                                valueFromText: function(t) {
+                                    var n = parseInt(String(t).replace("%", ""))
+                                    return isNaN(n) ? 15 : n
+                                }
+                                implicitWidth: 140
+                                onValueModified: {
+                                    root.pulseTrackerCpuLimit = value
+                                    root.setPulseSetting("pulse.trackerCpuLimit", value)
+                                }
+                            }
+                        }
+
+                        SettingCard {
+                            label: qsTr("Index When Idle")
+                            description: qsTr("Only run file indexing when the system is idle.")
                             Layout.fillWidth: true
                             SettingToggle {
-                                checked: root.settingBool("pulse.notifyClipboardResolveSuccess", true)
-                                onToggled: root.setPulseSetting("pulse.notifyClipboardResolveSuccess", checked)
+                                checked: root.pulseTrackerIdleOnly
+                                onToggled: {
+                                    root.pulseTrackerIdleOnly = checked
+                                    root.setPulseSetting("pulse.trackerIdleOnly", checked)
+                                }
+                            }
+                        }
+
+                        SettingCard {
+                            label: qsTr("Index When Charging")
+                            description: qsTr("Only run file indexing when plugged in to power.")
+                            Layout.fillWidth: true
+                            SettingToggle {
+                                checked: root.pulseTrackerChargingOnly
+                                onToggled: {
+                                    root.pulseTrackerChargingOnly = checked
+                                    root.setPulseSetting("pulse.trackerChargingOnly", checked)
+                                }
                             }
                         }
                     }

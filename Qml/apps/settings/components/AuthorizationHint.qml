@@ -33,11 +33,12 @@ Rectangle {
         anchors.margins: Theme.metric("spacingSm")
         spacing: Theme.metric("spacingSm")
 
-        DSStyle.Label {
-            text: "\uD83D\uDD12"
-            font.pixelSize: Theme.fontSize("menu")
-            color: Theme.color("textSecondary")
-            Layout.alignment: Qt.AlignTop
+        Image {
+            source: "image://icon/dialog-password-symbolic"
+            width: 16
+            height: 16
+            smooth: true
+            Layout.alignment: Qt.AlignVCenter
         }
 
         Text {

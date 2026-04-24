@@ -26,14 +26,11 @@ Item {
         return MotionController.allowMotionPriority(MotionController.LowPriority)
     }
 
-    // Highlighted-row background (replaces the old per-card border)
+    // Highlighted-row background
     Rectangle {
+        id: highlightBg
         anchors.fill: parent
-        color: root.highlighted ? Theme.color("accentSoft") : "transparent"
-        Behavior on color {
-            enabled: root.microAnimationAllowed()
-            ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault }
-        }
+        color: "transparent"
     }
 
     RowLayout {
@@ -96,30 +93,40 @@ Item {
         }
     }
 
-    // Highlight pulse — flash the row briefly when deep-linked
-    SequentialAnimation {
-        id: highlightPulse
-        running: false
-        alwaysRunToEnd: true
-        NumberAnimation {
-            target: root; property: "opacity"
-            from: 1.0; to: 0.6
-            duration: Theme.durationFast; easing.type: Theme.easingDefault
-        }
-        NumberAnimation {
-            target: root; property: "opacity"
-            from: 0.6; to: 1.0
-            duration: Theme.durationMd; easing.type: Theme.easingDefault
-        }
+    // Flash accent → accentSoft when deep-linked to this row
+    ColorAnimation {
+        id: highlightFlash
+        target: highlightBg
+        property: "color"
+        from: Theme.color("accent")
+        to: Theme.color("accentSoft")
+        duration: Theme.durationMd
+        easing.type: Theme.easingDefault
+    }
+
+    ColorAnimation {
+        id: highlightFade
+        target: highlightBg
+        property: "color"
+        to: "transparent"
+        duration: Theme.durationSm
+        easing.type: Theme.easingDefault
     }
 
     onHighlightedChanged: {
         if (highlighted) {
-            if (!root.microAnimationAllowed()) {
-                root.opacity = 1.0
-                return
+            highlightBg.color = Theme.color("accent")
+            if (root.microAnimationAllowed()) {
+                highlightFlash.restart()
+            } else {
+                highlightBg.color = Theme.color("accentSoft")
             }
-            highlightPulse.restart()
+        } else {
+            if (root.microAnimationAllowed()) {
+                highlightFade.restart()
+            } else {
+                highlightBg.color = "transparent"
+            }
         }
     }
 }
