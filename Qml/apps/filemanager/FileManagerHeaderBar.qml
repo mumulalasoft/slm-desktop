@@ -100,7 +100,6 @@ Rectangle {
                         asynchronous: true
                         cache: true
                         source: "image://themeicon/go-next-symbolic?v=" + root.iconRevision
-                        opacity: nextMouse.enabled ? 1.0 : 0.5
                     }
                     MouseArea {
                         id: nextMouse
@@ -114,8 +113,8 @@ Rectangle {
         }
 
         DSStyle.Label {
-            Layout.preferredWidth: 300
-            Layout.maximumWidth: 460
+            Layout.fillWidth: true
+            Layout.minimumWidth: 80
             text: {
                 var p = "~"
                 var columnsMode = hostRoot.viewMode === "columns"
@@ -139,10 +138,6 @@ Rectangle {
             font.weight: Theme.fontWeight("semibold")
             verticalAlignment: Text.AlignVCenter
             elide: Text.ElideRight
-        }
-
-        Item {
-            Layout.fillWidth: true
         }
 
         RowLayout {
@@ -178,10 +173,16 @@ Rectangle {
                             width: Math.floor((parent.width - 6) / 3)
                             height: parent.height
                             radius: Theme.radiusLg
-                            color: hostRoot.viewMode === String(
-                                       modelData.mode) ? Theme.color("accentSubtle") : "transparent"
+                            color: {
+                                var isActive = hostRoot.viewMode === String(modelData.mode)
+                                if (isActive) return Theme.color("accentSubtle")
+                                if (segmentHover.hovered) return Theme.color("controlBgHover")
+                                return "transparent"
+                            }
                             border.width: Theme.borderWidthNone
                             border.color: Theme.color("fileManagerControlBorder")
+
+                            HoverHandler { id: segmentHover }
 
                             Image {
                                 anchors.centerIn: parent
@@ -194,6 +195,11 @@ Rectangle {
                                             modelData.iconName
                                             || "view-grid-symbolic")
                                         + "?v=" + root.iconRevision
+                                opacity: hostRoot.viewMode === String(modelData.mode) ? 1.0 : (segmentHover.hovered ? 0.9 : 0.7)
+                                Behavior on opacity {
+                                    enabled: root.microAnimationAllowed()
+                                    NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault }
+                                }
                             }
 
                             MouseArea {
@@ -286,11 +292,43 @@ Rectangle {
                                 }
                             }
                         }
+
+                        Rectangle {
+                            Layout.preferredWidth: 14
+                            Layout.preferredHeight: 14
+                            radius: Theme.radiusMdPlus
+                            visible: hostRoot.toolbarSearchExpanded
+                                     && String(toolbarSearchField.text || "").length > 0
+                            color: searchClearMouse.containsMouse
+                                   ? Theme.color("controlBgHover")
+                                   : (Theme.darkMode ? Qt.rgba(1, 1, 1, 0.15) : Qt.rgba(0, 0, 0, 0.10))
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: "×"
+                                font.family: Theme.fontFamilyUi
+                                font.pixelSize: Theme.fontSize("xs")
+                                font.weight: Theme.fontWeight("medium")
+                                color: Theme.color("textSecondary")
+                            }
+
+                            MouseArea {
+                                id: searchClearMouse
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: {
+                                    toolbarSearchField.text = ""
+                                    toolbarSearchField.forceActiveFocus()
+                                }
+                            }
+                        }
                     }
 
                     MouseArea {
                         anchors.fill: parent
                         hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
                         enabled: !hostRoot.toolbarSearchExpanded
                         onClicked: hostRoot.openToolbarSearch(true)
                     }

@@ -14,11 +14,19 @@ Rectangle {
     border.width: Theme.borderWidthNone
     border.color: "transparent"
 
+    Rectangle {
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        height: 1
+        color: Theme.darkMode ? Qt.rgba(1, 1, 1, 0.07) : Qt.rgba(0, 0, 0, 0.07)
+    }
+
     RowLayout {
         anchors.fill: parent
-        anchors.leftMargin: 10
-        anchors.rightMargin: 10
-        spacing: 6
+        anchors.leftMargin: Theme.metric("spacingMd")
+        anchors.rightMargin: Theme.metric("spacingMd")
+        spacing: Theme.metric("spacingSm")
 
         DSStyle.Label {
             Layout.fillWidth: true
@@ -28,12 +36,14 @@ Rectangle {
                 var selected = Number(
                             hostRoot.selectedEntryIndexes
                             ? hostRoot.selectedEntryIndexes.length : 0)
-                return String(items) + " items"
-                        + (selected > 0 ? ("  •  " + String(selected)
-                                           + " selected") : "")
+                if (selected > 0) {
+                    return String(selected) + " of " + String(items) + " selected"
+                }
+                return String(items) + (items === 1 ? " item" : " items")
             }
             color: Theme.color("textSecondary")
             font.pixelSize: Theme.fontSize("small")
+            horizontalAlignment: Text.AlignLeft
             elide: Text.ElideMiddle
         }
     }

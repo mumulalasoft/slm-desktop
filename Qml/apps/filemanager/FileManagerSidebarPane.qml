@@ -87,7 +87,7 @@ Rectangle {
         anchors.bottomMargin: Theme.metric("spacingSm")
         clip: true
         model: sidebarModel
-        spacing: 1
+        spacing: 2
 
         delegate: Item {
             required property string rowType
@@ -116,9 +116,9 @@ Rectangle {
                                                     && !isStorageStatusRow
             width: sidebarList.width
             height: isSectionRow ? Math.max(
-                                                24, Math.round(
+                                                30, Math.round(
                                                     hostRoot.sidebarMenuFontPx
-                                                    * 1.50)) : Math.max(
+                                                    * 1.90)) : Math.max(
                                                 30, Math.round(
                                                     hostRoot.sidebarMenuFontPx * 1.75))
 
@@ -132,9 +132,8 @@ Rectangle {
                                      ? Theme.color("accentSubtle")
                                      : ((isInteractiveRow && sidebarMouse.containsMouse)
                                         ? Theme.color("hoverItem") : "transparent"))
-                border.width: (isInteractiveRow && hostRoot.selectedSidebarPath === path)
-                              ? Theme.borderWidthThin : Theme.borderWidthNone
-                border.color: Theme.color("panelBorderStrong")
+                border.width: Theme.borderWidthNone
+                border.color: "transparent"
 
                 Row {
                     anchors.verticalCenter: parent.verticalCenter
@@ -175,13 +174,15 @@ Rectangle {
                 Text {
                     anchors.left: parent.left
                     anchors.leftMargin: 8
-                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.bottom: parent.bottom
+                    anchors.bottomMargin: 5
                     visible: isSectionRow
-                    text: label
+                    text: label.toUpperCase()
                     color: Theme.color("textSecondary")
                     font.family: Theme.fontFamilyUi
                     font.pixelSize: Theme.fontSize("caption")
-                    font.weight: Theme.fontWeight("medium")
+                    font.weight: Theme.fontWeight("semibold")
+                    font.letterSpacing: 0.7
                     verticalAlignment: Text.AlignVCenter
                 }
 
@@ -192,14 +193,15 @@ Rectangle {
                     anchors.bottom: parent.bottom
                     anchors.leftMargin: 24
                     anchors.rightMargin: 52
-                    height: 2
+                    anchors.bottomMargin: 4
+                    height: 3
                     radius: Theme.radiusTiny
                     color: hostRoot.storageTrackColor(mounted)
 
                     Rectangle {
                         visible: mounted && usageRatio >= 0
                         width: Math.max(
-                                   3, Math.round(
+                                   4, Math.round(
                                        parent.width * usageRatio))
                         height: parent.height
                         radius: Theme.radiusTiny
@@ -281,13 +283,6 @@ Rectangle {
         anchors.bottomMargin: 1
         height: Math.max(40, Math.round(hostRoot.sidebarMenuFontPx * 2.20))
         color: "transparent"
-
-        Rectangle {
-            anchors.fill: parent
-            color: "transparent"
-            radius: Theme.radiusWindow
-            antialiasing: true
-        }
 
         Rectangle {
             anchors.left: parent.left

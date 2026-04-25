@@ -21,35 +21,6 @@ Rectangle {
         spacing: Theme.metric("spacingXxs")
 
         Rectangle {
-            id: addTabPill
-            Layout.preferredWidth: 24
-            Layout.preferredHeight: Theme.controlHeightCompact
-            radius: Theme.radiusMd
-            color: addTabMouse.containsMouse ? Theme.color("controlBgHover") : "transparent"
-            border.width: addTabMouse.containsMouse ? Theme.borderWidthThin : Theme.borderWidthNone
-            border.color: Theme.color("panelBorder")
-
-            Text {
-                anchors.centerIn: parent
-                text: "+"
-                color: Theme.color("textPrimary")
-                font.family: Theme.fontFamilyUi
-                font.pixelSize: Theme.fontSize("subtitle")
-                font.weight: Theme.fontWeight("medium")
-            }
-
-            MouseArea {
-                id: addTabMouse
-                anchors.fill: parent
-                hoverEnabled: true
-                onClicked: hostRoot.addTab(
-                               hostRoot.fileModel
-                               && hostRoot.fileModel.currentPath ? String(hostRoot.fileModel.currentPath) : "~",
-                               true)
-            }
-        }
-
-        Rectangle {
             Layout.fillWidth: true
             Layout.preferredHeight: Theme.controlHeightCompact
             color: "transparent"
@@ -75,47 +46,61 @@ Rectangle {
                     radius: Theme.radiusControl
                     color: hostRoot.activeTabIndex === index
                            ? (Theme.darkMode ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(1, 1, 1, 0.58))
-                           : "transparent"
+                           : (tabHover.hovered ? Theme.color("controlBgHover") : "transparent")
                     border.width: hostRoot.activeTabIndex === index ? Theme.borderWidthThin : Theme.borderWidthNone
                     border.color: Theme.color("panelBorder")
 
+                    HoverHandler {
+                        id: tabHover
+                    }
+
                     Text {
-                        anchors.centerIn: parent
+                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.left: parent.left
+                        anchors.right: tabCloseButton.visible ? tabCloseButton.left : parent.right
+                        anchors.leftMargin: 10
+                        anchors.rightMargin: tabCloseButton.visible ? 4 : 10
                         text: hostRoot.tabTitleFromPath(String(path || "~"))
                         color: Theme.color("textPrimary")
                         font.family: Theme.fontFamilyUi
                         elide: Text.ElideRight
                         verticalAlignment: Text.AlignVCenter
-                        horizontalAlignment: Text.AlignHCenter
-                        width: parent.width - (tabCloseButton.visible ? 24 : 12)
+                        horizontalAlignment: Text.AlignLeft
                     }
 
                     Rectangle {
                         id: tabCloseButton
-                        visible: (tabModel.count > 1)
-                                 && (hostRoot.activeTabIndex === index)
+                        visible: tabModel.count > 1
+                        opacity: (hostRoot.activeTabIndex === index || tabHover.hovered) ? 1.0 : 0.0
                         z: 3
-                        width: 12
-                        height: 12
+                        width: 16
+                        height: 16
                         radius: Theme.radiusMdPlus
                         anchors.right: parent.right
                         anchors.rightMargin: 6
                         anchors.verticalCenter: parent.verticalCenter
-                        color: tabCloseMouse.containsMouse ? Theme.color("fileManagerTabCloseHover") : "transparent"
+                        color: tabCloseMouse.containsMouse
+                               ? Theme.color("fileManagerTabCloseHover")
+                               : (Theme.darkMode ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(0, 0, 0, 0.08))
+
+                        Behavior on opacity {
+                            NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault }
+                        }
 
                         Text {
                             anchors.centerIn: parent
                             text: "\u00d7"
                             font.family: Theme.fontFamilyUi
                             font.pixelSize: Theme.fontSize("xs")
-                            color: Theme.color("textPrimary")
+                            font.weight: Theme.fontWeight("medium")
+                            color: Theme.color("textSecondary")
                         }
 
                         MouseArea {
                             id: tabCloseMouse
                             anchors.fill: parent
                             hoverEnabled: true
-                            enabled: tabCloseButton.visible
+                            cursorShape: Qt.PointingHandCursor
                             onClicked: function(mouse) {
                                 mouse.accepted = true
                                 hostRoot.closeTab(index)
@@ -125,8 +110,8 @@ Rectangle {
 
                     MouseArea {
                         anchors.fill: parent
-                        anchors.rightMargin: tabCloseButton.visible ? (tabCloseButton.width + 12) : 0
-                        hoverEnabled: true
+                        anchors.rightMargin: tabModel.count > 1 ? (tabCloseButton.width + 10) : 0
+                        hoverEnabled: false
                         acceptedButtons: Qt.LeftButton | Qt.MiddleButton
                         onClicked: function(mouse) {
                             if (mouse.button === Qt.MiddleButton) {
@@ -137,6 +122,38 @@ Rectangle {
                         }
                     }
                 }
+            }
+        }
+
+        Rectangle {
+            id: addTabPill
+            Layout.preferredWidth: 24
+            Layout.preferredHeight: Theme.controlHeightCompact
+            radius: Theme.radiusMd
+            color: addTabMouse.containsMouse ? Theme.color("controlBgHover") : "transparent"
+            border.width: Theme.borderWidthThin
+            border.color: addTabMouse.containsMouse
+                          ? Theme.color("panelBorder")
+                          : (Theme.darkMode ? Qt.rgba(1, 1, 1, 0.10) : Qt.rgba(0, 0, 0, 0.10))
+
+            Text {
+                anchors.centerIn: parent
+                text: "+"
+                color: addTabMouse.containsMouse ? Theme.color("textPrimary") : Theme.color("textSecondary")
+                font.family: Theme.fontFamilyUi
+                font.pixelSize: Theme.fontSize("subtitle")
+                font.weight: Theme.fontWeight("regular")
+            }
+
+            MouseArea {
+                id: addTabMouse
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: hostRoot.addTab(
+                               hostRoot.fileModel
+                               && hostRoot.fileModel.currentPath ? String(hostRoot.fileModel.currentPath) : "~",
+                               true)
             }
         }
     }
