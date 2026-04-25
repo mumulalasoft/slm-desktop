@@ -25,7 +25,6 @@ CORE_APT_PACKAGES=(
     ninja-build
     openssh-server
     pkg-config
-    seatd
     spice-vdagent
     qml6-module-qtquick
     qml6-module-qtquick-controls

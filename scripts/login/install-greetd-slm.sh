@@ -32,17 +32,6 @@ if ! command -v cage >/dev/null 2>&1; then
   fi
 fi
 
-echo "[install-greetd-slm] ensuring seatd is installed..."
-if ! command -v seatd >/dev/null 2>&1; then
-  if command -v apt-get >/dev/null 2>&1; then
-    apt-get update
-    DEBIAN_FRONTEND=noninteractive apt-get install -y seatd
-  else
-    echo "[install-greetd-slm][FAIL] seatd not found and no apt-get available." >&2
-    exit 1
-  fi
-fi
-
 GREETER_BIN="$(command -v slm-greeter || true)"
 if [[ -z "$GREETER_BIN" ]]; then
   echo "[install-greetd-slm][FAIL] slm-greeter not found on PATH. Install SLM runtime first." >&2
@@ -138,40 +127,6 @@ if [[ -z "$GREETD_UNIT_PATH" || ! -f "$GREETD_UNIT_PATH" ]]; then
 fi
 ln -sfn "$GREETD_UNIT_PATH" /etc/systemd/system/display-manager.service
 systemctl daemon-reload
-
-SEATD_BIN="$(command -v seatd || true)"
-if [[ -n "$SEATD_BIN" ]]; then
-  echo "[install-greetd-slm] configuring seatd socket group -> greeter"
-  mkdir -p /etc/systemd/system/seatd.service.d
-  cat >/etc/systemd/system/seatd.service.d/slm-greeter.conf <<EOF
-[Service]
-ExecStart=
-ExecStart=${SEATD_BIN} -g greeter
-EOF
-  systemctl daemon-reload
-fi
-
-echo "[install-greetd-slm] enabling seatd..."
-systemctl enable --now seatd.service
-systemctl restart seatd.service
-
-SEATD_GROUP=""
-if [[ -S /run/seatd.sock ]]; then
-  SEATD_GROUP="$(stat -c '%G' /run/seatd.sock 2>/dev/null || true)"
-fi
-if [[ -z "$SEATD_GROUP" || "$SEATD_GROUP" == "UNKNOWN" ]]; then
-  if getent group video >/dev/null 2>&1; then
-    SEATD_GROUP="video"
-  elif getent group seat >/dev/null 2>&1; then
-    SEATD_GROUP="seat"
-  fi
-fi
-if [[ -n "$SEATD_GROUP" ]]; then
-  echo "[install-greetd-slm] ensuring greeter is in group: $SEATD_GROUP"
-  usermod -aG "$SEATD_GROUP" greeter
-else
-  echo "[install-greetd-slm][WARN] could not determine seatd socket group; greeter access may fail"
-fi
 
 echo "[install-greetd-slm] enabling greetd..."
 systemctl enable --now greetd.service

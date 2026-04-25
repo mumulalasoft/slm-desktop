@@ -33,7 +33,6 @@ check_cmd "greetd"
 check_cmd "slm-greeter"
 check_cmd "slm-watchdog"
 check_cmd "slm-recovery-app"
-check_cmd "seatd"
 if [[ -x /usr/libexec/slm-session-broker ]]; then
   echo "[OK] binary: /usr/libexec/slm-session-broker"
 else
@@ -93,32 +92,6 @@ if systemctl list-unit-files >/dev/null 2>&1; then
   else
     echo "[WARN] greetd not active right now"
     warn=$((warn + 1))
-  fi
-
-  if systemctl is-enabled seatd.service >/dev/null 2>&1; then
-    echo "[OK] seatd enabled"
-  else
-    echo "[FAIL] seatd not enabled"
-    fail=$((fail + 1))
-  fi
-
-  if systemctl is-active seatd.service >/dev/null 2>&1; then
-    echo "[OK] seatd active"
-  else
-    echo "[FAIL] seatd not active"
-    fail=$((fail + 1))
-  fi
-
-  if [[ -S /run/seatd.sock ]]; then
-    seatd_group="$(stat -c '%G' /run/seatd.sock 2>/dev/null || true)"
-    echo "[OK] /run/seatd.sock group: ${seatd_group:-<unknown>}"
-    if [[ "$seatd_group" != "greeter" ]]; then
-      echo "[WARN] seatd socket group is not greeter: ${seatd_group:-<unknown>}"
-      warn=$((warn + 1))
-    fi
-  else
-    echo "[FAIL] /run/seatd.sock missing"
-    fail=$((fail + 1))
   fi
 
   for dm in gdm.service gdm3.service sddm.service lightdm.service; do
