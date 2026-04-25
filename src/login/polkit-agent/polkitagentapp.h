@@ -35,12 +35,17 @@ public:
     void completeAuthenticationRequest(bool gainedAuthorization, const QString &errorMessage = QString());
 #endif
 
+private slots:
+    void onSessionLocked();
+    void onSessionUnlocked();
+
 private:
     QLockFile m_lockFile;
     QTimer m_heartbeat;
     AuthSession *m_authSession = nullptr;
     AuthDialogController *m_dialogController = nullptr;
     AgentNotifier *m_agentNotifier = nullptr;
+    bool m_sessionLocked = false;
 #ifdef SLM_HAVE_POLKIT_AGENT
     struct QueuedRequest {
         QString actionId;

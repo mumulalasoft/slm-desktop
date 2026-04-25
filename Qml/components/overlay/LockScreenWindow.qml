@@ -16,6 +16,7 @@ Window {
     property int lockoutRemainingSec: 0
     property int lockoutDurationSec: 10
     property int lockoutLevel: 0
+    property bool unlockBusy: false
     property date now: new Date()
 
     readonly property real uiScale: Math.max(0.90, Math.min(1.20,
@@ -36,6 +37,7 @@ Window {
     y: rootWindow ? rootWindow.y : 0
 
     onVisibleChanged: {
+        unlockBusy = false
         if (visible) {
             lockFailed = false
             unlockErrorCode = ""
@@ -57,7 +59,18 @@ Window {
         if (root.lockFailed && !root.lockoutActive) {
             shakeAnimation.originX = centerContent.x
             shakeAnimation.restart()
+            passwordField.text = ""
+            passwordField.forceActiveFocus()
         }
+    }
+
+    function activateLockout(seconds) {
+        lockoutActive = true
+        lockoutDurationSec = seconds
+        lockoutRemainingSec = seconds
+        failedAttempts = 0
+        lockoutTimer.restart()
+        lockoutTick.restart()
     }
 
     Item {
@@ -175,7 +188,7 @@ Window {
                 anchors.fill: parent
                 placeholderText: "Password"
                 echoMode: TextInput.Password
-                enabled: !root.lockoutActive
+                enabled: !root.lockoutActive && !root.unlockBusy
                 leftPadding: Theme.metric("spacingMd")
                 rightPadding: submitBtn.width + Theme.metric("spacingMd")
                 font.pixelSize: Theme.fontSize("titleLarge")
@@ -197,14 +210,44 @@ Window {
                 anchors.right: parent.right
                 anchors.rightMargin: Theme.metric("spacingXs")
                 anchors.verticalCenter: parent.verticalCenter
-                color: root.lockoutActive ? Theme.color("controlBgHover")
+                color: (root.lockoutActive || root.unlockBusy) ? Qt.rgba(0.039, 0.518, 1.0, 0.55)
                        : (submitBtnArea.containsMouse ? Theme.color("accentHover") : Theme.color("accent"))
                 Behavior on color {
                     ColorAnimation { duration: Theme.durationMicro; easing.type: Theme.easingStandard }
                 }
 
+                // Spinner — visible during unlock
+                Item {
+                    anchors.centerIn: parent
+                    visible: root.unlockBusy
+                    width: Math.round(16 * root.uiScale)
+                    height: Math.round(16 * root.uiScale)
+                    RotationAnimator on rotation {
+                        running: root.unlockBusy
+                        from: 0; to: 360
+                        loops: Animation.Infinite
+                        duration: Theme.durationWorkspace * 2
+                    }
+                    Canvas {
+                        anchors.fill: parent
+                        onPaint: {
+                            const ctx = getContext("2d")
+                            ctx.reset()
+                            const lw = 2.0
+                            const r = (width - lw) / 2
+                            ctx.beginPath()
+                            ctx.arc(width / 2, height / 2, r, Math.PI * 0.25, Math.PI * 1.75, false)
+                            ctx.lineWidth = lw
+                            ctx.lineCap = "round"
+                            ctx.strokeStyle = "rgba(255,255,255,0.92)"
+                            ctx.stroke()
+                        }
+                    }
+                }
+
                 Text {
                     anchors.centerIn: parent
+                    visible: !root.unlockBusy
                     text: "❯"
                     color: Theme.color("accentText")
                     font.pixelSize: Theme.fontSize("body")
@@ -217,7 +260,7 @@ Window {
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
-                    enabled: !root.lockoutActive
+                    enabled: !root.lockoutActive && !root.unlockBusy
                     onClicked: root.unlockRequested(passwordField.text)
                 }
             }

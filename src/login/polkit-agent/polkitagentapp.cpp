@@ -5,6 +5,7 @@
 
 #include <QCoreApplication>
 #include <QByteArray>
+#include <QDBusConnection>
 #include <QDateTime>
 #include <QDebug>
 #include <QDir>
@@ -196,8 +197,11 @@ PolkitAgentApp::PolkitAgentApp(QObject *parent)
         }
     });
 
-    connect(m_authSession, &AuthSession::showInfo, this, [](const QString &message) {
+    connect(m_authSession, &AuthSession::showInfo, this, [this](const QString &message) {
         qInfo().noquote() << "[slm-polkit-agent] auth info:" << message;
+        if (m_dialogController) {
+            m_dialogController->handleSessionInfo(message);
+        }
     });
 
     connect(m_authSession, &AuthSession::completed, this, [this](bool gainedAuthorization) {
@@ -329,6 +333,23 @@ bool PolkitAgentApp::start(QString *error)
 #else
     qInfo().noquote() << "[slm-polkit-agent] built without polkit headers; running bootstrap-only mode";
 #endif
+
+    // Subscribe to session lock/unlock signals so we can pause the auth timeout
+    // while the screen is locked — prevents in-flight polkit requests from
+    // timing out while the user is away.
+    QDBusConnection bus = QDBusConnection::sessionBus();
+    bus.connect(QStringLiteral("org.slm.SessionState"),
+                QStringLiteral("/org/slm/SessionState"),
+                QStringLiteral("org.slm.SessionState1"),
+                QStringLiteral("SessionLocked"),
+                this,
+                SLOT(onSessionLocked()));
+    bus.connect(QStringLiteral("org.slm.SessionState"),
+                QStringLiteral("/org/slm/SessionState"),
+                QStringLiteral("org.slm.SessionState1"),
+                QStringLiteral("SessionUnlocked"),
+                this,
+                SLOT(onSessionUnlocked()));
 
     m_heartbeat.start();
     qInfo().noquote() << "[slm-polkit-agent] started";
@@ -500,5 +521,30 @@ void PolkitAgentApp::processNextRequest()
                       << "remaining-queue=" << m_requestQueue.size();
 }
 #endif
+
+void PolkitAgentApp::onSessionLocked()
+{
+    m_sessionLocked = true;
+#ifdef SLM_HAVE_POLKIT_AGENT
+    // Pause the auth timeout so in-flight polkit requests don't expire while
+    // the screen is locked and the user can't interact with the dialog.
+    if (m_requestTimeout.isActive()) {
+        m_requestTimeout.stop();
+        qInfo().noquote() << "[slm-polkit-agent] auth timeout paused (screen locked)";
+    }
+#endif
+}
+
+void PolkitAgentApp::onSessionUnlocked()
+{
+    m_sessionLocked = false;
+#ifdef SLM_HAVE_POLKIT_AGENT
+    // Resume the auth timeout if a polkit request was pending while locked.
+    if (m_pendingTask && !m_requestTimeout.isActive()) {
+        m_requestTimeout.start();
+        qInfo().noquote() << "[slm-polkit-agent] auth timeout resumed (screen unlocked)";
+    }
+#endif
+}
 
 } // namespace Slm::Login

@@ -1211,79 +1211,60 @@ ApplicationWindow {
                           ? String(SessionStateClient.userName)
                           : "User"
                 onVisibleChanged: {
-                    if (visible) {
+                    if (!visible) {
+                        unlockBusy = false
+                    } else {
                         unlockErrorCode = ""
                     }
                 }
                 onUnlockRequested: function(password) {
-                    if (lockScreenWindow.lockoutActive) {
+                    if (lockScreenWindow.lockoutActive || lockScreenWindow.unlockBusy) {
                         return
                     }
-                    if (typeof SessionStateClient !== "undefined" && SessionStateClient && SessionStateClient.requestUnlock) {
-                        if (SessionStateClient.requestUnlock(password)) {
+                    lockScreenWindow.unlockBusy = true
+                    var pw = password
+                    Qt.callLater(function() {
+                        if (typeof SessionStateClient === "undefined" || !SessionStateClient
+                                || !SessionStateClient.requestUnlock) {
+                            lockScreenWindow.unlockBusy = false
+                            if (String(pw || "").trim().length > 0) {
+                                root.lockScreenVisible = false
+                                lockScreenWindow.lockFailed = false
+                                lockScreenWindow.failedAttempts = 0
+                                lockScreenWindow.lockoutLevel = 0
+                                lockScreenWindow.unlockErrorCode = ""
+                            } else {
+                                lockScreenWindow.lockFailed = true
+                                lockScreenWindow.unlockErrorCode = "empty-password"
+                                lockScreenWindow.failedAttempts = Number(lockScreenWindow.failedAttempts || 0) + 1
+                            }
+                            return
+                        }
+                        if (SessionStateClient.requestUnlock(pw)) {
+                            lockScreenWindow.unlockBusy = false
                             root.lockScreenVisible = false
                             lockScreenWindow.lockFailed = false
                             lockScreenWindow.failedAttempts = 0
                             lockScreenWindow.lockoutLevel = 0
                             lockScreenWindow.unlockErrorCode = ""
                         } else {
+                            lockScreenWindow.unlockBusy = false
                             lockScreenWindow.lockFailed = true
                             lockScreenWindow.unlockErrorCode = String(SessionStateClient.lastUnlockError || "")
                             var backendRetrySec = Number(SessionStateClient.lastRetryAfterSec || 0)
                             if (backendRetrySec > 0) {
-                                lockScreenWindow.lockoutActive = true
-                                lockScreenWindow.lockoutDurationSec = backendRetrySec
-                                lockScreenWindow.lockoutRemainingSec = backendRetrySec
-                                lockScreenWindow.failedAttempts = 0
-                                if (lockScreenWindow.lockoutTimer) {
-                                    lockScreenWindow.lockoutTimer.restart()
-                                }
-                                if (lockScreenWindow.lockoutTick) {
-                                    lockScreenWindow.lockoutTick.restart()
-                                }
+                                lockScreenWindow.activateLockout(backendRetrySec)
                             } else {
                                 lockScreenWindow.failedAttempts = Number(lockScreenWindow.failedAttempts || 0) + 1
                                 if (lockScreenWindow.failedAttempts >= 5) {
                                     lockScreenWindow.lockoutLevel = Number(lockScreenWindow.lockoutLevel || 0) + 1
-                                    var lockoutSeconds = 10
-                                    if (lockScreenWindow.lockoutLevel >= 2) {
-                                        lockoutSeconds = 30
-                                    }
-                                    if (lockScreenWindow.lockoutLevel >= 3) {
-                                        lockoutSeconds = 60
-                                    }
-                                    if (lockScreenWindow.lockoutLevel >= 4) {
-                                        lockoutSeconds = 120
-                                    }
-                                    if (lockScreenWindow.lockoutLevel >= 5) {
-                                        lockoutSeconds = 300
-                                    }
-                                    lockScreenWindow.lockoutActive = true
-                                    lockScreenWindow.lockoutDurationSec = lockoutSeconds
-                                    lockScreenWindow.lockoutRemainingSec = lockoutSeconds
-                                    lockScreenWindow.failedAttempts = 0
-                                    if (lockScreenWindow.lockoutTimer) {
-                                        lockScreenWindow.lockoutTimer.restart()
-                                    }
-                                    if (lockScreenWindow.lockoutTick) {
-                                        lockScreenWindow.lockoutTick.restart()
-                                    }
+                                    var lvl = lockScreenWindow.lockoutLevel
+                                    var sec = lvl >= 5 ? 300 : lvl === 4 ? 120 : lvl === 3 ? 60 : lvl === 2 ? 30 : 10
+                                    lockScreenWindow.activateLockout(sec)
                                 }
                             }
                         }
-                        return
-                    }
-                    if (String(password || "").trim().length > 0) {
-                        root.lockScreenVisible = false
-                        lockScreenWindow.lockFailed = false
-                        lockScreenWindow.failedAttempts = 0
-                        lockScreenWindow.lockoutLevel = 0
-                        lockScreenWindow.unlockErrorCode = ""
-                    } else {
-                        lockScreenWindow.lockFailed = true
-                        lockScreenWindow.unlockErrorCode = "empty-password"
-                        lockScreenWindow.failedAttempts = Number(lockScreenWindow.failedAttempts || 0) + 1
-                    }
+                    })
                 }
             }
         }
