@@ -20,8 +20,7 @@ Rectangle {
     property var    blockingMissingIssues: []
 
     property int    selectedUserIndex: -1
-    property bool   lastUserResolved: false
-    property var    users: []
+    property bool   loginBusy: false
 
     readonly property real uiScale: Math.max(0.90, Math.min(1.20,
                                Math.min(width / 1920, height / 1080)))
@@ -72,12 +71,14 @@ Rectangle {
     }
 
     function submitLogin() {
+        if (root.loginBusy) return
         notificationMessage = ""
         if ((root.blockingMissingIssues || []).length > 0) {
             notificationMessage = "Komponen inti sesi masih hilang. Pasang komponen wajib dulu sebelum login."
             return
         }
         if (GreeterApp) {
+            root.loginBusy = true
             GreeterApp.login(userField.text.trim(),
                              passwordField.text,
                              root.selectedMode)
@@ -291,6 +292,7 @@ Rectangle {
                 anchors.fill: parent
                 echoMode: TextInput.Password
                 placeholderText: "Password"
+                enabled: !root.loginBusy
                 leftPadding: Math.round(18 * root.uiScale)
                 rightPadding: Math.round(54 * root.uiScale)
                 font.pixelSize: Math.round(17 * root.uiScale)
@@ -318,13 +320,46 @@ Rectangle {
                 anchors.right: parent.right
                 anchors.rightMargin: Math.round(6 * root.uiScale)
                 anchors.verticalCenter: parent.verticalCenter
-                color: !submitBtnArea.enabled ? Qt.rgba(0.431, 0.478, 0.541, 1.0)
-                       : (submitBtnArea.containsMouse ? Qt.rgba(0, 0.439, 0.875, 1.0)
-                                                      : Qt.rgba(0.039, 0.518, 1.0, 1.0))
+                color: root.loginBusy ? Qt.rgba(0.039, 0.518, 1.0, 0.600)
+                       : (!submitBtnArea.enabled ? Qt.rgba(0.431, 0.478, 0.541, 1.0)
+                          : (submitBtnArea.containsMouse ? Qt.rgba(0, 0.439, 0.875, 1.0)
+                                                         : Qt.rgba(0.039, 0.518, 1.0, 1.0)))
                 Behavior on color { ColorAnimation { duration: Theme.durationMicro; easing.type: Theme.easingStandard } }
 
+                // Spinner — shown during auth
+                Item {
+                    anchors.centerIn: parent
+                    visible: root.loginBusy
+                    width: Math.round(16 * root.uiScale)
+                    height: Math.round(16 * root.uiScale)
+                    RotationAnimator on rotation {
+                        running: root.loginBusy
+                        from: 0
+                        to: 360
+                        loops: Animation.Infinite
+                        duration: Theme.durationWorkspace * 2
+                    }
+                    Canvas {
+                        anchors.fill: parent
+                        onPaint: {
+                            const ctx = getContext("2d")
+                            ctx.reset()
+                            const lw = 2.0
+                            const r = (width - lw) / 2
+                            ctx.beginPath()
+                            ctx.arc(width / 2, height / 2, r, Math.PI * 0.25, Math.PI * 1.75, false)
+                            ctx.lineWidth = lw
+                            ctx.lineCap = "round"
+                            ctx.strokeStyle = "rgba(255,255,255,0.92)"
+                            ctx.stroke()
+                        }
+                    }
+                }
+
+                // Arrow — hidden during auth
                 Text {
                     anchors.centerIn: parent
+                    visible: !root.loginBusy
                     text: "❯"
                     color: submitBtnArea.enabled ? "white" : Qt.rgba(0.690, 0.722, 0.769, 1.0)
                     font.pixelSize: Math.round(15 * root.uiScale)
@@ -337,7 +372,7 @@ Rectangle {
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
-                    enabled: (root.blockingMissingIssues || []).length === 0
+                    enabled: !root.loginBusy && (root.blockingMissingIssues || []).length === 0
                     onClicked: root.submitLogin()
                 }
             }
@@ -513,9 +548,12 @@ Rectangle {
     Connections {
         target: GreeterApp
         function onLoginSuccess() {
+            root.loginBusy = false
             root.notificationMessage = ""
+            passwordField.text = ""
         }
         function onLoginError(errorType, description) {
+            root.loginBusy = false
             if (errorType === "auth_error") {
                 root.notificationMessage = "Password salah. Coba lagi."
             } else {

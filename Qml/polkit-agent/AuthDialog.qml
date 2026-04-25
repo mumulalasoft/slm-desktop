@@ -238,6 +238,18 @@ Window {
             }
 
             Label {
+                visible: authDialogController && authDialogController.infoMessage !== ""
+                text: authDialogController ? authDialogController.infoMessage : ""
+                color: root.textMuted
+                font.family: Theme.fontFamilyUi
+                font.pixelSize: Theme.fontSize("xs")
+                wrapMode: Text.Wrap
+                Layout.fillWidth: true
+                horizontalAlignment: Text.AlignHCenter
+                Layout.topMargin: 2
+            }
+
+            Label {
                 visible: authDialogController && authDialogController.errorMessage !== ""
                 text: authDialogController ? authDialogController.errorMessage : ""
                 color: root.danger
