@@ -33,6 +33,7 @@ check_cmd "greetd"
 check_cmd "slm-greeter"
 check_cmd "slm-watchdog"
 check_cmd "slm-recovery-app"
+check_cmd "seatd"
 if [[ -x /usr/libexec/slm-session-broker ]]; then
   echo "[OK] binary: /usr/libexec/slm-session-broker"
 else
@@ -53,6 +54,32 @@ else
   warn=$((warn + 1))
 fi
 
+if [[ -f /etc/greetd/config.toml ]]; then
+  if grep -q '^\[default_session\]' /etc/greetd/config.toml; then
+    echo "[OK] greetd config has default_session"
+  else
+    echo "[FAIL] greetd config missing [default_session]"
+    fail=$((fail + 1))
+  fi
+
+  if grep -Eq '^command = ".*slm-greeter-cage-launch"' /etc/greetd/config.toml; then
+    echo "[OK] greetd default_session launches cage wrapper for greeter"
+  elif grep -Eq '^command = "env LIBSEAT_BACKEND=logind cage -s -- .*slm-greeter' /etc/greetd/config.toml; then
+    echo "[WARN] greetd default_session launches slm-greeter directly via cage"
+    warn=$((warn + 1))
+  else
+    echo "[FAIL] greetd default_session is not wired to slm-greeter via cage"
+    fail=$((fail + 1))
+  fi
+
+  if grep -q '^\[initial_session\]' /etc/greetd/config.toml; then
+    echo "[FAIL] greetd config still contains [initial_session] and may bypass greeter"
+    fail=$((fail + 1))
+  else
+    echo "[OK] greetd config does not bypass greeter with initial_session"
+  fi
+fi
+
 if systemctl list-unit-files >/dev/null 2>&1; then
   if systemctl is-enabled greetd.service >/dev/null 2>&1; then
     echo "[OK] greetd enabled"
@@ -66,6 +93,32 @@ if systemctl list-unit-files >/dev/null 2>&1; then
   else
     echo "[WARN] greetd not active right now"
     warn=$((warn + 1))
+  fi
+
+  if systemctl is-enabled seatd.service >/dev/null 2>&1; then
+    echo "[OK] seatd enabled"
+  else
+    echo "[FAIL] seatd not enabled"
+    fail=$((fail + 1))
+  fi
+
+  if systemctl is-active seatd.service >/dev/null 2>&1; then
+    echo "[OK] seatd active"
+  else
+    echo "[FAIL] seatd not active"
+    fail=$((fail + 1))
+  fi
+
+  if [[ -S /run/seatd.sock ]]; then
+    seatd_group="$(stat -c '%G' /run/seatd.sock 2>/dev/null || true)"
+    echo "[OK] /run/seatd.sock group: ${seatd_group:-<unknown>}"
+    if [[ "$seatd_group" != "greeter" ]]; then
+      echo "[WARN] seatd socket group is not greeter: ${seatd_group:-<unknown>}"
+      warn=$((warn + 1))
+    fi
+  else
+    echo "[FAIL] /run/seatd.sock missing"
+    fail=$((fail + 1))
   fi
 
   for dm in gdm.service gdm3.service sddm.service lightdm.service; do

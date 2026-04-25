@@ -370,8 +370,11 @@ void SessionBroker::writeSessionEnded(bool crashed)
     QString err;
     SessionStateIO::load(m_state, err); // reload — watchdog may have updated
 
-    m_state.lastBootStatus = crashed ? QStringLiteral("crashed")
-                                     : QStringLiteral("ended");
+    if (crashed) {
+        m_state.lastBootStatus = QStringLiteral("crashed");
+    } else if (m_state.lastBootStatus != QStringLiteral("healthy")) {
+        m_state.lastBootStatus = QStringLiteral("ended");
+    }
     m_state.lastUpdated    = QDateTime::currentDateTimeUtc();
     if (crashed) {
         // Guard: ensure crash_count is at least what we set at startup.

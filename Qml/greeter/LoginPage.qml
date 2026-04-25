@@ -52,7 +52,14 @@ Rectangle {
     function currentUserAvatar() {
         if (selectedUserIndex >= 0 && selectedUserIndex < root.usersList.length) {
             const u = root.usersList[selectedUserIndex]
-            if (u && u.avatar) return String(u.avatar)
+            if (u && u.avatar) {
+                const avatar = String(u.avatar)
+                // Avoid probing per-user file:// avatars in greetd; missing
+                // .face.icon is common and produces noisy startup warnings.
+                if (avatar.indexOf("file://") === 0)
+                    return ""
+                return avatar
+            }
         }
         return ""
     }

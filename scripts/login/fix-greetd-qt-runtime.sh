@@ -133,11 +133,7 @@ cat > "${GREETD_CFG}" <<EOF
 vt = 1
 
 [default_session]
-command = "cage -s -- ${GREETER_LAUNCHER}"
-user = "greeter"
-
-[initial_session]
-command = "${BROKER_LAUNCHER} --mode normal"
+command = "env LIBSEAT_BACKEND=logind cage -s -- ${GREETER_LAUNCHER}"
 user = "greeter"
 EOF
 

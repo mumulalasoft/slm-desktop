@@ -5130,6 +5130,50 @@ target_link_libraries(sessionbroker_recovery_rollback_test
 )
 add_test(NAME sessionbroker_recovery_rollback_test COMMAND sessionbroker_recovery_rollback_test)
 
+qt_add_executable(sessionbroker_startup_contract_test
+    tests/sessionbroker_startup_contract_test.cpp
+    src/login/libslmlogin/slmconfigmanager.cpp
+    src/login/libslmlogin/slmplatformcheck.cpp
+    src/login/libslmlogin/slmsessionstate.cpp
+    src/login/session-broker/sessionbroker.cpp
+    src/login/session-broker/sessionrollback.cpp
+)
+target_include_directories(sessionbroker_startup_contract_test PRIVATE ${CMAKE_SOURCE_DIR})
+target_link_libraries(sessionbroker_startup_contract_test
+    PRIVATE
+        Qt6::Core
+        Qt6::Test
+)
+add_test(NAME sessionbroker_startup_contract_test COMMAND sessionbroker_startup_contract_test)
+
+qt_add_executable(sessionwatchdog_contract_test
+    tests/sessionwatchdog_contract_test.cpp
+    src/login/libslmlogin/slmconfigmanager.cpp
+    src/login/libslmlogin/slmsessionstate.cpp
+    src/login/watchdog/sessionwatchdog.cpp
+)
+target_include_directories(sessionwatchdog_contract_test PRIVATE ${CMAKE_SOURCE_DIR})
+target_link_libraries(sessionwatchdog_contract_test
+    PRIVATE
+        Qt6::Core
+        Qt6::Test
+)
+add_test(NAME sessionwatchdog_contract_test COMMAND sessionwatchdog_contract_test)
+
+qt_add_executable(sessionstack_headless_smoke_test
+    tests/sessionstack_headless_smoke_test.cpp
+    src/login/libslmlogin/slmconfigmanager.cpp
+    src/login/libslmlogin/slmsessionstate.cpp
+)
+target_include_directories(sessionstack_headless_smoke_test PRIVATE ${CMAKE_SOURCE_DIR})
+target_link_libraries(sessionstack_headless_smoke_test
+    PRIVATE
+        Qt6::Core
+        Qt6::Test
+)
+add_dependencies(sessionstack_headless_smoke_test slm-session-broker slm-watchdog)
+add_test(NAME sessionstack_headless_smoke_test COMMAND sessionstack_headless_smoke_test)
+
 add_custom_target(test_headless
     COMMAND ${CMAKE_COMMAND} -E env
         QT_QPA_PLATFORM=offscreen
@@ -5257,6 +5301,16 @@ qt_add_qml_module(slm-greeter
         Qml/greeter/assets/Background.jpeg
         Qml/greeter/assets/default-logo.svg
 )
+qt_add_resources(slm-greeter "slm_greeter_theme_shim_qmldir"
+    PREFIX "/qt/qml/Slm_Desktop"
+    BASE "${CMAKE_SOURCE_DIR}/src/apps/settings/resources"
+    FILES "${CMAKE_SOURCE_DIR}/src/apps/settings/resources/qmldir"
+)
+qt_add_resources(slm-greeter "slm_greeter_theme_shim_theme"
+    PREFIX "/qt/qml/Slm_Desktop"
+    BASE "${CMAKE_SOURCE_DIR}/third_party/slm-style/qml/SlmStyle"
+    FILES "${CMAKE_SOURCE_DIR}/third_party/slm-style/qml/SlmStyle/Theme.qml"
+)
 target_link_libraries(slm-greeter
     PRIVATE
         Qt6::Core
@@ -5348,6 +5402,11 @@ qt_add_resources(slm-settings "slm_settings_slmstyle_module"
     FILES ${SLM_STYLE_MODULE_FILES}
 )
 qt_add_resources(slm-polkit-agent "slm_polkit_agent_slmstyle_module"
+    PREFIX "/qt/qml/SlmStyle"
+    BASE "${CMAKE_SOURCE_DIR}/third_party/slm-style/qml/SlmStyle"
+    FILES ${SLM_STYLE_MODULE_FILES}
+)
+qt_add_resources(slm-greeter "slm_greeter_slmstyle_module"
     PREFIX "/qt/qml/SlmStyle"
     BASE "${CMAKE_SOURCE_DIR}/third_party/slm-style/qml/SlmStyle"
     FILES ${SLM_STYLE_MODULE_FILES}

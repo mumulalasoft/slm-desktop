@@ -14,13 +14,21 @@ namespace Slm::Login {
 SessionWatchdog::SessionWatchdog(QObject *parent)
     : QObject(parent)
 {
+    int healthyTimeoutMs = kHealthySessionSeconds * 1000;
+    bool ok = false;
+    const int configuredTimeoutMs = qEnvironmentVariableIntValue(
+        "SLM_WATCHDOG_HEALTHY_TIMEOUT_MS", &ok);
+    if (ok && configuredTimeoutMs > 0) {
+        healthyTimeoutMs = configuredTimeoutMs;
+    }
+
     m_timer.setSingleShot(true);
-    m_timer.setInterval(kHealthySessionSeconds * 1000);
+    m_timer.setInterval(healthyTimeoutMs);
     connect(&m_timer, &QTimer::timeout, this, &SessionWatchdog::onHealthyTimeout);
     m_timer.start();
 
-    qInfo("slm-watchdog: started — will mark session healthy in %ds",
-          kHealthySessionSeconds);
+    qInfo("slm-watchdog: started — will mark session healthy in %dms",
+          healthyTimeoutMs);
 }
 
 void SessionWatchdog::onHealthyTimeout()
