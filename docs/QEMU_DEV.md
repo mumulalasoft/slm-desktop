@@ -2,6 +2,8 @@
 
 Tooling ini menyiapkan VM Ubuntu lokal untuk iterasi Desktop Shell dengan ISO di `~/ubuntu.iso`.
 
+Ringkasan dependency guest dan runtime login ada di [docs/DEPENDENCIES.md](/home/garis/Development/Qt/Desktop_Shell/docs/DEPENDENCIES.md).
+
 ## File
 
 - `dev/qemu-create-disk.sh`: buat disk `qcow2` persisten.
