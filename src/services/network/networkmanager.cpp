@@ -423,6 +423,11 @@ QString NetworkManager::statusText() const
     return QStringLiteral("Connected");
 }
 
+bool NetworkManager::activeConnectionSecure() const
+{
+    return m_activeConnectionSecure;
+}
+
 QStringList NetworkManager::availableNetworkNames() const
 {
     QStringList names;
@@ -714,13 +719,15 @@ NetworkManager::NetworkStatusResult NetworkManager::fetchNetworkStatus()
                     const QString apPath = objectPathFromVariant(
                         dbusGetProperty(devicePath, wifiIface, QStringLiteral("ActiveAccessPoint")));
                     if (!apPath.isEmpty() && apPath != QStringLiteral("/")) {
+                        const QString apIface = QStringLiteral("org.freedesktop.NetworkManager.AccessPoint");
                         const QString ssid = ssidFromVariant(
-                            dbusGetProperty(apPath,
-                                            QStringLiteral("org.freedesktop.NetworkManager.AccessPoint"),
-                                            QStringLiteral("Ssid")));
+                            dbusGetProperty(apPath, apIface, QStringLiteral("Ssid")));
                         if (!ssid.isEmpty())
                             r.networkName = ssid;
                         r.signalStrength = wifiStrengthFromApPath(apPath);
+                        const uint wpaFlags = dbusGetProperty(apPath, apIface, QStringLiteral("WpaFlags")).toUInt();
+                        const uint rsnFlags = dbusGetProperty(apPath, apIface, QStringLiteral("RsnFlags")).toUInt();
+                        r.activeSecure = (wpaFlags != 0 || rsnFlags != 0);
                     }
                 }
             }
@@ -756,20 +763,22 @@ NetworkManager::NetworkStatusResult NetworkManager::fetchNetworkStatus()
 
 void NetworkManager::applyNetworkStatus(const NetworkStatusResult &result)
 {
-    const bool wasConnected         = m_isConnected;
-    const QString oldConnectionType = m_connectionType;
-    const QString oldNetworkName    = m_networkName;
-    const int oldSignalStrength     = m_signalStrength;
-    const QString oldInterfaceName  = m_interfaceName;
-    const QString oldIpv4Address    = m_ipv4Address;
-    const QString oldIconSource     = iconSource();
+    const bool wasConnected              = m_isConnected;
+    const QString oldConnectionType      = m_connectionType;
+    const QString oldNetworkName         = m_networkName;
+    const int oldSignalStrength          = m_signalStrength;
+    const QString oldInterfaceName       = m_interfaceName;
+    const QString oldIpv4Address         = m_ipv4Address;
+    const QString oldIconSource          = iconSource();
+    const bool oldActiveConnectionSecure = m_activeConnectionSecure;
 
-    m_isConnected    = result.isConnected;
-    m_connectionType = result.connectionType;
-    m_networkName    = result.networkName;
-    m_signalStrength = result.signalStrength;
-    m_interfaceName  = result.interfaceName;
-    m_ipv4Address    = result.ipv4Address;
+    m_isConnected             = result.isConnected;
+    m_connectionType          = result.connectionType;
+    m_networkName             = result.networkName;
+    m_signalStrength          = result.signalStrength;
+    m_interfaceName           = result.interfaceName;
+    m_ipv4Address             = result.ipv4Address;
+    m_activeConnectionSecure  = result.activeSecure;
 
     if (m_isConnected != wasConnected)
         emit isConnectedChanged();
@@ -787,6 +796,8 @@ void NetworkManager::applyNetworkStatus(const NetworkStatusResult &result)
         emit interfaceNameChanged();
     if (m_ipv4Address != oldIpv4Address)
         emit ipv4AddressChanged();
+    if (m_activeConnectionSecure != oldActiveConnectionSecure)
+        emit activeConnectionSecureChanged();
     if (!wasConnected && m_isConnected)
         emit statusTextChanged();
     if (iconSource() != oldIconSource)

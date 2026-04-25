@@ -103,16 +103,20 @@ Item {
     }
 
     function panelIconCandidates() {
-        var connected = !!(root.networkManager && root.networkManager.online)
-        var wireless = !!(root.networkManager && root.networkManager.wireless)
-        if (!connected) {
+        var nm = root.networkManager
+        if (!nm) return ["network-offline-symbolic"]
+        var connected = !!nm.online
+        var connType = nm.connectionType || ""
+
+        if (!connected || connType === "none") {
             return [
                 "network-offline-symbolic",
                 "network-wireless-offline-symbolic",
                 "network-wireless-signal-none-symbolic"
             ]
         }
-        if (!wireless) {
+
+        if (connType === "ethernet") {
             return [
                 "network-wired-symbolic",
                 "network-wired",
@@ -120,11 +124,36 @@ Item {
             ]
         }
 
-        var level = root.wifiLevelName(root.networkManager ? root.networkManager.signalStrength : 0)
+        if (connType === "wifi") {
+            var strength = nm.signalStrength || 0
+            var secure = !!nm.activeConnectionSecure
+            if (strength === 0) {
+                // Connected but signal not yet read — don't show "none" (looks like offline)
+                var base = secure ? "network-wireless-connected-secure-symbolic"
+                                  : "network-wireless-connected-symbolic"
+                return [base, "network-wireless-connected-symbolic", "network-wireless-symbolic"]
+            }
+            var level = root.wifiLevelName(strength)
+            if (secure) {
+                return [
+                    "network-wireless-signal-" + level + "-secure-symbolic",
+                    "network-wireless-signal-" + level + "-symbolic",
+                    "network-wireless-signal-good-symbolic",
+                    "network-wireless-symbolic"
+                ]
+            }
+            return [
+                "network-wireless-signal-" + level + "-symbolic",
+                "network-wireless-signal-good-symbolic",
+                "network-wireless-symbolic"
+            ]
+        }
+
+        // VPN, tunnel, or other unrecognised active connection
         return [
-            "network-wireless-signal-" + level + "-symbolic",
-            "network-wireless-signal-good-symbolic",
-            "network-wireless-signal-none-symbolic"
+            "network-vpn-symbolic",
+            "network-wired-symbolic",
+            "network-transmit-receive-symbolic"
         ]
     }
 
@@ -251,13 +280,15 @@ Item {
         }
 
         MenuItem {
-            text: "Type: " + (
-                      root.networkManager && root.networkManager.wireless
-                      ? "Wi-Fi"
-                      : (root.networkManager && root.networkManager.online ? "Ethernet" : "Unavailable")
-                  )
-
             enabled: false
+            text: {
+                if (!root.networkManager || !root.networkManager.online) return "Type: Unavailable"
+                var ct = root.networkManager.connectionType || ""
+                if (ct === "wifi")     return "Type: Wi-Fi"
+                if (ct === "ethernet") return "Type: Ethernet"
+                if (ct === "unknown")  return "Type: Other"
+                return "Type: Connected"
+            }
         }
 
         MenuItem {
@@ -302,10 +333,10 @@ Item {
         }
 
         MenuItem {
-            visible: root.networkManager && root.networkManager.wireless
+            visible: root.networkManager && root.networkManager.connectionType === "wifi"
             enabled: false
             text: "Signal: " + (
-                      root.networkManager && root.networkManager.signalStrength >= 0
+                      root.networkManager && root.networkManager.signalStrength > 0
                       ? root.networkManager.signalStrength + "%"
                       : "Unknown"
                   )
@@ -341,10 +372,10 @@ Item {
                         verticalAlignment: Text.AlignVCenter
                     }
 
-                    Image {
+                    IconImage {
                         id: signalIcon
-                        Layout.preferredWidth: 24
-                        Layout.preferredHeight: 24
+                        Layout.preferredWidth: 20
+                        Layout.preferredHeight: 20
                         Layout.alignment: Qt.AlignVCenter
                         property var candidates: root.signalIconFallbacks(signalStrength, !!isSecure)
                         property int candidateIndex: 0
@@ -352,6 +383,7 @@ Item {
                                 ((typeof ThemeIconController !== "undefined" && ThemeIconController)
                                  ? ThemeIconController.revision : 0)
                         fillMode: Image.PreserveAspectFit
+                        color: Theme.color("textPrimary")
                         onStatusChanged: {
                             if (status === Image.Error && candidateIndex + 1 < candidates.length) {
                                 candidateIndex += 1

@@ -54,6 +54,7 @@ class NetworkManager : public QObject {
     Q_PROPERTY(QString iconSource READ iconSource NOTIFY iconSourceChanged)
     Q_PROPERTY(QString statusText READ statusText NOTIFY statusTextChanged)
     Q_PROPERTY(QStringList availableNetworkNames READ availableNetworkNames NOTIFY availableNetworksChanged)
+    Q_PROPERTY(bool activeConnectionSecure READ activeConnectionSecure NOTIFY activeConnectionSecureChanged)
 
 public:
     explicit NetworkManager(QObject *parent = nullptr);
@@ -71,6 +72,7 @@ public:
     QString iconSource() const;
     QString statusText() const;
     QStringList availableNetworkNames() const;
+    bool activeConnectionSecure() const;
 
     Q_INVOKABLE void updateNetworkStatus();
     Q_INVOKABLE void scanAvailableNetworks();
@@ -87,6 +89,7 @@ signals:
     void iconSourceChanged();
     void statusTextChanged();
     void availableNetworksChanged();
+    void activeConnectionSecureChanged();
 
 private:
     void setupTimer();
@@ -112,6 +115,7 @@ private:
         int signalStrength = 0;
         QString interfaceName = QStringLiteral("n/a");
         QString ipv4Address = QStringLiteral("n/a");
+        bool activeSecure = false;
     };
 
     static NetworkStatusResult fetchNetworkStatus();
@@ -124,6 +128,7 @@ private:
     QString m_networkName = QStringLiteral("N/A");
     QString m_interfaceName = QStringLiteral("n/a");
     QString m_ipv4Address = QStringLiteral("n/a");
+    bool m_activeConnectionSecure = false;
     bool m_hasAvailableNetworks = false;
     QTimer *m_updateTimer = nullptr;
     QTimer *m_dbusRefreshTimer = nullptr;
