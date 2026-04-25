@@ -856,6 +856,7 @@ set(DESKTOP_SHELL_QML_FILES
     Qml/components/overlay/LockScreenWindow.qml
     Qml/components/overlay/PortalConsentDialogWindow.qml
     Qml/components/overlay/FirewallPromptDialog.qml
+    Qml/components/overlay/WifiPasswordDialog.qml
     Qml/components/overlay/AppHubActions.js
     Qml/components/overlay/SecuritySettingsRouting.js
     # Qml/components/NotificationIndicator.qml
