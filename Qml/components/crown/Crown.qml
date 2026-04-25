@@ -144,7 +144,7 @@ Rectangle {
         activeSearchProfileId = active
     }
 
-    readonly property var defaultApplets: ["sound", "network", "controlcenter", "datetime", "battery"]
+    readonly property var defaultApplets: ["sound", "network", "controlpanel", "datetime", "battery"]
 
     function appletEnabled(name) {
         var n = String(name)
@@ -181,8 +181,8 @@ Rectangle {
             visible: true
         })
         IndicatorRegistry.registerIndicator({
-            name: "controlcenter",
-            source: "../applet/ControlCenterApplet.qml",
+            name: "controlpanel",
+            source: "../applet/ControlPanelApplet.qml",
             order: 890,
             enabled: false,
             properties: { popupHost: root.resolvedPopupHost }
@@ -246,7 +246,7 @@ Rectangle {
             properties: { popupHost: root.resolvedPopupHost, timeText: root.timeText }
         })
         applyNonStagedAppletSettings()
-        stagedIndicatorQueue = ["network", "bluetooth", "sound", "print", "controlcenter"]
+        stagedIndicatorQueue = ["network", "bluetooth", "sound", "print", "controlpanel"]
         stagedIndicatorTimer.restart()
     }
 

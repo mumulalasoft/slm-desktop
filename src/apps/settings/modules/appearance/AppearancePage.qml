@@ -1869,7 +1869,7 @@ Item {
                         Repeater {
                             model: [
                                 { key: "pulse",     label: qsTr("Search"),         description: qsTr("Quick search button (Pulse)."),             locked: true  },
-                                { key: "controlcenter", label: qsTr("Control Center"), description: qsTr("Quick settings panel."),                    locked: true  },
+                                { key: "controlpanel", label: qsTr("Control Panel"), description: qsTr("Quick-access panel for system controls."),  locked: true  },
                                 { key: "datetime",      label: qsTr("Date & Time"),    description: qsTr("Clock and calendar popup."),                locked: true  },
                                 { key: "bluetooth",     label: qsTr("Bluetooth"),      description: qsTr("Bluetooth device management."),             locked: false },
                                 { key: "battery",       label: qsTr("Battery"),        description: qsTr("Battery level and power status."),          locked: true  },
