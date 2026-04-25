@@ -16,6 +16,10 @@ Window {
     property int lockoutRemainingSec: 0
     property int lockoutDurationSec: 10
     property int lockoutLevel: 0
+    property date now: new Date()
+
+    readonly property real uiScale: Math.max(0.90, Math.min(1.20,
+                                   Math.min(width / 1920, height / 1080)))
 
     signal unlockRequested(string password)
 
@@ -43,8 +47,16 @@ Window {
             lockoutTimer.stop()
             lockoutTick.stop()
             passwordField.text = ""
+            root.now = new Date()
             requestActivate()
             passwordField.forceActiveFocus()
+        }
+    }
+
+    onLockFailedChanged: {
+        if (root.lockFailed && !root.lockoutActive) {
+            shakeAnimation.originX = centerContent.x
+            shakeAnimation.restart()
         }
     }
 
@@ -63,72 +75,113 @@ Window {
         color: Theme.color("workspaceBackdrop")
     }
 
-    Rectangle {
-        width: Math.min(parent.width * 0.58, 920)
-        height: Math.min(parent.height * 0.54, 540)
-        anchors.centerIn: parent
-        radius: Theme.radiusHuge + Theme.radiusLg
-        color: Theme.color("panelBg")
-        border.width: Theme.borderWidthNone
-    }
-
+    // ── Clock + Date ─────────────────────────────────────────────────────────
     Column {
-        id: centerContent
+        id: clockGroup
         anchors.horizontalCenter: parent.horizontalCenter
-        anchors.verticalCenter: parent.verticalCenter
-        spacing: 16
+        y: Math.round(root.height * 0.12)
+        spacing: Theme.metric("spacingXs")
 
         Label {
             anchors.horizontalCenter: parent.horizontalCenter
-            y: -Math.round(root.height * 0.13)
-            text: Qt.formatDateTime(new Date(), "hh:mm")
+            text: Qt.formatDateTime(root.now, "hh:mm")
             color: Theme.color("textOnGlass")
-            font.pixelSize: Math.round(Theme.fontPxDisplay * 2.64)
-            font.weight: Theme.fontWeight("normal")
-
-            Timer {
-                interval: 1000
-                running: root.visible
-                repeat: true
-                onTriggered: parent.text = Qt.formatDateTime(new Date(), "hh:mm")
-            }
+            font.pixelSize: Math.round(Theme.fontPxDisplay * 3.2)
+            font.weight: Theme.fontWeight("light")
         }
 
+        Label {
+            anchors.horizontalCenter: parent.horizontalCenter
+            text: Qt.formatDateTime(root.now, "dddd, d MMMM")
+            color: Theme.color("textOnGlass")
+            font.pixelSize: Theme.fontSize("body")
+            font.weight: Theme.fontWeight("medium")
+        }
+
+        Timer {
+            interval: 1000
+            running: root.visible
+            repeat: true
+            onTriggered: root.now = new Date()
+        }
+    }
+
+    // ── Shake animation ───────────────────────────────────────────────────────
+    SequentialAnimation {
+        id: shakeAnimation
+        property real originX: 0
+        NumberAnimation { target: centerContent; property: "x"; from: shakeAnimation.originX;      to: shakeAnimation.originX - 14; duration: Math.max(1, Math.round(Theme.durationMicro * 0.56)); easing.type: Theme.easingStandard }
+        NumberAnimation { target: centerContent; property: "x"; from: shakeAnimation.originX - 14; to: shakeAnimation.originX + 14; duration: Math.max(1, Math.round(Theme.durationMicro * 0.89)); easing.type: Theme.easingStandard }
+        NumberAnimation { target: centerContent; property: "x"; from: shakeAnimation.originX + 14; to: shakeAnimation.originX - 8;  duration: Math.max(1, Math.round(Theme.durationMicro * 0.78)); easing.type: Theme.easingStandard }
+        NumberAnimation { target: centerContent; property: "x"; from: shakeAnimation.originX - 8;  to: shakeAnimation.originX + 8;  duration: Math.max(1, Math.round(Theme.durationMicro * 0.67)); easing.type: Theme.easingStandard }
+        NumberAnimation { target: centerContent; property: "x"; from: shakeAnimation.originX + 8;  to: shakeAnimation.originX;      duration: Math.max(1, Math.round(Theme.durationMicro * 0.56)); easing.type: Theme.easingDefault }
+    }
+
+    // ── Frosted card backdrop ─────────────────────────────────────────────────
+    Rectangle {
+        anchors.centerIn: centerContent
+        width: centerContent.width + Math.round(48 * root.uiScale)
+        height: centerContent.height + Math.round(56 * root.uiScale)
+        radius: Theme.radiusHuge
+        color: Theme.darkMode ? Qt.rgba(1, 1, 1, 0.07) : Qt.rgba(1, 1, 1, 0.28)
+        border.width: Theme.borderWidthThin
+        border.color: Theme.darkMode ? Qt.rgba(1, 1, 1, 0.13) : Qt.rgba(1, 1, 1, 0.48)
+    }
+
+    // ── Center content ────────────────────────────────────────────────────────
+    Column {
+        id: centerContent
+        anchors.centerIn: parent
+        anchors.verticalCenterOffset: Math.round(root.height * 0.05)
+        spacing: Theme.metric("spacingMd")
+
+        // Avatar
         Rectangle {
             anchors.horizontalCenter: parent.horizontalCenter
-            width: 122
-            height: 122
-            radius: width * 0.5
-            color: Theme.color("surface")
-            border.color: Theme.color("panelBorder")
+            width: Math.round(96 * root.uiScale)
+            height: width
+            radius: width / 2
+            color: Theme.darkMode ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(1, 1, 1, 0.38)
+            border.color: Theme.darkMode ? Qt.rgba(1, 1, 1, 0.24) : Qt.rgba(1, 1, 1, 0.56)
             border.width: Theme.borderWidthThin
 
             Label {
                 anchors.centerIn: parent
-                text: String(root.userName || "User").length > 0 ? String(root.userName).charAt(0).toUpperCase() : "U"
+                text: String(root.userName || "User").length > 0
+                      ? String(root.userName).charAt(0).toUpperCase() : "U"
                 color: Theme.color("textPrimary")
                 font.pixelSize: Math.round(Theme.fontPxDisplay * 1.57)
-                font.weight: Theme.fontWeight("bold")
+                font.weight: Theme.fontWeight("semibold")
             }
         }
 
-        Row {
+        // User display name
+        Label {
             anchors.horizontalCenter: parent.horizontalCenter
-            spacing: 10
+            text: root.userName || "User"
+            color: Theme.color("textPrimary")
+            font.pixelSize: Theme.fontSize("hero")
+            font.weight: Theme.fontWeight("medium")
+        }
+
+        // Password + submit (integrated pill)
+        Item {
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: Math.min(root.width * 0.28, 340)
+            height: Theme.controlHeightRegular
 
             TextField {
                 id: passwordField
-                width: Math.min(root.width * 0.34, 360)
-                height: 44
+                anchors.fill: parent
                 placeholderText: "Password"
                 echoMode: TextInput.Password
                 enabled: !root.lockoutActive
-                leftPadding: 16
-                rightPadding: 16
+                leftPadding: Theme.metric("spacingMd")
+                rightPadding: submitBtn.width + Theme.metric("spacingMd")
                 font.pixelSize: Theme.fontSize("titleLarge")
                 color: Theme.color("textPrimary")
                 background: Rectangle {
-                    radius: height / 2
+                    radius: parent.height / 2
                     color: Theme.color("surface")
                     border.color: passwordField.activeFocus ? Theme.color("focusRing") : Theme.color("panelBorder")
                     border.width: Theme.borderWidthThin
@@ -136,26 +189,41 @@ Window {
                 onAccepted: root.unlockRequested(text)
             }
 
-            Button {
-                width: 44
-                height: 44
-                text: "❯"
-                enabled: !root.lockoutActive
-                onClicked: root.unlockRequested(passwordField.text)
-                background: Rectangle {
-                    radius: width / 2
-                    color: parent.down ? Theme.color("accentHover") : Theme.color("accent")
+            Rectangle {
+                id: submitBtn
+                width: Math.round(32 * root.uiScale)
+                height: Math.round(32 * root.uiScale)
+                radius: height / 2
+                anchors.right: parent.right
+                anchors.rightMargin: Theme.metric("spacingXs")
+                anchors.verticalCenter: parent.verticalCenter
+                color: root.lockoutActive ? Theme.color("controlBgHover")
+                       : (submitBtnArea.containsMouse ? Theme.color("accentHover") : Theme.color("accent"))
+                Behavior on color {
+                    ColorAnimation { duration: Theme.durationMicro; easing.type: Theme.easingStandard }
                 }
-                contentItem: Text {
-                    text: parent.text
+
+                Text {
+                    anchors.centerIn: parent
+                    text: "❯"
                     color: Theme.color("accentText")
-                    font.pixelSize: Theme.fontSize("hero")
+                    font.pixelSize: Theme.fontSize("body")
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
+                }
+
+                MouseArea {
+                    id: submitBtnArea
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    enabled: !root.lockoutActive
+                    onClicked: root.unlockRequested(passwordField.text)
                 }
             }
         }
 
+        // Error + lockout message
         Label {
             anchors.horizontalCenter: parent.horizontalCenter
             visible: root.lockFailed || root.lockoutActive
@@ -164,6 +232,7 @@ Window {
                   : root.errorTextForCode(root.unlockErrorCode)
             color: Theme.color("error")
             font.pixelSize: Theme.fontSize("body")
+            horizontalAlignment: Text.AlignHCenter
         }
     }
 
