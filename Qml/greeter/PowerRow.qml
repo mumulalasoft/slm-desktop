@@ -1,7 +1,8 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
+import Slm_Desktop
 
-// Single power/action button with icon + label below, matching SDDM style.
+// Single power/action button with icon + label below.
 Column {
     id: root
     spacing: Math.round(8 * uiScale)
@@ -19,13 +20,15 @@ Column {
         onClicked: root.actionTriggered()
         background: Rectangle {
             radius: width / 2
-            color: parent.down ? "#44ffffff" : "transparent"
-            border.width: 1
-            border.color: "#ccffffff"
+            color: parent.down ? Qt.rgba(1, 1, 1, 0.267)
+                   : (parent.hovered ? Qt.rgba(1, 1, 1, 0.133) : "transparent")
+            border.width: Theme.borderWidthThin
+            border.color: parent.hovered ? Qt.rgba(1, 1, 1, 0.933) : Qt.rgba(1, 1, 1, 0.800)
+            Behavior on color { ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingStandard } }
         }
         contentItem: Text {
             text: root.icon
-            color: "#f5ffffff"
+            color: Qt.rgba(1, 1, 1, 0.961)
             font.pixelSize: Math.round(24 * root.uiScale)
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
@@ -34,7 +37,7 @@ Column {
 
     Label {
         text: root.label
-        color: "#d8ffffff"
+        color: Qt.rgba(1, 1, 1, 0.847)
         anchors.horizontalCenter: parent.horizontalCenter
         font.pixelSize: Math.round(14 * root.uiScale)
     }
