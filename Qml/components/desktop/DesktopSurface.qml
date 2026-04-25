@@ -1808,45 +1808,63 @@ Item {
                 root.activeContextMenuKind = ""
             }
         }
+
         MenuItem {
-            text: "Open"
+            text: qsTr("Open")
             onTriggered: {
                 root._ensureContextSelectionForMenu()
                 root.openSelection()
             }
         }
+
         MenuItem {
-            text: "Rename"
+            text: qsTr("Open With…")
+            onTriggered: {
+                root._ensureContextSelectionForMenu()
+                root.openSelectionWithAppChooser()
+            }
+        }
+
+        MenuSeparator {}
+
+        MenuItem {
+            text: qsTr("Rename")
             onTriggered: {
                 root._ensureContextSelectionForMenu()
                 root.renameSelection()
             }
         }
+
         MenuItem {
-            text: "Add to AppDeck"
+            text: qsTr("Add to AppDeck")
             enabled: root._isDesktopLauncherRow(root.contextEntryRow)
             visible: enabled
             height: visible ? implicitHeight : 0
             onTriggered: root.addSelectionToDock()
         }
+
         MenuSeparator {}
+
         MenuItem {
-            text: "Move to Trash"
+            text: qsTr("Move to Trash")
             onTriggered: {
                 root._ensureContextSelectionForMenu()
                 root.moveSelectionToTrash()
             }
         }
+
         MenuItem {
-            text: "Delete Permanently"
+            text: qsTr("Delete Permanently")
             onTriggered: {
                 root._ensureContextSelectionForMenu()
                 root.deleteSelectionPermanently()
             }
         }
+
         MenuSeparator {}
+
         MenuItem {
-            text: "Properties"
+            text: qsTr("Get Info")
             onTriggered: {
                 root._ensureContextSelectionForMenu()
                 root.openPropertiesSelection()

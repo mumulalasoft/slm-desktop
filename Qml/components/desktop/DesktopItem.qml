@@ -44,10 +44,12 @@ Item {
         anchors.bottom: parent.bottom
         anchors.leftMargin: 2
         anchors.rightMargin: 2
+        anchors.topMargin: 2
+        anchors.bottomMargin: 2
         radius: Theme.radiusCard
         color: root.selected
                ? Theme.color("accentSubtle")
-               : (root.hovered ? Qt.rgba(1, 1, 1, Theme.darkMode ? 0.12 : 0.22) : "transparent")
+               : (root.hovered ? Qt.rgba(1, 1, 1, Theme.darkMode ? 0.10 : 0.18) : "transparent")
         border.width: root.selected ? Theme.borderWidthThin : Theme.borderWidthNone
         border.color: Theme.color("panelBorderStrong")
         opacity: root.dragging ? Theme.opacityMuted : 1.0
@@ -215,6 +217,7 @@ Item {
         enabled: !root.editing && root.interactable
         onEntered: root.hovered = true
         onExited: root.hovered = false
+        onCanceled: root.hovered = false
         onPressed: function(mouse) {
             root.pressed(mouse.x, mouse.y, mouse.button, mouse.buttons, mouse.modifiers)
         }

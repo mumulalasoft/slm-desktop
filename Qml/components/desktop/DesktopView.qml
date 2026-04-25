@@ -834,9 +834,9 @@ Item {
         height: root.tileHeight
         radius: Theme.radiusCard
         color: Theme.color("accentSubtle")
-        opacity: Theme.opacityHint
-        border.width: Theme.borderWidthThin
-        border.color: Theme.color("focusRing")
+        opacity: Theme.opacitySubtle
+        border.width: Theme.borderWidthThick
+        border.color: Theme.color("focusRingStrong")
 
         readonly property var cell: placement.slotToCell(root.dragHoverSlot)
         x: Number(root.workX) + Number((cell.valid ? cell.cellX : 0) * root.cellWidth) + ((root.cellWidth - width) * 0.5)
