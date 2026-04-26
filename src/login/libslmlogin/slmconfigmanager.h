@@ -52,6 +52,7 @@ public:
     // Convenience accessors with defaults.
     QString      compositor() const;
     QStringList  compositorArgs() const;
+    QStringList  compositorEnv() const;  // "KEY=VALUE" list merged into compositor env
     QString      shell() const;
     QStringList  shellArgs() const;
 

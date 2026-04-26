@@ -19,8 +19,11 @@
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
 #include <QWindow>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QTextStream>
 #include <csignal>
+#include <cstdio>
 #if defined(__linux__)
 #include <execinfo.h>
 #include <unistd.h>
@@ -95,6 +98,48 @@
 #include "src/printing/core/PrintPreviewModel.h"
 #include "src/printing/core/JobSubmitter.h"
 
+static FILE *g_shellLogFile = nullptr;
+
+static void shellMessageHandler(QtMsgType type, const QMessageLogContext &,
+                                const QString &msg)
+{
+    const char *level = "DBG";
+    switch (type) {
+    case QtInfoMsg:     level = "INF"; break;
+    case QtWarningMsg:  level = "WRN"; break;
+    case QtCriticalMsg:
+    case QtFatalMsg:    level = "ERR"; break;
+    default: break;
+    }
+    const QByteArray ts   = QDateTime::currentDateTime()
+                                .toString(QStringLiteral("yyyy-MM-dd HH:mm:ss.zzz"))
+                                .toLocal8Bit();
+    const QByteArray line = msg.toLocal8Bit();
+    fprintf(stderr, "[slm-shell][%s][%s] %s\n", ts.constData(), level, line.constData());
+    fflush(stderr);
+    if (g_shellLogFile) {
+        fprintf(g_shellLogFile, "[%s][%s] %s\n", ts.constData(), level, line.constData());
+        fflush(g_shellLogFile);
+    }
+}
+
+// Write / update the shell lifecycle marker file.
+// Path: $XDG_RUNTIME_DIR/slm-shell-lifecycle.json (fallback: /tmp/).
+// Called at key phases: started, wayland_ok, first_frame.
+static void writeShellLifecycle(const QString &phase)
+{
+    static QJsonObject s_lc;
+    const QString now = QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs);
+    s_lc.insert(phase, now);
+    const QByteArray runtimeDir = qgetenv("XDG_RUNTIME_DIR");
+    const QString path = runtimeDir.isEmpty()
+        ? QStringLiteral("/tmp/slm-shell-lifecycle.json")
+        : QString::fromLocal8Bit(runtimeDir) + QStringLiteral("/slm-shell-lifecycle.json");
+    QFile f(path);
+    if (f.open(QIODevice::WriteOnly | QIODevice::Truncate))
+        f.write(QJsonDocument(s_lc).toJson(QJsonDocument::Compact));
+}
+
 #if defined(__linux__)
 namespace {
 void slmCrashSignalHandler(int sig)
@@ -124,6 +169,31 @@ int main(int argc, char *argv[])
 #if defined(__linux__)
     installCrashSignalHandlers();
 #endif
+
+    // ── Lifecycle logging setup ───────────────────────────────────────────────
+    g_shellLogFile = fopen("/tmp/slm-shell.log", "a");
+    qInstallMessageHandler(shellMessageHandler);
+    qInfo("=== slm-shell start (pid=%d) ===", static_cast<int>(getpid()));
+    qInfo("SLM-SHELL: WAYLAND_DISPLAY=%s QT_QPA_PLATFORM=%s XDG_RUNTIME_DIR=%s "
+          "XDG_SESSION_TYPE=%s SLM_SESSION_MODE=%s",
+          qgetenv("WAYLAND_DISPLAY").constData(),
+          qgetenv("QT_QPA_PLATFORM").constData(),
+          qgetenv("XDG_RUNTIME_DIR").constData(),
+          qgetenv("XDG_SESSION_TYPE").constData(),
+          qgetenv("SLM_SESSION_MODE").constData());
+    writeShellLifecycle(QStringLiteral("started"));
+
+    // ── Wayland pre-flight ────────────────────────────────────────────────────
+    // Ensure WAYLAND_DISPLAY is set before QGuiApplication loads the platform plugin.
+    if (qgetenv("WAYLAND_DISPLAY").isEmpty()) {
+        qWarning("SLM-SHELL: WAYLAND_DISPLAY not set — defaulting to slm-wayland-0");
+        qputenv("WAYLAND_DISPLAY", "slm-wayland-0");
+    }
+    if (qgetenv("QT_QPA_PLATFORM").isEmpty()) {
+        qWarning("SLM-SHELL: QT_QPA_PLATFORM not set — forcing wayland");
+        qputenv("QT_QPA_PLATFORM", "wayland");
+    }
+
     const auto roundedRegionForRect = [](const QRect &rect, int radius) -> QRegion {
         if (rect.isEmpty() || radius <= 0) {
             return QRegion(rect);
@@ -220,6 +290,23 @@ int main(int argc, char *argv[])
     qputenv("QT_QUICK_CONTROLS_STYLE", "SlmStyle");
 
     QGuiApplication app(argc, argv);
+    qInfo("SLM-SHELL: Qt platform plugin loaded: '%s'",
+          qPrintable(app.platformName()));
+    writeShellLifecycle(QStringLiteral("platformLoaded"));
+
+    // Hard-fail if Qt chose a non-Wayland backend. Exit code 101 lets the
+    // session broker classify this as a Wayland attach failure (not a crash).
+    if (app.platformName() != QStringLiteral("wayland")) {
+        qCritical("SLM-SHELL: platform plugin is '%s', expected 'wayland' — aborting (exit 101)",
+                  qPrintable(app.platformName()));
+        qCritical("SLM-SHELL: check WAYLAND_DISPLAY='%s' and that the compositor socket exists",
+                  qgetenv("WAYLAND_DISPLAY").constData());
+        if (g_shellLogFile) fclose(g_shellLogFile);
+        return 101;
+    }
+    qInfo("SLM-SHELL: Wayland backend confirmed — connecting to compositor");
+    writeShellLifecycle(QStringLiteral("waylandOk"));
+
     if (startupDiag) {
         qInfo().noquote() << "[startup] QGuiApplication ready"
                           << (QDateTime::currentMSecsSinceEpoch() - t0) << "ms";
@@ -684,12 +771,18 @@ int main(int argc, char *argv[])
             QObject::connect(shellWindow, &QQuickWindow::afterAnimating,
                              &motionController, &Slm::Motion::MotionController::windowFrame);
             QObject::connect(shellWindow, &QQuickWindow::frameSwapped,
-                             &app, [&, shellWindow]() {
+                             &app, [&, shellWindow, t0]() {
                 static bool firstFrameLogged = false;
                 if (firstFrameLogged) {
                     return;
                 }
                 firstFrameLogged = true;
+                const qint64 elapsed = QDateTime::currentMSecsSinceEpoch() - t0;
+                qInfo("SLM-SHELL: first frame rendered (t=%lldms visible=%s size=%dx%d)",
+                      (long long)elapsed,
+                      shellWindow->isVisible() ? "true" : "false",
+                      shellWindow->width(), shellWindow->height());
+                writeShellLifecycle(QStringLiteral("firstFrame"));
                 startupMark(QStringLiteral("window.firstFrameSwapped"),
                             QStringLiteral("visible=%1 size=%2x%3")
                                 .arg(shellWindow->isVisible() ? QStringLiteral("true")
@@ -757,5 +850,11 @@ int main(int argc, char *argv[])
                     QStringLiteral("path=%1").arg(startupTracePath));
     }
 
-    return app.exec();
+    const int ret = app.exec();
+    qInfo("=== slm-shell exit (code=%d) ===", ret);
+    if (g_shellLogFile) {
+        fclose(g_shellLogFile);
+        g_shellLogFile = nullptr;
+    }
+    return ret;
 }

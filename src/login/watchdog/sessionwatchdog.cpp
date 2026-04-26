@@ -3,6 +3,8 @@
 #include <QCoreApplication>
 #include <QFile>
 #include <QFileInfo>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QProcess>
 #include <QStandardPaths>
 #include "../libslmlogin/slmconfigmanager.h"
@@ -46,7 +48,7 @@ void SessionWatchdog::onHealthyTimeout()
 
 bool SessionWatchdog::isSessionHealthy(QString *reason) const
 {
-    const QString runtimeDir = QString::fromLocal8Bit(qgetenv("XDG_RUNTIME_DIR"));
+    const QString runtimeDir     = QString::fromLocal8Bit(qgetenv("XDG_RUNTIME_DIR"));
     const QString waylandDisplay = QString::fromLocal8Bit(qgetenv("WAYLAND_DISPLAY"));
     if (runtimeDir.isEmpty() || waylandDisplay.isEmpty()) {
         if (reason) *reason = QStringLiteral("WAYLAND_DISPLAY or XDG_RUNTIME_DIR missing");
@@ -58,28 +60,66 @@ bool SessionWatchdog::isSessionHealthy(QString *reason) const
         return false;
     }
 
-    // Minimal shell liveness check (best effort): shell process name should exist.
-    if (QStandardPaths::findExecutable(QStringLiteral("pgrep")).isEmpty()) {
-        if (reason) *reason = QStringLiteral("missing-component:pgrep");
+    // Lifecycle file written by slm-desktop and slm-recovery-app.
+    const QString lifecyclePath = runtimeDir + QStringLiteral("/slm-shell-lifecycle.json");
+
+    const QString sessionMode = QString::fromLocal8Bit(qgetenv("SLM_SESSION_MODE"));
+    if (sessionMode == QStringLiteral("recovery")) {
+        // Recovery app must have rendered its first frame AND kept it visible for
+        // at least kRecoveryFirstFrameStableMs — proof the UI was actually usable,
+        // not just a flash before a crash.
+        QFile f(lifecyclePath);
+        if (f.open(QIODevice::ReadOnly)) {
+            const QJsonObject lc = QJsonDocument::fromJson(f.readAll()).object();
+            const QString ts = lc.value(QStringLiteral("firstFrame")).toString();
+            if (!ts.isEmpty()) {
+                const QDateTime t      = QDateTime::fromString(ts, Qt::ISODateWithMs);
+                const qint64    ageMs  = t.msecsTo(QDateTime::currentDateTimeUtc());
+                if (ageMs >= kRecoveryFirstFrameStableMs) {
+                    qInfo("slm-watchdog: recovery firstFrame stable for %lldms (>=%dms) — healthy",
+                          (long long)ageMs, kRecoveryFirstFrameStableMs);
+                    return true;
+                }
+                qInfo("slm-watchdog: recovery firstFrame present but only %lldms old (need >=%dms)",
+                      (long long)ageMs, kRecoveryFirstFrameStableMs);
+                if (reason) *reason = QStringLiteral("recovery firstFrame not stable yet");
+                return false;
+            }
+        }
+        qInfo("slm-watchdog: recovery mode — no firstFrame marker written yet");
+        if (reason) *reason = QStringLiteral("recovery firstFrame not written");
         return false;
     }
 
-    QProcess pgrep;
-    pgrep.start(QStringLiteral("pgrep"), {QStringLiteral("-x"), QStringLiteral("appSlm_Desktop")});
-    if (!pgrep.waitForFinished(1500)) {
-        if (reason) *reason = QStringLiteral("pgrep timeout");
-        return false;
-    }
-    if (pgrep.exitCode() != 0) {
-        // fallback for renamed binary in install.
-        QProcess pgrepAlt;
-        pgrepAlt.start(QStringLiteral("pgrep"), {QStringLiteral("-x"), QStringLiteral("slm-shell")});
-        if (!pgrepAlt.waitForFinished(1500) || pgrepAlt.exitCode() != 0) {
-            if (reason) *reason = QStringLiteral("shell process not found");
-            return false;
+    // Normal/safe mode: shell must have rendered at least one frame.
+    if (QFileInfo::exists(lifecyclePath)) {
+        QFile f(lifecyclePath);
+        if (f.open(QIODevice::ReadOnly)) {
+            const QJsonObject obj = QJsonDocument::fromJson(f.readAll()).object();
+            if (!obj.value(QStringLiteral("firstFrame")).toString().isEmpty()) {
+                qInfo("slm-watchdog: lifecycle marker confirms first frame rendered");
+                return true;
+            }
         }
     }
-    return true;
+
+    // Fallback: pgrep for the shell process (slow hardware may not have written
+    // the lifecycle marker yet within the watchdog window).
+    if (!QStandardPaths::findExecutable(QStringLiteral("pgrep")).isEmpty()) {
+        auto pgrepExists = [](const QString &name) -> bool {
+            QProcess p;
+            p.start(QStringLiteral("pgrep"), {QStringLiteral("-x"), name});
+            return p.waitForFinished(1500) && p.exitCode() == 0;
+        };
+        if (pgrepExists(QStringLiteral("appSlm_Desktop"))
+            || pgrepExists(QStringLiteral("slm-shell"))) {
+            qInfo("slm-watchdog: shell confirmed alive via pgrep (no first-frame marker yet)");
+            return true;
+        }
+    }
+
+    if (reason) *reason = QStringLiteral("shell process not found and no first-frame marker");
+    return false;
 }
 
 void SessionWatchdog::markSessionHealthy()

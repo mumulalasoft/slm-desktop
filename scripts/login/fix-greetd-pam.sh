@@ -29,8 +29,23 @@ password   include      common-password
 session    required     pam_env.so readenv=1
 session    required     pam_limits.so
 session    required     pam_unix.so
-session    optional     pam_systemd.so
-session    optional     pam_gnome_keyring.so auto_start
+# pam_systemd.so MUST be required (not optional) so that logind creates a
+# local graphical session with seat0.  Without it kwin_wayland cannot open DRM.
+session    required     pam_systemd.so
+EOF
+
+# Also write /etc/pam.d/slm for the direct-PAM (no-greetd) path.
+backup_file /etc/pam.d/slm
+cat >/etc/pam.d/slm <<'EOF'
+#%PAM-1.0
+auth       requisite    pam_nologin.so
+auth       include      common-auth
+account    include      common-account
+password   include      common-password
+session    required     pam_env.so readenv=1
+session    required     pam_limits.so
+session    required     pam_unix.so
+session    required     pam_systemd.so
 EOF
 
 cat >/etc/pam.d/greetd-greeter <<'EOF'
@@ -38,7 +53,7 @@ cat >/etc/pam.d/greetd-greeter <<'EOF'
 auth       include      common-auth
 account    include      common-account
 session    required     pam_unix.so
-session    optional     pam_systemd.so
+session    required     pam_systemd.so
 EOF
 
 echo "[fix-greetd-pam] restarting greetd..."

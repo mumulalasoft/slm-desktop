@@ -1,0 +1,55 @@
+# slm-greeter.service — SLM display manager (no greetd required).
+#
+# Uses cage as a lightweight Wayland compositor to host the SLM greeter.
+# The greeter does PAM authentication directly (libpam) and manages VT switching:
+#   - Greeter UI on its own VT (default VT7)
+#   - User session compositor (kwin_wayland) on the next free VT
+#   - On logout, VT switches back and the greeter shows the login screen again
+#
+# Install:
+#   sudo install -m644 scripts/systemd/system/slm-greeter.service \
+#                       /etc/systemd/system/slm-greeter.service
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now slm-greeter.service
+#
+# This service conflicts with other display managers. If greetd is already
+# configured you may prefer to keep it and only fix the PAM file instead.
+
+[Unit]
+Description=SLM Greeter (direct PAM display manager)
+Documentation=https://github.com/your-org/slm-desktop
+After=systemd-user-sessions.service systemd-logind.service
+Wants=systemd-logind.service
+# Conflict with greetd and other DMs so only one runs at a time.
+Conflicts=greetd.service getty@tty7.service
+After=greetd.service getty@tty7.service
+
+[Service]
+Type=simple
+# cage -s : use libseat (logind) for seat management
+# The slm-greeter binary uses SlmPamSession for PAM auth when GREETD_SOCK is absent.
+ExecStart=/usr/bin/cage -s -- /usr/local/bin/slm-greeter
+Restart=on-failure
+RestartSec=2
+
+# Bind to TTY7 so cage owns that VT. cage opens the DRM device once;
+# on VT switch logind pauses cage and gives DRM master to the user session.
+TTYPath=/dev/tty7
+StandardInput=tty
+StandardOutput=journal
+StandardError=journal
+TTYReset=yes
+TTYVHangup=yes
+
+# Environment for cage and the greeter.
+Environment=LIBSEAT_BACKEND=logind
+Environment=WLR_RENDERER=pixman
+Environment=QT_QUICK_BACKEND=software
+Environment=LIBGL_ALWAYS_SOFTWARE=1
+Environment=QT_QPA_PLATFORM=wayland
+Environment=SLM_GREETER_MODE=direct
+
+[Install]
+WantedBy=graphical.target
+# Optionally alias to display-manager.service if replacing another DM.
+# Alias=display-manager.service

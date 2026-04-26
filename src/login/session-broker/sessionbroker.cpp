@@ -1,14 +1,19 @@
 #include "sessionbroker.h"
 #include "sessionrollback.h"
 
+#include <QDateTime>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QProcessEnvironment>
 #include <QStandardPaths>
 #include <QThread>
+#include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/un.h>
 #include <unistd.h>
 
 namespace Slm::Login {
@@ -25,6 +30,9 @@ int SessionBroker::run()
 {
     readState();
     m_config.load();
+    qInfo("config: path=%s compositor=%s",
+          qUtf8Printable(ConfigManager::activePath()),
+          qUtf8Printable(m_config.compositor()));
 
     // Ensure core session env exists before integrity checks.
     qputenv("SLM_OFFICIAL_SESSION", "1");
@@ -35,13 +43,14 @@ int SessionBroker::run()
         qputenv("XDG_RUNTIME_DIR", runtimeDir.toLocal8Bit());
     }
 
+    validateLogindSession();
+
     const PlatformChecker checker;
     const PlatformStatus platform = checker.checkAll(m_config.compositor(), m_config.shell());
     if (!platform.ok) {
         qWarning("slm-session-broker: platform integrity issues:");
-        for (const QString &issue : platform.issues) {
+        for (const QString &issue : platform.issues)
             qWarning("  - %s", qUtf8Printable(issue));
-        }
     }
 
     m_finalMode = evaluateMode(platform);
@@ -61,32 +70,83 @@ int SessionBroker::run()
         return 1;
     }
 
+    m_plan = buildCompositorPlan();
+
     if (!launchCompositor()) {
         writeStartupFailed(QStringLiteral("compositor-launch-failed"));
         return 1;
     }
 
-    if (!waitCompositorSocket()) {
-        qCritical("slm-session-broker: compositor socket did not appear within timeout");
+    m_activeWaylandDisplay = detectWaylandSocket();
+    if (m_activeWaylandDisplay.isEmpty()) {
+        qCritical("slm-session-broker: compositor socket did not become ready within timeout");
         m_compositorProcess.kill();
         m_compositorProcess.waitForFinished(3000);
         writeStartupFailed(QStringLiteral("compositor-socket-timeout"));
         return 1;
     }
 
+    // Expose active socket for watchdog and any other subprocesses we spawn.
+    qputenv("WAYLAND_DISPLAY", m_activeWaylandDisplay.toLocal8Bit());
+
     launchShell();
     launchWatchdog();
 
-    qInfo("slm-session-broker: waiting for compositor to exit…");
-    m_compositorProcess.waitForFinished(-1);
+    qInfo("compositor: waiting for exit…");
 
-    const int exitCode = m_compositorProcess.exitCode();
-    const bool crashed = (m_compositorProcess.exitStatus() == QProcess::CrashExit)
-                         || (exitCode != 0);
+    // In recovery mode the shell (slm-recovery-app) exits via exitToDesktop() while
+    // the compositor keeps running.  Poll both; when the shell exits, give the
+    // compositor 3 s to clean up on its own then terminate it so the broker doesn't
+    // hang indefinitely.
+    if (m_finalMode == StartupMode::Recovery) {
+        while (m_compositorProcess.state() == QProcess::Running) {
+            if (!m_compositorProcess.waitForFinished(500)
+                && m_shellProcess.state() == QProcess::NotRunning) {
+                qInfo("compositor: recovery shell exited (code=%d) — terminating compositor",
+                      m_shellProcess.exitCode());
+                m_compositorProcess.terminate();
+                if (!m_compositorProcess.waitForFinished(3000)) {
+                    qWarning("compositor: SIGTERM ignored — sending SIGKILL");
+                    m_compositorProcess.kill();
+                    m_compositorProcess.waitForFinished(2000);
+                }
+                break;
+            }
+        }
+    } else {
+        m_compositorProcess.waitForFinished(-1);
+    }
+
+    const int  exitCode = m_compositorProcess.exitCode();
+    const bool isCrash  = (m_compositorProcess.exitStatus() == QProcess::CrashExit);
+    const bool crashed  = isCrash || (exitCode != 0);
+
+    if (isCrash)
+        qWarning("compositor: exited via signal/crash exit_code=%d", exitCode);
+    else
+        qInfo("compositor: exited normally exit_code=%d", exitCode);
+
+    // Give shell a moment to flush its own exit — it is killed by compositor teardown.
+    if (m_shellProcess.state() != QProcess::NotRunning)
+        m_shellProcess.waitForFinished(3000);
+
+    // Print tail of compositor log for quick diagnosis.
+    {
+        QFile compLog(QStringLiteral("/tmp/slm-compositor.log"));
+        if (compLog.open(QIODevice::ReadOnly)) {
+            const QByteArray all = compLog.readAll();
+            const QList<QByteArray> lines = all.split('\n');
+            const int tail = qMin(lines.size(), 30);
+            qInfo("compositor: last %d lines from /tmp/slm-compositor.log:", tail);
+            for (int i = lines.size() - tail; i < lines.size(); ++i) {
+                if (!lines.at(i).trimmed().isEmpty())
+                    qInfo("  | %s", lines.at(i).constData());
+            }
+        }
+    }
+
     writeSessionEnded(crashed);
-
-    qInfo("slm-session-broker: session ended (exit=%d, crashed=%s)",
-          exitCode, crashed ? "yes" : "no");
+    qInfo("session: ended (crashed=%s)", crashed ? "yes" : "no");
     return 0;
 }
 
@@ -95,38 +155,42 @@ int SessionBroker::run()
 void SessionBroker::readState()
 {
     QString err;
-    if (!SessionStateIO::load(m_state, err)) {
+    if (!SessionStateIO::load(m_state, err))
         qWarning("slm-session-broker: state load error: %s (using defaults)", qUtf8Printable(err));
-    }
 
-    // Delayed-commit rollback: if previous session ended without health
-    // confirmation and the config is still marked pending, roll it back now
-    // before we increment the crash counter.
+    qInfo("slm-session-broker: prev state — crashCount=%d lastBootStatus=%s "
+          "configPending=%s lastMode=%s recoveryReason=%s",
+          m_state.crashCount,
+          qPrintable(m_state.lastBootStatus),
+          m_state.configPending ? "yes" : "no",
+          qPrintable(startupModeToString(m_state.lastMode)),
+          m_state.recoveryReason.isEmpty() ? "<none>" : qPrintable(m_state.recoveryReason));
+
     if (m_state.configPending && m_state.lastBootStatus != QStringLiteral("healthy")) {
-        QString err;
         if (m_config.hasPreviousConfig()) {
-            if (m_config.rollbackToPrevious(&err)) {
+            if (m_config.rollbackToPrevious(&err))
                 qInfo("slm-session-broker: config rolled back (configPending + unconfirmed session)");
-            } else {
+            else
                 qWarning("slm-session-broker: configPending rollback failed: %s", qUtf8Printable(err));
-            }
         }
     }
 
-    // Crash sentinel: increment now. Watchdog will reset on healthy session.
-    m_state.crashCount++;
+    const int prevCount = m_state.crashCount;
+    if (m_state.crashCount < kCrashLoopThreshold + 1)
+        m_state.crashCount++;
+    qInfo("slm-session-broker: crash counter: %d → %d (threshold=%d, recovery_at>=%d)",
+          prevCount, m_state.crashCount, kCrashLoopThreshold, kCrashLoopThreshold);
+
     m_state.lastBootStatus = QStringLiteral("started");
     m_state.lastMode       = m_requestedMode;
     m_state.lastUpdated    = QDateTime::currentDateTimeUtc();
 
-    if (!SessionStateIO::save(m_state, err)) {
+    if (!SessionStateIO::save(m_state, err))
         qWarning("slm-session-broker: state save error: %s", qUtf8Printable(err));
-    }
 }
 
 StartupMode SessionBroker::evaluateMode(const PlatformStatus &platform)
 {
-    // Priority: forced > crash loop > platform failure > requested > normal.
     QString partitionReason;
     if (hasRecoveryPartitionRequest(&partitionReason)) {
         m_state.recoveryReason = partitionReason.isEmpty()
@@ -134,10 +198,8 @@ StartupMode SessionBroker::evaluateMode(const PlatformStatus &platform)
                 : partitionReason;
         return StartupMode::Recovery;
     }
-
-    if (m_state.safeModeForced) {
+    if (m_state.safeModeForced)
         return StartupMode::Safe;
-    }
     if (m_state.crashCount >= kCrashLoopThreshold) {
         m_state.recoveryReason = QStringLiteral("crash loop detected (%1 crashes)")
                                      .arg(m_state.crashCount);
@@ -152,41 +214,23 @@ StartupMode SessionBroker::evaluateMode(const PlatformStatus &platform)
 
 bool SessionBroker::hasRecoveryPartitionRequest(QString *reason) const
 {
-    if (reason) {
-        reason->clear();
-    }
-
+    if (reason) reason->clear();
     const QString markerPath = ConfigManager::configDir()
             + QStringLiteral("/recovery-partition-request.json");
     QFile marker(markerPath);
-    if (!marker.exists()) {
-        return false;
-    }
-
+    if (!marker.exists()) return false;
     if (!marker.open(QIODevice::ReadOnly)) {
-        if (reason) {
-            *reason = QStringLiteral("recovery-partition-request-unreadable");
-        }
+        if (reason) *reason = QStringLiteral("recovery-partition-request-unreadable");
         return true;
     }
-
-    const QByteArray payload = marker.readAll();
-    marker.close();
-    const QJsonDocument doc = QJsonDocument::fromJson(payload);
+    const QJsonDocument doc = QJsonDocument::fromJson(marker.readAll());
     if (!doc.isObject()) {
-        if (reason) {
-            *reason = QStringLiteral("recovery-partition-request-invalid");
-        }
+        if (reason) *reason = QStringLiteral("recovery-partition-request-invalid");
         return true;
     }
-
     const QJsonObject obj = doc.object();
-    const QString fileReason = obj.value(QStringLiteral("reason")).toString().trimmed();
-    if (reason) {
-        *reason = fileReason;
-    }
-    const bool requested = obj.value(QStringLiteral("requested")).toBool(true);
-    return requested;
+    if (reason) *reason = obj.value(QStringLiteral("reason")).toString().trimmed();
+    return obj.value(QStringLiteral("requested")).toBool(true);
 }
 
 void SessionBroker::performRollback(StartupMode mode)
@@ -196,11 +240,10 @@ void SessionBroker::performRollback(StartupMode mode)
     case StartupMode::Normal:
         break;
     case StartupMode::Safe:
-        if (!m_config.rollbackToSafe(&err)) {
+        if (!m_config.rollbackToSafe(&err))
             qWarning("slm-session-broker: safe rollback failed: %s", qUtf8Printable(err));
-        } else {
+        else
             qInfo("slm-session-broker: rolled back config to safe baseline");
-        }
         break;
     case StartupMode::Recovery:
         switch (rollbackRecoveryConfig(m_config, m_state, &err)) {
@@ -228,130 +271,393 @@ void SessionBroker::prepareEnvironment(StartupMode mode)
     qputenv("SLM_OFFICIAL_SESSION", "1");
     qputenv("XDG_SESSION_TYPE",     "wayland");
     qputenv("XDG_CURRENT_DESKTOP",  "SLM");
+    // WAYLAND_DISPLAY is intentionally NOT set here — it is set after the compositor
+    // socket is confirmed ready and the actual socket name is known.
 
+    if (qgetenv("LIBSEAT_BACKEND").isEmpty())
+        qputenv("LIBSEAT_BACKEND", "logind");
     if (qgetenv("XDG_RUNTIME_DIR").isEmpty()) {
         const QString runtimeDir = QStringLiteral("/run/user/") + QString::number(::getuid());
         qputenv("XDG_RUNTIME_DIR", runtimeDir.toLocal8Bit());
     }
 
-    // Mark config as pending confirmation. Watchdog clears this on healthy session.
-    // On next boot, if still pending + not healthy, we roll back the config.
     m_state.configPending = (mode == StartupMode::Normal);
     QString err;
-    if (!SessionStateIO::save(m_state, err)) {
+    if (!SessionStateIO::save(m_state, err))
         qWarning("slm-session-broker: failed to persist configPending: %s", qUtf8Printable(err));
+}
+
+static bool executableExists(const QString &bin)
+{
+    if (bin.startsWith(QLatin1Char('/'))) {
+        const QFileInfo fi(bin);
+        return fi.exists() && fi.isExecutable();
     }
+    return !QStandardPaths::findExecutable(bin).isEmpty();
 }
 
 QString SessionBroker::preflightMissingComponentReason() const
 {
-    const QFileInfo compositorInfo(m_config.compositor());
-    if (!compositorInfo.exists() || !compositorInfo.isExecutable()) {
+    if (!executableExists(m_config.compositor()))
         return QStringLiteral("missing-component:compositor:%1").arg(m_config.compositor());
+    if (m_finalMode != StartupMode::Recovery && !executableExists(m_config.shell()))
+        return QStringLiteral("missing-component:shell:%1").arg(m_config.shell());
+    if (QStandardPaths::findExecutable(QStringLiteral("slm-watchdog")).isEmpty())
+        return QStringLiteral("missing-component:slm-watchdog");
+    if (m_finalMode == StartupMode::Recovery
+            && QStandardPaths::findExecutable(QStringLiteral("slm-recovery-app")).isEmpty())
+        return QStringLiteral("missing-component:slm-recovery-app");
+    return {};
+}
+
+// ── Compositor plan ───────────────────────────────────────────────────────────
+
+QString SessionBroker::kwinGetCustomSocketFlag(const QString &bin)
+{
+    QProcess p;
+    p.start(bin, {QStringLiteral("--help")});
+    if (!p.waitForFinished(3000)) return {};
+    const QString help = QString::fromLocal8Bit(p.readAllStandardOutput())
+                       + QString::fromLocal8Bit(p.readAllStandardError());
+    if (help.contains(QStringLiteral("--socket")))
+        return QStringLiteral("--socket");
+    if (help.contains(QStringLiteral("--wayland-display")))
+        return QStringLiteral("--wayland-display");
+    return {};
+}
+
+CompositorLaunchPlan SessionBroker::buildCompositorPlan()
+{
+    CompositorLaunchPlan plan;
+    plan.env = QProcessEnvironment::systemEnvironment();
+
+    // Apply config-level env overrides.
+    for (const QString &kv : m_config.compositorEnv()) {
+        const int eq = kv.indexOf(QLatin1Char('='));
+        if (eq > 0)
+            plan.env.insert(kv.left(eq), kv.mid(eq + 1));
+    }
+    if (!m_config.compositorEnv().isEmpty()) {
+        qInfo("compositor: config env overrides: %s",
+              qUtf8Printable(m_config.compositorEnv().join(QLatin1Char(' '))));
     }
 
-    if (m_finalMode != StartupMode::Recovery) {
-        const QFileInfo shellInfo(m_config.shell());
-        if (!shellInfo.exists() || !shellInfo.isExecutable()) {
-            return QStringLiteral("missing-component:shell:%1").arg(m_config.shell());
+    QString compositorBin  = m_config.compositor();
+    QStringList compositorArgs = m_config.compositorArgs();
+    bool swayHeadlessFallback = false;
+
+    // kwin_wayland requires a DRM render node (/dev/dri/renderD128+).
+    // bochs-drm (basic QEMU VGA) has card0 but no render node — fall back to sway.
+    auto drmNodeExists = [](const QString &prefix, int lo, int hi) -> bool {
+        for (int i = lo; i < hi; ++i)
+            if (QFileInfo::exists(prefix + QString::number(i))) return true;
+        return false;
+    };
+    const bool hasDrmCard   = drmNodeExists(QStringLiteral("/dev/dri/card"),    0,   8);
+    const bool hasDrmRender = drmNodeExists(QStringLiteral("/dev/dri/renderD"), 128, 136);
+    const QString swayBin   = QStandardPaths::findExecutable(QStringLiteral("sway"));
+    qInfo("compositor: drm_card=%s drm_render=%s sway=%s",
+          hasDrmCard   ? "yes" : "no",
+          hasDrmRender ? "yes" : "no",
+          qPrintable(swayBin.isEmpty() ? QStringLiteral("not found") : swayBin));
+
+    if (compositorBin == QStringLiteral("kwin_wayland") && !hasDrmRender) {
+        if (!swayBin.isEmpty()) {
+            qWarning("compositor: no DRM render node — kwin_wayland needs renderD128+");
+            qWarning("compositor: falling back to sway headless (no GPU required)");
+            compositorBin  = QStringLiteral("sway");
+            compositorArgs = {};
+            swayHeadlessFallback = true;
+        } else {
+            qWarning("compositor: no DRM render node and sway not found — kwin_wayland will fail");
+            qWarning("compositor: fix: apt install sway  OR  add virtio-gpu-gl to QEMU");
         }
     }
 
-    if (QStandardPaths::findExecutable(QStringLiteral("slm-watchdog")).isEmpty()) {
-        return QStringLiteral("missing-component:slm-watchdog");
+    plan.binary = compositorBin;
+    plan.args   = compositorArgs;
+
+    const QString binName = QFileInfo(compositorBin).fileName();
+
+    if (binName == QStringLiteral("kwin_wayland")) {
+        plan.backend = CompositorBackend::KWin;
+        const QString socketFlag = kwinGetCustomSocketFlag(compositorBin);
+        if (!socketFlag.isEmpty()) {
+            plan.args << socketFlag << QString::fromLatin1(kSlmWaylandSocketName);
+            plan.socketStrategy = SocketStrategy::Fixed;
+            plan.socketName     = QString::fromLatin1(kSlmWaylandSocketName);
+            qInfo("compositor: kwin socket flag '%s' → using fixed socket '%s'",
+                  qPrintable(socketFlag), kSlmWaylandSocketName);
+        } else {
+            qWarning("compositor: kwin_wayland has no custom socket flag — "
+                     "will scan for socket after launch");
+            plan.socketStrategy = SocketStrategy::Scan;
+        }
+    } else if (binName == QStringLiteral("sway")) {
+        plan.backend = CompositorBackend::Sway;
+        // wlroots honours WLR_SOCKET to override the socket name.
+        plan.env.insert(QStringLiteral("WLR_SOCKET"), QString::fromLatin1(kSlmWaylandSocketName));
+        plan.socketStrategy = SocketStrategy::Fixed;
+        plan.socketName     = QString::fromLatin1(kSlmWaylandSocketName);
+        if (swayHeadlessFallback) {
+            plan.env.insert(QStringLiteral("WLR_BACKENDS"),            QStringLiteral("headless"));
+            plan.env.insert(QStringLiteral("WLR_LIBINPUT_NO_DEVICES"), QStringLiteral("1"));
+            plan.env.insert(QStringLiteral("WLR_RENDERER"),            QStringLiteral("pixman"));
+        }
+    } else {
+        plan.backend        = CompositorBackend::Unknown;
+        plan.socketStrategy = SocketStrategy::Scan;
+        qWarning("compositor: unknown compositor '%s' — will scan for socket",
+                 qPrintable(compositorBin));
     }
 
-    if (m_finalMode == StartupMode::Recovery
-            && QStandardPaths::findExecutable(QStringLiteral("slm-recovery-app")).isEmpty()) {
-        return QStringLiteral("missing-component:slm-recovery-app");
+    // For scan strategy, snapshot which wayland-* sockets already exist so we
+    // can identify the one the compositor creates.
+    if (plan.socketStrategy == SocketStrategy::Scan) {
+        const QString runtimeDir = QString::fromLocal8Bit(qgetenv("XDG_RUNTIME_DIR"));
+        const QDir dir(runtimeDir);
+        const QStringList entries = dir.entryList(
+            QDir::AllEntries | QDir::System | QDir::NoDotAndDotDot);
+        for (const QString &e : entries) {
+            if (e.startsWith(QStringLiteral("wayland-")))
+                plan.preExistingSockets.insert(e);
+        }
+        qInfo("compositor: pre-existing wayland sockets: [%s]",
+              qPrintable(QStringList(plan.preExistingSockets.begin(),
+                                    plan.preExistingSockets.end()).join(QLatin1Char(','))));
     }
 
-    return QString();
+    return plan;
 }
+
+// ── Socket helpers ────────────────────────────────────────────────────────────
+
+static bool tryConnectUnixSocket(const QString &path)
+{
+    const int fd = ::socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
+    if (fd < 0) return false;
+    struct sockaddr_un addr{};
+    addr.sun_family = AF_UNIX;
+    const QByteArray pathBytes = path.toLocal8Bit();
+    if (pathBytes.size() >= static_cast<int>(sizeof(addr.sun_path))) {
+        ::close(fd);
+        return false;
+    }
+    ::memcpy(addr.sun_path, pathBytes.constData(), static_cast<size_t>(pathBytes.size()));
+    const bool ok = ::connect(fd, reinterpret_cast<struct sockaddr *>(&addr), sizeof(addr)) == 0;
+    ::close(fd);
+    return ok;
+}
+
+static bool isUnixSocket(const QString &path)
+{
+    struct stat st{};
+    return (::stat(path.toLocal8Bit().constData(), &st) == 0) && S_ISSOCK(st.st_mode);
+}
+
+void SessionBroker::removeStaleSlmSockets()
+{
+    const QString runtimeDir = QString::fromLocal8Bit(qgetenv("XDG_RUNTIME_DIR"));
+    if (runtimeDir.isEmpty()) return;
+    const QDir dir(runtimeDir);
+    const QStringList entries = dir.entryList(
+        QDir::AllEntries | QDir::System | QDir::NoDotAndDotDot);
+    for (const QString &entry : entries) {
+        if (!entry.startsWith(QStringLiteral("slm-wayland-"))) continue;
+        const QString socketPath = runtimeDir + QStringLiteral("/") + entry;
+        if (isUnixSocket(socketPath) && QFile::remove(socketPath))
+            qWarning("compositor: removed stale slm socket: %s", qPrintable(socketPath));
+    }
+}
+
+// ── Compositor launch & socket detection ──────────────────────────────────────
 
 bool SessionBroker::launchCompositor()
 {
-    // Guard against stale socket from a previously crashed session causing
-    // false "socket ready" detection.
-    const QString runtimeDir = QString::fromLocal8Bit(qgetenv("XDG_RUNTIME_DIR"));
-    const QString socketPath = runtimeDir + QStringLiteral("/wayland-0");
-    if (!runtimeDir.isEmpty() && QFileInfo::exists(socketPath)) {
-        if (QFile::remove(socketPath)) {
-            qWarning("slm-session-broker: removed pre-existing compositor socket: %s",
-                     qUtf8Printable(socketPath));
-        }
-    }
+    removeStaleSlmSockets();
 
-    m_compositorProcess.setProgram(m_config.compositor());
-    m_compositorProcess.setArguments(m_config.compositorArgs());
-    m_compositorProcess.setProcessChannelMode(QProcess::ForwardedChannels);
+    m_compositorProcess.setProgram(m_plan.binary);
+    m_compositorProcess.setArguments(m_plan.args);
+    m_compositorProcess.setProcessEnvironment(m_plan.env);
+    m_compositorProcess.setProcessChannelMode(QProcess::MergedChannels);
+    m_compositorProcess.setStandardOutputFile(
+        QStringLiteral("/tmp/slm-compositor.log"), QIODeviceBase::Append);
+
+    const char *backendStr = (m_plan.backend == CompositorBackend::KWin) ? "kwin"
+                           : (m_plan.backend == CompositorBackend::Sway) ? "sway"
+                           : "unknown";
+    const char *strategyStr = (m_plan.socketStrategy == SocketStrategy::Fixed) ? "fixed" : "scan";
+    qInfo("compositor: launching '%s' %s (backend=%s strategy=%s socket=%s)",
+          qPrintable(m_plan.binary),
+          qPrintable(m_plan.args.join(QLatin1Char(' '))),
+          backendStr, strategyStr,
+          qPrintable(m_plan.socketName.isEmpty() ? QStringLiteral("(scan)") : m_plan.socketName));
+    qInfo("compositor: log -> /tmp/slm-compositor.log");
+
     m_compositorProcess.start();
     if (!m_compositorProcess.waitForStarted(5000)) {
-        qCritical("slm-session-broker: failed to start compositor '%s': %s",
-                  qUtf8Printable(m_config.compositor()),
-                  qUtf8Printable(m_compositorProcess.errorString()));
+        qCritical("compositor: failed to start '%s': %s",
+                  qPrintable(m_plan.binary),
+                  qPrintable(m_compositorProcess.errorString()));
         return false;
     }
-    qInfo("slm-session-broker: compositor '%s' started (pid=%lld)",
-          qUtf8Printable(m_config.compositor()),
-          (long long)m_compositorProcess.processId());
+    qInfo("compositor: started (pid=%lld)", (long long)m_compositorProcess.processId());
     return true;
 }
 
-bool SessionBroker::waitCompositorSocket()
+QString SessionBroker::detectWaylandSocket()
 {
     const QString runtimeDir = QString::fromLocal8Bit(qgetenv("XDG_RUNTIME_DIR"));
-    const QString socketPath = runtimeDir + QStringLiteral("/wayland-0");
+    const qint64  startMs    = QDateTime::currentMSecsSinceEpoch();
 
-    const int maxAttempts = kCompositorSocketTimeoutMs / 100;
-    for (int i = 0; i < maxAttempts; ++i) {
-        if (m_compositorProcess.state() != QProcess::Running) {
-            qWarning("slm-session-broker: compositor exited before socket became ready");
-            return false;
+    if (m_plan.socketStrategy == SocketStrategy::Fixed) {
+        const QString socketPath = runtimeDir + QStringLiteral("/") + m_plan.socketName;
+        qInfo("compositor: waiting for fixed socket '%s' (timeout %dms)…",
+              qPrintable(socketPath), kCompositorSocketTimeoutMs);
+        while (true) {
+            if (m_compositorProcess.state() != QProcess::Running) {
+                qWarning("compositor: exited before socket became ready");
+                return {};
+            }
+            if (isUnixSocket(socketPath) && tryConnectUnixSocket(socketPath)) {
+                const qint64 elapsed = QDateTime::currentMSecsSinceEpoch() - startMs;
+                qInfo("compositor: socket '%s' ready after %lldms",
+                      qPrintable(m_plan.socketName), (long long)elapsed);
+                return m_plan.socketName;
+            }
+            if (QDateTime::currentMSecsSinceEpoch() - startMs >= kCompositorSocketTimeoutMs)
+                break;
+            QThread::msleep(50);
         }
-        if (QFileInfo::exists(socketPath)) {
-            qputenv("WAYLAND_DISPLAY", "wayland-0");
-            qInfo("slm-session-broker: compositor socket ready after %dms", i * 100);
-            return true;
-        }
-        QThread::msleep(100);
+        qCritical("compositor: socket '%s' not ready after %dms (file_exists=%s)",
+                  qPrintable(m_plan.socketName), kCompositorSocketTimeoutMs,
+                  QFileInfo::exists(socketPath) ? "yes (not connectable)" : "no");
+        return {};
     }
-    return false;
+
+    return scanNewWaylandSocket(runtimeDir, startMs);
+}
+
+QString SessionBroker::scanNewWaylandSocket(const QString &runtimeDir, qint64 startMs)
+{
+    qInfo("compositor: scanning '%s' for new wayland socket (timeout %dms)…",
+          qPrintable(runtimeDir), kCompositorSocketTimeoutMs);
+    const QDir dir(runtimeDir);
+    while (true) {
+        if (m_compositorProcess.state() != QProcess::Running) {
+            qWarning("compositor: exited before any wayland socket appeared");
+            return {};
+        }
+        const QStringList entries = dir.entryList(
+            QDir::AllEntries | QDir::System | QDir::NoDotAndDotDot);
+        for (const QString &entry : entries) {
+            if (!entry.startsWith(QStringLiteral("wayland-"))) continue;
+            if (m_plan.preExistingSockets.contains(entry)) continue;
+            const QString socketPath = runtimeDir + QStringLiteral("/") + entry;
+            if (isUnixSocket(socketPath) && tryConnectUnixSocket(socketPath)) {
+                const qint64 elapsed = QDateTime::currentMSecsSinceEpoch() - startMs;
+                qInfo("compositor: found socket '%s' after %lldms (scan)",
+                      qPrintable(entry), (long long)elapsed);
+                return entry;
+            }
+        }
+        if (QDateTime::currentMSecsSinceEpoch() - startMs >= kCompositorSocketTimeoutMs)
+            break;
+        QThread::msleep(50);
+    }
+    qCritical("compositor: no new wayland socket found after %dms (scan strategy)",
+              kCompositorSocketTimeoutMs);
+    return {};
+}
+
+// ── Shell launch ──────────────────────────────────────────────────────────────
+
+QProcessEnvironment SessionBroker::buildShellEnvironment() const
+{
+    QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+
+    env.insert(QStringLiteral("WAYLAND_DISPLAY"),      m_activeWaylandDisplay);
+    env.insert(QStringLiteral("XDG_SESSION_TYPE"),     QStringLiteral("wayland"));
+    env.insert(QStringLiteral("XDG_CURRENT_DESKTOP"),  QStringLiteral("SLM"));
+    env.insert(QStringLiteral("QT_QPA_PLATFORM"),      QStringLiteral("wayland"));
+    env.insert(QStringLiteral("SLM_OFFICIAL_SESSION"), QStringLiteral("1"));
+    env.insert(QStringLiteral("SLM_SESSION_MODE"),     startupModeToString(m_finalMode));
+
+    if (env.value(QStringLiteral("GDK_BACKEND")).isEmpty())
+        env.insert(QStringLiteral("GDK_BACKEND"),        QStringLiteral("wayland,x11"));
+    if (env.value(QStringLiteral("MOZ_ENABLE_WAYLAND")).isEmpty())
+        env.insert(QStringLiteral("MOZ_ENABLE_WAYLAND"), QStringLiteral("1"));
+    if (env.value(QStringLiteral("LIBSEAT_BACKEND")).isEmpty())
+        env.insert(QStringLiteral("LIBSEAT_BACKEND"),    QStringLiteral("logind"));
+
+    return env;
 }
 
 void SessionBroker::launchShell()
 {
-    // In Recovery mode, launch the recovery app instead of the normal shell.
-    if (m_finalMode == StartupMode::Recovery) {
-        qint64 pid = 0;
-        if (QProcess::startDetached(QStringLiteral("slm-recovery-app"), {}, QString(), &pid)) {
-            qInfo("slm-session-broker: recovery app started (pid=%lld)", (long long)pid);
-        } else {
-            qWarning("slm-session-broker: failed to start slm-recovery-app");
-        }
+    QFile::remove(lifecycleFilePath());
+
+    const QProcessEnvironment shellEnv = buildShellEnvironment();
+    qInfo("shell env: WAYLAND_DISPLAY=%s QT_QPA_PLATFORM=%s XDG_SESSION_TYPE=%s "
+          "SLM_SESSION_MODE=%s",
+          qPrintable(shellEnv.value(QStringLiteral("WAYLAND_DISPLAY"))),
+          qPrintable(shellEnv.value(QStringLiteral("QT_QPA_PLATFORM"))),
+          qPrintable(shellEnv.value(QStringLiteral("XDG_SESSION_TYPE"))),
+          qPrintable(shellEnv.value(QStringLiteral("SLM_SESSION_MODE"))));
+
+    if (m_finalMode == StartupMode::Recovery)
+        m_shellProcess.setProgram(QStringLiteral("slm-recovery-app"));
+    else
+        m_shellProcess.setProgram(m_config.shell());
+
+    m_shellProcess.setArguments(
+        m_finalMode == StartupMode::Recovery ? QStringList{} : m_config.shellArgs());
+    m_shellProcess.setProcessEnvironment(shellEnv);
+    m_shellProcess.setProcessChannelMode(QProcess::MergedChannels);
+    m_shellProcess.setStandardOutputFile(
+        QStringLiteral("/tmp/slm-shell.log"), QIODeviceBase::Append);
+
+    m_shellProcess.start();
+    if (!m_shellProcess.waitForStarted(5000)) {
+        qWarning("shell: failed to start '%s': %s",
+                 qPrintable(m_shellProcess.program()),
+                 qPrintable(m_shellProcess.errorString()));
         return;
     }
-
-    qint64 pid = 0;
-    const bool ok = QProcess::startDetached(m_config.shell(), m_config.shellArgs(), QString(), &pid);
-    if (ok) {
-        qInfo("slm-session-broker: shell '%s' started (pid=%lld)",
-              qUtf8Printable(m_config.shell()), (long long)pid);
-    } else {
-        qWarning("slm-session-broker: failed to start shell '%s'",
-                 qUtf8Printable(m_config.shell()));
-    }
+    m_shellLaunchTimeMs = QDateTime::currentMSecsSinceEpoch();
+    qInfo("shell: '%s' started (pid=%lld)",
+          qPrintable(m_shellProcess.program()),
+          (long long)m_shellProcess.processId());
 }
 
 void SessionBroker::launchWatchdog()
 {
     qint64 pid = 0;
-    if (QProcess::startDetached(QStringLiteral("slm-watchdog"), {}, QString(), &pid)) {
+    if (QProcess::startDetached(QStringLiteral("slm-watchdog"), {}, QString(), &pid))
         qInfo("slm-session-broker: watchdog started (pid=%lld)", (long long)pid);
-    } else {
+    else
         qWarning("slm-session-broker: failed to start slm-watchdog");
-    }
 }
+
+// ── Lifecycle helpers ─────────────────────────────────────────────────────────
+
+QString SessionBroker::lifecycleFilePath() const
+{
+    const QString runtimeDir = QString::fromLocal8Bit(qgetenv("XDG_RUNTIME_DIR"));
+    if (!runtimeDir.isEmpty())
+        return runtimeDir + QStringLiteral("/slm-shell-lifecycle.json");
+    return QStringLiteral("/tmp/slm-shell-lifecycle.json");
+}
+
+bool SessionBroker::readLifecycleMarker(const QString &phase) const
+{
+    QFile f(lifecycleFilePath());
+    if (!f.open(QIODevice::ReadOnly)) return false;
+    const QJsonObject obj = QJsonDocument::fromJson(f.readAll()).object();
+    return !obj.value(phase).toString().isEmpty();
+}
+
+// ── State helpers ─────────────────────────────────────────────────────────────
 
 void SessionBroker::writeStartupFailed(const QString &reason)
 {
@@ -359,32 +665,121 @@ void SessionBroker::writeStartupFailed(const QString &reason)
     m_state.lastBootStatus = QStringLiteral("crashed");
     m_state.recoveryReason = reason;
     m_state.lastUpdated    = QDateTime::currentDateTimeUtc();
-    if (!SessionStateIO::save(m_state, err)) {
+    if (!SessionStateIO::save(m_state, err))
         qWarning("slm-session-broker: failed to save startup-failed state: %s",
                  qUtf8Printable(err));
-    }
 }
 
-void SessionBroker::writeSessionEnded(bool crashed)
+void SessionBroker::writeSessionEnded(bool compositorCrashed)
 {
     QString err;
     SessionStateIO::load(m_state, err); // reload — watchdog may have updated
 
-    if (crashed) {
+    const bool shellReachedFirstFrame = readLifecycleMarker(QStringLiteral("firstFrame"));
+    const qint64 shellUptimeMs = (m_shellLaunchTimeMs > 0)
+        ? QDateTime::currentMSecsSinceEpoch() - m_shellLaunchTimeMs : -1;
+
+    const int shellCode = m_shellProcess.exitCode();
+    const bool shellCrash = (m_shellProcess.exitStatus() == QProcess::CrashExit);
+    qInfo("shell: exit_code=%d crashed=%s uptime=%lldms first_frame=%s",
+          shellCode, shellCrash ? "yes" : "no",
+          (long long)shellUptimeMs, shellReachedFirstFrame ? "yes" : "no");
+
+    qInfo("session: ended — compositor_crashed=%s mode=%s watchdog_status=%s crashCount=%d",
+          compositorCrashed ? "yes" : "no",
+          qPrintable(startupModeToString(m_finalMode)),
+          qPrintable(m_state.lastBootStatus),
+          m_state.crashCount);
+
+    if (compositorCrashed) {
         m_state.lastBootStatus = QStringLiteral("crashed");
     } else if (m_state.lastBootStatus != QStringLiteral("healthy")) {
         m_state.lastBootStatus = QStringLiteral("ended");
     }
-    m_state.lastUpdated    = QDateTime::currentDateTimeUtc();
-    if (crashed) {
-        // Guard: ensure crash_count is at least what we set at startup.
-        // (Watchdog resets it on healthy sessions; if we reach here before
-        //  watchdog fires, the counter stays elevated for next boot.)
+
+    // Normal/safe: reset crash counter if shell rendered at least one frame.
+    if (!compositorCrashed && shellReachedFirstFrame
+        && m_state.lastBootStatus != QStringLiteral("healthy")) {
+        qInfo("session: shell rendered first frame — resetting crash counter %d → 0",
+              m_state.crashCount);
+        m_state.crashCount = 0;
+        m_state.recoveryReason.clear();
     }
-    if (!SessionStateIO::save(m_state, err)) {
+
+    // Recovery: if compositor exited cleanly the recovery session ran — reset counter.
+    // The recovery app writes no lifecycle markers, so the firstFrame check above
+    // would never fire.  Belt-and-suspenders: this also covers the case where the
+    // user exited recovery before the watchdog's 30 s timer fired.
+    if (m_finalMode == StartupMode::Recovery && !compositorCrashed
+        && m_state.lastBootStatus != QStringLiteral("healthy")) {
+        qInfo("session: recovery mode ended cleanly — resetting crash counter %d → 0",
+              m_state.crashCount);
+        m_state.crashCount = 0;
+        m_state.recoveryReason.clear();
+    }
+
+    qInfo("session: saving — lastBootStatus=%s crashCount=%d",
+          qPrintable(m_state.lastBootStatus), m_state.crashCount);
+
+    m_state.lastUpdated = QDateTime::currentDateTimeUtc();
+    if (!SessionStateIO::save(m_state, err))
         qWarning("slm-session-broker: failed to save session-ended state: %s",
                  qUtf8Printable(err));
+}
+
+void SessionBroker::validateLogindSession()
+{
+    const QString sessionId = QString::fromLocal8Bit(qgetenv("XDG_SESSION_ID"));
+    if (sessionId.isEmpty()) {
+        qWarning("SLM-SESSION: XDG_SESSION_ID not set — pam_systemd.so may not have run");
+        qWarning("SLM-SESSION: ensure /etc/pam.d/slm (or /etc/pam.d/greetd) contains:"
+                 " 'session required pam_systemd.so'");
+    } else {
+        qInfo("SLM-SESSION: XDG_SESSION_ID=%s", qPrintable(sessionId));
     }
+
+    qInfo("SLM-SESSION: env snapshot:");
+    for (const char *key : {"XDG_SESSION_ID", "XDG_SESSION_TYPE", "XDG_SESSION_CLASS",
+                             "XDG_SEAT", "XDG_VTNR", "XDG_RUNTIME_DIR",
+                             "XDG_CURRENT_DESKTOP", "DBUS_SESSION_BUS_ADDRESS",
+                             "LIBSEAT_BACKEND"}) {
+        const QByteArray val = qgetenv(key);
+        qInfo("  %s=%s", key, val.isEmpty() ? "<unset>" : val.constData());
+    }
+
+    if (!sessionId.isEmpty()) {
+        QProcess lc;
+        lc.start(QStringLiteral("loginctl"),
+                 {QStringLiteral("show-session"), sessionId,
+                  QStringLiteral("-p"), QStringLiteral("Type"),
+                  QStringLiteral("-p"), QStringLiteral("Class"),
+                  QStringLiteral("-p"), QStringLiteral("Seat"),
+                  QStringLiteral("-p"), QStringLiteral("Active"),
+                  QStringLiteral("-p"), QStringLiteral("Remote"),
+                  QStringLiteral("-p"), QStringLiteral("Service")});
+        if (lc.waitForFinished(3000)) {
+            const QString out = QString::fromLocal8Bit(lc.readAllStandardOutput()).trimmed();
+            qInfo("SLM-SESSION: loginctl show-session %s:\n%s",
+                  qPrintable(sessionId), qPrintable(out));
+            if (!out.contains(QStringLiteral("Seat=seat0")))
+                qWarning("SLM-SESSION: session does NOT have Seat=seat0 — "
+                         "kwin_wayland will fail to open DRM node");
+            if (out.contains(QStringLiteral("Remote=yes")))
+                qWarning("SLM-SESSION: session is marked Remote=yes — "
+                         "compositor cannot access DRM from a remote session");
+            if (!out.contains(QStringLiteral("Type=wayland")))
+                qWarning("SLM-SESSION: session Type is not 'wayland' — "
+                         "set XDG_SESSION_TYPE=wayland in PAM env before pam_open_session");
+        } else {
+            qWarning("SLM-SESSION: loginctl show-session failed or timed out");
+        }
+    }
+
+    QProcess ls;
+    ls.start(QStringLiteral("ls"), {QStringLiteral("-la"), QStringLiteral("/dev/dri")});
+    if (ls.waitForFinished(2000))
+        qInfo("SLM-SESSION: /dev/dri:\n%s",
+              ls.readAllStandardOutput().trimmed().constData());
 }
 
 } // namespace Slm::Login

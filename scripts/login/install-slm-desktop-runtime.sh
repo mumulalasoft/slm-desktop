@@ -17,6 +17,7 @@ BUILD_DIR="${1:-$ROOT_DIR/build/toppanel-Debug}"
 TARGET_USER="${SUDO_USER:-${SLM_TARGET_USER:-}}"
 INSTALL_GREETD="${SLM_INSTALL_GREETD:-1}"
 ENABLE_USER_UNITS="${SLM_ENABLE_USER_UNITS:-1}"
+QEMU_COMPOSITOR="${SLM_QEMU_COMPOSITOR:-1}"  # 1 = write headless compositor config when inside QEMU
 
 BIN_DIR="/usr/local/bin"
 LIBEXEC_DIR="/usr/libexec"
@@ -139,6 +140,41 @@ if [[ "$INSTALL_GREETD" == "1" ]]; then
   bash "$ROOT_DIR/scripts/login/install-greetd-slm.sh"
 else
   echo "[install-slm-runtime] skip greetd setup (SLM_INSTALL_GREETD=$INSTALL_GREETD)"
+fi
+
+# Always install slm-session-check and PAM/service files (does not enable by default).
+bash "$ROOT_DIR/scripts/login/setup-slm-session-manager.sh"
+
+# Write headless compositor config when running inside QEMU and no DRM device is present.
+# Avoids kwin_wayland "Failed to open drm node" crash loop during smoke testing.
+if [[ "$QEMU_COMPOSITOR" == "1" && -n "$TARGET_USER" ]]; then
+  VIRT="$(systemd-detect-virt 2>/dev/null || true)"
+  HAS_DRM=0
+  if ls /dev/dri/card* >/dev/null 2>&1; then HAS_DRM=1; fi
+
+  if [[ "$VIRT" == "qemu" || "$VIRT" == "kvm" ]] && [[ "$HAS_DRM" == "0" ]]; then
+    USER_HOME="$(getent passwd "$TARGET_USER" | cut -d: -f6)"
+    COMP_CFG_DIR="$USER_HOME/.config/slm-desktop"
+    COMP_CFG="$COMP_CFG_DIR/config.json"
+    mkdir -p "$COMP_CFG_DIR"
+    # Use sway with wlroots headless backend + pixman renderer (no GPU required).
+    cat >"$COMP_CFG" <<'JSEOF'
+{
+  "compositor": "sway",
+  "compositorArgs": [],
+  "compositorEnv": {
+    "WLR_BACKENDS": "headless",
+    "WLR_LIBINPUT_NO_DEVICES": "1",
+    "WLR_RENDERER": "pixman"
+  },
+  "shell": "slm-shell"
+}
+JSEOF
+    chown -R "$TARGET_USER:$TARGET_USER" "$COMP_CFG_DIR"
+    echo "[install-slm-runtime][OK] QEMU headless compositor config -> $COMP_CFG"
+  elif [[ "$HAS_DRM" == "0" ]]; then
+    echo "[install-slm-runtime][WARN] no /dev/dri/card* found but not QEMU/KVM (virt=$VIRT) — skipping headless config"
+  fi
 fi
 
 echo "[install-slm-runtime] done"

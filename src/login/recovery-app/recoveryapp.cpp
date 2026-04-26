@@ -110,7 +110,17 @@ bool RecoveryApp::resetToSafeDefaults()
         qWarning("slm-recovery-app: resetToSafeDefaults failed: %s", qUtf8Printable(err));
         return false;
     }
-    qInfo("slm-recovery-app: config reset to safe defaults");
+
+    // Reset crash counter — the user explicitly chose a new config baseline,
+    // so the old crash history is no longer relevant.
+    SessionState state;
+    SessionStateIO::load(state, err);
+    state.crashCount     = 0;
+    state.recoveryReason = {};
+    state.safeModeForced = false;
+    SessionStateIO::save(state, err);
+
+    qInfo("slm-recovery-app: config reset to safe defaults, crash counter cleared");
     return true;
 }
 
@@ -411,7 +421,19 @@ QVariantMap RecoveryApp::daemonHealthSnapshot() const
 
 void RecoveryApp::exitToDesktop()
 {
-    qInfo("slm-recovery-app: user requested exit to desktop");
+    qInfo("slm-recovery-app: user requested exit to desktop — clearing crash counter");
+
+    // Clear crash state so the next login attempt runs in normal mode.
+    // Without this, crash_count stays ≥ kCrashLoopThreshold and every subsequent
+    // boot would land back in recovery regardless of whether the compositor is healthy.
+    SessionState state;
+    QString err;
+    SessionStateIO::load(state, err);
+    state.crashCount     = 0;
+    state.recoveryReason = {};
+    state.safeModeForced = false;
+    SessionStateIO::save(state, err);
+
     QCoreApplication::quit();
 }
 

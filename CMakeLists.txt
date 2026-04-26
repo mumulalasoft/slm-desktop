@@ -5322,6 +5322,19 @@ target_link_libraries(slm-greeter
         Qt6::Network
         SlmLogin::Lib
 )
+# Link libpam when available — enables direct PAM authentication in the greeter.
+if(PAM_FOUND OR (SLM_PAM_INCLUDE_DIR AND SLM_PAM_LIBRARY))
+    target_compile_definitions(slm-greeter PRIVATE SLM_HAVE_PAM=1)
+    if(PAM_FOUND)
+        target_link_libraries(slm-greeter PRIVATE PkgConfig::PAM)
+    else()
+        target_include_directories(slm-greeter PRIVATE ${SLM_PAM_INCLUDE_DIR})
+        target_link_libraries(slm-greeter PRIVATE ${SLM_PAM_LIBRARY})
+    endif()
+    message(STATUS "slm-greeter: direct PAM authentication enabled")
+else()
+    message(STATUS "slm-greeter: direct PAM authentication disabled (libpam not found)")
+endif()
 target_include_directories(slm-greeter PRIVATE ${CMAKE_SOURCE_DIR})
 
 install(TARGETS slm-session-broker

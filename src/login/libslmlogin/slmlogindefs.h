@@ -4,9 +4,16 @@
 
 namespace Slm::Login {
 
-constexpr int kCrashLoopThreshold    = 3;
-constexpr int kHealthySessionSeconds = 30;
-constexpr int kCompositorSocketTimeoutMs = 10000;
+constexpr int  kCrashLoopThreshold           = 5;
+constexpr int  kHealthySessionSeconds        = 30;
+constexpr int  kCompositorSocketTimeoutMs    = 5000;   // 5s — actual connect test
+constexpr int  kShellFirstFrameTimeoutMs     = 10000;  // 10s — shell must render first frame
+constexpr int  kShellFastExitMs              = 3000;   // < 3s exit = hard crash
+constexpr int  kRecoveryFirstFrameStableMs   = 5000;   // 5s — recovery UI must be visible and stable
+
+// Private Wayland socket name requested from the compositor.
+// Avoids colliding with any pre-existing wayland-0/wayland-1 on the same seat.
+constexpr const char kSlmWaylandSocketName[] = "slm-wayland-0";
 
 enum class StartupMode {
     Normal,

@@ -6,6 +6,13 @@
 #include <QProcess>
 #include <QStandardPaths>
 
+using namespace Qt::StringLiterals;
+
+#ifdef SLM_HAVE_PAM
+// Direct PAM path available — the slmpamsession.cpp is compiled in.
+#define SLM_PAM_DIRECT 1
+#endif
+
 namespace {
 QString resolveSessionBrokerCommand()
 {
@@ -41,7 +48,14 @@ GreeterApp::GreeterApp(QObject *parent)
     , m_greetd(new GreetdClient(this))
 {
     QString err;
-    SessionStateIO::load(m_state, err);
+    const bool stateOk = SessionStateIO::load(m_state, err);
+    qInfo("state: load=%s crash_count=%d last_boot_status=%s config_pending=%s safe_mode_forced=%s recovery_reason=%s",
+          stateOk ? "ok" : qPrintable(u"fail(%1)"_s.arg(err)),
+          m_state.crashCount,
+          qPrintable(m_state.lastBootStatus),
+          m_state.configPending  ? "true" : "false",
+          m_state.safeModeForced ? "true" : "false",
+          qPrintable(m_state.recoveryReason));
 
     connect(m_greetd, &GreetdClient::connectedChanged,
             this, &GreeterApp::greetdConnectedChanged);
@@ -51,6 +65,14 @@ GreeterApp::GreeterApp(QObject *parent)
             this, &GreeterApp::onSuccess);
     connect(m_greetd, &GreetdClient::error,
             this, &GreeterApp::onError);
+
+#ifdef SLM_HAVE_PAM
+    // Pre-allocate the PAM session object so it survives across login cycles.
+    m_pamSession = new SlmPamSession(this);
+    connect(m_pamSession, &SlmPamSession::sessionFinished,
+            this, &GreeterApp::onPamSessionFinished);
+    qInfo("greeter: direct PAM path available (SLM_HAVE_PAM)");
+#endif
 }
 
 // ── Properties ────────────────────────────────────────────────────────────────
@@ -126,26 +148,77 @@ void GreeterApp::login(const QString &username,
                        const QString &password,
                        const QString &mode)
 {
-    qWarning("slm-greeter: login request user='%s' mode='%s' connected=%d",
-             qPrintable(username),
-             qPrintable(mode),
-             m_greetd->isConnected() ? 1 : 0);
+    qInfo("login: user='%s' mode='%s' greetd_connected=%s pam_direct=%s",
+          qPrintable(username), qPrintable(mode),
+          m_greetd->isConnected() ? "yes" : "no",
+          m_pamSession            ? "yes" : "no");
+
     if (m_loginStep != LoginStep::Idle) {
-        qWarning("slm-greeter: login() called while another login is in progress");
+        qWarning("login: rejected — another login already in progress (step=%d)",
+                 static_cast<int>(m_loginStep));
         return;
     }
-    m_pendingPassword = password;
-    m_pendingMode     = mode;
-    m_loginStep       = LoginStep::WaitingAuthChallenge;
 
     if (m_greetd->isConnected()) {
+        // greetd path — existing behaviour.
+        m_pendingPassword = password;
+        m_pendingMode     = mode;
+        m_loginStep       = LoginStep::WaitingAuthChallenge;
+        qInfo("login: sending create_session for user='%s'", qPrintable(username));
         m_greetd->createSession(username);
+    } else if (m_pamSession) {
+        // Direct PAM path (no greetd available).
+        loginViaPam(username, password, mode);
     } else {
-        // Dev/test mode — no greetd socket.
-        qWarning("slm-greeter: no greetd connection — simulating login success");
-        m_loginStep = LoginStep::Idle;
+        // Dev/test mode — no greetd and no PAM support compiled in.
+        qWarning("login: no greetd and no PAM — simulating success (dev mode)");
         emit loginSuccess();
     }
+}
+
+void GreeterApp::loginViaPam(const QString &username, const QString &password,
+                              const QString &mode)
+{
+#ifdef SLM_PAM_DIRECT
+    qInfo("SLM-GREETER: direct PAM login for user='%s' mode='%s'",
+          qPrintable(username), qPrintable(mode));
+
+    m_loginStep = LoginStep::WaitingAuthChallenge;
+
+    if (!m_pamSession->authenticate(username, password)) {
+        m_loginStep = LoginStep::Idle;
+        emit loginError(QStringLiteral("auth_error"),
+                        QStringLiteral("Authentication failed"));
+        return;
+    }
+
+    if (!m_pamSession->openSession()) {
+        m_loginStep = LoginStep::Idle;
+        emit loginError(QStringLiteral("session_error"),
+                        QStringLiteral("Failed to open PAM session"));
+        return;
+    }
+
+    const qint64 pid = m_pamSession->launchSession();
+    if (pid < 0) {
+        m_pamSession->closeSession();
+        m_loginStep = LoginStep::Idle;
+        emit loginError(QStringLiteral("session_start_error"),
+                        QStringLiteral("Failed to launch user session"));
+        return;
+    }
+
+    m_loginStep     = LoginStep::Idle;
+    m_sessionActive = true;
+    emit sessionActiveChanged();
+    emit loginSuccess();
+    qInfo("SLM-GREETER: user session launched (pid=%lld) — greeter waiting in background",
+          (long long)pid);
+#else
+    Q_UNUSED(username) Q_UNUSED(password) Q_UNUSED(mode)
+    qWarning("loginViaPam: called but SLM_HAVE_PAM not compiled in");
+    emit loginError(QStringLiteral("no_pam"), QStringLiteral("PAM support not compiled"));
+#endif
 }
 
 void GreeterApp::suspend()
@@ -179,64 +252,90 @@ bool GreeterApp::systemctlCan(const QString &verb)
 
 void GreeterApp::onAuthMessage(const QString &type, const QString &message)
 {
-    qWarning("slm-greeter: auth message type='%s' message='%s'",
-             qPrintable(type),
-             qPrintable(message));
+    // Don't log message content for "secret" type (password prompt).
+    if (type == QStringLiteral("secret")) {
+        qInfo("auth_message: type='secret' (content suppressed)");
+    } else {
+        qInfo("auth_message: type='%s' message='%s'", qPrintable(type), qPrintable(message));
+    }
     emit authMessageReceived(type, message);
 
     if (m_loginStep == LoginStep::WaitingAuthChallenge) {
         if (type == QStringLiteral("secret") || type == QStringLiteral("visible")) {
-            qWarning("slm-greeter: posting auth response for type='%s'", qPrintable(type));
+            qInfo("auth_message: posting password response for type='%s'", qPrintable(type));
             m_greetd->postAuthResponse(m_pendingPassword);
+        } else {
+            qInfo("auth_message: type='%s' — not posting response", qPrintable(type));
         }
+    } else {
+        qWarning("auth_message: unexpected step=%d for type='%s'",
+                 static_cast<int>(m_loginStep), qPrintable(type));
     }
 }
 
 void GreeterApp::onSuccess()
 {
-    qWarning("slm-greeter: success callback step=%d", static_cast<int>(m_loginStep));
+    qInfo("greetd_success: step=%d", static_cast<int>(m_loginStep));
     switch (m_loginStep) {
-    case LoginStep::WaitingAuthChallenge:
+    case LoginStep::WaitingAuthChallenge: {
         m_loginStep = LoginStep::WaitingStartSession;
-        {
         const QString broker = resolveSessionBrokerCommand();
-        qWarning("slm-greeter: resolved session broker='%s'", qPrintable(broker));
+        qInfo("greetd_success: auth ok — resolved broker='%s'", qPrintable(broker));
         if (broker.isEmpty()) {
+            qWarning("greetd_success: broker not found — cancelling session");
             m_loginStep = LoginStep::Idle;
             m_greetd->cancelSession();
             emit loginError(QStringLiteral("session_start_error"),
                             QStringLiteral("SLM session broker not found"));
             return;
         }
+        qInfo("greetd_success: sending start_session broker='%s' mode='%s'",
+              qPrintable(broker), qPrintable(m_pendingMode));
+        // Pass session env via greetd IPC — greetd calls pam_putenv() for each
+        // entry before pam_open_session(), so pam_systemd.so registers the
+        // session as Type=wayland on seat0 (not tty).
         m_greetd->startSession(
-            {broker,
-             QStringLiteral("--mode"),
-             m_pendingMode},
-            {});
-        qWarning("slm-greeter: startSession sent with mode='%s'", qPrintable(m_pendingMode));
-        }
+            {broker, QStringLiteral("--mode"), m_pendingMode},
+            {
+                {QStringLiteral("XDG_SESSION_TYPE"),    QStringLiteral("wayland")},
+                {QStringLiteral("XDG_SESSION_CLASS"),   QStringLiteral("user")},
+                {QStringLiteral("XDG_SEAT"),            QStringLiteral("seat0")},
+                {QStringLiteral("DESKTOP_SESSION"),     QStringLiteral("slm")},
+                {QStringLiteral("XDG_SESSION_DESKTOP"), QStringLiteral("slm")},
+                {QStringLiteral("SLM_OFFICIAL_SESSION"),QStringLiteral("1")},
+            });
         break;
+    }
     case LoginStep::WaitingStartSession:
         m_loginStep = LoginStep::Idle;
-        qWarning("slm-greeter: login success final");
+        qInfo("greetd_success: start_session confirmed — emitting loginSuccess");
         emit loginSuccess();
         break;
     default:
-        qWarning("slm-greeter: success callback ignored at idle");
+        qWarning("greetd_success: unexpected success at step=%d (ignored)",
+                 static_cast<int>(m_loginStep));
         break;
     }
 }
 
 void GreeterApp::onError(const QString &errorType, const QString &description)
 {
-    qWarning("slm-greeter: error type='%s' description='%s' step=%d",
-             qPrintable(errorType),
-             qPrintable(description),
+    qWarning("greetd_error: type='%s' description='%s' step=%d",
+             qPrintable(errorType), qPrintable(description),
              static_cast<int>(m_loginStep));
     m_loginStep = LoginStep::Idle;
     m_pendingPassword.clear();
     m_greetd->cancelSession();
     emit loginError(errorType, description);
+}
+
+void GreeterApp::onPamSessionFinished(int exitCode)
+{
+    qInfo("SLM-GREETER: user session finished (exit_code=%d) — returning to login screen",
+          exitCode);
+    m_sessionActive = false;
+    emit sessionActiveChanged();
+    // Greeter window should show the login page again; QML observes sessionActive.
 }
 
 } // namespace Slm::Login

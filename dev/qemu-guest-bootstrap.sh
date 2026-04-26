@@ -49,6 +49,7 @@ OPTIONAL_APT_PACKAGES=(
     libpolkit-gobject-1-dev
     libpoppler-qt6-dev
     qml6-module-qt5compat
+    sway
 )
 MISSING_OPTIONAL_PACKAGES=()
 

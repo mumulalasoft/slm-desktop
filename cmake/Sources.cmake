@@ -571,6 +571,8 @@ set(SLM_GREETER_SOURCES
     src/login/greeter/greetdclient.cpp
     src/login/greeter/greeterapp.h
     src/login/greeter/greeterapp.cpp
+    src/login/greeter/slmpamsession.h
+    src/login/greeter/slmpamsession.cpp
     src/core/system/componentregistry.cpp
     src/core/system/componentregistry.h
     src/core/system/dependencyguard.cpp
