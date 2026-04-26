@@ -242,6 +242,7 @@ void ModuleLoader::addBuiltinModuleOrder()
         QStringLiteral("bluetooth"),
         QStringLiteral("sound"),
         QStringLiteral("display"),
+        QStringLiteral("timedate"),
         QStringLiteral("power"),
         QStringLiteral("storage"),
         QStringLiteral("print"),
