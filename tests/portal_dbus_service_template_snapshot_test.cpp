@@ -67,7 +67,7 @@ void PortalDbusServiceTemplateSnapshotTest::dbusServiceTemplate_snapshot_contrac
     }
 
     QCOMPARE(serviceName, QStringLiteral("org.freedesktop.impl.portal.desktop.slm"));
-    QCOMPARE(execPath, QStringLiteral("%h/Development/Qt/Slm_Desktop/build/slm-portald"));
+    QCOMPARE(execPath, QStringLiteral("%h/Development/Qt/Desktop_Shell/build/slm-portald"));
     QCOMPARE(parsed.size(), 2); // Keep contract tight: only Name + Exec in service section.
 }
 

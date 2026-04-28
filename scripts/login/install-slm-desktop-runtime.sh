@@ -106,7 +106,7 @@ if [[ -n "$TARGET_USER" ]]; then
     local unit_name="$2"
     local replacement="$3"
     local dst="$UNIT_DIR/$unit_name"
-    sed "s#%h/Development/Qt/Slm_Desktop/build/[A-Za-z0-9._-]*#$replacement#g" "$template" > "$dst"
+    sed "s#%h/Development/Qt/Desktop_Shell/build/[A-Za-z0-9._-]*#$replacement#g" "$template" > "$dst"
     chown "$TARGET_USER:$TARGET_USER" "$dst" 2>/dev/null || true
     echo "[install-slm-runtime][OK] user unit: $dst"
   }

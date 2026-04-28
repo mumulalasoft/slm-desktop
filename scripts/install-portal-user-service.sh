@@ -58,7 +58,7 @@ if [[ ! -x "$BIN_PATH" ]]; then
 fi
 
 mkdir -p "$UNIT_DIR"
-sed "s#%h/Development/Qt/Slm_Desktop/build/slm-portald#$BIN_PATH#g" "$UNIT_SRC" > "$UNIT_DST"
+sed "s#%h/Development/Qt/Desktop_Shell/build/slm-portald#$BIN_PATH#g" "$UNIT_SRC" > "$UNIT_DST"
 
 mkdir -p "$XDP_PORTAL_DIR"
 cp "$PORTAL_TEMPLATE" "$XDP_PORTAL_FILE"
@@ -70,7 +70,7 @@ if [[ "$SET_DEFAULT" == "1" || ! -f "$XDP_CONF_FILE" ]]; then
 fi
 
 mkdir -p "$DBUS_SERVICE_DIR"
-sed "s#%h/Development/Qt/Slm_Desktop/build/slm-portald#$BIN_PATH#g" "$DBUS_SERVICE_TEMPLATE" > "$DBUS_SERVICE_FILE"
+sed "s#%h/Development/Qt/Desktop_Shell/build/slm-portald#$BIN_PATH#g" "$DBUS_SERVICE_TEMPLATE" > "$DBUS_SERVICE_FILE"
 
 if [[ "$SKIP_SYSTEMCTL" != "1" ]]; then
   systemctl --user daemon-reload

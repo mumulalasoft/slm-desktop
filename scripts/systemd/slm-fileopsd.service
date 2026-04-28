@@ -4,11 +4,10 @@ After=graphical-session.target dbus.service
 
 [Service]
 Type=simple
-ExecStart=%h/Development/Qt/Slm_Desktop/build/slm-fileopsd
+ExecStart=%h/Development/Qt/Desktop_Shell/build/slm-fileopsd
 Restart=on-failure
 RestartSec=1
 Environment=QT_LOGGING_RULES=qt.qpa.*=false
 
 [Install]
 WantedBy=default.target
-

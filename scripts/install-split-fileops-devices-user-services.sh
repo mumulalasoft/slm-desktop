@@ -34,11 +34,11 @@ fi
 
 mkdir -p "$UNIT_DIR"
 
-sed "s#%h/Development/Qt/Slm_Desktop/build/slm-fileopsd#$FILEOPSD_BIN#g" \
+sed "s#%h/Development/Qt/Desktop_Shell/build/slm-fileopsd#$FILEOPSD_BIN#g" \
   "$ROOT_DIR/scripts/systemd/slm-fileopsd.service" > "$UNIT_DIR/slm-fileopsd.service"
-sed "s#%h/Development/Qt/Slm_Desktop/build/slm-devicesd#$DEVICESD_BIN#g" \
+sed "s#%h/Development/Qt/Desktop_Shell/build/slm-devicesd#$DEVICESD_BIN#g" \
   "$ROOT_DIR/scripts/systemd/slm-devicesd.service" > "$UNIT_DIR/slm-devicesd.service"
-sed "s#%h/Development/Qt/Slm_Desktop/build/slm-portald#$PORTALD_BIN#g" \
+sed "s#%h/Development/Qt/Desktop_Shell/build/slm-portald#$PORTALD_BIN#g" \
   "$ROOT_DIR/scripts/systemd/slm-portald.service" > "$UNIT_DIR/slm-portald.service"
 
 # Ensure desktopd does not claim the same DBus names when split daemons are enabled.
