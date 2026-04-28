@@ -2,6 +2,7 @@
 
 #include <QCoreApplication>
 #include <QDateTime>
+#include <QDBusArgument>
 #include <QDBusConnection>
 #include <QDBusInterface>
 #include <QDBusReply>
@@ -60,6 +61,54 @@ QString toDisplayString(const QJsonValue &value)
         return QString::fromUtf8(QJsonDocument(value.toObject()).toJson(QJsonDocument::Compact));
     }
     return QStringLiteral("(unsupported)");
+}
+
+QVariant normalizeDbusValue(const QVariant &value);
+
+QVariantList normalizeDbusList(const QVariantList &values)
+{
+    QVariantList out;
+    out.reserve(values.size());
+    for (const QVariant &value : values) {
+        out.push_back(normalizeDbusValue(value));
+    }
+    return out;
+}
+
+QVariantMap normalizeDbusMap(const QVariantMap &values)
+{
+    QVariantMap out;
+    for (auto it = values.cbegin(); it != values.cend(); ++it) {
+        out.insert(it.key(), normalizeDbusValue(it.value()));
+    }
+    return out;
+}
+
+QVariant normalizeDbusArgument(const QDBusArgument &argument)
+{
+    switch (argument.currentType()) {
+    case QDBusArgument::ArrayType:
+        return normalizeDbusList(qdbus_cast<QVariantList>(argument));
+    case QDBusArgument::MapType:
+        return normalizeDbusMap(qdbus_cast<QVariantMap>(argument));
+    default:
+        return QVariant::fromValue(argument);
+    }
+}
+
+QVariant normalizeDbusValue(const QVariant &value)
+{
+    const int typeId = value.metaType().id();
+    if (typeId == qMetaTypeId<QDBusArgument>()) {
+        return normalizeDbusArgument(value.value<QDBusArgument>());
+    }
+    if (typeId == QMetaType::QVariantMap) {
+        return normalizeDbusMap(value.toMap());
+    }
+    if (typeId == QMetaType::QVariantList) {
+        return normalizeDbusList(value.toList());
+    }
+    return value;
 }
 
 } // namespace
@@ -417,25 +466,61 @@ QVariantMap RecoveryApp::daemonHealthSnapshot() const
     if (!reply.isValid()) {
         return {};
     }
-    return reply.value();
+    return normalizeDbusMap(reply.value());
+}
+
+bool RecoveryApp::clearRecoveryState(const QString &source, bool markHealthy) const
+{
+    SessionState state;
+    QString err;
+    if (!SessionStateIO::load(state, err)) {
+        qWarning("slm-recovery-app: %s could not load state: %s",
+                 qUtf8Printable(source),
+                 qUtf8Printable(err));
+    }
+
+    const int previousCrashCount = state.crashCount;
+    state.crashCount = 0;
+    state.configPending = false;
+    state.safeModeForced = false;
+    if (markHealthy) {
+        state.lastBootStatus = QStringLiteral("healthy");
+    }
+    state.recoveryReason.clear();
+    state.lastCrashReason.clear();
+    state.lastUpdated = QDateTime::currentDateTimeUtc();
+
+    if (!SessionStateIO::save(state, err)) {
+        qWarning("slm-recovery-app: %s could not save cleared recovery state: %s",
+                 qUtf8Printable(source),
+                 qUtf8Printable(err));
+        return false;
+    }
+
+    const QString markerPath = ConfigManager::configDir()
+        + QStringLiteral("/recovery-partition-request.json");
+    if (QFileInfo::exists(markerPath) && !QFile::remove(markerPath)) {
+        qWarning("slm-recovery-app: %s could not clear recovery marker: %s",
+                 qUtf8Printable(source),
+                 qUtf8Printable(markerPath));
+    }
+
+    qInfo("slm-recovery-app: %s cleared recovery state crash_count=%d->0 status=%s",
+          qUtf8Printable(source),
+          previousCrashCount,
+          markHealthy ? "healthy" : "unchanged");
+    return true;
+}
+
+void RecoveryApp::markRecoveryUiHealthy()
+{
+    clearRecoveryState(QStringLiteral("recovery-ui-healthy"), true);
 }
 
 void RecoveryApp::exitToDesktop()
 {
     qInfo("slm-recovery-app: user requested exit to desktop — clearing crash counter");
-
-    // Clear crash state so the next login attempt runs in normal mode.
-    // Without this, crash_count stays ≥ kCrashLoopThreshold and every subsequent
-    // boot would land back in recovery regardless of whether the compositor is healthy.
-    SessionState state;
-    QString err;
-    SessionStateIO::load(state, err);
-    state.crashCount     = 0;
-    state.recoveryReason = {};
-    state.lastCrashReason = {};
-    state.safeModeForced = false;
-    SessionStateIO::save(state, err);
-
+    clearRecoveryState(QStringLiteral("exit-to-desktop"), true);
     QCoreApplication::quit();
 }
 

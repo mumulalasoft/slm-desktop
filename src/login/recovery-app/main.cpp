@@ -58,8 +58,9 @@ int main(int argc, char *argv[])
     // fires exactly once so the timestamp is pinned to the first rendered frame.
     for (QObject *obj : engine.rootObjects()) {
         if (auto *win = qobject_cast<QQuickWindow *>(obj)) {
-            QObject::connect(win, &QQuickWindow::frameSwapped, win, []() {
+            QObject::connect(win, &QQuickWindow::frameSwapped, win, [&recovery]() {
                 writeRecoveryLifecycle(QStringLiteral("firstFrame"));
+                recovery.markRecoveryUiHealthy();
             }, Qt::SingleShotConnection);
             break;
         }
