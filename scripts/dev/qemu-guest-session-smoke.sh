@@ -73,6 +73,8 @@ if [[ -z "$ARTIFACT_DIR" ]]; then
 fi
 
 STATE_FILE="${SESSION_HOME}/.config/slm-desktop/state.json"
+CRASH_REPORT_FILE="${SESSION_HOME}/.config/slm-desktop/last-crash.json"
+RUNTIME_DIR="/run/user/$(id -u "$SESSION_USER")"
 mkdir -p "$ARTIFACT_DIR"
 
 fail=0
@@ -128,6 +130,10 @@ capture_cmd "journal-user" journalctl -b "_UID=$(id -u "$SESSION_USER")" --no-pa
 capture_cmd "ps-ef" ps -ef || true
 capture_cmd "loginctl" loginctl list-sessions || true
 capture_cmd "state-initial" cat "$STATE_FILE" || true
+capture_cmd "tmp-slm-logs" bash -lc "ls -la /tmp/slm* 2>/dev/null || true" || true
+if [[ -d "$RUNTIME_DIR" ]]; then
+    capture_cmd "runtime-dir" find "$RUNTIME_DIR" -maxdepth 1 -printf "%M %u %g %s %p\n" || true
+fi
 
 if systemctl is-active greetd >/dev/null 2>&1; then
     ok "greetd active"
@@ -161,6 +167,23 @@ else
     ng "state.json tidak ditemukan di ${STATE_FILE}"
 fi
 
+if [[ -f "$CRASH_REPORT_FILE" ]]; then
+    cp "$CRASH_REPORT_FILE" "$ARTIFACT_DIR/last-crash.json"
+else
+    warnf "last-crash.json tidak ditemukan di ${CRASH_REPORT_FILE}"
+fi
+
+for log_path in /tmp/slm-compositor.log /tmp/slm-shell.log /tmp/slm-smoke-runtime.log /tmp/slm-session-broker.log; do
+    if [[ -f "$log_path" ]]; then
+        log_name="$(basename "$log_path")"
+        cp "$log_path" "$ARTIFACT_DIR/$log_name"
+        tail -n 200 "$log_path" >"$ARTIFACT_DIR/${log_name%.log}-tail.log" || true
+        ok "log terkumpul: $log_path"
+    else
+        warnf "log tidak ditemukan: $log_path"
+    fi
+done
+
 PROCESS_MATCHES=0
 for pattern in greetd slm-greeter slm-session-broker slm-watchdog appSlm_Desktop slm-shell; do
     if pgrep -af "$pattern" >"$ARTIFACT_DIR/proc-${pattern}.log" 2>&1; then
@@ -180,8 +203,8 @@ if [[ "$PROCESS_MATCHES" -eq 0 ]]; then
 fi
 
 WAYLAND_SOCKET=""
-if [[ -d "/run/user/$(id -u "$SESSION_USER")" ]]; then
-    WAYLAND_SOCKET="$(find "/run/user/$(id -u "$SESSION_USER")" -maxdepth 1 -type s -name 'wayland-*' | head -n 1 || true)"
+if [[ -d "$RUNTIME_DIR" ]]; then
+    WAYLAND_SOCKET="$(find "$RUNTIME_DIR" -maxdepth 1 -type s -name 'wayland-*' | head -n 1 || true)"
 fi
 if [[ -n "$WAYLAND_SOCKET" ]]; then
     ok "wayland socket terdeteksi: $WAYLAND_SOCKET"

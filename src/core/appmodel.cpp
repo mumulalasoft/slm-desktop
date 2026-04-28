@@ -55,6 +55,71 @@ QString fromUtf8(const char *value)
     return value ? QString::fromUtf8(value) : QString();
 }
 
+QString appCatalogSignature(const DesktopAppEntry &app)
+{
+    QString signature;
+    auto appendField = [&signature](const QString &value) {
+        signature += QString::number(value.size());
+        signature += QLatin1Char(':');
+        signature += value;
+        signature += QLatin1Char('|');
+    };
+    appendField(app.name);
+    appendField(app.iconSource);
+    appendField(app.iconName);
+    appendField(app.desktopId);
+    appendField(app.desktopFile);
+    appendField(app.executable);
+    return signature;
+}
+
+QString appModelSignature(const DesktopAppEntry &app)
+{
+    QString signature = appCatalogSignature(app);
+    signature += QString::number(app.score);
+    signature += QLatin1Char('|');
+    signature += QString::number(app.launchCount7d);
+    signature += QLatin1Char('|');
+    signature += QString::number(app.fileOpenCount7d);
+    signature += QLatin1Char('|');
+    signature += app.lastLaunchIso;
+    signature += QLatin1Char('|');
+    return signature;
+}
+
+bool sameAppCatalog(const QVector<DesktopAppEntry> &a, const QVector<DesktopAppEntry> &b)
+{
+    if (a.size() != b.size()) {
+        return false;
+    }
+    QStringList left;
+    QStringList right;
+    left.reserve(a.size());
+    right.reserve(b.size());
+    for (const DesktopAppEntry &app : a) {
+        left.append(appCatalogSignature(app));
+    }
+    for (const DesktopAppEntry &app : b) {
+        right.append(appCatalogSignature(app));
+    }
+    std::sort(left.begin(), left.end());
+    std::sort(right.begin(), right.end());
+    return left == right;
+}
+
+bool sameAppModel(const QVector<DesktopAppEntry> &a, const QVector<DesktopAppEntry> &b)
+{
+    if (a.size() != b.size()) {
+        return false;
+    }
+    for (qsizetype i = 0; i < a.size(); ++i) {
+        if (appModelSignature(a.at(i)) != appModelSignature(b.at(i))) {
+            return false;
+        }
+    }
+    return true;
+}
+
 QString normalizedDesktopFileBase(const QString &desktopFile)
 {
     QString base = QFileInfo(desktopFile.trimmed()).fileName().toLower();
@@ -730,6 +795,10 @@ void DesktopAppModel::onGAppInfoChanged(GAppInfoMonitor *monitor, void *userData
     if (!self) {
         return;
     }
+    if (!self->m_monitorRefreshEnabled) {
+        qCInfo(lcAppModel) << "GAppInfoMonitor changed: monitor refresh disabled";
+        return;
+    }
     qCInfo(lcAppModel) << "GAppInfoMonitor changed: scheduling DesktopAppModel refresh";
     QMetaObject::invokeMethod(self, [self]() {
         if (self->m_refreshDebounceTimer) {
@@ -761,6 +830,11 @@ void DesktopAppModel::onDesktopDirChanged(GFileMonitor *monitor,
     const QString changedPath = fromUtf8(path);
     g_free(path);
     if (changedPath.isEmpty() || !changedPath.endsWith(QStringLiteral(".desktop"), Qt::CaseInsensitive)) {
+        return;
+    }
+    if (!self->m_monitorRefreshEnabled) {
+        qCInfo(lcAppModel) << "Desktop file monitor event ignored: monitor refresh disabled"
+                           << changedPath;
         return;
     }
     qCInfo(lcAppModel) << "Desktop file monitor event"
@@ -857,6 +931,23 @@ void DesktopAppModel::setDesktopSettings(QObject *desktopSettings)
     }
     reloadScoringWeights();
     rebuildUsageStats();
+}
+
+void DesktopAppModel::setMonitorRefreshEnabled(bool enabled)
+{
+    if (m_monitorRefreshEnabled == enabled) {
+        return;
+    }
+    m_monitorRefreshEnabled = enabled;
+    qCInfo(lcAppModel) << "monitor refresh enabled =" << m_monitorRefreshEnabled;
+    if (!m_monitorRefreshEnabled && m_refreshDebounceTimer) {
+        m_refreshDebounceTimer->stop();
+    }
+}
+
+bool DesktopAppModel::monitorRefreshEnabled() const
+{
+    return m_monitorRefreshEnabled;
 }
 
 void DesktopAppModel::reloadScoringWeights()
@@ -1106,6 +1197,13 @@ void DesktopAppModel::refresh()
         g_object_unref(desktopInfo);
     }
 
+    if (sameAppCatalog(m_apps, newApps)) {
+        m_lastRefreshMs = QDateTime::currentMSecsSinceEpoch();
+        qCDebug(lcAppModel) << "DesktopAppModel refresh unchanged, app count =" << m_apps.size();
+        rebuildUsageStats();
+        return;
+    }
+
     beginResetModel();
     m_apps = std::move(newApps);
     endResetModel();
@@ -1226,6 +1324,12 @@ void DesktopAppModel::refreshAsync()
                 watcher->deleteLater();
                 m_refreshRunning = false;
                 qCInfo(lcAppModel) << "refreshAsync: scan done, app count =" << newApps.size();
+                if (sameAppCatalog(m_apps, newApps)) {
+                    m_lastRefreshMs = QDateTime::currentMSecsSinceEpoch();
+                    qCInfo(lcAppModel) << "refreshAsync: unchanged, app count =" << m_apps.size();
+                    rebuildUsageStats();
+                    return;
+                }
                 beginResetModel();
                 m_apps = std::move(newApps);
                 endResetModel();
@@ -1394,9 +1498,9 @@ void DesktopAppModel::noteLaunchEvent(const QString &name, const QString &deskto
     rebuildUsageStats();
 }
 
-void DesktopAppModel::applyUsageToApps()
+void DesktopAppModel::applyUsageToApps(QVector<DesktopAppEntry> &apps) const
 {
-    for (DesktopAppEntry &app : m_apps) {
+    for (DesktopAppEntry &app : apps) {
         app.score = 0;
         app.launchCount7d = 0;
         app.fileOpenCount7d = 0;
@@ -1427,7 +1531,7 @@ void DesktopAppModel::applyUsageToApps()
         }
     }
 
-    std::sort(m_apps.begin(), m_apps.end(), [](const DesktopAppEntry &a, const DesktopAppEntry &b) {
+    std::sort(apps.begin(), apps.end(), [](const DesktopAppEntry &a, const DesktopAppEntry &b) {
         if (a.score != b.score) {
             return a.score > b.score;
         }
@@ -1569,8 +1673,14 @@ void DesktopAppModel::rebuildUsageStats()
         mergeUsageMap(m_usageStatsByKey, loadXbelUsageCache());
     }
 
+    QVector<DesktopAppEntry> updatedApps = m_apps;
+    applyUsageToApps(updatedApps);
+    if (sameAppModel(m_apps, updatedApps)) {
+        return;
+    }
+
     beginResetModel();
-    applyUsageToApps();
+    m_apps = std::move(updatedApps);
     endResetModel();
     emit appScoresChanged();
 }

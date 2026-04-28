@@ -18,6 +18,7 @@
 #include <QProcess>
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
+#include <QScreen>
 #include <QWindow>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -144,6 +145,40 @@ static bool envFlagEnabled(const char *name)
 {
     const QByteArray value = qgetenv(name).trimmed().toLower();
     return value == "1" || value == "true" || value == "yes" || value == "on";
+}
+
+static QString screenSummary()
+{
+    const QList<QScreen *> screens = QGuiApplication::screens();
+    if (screens.isEmpty()) {
+        return QStringLiteral("none");
+    }
+
+    QStringList parts;
+    parts.reserve(screens.size());
+    for (QScreen *screen : screens) {
+        if (!screen) {
+            parts << QStringLiteral("<null>");
+            continue;
+        }
+        const QRect geometry = screen->geometry();
+        const QRect available = screen->availableGeometry();
+        parts << QStringLiteral("%1 geom=%2x%3+%4+%5 avail=%6x%7+%8+%9 dpr=%10 primary=%11")
+                     .arg(screen->name().isEmpty() ? QStringLiteral("<unnamed>") : screen->name())
+                     .arg(geometry.width())
+                     .arg(geometry.height())
+                     .arg(geometry.x())
+                     .arg(geometry.y())
+                     .arg(available.width())
+                     .arg(available.height())
+                     .arg(available.x())
+                     .arg(available.y())
+                     .arg(screen->devicePixelRatio())
+                     .arg(screen == QGuiApplication::primaryScreen()
+                              ? QStringLiteral("true")
+                              : QStringLiteral("false"));
+    }
+    return parts.join(QStringLiteral(" | "));
 }
 
 #if defined(__linux__)
@@ -312,6 +347,31 @@ int main(int argc, char *argv[])
     }
     qInfo("SLM-SHELL: Wayland backend confirmed — connecting to compositor");
     writeShellLifecycle(QStringLiteral("waylandOk"));
+
+    const auto logScreenState = [](const char *event, QScreen *screen = nullptr) {
+        const QString changed = screen
+                ? (screen->name().isEmpty() ? QStringLiteral("<unnamed>") : screen->name())
+                : QStringLiteral("<none>");
+        const int count = QGuiApplication::screens().size();
+        qInfo("SLM-SHELL: screen event=%s changed=%s count=%d screens=%s",
+              event,
+              qUtf8Printable(changed),
+              count,
+              qUtf8Printable(screenSummary()));
+    };
+    logScreenState("initial");
+    QObject::connect(&app, &QGuiApplication::screenAdded, &app,
+                     [logScreenState](QScreen *screen) {
+        logScreenState("added", screen);
+    });
+    QObject::connect(&app, &QGuiApplication::screenRemoved, &app,
+                     [logScreenState](QScreen *screen) {
+        logScreenState("removed", screen);
+    });
+    QObject::connect(&app, &QGuiApplication::primaryScreenChanged, &app,
+                     [logScreenState](QScreen *screen) {
+        logScreenState("primaryChanged", screen);
+    });
 
     if (startupDiag) {
         qInfo().noquote() << "[startup] QGuiApplication ready"
@@ -489,6 +549,10 @@ int main(int argc, char *argv[])
         dockBootstrapState.setIntegrationEnabled(wlrLayerShell.isActive());
     } else {
         qInfo("DOCK_BOOTSTRAP wlr-layer-shell disabled for KWin runtime");
+        if (!envFlagEnabled("SLM_SHELL_DYNAMIC_APP_REFRESH")) {
+            appModel.setMonitorRefreshEnabled(false);
+            qInfo("DesktopAppModel monitor refresh disabled for KWin runtime");
+        }
     }
 #endif
     Slm::Print::PrinterManager printerManager;

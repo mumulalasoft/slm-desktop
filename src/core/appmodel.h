@@ -73,6 +73,8 @@ public:
                                                  const QVariantMap &context = QVariantMap{});
     void setExecutionGate(AppExecutionGate *gate);
     void setDesktopSettings(QObject *desktopSettings);
+    void setMonitorRefreshEnabled(bool enabled);
+    bool monitorRefreshEnabled() const;
 
 signals:
     void appScoresChanged();
@@ -90,7 +92,7 @@ private:
     void loadLaunchHistory();
     void saveLaunchHistory() const;
     void noteLaunchEvent(const QString &name, const QString &desktopFile, const QString &executable);
-    void applyUsageToApps();
+    void applyUsageToApps(QVector<DesktopAppEntry> &apps) const;
     void pruneOldLaunches();
     static QString primaryKey(const QString &desktopId,
                               const QString &desktopFile,
@@ -114,6 +116,7 @@ private:
     void *m_appInfoMonitor = nullptr;
     QVector<void *> m_appDirMonitors;
     QTimer *m_refreshDebounceTimer = nullptr;
+    bool m_monitorRefreshEnabled = true;
     QHash<QString, QVariantList> m_launchHistoryByKey;
     QHash<QString, QVariantMap> m_usageStatsByKey;
     qint64 m_lastRefreshMs = 0;

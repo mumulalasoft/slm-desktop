@@ -56,6 +56,7 @@ private:
     QString              compositorExitReason(const QString &prefix) const;
     QString              shellExitReason(const QString &prefix) const;
     QString              compositorLogHint() const;
+    QString              shellLogHint() const;
     void                 logFileTail(const QString &label, const QString &path, qint64 offset) const;
 
     QString              lifecycleFilePath() const;

@@ -1,3 +1,4 @@
+#include <QByteArray>
 #include <QCoreApplication>
 #include <QDebug>
 #include <memory>
@@ -26,6 +27,14 @@
 #include "../../core/actions/framework/slmactionframework.h"
 #include "../../core/execution/appexecutiongate.h"
 
+namespace {
+bool envFlagEnabled(const char *name)
+{
+    const QByteArray value = qgetenv(name).trimmed().toLower();
+    return value == "1" || value == "true" || value == "yes" || value == "on";
+}
+}
+
 int main(int argc, char *argv[])
 {
     QCoreApplication app(argc, argv);
@@ -35,6 +44,11 @@ int main(int argc, char *argv[])
     WindowingBackendManager windowingBackendManager;
     windowingBackendManager.configureBackend(QStringLiteral("kwin-wayland"));
     DesktopAppModel appModel;
+    if (!envFlagEnabled("SLM_DESKTOPD_DYNAMIC_APP_REFRESH")
+        && !envFlagEnabled("SLM_SHELL_DYNAMIC_APP_REFRESH")) {
+        appModel.setMonitorRefreshEnabled(false);
+        qInfo("DesktopAppModel monitor refresh disabled for KWin runtime");
+    }
     appModel.refresh();
 
     SpacesManager spacesManager;

@@ -68,6 +68,15 @@ QStringList tailLines(const QByteArray &data, int maxLines)
     return lines;
 }
 
+QJsonArray linesToJsonArray(const QStringList &lines)
+{
+    QJsonArray array;
+    for (const QString &line : lines) {
+        array.append(line);
+    }
+    return array;
+}
+
 bool acceptsRegularWaylandSocketForTests()
 {
     return qEnvironmentVariableIsSet("SLM_TEST_ACCEPT_REGULAR_WAYLAND_SOCKET");
@@ -823,6 +832,10 @@ QString SessionBroker::compositorExitReason(const QString &prefix) const
     if (!hint.isEmpty()) {
         reason += QStringLiteral(" ") + hint;
     }
+    const QString shellHint = shellLogHint();
+    if (!shellHint.isEmpty()) {
+        reason += QStringLiteral(" ") + shellHint;
+    }
     if (!m_compositorStopReason.isEmpty()) {
         reason += QStringLiteral(" stop_reason=") + m_compositorStopReason;
     }
@@ -834,7 +847,7 @@ QString SessionBroker::shellExitReason(const QString &prefix) const
     const qint64 uptimeMs = m_shellLaunchTimeMs > 0
             ? QDateTime::currentMSecsSinceEpoch() - m_shellLaunchTimeMs
             : -1;
-    return QStringLiteral("%1:%2 exit_status=%3 exit_code=%4 uptime_ms=%5 first_frame=%6")
+    QString reason = QStringLiteral("%1:%2 exit_status=%3 exit_code=%4 uptime_ms=%5 first_frame=%6")
             .arg(prefix,
                  m_shellProcess.program(),
                  processExitStatusName(m_shellProcess.exitStatus()),
@@ -842,6 +855,11 @@ QString SessionBroker::shellExitReason(const QString &prefix) const
                  QString::number(uptimeMs),
                  readLifecycleMarker(QStringLiteral("firstFrame")) ? QStringLiteral("yes")
                                                                    : QStringLiteral("no"));
+    const QString hint = shellLogHint();
+    if (!hint.isEmpty()) {
+        reason += QStringLiteral(" ") + hint;
+    }
+    return reason;
 }
 
 QString SessionBroker::compositorLogHint() const
@@ -868,6 +886,16 @@ QString SessionBroker::compositorLogHint() const
                 && lower.contains(QStringLiteral("seat")))) {
         return QStringLiteral("hint=logind-seat-session-not-active");
     }
+    if (lower.contains(QStringLiteral("there are no outputs"))
+            || lower.contains(QStringLiteral("no outputs"))
+            || lower.contains(QStringLiteral("no screens"))) {
+        return QStringLiteral("hint=kwin-output-list-empty");
+    }
+    if (lower.contains(QStringLiteral("failed to initialize egl"))
+            || lower.contains(QStringLiteral("failed to create egl"))
+            || lower.contains(QStringLiteral("failed to create dri2 screen"))) {
+        return QStringLiteral("hint=kwin-egl-init-failed");
+    }
     if (lower.contains(QStringLiteral("qt.qpa.plugin"))
             || lower.contains(QStringLiteral("could not load the qt platform plugin"))) {
         return QStringLiteral("hint=qt-platform-plugin-load-failed");
@@ -879,10 +907,34 @@ QString SessionBroker::compositorLogHint() const
     return {};
 }
 
+QString SessionBroker::shellLogHint() const
+{
+    const QByteArray data = readFileFromOffset(QString::fromLatin1(kShellLogPath),
+                                               m_shellLogStartOffset);
+    const QString lower = QString::fromLocal8Bit(data).toLower();
+    if (lower.isEmpty()) {
+        return {};
+    }
+    if (lower.contains(QStringLiteral("there are no outputs"))
+            || lower.contains(QStringLiteral("creating placeholder screen"))) {
+        return QStringLiteral("hint=wayland-outputs-removed");
+    }
+    if (lower.contains(QStringLiteral("wayland connection broke"))) {
+        return QStringLiteral("hint=wayland-connection-broke");
+    }
+    if (lower.contains(QStringLiteral("protocol error"))) {
+        return QStringLiteral("hint=wayland-protocol-error");
+    }
+    if (lower.contains(QStringLiteral("failed to create dri2 screen"))) {
+        return QStringLiteral("hint=client-egl-dri2-failed");
+    }
+    return {};
+}
+
 void SessionBroker::logFileTail(const QString &label, const QString &path, qint64 offset) const
 {
     const QByteArray data = readFileFromOffset(path, offset);
-    const QStringList lines = tailLines(data, 30);
+    const QStringList lines = tailLines(data, 80);
     if (lines.isEmpty()) {
         qInfo("%s: no new log output in %s", qPrintable(label), qPrintable(path));
         return;
@@ -946,6 +998,16 @@ void SessionBroker::writeCrashReport(const QString &phase, const QString &reason
     logs.insert(QStringLiteral("broker"), QStringLiteral("/tmp/slm-session-broker.log"));
     logs.insert(QStringLiteral("compositor"), QString::fromLatin1(kCompositorLogPath));
     logs.insert(QStringLiteral("shell"), QString::fromLatin1(kShellLogPath));
+    logs.insert(QStringLiteral("compositor_tail"),
+                linesToJsonArray(tailLines(
+                    readFileFromOffset(QString::fromLatin1(kCompositorLogPath),
+                                       m_compositorLogStartOffset),
+                    80)));
+    logs.insert(QStringLiteral("shell_tail"),
+                linesToJsonArray(tailLines(
+                    readFileFromOffset(QString::fromLatin1(kShellLogPath),
+                                       m_shellLogStartOffset),
+                    80)));
 
     QJsonObject obj;
     obj.insert(QStringLiteral("timestamp"),
