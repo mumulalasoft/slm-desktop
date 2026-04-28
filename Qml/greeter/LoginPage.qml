@@ -21,6 +21,7 @@ Rectangle {
 
     property int    selectedUserIndex: -1
     property bool   loginBusy: false
+    property bool   powerActionBusy: false
 
     readonly property real uiScale: Math.max(0.90, Math.min(1.20,
                                Math.min(width / 1920, height / 1080)))
@@ -85,6 +86,36 @@ Rectangle {
         }
     }
 
+    function requestPowerAction(action) {
+        if (!GreeterApp || root.loginBusy || root.installBusy || root.powerActionBusy) {
+            return
+        }
+
+        const normalized = String(action || "")
+        if (normalized === "restart") {
+            if (!GreeterApp.canReboot) {
+                notificationMessage = "Restart tidak tersedia di sistem ini."
+                return
+            }
+            root.powerActionBusy = true
+            notificationMessage = "Memulai ulang perangkat..."
+            GreeterApp.reboot()
+            powerActionResetTimer.restart()
+            return
+        }
+
+        if (normalized === "shutdown") {
+            if (!GreeterApp.canPowerOff) {
+                notificationMessage = "Shutdown tidak tersedia di sistem ini."
+                return
+            }
+            root.powerActionBusy = true
+            notificationMessage = "Mematikan perangkat..."
+            GreeterApp.powerOff()
+            powerActionResetTimer.restart()
+        }
+    }
+
     function refreshMissingIssues() {
         if (typeof MissingComponents === "undefined" || !MissingComponents) {
             root.missingIssues = []
@@ -109,6 +140,13 @@ Rectangle {
         running: true
         repeat: true
         onTriggered: root.now = new Date()
+    }
+
+    Timer {
+        id: powerActionResetTimer
+        interval: 5000
+        repeat: false
+        onTriggered: root.powerActionBusy = false
     }
 
     Component.onCompleted: {
@@ -524,16 +562,16 @@ Rectangle {
         PowerRow {
             icon: "↻"
             label: "Restart"
-            enabled: GreeterApp ? GreeterApp.canReboot : false
-            onActionTriggered: if (GreeterApp) GreeterApp.reboot()
+            enabled: GreeterApp ? (GreeterApp.canReboot && !root.loginBusy && !root.installBusy && !root.powerActionBusy) : false
+            onActionTriggered: root.requestPowerAction("restart")
             uiScale: root.uiScale
         }
 
         PowerRow {
             icon: "⏻"
             label: "Shut Down"
-            enabled: GreeterApp ? GreeterApp.canPowerOff : false
-            onActionTriggered: if (GreeterApp) GreeterApp.powerOff()
+            enabled: GreeterApp ? (GreeterApp.canPowerOff && !root.loginBusy && !root.installBusy && !root.powerActionBusy) : false
+            onActionTriggered: root.requestPowerAction("shutdown")
             uiScale: root.uiScale
         }
 
