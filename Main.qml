@@ -79,6 +79,7 @@ ApplicationWindow {
     property bool fileManagerVisible: false
     property bool detachedFileManagerVisible: false
     property bool detachedFileManagerPreloadRequested: false
+    readonly property bool detachedFileManagerPreloadEnabled: false
     property string detachedFileManagerPath: "~"
     property bool detachedFileManagerLoadFailed: false
     property string pendingDetachedFileManagerPropertiesPath: ""
@@ -174,7 +175,7 @@ ApplicationWindow {
         id: detachedFileManagerPreloadTimer
         interval: 1800
         repeat: false
-        running: true
+        running: root.detachedFileManagerPreloadEnabled
         onTriggered: {
             root.detachedFileManagerPreloadRequested = true
             if (root.detachedFileManagerWindow) {

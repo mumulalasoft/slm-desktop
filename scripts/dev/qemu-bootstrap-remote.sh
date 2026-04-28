@@ -18,6 +18,8 @@ Options:
   --port PORT         Host forwarded SSH port. Default: $SSH_PORT
   --skip-apt          Pass through to guest bootstrap
   --skip-mount        Pass through to guest bootstrap
+  --apt-only          Pass through to guest bootstrap
+  --mount-only        Pass through to guest bootstrap
   --help              Show this help
 EOF
 }
@@ -33,7 +35,7 @@ while [[ $# -gt 0 ]]; do
             SSH_PORT="$2"
             shift 2
             ;;
-        --skip-apt|--skip-mount)
+        --skip-apt|--skip-mount|--apt-only|--mount-only)
             PASSTHRU_ARGS+=("$1")
             shift
             ;;

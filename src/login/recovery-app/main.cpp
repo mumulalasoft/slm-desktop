@@ -44,7 +44,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("RecoveryApp"), &recovery);
     engine.rootContext()->setContextProperty(QStringLiteral("MissingComponents"), &missingComponents);
 
-    const QUrl url(QStringLiteral("qrc:/qt/qml/SlmRecovery/Main.qml"));
+    const QUrl url(QStringLiteral("qrc:/qt/qml/SlmRecovery/Qml/recovery/Main.qml"));
     QObject::connect(
         &engine, &QQmlApplicationEngine::objectCreated,
         &app, [url](QObject *obj, const QUrl &objUrl) {

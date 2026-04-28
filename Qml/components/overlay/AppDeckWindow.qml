@@ -91,9 +91,9 @@ Window {
 
     readonly property bool motionEngineReady: typeof MotionController !== "undefined"
                                                 && MotionController
-                                                && MotionController.startFromCurrent
-                                                && MotionController.retarget
-                                                && MotionController.cancelAndSettle
+                                                && typeof MotionController.startFromCurrent === "function"
+                                                && typeof MotionController.retarget === "function"
+                                                && typeof MotionController.cancelAndSettle === "function"
     readonly property real surfaceTarget: immersiveMode ? 1.0 : 0.0
     property real fallbackSurfaceTransition: surfaceTarget
     // Shared transition progress: 0 = collapsed surface, 1 = expanded/context surface.

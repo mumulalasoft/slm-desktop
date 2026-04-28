@@ -5360,6 +5360,16 @@ qt_add_qml_module(slm-recovery-app
         Qml/recovery/LogPage.qml
         Qml/components/system/MissingComponentsCard.qml
 )
+qt_add_resources(slm-recovery-app "slm_recovery_theme_shim_qmldir"
+    PREFIX "/qt/qml/Slm_Desktop"
+    BASE "${CMAKE_SOURCE_DIR}/src/apps/settings/resources"
+    FILES "${CMAKE_SOURCE_DIR}/src/apps/settings/resources/qmldir"
+)
+qt_add_resources(slm-recovery-app "slm_recovery_theme_shim_theme"
+    PREFIX "/qt/qml/Slm_Desktop"
+    BASE "${CMAKE_SOURCE_DIR}/third_party/slm-style/qml/SlmStyle"
+    FILES "${CMAKE_SOURCE_DIR}/third_party/slm-style/qml/SlmStyle/Theme.qml"
+)
 target_link_libraries(slm-recovery-app
     PRIVATE
         Qt6::Core

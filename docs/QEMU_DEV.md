@@ -13,10 +13,10 @@ Ringkasan dependency guest dan runtime login ada di [docs/DEPENDENCIES.md](/home
 - `scripts/dev/qemu-guest-bootstrap.sh`: bootstrap dependency di guest.
 - `scripts/dev/qemu-guest-build.sh`: configure/build project dari dalam guest.
 - `scripts/dev/qemu-bootstrap-remote.sh`: jalankan bootstrap guest dari host via SSH.
-- `scripts/dev/qemu-install-deps-remote.sh`: install dependency dev guest via SSH.
-- `scripts/dev/qemu-build-remote.sh`: mount share lalu build project di guest via SSH.
+- `scripts/dev/qemu-install-deps-remote.sh`: wrapper kompatibilitas untuk `qemu-bootstrap-remote.sh --apt-only`.
+- `scripts/dev/qemu-build-remote.sh`: canonical host->guest build entrypoint.
 - `scripts/dev/qemu-session-smoke-remote.sh`: jalankan smoke login/session di guest dan tarik artefaknya ke host.
-- `scripts/dev/qemu-login-smoke-pipeline.sh`: build target runtime, install runtime login, verify, lalu opsional jalankan smoke session.
+- `scripts/dev/qemu-login-smoke-pipeline.sh`: build target runtime via entrypoint canonical, install runtime login, verify, lalu opsional jalankan smoke session.
 
 Launcher QEMU juga mengaktifkan clipboard sharing host↔guest secara default bila backend `qemu-vdagent` tersedia di host.
 
@@ -66,6 +66,12 @@ Kalau Anda hanya ingin memasang dependency dev:
 bash scripts/dev/qemu-install-deps-remote.sh --user <username-guest>
 ```
 
+Itu alias kompatibilitas untuk:
+
+```bash
+bash scripts/dev/qemu-bootstrap-remote.sh --user <username-guest> --apt-only
+```
+
 6. Build dari guest:
 
 ```bash
@@ -91,6 +97,7 @@ bash scripts/dev/qemu-build-remote.sh --user <username-guest> -- --target deskto
 ```
 
 Wrapper ini memaksa TTY SSH supaya `sudo` di guest bisa meminta password bila perlu.
+Semua pipeline build host->guest lain memanggil script ini, jadi jalur build tetap satu.
 
 Default build dir guest sekarang memakai direktori writable milik user:
 
@@ -137,8 +144,8 @@ bash scripts/dev/qemu-login-smoke-pipeline.sh --user <username-guest> --session-
 
 Itu akan:
 
-- mount `hostshare`
-- configure build dir guest
+- mount `hostshare` via bootstrap remote
+- configure build dir guest lewat `qemu-build-remote.sh`
 - build target login/runtime yang dibutuhkan
 - install runtime SLM ke guest
 - menjalankan:

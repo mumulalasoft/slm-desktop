@@ -140,6 +140,12 @@ static void writeShellLifecycle(const QString &phase)
         f.write(QJsonDocument(s_lc).toJson(QJsonDocument::Compact));
 }
 
+static bool envFlagEnabled(const char *name)
+{
+    const QByteArray value = qgetenv(name).trimmed().toLower();
+    return value == "1" || value == "true" || value == "yes" || value == "on";
+}
+
 #if defined(__linux__)
 namespace {
 void slmCrashSignalHandler(int sig)
@@ -472,13 +478,18 @@ int main(int argc, char *argv[])
     Slm::ContextMenu::ContextMenuService contextMenuService;
     Slm::System::MissingComponentController missingComponentController;
 #ifdef SLM_HAVE_WAYLANDCLIENT
+    const bool enableWlrLayerShell = envFlagEnabled("SLM_ENABLE_WLR_LAYER_SHELL");
     AppDeckBootstrapState dockBootstrapState;
     WlrLayerShell wlrLayerShell;
-    wlrLayerShell.setAppDeckBootstrapState(&dockBootstrapState);
-    QObject::connect(&wlrLayerShell, &WlrLayerShell::activeChanged, &app, [&]() {
+    if (enableWlrLayerShell) {
+        wlrLayerShell.setAppDeckBootstrapState(&dockBootstrapState);
+        QObject::connect(&wlrLayerShell, &WlrLayerShell::activeChanged, &app, [&]() {
+            dockBootstrapState.setIntegrationEnabled(wlrLayerShell.isActive());
+        });
         dockBootstrapState.setIntegrationEnabled(wlrLayerShell.isActive());
-    });
-    dockBootstrapState.setIntegrationEnabled(wlrLayerShell.isActive());
+    } else {
+        qInfo("DOCK_BOOTSTRAP wlr-layer-shell disabled for KWin runtime");
+    }
 #endif
     Slm::Print::PrinterManager printerManager;
     Slm::Print::PrintSession printSession;
@@ -696,8 +707,10 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("slmActionTreeDebug"),
                                              slmActionTreeDebug);
 #ifdef SLM_HAVE_WAYLANDCLIENT
-    engine.rootContext()->setContextProperty(QStringLiteral("WlrLayerShell"), &wlrLayerShell);
-    engine.rootContext()->setContextProperty(QStringLiteral("AppDeckBootstrapState"), &dockBootstrapState);
+    if (enableWlrLayerShell) {
+        engine.rootContext()->setContextProperty(QStringLiteral("WlrLayerShell"), &wlrLayerShell);
+        engine.rootContext()->setContextProperty(QStringLiteral("AppDeckBootstrapState"), &dockBootstrapState);
+    }
 #endif
     engine.rootContext()->setContextProperty(QStringLiteral("SessionStateClient"), &sessionStateClient);
     engine.rootContext()->setContextProperty(QStringLiteral("FirewallServiceClient"), &firewallServiceClient);

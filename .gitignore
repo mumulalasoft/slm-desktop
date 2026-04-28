@@ -88,3 +88,4 @@ CMakeLists.txt.user*
 
 # QEMU smoke test artifacts
 /artifacts/
+/scripts/dev/artifacts/

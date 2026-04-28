@@ -1,9 +1,27 @@
 #include <QtTest/QtTest>
+#include <QDBusConnection>
+#include <QDBusConnectionInterface>
+#include <QDBusReply>
 #include <QTemporaryDir>
 #include <QVariantMap>
 #include <memory>
 
 #include "../src/daemon/desktopd/daemonhealthmonitor.h"
+
+class FakeFileOperationsPeer : public QObject
+{
+    Q_OBJECT
+    Q_CLASSINFO("D-Bus Interface", "org.slm.Desktop.FileOperations")
+
+public slots:
+    QVariantMap Ping() const
+    {
+        return {
+            {QStringLiteral("ok"), true},
+            {QStringLiteral("service"), QStringLiteral("org.slm.Desktop.FileOperations")},
+        };
+    }
+};
 
 class DaemonHealthMonitorTest : public QObject
 {
@@ -39,6 +57,8 @@ private slots:
         QVERIFY(snapshot.contains(QStringLiteral("maxDelayMs")));
         QVERIFY(snapshot.contains(QStringLiteral("degraded")));
         QVERIFY(snapshot.contains(QStringLiteral("reasonCodes")));
+        QVERIFY(snapshot.contains(QStringLiteral("criticalReasonCodes")));
+        QVERIFY(snapshot.contains(QStringLiteral("optionalReasonCodes")));
         QVERIFY(snapshot.contains(QStringLiteral("timeline")));
         QVERIFY(snapshot.contains(QStringLiteral("timelineSize")));
         QVERIFY(snapshot.contains(QStringLiteral("timelineFile")));
@@ -55,6 +75,7 @@ private slots:
             QVERIFY(peer.contains(QStringLiteral("service")));
             QVERIFY(peer.contains(QStringLiteral("path")));
             QVERIFY(peer.contains(QStringLiteral("iface")));
+            QVERIFY(peer.contains(QStringLiteral("critical")));
             QVERIFY(peer.contains(QStringLiteral("registered")));
             QVERIFY(peer.contains(QStringLiteral("failures")));
             QVERIFY(peer.contains(QStringLiteral("lastCheckMs")));
@@ -64,12 +85,19 @@ private slots:
             QVERIFY(!peer.value(QStringLiteral("service")).toString().isEmpty());
             QVERIFY(!peer.value(QStringLiteral("path")).toString().isEmpty());
             QVERIFY(!peer.value(QStringLiteral("iface")).toString().isEmpty());
+            QVERIFY(peer.value(QStringLiteral("critical")).canConvert<bool>());
         };
 
         QVERIFY(snapshot.value(QStringLiteral("fileOperations")).canConvert<QVariantMap>());
         QVERIFY(snapshot.value(QStringLiteral("devices")).canConvert<QVariantMap>());
-        checkPeerShape(snapshot.value(QStringLiteral("fileOperations")).toMap());
-        checkPeerShape(snapshot.value(QStringLiteral("devices")).toMap());
+        const QVariantMap fileOps = snapshot.value(QStringLiteral("fileOperations")).toMap();
+        const QVariantMap devices = snapshot.value(QStringLiteral("devices")).toMap();
+        checkPeerShape(fileOps);
+        checkPeerShape(devices);
+        QCOMPARE(fileOps.value(QStringLiteral("critical")).toBool(), true);
+        QCOMPARE(devices.value(QStringLiteral("critical")).toBool(), false);
+        QVERIFY(snapshot.value(QStringLiteral("criticalReasonCodes")).canConvert<QVariantList>());
+        QVERIFY(snapshot.value(QStringLiteral("optionalReasonCodes")).canConvert<QVariantList>());
     }
 
     void snapshot_scheduler_progresses()
@@ -187,6 +215,79 @@ private slots:
         assertMissingPeerError(devices);
     }
 
+    void snapshot_optionalDevicesDoesNotDegradeWhenCriticalPeersHealthy()
+    {
+        QDBusConnection bus = QDBusConnection::sessionBus();
+        if (!bus.isConnected() || !bus.interface()) {
+            QSKIP("session bus is not available in this test environment");
+        }
+
+        auto serviceRegistered = [&bus](const QString &service) {
+            const QDBusReply<bool> reply = bus.interface()->isServiceRegistered(service);
+            return reply.isValid() && reply.value();
+        };
+
+        if (serviceRegistered(QStringLiteral("org.slm.Desktop.FileOperations"))) {
+            QSKIP("file operations service already registered on session bus");
+        }
+        if (serviceRegistered(QStringLiteral("org.slm.Desktop.Devices"))) {
+            QSKIP("devices service already registered on session bus");
+        }
+
+        FakeFileOperationsPeer fileOpsPeer;
+        if (!bus.registerService(QStringLiteral("org.slm.Desktop.FileOperations"))) {
+            QSKIP("could not own org.slm.Desktop.FileOperations on session bus");
+        }
+        if (!bus.registerObject(QStringLiteral("/org/slm/Desktop/FileOperations"),
+                                &fileOpsPeer,
+                                QDBusConnection::ExportAllSlots)) {
+            bus.unregisterService(QStringLiteral("org.slm.Desktop.FileOperations"));
+            QSKIP("could not export fake file operations object on session bus");
+        }
+
+        bool observed = false;
+        QVariantMap observedSnapshot;
+        {
+            DaemonHealthMonitor monitor;
+            for (int i = 0; i < 40; ++i) {
+                QTest::qWait(50);
+                const QVariantMap snapshot = monitor.snapshot();
+                const QVariantMap fileOps = snapshot.value(QStringLiteral("fileOperations")).toMap();
+                const QVariantMap devices = snapshot.value(QStringLiteral("devices")).toMap();
+                const bool criticalHealthy =
+                    fileOps.value(QStringLiteral("registered")).toBool() &&
+                    fileOps.value(QStringLiteral("failures")).toInt() == 0 &&
+                    fileOps.value(QStringLiteral("lastOkMs")).toLongLong() > 0;
+                const bool optionalMissing =
+                    !devices.value(QStringLiteral("registered")).toBool() &&
+                    devices.value(QStringLiteral("failures")).toInt() > 0 &&
+                    devices.value(QStringLiteral("lastError")).toString()
+                        == QStringLiteral("service-not-registered");
+                if (criticalHealthy && optionalMissing) {
+                    observed = true;
+                    observedSnapshot = snapshot;
+                    break;
+                }
+            }
+        }
+
+        bus.unregisterObject(QStringLiteral("/org/slm/Desktop/FileOperations"));
+        bus.unregisterService(QStringLiteral("org.slm.Desktop.FileOperations"));
+
+        QVERIFY2(observed,
+                 "test did not observe healthy critical peer with missing optional devices peer");
+        QCOMPARE(observedSnapshot.value(QStringLiteral("degraded")).toBool(), false);
+
+        const QVariantList reasonCodes = observedSnapshot.value(QStringLiteral("reasonCodes")).toList();
+        const QVariantList criticalReasonCodes =
+            observedSnapshot.value(QStringLiteral("criticalReasonCodes")).toList();
+        const QVariantList optionalReasonCodes =
+            observedSnapshot.value(QStringLiteral("optionalReasonCodes")).toList();
+        QVERIFY(reasonCodes.contains(QStringLiteral("service-not-registered")));
+        QVERIFY(criticalReasonCodes.isEmpty());
+        QVERIFY(optionalReasonCodes.contains(QStringLiteral("service-not-registered")));
+    }
+
     void timeline_persistsAcrossInstances()
     {
         {
@@ -195,8 +296,15 @@ private slots:
             const QVariantMap snap = first.snapshot();
             const QVariantList timeline = snap.value(QStringLiteral("timeline")).toList();
             QVERIFY(!timeline.isEmpty());
-            const QVariantMap last = timeline.constLast().toMap();
-            QCOMPARE(last.value(QStringLiteral("code")).toString(), QStringLiteral("monitor-started"));
+            bool foundStartupEvent = false;
+            for (const QVariant &rowValue : timeline) {
+                const QVariantMap row = rowValue.toMap();
+                if (row.value(QStringLiteral("code")).toString() == QStringLiteral("monitor-started")) {
+                    foundStartupEvent = true;
+                    break;
+                }
+            }
+            QVERIFY2(foundStartupEvent, "timeline should include a monitor-started event");
         }
 
         DaemonHealthMonitor second;

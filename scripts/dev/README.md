@@ -15,14 +15,14 @@
 - `qemu-ssh.sh`
 - `qemu-scp.sh`
 - `qemu-bootstrap-remote.sh`
-- `qemu-install-deps-remote.sh`
-- `qemu-build-remote.sh`
+- `qemu-install-deps-remote.sh` - wrapper compatibility untuk `qemu-bootstrap-remote.sh --apt-only`
+- `qemu-build-remote.sh` - canonical host->guest build entrypoint
 - `qemu-session-smoke-remote.sh`
-- `qemu-login-smoke-pipeline.sh`
+- `qemu-login-smoke-pipeline.sh` - build + runtime install + verify + optional smoke
 - `qemu-guest-bootstrap.sh`
 - `qemu-guest-build.sh`
 - `qemu-guest-session-smoke.sh`
-- `qemu-smoke.sh`
+- `qemu-smoke.sh` - build + install + verify + smoke, memakai build entrypoint canonical
 
 ## Usage
 

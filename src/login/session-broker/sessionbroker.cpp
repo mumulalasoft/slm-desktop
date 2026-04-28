@@ -1046,10 +1046,8 @@ void SessionBroker::writeSessionEnded(const QString &crashReason)
         m_state.lastCrashReason.clear();
     }
 
-    // Recovery: if compositor exited cleanly the recovery session ran — reset counter.
-    // The recovery app writes no lifecycle markers, so the firstFrame check above
-    // would never fire.  Belt-and-suspenders: this also covers the case where the
-    // user exited recovery before the watchdog's 30 s timer fired.
+    // Recovery: if the user exits recovery cleanly, allow the next broker run to
+    // try normal mode again even if no watchdog health update was written.
     if (m_finalMode == StartupMode::Recovery && !sessionCrashed
         && m_state.lastBootStatus != QStringLiteral("healthy")) {
         qInfo("session: recovery mode ended cleanly — resetting crash counter %d → 0",

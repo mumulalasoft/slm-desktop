@@ -4,6 +4,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=./qemu-common.sh
+source "$SCRIPT_DIR/qemu-common.sh"
 SSH_USER="${SLM_QEMU_SSH_USER:-garis}"
 SSH_PORT="${SLM_QEMU_SSH_PORT:-2222}"
 SESSION_USER="${SLM_QEMU_SESSION_USER:-$SSH_USER}"
@@ -11,7 +13,7 @@ TIMEOUT_SEC="${SLM_QEMU_SESSION_SMOKE_TIMEOUT_SEC:-90}"
 HOST_ARTIFACT_ROOT="${SLM_QEMU_SESSION_SMOKE_ARTIFACT_ROOT:-$PWD/artifacts/qemu-session-smoke}"
 REMOTE_SCRIPT="/tmp/qemu-guest-session-smoke.sh"
 STRICT_PROCESS=0
-STATE_DIR="${SLM_QEMU_STATE_DIR:-$HOME/.local/state/slm-qemu}"
+STATE_DIR="$(qemu_dev_state_dir)"
 
 usage() {
     cat <<EOF
@@ -108,7 +110,7 @@ set -e
 
 scp -r \
     -o StrictHostKeyChecking=accept-new \
-    -o UserKnownHostsFile="$STATE_DIR/known_hosts" \
+    -o UserKnownHostsFile="$(qemu_dev_known_hosts)" \
     -P "$SSH_PORT" \
     "$SSH_USER@127.0.0.1:$REMOTE_ARTIFACT_DIR" \
     "$HOST_ARTIFACT_DIR" >/dev/null

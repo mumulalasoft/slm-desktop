@@ -85,6 +85,20 @@ if [[ ! -d "$REPO_DIR" ]]; then
     exit 1
 fi
 
+if [[ ! -f "$REPO_DIR/CMakeLists.txt" ]]; then
+    echo "[qemu-guest-build] ERROR: $REPO_DIR tidak berisi CMakeLists.txt" >&2
+    echo "  repo dir   : $REPO_DIR" >&2
+    echo "  build dir  : $BUILD_DIR" >&2
+    echo "  user       : $(id -un)" >&2
+    if mountpoint -q "$REPO_DIR" 2>/dev/null; then
+        echo "  mount      : mounted" >&2
+    else
+        echo "  mount      : not mounted" >&2
+    fi
+    echo "  hint       : pastikan hostshare ter-mount ke repo root, bukan ke subdir scripts/" >&2
+    exit 1
+fi
+
 mkdir -p "$BUILD_DIR"
 
 if [[ "$BUILD_ONLY" != "1" ]]; then

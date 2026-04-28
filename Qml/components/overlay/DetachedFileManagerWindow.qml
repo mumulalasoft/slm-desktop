@@ -259,7 +259,7 @@ Window {
                 if (item.hasOwnProperty("fileModel")) {
                     item.fileModel = root.fileModel
                 }
-                if (item.openPath) {
+                if (shellApi.detachedFileManagerVisible && item.openPath) {
                     item.openPath(shellApi.detachedFileManagerPath)
                 }
                 shellApi.fileManagerContent = item

@@ -4,9 +4,11 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=./qemu-common.sh
+source "$SCRIPT_DIR/qemu-common.sh"
 SLM_ENV_QUIET=1 source "$SCRIPT_DIR/workspace.env"
 
-STATE_DIR="${SLM_QEMU_STATE_DIR:-$HOME/.local/state/slm-qemu}"
+STATE_DIR="$(qemu_dev_state_dir)"
 ISO_PATH="${SLM_QEMU_ISO:-$HOME/ubuntu.iso}"
 DISK_PATH="${SLM_QEMU_DISK:-$STATE_DIR/ubuntu-dev.qcow2}"
 DEFAULT_SHARED_DIR="$(cd "$SLM_DESKTOP_SOURCE_DIR" && pwd)"

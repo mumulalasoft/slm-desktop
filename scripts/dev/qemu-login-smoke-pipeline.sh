@@ -14,9 +14,6 @@ RUN_SMOKE=1
 SMOKE_TIMEOUT="${SLM_QEMU_SESSION_SMOKE_TIMEOUT_SEC:-90}"
 BUILD_ONLY=0
 
-REMOTE_BUILD_SCRIPT="/tmp/qemu-guest-build.sh"
-REMOTE_BOOTSTRAP_SCRIPT="/tmp/qemu-guest-bootstrap.sh"
-
 RUNTIME_TARGETS=(
     slm-greeter
     slm-watchdog
@@ -117,26 +114,21 @@ echo "  build only    : $BUILD_ONLY"
 echo "  run smoke     : $RUN_SMOKE"
 echo ""
 
-"$SCRIPT_DIR/qemu-scp.sh" \
-    --user "$SSH_USER" \
-    --port "$SSH_PORT" \
-    "$SCRIPT_DIR/qemu-guest-build.sh" \
-    "$REMOTE_BUILD_SCRIPT"
-
-"$SCRIPT_DIR/qemu-scp.sh" \
-    --user "$SSH_USER" \
-    --port "$SSH_PORT" \
-    "$SCRIPT_DIR/qemu-guest-bootstrap.sh" \
-    "$REMOTE_BOOTSTRAP_SCRIPT"
-
-REMOTE_CMD="chmod +x '$REMOTE_BUILD_SCRIPT' '$REMOTE_BOOTSTRAP_SCRIPT'"
-REMOTE_CMD+=" && sudo '$REMOTE_BOOTSTRAP_SCRIPT' --mount-only"
+BUILD_ARGS=(
+    --user "$SSH_USER"
+    --port "$SSH_PORT"
+    --
+    --repo-dir "$REPO_DIR"
+    --build-dir "$BUILD_DIR"
+)
 if [[ "$BUILD_ONLY" == "1" ]]; then
-    REMOTE_CMD+=" && '$REMOTE_BUILD_SCRIPT' --repo-dir $(printf '%q' "$REPO_DIR") --build-dir $(printf '%q' "$BUILD_DIR") --build-only"
+    BUILD_ARGS+=(--build-only)
 else
-    REMOTE_CMD+=" && '$REMOTE_BUILD_SCRIPT' --repo-dir $(printf '%q' "$REPO_DIR") --build-dir $(printf '%q' "$BUILD_DIR") --configure-only"
+    BUILD_ARGS+=(--configure-only)
 fi
-REMOTE_CMD+=" && cmake --build $(printf '%q' "$BUILD_DIR") --target"
+"$SCRIPT_DIR/qemu-build-remote.sh" "${BUILD_ARGS[@]}"
+
+REMOTE_CMD="cmake --build $(printf '%q' "$BUILD_DIR") --target"
 for target in "${RUNTIME_TARGETS[@]}"; do
     REMOTE_CMD+=" $(printf '%q' "$target")"
 done

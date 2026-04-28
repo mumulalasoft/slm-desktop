@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
 # scripts/dev/qemu-smoke.sh — Build, install, verify, dan smoke-test SLM di QEMU guest.
 #
-# Perbedaan dari qemu-login-smoke-pipeline.sh:
-#   - SSH ControlMaster: semua koneksi reuse satu TCP+auth handshake
-#   - Upload guest scripts secara paralel (background jobs + wait)
-#   - Smoke phase terintegrasi: artifact pull langsung, tanpa SSH ekstra
+# Build guest dilakukan lewat qemu-build-remote.sh supaya jalur host->guest
+# tetap satu sumber. Script ini fokus ke upload, install, verify, dan smoke.
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-STATE_DIR="${SLM_QEMU_STATE_DIR:-$HOME/.local/state/slm-qemu}"
+# shellcheck source=./qemu-common.sh
+source "$SCRIPT_DIR/qemu-common.sh"
+
+STATE_DIR="$(qemu_dev_state_dir)"
 SSH_USER="${SLM_QEMU_SSH_USER:-garis}"
 SSH_PORT="${SLM_QEMU_SSH_PORT:-2222}"
 SESSION_USER="${SLM_QEMU_SESSION_USER:-$SSH_USER}"
@@ -80,7 +81,7 @@ echo ""
 
 # ── SSH connection pool (ControlMaster) ────────────────────────────────────────
 mkdir -p "$STATE_DIR"
-KNOWN_HOSTS="$STATE_DIR/known_hosts"
+KNOWN_HOSTS="$(qemu_dev_known_hosts)"
 SSH_CTL="$STATE_DIR/ctl-$$"
 SSH_HOST="$SSH_USER@127.0.0.1"
 
@@ -113,23 +114,25 @@ ssh -o ControlMaster=yes -o "ControlPath=$SSH_CTL" -o ControlPersist=60 \
 cleanup() { ssh -O exit -o "ControlPath=$SSH_CTL" "$SSH_HOST" 2>/dev/null || true; }
 trap cleanup EXIT
 
-# ── Upload guest scripts (paralel) ────────────────────────────────────────────
-echo "[qemu-smoke] Uploading guest scripts..."
-g_scp "$SCRIPT_DIR/qemu-guest-build.sh"         /tmp/qemu-guest-build.sh         &
-g_scp "$SCRIPT_DIR/qemu-guest-bootstrap.sh"     /tmp/qemu-guest-bootstrap.sh     &
-g_scp "$SCRIPT_DIR/qemu-guest-session-smoke.sh" /tmp/qemu-guest-session-smoke.sh &
-wait
-g_ssh "chmod +x /tmp/qemu-guest-build.sh /tmp/qemu-guest-bootstrap.sh /tmp/qemu-guest-session-smoke.sh"
-
-# ── Build → Install → Verify (satu sesi SSH) ─────────────────────────────────
-echo "[qemu-smoke] Build → install → verify..."
-RCMD="sudo /tmp/qemu-guest-bootstrap.sh --mount-only"
+# ── Build via canonical host->guest entrypoint ───────────────────────────────
+echo "[qemu-smoke] Build via qemu-build-remote..."
+BUILD_ARGS=(
+    --user "$SSH_USER"
+    --port "$SSH_PORT"
+    --
+    --repo-dir "$REPO_DIR"
+    --build-dir "$BUILD_DIR"
+)
 if [[ "$BUILD_ONLY" == "1" ]]; then
-    RCMD+=" && /tmp/qemu-guest-build.sh --repo-dir $(printf '%q' "$REPO_DIR") --build-dir $(printf '%q' "$BUILD_DIR") --build-only"
+    BUILD_ARGS+=(--build-only)
 else
-    RCMD+=" && /tmp/qemu-guest-build.sh --repo-dir $(printf '%q' "$REPO_DIR") --build-dir $(printf '%q' "$BUILD_DIR") --configure-only"
+    BUILD_ARGS+=(--configure-only)
 fi
-RCMD+=" && cmake --build $(printf '%q' "$BUILD_DIR") --target"
+"$SCRIPT_DIR/qemu-build-remote.sh" "${BUILD_ARGS[@]}"
+
+# ── Install → Verify ─────────────────────────────────────────────────────────
+echo "[qemu-smoke] Install → verify..."
+RCMD="cmake --build $(printf '%q' "$BUILD_DIR") --target"
 for t in "${RUNTIME_TARGETS[@]}"; do RCMD+=" $(printf '%q' "$t")"; done
 RCMD+=" -j $(printf '%q' "$JOBS")"
 RCMD+=" && sudo SLM_TARGET_USER=$(printf '%q' "$SESSION_USER") bash $(printf '%q' "$REPO_DIR/scripts/login/install-slm-desktop-runtime.sh") $(printf '%q' "$BUILD_DIR")"
@@ -148,6 +151,10 @@ TS="$(date -u +%Y%m%dT%H%M%SZ)"
 REMOTE_ARTIFACT_DIR="/tmp/slm-qemu-session-smoke-${TS}"
 HOST_ARTIFACT_DIR="${HOST_ARTIFACT_ROOT}/${TS}"
 mkdir -p "$HOST_ARTIFACT_DIR"
+
+# Upload smoke runner ke guest sebelum dipanggil via sudo.
+g_scp "$SCRIPT_DIR/qemu-guest-session-smoke.sh" /tmp/qemu-guest-session-smoke.sh
+g_ssh "chmod +x /tmp/qemu-guest-session-smoke.sh"
 
 SCMD="sudo /tmp/qemu-guest-session-smoke.sh"
 SCMD+=" --session-user $(printf '%q' "$SESSION_USER")"

@@ -6,8 +6,6 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SSH_USER="${SLM_QEMU_SSH_USER:-garis}"
 SSH_PORT="${SLM_QEMU_SSH_PORT:-2222}"
-BOOTSTRAP_SCRIPT="$SCRIPT_DIR/qemu-guest-bootstrap.sh"
-REMOTE_SCRIPT="/tmp/qemu-guest-bootstrap.sh"
 
 usage() {
     cat <<EOF
@@ -17,6 +15,8 @@ Options:
   --user USER         Guest username. Default: $SSH_USER
   --port PORT         Host forwarded SSH port. Default: $SSH_PORT
   --help              Show this help
+
+This is a compatibility wrapper around qemu-bootstrap-remote.sh --apt-only.
 EOF
 }
 
@@ -42,14 +42,7 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-"$SCRIPT_DIR/qemu-scp.sh" \
+exec "$SCRIPT_DIR/qemu-bootstrap-remote.sh" \
     --user "$SSH_USER" \
     --port "$SSH_PORT" \
-    "$BOOTSTRAP_SCRIPT" \
-    "$REMOTE_SCRIPT"
-
-"$SCRIPT_DIR/qemu-ssh.sh" \
-    --tty \
-    --user "$SSH_USER" \
-    --port "$SSH_PORT" \
-    "chmod +x '$REMOTE_SCRIPT' && sudo '$REMOTE_SCRIPT' --apt-only"
+    --apt-only
