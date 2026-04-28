@@ -733,7 +733,12 @@ void DesktopAppModel::onGAppInfoChanged(GAppInfoMonitor *monitor, void *userData
     qCInfo(lcAppModel) << "GAppInfoMonitor changed: scheduling DesktopAppModel refresh";
     QMetaObject::invokeMethod(self, [self]() {
         if (self->m_refreshDebounceTimer) {
-            self->m_refreshDebounceTimer->start();
+            const qint64 now = QDateTime::currentMSecsSinceEpoch();
+            const qint64 sinceRefresh = self->m_lastRefreshMs > 0
+                                            ? now - self->m_lastRefreshMs
+                                            : 3000;
+            const int delayMs = sinceRefresh >= 3000 ? 250 : 3000;
+            self->m_refreshDebounceTimer->start(delayMs);
         } else {
             self->refresh();
         }
@@ -1106,6 +1111,7 @@ void DesktopAppModel::refresh()
     endResetModel();
 
     qCDebug(lcAppModel) << "DesktopAppModel refresh done, app count =" << m_apps.size();
+    m_lastRefreshMs = QDateTime::currentMSecsSinceEpoch();
     rebuildUsageStats();
 }
 
@@ -1223,6 +1229,7 @@ void DesktopAppModel::refreshAsync()
                 beginResetModel();
                 m_apps = std::move(newApps);
                 endResetModel();
+                m_lastRefreshMs = QDateTime::currentMSecsSinceEpoch();
                 rebuildUsageStats();
             });
     watcher->setFuture(QtConcurrent::run(&DesktopAppModel::computeAppsFromSystem));

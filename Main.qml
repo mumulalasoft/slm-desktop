@@ -62,6 +62,8 @@ ApplicationWindow {
                                                        && WlrLayerShell.isSupported()
     readonly property bool forceExternalAppDeckWindow: !!readSetting("appdeck.forceExternalWindow", false)
     readonly property bool externalAppDeckWindowAllowed: appDeckLayerShellSupported || forceExternalAppDeckWindow
+    readonly property bool forceKwinTopLevelOverlays: !!readSetting("shell.forceKwinTopLevelOverlays", false)
+    readonly property bool nonCriticalTopLevelWindowsAllowed: appDeckLayerShellSupported || forceKwinTopLevelOverlays
     function markStartupTopbarItemsReady() {
         if (!startupTopbarItemsReady) {
             startupTopbarItemsReady = true
@@ -497,7 +499,11 @@ ApplicationWindow {
                 root.lockScreenVisible = !!SessionStateClient.locked
             }
             startupTopbarBootstrapTimer.restart()
-            startupNonCriticalWindowsTimer.restart()
+            if (root.nonCriticalTopLevelWindowsAllowed) {
+                startupNonCriticalWindowsTimer.restart()
+            } else {
+                console.info("[shell] non-critical top-level windows disabled for KWin runtime")
+            }
             startupQmlMark("main.deferredInit.end")
         })
         startupQmlMark("main.onCompleted.end")

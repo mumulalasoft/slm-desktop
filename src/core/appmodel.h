@@ -116,6 +116,7 @@ private:
     QTimer *m_refreshDebounceTimer = nullptr;
     QHash<QString, QVariantList> m_launchHistoryByKey;
     QHash<QString, QVariantMap> m_usageStatsByKey;
+    qint64 m_lastRefreshMs = 0;
     int m_launchWeight = 10;
     int m_fileOpenWeight = 3;
     int m_recencyWeight = 1;
