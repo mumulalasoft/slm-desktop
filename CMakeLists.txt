@@ -943,6 +943,7 @@ set(DESKTOP_SHELL_QML_FILES
     Qml/components/appdeck/AppDeckItemDelegate.qml
     Qml/components/appdeck/AppDeckCollapsedView.qml
     Qml/components/appdeck/AppDeckExpandedView.qml
+    Qml/components/appdeck/AppDeckEmbeddedSurface.qml
     Qml/components/appdeck/AppHubHeader.qml
     Qml/components/appdeck/AppHubGrid.qml
     Qml/components/appdeck/AppHubFavoritesRow.qml

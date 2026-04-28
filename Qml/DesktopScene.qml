@@ -1,6 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import "components"
+import "components/appdeck" as AppDeckComp
 import "components/compositor" as CompositorComp
 import "components/shell" as ShellComp
 
@@ -13,6 +14,9 @@ Item {
     readonly property var desktopFileManagerContent: shell ? shell.desktopFileManagerContent : null
 
     property var dockItem: null
+    property var pulseResultsModel: null
+    property bool embeddedAppDeckEnabled: false
+    readonly property var effectiveDockItem: embeddedAppDeckEnabled ? embeddedAppDeck.dockItem : dockItem
     // apphubVisible owner: ShellStateController (SSOT).
     // Keep a local fallback only when controller is unavailable.
     property bool _apphubVisibleLocal: false
@@ -67,11 +71,11 @@ Item {
     readonly property bool dockModeDurationHide: dockHideMode === "duration_hide"
     readonly property bool dockModeSmartHide: dockHideMode === "smart_hide"
     readonly property int dockHideDelayMs: dockModeDurationHide ? dockHideDurationMs : 120
-    readonly property real dockWidth: (dockItem && dockItem.width) ? dockItem.width : 520
-    readonly property real dockHeight: (dockItem && dockItem.height) ? dockItem.height : 120
+    readonly property real dockWidth: (effectiveDockItem && effectiveDockItem.width) ? effectiveDockItem.width : 520
+    readonly property real dockHeight: (effectiveDockItem && effectiveDockItem.height) ? effectiveDockItem.height : 120
     readonly property real dockX: Math.round((width - dockWidth) / 2)
     readonly property real dockY: dockShownY
-    readonly property bool dockHovered: !!(dockItem && dockItem.hovered)
+    readonly property bool dockHovered: !!(effectiveDockItem && effectiveDockItem.hovered)
     readonly property bool layerShellAvailable: (typeof WlrLayerShell !== "undefined") && !!WlrLayerShell
     readonly property bool layerShellSupported: layerShellAvailable && !!WlrLayerShell.isSupported()
     readonly property bool dockLayerReady: !layerShellAvailable
@@ -140,28 +144,28 @@ Item {
             }
         }
         onDockDropHover: function(active, globalX, iconPath) {
-            if (root.dockItem && root.dockItem.updateExternalDrop) {
+            if (root.effectiveDockItem && root.effectiveDockItem.updateExternalDrop) {
                 var gx = Number(globalX || 0)
                 var gp = root.mapToGlobal(gx, 0)
                 if (gp && gp.x !== undefined) {
                     gx = Number(gp.x)
                 }
-                root.dockItem.updateExternalDrop(active, gx, iconPath)
+                root.effectiveDockItem.updateExternalDrop(active, gx, iconPath)
             }
         }
         onDockDropCommit: function(desktopFile, globalX, iconPath) {
-            if (root.dockItem && root.dockItem.commitExternalDrop) {
+            if (root.effectiveDockItem && root.effectiveDockItem.commitExternalDrop) {
                 var gx = Number(globalX || 0)
                 var gp = root.mapToGlobal(gx, 0)
                 if (gp && gp.x !== undefined) {
                     gx = Number(gp.x)
                 }
-                root.dockItem.commitExternalDrop(desktopFile, gx, iconPath)
+                root.effectiveDockItem.commitExternalDrop(desktopFile, gx, iconPath)
             }
         }
         onDockDropClear: {
-            if (root.dockItem && root.dockItem.clearExternalDrop) {
-                root.dockItem.clearExternalDrop()
+            if (root.effectiveDockItem && root.effectiveDockItem.clearExternalDrop) {
+                root.effectiveDockItem.clearExternalDrop()
             }
         }
         onAppLaunched: function(appData) {
@@ -347,8 +351,23 @@ Item {
         }
     }
 
+    AppDeckComp.AppDeckEmbeddedSurface {
+        id: embeddedAppDeck
+        anchors.fill: parent
+        z: 910
+        enabled: root.embeddedAppDeckEnabled
+        rootWindow: root.shellApi
+        desktopScene: root
+        appsModel: (typeof AppDeckModel !== "undefined" && AppDeckModel) ? AppDeckModel : []
+        pulseResultsModel: root.pulseResultsModel
+        dockHostVisible: root.embeddedAppDeckEnabled
+                         && !root.workspaceVisible
+        onRequestOpenApp: root.setAppHubVisible(false)
+        onRequestCollapse: root.setAppHubVisible(false)
+    }
+
     Connections {
-        target: root.dockItem
+        target: root.effectiveDockItem
         ignoreUnknownSignals: true
         function onWidthChanged() { root.refreshDockSmartOcclusion() }
         function onHeightChanged() { root.refreshDockSmartOcclusion() }
@@ -804,8 +823,8 @@ Item {
 
         // AppDeck visual feedback: bounce the matching icon on open/minimize.
         var appId = String(payload.appId || payload.app_id || payload.appid || "")
-        if (appId.length > 0 && root.dockItem && root.dockItem.notifyWindowLifecycle) {
-            root.dockItem.notifyWindowLifecycle(eventName, appId)
+        if (appId.length > 0 && root.effectiveDockItem && root.effectiveDockItem.notifyWindowLifecycle) {
+            root.effectiveDockItem.notifyWindowLifecycle(eventName, appId)
         }
     }
 

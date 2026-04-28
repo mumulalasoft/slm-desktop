@@ -57,6 +57,11 @@ ApplicationWindow {
     property bool startupTopbarBootstrapReady: false
     property bool startupTopbarItemsReady: false
     property bool dockLoadGateOpen: false
+    readonly property bool appDeckLayerShellSupported: (typeof WlrLayerShell !== "undefined")
+                                                       && !!WlrLayerShell
+                                                       && WlrLayerShell.isSupported()
+    readonly property bool forceExternalAppDeckWindow: !!readSetting("appdeck.forceExternalWindow", false)
+    readonly property bool externalAppDeckWindowAllowed: appDeckLayerShellSupported || forceExternalAppDeckWindow
     function markStartupTopbarItemsReady() {
         if (!startupTopbarItemsReady) {
             startupTopbarItemsReady = true
@@ -797,6 +802,8 @@ ApplicationWindow {
         id: desktopScene
         anchors.fill: parent
         dockItem: (dockWindowLoader && dockWindowLoader.item) ? dockWindowLoader.item.dockItem : null
+        pulseResultsModel: pulseResultsStore
+        embeddedAppDeckEnabled: !root.externalAppDeckWindowAllowed
         shellApi: root
         desktopViewController: desktopViewController
         desktopMenuProvider: desktopMenuProvider
@@ -1082,6 +1089,7 @@ ApplicationWindow {
         id: dockWindowLoader
         active: !!root.visible
                 && !!root.dockLoadGateOpen
+                && !!root.externalAppDeckWindowAllowed
         asynchronous: false
         sourceComponent: Component {
             OverlayComp.AppDeckWindow {

@@ -2,6 +2,7 @@
 
 #include <QObject>
 #include <QDBusContext>
+#include <QDBusVariant>
 #include <QVariant>
 #include <QVariantMap>
 #include "../../core/permissions/AuditLogger.h"
@@ -58,7 +59,7 @@ public slots:
     bool CloseView(const QString &view_id);
     void SwitchWorkspace(int index);
     void SwitchWorkspaceByDelta(int delta);
-    bool MoveWindowToWorkspace(const QVariant &window, int index);
+    bool MoveWindowToWorkspace(const QDBusVariant &window, int index);
     bool MoveFocusedWindowByDelta(int delta);
     QVariantList ListRankedApps(int limit = 24) const;
     QVariantMap DiagnosticSnapshot() const;

@@ -365,14 +365,14 @@ void DesktopDaemonService::SwitchWorkspaceByDelta(int delta)
                       {QStringLiteral("delta"), delta}});
 }
 
-bool DesktopDaemonService::MoveWindowToWorkspace(const QVariant &window, int index)
+bool DesktopDaemonService::MoveWindowToWorkspace(const QDBusVariant &window, int index)
 {
     if (!checkPermission(Slm::Permissions::Capability::WorkspaceManage, QStringLiteral("MoveWindowToWorkspace"))) {
         return false;
     }
     const QString requestId = SlmDbusLog::nextRequestId();
     const QString caller = calledFromDBus() ? message().service() : QString();
-    const bool ok = m_workspaceManager && m_workspaceManager->MoveWindowToWorkspace(window, index);
+    const bool ok = m_workspaceManager && m_workspaceManager->MoveWindowToWorkspace(window.variant(), index);
     SlmDbusLog::logEvent(QString::fromLatin1(kService),
                      QStringLiteral("MoveWindowToWorkspace"),
                      requestId,

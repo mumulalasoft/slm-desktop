@@ -111,6 +111,31 @@ QVariant normalizeDbusValue(const QVariant &value)
     return value;
 }
 
+bool clearBootRecoveryGuardState(const QString &source)
+{
+    const QString guardScript = QStringLiteral("/usr/local/lib/slm-recovery/bootcount-guard.sh");
+    if (!QFileInfo::exists(guardScript)) {
+        return false;
+    }
+
+    QProcess proc;
+    proc.start(guardScript, {QStringLiteral("clear-recovery-state")});
+    if (!proc.waitForFinished(3000)) {
+        proc.kill();
+        proc.waitForFinished(200);
+        qWarning("slm-recovery-app: %s boot guard clear timed out", qUtf8Printable(source));
+        return false;
+    }
+    if (proc.exitStatus() != QProcess::NormalExit || proc.exitCode() != 0) {
+        qWarning("slm-recovery-app: %s boot guard clear failed rc=%d stderr=%s",
+                 qUtf8Printable(source),
+                 proc.exitCode(),
+                 proc.readAllStandardError().constData());
+        return false;
+    }
+    return true;
+}
+
 } // namespace
 
 RecoveryApp::RecoveryApp(QObject *parent)
@@ -509,6 +534,9 @@ bool RecoveryApp::clearRecoveryState(const QString &source, bool markHealthy) co
           qUtf8Printable(source),
           previousCrashCount,
           markHealthy ? "healthy" : "unchanged");
+    if (markHealthy) {
+        clearBootRecoveryGuardState(source);
+    }
     return true;
 }
 
