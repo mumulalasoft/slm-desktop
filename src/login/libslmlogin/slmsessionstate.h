@@ -13,6 +13,7 @@ struct SessionState {
     bool        safeModeForced   = false;
     bool        configPending    = false; // true until watchdog confirms session healthy
     QString     recoveryReason;
+    QString     lastCrashReason;
     QString     lastBootStatus;          // "started" | "healthy" | "crashed" | "ended"
     QDateTime   lastUpdated;
 

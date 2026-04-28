@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# dev/qemu-guest-bootstrap.sh — Bootstrap guest Ubuntu untuk development SLM.
+# scripts/dev/qemu-guest-bootstrap.sh — Bootstrap guest Ubuntu untuk development SLM.
 
 set -euo pipefail
 
@@ -55,7 +55,7 @@ MISSING_OPTIONAL_PACKAGES=()
 
 usage() {
     cat <<EOF
-Usage: bash dev/qemu-guest-bootstrap.sh [options]
+Usage: bash scripts/dev/qemu-guest-bootstrap.sh [options]
 
 Options:
   --hostshare PATH   Mount point for shared repo. Default: $HOSTSHARE_PATH

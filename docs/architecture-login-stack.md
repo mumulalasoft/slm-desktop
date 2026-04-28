@@ -13,7 +13,7 @@ The SLM login/session stack is a layered set of components that sit between **gr
 greetd
   └── slm-greeter          (Qt/QML login UI)
         └── slm-session-broker  (session orchestrator)
-              ├── kwin_wayland / sway / ...  (compositor)
+              ├── kwin_wayland               (KWin-only compositor)
               ├── slm-shell                   (normal/safe mode)
               │   └── slm-watchdog            (health timer)
               └── slm-recovery-app            (recovery mode shell)

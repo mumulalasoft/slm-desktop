@@ -119,6 +119,7 @@ void SessionStackHeadlessSmokeTest::brokerAndWatchdogReachHealthyState()
     env.insert(QStringLiteral("XDG_CONFIG_HOME"), m_cfgRoot);
     env.insert(QStringLiteral("XDG_RUNTIME_DIR"), m_runtimeDir);
     env.insert(QStringLiteral("SLM_WATCHDOG_HEALTHY_TIMEOUT_MS"), QStringLiteral("50"));
+    env.insert(QStringLiteral("SLM_TEST_ACCEPT_REGULAR_WAYLAND_SOCKET"), QStringLiteral("1"));
     broker.setProcessEnvironment(env);
     broker.setProgram(runtimeBinaryPath(QStringLiteral("slm-session-broker")));
     broker.setArguments({QStringLiteral("--mode"), QStringLiteral("normal")});
@@ -209,6 +210,7 @@ QString SessionStackHeadlessSmokeTest::installFakeCompositor()
     requireExecutable(path,
                       QStringLiteral(
                           "#!/bin/sh\n"
+                          "if [ \"$1\" = \"--help\" ]; then exit 0; fi\n"
                           "touch \"$XDG_RUNTIME_DIR/wayland-0\"\n"
                           "state_file=\"$XDG_CONFIG_HOME/slm-desktop/state.json\"\n"
                           "i=0\n"

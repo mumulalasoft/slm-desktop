@@ -8,7 +8,7 @@ Dokumen ini merangkum dependency yang saat ini dipakai SLM Desktop untuk:
 
 ## Build Core
 
-Daftar paket Ubuntu yang saat ini dipasang oleh [dev/qemu-guest-bootstrap.sh](/home/garis/Development/Qt/Desktop_Shell/dev/qemu-guest-bootstrap.sh:8):
+Daftar paket Ubuntu yang saat ini dipasang oleh [scripts/dev/qemu-guest-bootstrap.sh](/home/garis/Development/Qt/Desktop_Shell/scripts/dev/qemu-guest-bootstrap.sh:8):
 
 ```text
 build-essential

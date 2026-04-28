@@ -49,13 +49,14 @@ GreeterApp::GreeterApp(QObject *parent)
 {
     QString err;
     const bool stateOk = SessionStateIO::load(m_state, err);
-    qInfo("state: load=%s crash_count=%d last_boot_status=%s config_pending=%s safe_mode_forced=%s recovery_reason=%s",
+    qInfo("state: load=%s crash_count=%d last_boot_status=%s config_pending=%s safe_mode_forced=%s recovery_reason=%s last_crash_reason=%s",
           stateOk ? "ok" : qPrintable(u"fail(%1)"_s.arg(err)),
           m_state.crashCount,
           qPrintable(m_state.lastBootStatus),
           m_state.configPending  ? "true" : "false",
           m_state.safeModeForced ? "true" : "false",
-          qPrintable(m_state.recoveryReason));
+          qPrintable(m_state.recoveryReason),
+          qPrintable(m_state.lastCrashReason));
 
     connect(m_greetd, &GreetdClient::connectedChanged,
             this, &GreeterApp::greetdConnectedChanged);

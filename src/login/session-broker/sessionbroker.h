@@ -10,7 +10,7 @@
 
 namespace Slm::Login {
 
-enum class CompositorBackend { KWin, Sway, Unknown };
+enum class CompositorBackend { KWin, Unknown };
 enum class SocketStrategy    { Fixed, Scan };
 
 struct CompositorLaunchPlan {
@@ -48,19 +48,33 @@ private:
     QString              scanNewWaylandSocket(const QString &runtimeDir, qint64 startMs);
 
     QProcessEnvironment  buildShellEnvironment() const;
-    void                 launchShell();
-    void                 launchWatchdog();
+    bool                 launchShell(QString *failureReason = nullptr);
+    bool                 launchWatchdog(QString *failureReason = nullptr);
+    QString              monitorSession();
+    QString              monitorRecoverySession();
+    void                 terminateCompositor(const QString &reason);
+    QString              compositorExitReason(const QString &prefix) const;
+    QString              shellExitReason(const QString &prefix) const;
+    QString              compositorLogHint() const;
+    void                 logFileTail(const QString &label, const QString &path, qint64 offset) const;
 
     QString              lifecycleFilePath() const;
     bool                 readLifecycleMarker(const QString &phase) const;
+    QString              crashReportFilePath() const;
+    void                 writeCrashReport(const QString &phase, const QString &reason) const;
 
     void                 validateLogindSession();
     void                 writeStartupFailed(const QString &reason);
-    void                 writeSessionEnded(bool compositorCrashed);
+    void                 writeSessionEnded(const QString &crashReason);
 
     StartupMode          m_requestedMode;
     StartupMode          m_finalMode             = StartupMode::Normal;
+    qint64               m_compositorLaunchTimeMs = 0;
     qint64               m_shellLaunchTimeMs     = 0;
+    qint64               m_compositorLogStartOffset = 0;
+    qint64               m_shellLogStartOffset   = 0;
+    bool                 m_compositorStopRequested = false;
+    QString              m_compositorStopReason;
     SessionState         m_state;
     ConfigManager        m_config;
     CompositorLaunchPlan m_plan;

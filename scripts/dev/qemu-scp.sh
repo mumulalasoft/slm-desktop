@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# dev/qemu-scp.sh — Helper SCP ke Ubuntu guest via port forwarding QEMU.
+# scripts/dev/qemu-scp.sh — Helper SCP ke Ubuntu guest via port forwarding QEMU.
 
 set -euo pipefail
 
@@ -10,7 +10,7 @@ KNOWN_HOSTS="$STATE_DIR/known_hosts"
 
 usage() {
     cat <<EOF
-Usage: bash dev/qemu-scp.sh [--user USER] [--port PORT] <src> <dst>
+Usage: bash scripts/dev/qemu-scp.sh [--user USER] [--port PORT] <src> <dst>
 
 Defaults:
   user : $SSH_USER

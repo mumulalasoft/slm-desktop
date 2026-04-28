@@ -97,6 +97,11 @@ bool ConfigManager::validateConfig(const QJsonObject &config,
     if (!compositorVal.isString() || !isCommandLike(compositorVal.toString())) {
         return fail(QStringLiteral("invalid compositor value"));
     }
+    const QString compositorName = QFileInfo(compositorVal.toString()).fileName();
+    if (compositorName != QStringLiteral("kwin_wayland")) {
+        return fail(QStringLiteral("unsupported compositor: %1 (only kwin_wayland is supported)")
+                    .arg(compositorVal.toString()));
+    }
     const QJsonValue shellVal = out.value(QStringLiteral("shell"));
     if (!shellVal.isString() || !isCommandLike(shellVal.toString())) {
         return fail(QStringLiteral("invalid shell value"));

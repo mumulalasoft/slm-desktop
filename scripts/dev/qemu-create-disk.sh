@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# dev/qemu-create-disk.sh — Siapkan disk qcow2 untuk VM development lokal.
+# scripts/dev/qemu-create-disk.sh — Siapkan disk qcow2 untuk VM development lokal.
 
 set -euo pipefail
 
@@ -9,7 +9,7 @@ DISK_SIZE="${SLM_QEMU_DISK_SIZE:-64G}"
 
 usage() {
     cat <<EOF
-Usage: bash dev/qemu-create-disk.sh [--disk PATH] [--size SIZE] [--force]
+Usage: bash scripts/dev/qemu-create-disk.sh [--disk PATH] [--size SIZE] [--force]
 
 Options:
   --disk PATH   Override path qcow2. Default: $DISK_PATH

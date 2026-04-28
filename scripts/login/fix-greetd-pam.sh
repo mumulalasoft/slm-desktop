@@ -16,6 +16,51 @@ backup_file() {
   fi
 }
 
+remove_stale_slm_initial_session() {
+  local cfg="/etc/greetd/config.toml"
+  [[ -f "$cfg" ]] || return 0
+
+  local tmp
+  tmp="$(mktemp)"
+  awk '
+    /^\[[^]]+\]/ {
+      if (in_initial) {
+        if (!remove_block) {
+          printf "%s", block
+        }
+        in_initial = 0
+        block = ""
+        remove_block = 0
+      }
+      if ($0 == "[initial_session]") {
+        in_initial = 1
+        block = $0 "\n"
+        next
+      }
+    }
+    in_initial {
+      block = block $0 "\n"
+      if ($0 ~ /slm-session-broker/) {
+        remove_block = 1
+      }
+      next
+    }
+    { print }
+    END {
+      if (in_initial && !remove_block) {
+        printf "%s", block
+      }
+    }
+  ' "$cfg" >"$tmp"
+
+  if ! cmp -s "$cfg" "$tmp"; then
+    backup_file "$cfg"
+    install -m644 "$tmp" "$cfg"
+    echo "[fix-greetd-pam] removed stale [initial_session] slm-session-broker autostart"
+  fi
+  rm -f "$tmp"
+}
+
 echo "[fix-greetd-pam] writing /etc/pam.d/greetd and /etc/pam.d/greetd-greeter ..."
 backup_file /etc/pam.d/greetd
 backup_file /etc/pam.d/greetd-greeter
@@ -55,6 +100,8 @@ account    include      common-account
 session    required     pam_unix.so
 session    required     pam_systemd.so
 EOF
+
+remove_stale_slm_initial_session
 
 echo "[fix-greetd-pam] restarting greetd..."
 systemctl reset-failed greetd || true

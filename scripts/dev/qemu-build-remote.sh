@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# dev/qemu-build-remote.sh — Build project di guest via SSH.
+# scripts/dev/qemu-build-remote.sh — Build project di guest via SSH.
 
 set -euo pipefail
 
@@ -12,14 +12,14 @@ REMOTE_BOOTSTRAP_SCRIPT="/tmp/qemu-guest-bootstrap.sh"
 
 usage() {
     cat <<EOF
-Usage: bash dev/qemu-build-remote.sh [options] [-- guest-build args]
+Usage: bash scripts/dev/qemu-build-remote.sh [options] [-- guest-build args]
 
 Options:
   --user USER         Guest username. Default: $SSH_USER
   --port PORT         Host forwarded SSH port. Default: $SSH_PORT
   --help              Show this help
 
-Everything after -- is passed to dev/qemu-guest-build.sh inside the guest.
+Everything after -- is passed to scripts/dev/qemu-guest-build.sh inside the guest.
 EOF
 }
 

@@ -135,6 +135,7 @@ void SessionWatchdog::markSessionHealthy()
     state.safeModeForced = false;
     state.lastBootStatus = QStringLiteral("healthy");
     state.recoveryReason.clear();
+    state.lastCrashReason.clear();
     state.lastUpdated    = QDateTime::currentDateTimeUtc();
 
     ConfigManager config;

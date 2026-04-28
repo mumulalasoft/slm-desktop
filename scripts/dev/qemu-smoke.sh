@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# dev/qemu-smoke.sh — Build, install, verify, dan smoke-test SLM di QEMU guest.
+# scripts/dev/qemu-smoke.sh — Build, install, verify, dan smoke-test SLM di QEMU guest.
 #
 # Perbedaan dari qemu-login-smoke-pipeline.sh:
 #   - SSH ControlMaster: semua koneksi reuse satu TCP+auth handshake
@@ -31,7 +31,7 @@ RUNTIME_TARGETS=(
 
 usage() {
     cat <<EOF
-Usage: bash dev/qemu-smoke.sh [options]
+Usage: bash scripts/dev/qemu-smoke.sh [options]
 
 Options:
   --user USER           SSH user. Default: $SSH_USER

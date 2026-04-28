@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# dev/qemu-run.sh — Jalankan Ubuntu VM untuk development Desktop Shell.
+# scripts/dev/qemu-run.sh — Jalankan Ubuntu VM untuk development Desktop Shell.
 
 set -euo pipefail
 
@@ -23,7 +23,7 @@ ENABLE_CLIPBOARD=1
 
 usage() {
     cat <<EOF
-Usage: bash dev/qemu-run.sh [options]
+Usage: bash scripts/dev/qemu-run.sh [options]
 
 Options:
   --iso PATH            Attach ISO from PATH and use it as cdrom
@@ -118,7 +118,7 @@ mkdir -p "$STATE_DIR"
 
 if [[ ! -f "$DISK_PATH" ]]; then
     echo "[qemu-run] Disk belum ada: $DISK_PATH" >&2
-    echo "[qemu-run] Jalankan: bash dev/qemu-create-disk.sh --disk \"$DISK_PATH\"" >&2
+    echo "[qemu-run] Jalankan: bash scripts/dev/qemu-create-disk.sh --disk \"$DISK_PATH\"" >&2
     exit 1
 fi
 

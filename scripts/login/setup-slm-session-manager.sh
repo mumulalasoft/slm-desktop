@@ -33,6 +33,51 @@ backup_file() {
   [[ -f "$f" ]] && cp -a "$f" "${f}.bak.$(date +%Y%m%d-%H%M%S)" || true
 }
 
+remove_stale_slm_initial_session() {
+  local cfg="/etc/greetd/config.toml"
+  [[ -f "$cfg" ]] || return 0
+
+  local tmp
+  tmp="$(mktemp)"
+  awk '
+    /^\[[^]]+\]/ {
+      if (in_initial) {
+        if (!remove_block) {
+          printf "%s", block
+        }
+        in_initial = 0
+        block = ""
+        remove_block = 0
+      }
+      if ($0 == "[initial_session]") {
+        in_initial = 1
+        block = $0 "\n"
+        next
+      }
+    }
+    in_initial {
+      block = block $0 "\n"
+      if ($0 ~ /slm-session-broker/) {
+        remove_block = 1
+      }
+      next
+    }
+    { print }
+    END {
+      if (in_initial && !remove_block) {
+        printf "%s", block
+      }
+    }
+  ' "$cfg" >"$tmp"
+
+  if ! cmp -s "$cfg" "$tmp"; then
+    backup_file "$cfg"
+    install -m644 "$tmp" "$cfg"
+    echo "[setup-slm][OK] removed stale [initial_session] slm-session-broker autostart"
+  fi
+  rm -f "$tmp"
+}
+
 echo "[setup-slm] Writing PAM service files..."
 
 backup_file /etc/pam.d/slm
@@ -71,6 +116,8 @@ EOF
   systemctl reset-failed greetd.service 2>/dev/null || true
   systemctl restart greetd.service 2>/dev/null || true
 fi
+
+remove_stale_slm_initial_session
 
 echo "[setup-slm] Installing slm-session-check..."
 install -m755 "$ROOT_DIR/scripts/login/slm-session-check.sh" /usr/local/bin/slm-session-check

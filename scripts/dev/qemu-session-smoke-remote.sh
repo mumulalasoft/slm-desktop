@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# dev/qemu-session-smoke-remote.sh — Jalankan smoke login/session di guest QEMU.
+# scripts/dev/qemu-session-smoke-remote.sh — Jalankan smoke login/session di guest QEMU.
 
 set -euo pipefail
 
@@ -15,7 +15,7 @@ STATE_DIR="${SLM_QEMU_STATE_DIR:-$HOME/.local/state/slm-qemu}"
 
 usage() {
     cat <<EOF
-Usage: bash dev/qemu-session-smoke-remote.sh [options]
+Usage: bash scripts/dev/qemu-session-smoke-remote.sh [options]
 
 Options:
   --user USER           SSH user guest. Default: $SSH_USER

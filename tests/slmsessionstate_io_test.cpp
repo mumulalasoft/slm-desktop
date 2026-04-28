@@ -24,6 +24,7 @@ void SlmSessionStateIoTest::saveLoadRoundTrip()
     input.safeModeForced = true;
     input.configPending = true;
     input.recoveryReason = QStringLiteral("test");
+    input.lastCrashReason = QStringLiteral("last-crash-test");
     input.lastBootStatus = QStringLiteral("started");
 
     QString err;
@@ -37,6 +38,7 @@ void SlmSessionStateIoTest::saveLoadRoundTrip()
     QCOMPARE(output.safeModeForced, true);
     QCOMPARE(output.configPending, true);
     QCOMPARE(output.recoveryReason, QStringLiteral("test"));
+    QCOMPARE(output.lastCrashReason, QStringLiteral("last-crash-test"));
     QCOMPARE(output.lastBootStatus, QStringLiteral("started"));
 }
 

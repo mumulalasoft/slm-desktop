@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# dev/qemu-bootstrap-remote.sh — Jalankan bootstrap guest dari host via SSH.
+# scripts/dev/qemu-bootstrap-remote.sh — Jalankan bootstrap guest dari host via SSH.
 
 set -euo pipefail
 
@@ -11,7 +11,7 @@ REMOTE_SCRIPT="/tmp/qemu-guest-bootstrap.sh"
 
 usage() {
     cat <<EOF
-Usage: bash dev/qemu-bootstrap-remote.sh [options]
+Usage: bash scripts/dev/qemu-bootstrap-remote.sh [options]
 
 Options:
   --user USER         Guest username. Default: $SSH_USER

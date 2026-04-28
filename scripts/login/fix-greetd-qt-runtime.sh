@@ -33,6 +33,7 @@ BROKER_LAUNCHER="/usr/local/libexec/slm-session-broker-launch"
 GREETD_CFG="/etc/greetd/config.toml"
 LOG_DIR="/var/lib/greetd/logs"
 GREETER_LOG="${LOG_DIR}/slm-greeter.log"
+GREETER_SHELL="${SLM_GREETER_SHELL:-/bin/sh}"
 
 echo "[fix-greetd-qt-runtime] qt-src=${QT_SRC}"
 echo "[fix-greetd-qt-runtime] qt-dst=${QT_DST}"
@@ -117,10 +118,25 @@ if ! command -v cage >/dev/null 2>&1; then
   fi
 fi
 
-if ! id -u greeter >/dev/null 2>&1; then
-  echo "[fix-greetd-qt-runtime] creating system user: greeter"
-  useradd --system --home /var/lib/greetd --create-home --shell /usr/sbin/nologin greeter
-fi
+ensure_greeter_user() {
+  if ! id -u greeter >/dev/null 2>&1; then
+    echo "[fix-greetd-qt-runtime] creating system user: greeter"
+    useradd --system --home /var/lib/greetd --create-home --shell "${GREETER_SHELL}" greeter
+  else
+    local current_shell
+    current_shell="$(getent passwd greeter | awk -F: '{print $7}')"
+    if [[ "${current_shell}" == */nologin || "${current_shell}" == */false ]]; then
+      echo "[fix-greetd-qt-runtime] updating greeter shell: ${current_shell} -> ${GREETER_SHELL}"
+      usermod --shell "${GREETER_SHELL}" greeter
+    fi
+  fi
+
+  # greetd may reject or fail PAM setup for greeter accounts with nologin shells.
+  # Keep the account password-locked instead of relying on an invalid shell.
+  passwd -l greeter >/dev/null 2>&1 || true
+}
+
+ensure_greeter_user
 touch "${GREETER_LOG}"
 chown -R greeter:greeter "${LOG_DIR}"
 chmod 0750 "${LOG_DIR}"

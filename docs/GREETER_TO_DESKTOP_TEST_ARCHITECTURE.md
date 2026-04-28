@@ -234,9 +234,9 @@ Untuk lane QEMU, harness dibagi menjadi empat tahap.
 ### Stage 1. Provision
 
 Host:
-- `dev/qemu-run.sh`
-- `dev/qemu-install-deps-remote.sh`
-- `dev/qemu-build-remote.sh`
+- `scripts/dev/qemu-run.sh`
+- `scripts/dev/qemu-install-deps-remote.sh`
+- `scripts/dev/qemu-build-remote.sh`
 
 Guest:
 - runtime SLM terpasang

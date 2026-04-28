@@ -88,6 +88,7 @@ private slots:
     void init();
     void normalStartupLaunchesCompositorShellAndWatchdog();
     void missingWatchdogFailsPreflight();
+    void compositorExitBeforeSocketRecordsCrashReason();
 
 private:
     void resetEnvironment();
@@ -127,6 +128,7 @@ void SessionBrokerStartupContractTest::normalStartupLaunchesCompositorShellAndWa
         QStringLiteral("kwin_wayland"),
         QStringLiteral(
             "#!/bin/sh\n"
+            "if [ \"$1\" = \"--help\" ]; then exit 0; fi\n"
             "printf '%s\\n' \"$SLM_SESSION_MODE\" > \"$SLM_TEST_ROOT/compositor.mode\"\n"
             "touch \"$XDG_RUNTIME_DIR/wayland-0\"\n"
             "i=0\n"
@@ -179,6 +181,7 @@ void SessionBrokerStartupContractTest::normalStartupLaunchesCompositorShellAndWa
     QCOMPARE(state.lastMode, StartupMode::Normal);
     QCOMPARE(state.lastBootStatus, QStringLiteral("ended"));
     QCOMPARE(state.recoveryReason, QString());
+    QCOMPARE(state.lastCrashReason, QString());
     QCOMPARE(state.crashCount, 1);
     QVERIFY(state.configPending);
 }
@@ -189,6 +192,7 @@ void SessionBrokerStartupContractTest::missingWatchdogFailsPreflight()
         QStringLiteral("kwin_wayland"),
         QStringLiteral(
             "#!/bin/sh\n"
+            "if [ \"$1\" = \"--help\" ]; then exit 0; fi\n"
             "touch \"$XDG_RUNTIME_DIR/wayland-0\"\n"
             "exit 0\n")
             .toUtf8());
@@ -216,7 +220,50 @@ void SessionBrokerStartupContractTest::missingWatchdogFailsPreflight()
     QCOMPARE(state.lastMode, StartupMode::Normal);
     QCOMPARE(state.lastBootStatus, QStringLiteral("crashed"));
     QVERIFY(state.recoveryReason.startsWith(QStringLiteral("missing-component:slm-watchdog")));
+    QVERIFY(state.lastCrashReason.startsWith(QStringLiteral("missing-component:slm-watchdog")));
     QCOMPARE(state.crashCount, 1);
+}
+
+void SessionBrokerStartupContractTest::compositorExitBeforeSocketRecordsCrashReason()
+{
+    const QString compositor = createBinary(
+        QStringLiteral("kwin_wayland"),
+        QStringLiteral(
+            "#!/bin/sh\n"
+            "if [ \"$1\" = \"--help\" ]; then exit 0; fi\n"
+            "echo 'kwin_wayland: Failed to open DRM node /dev/dri/card0' >&2\n"
+            "exit 42\n")
+            .toUtf8());
+    const QString shell = createBinary(
+        QStringLiteral("slm-shell"),
+        QStringLiteral(
+            "#!/bin/sh\n"
+            "touch \"$SLM_TEST_ROOT/unexpected-shell\"\n"
+            "exit 0\n")
+            .toUtf8());
+
+    createBinary(QStringLiteral("slm-watchdog"), stubScript(QStringLiteral("slm-watchdog")));
+    createBinary(QStringLiteral("desktopd"), stubScript(QStringLiteral("desktopd")));
+    createBinary(QStringLiteral("slm-svcmgrd"), stubScript(QStringLiteral("slm-svcmgrd")));
+    createBinary(QStringLiteral("slm-loggerd"), stubScript(QStringLiteral("slm-loggerd")));
+
+    writeActiveConfig(compositor, shell);
+
+    SessionBroker broker(StartupMode::Normal);
+    QCOMPARE(broker.run(), 1);
+
+    QVERIFY2(!QFileInfo::exists(markerPath(QStringLiteral("unexpected-shell"))),
+             "shell should not launch when compositor exits before socket");
+
+    const SessionState state = loadStateOrFail();
+    QCOMPARE(state.lastBootStatus, QStringLiteral("crashed"));
+    QVERIFY2(state.recoveryReason.startsWith(QStringLiteral("compositor-exited-before-socket")),
+             qPrintable(state.recoveryReason));
+    QVERIFY2(state.lastCrashReason.contains(QStringLiteral("hint=kwin-drm-node-unavailable")),
+             qPrintable(state.lastCrashReason));
+
+    const QString reportPath = m_cfgRoot + QStringLiteral("/slm-desktop/last-crash.json");
+    QVERIFY2(QFileInfo::exists(reportPath), "last-crash.json should be written");
 }
 
 void SessionBrokerStartupContractTest::resetEnvironment()
@@ -230,6 +277,7 @@ void SessionBrokerStartupContractTest::resetEnvironment()
     qputenv("XDG_CONFIG_HOME", m_cfgRoot.toLocal8Bit());
     qputenv("XDG_RUNTIME_DIR", m_runtimeDir.toLocal8Bit());
     qputenv("SLM_TEST_ROOT", m_tempDir.path().toLocal8Bit());
+    qputenv("SLM_TEST_ACCEPT_REGULAR_WAYLAND_SOCKET", "1");
 
     QStandardPaths::setTestModeEnabled(false);
 }

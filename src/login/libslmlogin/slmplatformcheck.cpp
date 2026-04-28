@@ -8,9 +8,6 @@ namespace Slm::Login {
 
 const QStringList PlatformChecker::kAllowedCompositors = {
     QStringLiteral("kwin_wayland"),
-    QStringLiteral("sway"),
-    QStringLiteral("wayfire"),
-    QStringLiteral("weston"),
 };
 
 const QStringList PlatformChecker::kRequiredServiceBinaries = {

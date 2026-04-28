@@ -43,12 +43,28 @@ GREETER_LAUNCHER="/usr/local/libexec/slm-greeter-greetd-launch"
 GREETER_LOG_DIR="/var/lib/greetd/logs"
 GREETER_LOG="${GREETER_LOG_DIR}/slm-greeter.log"
 CAGE_LOG="${GREETER_LOG_DIR}/slm-greeter-cage.log"
+GREETER_SHELL="${SLM_GREETER_SHELL:-/bin/sh}"
 
-if ! id -u greeter >/dev/null 2>&1; then
-  echo "[install-greetd-slm] creating system user: greeter"
-  useradd --system --home /var/lib/greetd --create-home \
-    --shell /usr/sbin/nologin greeter
-fi
+ensure_greeter_user() {
+  if ! id -u greeter >/dev/null 2>&1; then
+    echo "[install-greetd-slm] creating system user: greeter"
+    useradd --system --home /var/lib/greetd --create-home \
+      --shell "${GREETER_SHELL}" greeter
+  else
+    local current_shell
+    current_shell="$(getent passwd greeter | awk -F: '{print $7}')"
+    if [[ "${current_shell}" == */nologin || "${current_shell}" == */false ]]; then
+      echo "[install-greetd-slm] updating greeter shell: ${current_shell} -> ${GREETER_SHELL}"
+      usermod --shell "${GREETER_SHELL}" greeter
+    fi
+  fi
+
+  # The greeter user needs a valid shell for greetd/PAM session setup on Debian,
+  # but it must remain non-login-capable through password authentication.
+  passwd -l greeter >/dev/null 2>&1 || true
+}
+
+ensure_greeter_user
 
 echo "[install-greetd-slm] preparing greeter launcher and logs..."
 install -d -m0755 /usr/local/libexec

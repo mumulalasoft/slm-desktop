@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# dev/qemu-ssh.sh — Helper SSH ke Ubuntu guest via port forwarding QEMU.
+# scripts/dev/qemu-ssh.sh — Helper SSH ke Ubuntu guest via port forwarding QEMU.
 
 set -euo pipefail
 
@@ -10,7 +10,7 @@ KNOWN_HOSTS="$STATE_DIR/known_hosts"
 
 usage() {
     cat <<EOF
-Usage: bash dev/qemu-ssh.sh [--user USER] [--port PORT] [--tty] [ssh args...]
+Usage: bash scripts/dev/qemu-ssh.sh [--user USER] [--port PORT] [--tty] [ssh args...]
 
 Defaults:
   user : $SSH_USER

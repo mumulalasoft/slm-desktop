@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# dev/qemu-login-smoke-pipeline.sh — Build, install runtime, verify, lalu opsional jalankan smoke login/session.
+# scripts/dev/qemu-login-smoke-pipeline.sh — Build, install runtime, verify, lalu opsional jalankan smoke login/session.
 
 set -euo pipefail
 
@@ -37,7 +37,7 @@ RUNTIME_TARGETS=(
 
 usage() {
     cat <<EOF
-Usage: bash dev/qemu-login-smoke-pipeline.sh [options]
+Usage: bash scripts/dev/qemu-login-smoke-pipeline.sh [options]
 
 Options:
   --user USER           SSH user guest. Default: $SSH_USER

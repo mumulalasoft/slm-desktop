@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# dev/qemu-guest-build.sh — Configure/build Desktop Shell di Ubuntu guest.
+# scripts/dev/qemu-guest-build.sh — Configure/build Desktop Shell di Ubuntu guest.
 
 set -euo pipefail
 
@@ -12,7 +12,7 @@ JOBS="${SLM_QEMU_GUEST_JOBS:-$(nproc)}"
 
 usage() {
     cat <<EOF
-Usage: bash dev/qemu-guest-build.sh [options]
+Usage: bash scripts/dev/qemu-guest-build.sh [options]
 
 Options:
   --repo-dir PATH    Repo path in guest. Default: $REPO_DIR

@@ -6,17 +6,17 @@ Ringkasan dependency guest dan runtime login ada di [docs/DEPENDENCIES.md](/home
 
 ## File
 
-- `dev/qemu-create-disk.sh`: buat disk `qcow2` persisten.
-- `dev/qemu-run.sh`: jalankan VM dengan port forward SSH dan shared folder ke repo ini.
-- `dev/qemu-ssh.sh`: SSH helper ke guest melalui `127.0.0.1:2222`.
-- `dev/qemu-scp.sh`: SCP helper ke guest melalui `127.0.0.1:2222`.
-- `dev/qemu-guest-bootstrap.sh`: bootstrap dependency di guest.
-- `dev/qemu-guest-build.sh`: configure/build project dari dalam guest.
-- `dev/qemu-bootstrap-remote.sh`: jalankan bootstrap guest dari host via SSH.
-- `dev/qemu-install-deps-remote.sh`: install dependency dev guest via SSH.
-- `dev/qemu-build-remote.sh`: mount share lalu build project di guest via SSH.
-- `dev/qemu-session-smoke-remote.sh`: jalankan smoke login/session di guest dan tarik artefaknya ke host.
-- `dev/qemu-login-smoke-pipeline.sh`: build target runtime, install runtime login, verify, lalu opsional jalankan smoke session.
+- `scripts/dev/qemu-create-disk.sh`: buat disk `qcow2` persisten.
+- `scripts/dev/qemu-run.sh`: jalankan VM dengan port forward SSH dan shared folder ke repo ini.
+- `scripts/dev/qemu-ssh.sh`: SSH helper ke guest melalui `127.0.0.1:2222`.
+- `scripts/dev/qemu-scp.sh`: SCP helper ke guest melalui `127.0.0.1:2222`.
+- `scripts/dev/qemu-guest-bootstrap.sh`: bootstrap dependency di guest.
+- `scripts/dev/qemu-guest-build.sh`: configure/build project dari dalam guest.
+- `scripts/dev/qemu-bootstrap-remote.sh`: jalankan bootstrap guest dari host via SSH.
+- `scripts/dev/qemu-install-deps-remote.sh`: install dependency dev guest via SSH.
+- `scripts/dev/qemu-build-remote.sh`: mount share lalu build project di guest via SSH.
+- `scripts/dev/qemu-session-smoke-remote.sh`: jalankan smoke login/session di guest dan tarik artefaknya ke host.
+- `scripts/dev/qemu-login-smoke-pipeline.sh`: build target runtime, install runtime login, verify, lalu opsional jalankan smoke session.
 
 Launcher QEMU juga mengaktifkan clipboard sharing host↔guest secara default bila backend `qemu-vdagent` tersedia di host.
 
@@ -25,31 +25,31 @@ Launcher QEMU juga mengaktifkan clipboard sharing host↔guest secara default bi
 1. Buat disk:
 
 ```bash
-bash dev/qemu-create-disk.sh
+bash scripts/dev/qemu-create-disk.sh
 ```
 
 2. Boot installer Ubuntu:
 
 ```bash
-bash dev/qemu-run.sh --with-iso
+bash scripts/dev/qemu-run.sh --with-iso
 ```
 
 3. Setelah Ubuntu terpasang di disk, boot normal:
 
 ```bash
-bash dev/qemu-run.sh
+bash scripts/dev/qemu-run.sh
 ```
 
 4. SSH ke guest:
 
 ```bash
-bash dev/qemu-ssh.sh --user <username-guest>
+bash scripts/dev/qemu-ssh.sh --user <username-guest>
 ```
 
 5. Bootstrap guest langsung dari host:
 
 ```bash
-bash dev/qemu-bootstrap-remote.sh --user <username-guest>
+bash scripts/dev/qemu-bootstrap-remote.sh --user <username-guest>
 ```
 
 Script ini akan:
@@ -63,31 +63,31 @@ Wrapper remote mengirim script bootstrap langsung via SSH, jadi tidak bergantung
 Kalau Anda hanya ingin memasang dependency dev:
 
 ```bash
-bash dev/qemu-install-deps-remote.sh --user <username-guest>
+bash scripts/dev/qemu-install-deps-remote.sh --user <username-guest>
 ```
 
 6. Build dari guest:
 
 ```bash
-bash /mnt/hostshare/dev/qemu-guest-build.sh
+bash /mnt/hostshare/scripts/dev/qemu-guest-build.sh
 ```
 
 Atau kalau sudah SSH ke guest, Anda bisa build target lain:
 
 ```bash
-bash /mnt/hostshare/dev/qemu-guest-build.sh --target desktopd
+bash /mnt/hostshare/scripts/dev/qemu-guest-build.sh --target desktopd
 ```
 
 Kalau ingin build langsung dari host:
 
 ```bash
-bash dev/qemu-build-remote.sh --user <username-guest>
+bash scripts/dev/qemu-build-remote.sh --user <username-guest>
 ```
 
-Argumen setelah `--` akan diteruskan ke `dev/qemu-guest-build.sh` di guest:
+Argumen setelah `--` akan diteruskan ke `scripts/dev/qemu-guest-build.sh` di guest:
 
 ```bash
-bash dev/qemu-build-remote.sh --user <username-guest> -- --target desktopd --jobs 4
+bash scripts/dev/qemu-build-remote.sh --user <username-guest> -- --target desktopd --jobs 4
 ```
 
 Wrapper ini memaksa TTY SSH supaya `sudo` di guest bisa meminta password bila perlu.
@@ -105,7 +105,7 @@ Ini sengaja menghindari masalah permission bila repo host di-mount ke `/mnt/host
 Untuk lane `login-qemu-session-smoke`, jalankan dari host:
 
 ```bash
-bash dev/qemu-session-smoke-remote.sh --user <username-guest> --session-user <username-desktop>
+bash scripts/dev/qemu-session-smoke-remote.sh --user <username-guest> --session-user <username-desktop>
 ```
 
 Script ini akan:
@@ -126,13 +126,13 @@ Script ini akan:
 Kalau ingin menjadikan process oracle sebagai hard failure:
 
 ```bash
-bash dev/qemu-session-smoke-remote.sh --user <username-guest> --strict-process
+bash scripts/dev/qemu-session-smoke-remote.sh --user <username-guest> --strict-process
 ```
 
 Untuk pipeline yang lebih lengkap dari host:
 
 ```bash
-bash dev/qemu-login-smoke-pipeline.sh --user <username-guest> --session-user <username-desktop> --skip-smoke
+bash scripts/dev/qemu-login-smoke-pipeline.sh --user <username-guest> --session-user <username-desktop> --skip-smoke
 ```
 
 Itu akan:
@@ -148,7 +148,7 @@ Itu akan:
 Setelah guest reboot/login lewat greetd atau autologin test path siap, jalankan smoke:
 
 ```bash
-bash dev/qemu-session-smoke-remote.sh --user <username-guest> --session-user <username-desktop>
+bash scripts/dev/qemu-session-smoke-remote.sh --user <username-guest> --session-user <username-desktop>
 ```
 
 ## Default yang dipakai
@@ -176,13 +176,13 @@ Lalu repo host akan tersedia di `/mnt/hostshare`.
 Kalau Anda sudah masuk ke guest dan ingin menjalankan bootstrap dari sana tanpa mengetik banyak:
 
 ```bash
-bash /mnt/hostshare/dev/qemu-guest-bootstrap.sh
+bash /mnt/hostshare/scripts/dev/qemu-guest-bootstrap.sh
 ```
 
 Sesudah bootstrap, build standar:
 
 ```bash
-bash /mnt/hostshare/dev/qemu-guest-build.sh
+bash /mnt/hostshare/scripts/dev/qemu-guest-build.sh
 ```
 
 ## Override konfigurasi
@@ -193,7 +193,7 @@ Semua script mendukung override via environment variable:
 SLM_QEMU_MEMORY_MB=12288 \
 SLM_QEMU_CPUS=8 \
 SLM_QEMU_SSH_PORT=2223 \
-bash dev/qemu-run.sh
+bash scripts/dev/qemu-run.sh
 ```
 
 Variable yang didukung:
@@ -221,6 +221,6 @@ Variable yang didukung:
 - Script akan memakai OVMF UEFI jika firmware tersedia di host, dan fallback ke BIOS bila tidak ada.
 - Default launcher tidak memasang ISO. Gunakan `--with-iso` atau `--iso /path/to/file.iso` bila ingin boot installer.
 - Clipboard sharing memakai `qemu-vdagent` di host dan `spice-vdagent` di guest.
-- Bila perlu mematikannya, jalankan `bash dev/qemu-run.sh --no-clipboard`.
+- Bila perlu mematikannya, jalankan `bash scripts/dev/qemu-run.sh --no-clipboard`.
 - Pada Ubuntu 26.04, source installer sering muncul sebagai `/etc/apt/sources.list.d/cdrom.sources`.
   Bootstrap guest akan menonaktifkan file itu sebelum `apt update`.

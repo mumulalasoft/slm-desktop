@@ -27,6 +27,7 @@ QVariantMap SessionState::toMap() const
         {QStringLiteral("safe_mode_forced"),   safeModeForced},
         {QStringLiteral("config_pending"),     configPending},
         {QStringLiteral("recovery_reason"),    recoveryReason},
+        {QStringLiteral("last_crash_reason"),  lastCrashReason},
         {QStringLiteral("last_boot_status"),   lastBootStatus},
         {QStringLiteral("last_updated"),       lastUpdated.toString(Qt::ISODate)},
     };
@@ -42,6 +43,7 @@ SessionState SessionState::fromMap(const QVariantMap &map)
     s.safeModeForced   = map.value(QStringLiteral("safe_mode_forced"), false).toBool();
     s.configPending    = map.value(QStringLiteral("config_pending"), false).toBool();
     s.recoveryReason   = map.value(QStringLiteral("recovery_reason")).toString();
+    s.lastCrashReason  = map.value(QStringLiteral("last_crash_reason")).toString();
     s.lastBootStatus   = map.value(QStringLiteral("last_boot_status")).toString();
     const QString dt   = map.value(QStringLiteral("last_updated")).toString();
     s.lastUpdated      = dt.isEmpty() ? QDateTime::currentDateTimeUtc()

@@ -124,6 +124,7 @@ void SessionWatchdogContractTest::marksSessionHealthyAndClearsPending()
     QCOMPARE(state.configPending, false);
     QCOMPARE(state.safeModeForced, false);
     QVERIFY(state.recoveryReason.isEmpty());
+    QVERIFY(state.lastCrashReason.isEmpty());
     QVERIFY2(!state.lastGoodSnapshot.isEmpty(), "last_good_snapshot should be populated");
     QVERIFY(QFileInfo::exists(ConfigManager::snapshotPath(state.lastGoodSnapshot)));
     QVERIFY(QFileInfo::exists(ConfigManager::safePath()));
@@ -146,6 +147,7 @@ void SessionWatchdogContractTest::skipsHealthyMarkWhenShellIsMissing()
     QCOMPARE(state.crashCount, 2);
     QCOMPARE(state.lastBootStatus, QStringLiteral("started"));
     QCOMPARE(state.configPending, true);
+    QCOMPARE(state.lastCrashReason, QStringLiteral("previous-crash"));
     QVERIFY(state.lastGoodSnapshot.isEmpty());
     QVERIFY(!QFileInfo::exists(ConfigManager::safePath()));
 }
@@ -181,6 +183,7 @@ void SessionWatchdogContractTest::seedState()
     state.configPending = true;
     state.safeModeForced = true;
     state.recoveryReason = QStringLiteral("previous-failure");
+    state.lastCrashReason = QStringLiteral("previous-crash");
     state.lastBootStatus = QStringLiteral("started");
 
     QString err;

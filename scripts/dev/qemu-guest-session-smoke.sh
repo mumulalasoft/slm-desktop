@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# dev/qemu-guest-session-smoke.sh — Kumpulkan oracle login/session smoke di guest.
+# scripts/dev/qemu-guest-session-smoke.sh — Kumpulkan oracle login/session smoke di guest.
 
 set -euo pipefail
 
@@ -10,7 +10,7 @@ STRICT_PROCESS=0
 
 usage() {
     cat <<EOF
-Usage: bash dev/qemu-guest-session-smoke.sh --session-user USER [options]
+Usage: bash scripts/dev/qemu-guest-session-smoke.sh --session-user USER [options]
 
 Options:
   --session-user USER   User desktop yang state.json-nya diperiksa

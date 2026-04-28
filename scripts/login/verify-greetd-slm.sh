@@ -40,6 +40,20 @@ else
   fail=$((fail + 1))
 fi
 
+if getent passwd greeter >/dev/null 2>&1; then
+  greeter_shell="$(getent passwd greeter | awk -F: '{print $7}')"
+  if [[ "$greeter_shell" == */nologin || "$greeter_shell" == */false ]]; then
+    echo "[FAIL] greeter user has non-login shell: $greeter_shell"
+    echo "[HINT] run: sudo usermod --shell /bin/sh greeter && sudo passwd -l greeter"
+    fail=$((fail + 1))
+  else
+    echo "[OK] greeter user shell is PAM-compatible: $greeter_shell"
+  fi
+else
+  echo "[FAIL] missing greeter user"
+  fail=$((fail + 1))
+fi
+
 if [[ -L /etc/systemd/system/display-manager.service ]]; then
   target="$(readlink -f /etc/systemd/system/display-manager.service || true)"
   if [[ "$target" == *"/greetd.service" ]]; then

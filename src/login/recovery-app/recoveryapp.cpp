@@ -117,6 +117,7 @@ bool RecoveryApp::resetToSafeDefaults()
     SessionStateIO::load(state, err);
     state.crashCount     = 0;
     state.recoveryReason = {};
+    state.lastCrashReason = {};
     state.safeModeForced = false;
     SessionStateIO::save(state, err);
 
@@ -431,6 +432,7 @@ void RecoveryApp::exitToDesktop()
     SessionStateIO::load(state, err);
     state.crashCount     = 0;
     state.recoveryReason = {};
+    state.lastCrashReason = {};
     state.safeModeForced = false;
     SessionStateIO::save(state, err);
 

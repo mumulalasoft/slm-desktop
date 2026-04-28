@@ -16,7 +16,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # Load workspace env jika tersedia
-ENV_FILE="$SCRIPT_DIR/../dev/workspace.env"
+ENV_FILE="$SCRIPT_DIR/dev/workspace.env"
 if [[ -f "$ENV_FILE" ]]; then
     SLM_ENV_QUIET=1 source "$ENV_FILE"
 fi

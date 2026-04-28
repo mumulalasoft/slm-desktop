@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# dev/dev-rebuild.sh — Hot rebuild: filemanager core → relink desktop shell.
+# scripts/dev/filemanager-dev-rebuild.sh — Hot rebuild: filemanager core → relink desktop shell.
 #
 # Cara pakai:
-#   bash dev/dev-rebuild.sh              # rebuild keduanya
-#   bash dev/dev-rebuild.sh --fm-only    # hanya rebuild filemanager
-#   bash dev/dev-rebuild.sh --shell-only # hanya relink desktop shell
-#   bash dev/dev-rebuild.sh --jobs 8     # override jumlah parallel jobs
+#   bash scripts/dev/filemanager-dev-rebuild.sh              # rebuild keduanya
+#   bash scripts/dev/filemanager-dev-rebuild.sh --fm-only    # hanya rebuild filemanager
+#   bash scripts/dev/filemanager-dev-rebuild.sh --shell-only # hanya relink desktop shell
+#   bash scripts/dev/filemanager-dev-rebuild.sh --jobs 8     # override jumlah parallel jobs
 
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -57,5 +57,5 @@ fi
 echo ""
 echo "[dev-rebuild] Selesai. Restart slm-desktop untuk memuat perubahan."
 if pgrep -f "appSlm_Desktop" > /dev/null 2>&1; then
-    echo "  Hint: pkill appSlm_Desktop && bash dev/run-dev.sh"
+    echo "  Hint: pkill appSlm_Desktop && bash scripts/dev/desktop-run-dev.sh"
 fi
