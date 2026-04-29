@@ -8,6 +8,36 @@ class KWinWaylandStateModelTest : public QObject {
     Q_OBJECT
 
 private slots:
+    void supportInformationFallback_disabledByDefault()
+    {
+        const QByteArray previous = qgetenv("SLM_KWIN_SUPPORT_INFORMATION_FALLBACK");
+        const bool hadPrevious = qEnvironmentVariableIsSet("SLM_KWIN_SUPPORT_INFORMATION_FALLBACK");
+        qunsetenv("SLM_KWIN_SUPPORT_INFORMATION_FALLBACK");
+
+        KWinWaylandStateModel model;
+        QVERIFY(!model.m_supportInformationFallbackEnabled);
+
+        if (hadPrevious) {
+            qputenv("SLM_KWIN_SUPPORT_INFORMATION_FALLBACK", previous);
+        }
+    }
+
+    void supportInformationFallback_canBeOptedIn()
+    {
+        const QByteArray previous = qgetenv("SLM_KWIN_SUPPORT_INFORMATION_FALLBACK");
+        const bool hadPrevious = qEnvironmentVariableIsSet("SLM_KWIN_SUPPORT_INFORMATION_FALLBACK");
+        qputenv("SLM_KWIN_SUPPORT_INFORMATION_FALLBACK", "1");
+
+        KWinWaylandStateModel model;
+        QVERIFY(model.m_supportInformationFallbackEnabled);
+
+        if (hadPrevious) {
+            qputenv("SLM_KWIN_SUPPORT_INFORMATION_FALLBACK", previous);
+        } else {
+            qunsetenv("SLM_KWIN_SUPPORT_INFORMATION_FALLBACK");
+        }
+    }
+
     void parseGeometryList_handlesCommonFormats()
     {
         KWinWaylandStateModel model;
@@ -82,4 +112,3 @@ private slots:
 
 QTEST_MAIN(KWinWaylandStateModelTest)
 #include "kwinwaylandstatemodel_test.moc"
-

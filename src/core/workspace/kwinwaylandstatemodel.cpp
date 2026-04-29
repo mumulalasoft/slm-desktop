@@ -70,6 +70,12 @@ QString fromUtf8(const char *value)
     return value ? QString::fromUtf8(value) : QString();
 }
 
+bool envFlagEnabled(const char *name)
+{
+    const QByteArray value = qgetenv(name).trimmed().toLower();
+    return value == "1" || value == "true" || value == "yes" || value == "on";
+}
+
 QString normalizeToken(const QString &value)
 {
     QString out = value.trimmed().toLower();
@@ -210,6 +216,8 @@ KWinWaylandStateModel::KWinWaylandStateModel(QObject *parent)
     if (m_profileEnabled) {
         m_profileLogTimer->start();
     }
+    m_supportInformationFallbackEnabled =
+        envFlagEnabled("SLM_KWIN_SUPPORT_INFORMATION_FALLBACK");
 }
 
 bool KWinWaylandStateModel::connected() const
@@ -435,11 +443,16 @@ void KWinWaylandStateModel::refreshWindows()
         (m_lastSupportFallbackMs <= 0) ||
         ((nowMs - m_lastSupportFallbackMs) >= m_supportFallbackMinIntervalMs);
 
-    if (allowSupportFallback) {
+    if (m_supportInformationFallbackEnabled && allowSupportFallback) {
         m_lastSupportFallbackMs = nowMs;
         requestSupportInformationAsync();
     } else {
         ++m_supportFallbackSkipCount;
+        if (!m_supportInformationFallbackEnabled && !m_supportFallbackDisabledLogged) {
+            m_supportFallbackDisabledLogged = true;
+            qInfo("KWinWaylandStateModel: supportInformation fallback disabled "
+                  "(set SLM_KWIN_SUPPORT_INFORMATION_FALLBACK=1 to enable)");
+        }
     }
 
     // Avoid transient empty snapshots causing UI flicker when DBus object model misses briefly.
@@ -757,7 +770,7 @@ QVector<QVariantMap> KWinWaylandStateModel::readWindowsFromSupportInformation()
 
 void KWinWaylandStateModel::requestSupportInformationAsync()
 {
-    if (!connected() || m_supportRequestInFlight) {
+    if (!connected() || m_supportRequestInFlight || !m_supportInformationFallbackEnabled) {
         return;
     }
 
