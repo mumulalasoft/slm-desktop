@@ -15,4 +15,7 @@ scripts/check-animation-token-usage.sh all
 echo "[pre-push] UI style lint"
 scripts/lint-ui-style.sh all
 
+echo "[pre-push] typography lint"
+python3 scripts/lint-typography.py all
+
 echo "[pre-push] OK"

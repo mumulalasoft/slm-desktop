@@ -3049,7 +3049,7 @@ Rectangle {
                             Text {
                                 text: String(root.columnsPreviewEntry ? root.columnsPreviewEntry.name : "")
                                 color: Theme.color("textPrimary")
-                                font.pixelSize: root.bodyFontSize + 1
+                                font.pixelSize: Theme.fontSize("bodyLarge")
                                 font.weight: Theme.fontWeight("bold")
                                 wrapMode: Text.Wrap
                                 lineHeightMode: Text.ProportionalHeight
@@ -3144,7 +3144,7 @@ Rectangle {
                 width: parent.width
                 horizontalAlignment: Text.AlignHCenter
                 color: Theme.color("textPrimary")
-                font.pixelSize: root.bodyFontSize + 2
+                font.pixelSize: Theme.fontSize("subtitle")
                 font.weight: Theme.fontWeight("semibold")
                 text: root.emptyStateTitle()
                 wrapMode: Text.Wrap

@@ -15,6 +15,8 @@ scripts/check-animation-token-usage.sh staged
 if [[ "${SLM_PRECOMMIT_UI_LINT:-1}" == "1" ]]; then
   echo "[pre-commit] lint UI style (staged)"
   scripts/lint-ui-style.sh staged
+  echo "[pre-commit] lint typography (staged)"
+  python3 scripts/lint-typography.py staged
 else
   echo "[pre-commit] skip UI style lint (SLM_PRECOMMIT_UI_LINT=0)"
 fi

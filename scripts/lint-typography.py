@@ -9,7 +9,8 @@ Checks                                     Rule ID
 3. Theme.fontSize() with unknown token     unknown-font-size-token
 4. Theme.fontWeight() with unknown token   unknown-font-weight-token
 5. Theme.textStyle() with unknown role     unknown-text-style-role
-6. font.family + pixelSize + weight        triple-font-smell
+6. filemanager font.pixelSize not scaled   unscaled-font-pixel-size
+7. font.family + pixelSize + weight        triple-font-smell
    in the same block (TypeLabel candidate)
 
 Exit codes:
@@ -89,7 +90,13 @@ _RE_TEXTSTYLE_CALL = re.compile(r'Theme\.textStyle\(\s*"([^"]+)"\s*\)')
 _RE_FONT_FAMILY    = re.compile(r'\bfont\.family\s*:')
 _RE_FONT_PIXELSIZE = re.compile(r'\bfont\.pixelSize\s*:')
 _RE_FONT_WEIGHT    = re.compile(r'\bfont\.weight\s*:')
+_RE_FONT_PIXELSIZE_ASSIGN = re.compile(r'\bfont\.pixelSize\s*:\s*(.+)$')
 _TRIPLE_HALF_WIN   = 7   # lines above and below the anchor line to search
+
+_FILEMANAGER_SCALED_FONT_RE = re.compile(
+    r'^(?:root\.)?(?:bodyFontSize|secondaryFontSize)$'
+    r'|^root\.menuFontPx\('
+)
 
 
 # ── File exclusions ───────────────────────────────────────────────────────────
@@ -111,6 +118,21 @@ def _is_excluded(path: Path) -> bool:
         any(seg in s for seg in _EXCLUDE_SEGMENTS)
         or any(s.endswith(suf) for suf in _EXCLUDE_SUFFIXES)
     )
+
+
+def _is_filemanager_qml(path: Path) -> bool:
+    try:
+        rel = path.relative_to(ROOT).as_posix()
+    except ValueError:
+        return False
+    return rel.startswith("Qml/apps/filemanager/")
+
+
+def _font_pixel_size_is_scaled(rhs: str) -> bool:
+    expr = rhs.strip()
+    if "Theme.fontSize(" in expr or "Theme.textStyle(" in expr:
+        return True
+    return bool(_FILEMANAGER_SCALED_FONT_RE.match(expr))
 
 
 # ── Comment stripping ─────────────────────────────────────────────────────────
@@ -189,7 +211,19 @@ def check_file(path: Path) -> list[Violation]:
                     f'Theme.textStyle("{role}") — unknown role; '
                     f'valid: {", ".join(sorted(VALID_TEXT_STYLE_ROLES))}')
 
-    # ── Check 6: triple-font-smell ────────────────────────────────────────────
+        # ── Check 6: File Manager font scale compliance ────────────────────
+        # File Manager is a dense, repeated-use surface; every explicit font
+        # pixel size must travel through Theme.fontSize()/textStyle() or a
+        # local property known to be derived from Theme.fontSize().
+        if _is_filemanager_qml(path):
+            m = _RE_FONT_PIXELSIZE_ASSIGN.search(line)
+            if m and not _font_pixel_size_is_scaled(m.group(1)):
+                add(i, "unscaled-font-pixel-size",
+                    "font.pixelSize in File Manager must use Theme.fontSize() "
+                    "or a local scaled font property derived from Theme.fontSize(); "
+                    "do not use raw numbers, Theme.fontPx*, or manual +/- offsets")
+
+    # ── Check 7: triple-font-smell ────────────────────────────────────────────
     # When font.family, font.pixelSize, and font.weight all appear within a
     # tight window, it's a candidate for TypeLabel { textStyle: "..." }.
     reported_ends: list[int] = []   # track reported regions to avoid duplicates
@@ -320,6 +354,7 @@ def main() -> int:
     rule_order = [
         "hardcoded-font-family",
         "hardcoded-letter-spacing",
+        "unscaled-font-pixel-size",
         "unknown-font-size-token",
         "unknown-font-weight-token",
         "unknown-text-style-role",
@@ -329,6 +364,7 @@ def main() -> int:
     rule_labels = {
         "hardcoded-font-family":     "hardcoded font.family string",
         "hardcoded-letter-spacing":  "hardcoded font.letterSpacing number",
+        "unscaled-font-pixel-size":  "File Manager font.pixelSize not tied to font scale",
         "unknown-font-size-token":   "unknown Theme.fontSize() token",
         "unknown-font-weight-token": "unknown Theme.fontWeight() token",
         "unknown-text-style-role":   "unknown Theme.textStyle() role",
@@ -338,6 +374,7 @@ def main() -> int:
     hard_rules = {
         "hardcoded-font-family",
         "hardcoded-letter-spacing",
+        "unscaled-font-pixel-size",
         "unknown-font-size-token",
         "unknown-font-weight-token",
         "unknown-text-style-role",

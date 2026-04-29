@@ -182,7 +182,7 @@ Rectangle {
                     font.family: Theme.fontFamilyUi
                     font.pixelSize: Theme.fontSize("caption")
                     font.weight: Theme.fontWeight("semibold")
-                    font.letterSpacing: 0.7
+                    font.letterSpacing: Theme.letterSpacingWider
                     verticalAlignment: Text.AlignVCenter
                 }
 
