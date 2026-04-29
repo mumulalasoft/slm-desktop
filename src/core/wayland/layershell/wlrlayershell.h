@@ -36,6 +36,8 @@ public:
     // Call this whenever the appdeck height changes so the compositor keeps the
     // correct reservation at the bottom of the screen.
     Q_INVOKABLE bool setExclusiveZone(QWindow *window, int exclusiveZone);
+    Q_INVOKABLE bool setLayer(QWindow *window, int layer);
+    Q_INVOKABLE bool setKeyboardInteractivity(QWindow *window, int interactivity);
     // Update the configured size of an already-configured layer surface.
     Q_INVOKABLE bool setLayerSurfaceSize(QWindow *window, int width, int height);
     // Update input region so transparent areas do not intercept pointer events.
@@ -64,6 +66,13 @@ public:
     };
     Q_ENUM(Anchor)
 
+    enum KeyboardInteractivity {
+        KeyboardInteractivityNone = 0,
+        KeyboardInteractivityExclusive = 1,
+        KeyboardInteractivityOnDemand = 2,
+    };
+    Q_ENUM(KeyboardInteractivity)
+
 private:
     AppDeckBootstrapState *m_dockBootstrapState = nullptr;
 };
@@ -87,6 +96,8 @@ public:
 
     // Update the exclusive zone on this surface and flush to the compositor.
     void setExclusiveZone(int zone);
+    void setLayer(int layer);
+    void setKeyboardInteractivity(int interactivity);
     // Update the layer-surface size for mode transitions (collapsed/expanded/context).
     void setSurfaceSize(int width, int height);
     // Limit pointer focus to a sub-rect of the layer surface.

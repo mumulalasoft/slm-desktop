@@ -42,8 +42,6 @@ bool WlrLayerShell::configureAsLayerSurface(QWindow *window,
 
     // Ensure the window's native platform surface is created.
     window->create();
-    window->setFlag(Qt::FramelessWindowHint, true);
-    window->setFlag(Qt::WindowDoesNotAcceptFocus, true);
 
     // Get the wl_surface from the Qt window via the platform native interface.
     QPlatformNativeInterface *native = QGuiApplication::platformNativeInterface();
@@ -131,6 +129,34 @@ bool WlrLayerShell::setExclusiveZone(QWindow *window, int exclusiveZone)
     return true;
 }
 
+bool WlrLayerShell::setLayer(QWindow *window, int layer)
+{
+    if (!window) return false;
+    auto *surf = window->findChild<WlrLayerSurfaceV1 *>();
+    if (!surf || !surf->isConfigured()) return false;
+    surf->setLayer(layer);
+    if (auto *iface = QGuiApplication::platformNativeInterface()) {
+        struct ::wl_display *display = static_cast<struct ::wl_display *>(
+            iface->nativeResourceForIntegration(QByteArrayLiteral("wl_display")));
+        if (display) wl_display_flush(display);
+    }
+    return true;
+}
+
+bool WlrLayerShell::setKeyboardInteractivity(QWindow *window, int interactivity)
+{
+    if (!window) return false;
+    auto *surf = window->findChild<WlrLayerSurfaceV1 *>();
+    if (!surf || !surf->isConfigured()) return false;
+    surf->setKeyboardInteractivity(interactivity);
+    if (auto *iface = QGuiApplication::platformNativeInterface()) {
+        struct ::wl_display *display = static_cast<struct ::wl_display *>(
+            iface->nativeResourceForIntegration(QByteArrayLiteral("wl_display")));
+        if (display) wl_display_flush(display);
+    }
+    return true;
+}
+
 bool WlrLayerShell::setLayerSurfaceSize(QWindow *window, int width, int height)
 {
     if (!window) return false;
@@ -196,6 +222,22 @@ bool WlrLayerSurfaceV1::isConfigured() const
 void WlrLayerSurfaceV1::setExclusiveZone(int zone)
 {
     set_exclusive_zone(zone);
+    if (m_surface) {
+        wl_surface_commit(m_surface);
+    }
+}
+
+void WlrLayerSurfaceV1::setLayer(int layer)
+{
+    set_layer(static_cast<uint32_t>(qBound(0, layer, 3)));
+    if (m_surface) {
+        wl_surface_commit(m_surface);
+    }
+}
+
+void WlrLayerSurfaceV1::setKeyboardInteractivity(int interactivity)
+{
+    set_keyboard_interactivity(static_cast<uint32_t>(qBound(0, interactivity, 2)));
     if (m_surface) {
         wl_surface_commit(m_surface);
     }

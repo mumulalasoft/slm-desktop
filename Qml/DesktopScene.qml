@@ -16,7 +16,11 @@ Item {
     property var dockItem: null
     property var pulseResultsModel: null
     property bool embeddedAppDeckEnabled: false
-    readonly property var effectiveDockItem: embeddedAppDeckEnabled ? embeddedAppDeck.dockItem : dockItem
+    property bool embeddedAppDeckSafeRendering: false
+    readonly property var effectiveDockItem: embeddedAppDeckEnabled
+                                             && embeddedAppDeckLoader.item
+                                             ? embeddedAppDeckLoader.item.dockItem
+                                             : dockItem
     // apphubVisible owner: ShellStateController (SSOT).
     // Keep a local fallback only when controller is unavailable.
     property bool _apphubVisibleLocal: false
@@ -351,19 +355,25 @@ Item {
         }
     }
 
-    AppDeckComp.AppDeckEmbeddedSurface {
-        id: embeddedAppDeck
+    Loader {
+        id: embeddedAppDeckLoader
         anchors.fill: parent
         z: 910
-        enabled: root.embeddedAppDeckEnabled
-        rootWindow: root.shellApi
-        desktopScene: root
-        appsModel: (typeof AppDeckModel !== "undefined" && AppDeckModel) ? AppDeckModel : []
-        pulseResultsModel: root.pulseResultsModel
-        dockHostVisible: root.embeddedAppDeckEnabled
-                         && !root.workspaceVisible
-        onRequestOpenApp: root.setAppHubVisible(false)
-        onRequestCollapse: root.setAppHubVisible(false)
+        active: root.embeddedAppDeckEnabled
+        asynchronous: false
+        sourceComponent: Component {
+            AppDeckComp.AppDeckEmbeddedSurface {
+                rootWindow: root.shellApi
+                desktopScene: root
+                appsModel: (typeof AppDeckModel !== "undefined" && AppDeckModel) ? AppDeckModel : []
+                pulseResultsModel: root.pulseResultsModel
+                safeRendering: root.embeddedAppDeckSafeRendering
+                dockHostVisible: root.embeddedAppDeckEnabled
+                                 && !root.workspaceVisible
+                onRequestOpenApp: root.setAppHubVisible(false)
+                onRequestCollapse: root.setAppHubVisible(false)
+            }
+        }
     }
 
     Connections {

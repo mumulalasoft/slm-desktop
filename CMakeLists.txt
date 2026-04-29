@@ -6,6 +6,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(Qt6 6.10 REQUIRED COMPONENTS Gui Quick QuickControls2 QuickLayouts Network DBus Test Sql Concurrent ShaderTools)
 find_package(Qt6 QUIET OPTIONAL_COMPONENTS WaylandClient GuiPrivate)
+find_package(LayerShellQt QUIET)
+find_package(LayerShellQt6 QUIET)
 find_package(PkgConfig REQUIRED)
 find_package(Poppler QUIET OPTIONAL_COMPONENTS Qt6)
 pkg_check_modules(POPPLER_QT6 QUIET IMPORTED_TARGET poppler-qt6)
@@ -1124,6 +1126,8 @@ if(TARGET Qt6::WaylandClient)
     target_sources(slm-desktop PRIVATE
         src/core/wayland/layershell/appdeckbootstrapstate.cpp
         src/core/wayland/layershell/appdeckbootstrapstate.h
+        src/core/wayland/layershell/appdecklayershellcontroller.cpp
+        src/core/wayland/layershell/appdecklayershellcontroller.h
         src/core/wayland/layershell/wlrlayershell.cpp
         src/core/wayland/layershell/wlrlayershell.h
         src/core/wayland/layershell/appdecklayerwindow.cpp
@@ -1135,6 +1139,21 @@ if(TARGET Qt6::WaylandClient)
     target_include_directories(slm-desktop PRIVATE src/core/wayland/layershell)
     target_link_libraries(slm-desktop PRIVATE Qt6::WaylandClient Qt6::GuiPrivate)
     target_compile_definitions(slm-desktop PRIVATE SLM_HAVE_WAYLANDCLIENT)
+    if(TARGET LayerShellQt::Interface)
+        target_link_libraries(slm-desktop PRIVATE LayerShellQt::Interface)
+        target_compile_definitions(slm-desktop PRIVATE SLM_HAVE_LAYERSHELLQT)
+        message(STATUS "SLM AppDeck LayerShellQt support: TRUE (LayerShellQt::Interface)")
+    elseif(TARGET LayerShellQt6::Interface)
+        target_link_libraries(slm-desktop PRIVATE LayerShellQt6::Interface)
+        target_compile_definitions(slm-desktop PRIVATE SLM_HAVE_LAYERSHELLQT)
+        message(STATUS "SLM AppDeck LayerShellQt support: TRUE (LayerShellQt6::Interface)")
+    elseif(TARGET KF6::LayerShellQt)
+        target_link_libraries(slm-desktop PRIVATE KF6::LayerShellQt)
+        target_compile_definitions(slm-desktop PRIVATE SLM_HAVE_LAYERSHELLQT)
+        message(STATUS "SLM AppDeck LayerShellQt support: TRUE (KF6::LayerShellQt)")
+    else()
+        message(STATUS "SLM AppDeck LayerShellQt support: FALSE (using internal layer-shell adapter)")
+    endif()
 endif()
 if(TARGET Poppler::Qt6)
     target_link_libraries(slm-desktop PRIVATE Poppler::Qt6)

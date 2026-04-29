@@ -57,11 +57,16 @@ ApplicationWindow {
     property bool startupTopbarBootstrapReady: false
     property bool startupTopbarItemsReady: false
     property bool dockLoadGateOpen: false
-    readonly property bool appDeckLayerShellSupported: (typeof WlrLayerShell !== "undefined")
-                                                       && !!WlrLayerShell
-                                                       && WlrLayerShell.isSupported()
-    readonly property bool forceExternalAppDeckWindow: !!readSetting("appdeck.forceExternalWindow", false)
-    readonly property bool externalAppDeckWindowAllowed: appDeckLayerShellSupported || forceExternalAppDeckWindow
+    property bool appDeckAttachReady: false
+    readonly property bool appDeckLayerShellSupported: (typeof AppDeckLayerShell !== "undefined")
+                                                       && !!AppDeckLayerShell
+                                                       && !!AppDeckLayerShell.supported
+    readonly property bool appDeckDisabled: (typeof DisableAppDeck !== "undefined")
+                                           && !!DisableAppDeck
+    readonly property bool embeddedAppDeckDisabled: (typeof DisableEmbeddedAppDeck !== "undefined")
+                                                   && !!DisableEmbeddedAppDeck
+    readonly property bool externalAppDeckWindowAllowed: !appDeckDisabled
+                                                        && appDeckLayerShellSupported
     readonly property bool forceKwinTopLevelOverlays: !!readSetting("shell.forceKwinTopLevelOverlays", false)
     readonly property bool nonCriticalTopLevelWindowsAllowed: appDeckLayerShellSupported || forceKwinTopLevelOverlays
     function markStartupTopbarItemsReady() {
@@ -533,6 +538,20 @@ ApplicationWindow {
         }
     }
 
+    Timer {
+        id: appDeckAttachTimer
+        interval: 300
+        repeat: false
+        running: root.dockLoadGateOpen
+                 && root.startupTopbarItemsReady
+                 && root.appDeckLayerShellSupported
+                 && !root.appDeckAttachReady
+        onTriggered: {
+            root.appDeckAttachReady = true
+            root.startupQmlMark("main.appdeck.attach.ready")
+        }
+    }
+
     Connections {
         target: typeof DesktopSettings !== "undefined" ? DesktopSettings : null
         function onThemeModeChanged() { root.requestStyleThemeSync() }
@@ -809,7 +828,10 @@ ApplicationWindow {
         anchors.fill: parent
         dockItem: (dockWindowLoader && dockWindowLoader.item) ? dockWindowLoader.item.dockItem : null
         pulseResultsModel: pulseResultsStore
-        embeddedAppDeckEnabled: !root.externalAppDeckWindowAllowed
+        embeddedAppDeckEnabled: !root.appDeckDisabled
+                                && !root.externalAppDeckWindowAllowed
+                                && !root.embeddedAppDeckDisabled
+        embeddedAppDeckSafeRendering: !root.appDeckLayerShellSupported
         shellApi: root
         desktopViewController: desktopViewController
         desktopMenuProvider: desktopMenuProvider
@@ -1093,9 +1115,8 @@ ApplicationWindow {
     // Deferred out of critical startup path to prioritize first desktop frame.
     Loader {
         id: dockWindowLoader
-        active: !!root.visible
-                && !!root.dockLoadGateOpen
-                && !!root.externalAppDeckWindowAllowed
+        active: !!root.appDeckAttachReady
+                && !root.appDeckDisabled
         asynchronous: false
         sourceComponent: Component {
             OverlayComp.AppDeckWindow {
@@ -1116,13 +1137,7 @@ ApplicationWindow {
         target: desktopScene
         ignoreUnknownSignals: true
         function onAppHubVisibleChanged() {
-            root.sendOverlayCommand("overlay restack")
-            if (!dockWindowLoader || !dockWindowLoader.item || !dockWindowLoader.item.visible) {
-                return
-            }
-            // Keep overlay order deterministic in non-layer-shell environments:
-            // app windows < apphub < appdeck
-            Qt.callLater(function() { dockWindowLoader.item.raise() })
+            void dockWindowLoader
         }
     }
 

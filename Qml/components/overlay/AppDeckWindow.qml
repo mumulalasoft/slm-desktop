@@ -23,12 +23,12 @@ Window {
 
     readonly property var dockItem: collapsedView.dockItem
     readonly property var bootstrap: (typeof AppDeckBootstrapState !== "undefined") ? AppDeckBootstrapState : null
-    readonly property bool layerShellAvailable: (typeof WlrLayerShell !== "undefined") && !!WlrLayerShell
-    readonly property bool layerShellSupported: layerShellAvailable && !!WlrLayerShell.isSupported()
-    readonly property bool dockLayerReady: !layerShellAvailable
-                                           || !layerShellSupported
+    readonly property bool layerShellSupported: (typeof AppDeckLayerShell !== "undefined")
+                                                && !!AppDeckLayerShell
+                                                && !!AppDeckLayerShell.supported
+    readonly property bool dockLayerReady: !root.layerShellSupported
                                            || (bootstrap ? !!bootstrap.readyToRender : true)
-    readonly property bool bootstrapSurfaceVisible: layerShellSupported && !root.dockLayerReady
+    readonly property bool bootstrapSurfaceVisible: root.layerShellSupported && !root.dockLayerReady
 
     readonly property string appdeckState: {
         if (!rootWindow || rootWindow.lockScreenVisible) {
@@ -282,17 +282,13 @@ Window {
     }
 
     color: "transparent"
-    flags: Qt.FramelessWindowHint
-           | Qt.WindowStaysOnTopHint
-           | ((collapsedMode || hiddenMode) ? Qt.WindowDoesNotAcceptFocus : 0)
     transientParent: null
     title: "SLM AppDeck Surface"
 
-    visible: root.dockHostVisible
-             && !!rootWindow
+    visible: !!rootWindow
              && !!rootWindow.visible
-             && !hiddenMode
-             && (root.dockLayerReady || root.bootstrapSurfaceVisible)
+             && root.layerShellSupported
+    opacity: root.hiddenMode ? 0.0 : (root.dockLayerReady ? 1.0 : 0.0)
 
     readonly property int dockSurfaceHeight: Math.max(
                                                  108,
@@ -302,7 +298,7 @@ Window {
                                                      + 8
                                                  )
                                              )
-    readonly property bool compactCollapsedSurface: collapsedMode && !root.layerShellSupported
+    readonly property bool compactCollapsedSurface: false
     readonly property int collapsedSurfaceWidth: Math.max(
                                                      1,
                                                      Math.ceil(
@@ -321,26 +317,12 @@ Window {
                                                       )
                                                   )
 
-    width: collapsedMode
-           ? collapsedSurfaceWidth
-           : Number(root.targetScreenGeometry.width || (rootWindow ? rootWindow.width : Screen.width))
-    height: collapsedMode
-            ? collapsedSurfaceHeight
-            : Number(root.targetScreenGeometry.height || (rootWindow ? rootWindow.height : Screen.height))
-    x: collapsedMode
-       ? (compactCollapsedSurface
-          ? (Number(root.targetScreenGeometry.x || 0)
-             + Math.round((Number(root.targetScreenGeometry.width || (rootWindow ? rootWindow.width : Screen.width)) - width) * 0.5))
-          : Number(root.targetScreenGeometry.x || 0))
-       : Number(root.targetScreenGeometry.x || 0)
-    y: collapsedMode
-       ? (Number(root.targetScreenGeometry.y || 0)
-          + Number(root.targetScreenGeometry.height || (rootWindow ? rootWindow.height : Screen.height))
-          - height)
-       : Number(root.targetScreenGeometry.y || 0)
-
-    opacity: root.dockLayerReady ? 1.0 : 0.0
-
+    width: Number(root.targetScreenGeometry.width || (rootWindow ? rootWindow.width : Screen.width))
+    height: hiddenMode
+            ? 1
+            : (collapsedMode
+               ? collapsedSurfaceHeight
+               : Number(root.targetScreenGeometry.height || (rootWindow ? rootWindow.height : Screen.height)))
     Behavior on fallbackSurfaceTransition {
         NumberAnimation {
             duration: root.motionSurfaceDuration
@@ -390,15 +372,6 @@ Window {
         }
     }
 
-    property bool layerConfigured: false
-
-    function _sendOverlayCommand(cmd) {
-        if (typeof WindowingBackend === "undefined" || !WindowingBackend || !WindowingBackend.sendCommand) {
-            return false
-        }
-        return !!WindowingBackend.sendCommand(String(cmd || ""))
-    }
-
     readonly property int exclusiveZone: collapsedMode
                                          ? Math.max(0, Math.ceil(collapsedView.dockItem ? collapsedView.dockItem.height : 0))
                                          : 0
@@ -439,73 +412,51 @@ Window {
                                                     )
                                                 )
 
-    function tryConfigureLayerShell() {
-        if (root.layerConfigured) return
-        if (typeof WlrLayerShell === "undefined" || !WlrLayerShell) return
-        if (!WlrLayerShell.isSupported()) return
-
-        const ok = WlrLayerShell.configureAsLayerSurface(
-            root,
-            2,
-            2|4|8,
-            root.exclusiveZone,
-            "slm-appdeck"
-        )
-        if (ok) {
-            root.layerConfigured = true
-            layerShellRetryTimer.stop()
-            console.info("[AppDeckWindow] layer surface configured at LayerTop"
-                         + " exclusiveZone=" + root.exclusiveZone)
-        }
-    }
-
-    onExclusiveZoneChanged: {
-        if (root.layerConfigured
-                && typeof WlrLayerShell !== "undefined" && WlrLayerShell) {
-            WlrLayerShell.setExclusiveZone(root, root.exclusiveZone)
-        }
-    }
-
     function syncLayerSurfaceSize() {
-        if (!root.layerConfigured
-                || typeof WlrLayerShell === "undefined"
-                || !WlrLayerShell) {
+        if (typeof AppDeckLayerShell === "undefined" || !AppDeckLayerShell) {
             return
         }
-        WlrLayerShell.setLayerSurfaceSize(root,
-                                          Math.max(1, Math.round(root.width)),
-                                          Math.max(1, Math.round(root.height)))
-        if (root.collapsedMode) {
-            WlrLayerShell.setLayerSurfaceInputRegion(root,
-                                                     root.collapsedInputX,
-                                                     root.collapsedInputY,
-                                                     root.collapsedInputWidth,
-                                                     root.collapsedInputHeight)
+        var surfaceX = root.collapsedMode ? root.collapsedInputX
+                                          : (root.contextMode ? root.contextSurfaceX : root.expandedSurfaceX)
+        var surfaceY = root.collapsedMode ? root.collapsedInputY
+                                          : (root.contextMode ? root.contextSurfaceY : root.expandedSurfaceY)
+        var surfaceW = root.collapsedMode ? root.collapsedInputWidth
+                                          : (root.contextMode ? root.contextSurfaceW : root.expandedSurfaceW)
+        var surfaceH = root.collapsedMode ? root.collapsedInputHeight
+                                          : (root.contextMode ? root.contextSurfaceH : root.expandedSurfaceH)
+        var w = Math.max(1, Math.round(root.width))
+        var h = Math.max(1, Math.round(root.hiddenMode ? 1 : root.height))
+        if (root.immersiveMode) {
+            AppDeckLayerShell.setExpanded(root, w, h,
+                                          Math.max(0, Math.round(surfaceX)),
+                                          Math.max(0, Math.round(surfaceY)),
+                                          Math.max(1, Math.round(surfaceW)),
+                                          Math.max(1, Math.round(surfaceH)))
         } else {
-            WlrLayerShell.setLayerSurfaceInputRegion(root,
-                                                     0,
-                                                     0,
-                                                     Math.max(1, Math.round(root.width)),
-                                                     Math.max(1, Math.round(root.height)))
+            AppDeckLayerShell.setCollapsed(root, w, h,
+                                           Math.max(0, Math.round(root.hiddenMode ? 0 : surfaceX)),
+                                           Math.max(0, Math.round(root.hiddenMode ? 0 : surfaceY)),
+                                           Math.max(1, Math.round(root.hiddenMode ? 1 : surfaceW)),
+                                           Math.max(1, Math.round(root.hiddenMode ? 1 : surfaceH)))
         }
     }
 
     Timer {
         id: layerShellRetryTimer
-        interval: 50
+        interval: 300
         repeat: true
-        running: !root.layerConfigured
-        onTriggered: root.tryConfigureLayerShell()
+        running: root.visible && root.layerShellSupported
+        onTriggered: root.syncLayerSurfaceSize()
     }
 
-    onSceneGraphInitialized: root.tryConfigureLayerShell()
+    onSceneGraphInitialized: root.syncLayerSurfaceSize()
 
     Item {
         anchors.fill: parent
 
         Rectangle {
             anchors.fill: parent
-            visible: root.immersiveMode && root.surfaceTransition > 0.001
+            visible: false
             color: Theme.color("screenshotScrim")
             opacity: root.surfaceTransition
             z: 0
@@ -836,12 +787,9 @@ Window {
         root.driveSurfaceTransition(root.surfaceTarget, false)
         root.syncLayerSurfaceSize()
         if (contextMode) {
-            requestActivate()
             Qt.callLater(function() {
                 root.focusSearchField()
             })
-        } else if (expandedMode) {
-            requestActivate()
         }
     }
 
@@ -849,9 +797,7 @@ Window {
         if (bootstrap && bootstrap.setVisibleToUser) {
             bootstrap.setVisibleToUser(visible && root.dockLayerReady)
         }
-        if (visible && !root.layerShellSupported) {
-            Qt.callLater(function() { root.raise() })
-        } else if (!visible) {
+        if (!visible) {
             root.endAppDeckLifecycle()
         }
         root.syncLayerSurfaceSize()
@@ -863,10 +809,7 @@ Window {
         target: root.desktopScene ? root.desktopScene : null
         ignoreUnknownSignals: true
         function onAppHubVisibleChanged() {
-            if (!root.visible || root.layerShellSupported) {
-                return
-            }
-            Qt.callLater(function() { root.raise() })
+            Qt.callLater(function() { root.syncLayerSurfaceSize() })
         }
     }
 
@@ -886,16 +829,10 @@ Window {
     Component.onCompleted: {
         console.info("[AppDeckWindow] DOCK_CREATED ptr=" + root)
         root.driveSurfaceTransition(root.surfaceTarget, true)
-        root.tryConfigureLayerShell()
-        root._sendOverlayCommand("overlay register appdeck slm-appdeck")
-        root._sendOverlayCommand("overlay restack")
-        if (!root.layerShellSupported) {
-            Qt.callLater(function() { root.raise() })
-        }
+        Qt.callLater(function() { root.syncLayerSurfaceSize() })
     }
 
     Component.onDestruction: {
         root.endAppDeckLifecycle()
-        root._sendOverlayCommand("overlay unregister appdeck")
     }
 }

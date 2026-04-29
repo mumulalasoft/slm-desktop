@@ -17,6 +17,7 @@ MEMORY_MB="${SLM_QEMU_MEMORY_MB:-8192}"
 CPU_COUNT="${SLM_QEMU_CPUS:-4}"
 SSH_PORT="${SLM_QEMU_SSH_PORT:-2222}"
 DISPLAY_BACKEND="${SLM_QEMU_DISPLAY:-gtk}"
+POINTER_MODE="${SLM_QEMU_POINTER:-tablet}"
 BOOT_MODE="auto"
 ATTACH_ISO=0
 HEADLESS=0
@@ -37,6 +38,7 @@ Options:
   --headless            Run without graphical window
   --with-iso            Attach default ISO path: $ISO_PATH
   --no-clipboard        Disable host<->guest clipboard sharing
+  --pointer MODE        Pointer device: tablet, usb-tablet, or mouse. Default: $POINTER_MODE
   --bios                Force legacy BIOS boot
   --uefi                Force UEFI boot with OVMF
   --reset-uefi-vars     Recreate local OVMF vars file
@@ -44,7 +46,8 @@ Options:
 
 Env overrides:
   SLM_QEMU_ISO, SLM_QEMU_DISK, SLM_QEMU_SHARED_DIR, SLM_QEMU_MEMORY_MB,
-  SLM_QEMU_CPUS, SLM_QEMU_SSH_PORT, SLM_QEMU_DISPLAY, SLM_QEMU_STATE_DIR
+  SLM_QEMU_CPUS, SLM_QEMU_SSH_PORT, SLM_QEMU_DISPLAY, SLM_QEMU_POINTER,
+  SLM_QEMU_STATE_DIR
 EOF
 }
 
@@ -86,6 +89,10 @@ while [[ $# -gt 0 ]]; do
         --no-clipboard)
             ENABLE_CLIPBOARD=0
             shift
+            ;;
+        --pointer)
+            POINTER_MODE="$2"
+            shift 2
             ;;
         --bios)
             BOOT_MODE="bios"
@@ -135,6 +142,16 @@ if [[ ! -d "$SHARED_DIR" ]]; then
 fi
 SHARED_DIR="$(cd "$SHARED_DIR" && pwd)"
 
+case "$POINTER_MODE" in
+    tablet|usb-tablet|mouse)
+        ;;
+    *)
+        echo "[qemu-run] ERROR: pointer mode tidak valid: $POINTER_MODE" >&2
+        echo "[qemu-run] Valid: tablet, usb-tablet, mouse" >&2
+        exit 1
+        ;;
+esac
+
 ACCEL_ARGS=("-machine" "type=q35")
 CPU_MODEL="max"
 if [[ -r /dev/kvm && -w /dev/kvm ]]; then
@@ -182,7 +199,6 @@ QEMU_ARGS=(
     -device virtio-balloon-pci
     -device virtio-rng-pci
     -device virtio-keyboard-pci
-    -device virtio-mouse-pci
     -device intel-hda
     -device hda-duplex
     -device virtio-vga
@@ -190,6 +206,24 @@ QEMU_ARGS=(
     -nic "user,model=virtio-net-pci,hostfwd=tcp:127.0.0.1:${SSH_PORT}-:22"
     -virtfs "local,path=$SHARED_DIR,mount_tag=hostshare,security_model=none,id=hostshare"
 )
+
+case "$POINTER_MODE" in
+    tablet)
+        if qemu-system-x86_64 -device help 2>/dev/null | grep -q 'virtio-tablet-pci'; then
+            QEMU_ARGS+=(-device virtio-tablet-pci)
+        else
+            echo "[qemu-run] WARN: virtio-tablet-pci tidak tersedia, fallback ke usb-tablet."
+            QEMU_ARGS+=(-device qemu-xhci,id=usb -device usb-tablet,bus=usb.0)
+            POINTER_MODE="usb-tablet"
+        fi
+        ;;
+    usb-tablet)
+        QEMU_ARGS+=(-device qemu-xhci,id=usb -device usb-tablet,bus=usb.0)
+        ;;
+    mouse)
+        QEMU_ARGS+=(-device virtio-mouse-pci)
+        ;;
+esac
 
 if [[ "$HEADLESS" == "1" ]]; then
     QEMU_ARGS+=(-display none -serial mon:stdio)
@@ -201,7 +235,7 @@ if [[ "$ENABLE_CLIPBOARD" == "1" && "$HEADLESS" != "1" ]]; then
     if qemu-system-x86_64 -chardev help 2>/dev/null | grep -q 'qemu-vdagent'; then
         QEMU_ARGS+=(
             -device virtio-serial-pci
-            -chardev qemu-vdagent,id=vdagent,name=vdagent,clipboard=on,mouse=off
+            -chardev qemu-vdagent,id=vdagent,name=vdagent,clipboard=on,mouse=on
             -device virtserialport,chardev=vdagent,name=com.redhat.spice.0
         )
     else
@@ -239,8 +273,9 @@ echo "  memory     : ${MEMORY_MB} MB"
 echo "  cpus       : $CPU_COUNT"
 echo "  ssh        : ssh -p $SSH_PORT user@127.0.0.1"
 echo "  share tag  : hostshare"
+echo "  pointer    : $POINTER_MODE"
 if [[ "$ENABLE_CLIPBOARD" == "1" && "$HEADLESS" != "1" ]]; then
-    echo "  clipboard  : enabled (qemu-vdagent)"
+    echo "  clipboard  : enabled (qemu-vdagent, mouse integration on)"
 else
     echo "  clipboard  : disabled"
 fi

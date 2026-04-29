@@ -411,16 +411,25 @@ CompositorLaunchPlan SessionBroker::buildCompositorPlan()
     // kwin_wayland requires a DRM render node (/dev/dri/renderD128+).
     // In KWin-only mode we keep that failure visible instead of silently
     // switching to a different compositor.
-    auto drmNodeExists = [](const QString &prefix, int lo, int hi) -> bool {
-        for (int i = lo; i < hi; ++i)
-            if (QFileInfo::exists(prefix + QString::number(i))) return true;
-        return false;
+    auto firstDrmNode = [](const QString &prefix, int lo, int hi) -> QString {
+        for (int i = lo; i < hi; ++i) {
+            const QString path = prefix + QString::number(i);
+            if (QFileInfo::exists(path))
+                return path;
+        }
+        return {};
     };
-    const bool hasDrmCard   = drmNodeExists(QStringLiteral("/dev/dri/card"),    0,   8);
-    const bool hasDrmRender = drmNodeExists(QStringLiteral("/dev/dri/renderD"), 128, 136);
-    qInfo("compositor: drm_card=%s drm_render=%s",
-          hasDrmCard   ? "yes" : "no",
-          hasDrmRender ? "yes" : "no");
+    const QString firstDrmCard   = firstDrmNode(QStringLiteral("/dev/dri/card"),    0,   8);
+    const QString firstDrmRender = firstDrmNode(QStringLiteral("/dev/dri/renderD"), 128, 136);
+    const bool hasDrmCard        = !firstDrmCard.isEmpty();
+    const bool hasDrmRender      = !firstDrmRender.isEmpty();
+    qInfo("compositor: drm_card=%s%s%s drm_render=%s%s%s",
+          hasDrmCard ? "yes" : "no",
+          hasDrmCard ? " path=" : "",
+          hasDrmCard ? qPrintable(firstDrmCard) : "",
+          hasDrmRender ? "yes" : "no",
+          hasDrmRender ? " path=" : "",
+          hasDrmRender ? qPrintable(firstDrmRender) : "");
 
     QString binName = QFileInfo(compositorBin).fileName();
     if (binName != QStringLiteral("kwin_wayland")) {
@@ -441,6 +450,10 @@ CompositorLaunchPlan SessionBroker::buildCompositorPlan()
 
     if (binName == QStringLiteral("kwin_wayland")) {
         plan.backend = CompositorBackend::KWin;
+        if (hasDrmCard && plan.env.value(QStringLiteral("KWIN_DRM_DEVICES")).trimmed().isEmpty()) {
+            plan.env.insert(QStringLiteral("KWIN_DRM_DEVICES"), firstDrmCard);
+            qInfo("compositor: KWIN_DRM_DEVICES=%s (auto)", qPrintable(firstDrmCard));
+        }
         const QString socketFlag = kwinGetCustomSocketFlag(compositorBin);
         if (!socketFlag.isEmpty()) {
             plan.args << socketFlag << QString::fromLatin1(kSlmWaylandSocketName);

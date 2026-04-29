@@ -14,6 +14,7 @@ Item {
     property var pulseResultsModel: null
     property bool dockHostVisible: true
     property bool dockAcceptsInput: true
+    property bool safeRendering: false
 
     signal requestCollapse()
     signal requestOpenApp(string appId)
@@ -259,7 +260,7 @@ Item {
         border.width: Theme.borderWidthThin
         border.color: Theme.color("panelBorder")
         opacity: root.immersiveMode ? 1.0 : 0.0
-        layer.enabled: visible
+        layer.enabled: visible && !root.safeRendering
         layer.effect: MultiEffect {
             shadowEnabled: true
             shadowColor: Qt.rgba(0, 0, 0, Theme.darkMode ? 0.42 : 0.24)
@@ -422,6 +423,7 @@ Item {
         transparentBackground: root.immersiveMode
         acceptsInput: root.dockAcceptsInput && root.collapsedMode
         rendererActive: root.visible && !root.hiddenMode
+        renderEffectsEnabled: !root.safeRendering
         appsModel: root.appsModel
         onAppActivated: function(appName) {
             root.requestOpenApp(String(appName || ""))

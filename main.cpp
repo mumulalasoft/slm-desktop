@@ -91,6 +91,7 @@
 #include "src/core/shell/shelllayerwatchdog.h"
 #ifdef SLM_HAVE_WAYLANDCLIENT
 #include "src/core/wayland/layershell/appdeckbootstrapstate.h"
+#include "src/core/wayland/layershell/appdecklayershellcontroller.h"
 #include "src/core/wayland/layershell/wlrlayershell.h"
 #endif
 #include "src/core/system/missingcomponentcontroller.h"
@@ -251,6 +252,8 @@ int main(int argc, char *argv[])
     const qint64 t0 = QDateTime::currentMSecsSinceEpoch();
     const bool startupLogs = qEnvironmentVariableIntValue("SLM_STARTUP_LOG") > 0;
     const bool startupTrace = qEnvironmentVariableIntValue("SLM_STARTUP_TRACE") > 0;
+    const bool disableAppDeck = envFlagEnabled("SLM_DISABLE_APPDECK");
+    const bool disableEmbeddedAppDeck = envFlagEnabled("SLM_DISABLE_EMBEDDED_APPDECK");
     const bool startupDiag = startupLogs || startupTrace;
     QString startupTracePath;
     QFile startupTraceFile;
@@ -538,9 +541,10 @@ int main(int argc, char *argv[])
     Slm::ContextMenu::ContextMenuService contextMenuService;
     Slm::System::MissingComponentController missingComponentController;
 #ifdef SLM_HAVE_WAYLANDCLIENT
-    const bool enableWlrLayerShell = envFlagEnabled("SLM_ENABLE_WLR_LAYER_SHELL");
+    const bool enableWlrLayerShell = !envFlagEnabled("SLM_DISABLE_LAYER_SHELL");
     AppDeckBootstrapState dockBootstrapState;
     WlrLayerShell wlrLayerShell;
+    AppDeckLayerShellController appDeckLayerShell(&wlrLayerShell);
     if (enableWlrLayerShell) {
         wlrLayerShell.setAppDeckBootstrapState(&dockBootstrapState);
         QObject::connect(&wlrLayerShell, &WlrLayerShell::activeChanged, &app, [&]() {
@@ -548,7 +552,7 @@ int main(int argc, char *argv[])
         });
         dockBootstrapState.setIntegrationEnabled(wlrLayerShell.isActive());
     } else {
-        qInfo("DOCK_BOOTSTRAP wlr-layer-shell disabled for KWin runtime");
+        qInfo("DOCK_BOOTSTRAP layer-shell disabled by SLM_DISABLE_LAYER_SHELL");
         if (!envFlagEnabled("SLM_SHELL_DYNAMIC_APP_REFRESH")) {
             appModel.setMonitorRefreshEnabled(false);
             qInfo("DesktopAppModel monitor refresh disabled for KWin runtime");
@@ -773,6 +777,7 @@ int main(int argc, char *argv[])
 #ifdef SLM_HAVE_WAYLANDCLIENT
     if (enableWlrLayerShell) {
         engine.rootContext()->setContextProperty(QStringLiteral("WlrLayerShell"), &wlrLayerShell);
+        engine.rootContext()->setContextProperty(QStringLiteral("AppDeckLayerShell"), &appDeckLayerShell);
         engine.rootContext()->setContextProperty(QStringLiteral("AppDeckBootstrapState"), &dockBootstrapState);
     }
 #endif
@@ -789,6 +794,9 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("SafeModeActive"), safeModeActive);
     engine.rootContext()->setContextProperty(QStringLiteral("AnimationsEnabled"), runtimeAnimationsEnabled);
     engine.rootContext()->setContextProperty(QStringLiteral("StartupTraceEnabled"), startupTrace);
+    engine.rootContext()->setContextProperty(QStringLiteral("DisableAppDeck"), disableAppDeck);
+    engine.rootContext()->setContextProperty(QStringLiteral("DisableEmbeddedAppDeck"),
+                                             disableEmbeddedAppDeck);
     AppStartupBridge::wireGlobalBatchProgress(&app,
                                               &fileManagerApi,
                                               &windowingBackendManager,

@@ -69,12 +69,27 @@ private slots:
         QVERIFY(text.contains(QStringLiteral("readonly property int collapsedInputY")));
         QVERIFY(text.contains(QStringLiteral("readonly property int collapsedInputWidth")));
         QVERIFY(text.contains(QStringLiteral("readonly property int collapsedInputHeight")));
-        QVERIFY(text.contains(QStringLiteral("WlrLayerShell.setLayerSurfaceInputRegion(root,")));
+        QVERIFY(text.contains(QStringLiteral("AppDeckLayerShell.setCollapsed(root,")));
+        QVERIFY(text.contains(QStringLiteral("AppDeckLayerShell.setExpanded(root,")));
         QVERIFY(text.contains(QStringLiteral("root.collapsedInputX")));
         QVERIFY(text.contains(QStringLiteral("root.collapsedInputY")));
         QVERIFY(text.contains(QStringLiteral("root.collapsedInputWidth")));
         QVERIFY(text.contains(QStringLiteral("root.collapsedInputHeight")));
         QVERIFY(text.contains(QStringLiteral("target: collapsedView && collapsedView.dockItem ? collapsedView.dockItem : null")));
+    }
+
+    void appDeckWindow_usesLayerShellInsteadOfWindowStackingHacks()
+    {
+        const QString path = QStringLiteral(DESKTOP_SOURCE_DIR) + QStringLiteral("/Qml/components/overlay/AppDeckWindow.qml");
+        const QString text = readTextFile(path);
+        QVERIFY2(!text.isEmpty(), qPrintable(QStringLiteral("failed to read %1").arg(path)));
+
+        QVERIFY(text.contains(QStringLiteral("AppDeckLayerShell")));
+        QVERIFY(!text.contains(QStringLiteral("WindowStaysOnTopHint")));
+        QVERIFY(!text.contains(QStringLiteral("FramelessWindowHint")));
+        QVERIFY(!text.contains(QStringLiteral("Qt.Tool")));
+        QVERIFY(!text.contains(QStringLiteral(".raise(")));
+        QVERIFY(!text.contains(QStringLiteral("overlay restack")));
     }
 };
 

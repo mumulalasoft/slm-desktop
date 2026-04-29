@@ -8,6 +8,7 @@ Item {
 
     property bool acceptsInput: true
     property bool rendererActive: true
+    property bool renderEffectsEnabled: true
     property bool hideBorder: false
     property bool transparentBackground: false
     property string hostName: "appdeck"
@@ -41,6 +42,7 @@ Item {
         hostName: root.hostName
         acceptsInput: root.acceptsInput
         rendererActive: root.rendererActive
+        renderEffectsEnabled: root.renderEffectsEnabled
         forceTransparentBackground: root.transparentBackground
         appsModel: root.appsModel
         Component.onCompleted: root.syncHideBorder()

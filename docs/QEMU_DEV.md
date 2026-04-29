@@ -227,7 +227,9 @@ Variable yang didukung:
 - Script akan memakai KVM jika `/dev/kvm` tersedia.
 - Script akan memakai OVMF UEFI jika firmware tersedia di host, dan fallback ke BIOS bila tidak ada.
 - Default launcher tidak memasang ISO. Gunakan `--with-iso` atau `--iso /path/to/file.iso` bila ingin boot installer.
-- Clipboard sharing memakai `qemu-vdagent` di host dan `spice-vdagent` di guest.
+- Cursor guest memakai absolute tablet pointer secara default. Gunakan `--pointer mouse` bila perlu fallback ke mode relatif lama.
+- Clipboard sharing memakai `qemu-vdagent` di host dan `spice-vdagent`/`spice-vdagentd` di guest.
 - Bila perlu mematikannya, jalankan `bash scripts/dev/qemu-run.sh --no-clipboard`.
+- Bila clipboard belum aktif, cek di guest: `ls -l /dev/virtio-ports/com.redhat.spice.0`, `systemctl status spice-vdagentd.socket spice-vdagentd --no-pager`, dan pastikan proses `spice-vdagent` berjalan di sesi desktop.
 - Pada Ubuntu 26.04, source installer sering muncul sebagai `/etc/apt/sources.list.d/cdrom.sources`.
   Bootstrap guest akan menonaktifkan file itu sebelum `apt update`.

@@ -14,7 +14,6 @@ AppDeckLayerWindow::AppDeckLayerWindow(WlrLayerShell *layerShell, QWindow *paren
 
     setTitle(QStringLiteral("SLM AppDeck Surface"));
     setColor(Qt::transparent);
-    setFlags(Qt::FramelessWindowHint | Qt::WindowDoesNotAcceptFocus);
 
     // Layer-shell windows must not have a transient parent — they are top-level.
     setTransientParent(nullptr);

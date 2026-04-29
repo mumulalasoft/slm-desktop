@@ -15,6 +15,7 @@ Rectangle {
     property string hostName: "appdeck"
     property bool acceptsInput: true
     property bool rendererActive: true
+    property bool renderEffectsEnabled: true
     property bool hideBackgroundBorder: false
     property bool forceTransparentBackground: false
     property real layoutIconSlotWidth: -1
@@ -710,7 +711,7 @@ Rectangle {
         border.width: (root.dockTransparent || root.hideBackgroundBorder)
                       ? Theme.borderWidthNone
                       : Theme.borderWidthThin
-        layer.enabled: visible
+        layer.enabled: visible && root.renderEffectsEnabled
         layer.effect: MultiEffect {
             shadowEnabled: true
             shadowColor: Qt.rgba(0, 0, 0, Theme.darkMode ? 0.34 : 0.18)

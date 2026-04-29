@@ -253,6 +253,14 @@ if [[ "$SKIP_APT" != "1" ]]; then
         install_packages AVAILABLE_OPTIONAL_PACKAGES || true
     fi
     "${SUDO[@]}" systemctl enable --now ssh
+    if systemctl list-unit-files spice-vdagentd.socket --no-legend 2>/dev/null \
+        | grep -q '^spice-vdagentd\.socket'; then
+        "${SUDO[@]}" systemctl enable --now spice-vdagentd.socket || true
+    fi
+    if systemctl list-unit-files spice-vdagentd.service --no-legend 2>/dev/null \
+        | grep -q '^spice-vdagentd\.service'; then
+        "${SUDO[@]}" systemctl enable --now spice-vdagentd.service || true
+    fi
 fi
 
 echo ""
