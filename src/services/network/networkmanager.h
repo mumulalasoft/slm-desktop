@@ -78,6 +78,9 @@ public:
     Q_INVOKABLE void scanAvailableNetworks();
     Q_INVOKABLE void refresh();
     Q_INVOKABLE void refreshAvailableNetworks();
+    Q_INVOKABLE QVariantMap connectToNetwork(const QString &ssid,
+                                             const QString &password = QString(),
+                                             bool remember = true);
 
 signals:
     void signalStrengthChanged();
@@ -122,6 +125,7 @@ private:
     void applyNetworkStatus(const NetworkStatusResult &result);
 
     static QVector<AvailableNetwork> fetchAvailableNetworks(bool rescan);
+    QVariantMap storeWifiSecret(const QString &ssid, const QString &password) const;
     int m_signalStrength = 0;
     QString m_connectionType = QStringLiteral("unknown");
     bool m_isConnected = false;

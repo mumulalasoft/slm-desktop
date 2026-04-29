@@ -13,6 +13,7 @@
 #include <QDBusReply>
 #include <QDBusVariant>
 #include <QDBusArgument>
+#include <QDateTime>
 #include <algorithm>
 
 namespace {
@@ -21,6 +22,10 @@ constexpr const char *kNmPath = "/org/freedesktop/NetworkManager";
 constexpr const char *kNmIface = "org.freedesktop.NetworkManager";
 constexpr uint kNmDeviceTypeEthernet = 1;
 constexpr uint kNmDeviceTypeWifi = 2;
+constexpr const char *kSlmNetworkAppId = "org.slm.desktop.network";
+constexpr const char *kSlmSecretService = "org.slm.Secret1";
+constexpr const char *kSlmSecretPath = "/org/slm/Secret1";
+constexpr const char *kSlmSecretIface = "org.slm.Secret1";
 const QString kNmPathStr = QString::fromLatin1(kNmPath);
 const QString kNmIfaceStr = QString::fromLatin1(kNmIface);
 
@@ -473,6 +478,71 @@ void NetworkManager::refreshAvailableNetworks()
     scanAvailableNetworks();
 }
 
+QVariantMap NetworkManager::connectToNetwork(const QString &ssid,
+                                             const QString &password,
+                                             bool remember)
+{
+    const QString cleanSsid = ssid.trimmed();
+    if (cleanSsid.isEmpty() || cleanSsid == QStringLiteral("<Hidden Network>")) {
+        return {
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), QStringLiteral("invalid-ssid")},
+            {QStringLiteral("message"), QStringLiteral("Network name is invalid.")}
+        };
+    }
+
+    QStringList args{QStringLiteral("device"), QStringLiteral("wifi"),
+                     QStringLiteral("connect"), cleanSsid};
+    if (!password.isEmpty()) {
+        args << QStringLiteral("password") << password;
+    }
+
+    QProcess nmcli;
+    nmcli.setProcessChannelMode(QProcess::MergedChannels);
+    nmcli.start(QStringLiteral("nmcli"), args);
+    if (!nmcli.waitForStarted(1500)) {
+        return {
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), QStringLiteral("nmcli-unavailable")},
+            {QStringLiteral("message"), QStringLiteral("Network connector is unavailable.")}
+        };
+    }
+    if (!nmcli.waitForFinished(25000)) {
+        nmcli.kill();
+        nmcli.waitForFinished(1000);
+        return {
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), QStringLiteral("connect-timeout")},
+            {QStringLiteral("message"), QStringLiteral("Connection timed out.")}
+        };
+    }
+
+    const QString output = QString::fromUtf8(nmcli.readAllStandardOutput()).trimmed();
+    if (nmcli.exitStatus() != QProcess::NormalExit || nmcli.exitCode() != 0) {
+        return {
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), QStringLiteral("connect-failed")},
+            {QStringLiteral("message"), output.isEmpty()
+                ? QStringLiteral("Could not join the selected network.")
+                : output}
+        };
+    }
+
+    QVariantMap secretResult;
+    if (remember && !password.isEmpty()) {
+        secretResult = storeWifiSecret(cleanSsid, password);
+    }
+
+    refresh();
+    refreshAvailableNetworks();
+    return {
+        {QStringLiteral("ok"), true},
+        {QStringLiteral("ssid"), cleanSsid},
+        {QStringLiteral("remembered"), remember && !password.isEmpty()},
+        {QStringLiteral("secret"), secretResult}
+    };
+}
+
 void NetworkManager::setupTimer()
 {
     m_updateTimer = new QTimer(this);
@@ -822,6 +892,47 @@ void NetworkManager::queryAvailableNetworks(bool rescan)
     m_scanWatcher->setFuture(QtConcurrent::run(&NetworkManager::fetchAvailableNetworks, rescan));
 }
 
+QVariantMap NetworkManager::storeWifiSecret(const QString &ssid, const QString &password) const
+{
+    if (ssid.trimmed().isEmpty() || password.isEmpty()) {
+        return {
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), QStringLiteral("invalid-secret")}
+        };
+    }
+
+    QDBusInterface secretIface(QString::fromLatin1(kSlmSecretService),
+                               QString::fromLatin1(kSlmSecretPath),
+                               QString::fromLatin1(kSlmSecretIface),
+                               QDBusConnection::sessionBus());
+    if (!secretIface.isValid()) {
+        return {
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), QStringLiteral("secret-service-unavailable")}
+        };
+    }
+
+    QVariantMap options{
+        {QStringLiteral("namespace"), QStringLiteral("wifi")},
+        {QStringLiteral("key"), ssid},
+        {QStringLiteral("label"), QStringLiteral("Wi-Fi: %1").arg(ssid)},
+        {QStringLiteral("sensitivity"), QStringLiteral("password")},
+        {QStringLiteral("updatedAt"), QDateTime::currentMSecsSinceEpoch()}
+    };
+    QDBusReply<QVariantMap> reply = secretIface.call(QStringLiteral("StoreSecret"),
+                                                     QString::fromLatin1(kSlmNetworkAppId),
+                                                     options,
+                                                     password.toUtf8());
+    if (!reply.isValid()) {
+        return {
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), QStringLiteral("secret-store-failed")},
+            {QStringLiteral("message"), reply.error().message()}
+        };
+    }
+    return reply.value();
+}
+
 // static
 QVector<AvailableNetwork> NetworkManager::fetchAvailableNetworks(bool rescan)
 {
@@ -896,4 +1007,3 @@ QVector<AvailableNetwork> NetworkManager::fetchAvailableNetworks(bool rescan)
 
     return networks;
 }
-

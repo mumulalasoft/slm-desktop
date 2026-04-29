@@ -4,6 +4,7 @@ import QtQuick.Controls.impl 2.15
 import QtQuick.Layouts 1.15
 import Slm_Desktop
 import SlmStyle
+import "../overlay" as Overlay
 
 Item {
     id: root
@@ -14,6 +15,9 @@ Item {
     property bool ipSectionVisible: false
     property bool popupHint: false
     property double lastMenuCloseMs: 0
+    property string pendingSsid: ""
+    property int pendingSignalStrength: 0
+    property bool pendingSecure: false
     readonly property int iconSize: 22
     readonly property int popupGap: Theme.metric("spacingSm")
     readonly property int rowGap: Theme.metric("spacingMd")
@@ -194,6 +198,66 @@ Item {
         return candidates[index]
     }
 
+    function friendlyConnectError(result) {
+        var message = String(result && result.message ? result.message : "")
+        if (message.length > 0) {
+            return message
+        }
+        var error = String(result && result.error ? result.error : "")
+        if (error === "nmcli-unavailable") {
+            return "Network connector is unavailable."
+        }
+        if (error === "connect-timeout") {
+            return "Connection timed out."
+        }
+        if (error === "invalid-ssid") {
+            return "Network name is invalid."
+        }
+        return "Could not join the selected network."
+    }
+
+    function connectNetwork(ssid, password, remember) {
+        if (!root.networkManager || !root.networkManager.connectToNetwork) {
+            return { "ok": false, "error": "network-manager-unavailable" }
+        }
+        return root.networkManager.connectToNetwork(String(ssid || ""),
+                                                    String(password || ""),
+                                                    !!remember)
+    }
+
+    function requestJoinNetwork(ssid, secure, strength) {
+        var name = String(ssid || "").trim()
+        if (name.length <= 0 || name === "<Hidden Network>") {
+            return
+        }
+        root.pendingSsid = name
+        root.pendingSignalStrength = Number(strength || 0)
+        root.pendingSecure = !!secure
+        networkMenu.close()
+
+        if (!secure) {
+            var openResult = root.connectNetwork(name, "", false)
+            if (!openResult || !openResult.ok) {
+                wifiPasswordDialog.errorMessage = root.friendlyConnectError(openResult)
+                wifiPasswordDialog.ssid = name
+                wifiPasswordDialog.isSecure = false
+                wifiPasswordDialog.securityType = ""
+                wifiPasswordDialog.signalStrength = root.pendingSignalStrength
+                wifiPasswordDialog.showDialog()
+            }
+            return
+        }
+
+        wifiPasswordDialog.ssid = name
+        wifiPasswordDialog.isSecure = true
+        wifiPasswordDialog.securityType = "WPA/WPA2"
+        wifiPasswordDialog.signalStrength = root.pendingSignalStrength
+        wifiPasswordDialog.errorMessage = ""
+        wifiPasswordDialog.busy = false
+        wifiPasswordDialog.rememberNetwork = true
+        wifiPasswordDialog.showDialog()
+    }
+
     ToolButton {
         id: indicatorButton
         anchors.fill: parent
@@ -211,7 +275,7 @@ Item {
                 property int candidateIndex: 0
                 source: root.iconSourceByName(root.iconCandidate(candidates, candidateIndex))
                 fillMode: Image.PreserveAspectFit
-                opacity: (root.networkManager && root.networkManager.online) ? 1.0 : 0.55
+                opacity: (root.networkManager && root.networkManager.online) ? Theme.opacitySurfaceStrong : Theme.opacityMuted
                 color: Theme.color("textOnGlass")
                 onStatusChanged: {
                     if (status === Image.Error && candidateIndex + 1 < candidates.length) {
@@ -252,12 +316,34 @@ Item {
         }
     }
 
+    Overlay.WifiPasswordDialog {
+        id: wifiPasswordDialog
+
+        onAccepted: function(password, remember) {
+            wifiPasswordDialog.busy = true
+            wifiPasswordDialog.errorMessage = ""
+            var result = root.connectNetwork(root.pendingSsid, password, remember)
+            wifiPasswordDialog.busy = false
+            if (result && result.ok) {
+                wifiPasswordDialog.dismissDialog()
+            } else {
+                wifiPasswordDialog.errorMessage = root.friendlyConnectError(result)
+            }
+        }
+
+        onRejected: {
+            root.pendingSsid = ""
+            root.pendingSignalStrength = 0
+            root.pendingSecure = false
+        }
+    }
+
     IndicatorMenu {
         id: networkMenu
         anchorItem: indicatorButton
         popupGap: root.popupGap
-        popupWidth: Theme.metric("popupWidthS")
-        padding: 8
+        popupWidth: Theme.metric("popupWidthL")
+        padding: Theme.spacingSm
         onAboutToShow: {
             root.popupHint = false
             if (root.networkManager) {
@@ -272,41 +358,148 @@ Item {
 
         MenuItem {
             enabled: false
-            contentItem: IndicatorSectionLabel {
-                text: root.networkManager && root.networkManager.online
-                      ? "Connected: " + root.networkManager.statusText : "Disconnected"
-                emphasized: true
+            contentItem: ColumnLayout {
+                spacing: Theme.spacingMd
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    radius: Theme.radiusControl
+                    color: Theme.color("fileManagerSearchBg")
+                    border.width: Theme.borderWidthThin
+                    border.color: Theme.color("panelBorder")
+                    implicitHeight: statusCard.implicitHeight + Theme.spacingLg
+
+                    RowLayout {
+                        id: statusCard
+                        anchors.fill: parent
+                        anchors.margins: Theme.spacingMd
+                        spacing: Theme.spacingMd
+
+                        Rectangle {
+                            Layout.preferredWidth: 42
+                            Layout.preferredHeight: 42
+                            radius: Theme.radiusControl
+                            color: Theme.color("accentSoft")
+
+                            IconImage {
+                                anchors.centerIn: parent
+                                width: 24
+                                height: 24
+                                property var candidates: root.panelIconCandidates()
+                                property int candidateIndex: 0
+                                source: root.iconSourceByName(root.iconCandidate(candidates, candidateIndex))
+                                fillMode: Image.PreserveAspectFit
+                                color: Theme.color("textPrimary")
+                                onStatusChanged: {
+                                    if (status === Image.Error && candidateIndex + 1 < candidates.length) {
+                                        candidateIndex += 1
+                                    }
+                                }
+                                onCandidatesChanged: candidateIndex = 0
+                            }
+                        }
+
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: Theme.spacingXs
+
+                            Text {
+                                Layout.fillWidth: true
+                                text: root.networkManager && root.networkManager.online
+                                      ? root.networkManager.statusText
+                                      : "Not Connected"
+                                color: Theme.color("textPrimary")
+                                font.family: Theme.fontFamilyUi
+                                font.pixelSize: Theme.fontSize("title")
+                                font.weight: Theme.fontWeight("semibold")
+                                elide: Text.ElideRight
+                            }
+
+                            Text {
+                                Layout.fillWidth: true
+                                text: {
+                                    if (!root.networkManager || !root.networkManager.online) {
+                                        return "Network is unavailable"
+                                    }
+                                    var ct = String(root.networkManager.connectionType || "")
+                                    if (ct === "wifi") {
+                                        return "Wi-Fi" + (root.networkManager.signalStrength > 0
+                                                         ? " - " + root.networkManager.signalStrength + "% signal"
+                                                         : "")
+                                    }
+                                    if (ct === "ethernet") {
+                                        return "Ethernet"
+                                    }
+                                    if (ct === "unknown") {
+                                        return "Connected"
+                                    }
+                                    return "Connected via " + ct
+                                }
+                                color: Theme.color("textSecondary")
+                                font.family: Theme.fontFamilyUi
+                                font.pixelSize: Theme.fontSize("small")
+                                elide: Text.ElideRight
+                            }
+                        }
+                    }
+                }
+
+                GridLayout {
+                    Layout.fillWidth: true
+                    columns: 2
+                    columnSpacing: Theme.spacingLg
+                    rowSpacing: Theme.spacingSm
+
+                    Text {
+                        text: "Interface"
+                        color: Theme.color("textSecondary")
+                        font.family: Theme.fontFamilyUi
+                        font.pixelSize: Theme.fontSize("small")
+                    }
+
+                    Text {
+                        Layout.fillWidth: true
+                        text: root.networkManager && root.networkManager.interfaceName.length > 0
+                              ? root.networkManager.interfaceName
+                              : "n/a"
+                        color: Theme.color("textPrimary")
+                        font.family: Theme.fontFamilyUi
+                        font.pixelSize: Theme.fontSize("small")
+                        horizontalAlignment: Text.AlignRight
+                        elide: Text.ElideMiddle
+                    }
+
+                    Text {
+                        visible: root.ipSectionVisible
+                        text: "IPv4"
+                        color: Theme.color("textSecondary")
+                        font.family: Theme.fontFamilyUi
+                        font.pixelSize: Theme.fontSize("small")
+                    }
+
+                    Text {
+                        visible: root.ipSectionVisible
+                        Layout.fillWidth: true
+                        text: root.ipAddressVisible
+                              ? (root.networkManager && root.networkManager.ipv4Address.length > 0
+                                 ? root.networkManager.ipv4Address
+                                 : "n/a")
+                              : "---.---.---.---"
+                        color: Theme.color("textPrimary")
+                        font.family: Theme.fontFamilyUi
+                        font.pixelSize: Theme.fontSize("small")
+                        horizontalAlignment: Text.AlignRight
+                        elide: Text.ElideMiddle
+                    }
+                }
             }
         }
 
-        MenuItem {
-            enabled: false
-            text: {
-                if (!root.networkManager || !root.networkManager.online) return "Type: Unavailable"
-                var ct = root.networkManager.connectionType || ""
-                if (ct === "wifi")     return "Type: Wi-Fi"
-                if (ct === "ethernet") return "Type: Ethernet"
-                if (ct === "unknown")  return "Type: Other"
-                return "Type: Connected"
-            }
-        }
-
-        MenuItem {
-            text: "Interface: " + (
-                      root.networkManager && root.networkManager.interfaceName.length > 0
-                      ? root.networkManager.interfaceName
-                      : "n/a"
-                  )
-            // color: Theme.color("textPrimary")
-            font.family: Theme.fontFamilyUi
-            font.pixelSize: Theme.fontSize("body")
-            enabled: false
-        }
         MenuItem {
             visible: root.ipSectionVisible
             height: visible ? implicitHeight : 0
             contentItem: IndicatorSectionRow {
-                text: "IP Address Visible"
+                text: "Show IP Address"
                 rowSpacing: root.rowGap
                 Switch {
                     checked: root.ipAddressVisible
@@ -314,102 +507,125 @@ Item {
                 }
             }
         }
-        MenuItem {
-            visible: root.ipSectionVisible
-            height: visible ? implicitHeight : 0
-            text: "IPv4: " + (
-                      root.ipAddressVisible
-                      ? (
-                            root.networkManager && root.networkManager.ipv4Address.length > 0
-                            ? root.networkManager.ipv4Address
-                            : "n/a"
-                        )
-                      : "---.---.---.---"
-                  )
-            // color: Theme.color("textPrimary")
-            font.family: Theme.fontFamilyUi
-            font.pixelSize: Theme.fontSize("body")
-            enabled: false
-        }
-
-        MenuItem {
-            visible: root.networkManager && root.networkManager.connectionType === "wifi"
-            enabled: false
-            text: "Signal: " + (
-                      root.networkManager && root.networkManager.signalStrength > 0
-                      ? root.networkManager.signalStrength + "%"
-                      : "Unknown"
-                  )
-            // color: Theme.color("textPrimary")
-            font.family: Theme.fontFamilyUi
-            font.pixelSize: Theme.fontSize("body")
-        }
 
         MenuSeparator {}
 
+        MenuItem {
+            enabled: false
+            contentItem: RowLayout {
+                spacing: Theme.spacingSm
 
+                Text {
+                    Layout.fillWidth: true
+                    text: "Available Networks"
+                    color: Theme.color("textSecondary")
+                    font.family: Theme.fontFamilyUi
+                    font.pixelSize: Theme.fontSize("small")
+                    font.weight: Theme.fontWeight("semibold")
+                }
 
-        Instantiator {
-            id: availableNetworksInstantiator
-            model: root.networkManager ? root.networkManager.availableNetworks : null
-            delegate: MenuItem {
-                enabled: true
-                contentItem: RowLayout {
-                    spacing: Theme.metric("spacingXxl")
+                ToolButton {
+                    icon.source: root.iconSourceByName("view-refresh-symbolic")
+                    onClicked: if (root.networkManager) root.networkManager.refreshAvailableNetworks()
+                }
+            }
+        }
 
-                    RadioButton {
-                        checked: !!isActive
-                        enabled: true
-                    }
+        MenuItem {
+            enabled: false
+            visible: !root.networkManager || !root.networkManager.hasAvailableNetworks
+            text: "No Wi-Fi networks found"
+            font.family: Theme.fontFamilyUi
+            font.pixelSize: Theme.fontSize("body")
+        }
 
-                    Text {
+        MenuItem {
+            enabled: true
+            visible: root.networkManager && root.networkManager.hasAvailableNetworks
+            contentItem: ColumnLayout {
+                spacing: Theme.spacingXs
+
+                Repeater {
+                    model: root.networkManager ? root.networkManager.availableNetworks : null
+
+                    delegate: Rectangle {
+                        required property string ssid
+                        required property int signalStrength
+                        required property bool isSecure
+                        required property bool isActive
+
                         Layout.fillWidth: true
-                        text: ssid
-                        color: Theme.color("textPrimary")
-                        font.family: Theme.fontFamilyUi
-                        font.pixelSize: Theme.fontSize("body")
-                        elide: Text.ElideRight
-                        verticalAlignment: Text.AlignVCenter
-                    }
+                        radius: Theme.radiusControl
+                        color: isActive ? Theme.color("accentSoft") : "transparent"
+                        implicitHeight: networkRow.implicitHeight + Theme.spacingSm
 
-                    IconImage {
-                        id: signalIcon
-                        Layout.preferredWidth: 20
-                        Layout.preferredHeight: 20
-                        Layout.alignment: Qt.AlignVCenter
-                        property var candidates: root.signalIconFallbacks(signalStrength, !!isSecure)
-                        property int candidateIndex: 0
-                        source: "image://themeicon/" + root.iconCandidate(candidates, candidateIndex) + "?v=" +
-                                ((typeof ThemeIconController !== "undefined" && ThemeIconController)
-                                 ? ThemeIconController.revision : 0)
-                        fillMode: Image.PreserveAspectFit
-                        color: Theme.color("textPrimary")
-                        onStatusChanged: {
-                            if (status === Image.Error && candidateIndex + 1 < candidates.length) {
-                                candidateIndex += 1
+                        MouseArea {
+                            anchors.fill: parent
+                            enabled: !isActive
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.requestJoinNetwork(ssid, isSecure, signalStrength)
+                        }
+
+                        RowLayout {
+                            id: networkRow
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
+                            anchors.leftMargin: Theme.spacingSm
+                            anchors.rightMargin: Theme.spacingSm
+                            spacing: Theme.spacingSm
+
+                            RadioButton {
+                                checked: isActive
+                                enabled: false
+                            }
+
+                            Text {
+                                Layout.fillWidth: true
+                                text: ssid
+                                color: Theme.color("textPrimary")
+                                font.family: Theme.fontFamilyUi
+                                font.pixelSize: Theme.fontSize("body")
+                                elide: Text.ElideRight
+                                verticalAlignment: Text.AlignVCenter
+                            }
+
+                            Text {
+                                visible: isSecure
+                                text: "Secured"
+                                color: Theme.color("textSecondary")
+                                font.family: Theme.fontFamilyUi
+                                font.pixelSize: Theme.fontSize("xs")
+                            }
+
+                            IconImage {
+                                Layout.preferredWidth: 20
+                                Layout.preferredHeight: 20
+                                Layout.alignment: Qt.AlignVCenter
+                                property var candidates: root.signalIconFallbacks(signalStrength, isSecure)
+                                property int candidateIndex: 0
+                                source: "image://themeicon/" + root.iconCandidate(candidates, candidateIndex) + "?v=" +
+                                        ((typeof ThemeIconController !== "undefined" && ThemeIconController)
+                                         ? ThemeIconController.revision : 0)
+                                fillMode: Image.PreserveAspectFit
+                                color: Theme.color("textPrimary")
+                                onStatusChanged: {
+                                    if (status === Image.Error && candidateIndex + 1 < candidates.length) {
+                                        candidateIndex += 1
+                                    }
+                                }
+                                onCandidatesChanged: candidateIndex = 0
                             }
                         }
                     }
                 }
             }
-            onObjectAdded: function(index, object) {
-                networkMenu.insertItem(7 + index, object)
-            }
-            onObjectRemoved: function(index, object) {
-                networkMenu.removeItem(object)
-            }
         }
-
-
 
         MenuSeparator {}
 
-
-
-
         MenuItem {
             text: "Network Settings"
-            // color: Theme.color("textPrimary")
             font.family: Theme.fontFamilyUi
             font.pixelSize: Theme.fontSize("body")
             onTriggered: {
