@@ -3,7 +3,16 @@
 #include "kwinwaylandipcclient.h"
 #include "kwinwaylandstatemodel.h"
 
+#include <QByteArray>
+#include <QDebug>
+
 namespace {
+bool envFlagEnabled(const char *name)
+{
+    const QByteArray value = qgetenv(name).trimmed().toLower();
+    return value == "1" || value == "true" || value == "yes" || value == "on";
+}
+
 QString normalizedEventToken(const QString &value)
 {
     return value.trimmed().toLower().replace(QLatin1Char('_'), QLatin1Char('-'));
@@ -121,11 +130,16 @@ QString canonicalLifecycleEvent(const QString &event, const QVariantMap &payload
 
 WindowingBackendManager::WindowingBackendManager(QObject *parent)
     : QObject(parent)
-    , m_kwinIpc(new KWinWaylandIpcClient(this))
     , m_kwinState(new KWinWaylandStateModel(this))
 {
-    m_kwinState->setIpcClient(m_kwinIpc);
-    wireSignals();
+    if (envFlagEnabled("SLM_KWIN_ACTIVE_IPC")) {
+        m_kwinIpc = new KWinWaylandIpcClient(this);
+        m_kwinState->setIpcClient(m_kwinIpc);
+        wireSignals();
+    } else {
+        qInfo("WindowingBackendManager: KWin active IPC disabled "
+              "(set SLM_KWIN_ACTIVE_IPC=1 to enable)");
+    }
 }
 
 WindowingBackendManager::~WindowingBackendManager() = default;
@@ -149,6 +163,19 @@ bool WindowingBackendManager::connected() const
 QVariantMap WindowingBackendManager::capabilities() const
 {
     QVariantMap caps = baseCapabilitiesForBackend(m_backend);
+    if (!m_kwinIpc) {
+        for (auto it = caps.begin(); it != caps.end(); ++it) {
+            if (it.key().startsWith(QStringLiteral("command."))
+                || it.key() == QStringLiteral("window-list")
+                || it.key() == QStringLiteral("spaces")
+                || it.key() == QStringLiteral("switcher")
+                || it.key() == QStringLiteral("overview")
+                || it.key() == QStringLiteral("workspace")) {
+                it.value() = false;
+            }
+        }
+        return caps;
+    }
     const bool inputCaptureSupported = m_kwinIpc && m_kwinIpc->supportsInputCaptureCommands();
     const bool overlaySupported = m_kwinIpc && m_kwinIpc->supportsOverlayCommands();
     caps.insert(QStringLiteral("command.inputcapture.set-barriers"), inputCaptureSupported);
