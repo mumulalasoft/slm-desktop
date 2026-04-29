@@ -87,8 +87,12 @@ Rectangle {
         }]
     property int connectServerTypeIndex: 4
     property string connectServerHost: ""
+    property string connectServerShare: ""
     property int connectServerPort: 445
     property string connectServerFolder: "/"
+    property string connectServerDomain: "WORKGROUP"
+    property string connectServerUser: ""
+    property string connectServerPassword: ""
     property string connectServerError: ""
     property bool connectServerBusy: false
     property var storageOrderMap: ({})

@@ -157,6 +157,22 @@ function openDetachedFileManager(shell, pathValue) {
     })
 }
 
+function openDetachedConnectServerDialog(shell) {
+    shell.detachedFileManagerPath = String(shell.detachedFileManagerPath || "~")
+    shell.pendingDetachedConnectServerDialog = true
+    shell.detachedFileManagerVisible = true
+    Qt.callLater(function() {
+        if (!shell.detachedFileManagerWindow) {
+            return
+        }
+        var item = shell.detachedFileManagerWindow.connectServerIfReady()
+        if (item) {
+            shell.pendingDetachedConnectServerDialog = false
+            shell.fileManagerContent = item
+        }
+    })
+}
+
 function tryOpenDetachedPropertiesNow(shell, pathValue) {
     var p = String(pathValue || "").trim()
     if (p.length === 0) {

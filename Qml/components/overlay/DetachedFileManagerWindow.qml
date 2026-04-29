@@ -70,6 +70,14 @@ Window {
         return false
     }
 
+    function connectServerIfReady() {
+        if (detachedFileManagerLoader.item && detachedFileManagerLoader.item.openConnectServerDialog) {
+            detachedFileManagerLoader.item.openConnectServerDialog()
+            return detachedFileManagerLoader.item
+        }
+        return null
+    }
+
     function renamePathIfReady(pathValue) {
         var p = String(pathValue || "").trim()
         if (p.length <= 0) {
@@ -274,6 +282,11 @@ Window {
                         && item.requestRenameForPath) {
                     item.requestRenameForPath(shellApi.pendingDetachedFileManagerRenamePath)
                     shellApi.pendingDetachedFileManagerRenamePath = ""
+                }
+                if (shellApi.pendingDetachedConnectServerDialog
+                        && item.openConnectServerDialog) {
+                    item.openConnectServerDialog()
+                    shellApi.pendingDetachedConnectServerDialog = false
                 }
             }
             onStatusChanged: {

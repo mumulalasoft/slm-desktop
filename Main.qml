@@ -96,6 +96,7 @@ ApplicationWindow {
     property bool detachedFileManagerLoadFailed: false
     property string pendingDetachedFileManagerPropertiesPath: ""
     property string pendingDetachedFileManagerRenamePath: ""
+    property bool pendingDetachedConnectServerDialog: false
     property string detachedFileManagerFallbackPath: ""
     property var fileManagerContent: null
     property var desktopMenuProviderRef: null

@@ -128,7 +128,8 @@ QtObject {
                 { "id": 8, "label": "Recent Folders", "enabled": true },
                 { "id": 9, "label": "Network", "enabled": true },
                 { "id": 10, "label": "Mounted Devices", "enabled": true },
-                { "id": 11, "label": "Trash", "enabled": true }
+                { "id": 11, "label": "Trash", "enabled": true },
+                { "id": 12, "label": "Connect Server...", "enabled": true }
             ]
         }
         if (id === 3105) {
@@ -234,6 +235,7 @@ QtObject {
             if (item === 9 && desktopSurface.openPathInFileManager) { desktopSurface.openPathInFileManager("__network__"); return }
             if (item === 10 && desktopSurface.openMountedDevicesPath) { desktopSurface.openMountedDevicesPath(); return }
             if (item === 11 && desktopSurface.openPathInFileManager) { desktopSurface.openPathInFileManager("~/.local/share/Trash/files"); return }
+            if (item === 12 && desktopSurface.openConnectServerDialog) { desktopSurface.openConnectServerDialog(); return }
         }
         if (menu === 3105) {
             if (item === 1) { _route("filemanager.open", { "target": desktopSurface.desktopPath || "~/Desktop" }); return }

@@ -65,7 +65,8 @@ function overrideMenus() {
                 { "id": 8, "label": "Recent Folders", "enabled": true },
                 { "id": 9, "label": "Network", "enabled": true },
                 { "id": 10, "label": "Mounted Devices", "enabled": true },
-                { "id": 11, "label": "Trash", "enabled": true }
+                { "id": 11, "label": "Trash", "enabled": true },
+                { "id": 12, "label": "Connect Server...", "enabled": true }
             ]
         },
         {

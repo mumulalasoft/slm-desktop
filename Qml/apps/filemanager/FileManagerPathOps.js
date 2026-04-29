@@ -89,8 +89,12 @@ function initSingleTab(root, fileManagerModelFactory, pathValue) {
 function openConnectServerDialog(root, connectServerDialog) {
     root.connectServerTypeIndex = 4
     root.connectServerHost = ""
+    root.connectServerShare = ""
     root.connectServerPort = 445
     root.connectServerFolder = "/"
+    root.connectServerDomain = "WORKGROUP"
+    root.connectServerUser = ""
+    root.connectServerPassword = ""
     root.connectServerError = ""
     root.connectServerBusy = false
     if (connectServerDialog && connectServerDialog.openAndFocus) {
@@ -105,8 +109,12 @@ function submitConnectServer(root, fileManagerApi) {
             || root.connectServerTypes[0]
     var scheme = String(typeRow.scheme || "smb").trim()
     var host = String(root.connectServerHost || "").trim()
+    var share = String(root.connectServerShare || "").trim()
     var folder = String(root.connectServerFolder || "").trim()
     var port = Number(root.connectServerPort || 0)
+    var domain = String(root.connectServerDomain || "").trim()
+    var user = String(root.connectServerUser || "").trim()
+    var password = String(root.connectServerPassword || "")
 
     if (host.length <= 0) {
         root.connectServerError = "Server name or IP is required."
@@ -126,10 +134,33 @@ function submitConnectServer(root, fileManagerApi) {
     if (folder.charAt(0) !== "/") {
         folder = "/" + folder
     }
+    if (scheme === "smb" && share.length > 0) {
+        if (!/^[^\/\\:]+$/.test(share)) {
+            root.connectServerError = "Share name cannot contain slashes or colons."
+            return
+        }
+        folder = "/" + encodeURIComponent(share) + (folder === "/" ? "" : folder)
+    }
     var defaultPort = Number(typeRow.port || 0)
     var authority = host
+    if (user.length > 0) {
+        var loginName = (scheme === "smb" && domain.length > 0) ? (domain + ";" + user) : user
+        var userInfo = encodeURIComponent(loginName)
+        if (password.length > 0) {
+            userInfo += ":" + encodeURIComponent(password)
+        }
+        authority = userInfo + "@" + authority
+    }
     if (!(defaultPort > 0 && port === defaultPort)) {
         authority = host + ":" + String(port)
+        if (user.length > 0) {
+            var prefixedLoginName = (scheme === "smb" && domain.length > 0) ? (domain + ";" + user) : user
+            var prefixedUserInfo = encodeURIComponent(prefixedLoginName)
+            if (password.length > 0) {
+                prefixedUserInfo += ":" + encodeURIComponent(password)
+            }
+            authority = prefixedUserInfo + "@" + host + ":" + String(port)
+        }
     }
     var uri = scheme + "://" + authority + folder
     root.connectServerError = ""

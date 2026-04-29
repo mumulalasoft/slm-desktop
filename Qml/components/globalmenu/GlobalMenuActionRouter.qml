@@ -325,6 +325,10 @@ QtObject {
                     return
                 }
                 if (item === 11) { openPathSafe("~/.local/share/Trash/files"); return }
+                if (item === 12 && fileManagerContent.openConnectServerDialog) {
+                    fileManagerContent.openConnectServerDialog()
+                    return
+                }
                 return
             }
 

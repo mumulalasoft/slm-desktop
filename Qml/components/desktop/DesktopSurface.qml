@@ -3,6 +3,7 @@ import QtQuick.Controls 2.15
 import Slm_Desktop
 import "../../apps/filemanager/FileManagerSelection.js" as FileManagerSelection
 import "../contextmenu" as ContextMenuComp
+import "../shell/ShellUtils.js" as ShellUtils
 
 Item {
     id: root
@@ -1305,6 +1306,20 @@ Item {
             return
         }
         _route("filemanager.open", { "target": target })
+    }
+
+    function openConnectServerDialog() {
+        if (shellApi && shellApi.fileManagerContent
+                && shellApi.fileManagerContent.openConnectServerDialog) {
+            shellApi.detachedFileManagerVisible = true
+            shellApi.fileManagerContent.openConnectServerDialog()
+            return
+        }
+        if (shellApi) {
+            ShellUtils.openDetachedConnectServerDialog(shellApi)
+            return
+        }
+        _route("filemanager.open", { "target": "~" })
     }
 
     function desktopUndo() {
