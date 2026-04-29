@@ -634,12 +634,15 @@ Item {
 
         DSStyle.MenuItem {
             text: root.hostRoot.contextEntryIsArchive ? "Extract" : "Open"
+            icon.name: root.hostRoot.contextEntryIsArchive ? "archive-extract-symbolic" : "document-open-symbolic"
+            shortcutText: "Enter"
             enabled: root.hostRoot.contextEntryIndex >= 0
             onTriggered: root.hostRoot.openContextEntry()
         }
 
         DSStyle.MenuItem {
             text: "Extract to..."
+            icon.name: "archive-extract-symbolic"
             visible: root.hostRoot.contextEntryIsArchive
             enabled: root.hostRoot.contextEntryIndex >= 0
             onTriggered: root.hostRoot.chooseExtractDestinationForContextArchive()
@@ -649,6 +652,7 @@ Item {
             title: "Open with"
             compact: true
             itemIconSize: 20
+            property string entryIconName: "application-x-executable-symbolic"
             // NOTE: Avoid toggling Menu.visible during component finalization.
             // Qt 6.10 can crash in QQuickMenu::setVisible() for submenu bindings.
             // Keep submenu always present and gate interactions via enabled state.
@@ -676,7 +680,7 @@ Item {
                     "separator": false,
                     "appId": "__other__",
                     "name": "Other Application...",
-                    "iconName": ""
+                    "iconName": "application-x-executable-symbolic"
                 })
                 return rows
             }
@@ -738,29 +742,37 @@ Item {
 
         DSStyle.MenuItem {
             text: "Cut"
+            icon.name: "edit-cut-symbolic"
+            shortcutText: "Ctrl+X"
             enabled: root.hostRoot.contextEntryIndex >= 0 && !root.hostRoot.contextEntryProtected
             onTriggered: root.hostRoot.copySelected(true)
         }
 
         DSStyle.MenuItem {
             text: "Copy"
+            icon.name: "edit-copy-symbolic"
+            shortcutText: "Ctrl+C"
             enabled: root.hostRoot.contextEntryIndex >= 0
             onTriggered: root.hostRoot.copySelected(false)
         }
 
         DSStyle.MenuItem {
             text: "Copy as Link"
+            icon.name: "insert-link-symbolic"
             enabled: root.hostRoot.contextEntryIndex >= 0
             onTriggered: root.hostRoot.copySelectedAsLinkToClipboard()
         }
 
         DSStyle.MenuItem {
             text: "Select All"
+            icon.name: "edit-select-all-symbolic"
+            shortcutText: "Ctrl+A"
             onTriggered: root.hostRoot.selectAllVisibleEntries()
         }
 
         DSStyle.MenuItem {
             text: "Invert Selection"
+            icon.name: "edit-select-invert-symbolic"
             onTriggered: root.hostRoot.invertSelection()
         }
 
@@ -773,6 +785,7 @@ Item {
             visible: root.hostRoot.recentView && root.hostRoot.contextEntryIndex < 0
             height: visible ? implicitHeight : 0
             text: "Clear Recents"
+            icon.name: "edit-clear-history-symbolic"
             onTriggered: root.hostRoot.requestClearRecentFiles()
         }
 
@@ -780,6 +793,8 @@ Item {
 
         DSStyle.MenuItem {
             text: "Paste"
+            icon.name: "edit-paste-symbolic"
+            shortcutText: "Ctrl+V"
             enabled: root.hostRoot.clipboardPath.length > 0
             onTriggered: {
                 fileEntryMenu.close()
@@ -791,12 +806,14 @@ Item {
 
         DSStyle.MenuItem {
             text: "Copy to..."
+            icon.name: "edit-copy-symbolic"
             enabled: root.hostRoot.contextEntryIndex >= 0
             onTriggered: root.hostRoot.chooseDestinationForSelection(false)
         }
 
         DSStyle.MenuItem {
             text: "Move to..."
+            icon.name: "folder-move-symbolic"
             enabled: root.hostRoot.contextEntryIndex >= 0 && !root.hostRoot.contextEntryProtected
             onTriggered: root.hostRoot.chooseDestinationForSelection(true)
         }
@@ -805,12 +822,16 @@ Item {
 
         DSStyle.MenuItem {
             text: "Move to Trash"
+            icon.name: "user-trash-symbolic"
+            shortcutText: "Del"
             enabled: root.hostRoot.contextEntryIndex >= 0 && !root.hostRoot.contextEntryProtected
             onTriggered: root.hostRoot.moveContextEntryToTrash()
         }
 
         DSStyle.MenuItem {
             text: "Rename..."
+            icon.name: "edit-rename-symbolic"
+            shortcutText: "F2"
             enabled: root.hostRoot.contextEntryIndex >= 0 && !root.hostRoot.contextEntryProtected
             onTriggered: root.hostRoot.requestRenameContextEntry()
         }
@@ -819,12 +840,14 @@ Item {
 
         DSStyle.MenuItem {
             text: "Copy Path"
+            icon.name: "edit-copy-symbolic"
             enabled: root.hostRoot.contextEntryIndex >= 0
             onTriggered: root.hostRoot.copySelectedPathToClipboard()
         }
 
         DSStyle.MenuItem {
             text: "Share..."
+            icon.name: "emblem-shared-symbolic"
             enabled: root.slmShareRows().length > 0
             onTriggered: {
                 if (root.hostRoot.shareSheetRef) {
@@ -834,14 +857,16 @@ Item {
         }
 
         DSStyle.MenuItem {
-            text: "Bagikan Folder..."
+            text: "Share Folder..."
+            icon.name: "folder-publicshare-symbolic"
             enabled: root.hostRoot.contextEntryIndex >= 0 && !!root.hostRoot.contextEntryIsDir
             onTriggered: root.hostRoot.openFolderShareDialog(root.hostRoot.contextEntryPath)
         }
 
         DSStyle.MenuItem {
             text: "Print..."
-            secondaryText: "Ctrl+P"
+            icon.name: "document-print-symbolic"
+            shortcutText: "Ctrl+P"
             enabled: root.hostRoot.canPrintSelection ? root.hostRoot.canPrintSelection() : false
             onTriggered: {
                 root.hostRoot.requestPrintSelection()
@@ -853,6 +878,7 @@ Item {
 
         DSStyle.MenuItem {
             text: "Send by Email"
+            icon.name: "mail-send-symbolic"
             enabled: root.hostRoot.contextEntryIndex >= 0
             onTriggered: root.hostRoot.sendSelectionByEmail()
         }
@@ -861,18 +887,22 @@ Item {
 
         DSStyle.MenuItem {
             text: "Compress"
+            icon.name: "archive-insert-symbolic"
             enabled: root.hostRoot.contextEntryIndex >= 0
             onTriggered: root.hostRoot.compressSelection()
         }
 
         DSStyle.MenuItem {
             text: "Send Files via Bluetooth"
+            icon.name: "bluetooth-symbolic"
             enabled: root.hostRoot.contextEntryIndex >= 0
             onTriggered: root.hostRoot.sendSelectionViaBluetooth()
         }
 
         DSStyle.MenuItem {
             text: "Properties"
+            icon.name: "document-properties-symbolic"
+            shortcutText: "Alt+Enter"
             enabled: root.hostRoot.contextEntryIndex >= 0
             onTriggered: root.hostRoot.showPropertiesForSelection()
         }
@@ -894,6 +924,8 @@ Item {
 
         DSStyle.MenuItem {
             text: "Open"
+            icon.name: "document-open-symbolic"
+            shortcutText: "Enter"
             enabled: String(root.hostRoot.contextEntryPath || "").length > 0
             onTriggered: {
                 if (root.hostRoot.contextEntryIndex >= 0) {
@@ -908,6 +940,7 @@ Item {
             title: "Open in"
             compact: true
             itemIconSize: 20
+            property string entryIconName: "document-open-symbolic"
             enabled: String(root.hostRoot.contextEntryPath || "").length > 0
             readonly property var recommendedRows: root.hostRoot.contextRecommendedOpenWithEntries()
             function computedRows() {
@@ -932,7 +965,7 @@ Item {
                     "separator": false,
                     "appId": "__other__",
                     "name": "Other Application...",
-                    "iconName": ""
+                    "iconName": "application-x-executable-symbolic"
                 })
                 return rows
             }
@@ -991,12 +1024,14 @@ Item {
 
         DSStyle.MenuItem {
             text: "Open in New Tab"
+            icon.name: "tab-new-symbolic"
             enabled: String(root.hostRoot.contextEntryPath || "").length > 0
             onTriggered: root.hostRoot.openContextEntryInNewTab()
         }
 
         DSStyle.MenuItem {
             text: "Open in New Window"
+            icon.name: "window-new-symbolic"
             enabled: String(root.hostRoot.contextEntryPath || "").length > 0
             onTriggered: root.hostRoot.openContextEntryInNewWindow()
         }
@@ -1005,29 +1040,37 @@ Item {
 
         DSStyle.MenuItem {
             text: "Cut"
+            icon.name: "edit-cut-symbolic"
+            shortcutText: "Ctrl+X"
             enabled: root.hostRoot.contextEntryIndex >= 0 && !root.hostRoot.contextEntryProtected
             onTriggered: root.hostRoot.copySelected(true)
         }
 
         DSStyle.MenuItem {
             text: "Copy"
+            icon.name: "edit-copy-symbolic"
+            shortcutText: "Ctrl+C"
             enabled: root.hostRoot.contextEntryIndex >= 0
             onTriggered: root.hostRoot.copySelected(false)
         }
 
         DSStyle.MenuItem {
             text: "Copy as Link"
+            icon.name: "insert-link-symbolic"
             enabled: root.hostRoot.contextEntryIndex >= 0
             onTriggered: root.hostRoot.copySelectedAsLinkToClipboard()
         }
 
         DSStyle.MenuItem {
             text: "Select All"
+            icon.name: "edit-select-all-symbolic"
+            shortcutText: "Ctrl+A"
             onTriggered: root.hostRoot.selectAllVisibleEntries()
         }
 
         DSStyle.MenuItem {
             text: "Invert Selection"
+            icon.name: "edit-select-invert-symbolic"
             onTriggered: root.hostRoot.invertSelection()
         }
 
@@ -1035,6 +1078,8 @@ Item {
 
         DSStyle.MenuItem {
             text: "Paste"
+            icon.name: "edit-paste-symbolic"
+            shortcutText: "Ctrl+V"
             enabled: root.hostRoot.clipboardPath.length > 0
             onTriggered: {
                 folderEntryMenu.close()
@@ -1046,12 +1091,14 @@ Item {
 
         DSStyle.MenuItem {
             text: "Copy to..."
+            icon.name: "edit-copy-symbolic"
             enabled: root.hostRoot.contextEntryIndex >= 0
             onTriggered: root.hostRoot.chooseDestinationForSelection(false)
         }
 
         DSStyle.MenuItem {
             text: "Move to..."
+            icon.name: "folder-move-symbolic"
             enabled: root.hostRoot.contextEntryIndex >= 0 && !root.hostRoot.contextEntryProtected
             onTriggered: root.hostRoot.chooseDestinationForSelection(true)
         }
@@ -1060,18 +1107,23 @@ Item {
 
         DSStyle.MenuItem {
             text: "Move to Trash"
+            icon.name: "user-trash-symbolic"
+            shortcutText: "Del"
             enabled: root.hostRoot.contextEntryIndex >= 0 && !root.hostRoot.contextEntryProtected
             onTriggered: root.hostRoot.moveContextEntryToTrash()
         }
 
         DSStyle.MenuItem {
             text: "Rename..."
+            icon.name: "edit-rename-symbolic"
+            shortcutText: "F2"
             enabled: root.hostRoot.contextEntryIndex >= 0 && !root.hostRoot.contextEntryProtected
             onTriggered: root.hostRoot.requestRenameContextEntry()
         }
 
         DSStyle.MenuItem {
             text: "Add to Bookmarks"
+            icon.name: "bookmark-new-symbolic"
             enabled: root.hostRoot.contextEntryIndex >= 0
             onTriggered: root.hostRoot.addContextEntryToBookmarks()
         }
@@ -1080,12 +1132,14 @@ Item {
 
         DSStyle.MenuItem {
             text: "Copy Path"
+            icon.name: "edit-copy-symbolic"
             enabled: String(root.hostRoot.contextEntryPath || "").length > 0
             onTriggered: root.hostRoot.copySelectedPathToClipboard()
         }
 
         DSStyle.MenuItem {
             text: "Share..."
+            icon.name: "emblem-shared-symbolic"
             enabled: root.slmShareRows().length > 0
             onTriggered: {
                 if (root.hostRoot.shareSheetRef) {
@@ -1095,7 +1149,8 @@ Item {
         }
 
         DSStyle.MenuItem {
-            text: "Bagikan Folder..."
+            text: "Share Folder..."
+            icon.name: "folder-publicshare-symbolic"
             enabled: String(root.hostRoot.contextEntryPath || "").length > 0
                      && !!root.hostRoot.contextEntryIsDir
             onTriggered: root.hostRoot.openFolderShareDialog(root.hostRoot.contextEntryPath)
@@ -1107,6 +1162,7 @@ Item {
 
         DSStyle.MenuItem {
             text: "Send by Email"
+            icon.name: "mail-send-symbolic"
             enabled: root.hostRoot.contextEntryIndex >= 0
             onTriggered: root.hostRoot.sendSelectionByEmail()
         }
@@ -1115,18 +1171,22 @@ Item {
 
         DSStyle.MenuItem {
             text: "Compress"
+            icon.name: "archive-insert-symbolic"
             enabled: root.hostRoot.contextEntryIndex >= 0
             onTriggered: root.hostRoot.compressSelection()
         }
 
         DSStyle.MenuItem {
             text: "Send Files via Bluetooth"
+            icon.name: "bluetooth-symbolic"
             enabled: root.hostRoot.contextEntryIndex >= 0
             onTriggered: root.hostRoot.sendSelectionViaBluetooth()
         }
 
         DSStyle.MenuItem {
             text: "Properties"
+            icon.name: "document-properties-symbolic"
+            shortcutText: "Alt+Enter"
             enabled: String(root.hostRoot.contextEntryPath || "").length > 0
             onTriggered: root.hostRoot.showPropertiesForSelection()
         }
@@ -1148,18 +1208,22 @@ Item {
 
         DSStyle.MenuItem {
             text: "Open"
+            icon.name: "document-open-symbolic"
+            shortcutText: "Enter"
             enabled: (root.hostRoot.selectedEntryIndexes && root.hostRoot.selectedEntryIndexes.length > 1)
             onTriggered: root.hostRoot.openSelectedEntries()
         }
 
         DSStyle.MenuItem {
             text: "Open in New Tab"
+            icon.name: "tab-new-symbolic"
             enabled: root.hostRoot.selectedAllDirectories()
             onTriggered: root.hostRoot.openSelectedInNewTabs()
         }
 
         DSStyle.MenuItem {
             text: "Open in New Window"
+            icon.name: "window-new-symbolic"
             enabled: root.hostRoot.selectedAllDirectories()
             onTriggered: root.hostRoot.openSelectedInNewWindows()
         }
@@ -1168,27 +1232,35 @@ Item {
 
         DSStyle.MenuItem {
             text: "Cut"
+            icon.name: "edit-cut-symbolic"
+            shortcutText: "Ctrl+X"
             enabled: !root.hostRoot.selectedHasProtectedPath()
             onTriggered: root.hostRoot.copySelected(true)
         }
 
         DSStyle.MenuItem {
             text: "Copy"
+            icon.name: "edit-copy-symbolic"
+            shortcutText: "Ctrl+C"
             onTriggered: root.hostRoot.copySelected(false)
         }
 
         DSStyle.MenuItem {
             text: "Copy as Link"
+            icon.name: "insert-link-symbolic"
             onTriggered: root.hostRoot.copySelectedAsLinkToClipboard()
         }
 
         DSStyle.MenuItem {
             text: "Select All"
+            icon.name: "edit-select-all-symbolic"
+            shortcutText: "Ctrl+A"
             onTriggered: root.hostRoot.selectAllVisibleEntries()
         }
 
         DSStyle.MenuItem {
             text: "Invert Selection"
+            icon.name: "edit-select-invert-symbolic"
             onTriggered: root.hostRoot.invertSelection()
         }
 
@@ -1196,18 +1268,22 @@ Item {
 
         DSStyle.MenuItem {
             text: "Paste"
+            icon.name: "edit-paste-symbolic"
+            shortcutText: "Ctrl+V"
             enabled: root.hostRoot.clipboardPath.length > 0
             onTriggered: root.hostRoot.pasteIntoCurrent()
         }
 
         DSStyle.MenuItem {
             text: "Copy to..."
+            icon.name: "edit-copy-symbolic"
             enabled: root.hostRoot.selectedEntryIndexes && root.hostRoot.selectedEntryIndexes.length > 0
             onTriggered: root.hostRoot.chooseDestinationForSelection(false)
         }
 
         DSStyle.MenuItem {
             text: "Move to..."
+            icon.name: "folder-move-symbolic"
             enabled: (root.hostRoot.selectedEntryIndexes && root.hostRoot.selectedEntryIndexes.length > 0)
                      && !root.hostRoot.selectedHasProtectedPath()
             onTriggered: root.hostRoot.chooseDestinationForSelection(true)
@@ -1217,17 +1293,21 @@ Item {
 
         DSStyle.MenuItem {
             text: "Move to Trash"
+            icon.name: "user-trash-symbolic"
+            shortcutText: "Del"
             enabled: !root.hostRoot.selectedHasProtectedPath()
             onTriggered: root.hostRoot.deleteSelected(false)
         }
 
         DSStyle.MenuItem {
             text: "Copy Paths"
+            icon.name: "edit-copy-symbolic"
             onTriggered: root.hostRoot.copySelectedPathToClipboard()
         }
 
         DSStyle.MenuItem {
             text: "Share..."
+            icon.name: "emblem-shared-symbolic"
             enabled: root.slmShareRows().length > 0
             onTriggered: {
                 if (root.hostRoot.shareSheetRef) {
@@ -1241,6 +1321,7 @@ Item {
 
         DSStyle.MenuItem {
             text: "Send by Email"
+            icon.name: "mail-send-symbolic"
             onTriggered: root.hostRoot.sendSelectionByEmail()
         }
 
@@ -1248,15 +1329,19 @@ Item {
 
         DSStyle.MenuItem {
             text: "Compress"
+            icon.name: "archive-insert-symbolic"
             onTriggered: root.hostRoot.compressSelection()
         }
 
         DSStyle.MenuItem {
             text: "Send Files via Bluetooth"
+            icon.name: "bluetooth-symbolic"
             onTriggered: root.hostRoot.sendSelectionViaBluetooth()
         }
         DSStyle.MenuItem {
             text: "Properties"
+            icon.name: "document-properties-symbolic"
+            shortcutText: "Alt+Enter"
             onTriggered: root.hostRoot.showPropertiesForSelection()
         }
 
@@ -1276,12 +1361,14 @@ Item {
 
         DSStyle.MenuItem {
             text: "Restore from Trash"
+            icon.name: "edit-undo-symbolic"
             enabled: root.hostRoot.contextEntryIndex >= 0
             onTriggered: root.hostRoot.restoreSelectedFromTrash()
         }
 
         DSStyle.MenuItem {
             text: "Delete Permanently"
+            icon.name: "edit-delete-symbolic"
             enabled: root.hostRoot.contextEntryIndex >= 0 && !root.hostRoot.contextEntryProtected
             onTriggered: root.hostRoot.deleteSelected(true)
         }
@@ -1290,12 +1377,15 @@ Item {
 
         DSStyle.MenuItem {
             text: "Copy Path"
+            icon.name: "edit-copy-symbolic"
             enabled: root.hostRoot.contextEntryIndex >= 0
             onTriggered: root.hostRoot.copySelectedPathToClipboard()
         }
 
         DSStyle.MenuItem {
             text: "Select All"
+            icon.name: "edit-select-all-symbolic"
+            shortcutText: "Ctrl+A"
             onTriggered: root.hostRoot.selectAllVisibleEntries()
         }
 
@@ -1303,6 +1393,8 @@ Item {
 
         DSStyle.MenuItem {
             text: "Properties"
+            icon.name: "document-properties-symbolic"
+            shortcutText: "Alt+Enter"
             enabled: root.hostRoot.contextEntryIndex >= 0
             onTriggered: root.hostRoot.showPropertiesForSelection()
         }

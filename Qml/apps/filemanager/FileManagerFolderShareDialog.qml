@@ -26,6 +26,8 @@ AppDialog {
     property string technicalDetailsText: ""
     property bool installInProgress: false
     property string installStatusText: ""
+    readonly property int iconRevision: ((typeof ThemeIconController !== "undefined" && ThemeIconController)
+                                         ? ThemeIconController.revision : 0)
 
     function openForPath(pathValue) {
         targetPath = String(pathValue || "")
@@ -198,10 +200,28 @@ AppDialog {
         return mapped
     }
 
+    function iconSource(name) {
+        return "image://themeicon/" + String(name || "folder-symbolic") + "?v=" + root.iconRevision
+    }
+
+    function accessTitle() {
+        if (accessMode === "anyone") {
+            return "Anyone on this network"
+        }
+        if (accessMode === "users") {
+            return "Specific users"
+        }
+        return "Only me"
+    }
+
+    function permissionTitle() {
+        return permissionMode === "write" ? "Can make changes" : "Read only"
+    }
+
     title: "Share Folder"
     standardButtons: Dialog.NoButton
-    dialogWidth: 540
-    property real maxBodyHeight: Math.max(260, Math.min((hostRoot ? hostRoot.height : 720) - 250, 520))
+    dialogWidth: 560
+    property real maxBodyHeight: Math.max(300, Math.min((hostRoot ? hostRoot.height : 720) - 250, 600))
     x: Math.round((hostRoot.width - width) * 0.5)
     y: Math.round((hostRoot.height - height) * 0.5)
     bodyPadding: 12
@@ -226,40 +246,102 @@ AppDialog {
                 width: bodyFlick.width
                 spacing: 12
 
-                DSStyle.Label {
+                Rectangle {
                     Layout.fillWidth: true
-                    text: root.targetPath
-                          ? hostRoot.basename(root.targetPath)
-                          : "Folder"
-                    color: Theme.color("textPrimary")
-                    font.pixelSize: Theme.fontSize("title")
-                    elide: Text.ElideMiddle
-                }
+                    radius: Theme.radiusControlLarge
+                    color: Theme.darkMode ? Qt.rgba(1, 1, 1, 0.055) : Qt.rgba(0, 0, 0, 0.035)
+                    border.width: Theme.borderWidthThin
+                    border.color: Theme.darkMode ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(0, 0, 0, 0.085)
+                    implicitHeight: folderHeader.implicitHeight + 22
 
-                DSStyle.Label {
-                    Layout.fillWidth: true
-                    text: root.successState
-                          ? "Folder ini tersedia untuk perangkat lain di jaringan lokal."
-                          : "Atur nama, akses, dan izin sebelum folder terlihat di jaringan."
-                    wrapMode: Text.WordWrap
-                    color: Theme.color("textSecondary")
-                    font.pixelSize: Theme.fontSize("small")
+                    RowLayout {
+                        id: folderHeader
+                        anchors.fill: parent
+                        anchors.margins: 11
+                        spacing: 12
+
+                        Rectangle {
+                            Layout.preferredWidth: 44
+                            Layout.preferredHeight: 44
+                            radius: Theme.radiusControl
+                            color: Theme.color("accentSoft")
+                            border.width: Theme.borderWidthThin
+                            border.color: Theme.darkMode ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(0, 0, 0, 0.08)
+
+                            Image {
+                                anchors.centerIn: parent
+                                width: 26
+                                height: 26
+                                sourceSize.width: 26
+                                sourceSize.height: 26
+                                source: root.iconSource("folder-symbolic")
+                                opacity: Theme.opacityGhost
+                            }
+                        }
+
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 3
+
+                            DSStyle.Label {
+                                Layout.fillWidth: true
+                                text: root.targetPath ? hostRoot.basename(root.targetPath) : "Folder"
+                                color: Theme.color("textPrimary")
+                                font.pixelSize: Theme.fontSize("title")
+                                font.weight: Theme.fontWeight("semibold")
+                                elide: Text.ElideMiddle
+                            }
+
+                            DSStyle.Label {
+                                Layout.fillWidth: true
+                                text: root.targetPath
+                                visible: root.targetPath.length > 0
+                                color: Theme.color("textSecondary")
+                                font.pixelSize: Theme.fontSize("small")
+                                elide: Text.ElideMiddle
+                            }
+                        }
+
+                        Rectangle {
+                            Layout.preferredWidth: statusLabel.implicitWidth + 18
+                            Layout.preferredHeight: 24
+                            radius: height / 2
+                            color: root.successState || root.sharingEnabled
+                                   ? Qt.rgba(0.16, 0.78, 0.25, Theme.darkMode ? 0.18 : 0.14)
+                                   : Qt.rgba(0, 0, 0, Theme.darkMode ? 0.18 : 0.06)
+                            border.width: Theme.borderWidthThin
+                            border.color: root.successState || root.sharingEnabled
+                                          ? Qt.rgba(0.16, 0.78, 0.25, 0.42)
+                                          : Theme.color("panelBorder")
+
+                            DSStyle.Label {
+                                id: statusLabel
+                                anchors.centerIn: parent
+                                text: root.successState || root.sharingEnabled ? "Shared" : "Private"
+                                color: root.successState || root.sharingEnabled
+                                       ? Theme.color("success")
+                                       : Theme.color("textSecondary")
+                                font.pixelSize: Theme.fontSize("xs")
+                                font.weight: Theme.fontWeight("semibold")
+                            }
+                        }
+                    }
                 }
 
                 Rectangle {
                     Layout.fillWidth: true
                     visible: !root.successState && !root.envReady
-                    radius: Theme.radiusMd
-                    color: Qt.rgba(1.0, 0.76, 0.0, 0.12)
+                    radius: Theme.radiusControl
+                    color: Qt.rgba(1.0, 0.76, 0.0, Theme.darkMode ? 0.11 : 0.13)
                     border.width: Theme.borderWidthThin
-                    border.color: Qt.rgba(1.0, 0.76, 0.0, 0.45)
-                    implicitHeight: warningCol.implicitHeight + 14
+                    border.color: Qt.rgba(1.0, 0.76, 0.0, 0.44)
+                    implicitHeight: warningCol.implicitHeight + 16
 
                     ColumnLayout {
                         id: warningCol
                         anchors.fill: parent
-                        anchors.margins: 7
-                        spacing: 6
+                        anchors.margins: 8
+                        spacing: 8
 
                         MissingComponentsCard {
                             Layout.fillWidth: true
@@ -361,7 +443,7 @@ AppDialog {
                             readOnly: true
                             wrapMode: TextEdit.WrapAnywhere
                             text: root.technicalDetailsText
-                            font.family: "monospace"
+                            font.family: Theme.fontFamilyMonospace
                             font.pixelSize: Theme.fontSize("small")
                             implicitHeight: 120
                         }
@@ -370,37 +452,100 @@ AppDialog {
 
                 Rectangle {
                     Layout.fillWidth: true
-                    visible: !root.successState
-                    radius: Theme.radiusControl
-                    color: Theme.darkMode ? Qt.rgba(1, 1, 1, 0.06) : Qt.rgba(0, 0, 0, 0.045)
+                    visible: root.successState
+                    radius: Theme.radiusControlLarge
+                    color: Qt.rgba(0.16, 0.78, 0.25, Theme.darkMode ? 0.12 : 0.09)
                     border.width: Theme.borderWidthThin
-                    border.color: Theme.darkMode ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(0, 0, 0, 0.10)
-                    implicitHeight: shareSwitchRow.implicitHeight + 16
+                    border.color: Qt.rgba(0.16, 0.78, 0.25, 0.36)
+                    implicitHeight: successColumn.implicitHeight + 22
+
+                    ColumnLayout {
+                        id: successColumn
+                        anchors.fill: parent
+                        anchors.margins: 11
+                        spacing: 8
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 10
+
+                            Rectangle {
+                                Layout.preferredWidth: 28
+                                Layout.preferredHeight: 28
+                                radius: width / 2
+                                color: Theme.color("success")
+
+                                DSStyle.Label {
+                                    anchors.centerIn: parent
+                                    text: "OK"
+                                    color: Theme.color("accentText")
+                                    font.pixelSize: Theme.fontSize("tiny")
+                                    font.weight: Theme.fontWeight("semibold")
+                                }
+                            }
+
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 2
+
+                                DSStyle.Label {
+                                    Layout.fillWidth: true
+                                    text: "Folder is available on the local network"
+                                    color: Theme.color("textPrimary")
+                                    font.weight: Theme.fontWeight("semibold")
+                                }
+                                DSStyle.Label {
+                                    Layout.fillWidth: true
+                                    text: root.accessTitle() + " - " + root.permissionTitle()
+                                    color: Theme.color("textSecondary")
+                                    font.pixelSize: Theme.fontSize("small")
+                                    elide: Text.ElideRight
+                                }
+                            }
+                        }
+
+                        DSStyle.TextField {
+                            Layout.fillWidth: true
+                            readOnly: true
+                            selectByMouse: true
+                            text: String(root.successAddress || "-")
+                        }
+                    }
+                }
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    visible: !root.successState
+                    radius: Theme.radiusControlLarge
+                    color: Theme.darkMode ? Qt.rgba(1, 1, 1, 0.06) : Qt.rgba(0, 0, 0, 0.04)
+                    border.width: Theme.borderWidthThin
+                    border.color: Theme.darkMode ? Qt.rgba(1, 1, 1, 0.13) : Qt.rgba(0, 0, 0, 0.09)
+                    implicitHeight: shareSwitchRow.implicitHeight + 22
 
                     RowLayout {
                         id: shareSwitchRow
                         anchors.fill: parent
-                        anchors.leftMargin: 12
-                        anchors.rightMargin: 12
-                        anchors.topMargin: 8
-                        anchors.bottomMargin: 8
-                        spacing: 10
+                        anchors.margins: 11
+                        spacing: 12
 
                         ColumnLayout {
                             Layout.fillWidth: true
-                            spacing: 2
+                            spacing: 3
+
                             DSStyle.Label {
                                 Layout.fillWidth: true
                                 text: "Share this folder"
                                 color: Theme.color("textPrimary")
+                                font.weight: Theme.fontWeight("semibold")
                             }
                             DSStyle.Label {
                                 Layout.fillWidth: true
                                 text: root.sharingEnabled
-                                      ? "Visible on the local network"
-                                      : "Private until sharing is enabled"
+                                      ? "Devices on the same network can find it using the settings below."
+                                      : "Keep this folder private until sharing is turned on."
                                 color: Theme.color("textSecondary")
                                 font.pixelSize: Theme.fontSize("small")
+                                wrapMode: Text.WordWrap
                             }
                         }
 
@@ -413,19 +558,17 @@ AppDialog {
 
                 ColumnLayout {
                     visible: !root.successState && root.sharingEnabled
-                    spacing: 10
+                    spacing: 12
 
-                    GridLayout {
+                    ColumnLayout {
                         Layout.fillWidth: true
-                        columns: 2
-                        columnSpacing: 10
-                        rowSpacing: 6
+                        spacing: 6
 
                         DSStyle.Label {
-                            text: "Name:"
+                            Layout.fillWidth: true
+                            text: "Share name"
                             color: Theme.color("textPrimary")
-                            Layout.preferredWidth: 94
-                            horizontalAlignment: Text.AlignRight
+                            font.weight: Theme.fontWeight("semibold")
                         }
                         DSStyle.TextField {
                             Layout.fillWidth: true
@@ -433,8 +576,6 @@ AppDialog {
                             onTextChanged: root.shareName = text
                             placeholderText: hostRoot.basename(root.targetPath)
                         }
-
-                        Item { Layout.preferredWidth: 94 }
                         DSStyle.Label {
                             Layout.fillWidth: true
                             text: "This is the name other devices will see."
@@ -443,129 +584,318 @@ AppDialog {
                         }
                     }
 
-                    DSStyle.Label {
+                    ColumnLayout {
                         Layout.fillWidth: true
-                        text: "Access"
-                        color: Theme.color("textSecondary")
-                    }
+                        spacing: 8
 
-                    Rectangle {
-                        Layout.fillWidth: true
-                        radius: Theme.radiusControl
-                        color: Theme.darkMode ? Qt.rgba(1, 1, 1, 0.045) : Qt.rgba(0, 0, 0, 0.035)
-                        border.width: Theme.borderWidthThin
-                        border.color: Theme.darkMode ? Qt.rgba(1, 1, 1, 0.10) : Qt.rgba(0, 0, 0, 0.09)
-                        implicitHeight: accessColumn.implicitHeight + 8
+                        DSStyle.Label {
+                            Layout.fillWidth: true
+                            text: "Who can access"
+                            color: Theme.color("textPrimary")
+                            font.weight: Theme.fontWeight("semibold")
+                        }
 
-                        ButtonGroup { id: accessGroup }
-                        ColumnLayout {
-                            id: accessColumn
-                            anchors.left: parent.left
-                            anchors.right: parent.right
-                            anchors.top: parent.top
-                            anchors.margins: 4
-                            spacing: 0
+                        Rectangle {
+                            Layout.fillWidth: true
+                            radius: Theme.radiusControl
+                            color: root.accessMode === "owner"
+                                   ? Theme.color("accentSoft")
+                                   : (accessOwnerArea.containsMouse
+                                      ? Theme.color("controlBgHover")
+                                      : Theme.color("controlBg"))
+                            border.width: Theme.borderWidthThin
+                            border.color: root.accessMode === "owner" ? Theme.color("accent") : Theme.color("panelBorder")
+                            implicitHeight: accessOwnerRow.implicitHeight + 18
 
-                            DSStyle.RadioButton {
-                                Layout.fillWidth: true
-                                text: "Only me"
-                                checked: root.accessMode === "owner"
-                                ButtonGroup.group: accessGroup
-                                onToggled: if (checked) { root.accessMode = "owner" }
+                            RowLayout {
+                                id: accessOwnerRow
+                                anchors.fill: parent
+                                anchors.margins: 9
+                                spacing: 10
+
+                                Rectangle {
+                                    Layout.preferredWidth: 18
+                                    Layout.preferredHeight: 18
+                                    radius: width / 2
+                                    color: root.accessMode === "owner" ? Theme.color("accent") : "transparent"
+                                    border.width: Theme.borderWidthThin
+                                    border.color: root.accessMode === "owner" ? Theme.color("accent") : Theme.color("panelBorderStrong")
+                                }
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 1
+                                    DSStyle.Label {
+                                        Layout.fillWidth: true
+                                        text: "Only me"
+                                        color: Theme.color("textPrimary")
+                                    }
+                                    DSStyle.Label {
+                                        Layout.fillWidth: true
+                                        text: "Sharing stays limited to your account."
+                                        color: Theme.color("textSecondary")
+                                        font.pixelSize: Theme.fontSize("small")
+                                        wrapMode: Text.WordWrap
+                                    }
+                                }
                             }
-                            DSStyle.RadioButton {
-                                Layout.fillWidth: true
-                                text: "Anyone on this network"
-                                checked: root.accessMode === "anyone"
-                                ButtonGroup.group: accessGroup
-                                onToggled: if (checked) { root.accessMode = "anyone" }
+
+                            MouseArea {
+                                id: accessOwnerArea
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: root.accessMode = "owner"
                             }
-                            DSStyle.Label {
-                                visible: root.accessMode === "anyone"
-                                Layout.fillWidth: true
-                                Layout.leftMargin: 34
-                                Layout.rightMargin: 10
-                                Layout.bottomMargin: 6
-                                text: "Use this only on a network you trust."
-                                color: Theme.color("warning")
-                                wrapMode: Text.WordWrap
-                                font.pixelSize: Theme.fontSize("small")
-                            }
-                            DSStyle.RadioButton {
-                                Layout.fillWidth: true
-                                text: "Specific users"
-                                checked: root.accessMode === "users"
-                                ButtonGroup.group: accessGroup
-                                onToggled: if (checked) { root.accessMode = "users" }
-                            }
-                            DSStyle.TextField {
-                                Layout.fillWidth: true
-                                Layout.leftMargin: 34
-                                Layout.rightMargin: 10
-                                Layout.bottomMargin: 8
-                                visible: root.accessMode === "users"
-                                placeholderText: "Separate user names with commas"
-                                text: (root.selectedUsers || []).join(", ")
-                                onTextChanged: {
-                                    var out = []
-                                    var raw = String(text || "").split(",")
-                                    for (var i = 0; i < raw.length; ++i) {
-                                        var v = String(raw[i] || "").trim()
-                                        if (v.length > 0) {
-                                            out.push(v)
+                        }
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            radius: Theme.radiusControl
+                            color: root.accessMode === "anyone"
+                                   ? Theme.color("accentSoft")
+                                   : (accessAnyoneArea.containsMouse
+                                      ? Theme.color("controlBgHover")
+                                      : Theme.color("controlBg"))
+                            border.width: Theme.borderWidthThin
+                            border.color: root.accessMode === "anyone" ? Theme.color("accent") : Theme.color("panelBorder")
+                            implicitHeight: accessAnyoneColumn.implicitHeight + 18
+
+                            ColumnLayout {
+                                id: accessAnyoneColumn
+                                anchors.fill: parent
+                                anchors.margins: 9
+                                spacing: 6
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 10
+                                    Rectangle {
+                                        Layout.preferredWidth: 18
+                                        Layout.preferredHeight: 18
+                                        radius: width / 2
+                                        color: root.accessMode === "anyone" ? Theme.color("accent") : "transparent"
+                                        border.width: Theme.borderWidthThin
+                                        border.color: root.accessMode === "anyone" ? Theme.color("accent") : Theme.color("panelBorderStrong")
+                                    }
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 1
+                                        DSStyle.Label {
+                                            Layout.fillWidth: true
+                                            text: "Anyone on this network"
+                                            color: Theme.color("textPrimary")
+                                        }
+                                        DSStyle.Label {
+                                            Layout.fillWidth: true
+                                            text: "Simple for trusted home or studio networks."
+                                            color: Theme.color("textSecondary")
+                                            font.pixelSize: Theme.fontSize("small")
+                                            wrapMode: Text.WordWrap
                                         }
                                     }
-                                    root.selectedUsers = out
+                                }
+
+                                DSStyle.Label {
+                                    Layout.fillWidth: true
+                                    visible: root.accessMode === "anyone"
+                                    Layout.leftMargin: 28
+                                    text: "Use only on networks you trust."
+                                    color: Theme.color("warning")
+                                    font.pixelSize: Theme.fontSize("small")
+                                    wrapMode: Text.WordWrap
+                                }
+                            }
+
+                            MouseArea {
+                                id: accessAnyoneArea
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: root.accessMode = "anyone"
+                            }
+                        }
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            radius: Theme.radiusControl
+                            color: root.accessMode === "users"
+                                   ? Theme.color("accentSoft")
+                                   : (accessUsersArea.containsMouse
+                                      ? Theme.color("controlBgHover")
+                                      : Theme.color("controlBg"))
+                            border.width: Theme.borderWidthThin
+                            border.color: root.accessMode === "users" ? Theme.color("accent") : Theme.color("panelBorder")
+                            implicitHeight: accessUsersColumn.implicitHeight + 18
+
+                            ColumnLayout {
+                                id: accessUsersColumn
+                                anchors.fill: parent
+                                anchors.margins: 9
+                                spacing: 8
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 10
+                                    Rectangle {
+                                        Layout.preferredWidth: 18
+                                        Layout.preferredHeight: 18
+                                        radius: width / 2
+                                        color: root.accessMode === "users" ? Theme.color("accent") : "transparent"
+                                        border.width: Theme.borderWidthThin
+                                        border.color: root.accessMode === "users" ? Theme.color("accent") : Theme.color("panelBorderStrong")
+                                    }
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 1
+                                        DSStyle.Label {
+                                            Layout.fillWidth: true
+                                            text: "Specific users"
+                                            color: Theme.color("textPrimary")
+                                        }
+                                        DSStyle.Label {
+                                            Layout.fillWidth: true
+                                            text: "Limit access to selected user names."
+                                            color: Theme.color("textSecondary")
+                                            font.pixelSize: Theme.fontSize("small")
+                                            wrapMode: Text.WordWrap
+                                        }
+                                    }
+                                }
+
+                                DSStyle.TextField {
+                                    Layout.fillWidth: true
+                                    Layout.leftMargin: 28
+                                    visible: root.accessMode === "users"
+                                    placeholderText: "User names, separated by commas"
+                                    text: (root.selectedUsers || []).join(", ")
+                                    onTextChanged: {
+                                        var out = []
+                                        var raw = String(text || "").split(",")
+                                        for (var i = 0; i < raw.length; ++i) {
+                                            var v = String(raw[i] || "").trim()
+                                            if (v.length > 0) {
+                                                out.push(v)
+                                            }
+                                        }
+                                        root.selectedUsers = out
+                                    }
+                                }
+                            }
+
+                            MouseArea {
+                                id: accessUsersArea
+                                anchors.fill: parent
+                                visible: root.accessMode !== "users"
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: root.accessMode = "users"
+                            }
+                        }
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+
+                        DSStyle.Label {
+                            Layout.fillWidth: true
+                            text: "Permission"
+                            color: Theme.color("textPrimary")
+                            font.weight: Theme.fontWeight("semibold")
+                        }
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            radius: Theme.radiusControl
+                            color: Theme.color("controlBg")
+                            border.width: Theme.borderWidthThin
+                            border.color: Theme.color("panelBorder")
+                            implicitHeight: 38
+
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.margins: 4
+                                spacing: 4
+
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    Layout.fillHeight: true
+                                    radius: Theme.radiusMd
+                                    color: root.permissionMode === "read" ? Theme.color("accent") : "transparent"
+
+                                    DSStyle.Label {
+                                        anchors.centerIn: parent
+                                        text: "Read only"
+                                        color: root.permissionMode === "read" ? Theme.color("accentText") : Theme.color("textPrimary")
+                                        font.pixelSize: Theme.fontSize("small")
+                                        font.weight: Theme.fontWeight("semibold")
+                                    }
+
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: root.permissionMode = "read"
+                                    }
+                                }
+
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    Layout.fillHeight: true
+                                    radius: Theme.radiusMd
+                                    color: root.permissionMode === "write" ? Theme.color("accent") : "transparent"
+
+                                    DSStyle.Label {
+                                        anchors.centerIn: parent
+                                        text: "Can make changes"
+                                        color: root.permissionMode === "write" ? Theme.color("accentText") : Theme.color("textPrimary")
+                                        font.pixelSize: Theme.fontSize("small")
+                                        font.weight: Theme.fontWeight("semibold")
+                                    }
+
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: root.permissionMode = "write"
+                                    }
                                 }
                             }
                         }
-                    }
 
-                    GridLayout {
-                        Layout.fillWidth: true
-                        columns: 2
-                        columnSpacing: 10
-                        rowSpacing: 6
-
-                        DSStyle.Label {
-                            text: "Permission:"
-                            color: Theme.color("textPrimary")
-                            Layout.preferredWidth: 94
-                            horizontalAlignment: Text.AlignRight
-                        }
-
-                        RowLayout {
+                        Rectangle {
                             Layout.fillWidth: true
-                            spacing: 10
-                            ButtonGroup { id: permissionGroup }
-                            DSStyle.RadioButton {
-                                text: "Read only"
-                                checked: root.permissionMode === "read"
-                                ButtonGroup.group: permissionGroup
-                                onToggled: if (checked) { root.permissionMode = "read" }
-                            }
-                            DSStyle.RadioButton {
-                                text: "Can make changes"
-                                checked: root.permissionMode === "write"
-                                ButtonGroup.group: permissionGroup
-                                onToggled: if (checked) { root.permissionMode = "write" }
-                            }
-                        }
+                            radius: Theme.radiusControl
+                            color: Theme.darkMode ? Qt.rgba(1, 1, 1, 0.045) : Qt.rgba(0, 0, 0, 0.03)
+                            border.width: Theme.borderWidthThin
+                            border.color: Theme.darkMode ? Qt.rgba(1, 1, 1, 0.10) : Qt.rgba(0, 0, 0, 0.08)
+                            implicitHeight: guestRow.implicitHeight + 18
 
-                        Item { Layout.preferredWidth: 94 }
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            spacing: 2
-                            DSStyle.CheckBox {
-                                checked: root.allowGuest
-                                text: "Allow guest access"
-                                onToggled: root.allowGuest = checked
-                            }
-                            DSStyle.Label {
-                                Layout.fillWidth: true
-                                text: "Best for trusted home or studio networks."
-                                color: Theme.color("textSecondary")
-                                font.pixelSize: Theme.fontSize("small")
+                            RowLayout {
+                                id: guestRow
+                                anchors.fill: parent
+                                anchors.margins: 9
+                                spacing: 10
+
+                                DSStyle.CheckBox {
+                                    checked: root.allowGuest
+                                    onToggled: root.allowGuest = checked
+                                }
+
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 2
+                                    DSStyle.Label {
+                                        Layout.fillWidth: true
+                                        text: "Allow guest access"
+                                        color: Theme.color("textPrimary")
+                                    }
+                                    DSStyle.Label {
+                                        Layout.fillWidth: true
+                                        text: "Guests can connect without a user account."
+                                        color: Theme.color("textSecondary")
+                                        font.pixelSize: Theme.fontSize("small")
+                                        wrapMode: Text.WordWrap
+                                    }
+                                }
                             }
                         }
                     }
@@ -573,48 +903,25 @@ AppDialog {
 
                 Rectangle {
                     Layout.fillWidth: true
-                    visible: root.successState
-                    radius: Theme.radiusControl
-                    color: Theme.darkMode ? Qt.rgba(1, 1, 1, 0.06) : Qt.rgba(0, 0, 0, 0.045)
-                    border.width: Theme.borderWidthThin
-                    border.color: Theme.darkMode ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(0, 0, 0, 0.10)
-                    implicitHeight: successColumn.implicitHeight + 20
-
-                    ColumnLayout {
-                        id: successColumn
-                        anchors.fill: parent
-                        anchors.margins: 10
-                        spacing: 6
-
-                        DSStyle.Label {
-                            Layout.fillWidth: true
-                            text: "Network Address"
-                            color: Theme.color("textSecondary")
-                        }
-
-                        DSStyle.TextField {
-                            Layout.fillWidth: true
-                            readOnly: true
-                            selectByMouse: true
-                            text: String(root.successAddress || "-")
-                        }
-
-                        DSStyle.Label {
-                            Layout.fillWidth: true
-                            text: "Open this address from Finder, Windows Explorer, or another file manager on the same network."
-                            color: Theme.color("textSecondary")
-                            wrapMode: Text.WordWrap
-                            font.pixelSize: Theme.fontSize("small")
-                        }
-                    }
-                }
-
-                DSStyle.Label {
-                    Layout.fillWidth: true
                     visible: String(root.errorText || "").length > 0
-                    text: root.errorText
-                    color: Theme.color("error")
-                    wrapMode: Text.WordWrap
+                    radius: Theme.radiusControl
+                    color: Qt.rgba(0.82, 0.29, 0.29, Theme.darkMode ? 0.13 : 0.09)
+                    border.width: Theme.borderWidthThin
+                    border.color: Qt.rgba(0.82, 0.29, 0.29, 0.34)
+                    implicitHeight: errorLabel.implicitHeight + 18
+
+                    DSStyle.Label {
+                        id: errorLabel
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.leftMargin: 10
+                        anchors.rightMargin: 10
+                        text: root.errorText
+                        color: Theme.color("error")
+                        wrapMode: Text.WordWrap
+                        font.pixelSize: Theme.fontSize("small")
+                    }
                 }
             }
         }
@@ -632,16 +939,6 @@ AppDialog {
             }
             DSStyle.Button {
                 visible: successState
-                text: "Done"
-                onClicked: root.close()
-            }
-            DSStyle.Button {
-                visible: successState
-                text: "Copy Address"
-                onClicked: root.hostRoot.copyFolderShareAddress(root.targetPath)
-            }
-            DSStyle.Button {
-                visible: successState
                 text: "Stop Sharing"
                 onClicked: {
                     var res = root.hostRoot.disableFolderShare(root.targetPath)
@@ -654,9 +951,20 @@ AppDialog {
                 }
             }
             DSStyle.Button {
+                visible: successState
+                text: "Done"
+                onClicked: root.close()
+            }
+            DSStyle.Button {
+                visible: successState
+                text: "Copy Address"
+                defaultAction: true
+                onClicked: root.hostRoot.copyFolderShareAddress(root.targetPath)
+            }
+            DSStyle.Button {
                 visible: !successState
-                highlighted: true
-                text: root.sharingEnabled ? "Share" : "Done"
+                defaultAction: true
+                text: root.sharingEnabled ? "Start Sharing" : "Save"
                 onClicked: {
                     root.errorText = ""
                     if (!!root.sharingEnabled) {
