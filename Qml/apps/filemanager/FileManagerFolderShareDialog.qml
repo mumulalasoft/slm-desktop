@@ -198,13 +198,13 @@ AppDialog {
         return mapped
     }
 
-    title: "Bagikan folder di jaringan"
+    title: "Share Folder"
     standardButtons: Dialog.NoButton
-    dialogWidth: 560
+    dialogWidth: 540
     property real maxBodyHeight: Math.max(260, Math.min((hostRoot ? hostRoot.height : 720) - 250, 520))
     x: Math.round((hostRoot.width - width) * 0.5)
     y: Math.round((hostRoot.height - height) * 0.5)
-    bodyPadding: 14
+    bodyPadding: 12
     footerPadding: 12
 
     bodyComponent: Component {
@@ -224,290 +224,388 @@ AppDialog {
             ColumnLayout {
                 id: contentColumn
                 width: bodyFlick.width
-                spacing: 10
+                spacing: 12
 
                 DSStyle.Label {
                     Layout.fillWidth: true
-                    text: successState
-                          ? "Folder sekarang dibagikan di jaringan"
-                          : "Perangkat lain di jaringan lokal dapat membuka folder ini."
+                    text: root.targetPath
+                          ? hostRoot.basename(root.targetPath)
+                          : "Folder"
+                    color: Theme.color("textPrimary")
+                    font.pixelSize: Theme.fontSize("title")
+                    elide: Text.ElideMiddle
+                }
+
+                DSStyle.Label {
+                    Layout.fillWidth: true
+                    text: root.successState
+                          ? "Folder ini tersedia untuk perangkat lain di jaringan lokal."
+                          : "Atur nama, akses, dan izin sebelum folder terlihat di jaringan."
                     wrapMode: Text.WordWrap
                     color: Theme.color("textSecondary")
+                    font.pixelSize: Theme.fontSize("small")
                 }
 
                 Rectangle {
                     Layout.fillWidth: true
-                    visible: !successState && !envReady
+                    visible: !root.successState && !root.envReady
                     radius: Theme.radiusMd
                     color: Qt.rgba(1.0, 0.76, 0.0, 0.12)
                     border.width: Theme.borderWidthThin
                     border.color: Qt.rgba(1.0, 0.76, 0.0, 0.45)
                     implicitHeight: warningCol.implicitHeight + 14
 
-                ColumnLayout {
-                    id: warningCol
-                    anchors.fill: parent
-                    anchors.margins: 7
-                    spacing: 6
+                    ColumnLayout {
+                        id: warningCol
+                        anchors.fill: parent
+                        anchors.margins: 7
+                        spacing: 6
 
-                    MissingComponentsCard {
-                        Layout.fillWidth: true
-                        issues: root.missingComponentIssues()
-                        summaryText: root.envMessage.length > 0
-                                     ? root.envMessage
-                                     : "Berbagi jaringan belum siap."
-                        showPackageName: true
-                        busy: root.installInProgress
-                        statusText: root.installStatusText
-                        cardColor: Qt.rgba(1, 1, 1, 0.06)
-                        cardBorderColor: Qt.rgba(1, 1, 1, 0.25)
-                        titleColor: Theme.color("textPrimary")
-                        detailColor: Theme.color("textSecondary")
-                        statusColor: Theme.color("textSecondary")
-                        onInstallRequested: function(componentId) {
-                            root.installInProgress = true
-                            root.installStatusText = ""
-                            var installRes = root.hostRoot.installMissingComponent(componentId)
-                            root.installInProgress = false
-                            if (!!installRes && !!installRes.ok) {
-                                root.installStatusText = "Komponen berhasil dipasang. Memeriksa ulang..."
-                                root.refreshEnvironmentStatus()
-                                if (root.envReady) {
-                                    root.errorText = ""
-                                }
-                            } else {
-                                root.installStatusText = root.friendlyError(installRes, "Gagal memasang komponen")
-                                root.errorText = root.installStatusText
-                            }
-                        }
-                    }
-
-                    RowLayout {
-                        spacing: 8
-                        DSStyle.Button {
-                            text: "Periksa lagi"
-                            onClicked: root.refreshEnvironmentStatus()
-                        }
-                        DSStyle.Button {
-                            text: "Perbaiki otomatis"
-                            onClicked: {
-                                var res = root.hostRoot.repairFolderSharingEnvironment()
-                                root.envReady = !!res.ready
-                                root.envIssues = res.issues || []
-                                if (!root.envReady) {
-                                    if (root.envIssues.length > 0) {
-                                        root.errorText = String(root.envIssues[0].message || "Berbagi jaringan belum siap.")
-                                    } else {
-                                        root.errorText = root.friendlyError(res, "Berbagi jaringan belum siap.")
+                        MissingComponentsCard {
+                            Layout.fillWidth: true
+                            issues: root.missingComponentIssues()
+                            summaryText: root.envMessage.length > 0
+                                         ? root.envMessage
+                                         : "Berbagi jaringan belum siap."
+                            showPackageName: true
+                            busy: root.installInProgress
+                            statusText: root.installStatusText
+                            cardColor: Qt.rgba(1, 1, 1, 0.06)
+                            cardBorderColor: Qt.rgba(1, 1, 1, 0.25)
+                            titleColor: Theme.color("textPrimary")
+                            detailColor: Theme.color("textSecondary")
+                            statusColor: Theme.color("textSecondary")
+                            onInstallRequested: function(componentId) {
+                                root.installInProgress = true
+                                root.installStatusText = ""
+                                var installRes = root.hostRoot.installMissingComponent(componentId)
+                                root.installInProgress = false
+                                if (!!installRes && !!installRes.ok) {
+                                    root.installStatusText = "Komponen berhasil dipasang. Memeriksa ulang..."
+                                    root.refreshEnvironmentStatus()
+                                    if (root.envReady) {
+                                        root.errorText = ""
                                     }
-                                    var lines = []
-                                    if (String(res.error || "").length > 0) {
-                                        lines.push("error: " + String(res.error))
-                                    }
-                                    var actions = res.actions || []
-                                    for (var j = 0; j < actions.length; ++j) {
-                                        var action = actions[j] || ({})
-                                        lines.push("action[" + j + "]: "
-                                                   + String(action.id || "unknown")
-                                                   + " ok=" + String(!!action.ok)
-                                                   + " msg=" + String(action.message || ""))
-                                    }
-                                    for (var k = 0; k < root.envIssues.length; ++k) {
-                                        var issue = root.envIssues[k] || ({})
-                                        lines.push("issue[" + k + "]: "
-                                                   + String(issue.code || "unknown")
-                                                   + " - "
-                                                   + String(issue.message || ""))
-                                    }
-                                    root.technicalDetailsText = lines.join("\n")
                                 } else {
-                                    root.errorText = ""
-                                    root.envMessage = ""
-                                    root.technicalDetailsText = ""
-                                    root.showTechnicalDetails = false
+                                    root.installStatusText = root.friendlyError(installRes, "Gagal memasang komponen")
+                                    root.errorText = root.installStatusText
                                 }
                             }
                         }
-                    }
 
-                    DSStyle.Label {
-                        Layout.fillWidth: true
-                        text: root.showTechnicalDetails ? "Sembunyikan detail teknis" : "Tampilkan detail teknis"
-                        color: Theme.color("accent")
-                        font.pixelSize: Theme.fontSize("small")
-                        visible: root.technicalDetailsText.length > 0
-
-                        MouseArea {
-                            anchors.fill: parent
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: root.showTechnicalDetails = !root.showTechnicalDetails
+                        RowLayout {
+                            spacing: 8
+                            DSStyle.Button {
+                                text: "Periksa lagi"
+                                onClicked: root.refreshEnvironmentStatus()
+                            }
+                            DSStyle.Button {
+                                text: "Perbaiki otomatis"
+                                onClicked: {
+                                    var res = root.hostRoot.repairFolderSharingEnvironment()
+                                    root.envReady = !!res.ready
+                                    root.envIssues = res.issues || []
+                                    if (!root.envReady) {
+                                        if (root.envIssues.length > 0) {
+                                            root.errorText = String(root.envIssues[0].message || "Berbagi jaringan belum siap.")
+                                        } else {
+                                            root.errorText = root.friendlyError(res, "Berbagi jaringan belum siap.")
+                                        }
+                                        var lines = []
+                                        if (String(res.error || "").length > 0) {
+                                            lines.push("error: " + String(res.error))
+                                        }
+                                        var actions = res.actions || []
+                                        for (var j = 0; j < actions.length; ++j) {
+                                            var action = actions[j] || ({})
+                                            lines.push("action[" + j + "]: "
+                                                       + String(action.id || "unknown")
+                                                       + " ok=" + String(!!action.ok)
+                                                       + " msg=" + String(action.message || ""))
+                                        }
+                                        for (var k = 0; k < root.envIssues.length; ++k) {
+                                            var issue = root.envIssues[k] || ({})
+                                            lines.push("issue[" + k + "]: "
+                                                       + String(issue.code || "unknown")
+                                                       + " - "
+                                                       + String(issue.message || ""))
+                                        }
+                                        root.technicalDetailsText = lines.join("\n")
+                                    } else {
+                                        root.errorText = ""
+                                        root.envMessage = ""
+                                        root.technicalDetailsText = ""
+                                        root.showTechnicalDetails = false
+                                    }
+                                }
+                            }
                         }
-                    }
 
-                    TextArea {
-                        Layout.fillWidth: true
-                        visible: root.showTechnicalDetails && root.technicalDetailsText.length > 0
-                        readOnly: true
-                        wrapMode: TextEdit.WrapAnywhere
-                        text: root.technicalDetailsText
-                        font.family: "monospace"
-                        font.pixelSize: Theme.fontSize("small")
-                        implicitHeight: 120
+                        DSStyle.Label {
+                            Layout.fillWidth: true
+                            text: root.showTechnicalDetails ? "Sembunyikan detail teknis" : "Tampilkan detail teknis"
+                            color: Theme.color("accent")
+                            font.pixelSize: Theme.fontSize("small")
+                            visible: root.technicalDetailsText.length > 0
+
+                            MouseArea {
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: root.showTechnicalDetails = !root.showTechnicalDetails
+                            }
+                        }
+
+                        TextArea {
+                            Layout.fillWidth: true
+                            visible: root.showTechnicalDetails && root.technicalDetailsText.length > 0
+                            readOnly: true
+                            wrapMode: TextEdit.WrapAnywhere
+                            text: root.technicalDetailsText
+                            font.family: "monospace"
+                            font.pixelSize: Theme.fontSize("small")
+                            implicitHeight: 120
+                        }
                     }
                 }
-            }
 
                 Rectangle {
                     Layout.fillWidth: true
-                    visible: !successState
-                    radius: Theme.radiusMd
-                    color: Theme.color("fileManagerSearchBg")
+                    visible: !root.successState
+                    radius: Theme.radiusControl
+                    color: Theme.darkMode ? Qt.rgba(1, 1, 1, 0.06) : Qt.rgba(0, 0, 0, 0.045)
                     border.width: Theme.borderWidthThin
-                    border.color: Theme.color("fileManagerControlBorder")
-                    implicitHeight: 44
+                    border.color: Theme.darkMode ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(0, 0, 0, 0.10)
+                    implicitHeight: shareSwitchRow.implicitHeight + 16
 
-                RowLayout {
-                    anchors.fill: parent
-                    anchors.leftMargin: 10
-                    anchors.rightMargin: 10
+                    RowLayout {
+                        id: shareSwitchRow
+                        anchors.fill: parent
+                        anchors.leftMargin: 12
+                        anchors.rightMargin: 12
+                        anchors.topMargin: 8
+                        anchors.bottomMargin: 8
+                        spacing: 10
 
-                    DSStyle.Label {
-                        Layout.fillWidth: true
-                        text: "Bagikan folder ini"
-                        color: Theme.color("textPrimary")
-                    }
-                    DSStyle.Switch {
-                        checked: root.sharingEnabled
-                        onToggled: root.sharingEnabled = checked
-                    }
-                }
-            }
-
-                ColumnLayout {
-                    visible: !successState && root.sharingEnabled
-                    spacing: 8
-
-                DSStyle.Label {
-                    text: "Nama folder di jaringan"
-                    color: Theme.color("textPrimary")
-                }
-                DSStyle.TextField {
-                    Layout.fillWidth: true
-                    text: root.shareName
-                    onTextChanged: root.shareName = text
-                    placeholderText: hostRoot.basename(root.targetPath)
-                }
-                DSStyle.Label {
-                    Layout.fillWidth: true
-                    text: "Nama ini akan terlihat dari perangkat lain"
-                    color: Theme.color("textSecondary")
-                    font.pixelSize: Theme.fontSize("small")
-                }
-
-                DSStyle.Label {
-                    text: "Akses"
-                    color: Theme.color("textPrimary")
-                    topPadding: 4
-                }
-                ButtonGroup { id: accessGroup }
-                DSStyle.RadioButton {
-                    text: "Hanya saya"
-                    checked: root.accessMode === "owner"
-                    ButtonGroup.group: accessGroup
-                    onToggled: if (checked) { root.accessMode = "owner" }
-                }
-                DSStyle.RadioButton {
-                    text: "Siapa pun di jaringan ini"
-                    checked: root.accessMode === "anyone"
-                    ButtonGroup.group: accessGroup
-                    onToggled: if (checked) { root.accessMode = "anyone" }
-                }
-                DSStyle.Label {
-                    visible: root.accessMode === "anyone"
-                    Layout.fillWidth: true
-                    text: "Siapa pun di jaringan ini dapat membuka folder ini. Pastikan Anda mempercayai jaringan yang digunakan."
-                    color: Theme.color("warning")
-                    wrapMode: Text.WordWrap
-                    font.pixelSize: Theme.fontSize("small")
-                }
-                DSStyle.RadioButton {
-                    text: "Pengguna tertentu"
-                    checked: root.accessMode === "users"
-                    ButtonGroup.group: accessGroup
-                    onToggled: if (checked) { root.accessMode = "users" }
-                }
-                DSStyle.TextField {
-                    Layout.fillWidth: true
-                    visible: root.accessMode === "users"
-                    placeholderText: "Pisahkan nama pengguna dengan koma"
-                    text: (root.selectedUsers || []).join(", ")
-                    onTextChanged: {
-                        var out = []
-                        var raw = String(text || "").split(",")
-                        for (var i = 0; i < raw.length; ++i) {
-                            var v = String(raw[i] || "").trim()
-                            if (v.length > 0) {
-                                out.push(v)
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 2
+                            DSStyle.Label {
+                                Layout.fillWidth: true
+                                text: "Share this folder"
+                                color: Theme.color("textPrimary")
+                            }
+                            DSStyle.Label {
+                                Layout.fillWidth: true
+                                text: root.sharingEnabled
+                                      ? "Visible on the local network"
+                                      : "Private until sharing is enabled"
+                                color: Theme.color("textSecondary")
+                                font.pixelSize: Theme.fontSize("small")
                             }
                         }
-                        root.selectedUsers = out
+
+                        DSStyle.Switch {
+                            checked: root.sharingEnabled
+                            onToggled: root.sharingEnabled = checked
+                        }
                     }
                 }
-
-                DSStyle.Label {
-                    text: "Izin"
-                    color: Theme.color("textPrimary")
-                    topPadding: 4
-                }
-                ButtonGroup { id: permissionGroup }
-                DSStyle.RadioButton {
-                    text: "Hanya lihat"
-                    checked: root.permissionMode === "read"
-                    ButtonGroup.group: permissionGroup
-                    onToggled: if (checked) { root.permissionMode = "read" }
-                }
-                DSStyle.RadioButton {
-                    text: "Bisa mengubah file"
-                    checked: root.permissionMode === "write"
-                    ButtonGroup.group: permissionGroup
-                    onToggled: if (checked) { root.permissionMode = "write" }
-                }
-
-                DSStyle.CheckBox {
-                    checked: root.allowGuest
-                    text: "Izinkan akses tanpa login"
-                    onToggled: root.allowGuest = checked
-                }
-                DSStyle.Label {
-                    Layout.fillWidth: true
-                    text: "Cocok untuk jaringan rumah yang dipercaya"
-                    color: Theme.color("textSecondary")
-                    font.pixelSize: Theme.fontSize("small")
-                }
-
-                DSStyle.Label {
-                    Layout.fillWidth: true
-                    text: "Pengaturan lanjutan"
-                    color: Theme.color("accent")
-                    font.pixelSize: Theme.fontSize("small")
-                    opacity: 0.9
-                }
-            }
 
                 ColumnLayout {
-                    visible: successState
-                    spacing: 8
-                    DSStyle.Label {
+                    visible: !root.successState && root.sharingEnabled
+                    spacing: 10
+
+                    GridLayout {
                         Layout.fillWidth: true
-                        text: "Alamat folder: " + String(root.successAddress || "-")
-                        color: Theme.color("textPrimary")
-                        wrapMode: Text.WrapAnywhere
+                        columns: 2
+                        columnSpacing: 10
+                        rowSpacing: 6
+
+                        DSStyle.Label {
+                            text: "Name:"
+                            color: Theme.color("textPrimary")
+                            Layout.preferredWidth: 94
+                            horizontalAlignment: Text.AlignRight
+                        }
+                        DSStyle.TextField {
+                            Layout.fillWidth: true
+                            text: root.shareName
+                            onTextChanged: root.shareName = text
+                            placeholderText: hostRoot.basename(root.targetPath)
+                        }
+
+                        Item { Layout.preferredWidth: 94 }
+                        DSStyle.Label {
+                            Layout.fillWidth: true
+                            text: "This is the name other devices will see."
+                            color: Theme.color("textSecondary")
+                            font.pixelSize: Theme.fontSize("small")
+                        }
                     }
+
                     DSStyle.Label {
                         Layout.fillWidth: true
-                        text: "Buka dari Windows Explorer, Finder, atau file manager Linux lain di jaringan yang sama."
+                        text: "Access"
                         color: Theme.color("textSecondary")
-                        wrapMode: Text.WordWrap
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        radius: Theme.radiusControl
+                        color: Theme.darkMode ? Qt.rgba(1, 1, 1, 0.045) : Qt.rgba(0, 0, 0, 0.035)
+                        border.width: Theme.borderWidthThin
+                        border.color: Theme.darkMode ? Qt.rgba(1, 1, 1, 0.10) : Qt.rgba(0, 0, 0, 0.09)
+                        implicitHeight: accessColumn.implicitHeight + 8
+
+                        ButtonGroup { id: accessGroup }
+                        ColumnLayout {
+                            id: accessColumn
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.top: parent.top
+                            anchors.margins: 4
+                            spacing: 0
+
+                            DSStyle.RadioButton {
+                                Layout.fillWidth: true
+                                text: "Only me"
+                                checked: root.accessMode === "owner"
+                                ButtonGroup.group: accessGroup
+                                onToggled: if (checked) { root.accessMode = "owner" }
+                            }
+                            DSStyle.RadioButton {
+                                Layout.fillWidth: true
+                                text: "Anyone on this network"
+                                checked: root.accessMode === "anyone"
+                                ButtonGroup.group: accessGroup
+                                onToggled: if (checked) { root.accessMode = "anyone" }
+                            }
+                            DSStyle.Label {
+                                visible: root.accessMode === "anyone"
+                                Layout.fillWidth: true
+                                Layout.leftMargin: 34
+                                Layout.rightMargin: 10
+                                Layout.bottomMargin: 6
+                                text: "Use this only on a network you trust."
+                                color: Theme.color("warning")
+                                wrapMode: Text.WordWrap
+                                font.pixelSize: Theme.fontSize("small")
+                            }
+                            DSStyle.RadioButton {
+                                Layout.fillWidth: true
+                                text: "Specific users"
+                                checked: root.accessMode === "users"
+                                ButtonGroup.group: accessGroup
+                                onToggled: if (checked) { root.accessMode = "users" }
+                            }
+                            DSStyle.TextField {
+                                Layout.fillWidth: true
+                                Layout.leftMargin: 34
+                                Layout.rightMargin: 10
+                                Layout.bottomMargin: 8
+                                visible: root.accessMode === "users"
+                                placeholderText: "Separate user names with commas"
+                                text: (root.selectedUsers || []).join(", ")
+                                onTextChanged: {
+                                    var out = []
+                                    var raw = String(text || "").split(",")
+                                    for (var i = 0; i < raw.length; ++i) {
+                                        var v = String(raw[i] || "").trim()
+                                        if (v.length > 0) {
+                                            out.push(v)
+                                        }
+                                    }
+                                    root.selectedUsers = out
+                                }
+                            }
+                        }
+                    }
+
+                    GridLayout {
+                        Layout.fillWidth: true
+                        columns: 2
+                        columnSpacing: 10
+                        rowSpacing: 6
+
+                        DSStyle.Label {
+                            text: "Permission:"
+                            color: Theme.color("textPrimary")
+                            Layout.preferredWidth: 94
+                            horizontalAlignment: Text.AlignRight
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 10
+                            ButtonGroup { id: permissionGroup }
+                            DSStyle.RadioButton {
+                                text: "Read only"
+                                checked: root.permissionMode === "read"
+                                ButtonGroup.group: permissionGroup
+                                onToggled: if (checked) { root.permissionMode = "read" }
+                            }
+                            DSStyle.RadioButton {
+                                text: "Can make changes"
+                                checked: root.permissionMode === "write"
+                                ButtonGroup.group: permissionGroup
+                                onToggled: if (checked) { root.permissionMode = "write" }
+                            }
+                        }
+
+                        Item { Layout.preferredWidth: 94 }
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 2
+                            DSStyle.CheckBox {
+                                checked: root.allowGuest
+                                text: "Allow guest access"
+                                onToggled: root.allowGuest = checked
+                            }
+                            DSStyle.Label {
+                                Layout.fillWidth: true
+                                text: "Best for trusted home or studio networks."
+                                color: Theme.color("textSecondary")
+                                font.pixelSize: Theme.fontSize("small")
+                            }
+                        }
+                    }
+                }
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    visible: root.successState
+                    radius: Theme.radiusControl
+                    color: Theme.darkMode ? Qt.rgba(1, 1, 1, 0.06) : Qt.rgba(0, 0, 0, 0.045)
+                    border.width: Theme.borderWidthThin
+                    border.color: Theme.darkMode ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(0, 0, 0, 0.10)
+                    implicitHeight: successColumn.implicitHeight + 20
+
+                    ColumnLayout {
+                        id: successColumn
+                        anchors.fill: parent
+                        anchors.margins: 10
+                        spacing: 6
+
+                        DSStyle.Label {
+                            Layout.fillWidth: true
+                            text: "Network Address"
+                            color: Theme.color("textSecondary")
+                        }
+
+                        DSStyle.TextField {
+                            Layout.fillWidth: true
+                            readOnly: true
+                            selectByMouse: true
+                            text: String(root.successAddress || "-")
+                        }
+
+                        DSStyle.Label {
+                            Layout.fillWidth: true
+                            text: "Open this address from Finder, Windows Explorer, or another file manager on the same network."
+                            color: Theme.color("textSecondary")
+                            wrapMode: Text.WordWrap
+                            font.pixelSize: Theme.fontSize("small")
+                        }
                     }
                 }
 
@@ -529,22 +627,22 @@ AppDialog {
 
             DSStyle.Button {
                 visible: !successState
-                text: "Batal"
+                text: "Cancel"
                 onClicked: root.close()
             }
             DSStyle.Button {
                 visible: successState
-                text: "Tutup"
+                text: "Done"
                 onClicked: root.close()
             }
             DSStyle.Button {
                 visible: successState
-                text: "Salin alamat"
+                text: "Copy Address"
                 onClicked: root.hostRoot.copyFolderShareAddress(root.targetPath)
             }
             DSStyle.Button {
                 visible: successState
-                text: "Hentikan berbagi"
+                text: "Stop Sharing"
                 onClicked: {
                     var res = root.hostRoot.disableFolderShare(root.targetPath)
                     if (!!res && !!res.ok) {
@@ -558,7 +656,7 @@ AppDialog {
             DSStyle.Button {
                 visible: !successState
                 highlighted: true
-                text: "Selesai"
+                text: root.sharingEnabled ? "Share" : "Done"
                 onClicked: {
                     root.errorText = ""
                     if (!!root.sharingEnabled) {
