@@ -18,7 +18,7 @@ Ringkasan dependency guest dan runtime login ada di [docs/DEPENDENCIES.md](/home
 - `scripts/dev/qemu-session-smoke-remote.sh`: jalankan smoke login/session di guest dan tarik artefaknya ke host.
 - `scripts/dev/qemu-login-smoke-pipeline.sh`: build target runtime via entrypoint canonical, install runtime login, verify, lalu opsional jalankan smoke session.
 
-Launcher QEMU juga mengaktifkan clipboard sharing host↔guest secara default bila backend `qemu-vdagent` tersedia di host.
+Launcher QEMU memakai profile `performance` secara default: KVM bila tersedia, CPU host passthrough, virtio disk dengan iothread, dan `virtio-vga-gl` untuk desktop testing bila QEMU/GTK mendukung GL. Clipboard sharing host↔guest juga aktif secara default bila backend `qemu-vdagent` tersedia di host.
 
 ## Alur cepat
 
@@ -33,6 +33,8 @@ bash scripts/dev/qemu-create-disk.sh
 ```bash
 bash scripts/dev/qemu-run.sh --with-iso
 ```
+
+This defaults to BIOS boot for the installer. Use `--uefi --reset-uefi-vars` only if you specifically want to test UEFI media boot.
 
 3. Setelah Ubuntu terpasang di disk, boot normal:
 
@@ -162,11 +164,14 @@ bash scripts/dev/qemu-session-smoke-remote.sh --user <username-guest> --session-
 
 - ISO: `~/ubuntu.iso`
 - Disk: `~/.local/state/slm-qemu/ubuntu-dev.qcow2`
-- RAM: `8192` MB
-- CPU: `4`
+- RAM: otomatis, setengah RAM host dengan batas `8192`-`16384` MB
+- CPU: otomatis, sampai `8` vCPU
 - SSH forward: host `127.0.0.1:2222` ke guest `:22`
 - Shared folder host: root repo Desktop Shell ini
 - Mount tag shared folder di guest: `hostshare`
+- Profile QEMU: `performance`
+- Disk QEMU: `cache=none`, `aio=native`, virtio-blk iothread
+- Graphics QEMU: `virtio-vga-gl` + `gtk,gl=on` bila tersedia, fallback ke `virtio-vga`
 - Clipboard sharing: aktif default untuk mode GUI
 
 ## Mount repo host di guest
@@ -175,7 +180,7 @@ Jalankan di Ubuntu guest:
 
 ```bash
 sudo mkdir -p /mnt/hostshare
-sudo mount -t 9p -o trans=virtio,version=9p2000.L hostshare /mnt/hostshare
+sudo mount -t 9p -o trans=virtio,version=9p2000.L,access=any hostshare /mnt/hostshare
 ```
 
 Lalu repo host akan tersedia di `/mnt/hostshare`.
@@ -203,6 +208,12 @@ SLM_QEMU_SSH_PORT=2223 \
 bash scripts/dev/qemu-run.sh
 ```
 
+Fallback kompatibilitas untuk host yang bermasalah dengan GL atau native AIO:
+
+```bash
+bash scripts/dev/qemu-run.sh --profile compat
+```
+
 Variable yang didukung:
 
 - `SLM_QEMU_STATE_DIR`
@@ -215,6 +226,11 @@ Variable yang didukung:
 - `SLM_QEMU_SSH_PORT`
 - `SLM_QEMU_SSH_USER`
 - `SLM_QEMU_DISPLAY`
+- `SLM_QEMU_PROFILE`
+- `SLM_QEMU_GL`
+- `SLM_QEMU_DISK_CACHE`
+- `SLM_QEMU_DISK_AIO`
+- `SLM_QEMU_DISK_IO`
 - `SLM_QEMU_GUEST_REPO_DIR`
 - `SLM_QEMU_GUEST_BUILD_DIR`
 - `SLM_QEMU_GUEST_GENERATOR`
