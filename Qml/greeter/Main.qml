@@ -8,6 +8,10 @@ Window {
     visible: true
     title: "SLM Desktop"
     color: "black"
+    visibility: Window.FullScreen
+    flags: Qt.Window
+           | Qt.FramelessWindowHint
+           | Qt.NoDropShadowWindowHint
 
     Item {
         id: sceneRoot

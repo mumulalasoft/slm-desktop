@@ -22,8 +22,9 @@ Rectangle {
     property int    selectedUserIndex: -1
     property bool   loginBusy: false
     property bool   powerActionBusy: false
+    property string pendingPowerAction: ""
 
-    readonly property real uiScale: Math.max(0.90, Math.min(1.20,
+    readonly property real uiScale: Math.max(0.82, Math.min(1.18,
                                Math.min(width / 1920, height / 1080)))
     readonly property var  usersList: (GreeterApp && GreeterApp.usersList)
                                       ? GreeterApp.usersList : []
@@ -74,13 +75,24 @@ Rectangle {
     function submitLogin() {
         if (root.loginBusy) return
         notificationMessage = ""
+        const userName = userField.text.trim()
+        if (userName.length === 0) {
+            notificationMessage = "Masukkan nama pengguna."
+            userField.forceActiveFocus()
+            return
+        }
+        if (passwordField.text.length === 0) {
+            notificationMessage = "Masukkan password."
+            passwordField.forceActiveFocus()
+            return
+        }
         if ((root.blockingMissingIssues || []).length > 0) {
             notificationMessage = "Komponen inti sesi masih hilang. Pasang komponen wajib dulu sebelum login."
             return
         }
         if (GreeterApp) {
             root.loginBusy = true
-            GreeterApp.login(userField.text.trim(),
+            GreeterApp.login(userName,
                              passwordField.text,
                              root.selectedMode)
         }
@@ -92,12 +104,26 @@ Rectangle {
         }
 
         const normalized = String(action || "")
+        if (normalized === "sleep") {
+            if (!GreeterApp.canSuspend) {
+                notificationMessage = "Sleep tidak tersedia di sistem ini."
+                return
+            }
+            root.powerActionBusy = true
+            root.pendingPowerAction = normalized
+            notificationMessage = "Mengalihkan perangkat ke sleep..."
+            GreeterApp.suspend()
+            powerActionResetTimer.restart()
+            return
+        }
+
         if (normalized === "restart") {
             if (!GreeterApp.canReboot) {
                 notificationMessage = "Restart tidak tersedia di sistem ini."
                 return
             }
             root.powerActionBusy = true
+            root.pendingPowerAction = normalized
             notificationMessage = "Memulai ulang perangkat..."
             GreeterApp.reboot()
             powerActionResetTimer.restart()
@@ -110,10 +136,14 @@ Rectangle {
                 return
             }
             root.powerActionBusy = true
+            root.pendingPowerAction = normalized
             notificationMessage = "Mematikan perangkat..."
             GreeterApp.powerOff()
             powerActionResetTimer.restart()
+            return
         }
+
+        notificationMessage = "Aksi daya tidak dikenal."
     }
 
     function refreshMissingIssues() {
@@ -146,7 +176,10 @@ Rectangle {
         id: powerActionResetTimer
         interval: 5000
         repeat: false
-        onTriggered: root.powerActionBusy = false
+        onTriggered: {
+            root.powerActionBusy = false
+            root.pendingPowerAction = ""
+        }
     }
 
     Component.onCompleted: {
@@ -172,21 +205,25 @@ Rectangle {
 
     Rectangle {
         anchors.fill: parent
-        color: Qt.rgba(0, 0, 0, 0.227)
+        gradient: Gradient {
+            GradientStop { position: 0.00; color: Qt.rgba(0, 0, 0, 0.365) }
+            GradientStop { position: 0.46; color: Qt.rgba(0, 0, 0, 0.165) }
+            GradientStop { position: 1.00; color: Qt.rgba(0, 0, 0, 0.510) }
+        }
     }
 
     // ── Clock + Date ──────────────────────────────────────────────────────────
     Column {
         id: clockGroup
         anchors.horizontalCenter: parent.horizontalCenter
-        y: Math.round(root.height * 0.12)
+        y: Math.round(root.height * 0.085)
         spacing: Math.round(6 * root.uiScale)
 
         Label {
             anchors.horizontalCenter: parent.horizontalCenter
             text: Qt.formatDateTime(root.now, "hh:mm")
             color: Qt.rgba(1, 1, 1, 0.961)
-            font.pixelSize: Math.round(80 * root.uiScale)
+            font.pixelSize: Math.round(86 * root.uiScale)
             font.weight: Theme.fontWeight("light")
         }
 
@@ -210,24 +247,13 @@ Rectangle {
         NumberAnimation { target: centerContent; property: "x"; from: shakeAnimation.originX + 8;   to: shakeAnimation.originX;      duration: Math.max(1, Math.round(Theme.durationMicro * 0.56)); easing.type: Theme.easingDefault }
     }
 
-    // ── Card backdrop ─────────────────────────────────────────────────────────
-    Rectangle {
-        anchors.centerIn: centerContent
-        width: centerContent.width + Math.round(48 * root.uiScale)
-        height: centerContent.height + Math.round(56 * root.uiScale)
-        radius: Math.round(20 * root.uiScale)
-        color: Qt.rgba(0, 0.04, 0.12, 0.32)
-        border.width: Theme.borderWidthThin
-        border.color: Qt.rgba(1, 1, 1, 0.11)
-    }
-
     // ── Center content ────────────────────────────────────────────────────────
     Column {
         id: centerContent
         anchors.centerIn: parent
-        anchors.verticalCenterOffset: Math.round(root.height * 0.04)
-        width: Math.min(root.width * 0.52, Math.round(520 * root.uiScale))
-        spacing: Math.round(14 * root.uiScale)
+        anchors.verticalCenterOffset: Math.round(root.height * 0.065)
+        width: Math.min(root.width * 0.62, Math.round(560 * root.uiScale))
+        spacing: Math.round(12 * root.uiScale)
 
         // Avatar circle
         Rectangle {
@@ -235,8 +261,8 @@ Rectangle {
             width: Math.round(100 * root.uiScale)
             height: width
             radius: width / 2
-            color: Qt.rgba(0.847, 0.910, 0.973, 0.157)
-            border.color: Qt.rgba(1, 1, 1, 0.251)
+            color: Qt.rgba(0.960, 0.975, 1.000, 0.180)
+            border.color: Qt.rgba(1, 1, 1, 0.314)
             border.width: Theme.borderWidthThin
             clip: true
 
@@ -267,7 +293,7 @@ Rectangle {
             visible: root.hasUsers && root.usersList.length <= 1
             text: root.currentUserName()
             color: Qt.rgba(1, 1, 1, 0.949)
-            font.pixelSize: Math.round(22 * root.uiScale)
+            font.pixelSize: Math.round(23 * root.uiScale)
             font.weight: Theme.fontWeight("medium")
         }
 
@@ -283,9 +309,9 @@ Rectangle {
             onActivated: root.selectUser(currentIndex)
             background: Rectangle {
                 radius: height / 2
-                color: Qt.rgba(0.839, 0.859, 0.890, 0.314)
+                color: Qt.rgba(0.949, 0.965, 0.988, 0.820)
                 border.width: Theme.borderWidthThin
-                border.color: Qt.rgba(1, 1, 1, 0.502)
+                border.color: userCombo.activeFocus ? Qt.rgba(1, 1, 1, 0.965) : Qt.rgba(1, 1, 1, 0.541)
             }
             contentItem: Text {
                 leftPadding: Math.round(14 * root.uiScale)
@@ -312,7 +338,7 @@ Rectangle {
             color: Qt.rgba(0.059, 0.110, 0.176, 1.0)
             background: Rectangle {
                 radius: height / 2
-                color: Qt.rgba(0.851, 0.886, 0.937, 0.722)
+                color: Qt.rgba(0.949, 0.965, 0.988, 0.835)
                 border.color: userField.activeFocus ? Qt.rgba(1, 1, 1, 0.910) : Qt.rgba(1, 1, 1, 0.600)
                 border.width: Theme.borderWidthThin
             }
@@ -337,7 +363,7 @@ Rectangle {
                 color: Qt.rgba(0.059, 0.110, 0.176, 1.0)
                 background: Rectangle {
                     radius: parent.height / 2
-                    color: Qt.rgba(0.851, 0.886, 0.937, 0.722)
+                    color: Qt.rgba(0.949, 0.965, 0.988, 0.850)
                     border.color: passwordField.activeFocus ? Qt.rgba(1, 1, 1, 0.784) : Qt.rgba(1, 1, 1, 0.502)
                     border.width: Theme.borderWidthThin
                 }
@@ -430,7 +456,7 @@ Rectangle {
             anchors.horizontalCenter: parent.horizontalCenter
             visible: root.notificationMessage.length > 0
             text: root.notificationMessage
-            color: Qt.rgba(0.867, 0.561, 0.561, 1.0)
+            color: root.powerActionBusy ? Qt.rgba(1, 1, 1, 0.890) : Qt.rgba(0.945, 0.624, 0.624, 1.0)
             font.pixelSize: Math.round(13 * root.uiScale)
             horizontalAlignment: Text.AlignHCenter
             wrapMode: Text.WordWrap
@@ -544,6 +570,33 @@ Rectangle {
         }
     }
 
+    Rectangle {
+        anchors.fill: parent
+        visible: GreeterApp && GreeterApp.sessionActive
+        color: Qt.rgba(0, 0, 0, 0.690)
+        z: 20
+
+        Column {
+            anchors.centerIn: parent
+            spacing: Math.round(12 * root.uiScale)
+
+            Label {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: "Sesi sedang berjalan"
+                color: "white"
+                font.pixelSize: Math.round(24 * root.uiScale)
+                font.weight: Theme.fontWeight("medium")
+            }
+
+            Label {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: "Layar login akan kembali setelah sesi selesai."
+                color: Qt.rgba(1, 1, 1, 0.722)
+                font.pixelSize: Math.round(14 * root.uiScale)
+            }
+        }
+    }
+
     // ── Power + Mode buttons (bottom) ─────────────────────────────────────────
     Row {
         anchors.bottom: parent.bottom
@@ -554,8 +607,9 @@ Rectangle {
         PowerRow {
             icon: "⏾"
             label: "Sleep"
-            enabled: GreeterApp ? GreeterApp.canSuspend : false
-            onActionTriggered: if (GreeterApp) GreeterApp.suspend()
+            enabled: GreeterApp ? (GreeterApp.canSuspend && !root.loginBusy && !root.installBusy && !root.powerActionBusy) : false
+            busy: root.pendingPowerAction === "sleep"
+            onActionTriggered: root.requestPowerAction("sleep")
             uiScale: root.uiScale
         }
 
@@ -563,6 +617,7 @@ Rectangle {
             icon: "↻"
             label: "Restart"
             enabled: GreeterApp ? (GreeterApp.canReboot && !root.loginBusy && !root.installBusy && !root.powerActionBusy) : false
+            busy: root.pendingPowerAction === "restart"
             onActionTriggered: root.requestPowerAction("restart")
             uiScale: root.uiScale
         }
@@ -571,6 +626,7 @@ Rectangle {
             icon: "⏻"
             label: "Shut Down"
             enabled: GreeterApp ? (GreeterApp.canPowerOff && !root.loginBusy && !root.installBusy && !root.powerActionBusy) : false
+            busy: root.pendingPowerAction === "shutdown"
             onActionTriggered: root.requestPowerAction("shutdown")
             uiScale: root.uiScale
         }
@@ -578,6 +634,7 @@ Rectangle {
         ModeSelector {
             id: modeSelector
             uiScale: root.uiScale
+            currentMode: root.selectedMode
             onModeSelected: function(mode) { root.selectedMode = mode }
         }
     }
