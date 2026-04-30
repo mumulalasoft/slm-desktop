@@ -369,7 +369,10 @@ Item {
 
             MenuItem {
                 text: "Open Date & Time Settings"
-                onClicked: manager.openDateTimeSettings()
+                onClicked: {
+                    dateTimePopup.close()
+                    manager.openDateTimeSettings()
+                }
                 enabled: true
             }
 

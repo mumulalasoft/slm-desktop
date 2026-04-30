@@ -21,6 +21,7 @@ Item {
     readonly property int iconSize: 22
     readonly property int popupGap: Theme.metric("spacingSm")
     readonly property int rowGap: Theme.metric("spacingMd")
+    readonly property int maxVisibleNetworks: 5
     readonly property bool popupOpen: popupHint || networkMenu.opened
 
     Timer {
@@ -225,6 +226,26 @@ Item {
                                                     !!remember)
     }
 
+    function visibleNetworkRows() {
+        if (!root.networkManager || !root.networkManager.availableNetworks) {
+            return []
+        }
+        var rows = root.networkManager.availableNetworks
+        var out = []
+        var count = Math.min(root.maxVisibleNetworks, rows.length)
+        for (var i = 0; i < count; ++i) {
+            out.push(rows[i])
+        }
+        return out
+    }
+
+    function hiddenNetworkCount() {
+        if (!root.networkManager || !root.networkManager.availableNetworks) {
+            return 0
+        }
+        return Math.max(0, root.networkManager.availableNetworks.length - root.maxVisibleNetworks)
+    }
+
     function requestJoinNetwork(ssid, secure, strength) {
         var name = String(ssid || "").trim()
         if (name.length <= 0 || name === "<Hidden Network>") {
@@ -261,27 +282,16 @@ Item {
     function openNetworkSettings() {
         networkMenu.close()
 
-        var opened = false
         if (typeof AppExecutionGate !== "undefined" && AppExecutionGate && AppExecutionGate.launchCommand) {
             if (typeof AppBinaryDir !== "undefined" && String(AppBinaryDir || "").length > 0) {
-                opened = AppExecutionGate.launchCommand(String(AppBinaryDir) + "/slm-settings --module network",
-                                                        "",
-                                                        "network-applet")
+                AppExecutionGate.launchCommand(String(AppBinaryDir) + "/slm-settings --deep-link settings://network",
+                                               "",
+                                               "network-applet")
+                return
             }
-            if (!opened) {
-                opened = AppExecutionGate.launchCommand("slm-settings --module network",
-                                                        "",
-                                                        "network-applet")
-            }
-        }
-
-        if (!opened && typeof AppCommandRouter !== "undefined" && AppCommandRouter && AppCommandRouter.route) {
-            AppCommandRouter.route("app.desktopid",
-                                   { desktopId: "slm-settings.desktop" },
-                                   "network-applet")
-        } else if (!opened && typeof AppExecutionGate !== "undefined" && AppExecutionGate
-                   && AppExecutionGate.launchDesktopId) {
-            AppExecutionGate.launchDesktopId("slm-settings.desktop", "network-applet")
+            AppExecutionGate.launchCommand("slm-settings --deep-link settings://network",
+                                           "",
+                                           "network-applet")
         }
     }
 
@@ -371,6 +381,7 @@ Item {
         popupGap: root.popupGap
         popupWidth: Theme.metric("popupWidthL")
         padding: Theme.spacingSm
+
         onAboutToShow: {
             root.popupHint = false
             if (root.networkManager) {
@@ -384,8 +395,14 @@ Item {
         }
 
         MenuItem {
-            enabled: false
+            background: Item {}
             contentItem: ColumnLayout {
+                id: networkPopupContent
+                width: networkMenu.width - (networkMenu.padding * 2)
+                spacing: Theme.spacingSm
+
+            ColumnLayout {
+                Layout.fillWidth: true
                 spacing: Theme.spacingMd
 
                 Rectangle {
@@ -477,12 +494,12 @@ Item {
                     columnSpacing: Theme.spacingLg
                     rowSpacing: Theme.spacingSm
 
-                    Text {
-                        text: "Interface"
-                        color: Theme.color("textSecondary")
-                        font.family: Theme.fontFamilyUi
-                        font.pixelSize: Theme.fontSize("small")
-                    }
+                Text {
+                    text: "Interface"
+                    color: Theme.color("textSecondary")
+                    font.family: Theme.fontFamilyUi
+                    font.pixelSize: Theme.fontSize("small")
+                }
 
                     Text {
                         Layout.fillWidth: true
@@ -520,26 +537,40 @@ Item {
                     }
                 }
             }
-        }
 
-        MenuItem {
-            visible: root.ipSectionVisible
-            height: visible ? implicitHeight : 0
-            contentItem: IndicatorSectionRow {
-                text: "Show IP Address"
-                rowSpacing: root.rowGap
-                Switch {
-                    checked: root.ipAddressVisible
-                    onToggled: root.ipAddressVisible = checked
+            Item {
+                visible: root.ipSectionVisible
+                Layout.fillWidth: true
+                Layout.preferredHeight: visible ? Math.max(Theme.metric("controlHeightRegular"),
+                                                           ipToggleRow.implicitHeight) : 0
+
+                RowLayout {
+                    id: ipToggleRow
+                    anchors.fill: parent
+                    spacing: root.rowGap
+
+                    IndicatorSectionLabel {
+                        Layout.fillWidth: true
+                        Layout.alignment: Qt.AlignVCenter
+                        text: "Show IP Address"
+                    }
+
+                    Switch {
+                        Layout.alignment: Qt.AlignVCenter
+                        checked: root.ipAddressVisible
+                        onToggled: root.ipAddressVisible = checked
+                    }
                 }
             }
-        }
 
-        MenuSeparator {}
+            Rectangle {
+                Layout.fillWidth: true
+                implicitHeight: Theme.borderWidthThin
+                color: Theme.color("menuBorder")
+            }
 
-        MenuItem {
-            enabled: false
-            contentItem: RowLayout {
+            RowLayout {
+                Layout.fillWidth: true
                 spacing: Theme.spacingSm
 
                 Text {
@@ -556,24 +587,24 @@ Item {
                     onClicked: if (root.networkManager) root.networkManager.refreshAvailableNetworks()
                 }
             }
-        }
 
-        MenuItem {
-            enabled: false
-            visible: !root.networkManager || !root.networkManager.hasAvailableNetworks
-            text: "No Wi-Fi networks found"
-            font.family: Theme.fontFamilyUi
-            font.pixelSize: Theme.fontSize("body")
-        }
+            Text {
+                Layout.fillWidth: true
+                visible: !root.networkManager || !root.networkManager.hasAvailableNetworks
+                text: "No Wi-Fi networks found"
+                color: Theme.color("textSecondary")
+                font.family: Theme.fontFamilyUi
+                font.pixelSize: Theme.fontSize("body")
+                horizontalAlignment: Text.AlignHCenter
+            }
 
-        MenuItem {
-            enabled: true
-            visible: root.networkManager && root.networkManager.hasAvailableNetworks
-            contentItem: ColumnLayout {
+            ColumnLayout {
+                Layout.fillWidth: true
+                visible: root.networkManager && root.networkManager.hasAvailableNetworks
                 spacing: Theme.spacingXs
 
                 Repeater {
-                    model: root.networkManager ? root.networkManager.availableNetworks : null
+                    model: root.visibleNetworkRows()
 
                     delegate: Rectangle {
                         required property string ssid
@@ -583,79 +614,129 @@ Item {
 
                         Layout.fillWidth: true
                         radius: Theme.radiusControl
-                        color: isActive ? Theme.color("accentSoft") : "transparent"
+                        color: isActive ? Theme.color("accentSoft") : (networkMouse.containsMouse ? Theme.color("menuHover") : "transparent")
                         implicitHeight: networkRow.implicitHeight + Theme.spacingSm
 
-                        MouseArea {
-                            anchors.fill: parent
-                            enabled: !isActive
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: root.requestJoinNetwork(ssid, isSecure, signalStrength)
+                    MouseArea {
+                        id: networkMouse
+                        anchors.fill: parent
+                        enabled: !isActive
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.requestJoinNetwork(ssid, isSecure, signalStrength)
+                    }
+
+                    RowLayout {
+                        id: networkRow
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.leftMargin: Theme.spacingSm
+                        anchors.rightMargin: Theme.spacingSm
+                        spacing: Theme.spacingSm
+
+                        RadioButton {
+                            checked: isActive
+                            enabled: false
                         }
 
-                        RowLayout {
-                            id: networkRow
-                            anchors.left: parent.left
-                            anchors.right: parent.right
-                            anchors.verticalCenter: parent.verticalCenter
-                            anchors.leftMargin: Theme.spacingSm
-                            anchors.rightMargin: Theme.spacingSm
-                            spacing: Theme.spacingSm
+                        Text {
+                            Layout.fillWidth: true
+                            text: ssid
+                            color: Theme.color("textPrimary")
+                            font.family: Theme.fontFamilyUi
+                            font.pixelSize: Theme.fontSize("body")
+                            elide: Text.ElideRight
+                            verticalAlignment: Text.AlignVCenter
+                        }
 
-                            RadioButton {
-                                checked: isActive
-                                enabled: false
-                            }
+                        Text {
+                            visible: isSecure
+                            text: "Secured"
+                            color: Theme.color("textSecondary")
+                            font.family: Theme.fontFamilyUi
+                            font.pixelSize: Theme.fontSize("xs")
+                        }
 
-                            Text {
-                                Layout.fillWidth: true
-                                text: ssid
-                                color: Theme.color("textPrimary")
-                                font.family: Theme.fontFamilyUi
-                                font.pixelSize: Theme.fontSize("body")
-                                elide: Text.ElideRight
-                                verticalAlignment: Text.AlignVCenter
-                            }
-
-                            Text {
-                                visible: isSecure
-                                text: "Secured"
-                                color: Theme.color("textSecondary")
-                                font.family: Theme.fontFamilyUi
-                                font.pixelSize: Theme.fontSize("xs")
-                            }
-
-                            IconImage {
-                                Layout.preferredWidth: 20
-                                Layout.preferredHeight: 20
-                                Layout.alignment: Qt.AlignVCenter
-                                property var candidates: root.signalIconFallbacks(signalStrength, isSecure)
-                                property int candidateIndex: 0
-                                source: "image://themeicon/" + root.iconCandidate(candidates, candidateIndex) + "?v=" +
-                                        ((typeof ThemeIconController !== "undefined" && ThemeIconController)
-                                         ? ThemeIconController.revision : 0)
-                                fillMode: Image.PreserveAspectFit
-                                color: Theme.color("textPrimary")
-                                onStatusChanged: {
-                                    if (status === Image.Error && candidateIndex + 1 < candidates.length) {
-                                        candidateIndex += 1
-                                    }
+                        IconImage {
+                            Layout.preferredWidth: 20
+                            Layout.preferredHeight: 20
+                            Layout.alignment: Qt.AlignVCenter
+                            property var candidates: root.signalIconFallbacks(signalStrength, isSecure)
+                            property int candidateIndex: 0
+                            source: "image://themeicon/" + root.iconCandidate(candidates, candidateIndex) + "?v=" +
+                                    ((typeof ThemeIconController !== "undefined" && ThemeIconController)
+                                     ? ThemeIconController.revision : 0)
+                            fillMode: Image.PreserveAspectFit
+                            color: Theme.color("textPrimary")
+                            onStatusChanged: {
+                                if (status === Image.Error && candidateIndex + 1 < candidates.length) {
+                                    candidateIndex += 1
                                 }
-                                onCandidatesChanged: candidateIndex = 0
                             }
+                            onCandidatesChanged: candidateIndex = 0
                         }
+                    }
                     }
                 }
             }
+
+            Text {
+            Layout.fillWidth: true
+            visible: root.hiddenNetworkCount() > 0
+            text: "+" + String(root.hiddenNetworkCount()) + " more networks in Network Settings"
+            color: Theme.color("textSecondary")
+            font.family: Theme.fontFamilyUi
+            font.pixelSize: Theme.fontSize("small")
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
         }
 
-        MenuSeparator {}
+            Rectangle {
+                Layout.fillWidth: true
+                implicitHeight: Theme.borderWidthThin
+                color: Theme.color("menuBorder")
+            }
 
-        MenuItem {
-            text: "Network Settings"
-            font.family: Theme.fontFamilyUi
-            font.pixelSize: Theme.fontSize("body")
-            onTriggered: root.openNetworkSettings()
+            Rectangle {
+                Layout.fillWidth: true
+                radius: Theme.radiusMdPlus
+                color: settingsMouse.containsMouse ? Theme.color("menuHover") : "transparent"
+                implicitHeight: Math.max(Theme.metric("controlHeightRegular"), settingsRow.implicitHeight)
+
+                RowLayout {
+                    id: settingsRow
+                    anchors.fill: parent
+                    anchors.leftMargin: Theme.spacingSm
+                    anchors.rightMargin: Theme.spacingSm
+                    spacing: Theme.spacingSm
+
+                    Text {
+                        Layout.fillWidth: true
+                        text: "Network Settings"
+                        color: Theme.color("textPrimary")
+                        font.family: Theme.fontFamilyUi
+                        font.pixelSize: Theme.fontSize("body")
+                        verticalAlignment: Text.AlignVCenter
+                    }
+
+                    IconImage {
+                        Layout.preferredWidth: 16
+                        Layout.preferredHeight: 16
+                        source: root.iconSourceByName("go-next-symbolic")
+                        color: Theme.color("textSecondary")
+                    }
+                }
+
+                MouseArea {
+                    id: settingsMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.openNetworkSettings()
+                }
+            }
+            }
         }
     }
 }

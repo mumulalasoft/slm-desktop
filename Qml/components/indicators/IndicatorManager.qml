@@ -142,31 +142,16 @@ RowLayout {
     }
 
     function openDateTimeSettings() {
-        if (datetimeApplet && datetimeApplet.popup) {
-            datetimeApplet.popup.close()
-        }
-
-        var opened = false
         if (typeof AppExecutionGate !== "undefined" && AppExecutionGate && AppExecutionGate.launchCommand) {
             if (typeof AppBinaryDir !== "undefined" && String(AppBinaryDir || "").length > 0) {
-                opened = AppExecutionGate.launchCommand(String(AppBinaryDir) + "/slm-settings --module timedate",
-                                                        "",
-                                                        "crown.datetime")
+                AppExecutionGate.launchCommand(String(AppBinaryDir) + "/slm-settings --deep-link settings://timedate",
+                                               "",
+                                               "crown.datetime")
+                return
             }
-            if (!opened) {
-                opened = AppExecutionGate.launchCommand("slm-settings --module timedate",
-                                                        "",
-                                                        "crown.datetime")
-            }
-        }
-
-        if (!opened && typeof AppCommandRouter !== "undefined" && AppCommandRouter && AppCommandRouter.route) {
-            AppCommandRouter.route("app.desktopid",
-                                   { desktopId: "slm-settings.desktop" },
-                                   "crown.datetime")
-        } else if (!opened && typeof AppExecutionGate !== "undefined" && AppExecutionGate
-                   && AppExecutionGate.launchDesktopId) {
-            AppExecutionGate.launchDesktopId("slm-settings.desktop", "crown.datetime")
+            AppExecutionGate.launchCommand("slm-settings --deep-link settings://timedate",
+                                           "",
+                                           "crown.datetime")
         }
     }
 

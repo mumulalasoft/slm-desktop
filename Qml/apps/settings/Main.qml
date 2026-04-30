@@ -69,6 +69,9 @@ ApplicationWindow {
 
     Component.onCompleted: {
         requestThemeSync()
+        if (SettingsApp && String(SettingsApp.currentModuleId || "").length > 0) {
+            window.atHome = false
+        }
     }
 
     Connections {
