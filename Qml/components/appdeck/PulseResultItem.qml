@@ -94,7 +94,7 @@ Item {
     readonly property string effectiveIconSource: primaryIconSource.length > 0 ? primaryIconSource : themeIconSource
     readonly property string qrcFallbackSource: {
         var t = String(typeText || "").toLowerCase()
-        if (t === "app") return "qrc:/icons/apphub.svg"
+        if (t === "app") return "qrc:/icons/appdeck.svg"
         if (t === "file" || t === "path" || t === "folder" || t === "recent") return "qrc:/icons/logo.svg"
         if (t === "action" || t === "command") return "qrc:/icons/dark/pulse.svg"
         if (t === "calculator") return "qrc:/icons/dark/pulse.svg"

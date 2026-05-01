@@ -297,10 +297,10 @@ ApplicationWindow {
         var v = !!visible
         if (v) {
             if (typeof ShellStateController !== "undefined" && ShellStateController
-                    && ShellStateController.setAppHubVisible) {
-                ShellStateController.setAppHubVisible(false)
-            } else if (desktopScene && desktopScene.setAppHubVisible) {
-                desktopScene.setAppHubVisible(false)
+                    && ShellStateController.setAppDeckVisible) {
+                ShellStateController.setAppDeckVisible(false)
+            } else if (desktopScene && desktopScene.setAppDeckVisible) {
+                desktopScene.setAppDeckVisible(false)
             }
         }
         if (typeof ShellStateController !== "undefined" && ShellStateController
@@ -355,8 +355,8 @@ ApplicationWindow {
         clipboardOverlayVisible = false
         shellContextMenuOpen = false
         if (desktopScene) {
-            if (desktopScene.setAppHubVisible) {
-                desktopScene.setAppHubVisible(false)
+            if (desktopScene.setAppDeckVisible) {
+                desktopScene.setAppDeckVisible(false)
             }
             desktopScene.workspaceVisible = false
             desktopScene.styleGalleryVisible = false
@@ -482,7 +482,7 @@ ApplicationWindow {
         requestStyleThemeSync()
         Qt.callLater(function() {
             startupQmlMark("main.deferredInit.begin")
-            // 5-minute threshold — 30 s default is too short for normal apphub browsing.
+            // 5-minute threshold — 30 s default is too short for normal appdeck browsing.
             if (typeof ShellLayerWatchdog !== "undefined" && ShellLayerWatchdog) {
                 ShellLayerWatchdog.overlayStuckThresholdMs = 300000
             }
@@ -1070,8 +1070,8 @@ ApplicationWindow {
             }
         }
         onLauncherRequested: {
-            if (desktopScene && desktopScene.setAppHubVisible) {
-                desktopScene.setAppHubVisible(!desktopScene.apphubVisible)
+            if (desktopScene && desktopScene.setAppDeckVisible) {
+                desktopScene.setAppDeckVisible(!desktopScene.appdeckVisible)
             }
         }
         onPulseRequested: {
@@ -1137,7 +1137,7 @@ ApplicationWindow {
     Connections {
         target: desktopScene
         ignoreUnknownSignals: true
-        function onAppHubVisibleChanged() {
+        function onAppDeckVisibleChanged() {
             void dockWindowLoader
         }
     }

@@ -46,7 +46,7 @@ Rectangle {
             spacing: 8
 
             Repeater {
-                model: ["settings", "documents", "terminal", "> open apphub"]
+                model: ["settings", "documents", "terminal", "> open appdeck"]
 
                 delegate: Rectangle {
                     height: 30

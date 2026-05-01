@@ -6,7 +6,7 @@ import Slm_Desktop
 Item {
     id: root
 
-    property string title: "AppHub"
+    property string title: "AppDeck"
     property string searchText: ""
     property int totalCount: 0
     property int filteredCount: 0
@@ -62,9 +62,9 @@ Item {
             Layout.maximumWidth: 520
             Layout.preferredHeight: 40
             radius: root.fieldRadius
-            color: Theme.color("apphubSearchBg")
+            color: Theme.color("appdeckSearchBg")
             border.width: Theme.borderWidthThin
-            border.color: searchField.activeFocus ? Theme.color("focusRing") : Theme.color("apphubSearchBorder")
+            border.color: searchField.activeFocus ? Theme.color("focusRing") : Theme.color("appdeckSearchBorder")
 
             Item {
                 width: 16

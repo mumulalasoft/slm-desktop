@@ -6,18 +6,18 @@ ShellStateController::ShellStateController(QObject *parent)
     recomputeDerivedState();
 }
 
-bool ShellStateController::apphubVisible() const        { return m_apphubVisible; }
+bool ShellStateController::appdeckVisible() const        { return m_appdeckVisible; }
 bool ShellStateController::workspaceOverviewVisible() const { return m_workspaceOverviewVisible; }
 bool ShellStateController::toTheSpotVisible() const        { return m_toTheSpotVisible; }
 QString ShellStateController::searchQuery() const           { return m_searchQuery; }
-QString ShellStateController::appHubSearchSeed() const      { return m_appHubSearchSeed; }
+QString ShellStateController::appDeckSearchSeed() const      { return m_appDeckSearchSeed; }
 bool ShellStateController::styleGalleryVisible() const     { return m_styleGalleryVisible; }
 bool ShellStateController::showDesktop() const             { return m_showDesktop; }
 bool ShellStateController::lockScreenActive() const        { return m_lockScreenActive; }
 bool ShellStateController::notificationsVisible() const    { return m_notificationsVisible; }
 bool ShellStateController::focusMode() const               { return m_focusMode; }
 QString ShellStateController::dockHoveredItem() const      { return m_dockHoveredItem; }
-QString ShellStateController::dockExpandedItem() const     { return m_dockExpandedItem; }
+QString ShellStateController::dockActiveItem() const     { return m_dockActiveItem; }
 QVariantMap ShellStateController::dragSession() const       { return m_dragSession; }
 
 qreal ShellStateController::topBarOpacity() const              { return m_topBarOpacity; }
@@ -27,11 +27,11 @@ qreal ShellStateController::workspaceBlurAlpha() const         { return m_worksp
 bool ShellStateController::workspaceInteractionBlocked() const  { return m_workspaceInteractionBlocked; }
 bool ShellStateController::anyOverlayVisible() const           { return m_anyOverlayVisible; }
 
-void ShellStateController::setAppHubVisible(bool visible)
+void ShellStateController::setAppDeckVisible(bool visible)
 {
-    if (m_apphubVisible == visible) return;
-    m_apphubVisible = visible;
-    emit apphubVisibleChanged(visible);
+    if (m_appdeckVisible == visible) return;
+    m_appdeckVisible = visible;
+    emit appdeckVisibleChanged(visible);
     recomputeDerivedState();
 }
 
@@ -60,12 +60,12 @@ void ShellStateController::setSearchQuery(const QString &query)
     emit searchQueryChanged(m_searchQuery);
 }
 
-void ShellStateController::setAppHubSearchSeed(const QString &seed)
+void ShellStateController::setAppDeckSearchSeed(const QString &seed)
 {
     const QString normalized = seed;
-    if (m_appHubSearchSeed == normalized) return;
-    m_appHubSearchSeed = normalized;
-    emit appHubSearchSeedChanged(m_appHubSearchSeed);
+    if (m_appDeckSearchSeed == normalized) return;
+    m_appDeckSearchSeed = normalized;
+    emit appDeckSearchSeedChanged(m_appDeckSearchSeed);
 }
 
 void ShellStateController::setStyleGalleryVisible(bool visible)
@@ -115,12 +115,12 @@ void ShellStateController::setDockHoveredItem(const QString &itemId)
     emit dockHoveredItemChanged(m_dockHoveredItem);
 }
 
-void ShellStateController::setDockExpandedItem(const QString &itemId)
+void ShellStateController::setDockActiveItem(const QString &itemId)
 {
     const QString normalized = itemId;
-    if (m_dockExpandedItem == normalized) return;
-    m_dockExpandedItem = normalized;
-    emit dockExpandedItemChanged(m_dockExpandedItem);
+    if (m_dockActiveItem == normalized) return;
+    m_dockActiveItem = normalized;
+    emit dockActiveItemChanged(m_dockActiveItem);
 }
 
 void ShellStateController::setDragSession(const QVariantMap &session)
@@ -137,9 +137,9 @@ void ShellStateController::clearDragSession()
     emit dragSessionChanged(m_dragSession);
 }
 
-void ShellStateController::toggleAppHub()
+void ShellStateController::toggleAppDeck()
 {
-    setAppHubVisible(!m_apphubVisible);
+    setAppDeckVisible(!m_appdeckVisible);
 }
 
 void ShellStateController::toggleWorkspaceOverview()
@@ -154,7 +154,7 @@ void ShellStateController::togglePulse()
 
 void ShellStateController::dismissAllOverlays()
 {
-    setAppHubVisible(false);
+    setAppDeckVisible(false);
     setWorkspaceOverviewVisible(false);
     setPulseVisible(false);
     setStyleGalleryVisible(false);
@@ -162,22 +162,22 @@ void ShellStateController::dismissAllOverlays()
 
 void ShellStateController::recomputeDerivedState()
 {
-    // topBarOpacity: hidden during apphub, full otherwise
-    const qreal newCrownOpacity = m_apphubVisible ? 0.0 : 1.0;
+    // topBarOpacity: hidden during appdeck, full otherwise
+    const qreal newCrownOpacity = m_appdeckVisible ? 0.0 : 1.0;
     if (!qFuzzyCompare(m_topBarOpacity, newCrownOpacity)) {
         m_topBarOpacity = newCrownOpacity;
         emit topBarOpacityChanged(m_topBarOpacity);
     }
 
-    // dockOpacity: hidden during show-desktop only; appdeck remains visible during apphub.
+    // dockOpacity: hidden during show-desktop only; appdeck remains visible during appdeck.
     const qreal newDockOpacity = m_showDesktop ? 0.0 : 1.0;
     if (!qFuzzyCompare(m_dockOpacity, newDockOpacity)) {
         m_dockOpacity = newDockOpacity;
         emit dockOpacityChanged(m_dockOpacity);
     }
 
-    // workspaceBlurred: blurred when apphub or show-desktop is active
-    const bool newWorkspaceBlurred = m_apphubVisible || m_showDesktop;
+    // workspaceBlurred: blurred when appdeck or show-desktop is active
+    const bool newWorkspaceBlurred = m_appdeckVisible || m_showDesktop;
     if (m_workspaceBlurred != newWorkspaceBlurred) {
         m_workspaceBlurred = newWorkspaceBlurred;
         emit workspaceBlurredChanged(m_workspaceBlurred);
@@ -185,7 +185,7 @@ void ShellStateController::recomputeDerivedState()
 
     // workspaceBlurAlpha: per-mode blur intensity
     qreal newBlurAlpha = 0.0;
-    if (m_apphubVisible) {
+    if (m_appdeckVisible) {
         newBlurAlpha = 0.50;
     } else if (m_showDesktop) {
         newBlurAlpha = 0.40;
@@ -195,15 +195,15 @@ void ShellStateController::recomputeDerivedState()
         emit workspaceBlurAlphaChanged(m_workspaceBlurAlpha);
     }
 
-    // workspaceInteractionBlocked: blocked when apphub is visible
-    const bool newBlocked = m_apphubVisible;
+    // workspaceInteractionBlocked: blocked when appdeck is visible
+    const bool newBlocked = m_appdeckVisible;
     if (m_workspaceInteractionBlocked != newBlocked) {
         m_workspaceInteractionBlocked = newBlocked;
         emit workspaceInteractionBlockedChanged(m_workspaceInteractionBlocked);
     }
 
     // anyOverlayVisible: any transient overlay is active
-    const bool newAnyOverlay = m_apphubVisible || m_workspaceOverviewVisible
+    const bool newAnyOverlay = m_appdeckVisible || m_workspaceOverviewVisible
                                || m_toTheSpotVisible || m_styleGalleryVisible;
     if (m_anyOverlayVisible != newAnyOverlay) {
         m_anyOverlayVisible = newAnyOverlay;

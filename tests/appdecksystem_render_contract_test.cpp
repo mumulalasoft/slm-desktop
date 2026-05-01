@@ -24,13 +24,14 @@ private slots:
         const QString text = readTextFile(path);
         QVERIFY2(!text.isEmpty(), qPrintable(QStringLiteral("failed to read %1").arg(path)));
 
-        QVERIFY(text.contains(QStringLiteral("readonly property string appdeckState")));
-        QVERIFY(text.contains(QStringLiteral("function enterCollapsedMode()")));
-        QVERIFY(text.contains(QStringLiteral("function enterExpandedMode()")));
-        QVERIFY(text.contains(QStringLiteral("function enterContextMode()")));
-        QVERIFY(text.contains(QStringLiteral("function enterHiddenMode()")));
+        QVERIFY(text.contains(QStringLiteral("state: root.appDeckGridRequested")));
+        QVERIFY(text.contains(QStringLiteral("property string mode:")));
+        QVERIFY(text.contains(QStringLiteral("function enterDock()")));
+        QVERIFY(text.contains(QStringLiteral("function enterGrid()")));
+        QVERIFY(text.contains(QStringLiteral("function enterPulse()")));
+        QVERIFY(text.contains(QStringLiteral("function hideAppDeck()")));
         QVERIFY(text.contains(QStringLiteral("AppDeckComp.AppDeckCollapsedView")));
-        QVERIFY(text.contains(QStringLiteral("AppDeckComp.AppDeckExpandedView")));
+        QVERIFY(text.contains(QStringLiteral("AppDeckComp.AppDeckGridAppsView")));
         QVERIFY(text.contains(QStringLiteral("AppDeckComp.AppDeckContextView")));
     }
 
@@ -56,26 +57,26 @@ private slots:
 
         QVERIFY(!dockWindow.contains(QStringLiteral("AppDeckSystem.")));
         QVERIFY(dockWindow.contains(QStringLiteral("required property var pulseResultsModel")));
-        QVERIFY(dockWindow.contains(QStringLiteral("readonly property var dockItem: collapsedView.dockItem")));
+        QVERIFY(dockWindow.contains(QStringLiteral("readonly property var dockItem: dockView.dockItem")));
     }
 
-    void collapsedMode_limitsLayerSurfaceInputRegion()
+    void dockActive_limitsLayerSurfaceInputRegion()
     {
         const QString path = QStringLiteral(DESKTOP_SOURCE_DIR) + QStringLiteral("/Qml/components/overlay/AppDeckWindow.qml");
         const QString text = readTextFile(path);
         QVERIFY2(!text.isEmpty(), qPrintable(QStringLiteral("failed to read %1").arg(path)));
 
-        QVERIFY(text.contains(QStringLiteral("readonly property int collapsedInputX")));
-        QVERIFY(text.contains(QStringLiteral("readonly property int collapsedInputY")));
-        QVERIFY(text.contains(QStringLiteral("readonly property int collapsedInputWidth")));
-        QVERIFY(text.contains(QStringLiteral("readonly property int collapsedInputHeight")));
-        QVERIFY(text.contains(QStringLiteral("AppDeckLayerShell.setCollapsed(root,")));
-        QVERIFY(text.contains(QStringLiteral("AppDeckLayerShell.setExpanded(root,")));
-        QVERIFY(text.contains(QStringLiteral("root.collapsedInputX")));
-        QVERIFY(text.contains(QStringLiteral("root.collapsedInputY")));
-        QVERIFY(text.contains(QStringLiteral("root.collapsedInputWidth")));
-        QVERIFY(text.contains(QStringLiteral("root.collapsedInputHeight")));
-        QVERIFY(text.contains(QStringLiteral("target: collapsedView && collapsedView.dockItem ? collapsedView.dockItem : null")));
+        QVERIFY(text.contains(QStringLiteral("readonly property int dockInputX")));
+        QVERIFY(text.contains(QStringLiteral("readonly property int dockInputY")));
+        QVERIFY(text.contains(QStringLiteral("readonly property int dockInputWidth")));
+        QVERIFY(text.contains(QStringLiteral("readonly property int dockInputHeight")));
+        QVERIFY(text.contains(QStringLiteral("AppDeckLayerShell.setDock(root,")));
+        QVERIFY(text.contains(QStringLiteral("AppDeckLayerShell.setGrid(root,")));
+        QVERIFY(text.contains(QStringLiteral("root.dockInputX")));
+        QVERIFY(text.contains(QStringLiteral("root.dockInputY")));
+        QVERIFY(text.contains(QStringLiteral("root.dockInputWidth")));
+        QVERIFY(text.contains(QStringLiteral("root.dockInputHeight")));
+        QVERIFY(text.contains(QStringLiteral("target: dockView && dockView.dockItem ? dockView.dockItem : null")));
     }
 
     void appDeckWindow_usesLayerShellInsteadOfWindowStackingHacks()

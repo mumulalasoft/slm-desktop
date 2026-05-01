@@ -433,7 +433,7 @@ Item {
                     onActivated: function(appData) { root.activateIndex(parent.globalIndex) }
                     onContextMenuRequested: function(appData) {
                         menu.actionAppData = appData || ({})
-                        console.log("[apphub] context menu requested app=", JSON.stringify(menu.actionAppData))
+                        console.log("[appdeck] context menu requested app=", JSON.stringify(menu.actionAppData))
                         menu.popup()
                     }
                 }
@@ -445,7 +445,7 @@ Item {
                         text: "Pin to AppDeck"
                         onTriggered: {
                             var payload = menu.actionAppData || modelData || ({})
-                            console.log("[apphub] pin triggered payload=", JSON.stringify(payload))
+                            console.log("[appdeck] pin triggered payload=", JSON.stringify(payload))
                             root.playPinToDockFlight(delegateItem, payload)
                             root.addToDockRequested(payload)
                         }

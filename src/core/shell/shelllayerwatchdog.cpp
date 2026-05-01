@@ -9,7 +9,7 @@ ShellLayerWatchdog::ShellLayerWatchdog(ShellStateController *stateController, QO
     , m_stateController(stateController)
 {
     // Initialise tracker entries for all known transient overlays.
-    for (const char *name : {"apphub", "workspace", "pulse", "style_gallery"}) {
+    for (const char *name : {"appdeck", "workspace", "pulse", "style_gallery"}) {
         m_trackers.insert(QLatin1String(name), OverlayEntry{});
     }
 
@@ -64,8 +64,8 @@ void ShellLayerWatchdog::reportOverlayLoadError(const QString &overlayName)
     qWarning().noquote() << "[watchdog] overlay load error reported:" << overlayName;
     // Force-clear the overlay state so ShellStateController doesn't think it's visible.
     if (m_stateController) {
-        if (overlayName == QLatin1String("apphub")) {
-            m_stateController->setAppHubVisible(false);
+        if (overlayName == QLatin1String("appdeck")) {
+            m_stateController->setAppDeckVisible(false);
         } else if (overlayName == QLatin1String("workspace")) {
             m_stateController->setWorkspaceOverviewVisible(false);
         } else if (overlayName == QLatin1String("pulse")) {
@@ -83,8 +83,8 @@ void ShellLayerWatchdog::connectStateController()
     if (!m_stateController) {
         return;
     }
-    QObject::connect(m_stateController, &ShellStateController::apphubVisibleChanged,
-                     this, [this](bool visible) { trackVisible(QStringLiteral("apphub"), visible); });
+    QObject::connect(m_stateController, &ShellStateController::appdeckVisibleChanged,
+                     this, [this](bool visible) { trackVisible(QStringLiteral("appdeck"), visible); });
     QObject::connect(m_stateController, &ShellStateController::workspaceOverviewVisibleChanged,
                      this, [this](bool visible) { trackVisible(QStringLiteral("workspace"), visible); });
     QObject::connect(m_stateController, &ShellStateController::toTheSpotVisibleChanged,

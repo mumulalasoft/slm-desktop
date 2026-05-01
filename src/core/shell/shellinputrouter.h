@@ -27,7 +27,7 @@ public:
     enum class ShellLayer : int {
         BaseLayer         = 0,
         WorkspaceOverview = 10,
-        AppHub         = 20,
+        AppDeck         = 20,
         Pulse         = 30,
         LockScreen        = 100,
     };

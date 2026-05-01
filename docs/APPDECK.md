@@ -1,648 +1,197 @@
-LANDASAN KONSEP APPDECK — SLM DESKTOP
-Dokumen ini adalah referensi dasar arsitektur dan UX. Jangan menafsirkan AppDeck sebagai dock biasa, launchpad biasa, atau gabungan tempelan keduanya. AppDeck adalah sistem inti baru yang harus dipahami secara konseptual sebelum implementasi dimulai.
+# AppDeck Unified Terminology & State System
 
-==================================================
-1. DEFINISI INTI
-==================================================
+Dokumen ini adalah referensi utama untuk AppDeck sebagai satu-satunya surface aplikasi utama di SLM Desktop.
+Semua implementasi, diskusi, dan binding QML harus mengikuti kontrak ini.
 
-AppDeck adalah surface aplikasi utama pada desktop SLM.
+## 1. Single Source of Truth
 
-AppDeck bukan:
-- bukan clone Dock macOS
-- bukan clone Launchpad macOS
-- bukan taskbar Windows
-- bukan launcher grid biasa
-- bukan popup pencarian
-- bukan panel berisi ikon statis
+Hanya ada satu surface utama:
 
-AppDeck adalah:
-- single intelligent app surface
-- adaptive application access layer
-- pusat akses aplikasi, status aplikasi, discovery, dan context results
-- satu sistem dengan banyak state, bukan banyak komponen terpisah
-
-Konsep utama:
-“AppDeck bukan tempat ikon aplikasi tinggal.
-AppDeck adalah tempat sistem menyajikan apa yang paling relevan untuk pengguna.”
-
-==================================================
-2. POSISI APPDECK DALAM EKOSISTEM SLM
-==================================================
-
-SLM memiliki peran komponen berikut:
-
-- Crown:
-  layer status, konteks global, kontrol sistem, global menu, session indicators
-- Pulse:
-  engine intent, search, command, parsing input, pemicu perubahan isi AppDeck
-- AppDeck:
-  surface aplikasi utama yang selalu menjadi pusat interaksi aplikasi
-- AppHub:
-  bukan komponen terpisah, melainkan mode discovery/full view di dalam AppDeck
-
-Hubungan antarkomponen:
-- Crown memberi konteks global
-- Pulse memberi niat / intent
-- AppDeck memberi tindakan / presentation layer
-- AppHub adalah state dari AppDeck, bukan launcher lain
-
-Formula arsitektur:
-Crown = konteks global
-Pulse = otak / intent
-AppDeck = surface aksi
-AppHub = expanded discovery mode inside AppDeck
-
-==================================================
-3. MASALAH YANG HARUS DIHINDARI
-==================================================
-
-Jangan kembali ke pola lama yang terpecah:
-- DockWindow terpisah
-- LaunchpadWindow terpisah
-- Search results popup terpisah
-- surface saling tumpang tindih dan saling berebut layer
-- banyak entry point untuk fungsi aplikasi
-
-Masalah yang ingin diselesaikan AppDeck:
-- redundansi antara dock dan launchpad
-- konflik z-order / stacking
-- UI launcher yang terpisah-pisah
-- kebingungan user: buka aplikasi dari mana, cari dari mana, lihat running apps di mana
-- agent cenderung kembali membuat dock klasik jika tidak diberi landasan konsep yang kuat
-
-==================================================
-4. PRINSIP ARSITEKTUR
-==================================================
-
-Prinsip 1:
-Hanya ada satu surface aplikasi utama: AppDeck.
-
-Prinsip 2:
-Tidak boleh ada launcher aplikasi lain di luar AppDeck.
-
-Prinsip 3:
-Pulse tidak merender hasil dalam popup terpisah; Pulse hanya mengendalikan isi/state AppDeck.
-
-Prinsip 4:
-AppHub bukan window atau komponen terpisah; AppHub hanyalah salah satu mode AppDeck.
-
-Prinsip 5:
-AppDeck harus bisa tampil dalam beberapa state tanpa memecah diri menjadi banyak window launcher.
-
-Prinsip 6:
-AppDeck adalah evolusi konsep dock + launchpad + context surface, tetapi hasil akhirnya harus tampil sebagai sistem baru yang original.
-
-==================================================
-5. IDENTITAS UX APPDECK
-==================================================
-
-Karakter AppDeck:
-- futuristik
-- hidup
-- adaptif
-- presisi
-- tidak berat
-- tidak ramai
-- tidak generik
-- tidak terasa sebagai “launcher grid biasa”
-
-AppDeck harus terasa seperti:
-- living surface
-- workspace entry layer
-- sistem yang bereaksi terhadap konteks
-- UI yang berubah bentuk sesuai kebutuhan, bukan layout statis permanen
-
-Perbedaan dengan Dock macOS:
-- Dock macOS bersifat linear, statis, shortcut-oriented
-- AppDeck bersifat adaptive, multi-state, context-driven
-
-Perbedaan dengan Launchpad:
-- Launchpad adalah katalog aplikasi
-- AppDeck adalah surface kerja dan discovery yang aktif
-
-==================================================
-6. TUJUAN UX APPDECK
-==================================================
-
-AppDeck harus mampu menangani kebutuhan berikut dalam satu sistem:
-- quick access ke aplikasi yang sering dipakai
-- indikator aplikasi yang sedang berjalan
-- discovery semua aplikasi
-- context-aware suggestions
-- hasil pencarian / command / recent / file results dari Pulse
-- transisi halus antar mode tanpa kesan pindah ke sistem lain
-
-Artinya:
-AppDeck harus terasa sebagai satu permukaan yang berubah fungsi secara elegan.
-
-==================================================
-7. STATE DASAR APPDECK
-==================================================
-
-Minimal AppDeck memiliki state konseptual berikut:
-
-1. collapsed
-- mode ringkas
-- berfungsi seperti quick access surface
-- menampilkan pinned apps / running apps / essential shortcuts
-- ini bukan dock klasik, tetapi state AppDeck yang paling kecil
-
-2. expanded
-- mode terbuka
-- menampilkan struktur aplikasi lebih lengkap
-- dipakai untuk discovery / browsing apps
-- ini adalah basis AppHub mode
-
-3. context
-- mode responsif terhadap Pulse atau konteks sistem
-- isi bisa berupa apps, files, commands, actions, recent items, suggestions
-- bukan grid tetap
-- layout bisa menyesuaikan konteks
-
-4. hidden atau immersive (opsional)
-- untuk fullscreen immersion / kondisi tertentu
-- hanya jika diperlukan oleh desain shell
-
-Catatan:
-State ini harus dipahami sebagai satu komponen yang berubah bentuk, bukan banyak komponen berbeda.
-
-==================================================
-8. APPHUB DALAM KONSEP BARU
-==================================================
-
-AppHub tidak dihapus, tetapi diredefinisi.
-
-AppHub yang benar:
-- AppHub = discovery mode dari AppDeck
-- AppHub = expanded_full state
-- AppHub = tampilan lengkap saat user ingin melihat semua aplikasi atau kategori aplikasi
-
-AppHub yang salah:
-- window launcher terpisah
-- sistem kedua selain AppDeck
-- komponen yang punya life cycle sendiri di luar AppDeck
-
-Kesimpulan:
-Pertahankan nama AppHub sebagai mode/experience, bukan sebagai entitas UI terpisah.
-
-==================================================
-9. HUBUNGAN DENGAN PULSE
-==================================================
-
-Pulse adalah engine intent dan search, bukan surface hasil.
-
-Saat user memicu Pulse:
-- Pulse menerima input
-- Pulse memproses intent / query / keyword / command
-- AppDeck masuk ke state context
-- hasil ditampilkan di AppDeck
-
-Jangan membuat:
-- popup hasil search
-- list hasil terpisah
-- overlay baru yang berdiri sendiri di luar AppDeck
-
-Prinsip:
-Pulse berpikir, AppDeck menampilkan.
-
-==================================================
-10. HUBUNGAN DENGAN CROWN
-==================================================
-
-Crown tetap terpisah dari AppDeck secara fungsi.
-
-Crown menangani:
-- system indicators
-- global context
-- global menu
-- session controls
-- entry ringan ke Pulse atau control center
-
-Crown tidak boleh berubah menjadi launcher aplikasi.
-
-Crown boleh memicu:
-- Pulse
-- AppDeck expanded mode
-- notification center
-- calendar
-- control center
-
-Tetapi hasil atau surface aplikasi tetap berada di AppDeck.
-
-==================================================
-11. LANDASAN VISUAL DAN MOTION
-==================================================
-
-Arah visual:
-- clean
-- premium
-- modern
-- tidak terlalu ornamental
-- tidak terlalu datar
-- tidak terlalu macOS
-- tidak terlalu Windows
-- original Linux desktop identity
-
-Arah motion:
-- halus
-- ringan
-- transisi punya bobot
-- bukan sekadar fade biasa
-- tidak agresif
-- tidak ramai
-- terasa “alive” namun tetap elegan
-
-Karakter motion AppDeck:
-- muncul dan berubah bentuk dengan lembut
-- transisi antar state harus terasa seperti surface yang sama
-- jangan terasa seperti mengganti halaman / membuka aplikasi baru / berpindah window launcher
-
-==================================================
-12. HAL YANG WAJIB DIJAGA AGAR TIDAK MENJADI CLONE
-==================================================
-
-Hindari:
-- dock garis lurus yang jelas meniru macOS
-- magnification effect ala dock macOS
-- launchpad grid penuh layar yang terlalu mirip Apple
-- folder bubble ala launchpad
-- search popup ala Spotlight
-- taskbar ala Windows
-- panel app list ala Linux klasik
-
-Kejar pembeda:
-- satu surface, banyak state
-- adaptive layout
-- konteks mempengaruhi isi
-- pengalaman terasa hidup
-- struktur dan transisi menunjukkan ini adalah sistem baru
-
-==================================================
-13. OUTPUT YANG DIHARAPKAN DARI AGENT
-==================================================
-
-Sebelum coding, agent harus memahami bahwa:
-- AppDeck adalah core application surface
-- AppHub adalah mode di dalam AppDeck
-- Pulse tidak punya UI hasil sendiri
-- Crown tidak mengambil fungsi launcher
-- semua aplikasi, discovery, running state, dan context results harus mengalir ke dalam sistem AppDeck
-
-Agent tidak boleh langsung mulai membuat:
-- dock klasik
-- launchpad window
-- popup search
-- taskbar baru
-- app grid statis
-tanpa memetakan semuanya ke konsep AppDeck terlebih dahulu
-
-==================================================
-14. KALIMAT KUNCI UNTUK MENJAGA ARAH IMPLEMENTASI
-==================================================
-
-Pegang kalimat ini selama implementasi:
-
-“AppDeck adalah satu surface aplikasi utama yang berubah state sesuai kebutuhan pengguna.”
-
-“Pulse adalah otak, bukan hasil UI.”
-
-“AppHub adalah mode AppDeck, bukan launcher terpisah.”
-
-“Crown memberi konteks global, bukan akses aplikasi utama.”
-
-“SLM tidak memiliki banyak launcher; SLM hanya memiliki AppDeck.”
-
-==================================================
-15. TUGAS AGENT SETELAH MEMAHAMI DOKUMEN INI
-==================================================
-
-Setelah memahami landasan ini, baru lanjut ke tahap berikut:
-- menyusun arsitektur komponen
-- menyusun state machine AppDeck
-- memetakan peran Pulse, Crown, AppHub
-- menentukan layering rules
-- menyusun interaction flow
-- menentukan visual hierarchy
-- lalu baru implementasi QML/Wayland surface
-
-Jangan melompat langsung ke rendering UI tanpa menyelaraskan arsitektur berdasarkan landasan ini.
-
-SLM DESKTOP — APPDECK ARCHITECTURE SPEC (ANTI-FAIL)
-
-Tujuan:
-Membangun sistem desktop berbasis AppDeck sebagai single application surface dengan arsitektur konsisten, tanpa multi-launcher, tanpa konflik layer, dan tanpa UI redundan.
-
-Agent WAJIB mengikuti seluruh aturan di bawah ini. Pelanggaran terhadap rules dianggap kegagalan implementasi.
-
-==================================================
-0. SCOPE IMPLEMENTASI
-==================================================
-
-Implement komponen berikut:
-
-- Crown (Top Layer)
-- AppDeck (Core Surface)
-- Workspace (App Windows Layer)
-- Pulse (Logic Engine, non-UI)
-- AppHub (Mode di dalam AppDeck)
-
-JANGAN membuat:
-- DockWindow
-- LaunchpadWindow
-- SearchPopupWindow
-- Taskbar
-- Panel launcher lain
-
-==================================================
-1. GLOBAL LAYERING ARCHITECTURE
-==================================================
-
-Struktur layer WAJIB seperti ini:
-
-Layer Z-order (top → bottom):
-
-1. CrownLayer
-2. AppDeckLayer
-3. WorkspaceLayer (aplikasi)
-4. DesktopLayer (wallpaper)
-
-Constraint:
-- CrownLayer ALWAYS ON TOP
-- AppDeckLayer ALWAYS ABOVE WorkspaceLayer
-- WorkspaceLayer TIDAK BOLEH overlap AppDeck
-- Tidak ada surface lain di atas AppDeck selain Crown
-
-Implementasi (QML conceptual):
-
-RootWindow
- ├── CrownLayer (z: 300)
- ├── AppDeckLayer (z: 200)
- ├── WorkspaceLayer (z: 100)
- └── DesktopLayer (z: 0)
-
-DILARANG:
-- membuat AppDeck sebagai window terpisah tanpa kontrol z global
-- menggunakan Qt.WindowStaysOnTopHint sebagai solusi utama
-- membuat multiple top-level window untuk launcher
-
-==================================================
-2. APPDECK CORE ARCHITECTURE
-==================================================
-
-AppDeck adalah SATU komponen QML utama.
-
-File:
-AppDeck.qml
-
-Struktur internal:
-
+```text
 AppDeck
- ├── StateMachine
- ├── LayoutEngine
- ├── ZoneManager
- ├── AnimationController
- └── ContentRenderer
+```
 
-==================================================
-3. APPDECK STATE MACHINE (WAJIB)
-==================================================
+Tidak ada surface terpisah untuk launcher, hub, atau surface discovery lain.
+Jika ada perilaku baru, itu harus dimodelkan sebagai `state` atau `mode` dari AppDeck.
 
-State minimum:
+## 2. Pemisahan Konsep
 
-- collapsed
-- expanded
-- context
-- hidden (optional)
+AppDeck dipisahkan menjadi dua lapisan konsep:
 
-Definisi:
+### State = bentuk / ukuran
 
-collapsed:
-- compact mode
-- tampil seperti quick access
-- berisi pinned + running apps
+State mengatur layout, ukuran, posisi, dan transformasi spatial.
 
-expanded:
-- discovery mode (AppHub)
-- tampil semua aplikasi
+```text
+dock
+grid
+```
 
-context:
-- hasil Pulse / context system
-- isi dinamis (apps, files, actions)
+### Mode = fungsi / konten
 
-hidden:
-- optional untuk immersive mode
+Mode mengatur isi, interaksi, dan behavior konten.
 
-QML pseudo:
+```text
+apps
+pulse
+context
+```
 
-states: [
-  State { name: "collapsed" },
-  State { name: "expanded" },
-  State { name: "context" },
-  State { name: "hidden" }
-]
+## 3. Kontrak QML
 
-Transitions HARUS smooth (NumberAnimation / Behavior)
+Semua UI binding harus berbasis dua properti ini:
 
-==================================================
-4. ZONE SYSTEM (APPDECK INTERNAL)
-==================================================
+```qml
+property string state: "dock"   // dock | grid
+property string mode: "apps"    // apps | pulse | context
+```
 
-AppDeck tidak boleh flat grid saja.
+State adalah pengendali bentuk. Mode adalah pengendali isi.
+Jangan mencampur keduanya dalam satu flag atau satu string gabungan.
 
-Minimal zones:
+## 4. Kombinasi Valid
 
-- FavoritesZone
-- RunningZone
-- SuggestedZone
-- ContextZone
+Hanya kombinasi berikut yang sah:
 
-Rules:
-- zone bisa muncul/hilang
-- ukuran zone adaptif
-- posisi tidak harus fixed
+```text
+AppDeck[state=dock, mode=apps]
+AppDeck[state=grid, mode=apps]
+AppDeck[state=grid, mode=pulse]
+AppDeck[state=grid, mode=context]
+```
 
-ZoneManager bertanggung jawab:
-- layout distribusi
-- visibilitas zone
-- priority berdasarkan context
+## 5. Kombinasi Terlarang
 
-==================================================
-5. PULSE INTEGRATION (STRICT RULE)
-==================================================
+Kombinasi berikut tidak boleh dipakai:
 
-Pulse TIDAK BOLEH punya UI hasil sendiri.
+```text
+AppDeck[state=dock, mode=pulse]
+AppDeck[state=dock, mode=context]
+```
 
-Flow:
+Dock hanya untuk `apps`. Dock adalah anchor UI, bukan surface hasil atau command mode.
 
-User input → PulseEngine → emit result → AppDeck.updateContext()
+## 6. Terminologi Resmi
 
-DILARANG:
-- membuat popup hasil search
-- membuat overlay list hasil
-- membuat window search
+Gunakan alias berikut saat berdiskusi atau menulis code:
 
-AppDeck WAJIB handle:
-- render hasil
-- highlight app
-- tampilkan file/action
+| Alias   | Representasi                    |
+|---------|---------------------------------|
+| dock    | `AppDeck[state=dock, mode=apps]` |
+| grid    | `AppDeck[state=grid, mode=apps]` |
+| pulse   | `AppDeck[state=grid, mode=pulse]` |
+| context | `AppDeck[state=grid, mode=context]` |
 
-==================================================
-6. APPHUB IMPLEMENTATION
-==================================================
+## 7. Transisi Resmi
 
-AppHub BUKAN komponen.
+```text
+dock -> grid
+grid -> dock
 
-Implementasi:
+grid -> pulse
+pulse -> grid
 
-IF AppDeck.state == "expanded"
-→ itu adalah AppHub mode
+grid -> context
+context -> grid
+```
 
-DILARANG:
-- membuat AppHubWindow
-- membuat route UI terpisah
-
-==================================================
-7. CROWN INTEGRATION
-==================================================
+Tidak ada transisi lain yang dianggap valid.
 
-CrownLayer adalah independent UI.
-
-Tugas:
-- system indicators
-- global menu
-- trigger Pulse
-- trigger AppDeck state
+## 8. Trigger Dasar
 
-Crown TIDAK BOLEH:
-- menampilkan app launcher
-- menampilkan search result
-- menggantikan fungsi AppDeck
+- Klik icon atau gesture up:
+  `dock -> grid`
+- `Cmd + Space` atau search trigger:
+  `grid -> pulse`
+- `ESC`:
+  `pulse -> grid`
+- Right click atau selection:
+  `grid -> context`
 
-==================================================
-8. WORKSPACE INTEGRATION
-==================================================
+Jika implementasi baru perlu membuka AppDeck, pilih transisi yang paling dekat dengan intent pengguna dan tetap menjaga kombinasi valid di atas.
 
-WorkspaceLayer:
-- berisi semua window aplikasi
-- tidak aware AppDeck secara visual
+## 9. Aturan Animasi
 
-AppDeck:
-- overlay di atas Workspace
-- tidak mengubah window aplikasi secara langsung
+- Perubahan `state` menghasilkan animasi spatial: scale, position, depth.
+- Perubahan `mode` menghasilkan animasi content: fade, swap, blur, transition.
+- Jangan mencampur animasi spatial dan animasi content dalam satu layer jika bisa dipecah.
 
-==================================================
-9. ANIMATION SYSTEM (WAJIB ADA)
-==================================================
+Prinsipnya:
 
-Gunakan:
-- Behavior on x/y/scale/opacity
-- NumberAnimation
-- Easing (InOutCubic / OutQuad)
-
-Prinsip:
-- tidak ada hard jump
-- semua transisi halus
-- terasa satu surface berubah bentuk
+- `state` mengubah bentuk surface
+- `mode` mengubah isi surface
 
-DILARANG:
-- instant switch tanpa animasi
-- fade-only tanpa transform
+## 10. Arsitektur Implementasi
 
-==================================================
-10. LAYOUT ENGINE (ANTI STATIC GRID)
-==================================================
+AppDeck harus diperlakukan sebagai satu surface dengan beberapa zone internal:
 
-JANGAN buat layout seperti:
-- grid tetap full screen
-- dock linear statis
+- dock zone
+- grid zone
+- pulse zone
+- context zone
 
-WAJIB:
-- adaptive layout
-- responsive terhadap jumlah item
-- bisa berubah dari compact → grid → cluster
+Zone boleh muncul atau hilang, tetapi state dan mode tetap menjadi sumber keputusan utama.
 
-==================================================
-11. EVENT FLOW (WAJIB JELAS)
-==================================================
+Jangan hardcode layout di luar state machine AppDeck.
 
-Trigger utama:
+## 11. Hubungan Dengan Pulse
 
-1. User klik icon AppDeck
-   → state = expanded
+Pulse adalah engine intent dan search, bukan surface terpisah untuk hasil.
 
-2. User input (Pulse)
-   → state = context
+Flow yang benar:
 
-3. User keluar
-   → state = collapsed
+```text
+User input -> Pulse -> hasil / intent -> AppDeck(mode=context)
+```
 
-4. Fullscreen app
-   → state = hidden (optional)
+Pulse boleh mengubah query, seed, dan hasil, tetapi rendering tetap berada di AppDeck.
 
-Gunakan signal/slot atau QML Connections.
+## 12. Hubungan Dengan Navigasi Aplikasi
 
-==================================================
-12. ANTI-FAIL RULES (KRITIS)
-==================================================
+`apps` adalah mode default untuk akses aplikasi.
+`pulse` dan `context` hanya aktif pada `state=grid`.
 
-Jika agent melakukan salah satu ini → FAIL:
+Dock hanya boleh menampilkan `apps`.
+Konten selain `apps` tidak boleh dipaksa masuk ke dock.
 
-- membuat DockWindow
-- membuat LaunchpadWindow
-- membuat SearchPopup
-- membuat AppHub sebagai window
-- membuat multiple launcher UI
-- tidak menggunakan state machine
-- AppDeck bukan single component
-- Pulse punya UI sendiri
-- layout statis tanpa adaptasi
-- z-index konflik
+## 13. Prinsip Motion Controller
 
-==================================================
-13. DELIVERABLE YANG WAJIB
-==================================================
+Semua motion harus mengikuti pemisahan ini:
 
-Agent harus menghasilkan:
+- `state change` -> motion controller untuk perubahan spatial
+- `mode change` -> motion controller untuk perubahan konten
 
-1. Struktur file:
-   - AppDeck.qml
-   - Crown.qml
-   - PulseEngine (C++/logic)
-   - Zone components
+Jangan mengikat keduanya pada satu layer visual jika itu membuat animasi menjadi ambigu.
 
-2. State machine implementasi
+## 14. Istilah Yang Tidak Boleh Dipakai
 
-3. Layout adaptive system
+Hindari istilah lama. Semua diskusi harus kembali ke `state` dan `mode`.
 
-4. Integration flow:
-   Pulse → AppDeck
+## 15. Checklist Anti-Gagal
 
-5. Layering system (z-order fix)
+Sebelum implementasi dianggap selesai, pastikan:
 
-==================================================
-14. VALIDATION CHECKLIST
-==================================================
+- Tidak ada mode di dock selain `apps`.
+- Semua logic UI berbasis `state` dan `mode`.
+- Semua transisi mengikuti daftar resmi.
+- Tidak ada hardcode layout di luar state.
+- Dock tidak pernah dipakai untuk `pulse` atau `context`.
 
-Checklist sebelum selesai:
+## 16. Tujuan Akhir
 
-[ ] Tidak ada DockWindow
-[ ] Tidak ada LaunchpadWindow
-[ ] Tidak ada SearchPopup
-[ ] AppDeck satu komponen utama
-[ ] Pulse tidak punya UI
-[ ] AppHub hanya state
-[ ] Layering sesuai spec
-[ ] Transisi smooth
-[ ] Layout adaptif
-[ ] Tidak terasa seperti macOS clone
+Target sistem ini:
 
-==================================================
-15. FINAL PRINCIPLE
-==================================================
+- satu surface yang konsisten
+- state machine yang jelas
+- motion yang unified
+- arsitektur yang scalable
+- UX yang smooth, predictable, dan premium
 
-Agent harus selalu kembali ke prinsip ini:
+Kalimat pegangan:
 
-“SLM hanya memiliki satu surface aplikasi: AppDeck.
-Semua interaksi aplikasi harus terjadi di dalamnya.”
-
-END OF ARCHITECTURE SPEC
+```text
+AppDeck adalah satu surface utama.
+State mengatur bentuk.
+Mode mengatur isi.
+Dock hanya untuk apps.
+```

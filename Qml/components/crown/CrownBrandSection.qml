@@ -264,7 +264,7 @@ Row {
             if (i === 2 && session) { session.lock(); return }
         }
         if (m === 9002) {
-            if (i === 1 && shell)  { shell.setAppHubVisible(true); return }
+            if (i === 1 && shell)  { shell.setAppDeckVisible(true); return }
             if (i === 2 && router) { router.route("filemanager.open", { "target": "~" }, "global-menu-fallback"); return }
             if (i === 3 && router) { router.route("app.desktopid", { "desktopId": "slm-settings.desktop" }, "global-menu-fallback"); return }
         }

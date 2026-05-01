@@ -38,8 +38,8 @@ bool ShellInputRouter::actionAllowedInLayer(const QString &action, ShellLayer la
         return action == QLatin1String(ShellAction::Lock);
     }
 
-    // AppHub fullscreen: workspace navigation is not useful; allow dismiss + safe actions.
-    if (layer == L::AppHub) {
+    // AppDeck fullscreen: workspace navigation is not useful; allow dismiss + safe actions.
+    if (layer == L::AppDeck) {
         if (action == QLatin1String(ShellAction::WorkspacePrev)
                 || action == QLatin1String(ShellAction::WorkspaceNext)
                 || action == QLatin1String(ShellAction::WindowMovePrev)
@@ -90,8 +90,8 @@ ShellInputRouter::ShellInputRouter(ShellStateController *stateController, QObjec
         // Check whether the overlay is still visible — if so, force-dismiss everything.
         bool stillVisible = false;
         const QString ov = m_pendingDismissOverlay;
-        if (ov == QLatin1String("apphub")) {
-            stillVisible = m_stateController->apphubVisible();
+        if (ov == QLatin1String("appdeck")) {
+            stillVisible = m_stateController->appdeckVisible();
         } else if (ov == QLatin1String("workspace")) {
             stillVisible = m_stateController->workspaceOverviewVisible();
         } else if (ov == QLatin1String("pulse")) {
@@ -109,7 +109,7 @@ ShellInputRouter::ShellInputRouter(ShellStateController *stateController, QObjec
     });
 
     if (m_stateController) {
-        QObject::connect(m_stateController, &ShellStateController::apphubVisibleChanged,
+        QObject::connect(m_stateController, &ShellStateController::appdeckVisibleChanged,
                          this, &ShellInputRouter::onStateChanged);
         QObject::connect(m_stateController, &ShellStateController::workspaceOverviewVisibleChanged,
                          this, &ShellInputRouter::onStateChanged);
@@ -134,8 +134,8 @@ ShellInputRouter::ShellLayer ShellInputRouter::activeLayer() const
     if (m_stateController->toTheSpotVisible()) {
         return ShellLayer::Pulse;
     }
-    if (m_stateController->apphubVisible()) {
-        return ShellLayer::AppHub;
+    if (m_stateController->appdeckVisible()) {
+        return ShellLayer::AppDeck;
     }
     if (m_stateController->workspaceOverviewVisible()) {
         return ShellLayer::WorkspaceOverview;

@@ -21,14 +21,14 @@ Item {
                                              && embeddedAppDeckLoader.item
                                              ? embeddedAppDeckLoader.item.dockItem
                                              : dockItem
-    // apphubVisible owner: ShellStateController (SSOT).
+    // appdeckVisible owner: ShellStateController (SSOT).
     // Keep a local fallback only when controller is unavailable.
-    property bool _apphubVisibleLocal: false
-    readonly property bool apphubVisible: ShellStateController
-                                            ? !!ShellStateController.apphubVisible
-                                            : _apphubVisibleLocal
-    readonly property string apphubSearchSeed: ShellStateController
-                                                  ? String(ShellStateController.appHubSearchSeed || "")
+    property bool _appdeckVisibleLocal: false
+    readonly property bool appdeckVisible: ShellStateController
+                                            ? !!ShellStateController.appdeckVisible
+                                            : _appdeckVisibleLocal
+    readonly property string appdeckSearchSeed: ShellStateController
+                                                  ? String(ShellStateController.appDeckSearchSeed || "")
                                                   : ""
     property bool styleGalleryVisible: false
     property bool workspaceVisible: MultitaskingController.workspaceVisible
@@ -46,7 +46,7 @@ Item {
     property int lastPushedActiveSpace: -1
     property int lastKnownActiveSpace: -1
     property bool spaceHudBootstrapped: false
-    property int lastPushedAppHubState: -1
+    property int lastPushedAppDeckState: -1
     property int dockHideDurationMs: 450
     property bool dockSmartOccluded: false
     property bool shellPointerBlocked: false
@@ -126,8 +126,8 @@ Item {
         text += " t=" + now
         console.warn(text)
     }
-    // Note: apphubVisible is intentionally excluded from dockRevealWanted.
-    // AppDeckWindow owns expanded/context rendering directly, so dock reveal
+    // Note: appdeckVisible is intentionally excluded from dockRevealWanted.
+    // AppDeckWindow owns grid/context rendering directly, so dock reveal
     // policy is independent from legacy multi-window overlay behavior.
 
     ShellComp.Shell {
@@ -199,7 +199,7 @@ Item {
         id: workspaceSwipeDrag
         target: null
         enabled: !root.shellPointerBlocked &&
-                 !root.apphubVisible &&
+                 !root.appdeckVisible &&
                  !root.workspaceVisible &&
                  !root.styleGalleryVisible &&
                  !!(typeof SpacesManager !== "undefined" && SpacesManager && Number(SpacesManager.spaceCount || 1) > 1)
@@ -288,7 +288,7 @@ Item {
             root.pushSpaceToCompositor()
             root.pushWorkspaceVisibilityToCompositor()
             root.syncWorkspaceLifecycleState()
-            root.pushAppHubToCompositor()
+            root.pushAppDeckToCompositor()
             root.lastKnownActiveSpace = Number(SpacesManager && SpacesManager.activeSpace ? SpacesManager.activeSpace : 1)
             startupQmlMark("desktopScene.deferredInit.end")
         })
@@ -337,7 +337,7 @@ Item {
 
     Rectangle {
         id: dockRevealHint
-        visible: !root.dockShownState && !root.apphubVisible && !root.workspaceVisible
+        visible: !root.dockShownState && !root.appdeckVisible && !root.workspaceVisible
         width: 120
         height: 6
         radius: Theme.radiusXs
@@ -370,8 +370,8 @@ Item {
                 safeRendering: root.embeddedAppDeckSafeRendering
                 dockHostVisible: root.embeddedAppDeckEnabled
                                  && !root.workspaceVisible
-                onRequestOpenApp: root.setAppHubVisible(false)
-                onRequestCollapse: root.setAppHubVisible(false)
+                onRequestOpenApp: root.setAppDeckVisible(false)
+                onRequestCollapse: root.setAppDeckVisible(false)
             }
         }
     }
@@ -381,7 +381,7 @@ Item {
         ignoreUnknownSignals: true
         function onWidthChanged() { root.refreshDockSmartOcclusion() }
         function onHeightChanged() { root.refreshDockSmartOcclusion() }
-        function onAppActivated() { root.setAppHubVisible(false) }
+        function onAppActivated() { root.setAppDeckVisible(false) }
     }
 
     Rectangle {
@@ -510,12 +510,12 @@ Item {
             } else if (event === "workspace-toggle" || event === "overview-toggle") {
                 root.lastPushedWorkspaceState = root.workspaceVisible ? 0 : 1
                 root.workspaceVisible = !root.workspaceVisible
-            } else if (event === "apphub-open") {
-                root.lastPushedAppHubState = 1
-                root.setAppHubVisible(true)
-            } else if (event === "apphub-close") {
-                root.lastPushedAppHubState = 0
-                root.setAppHubVisible(false)
+            } else if (event === "appdeck-open") {
+                root.lastPushedAppDeckState = 1
+                root.setAppDeckVisible(true)
+            } else if (event === "appdeck-close") {
+                root.lastPushedAppDeckState = 0
+                root.setAppDeckVisible(false)
             }
         }
     }
@@ -593,8 +593,8 @@ Item {
         }
     }
 
-    onApphubVisibleChanged: {
-        pushAppHubToCompositor()
+    onAppdeckVisibleChanged: {
+        pushAppDeckToCompositor()
     }
     onWorkspaceVisibleChanged: {
         if (ShellStateController) ShellStateController.setWorkspaceOverviewVisible(workspaceVisible)
@@ -927,35 +927,35 @@ Item {
         spaceSwitchShellAnim.restart()
     }
 
-    function pushAppHubToCompositor() {
-        var state = root.apphubVisible ? 1 : 0
-        if (state === root.lastPushedAppHubState) {
+    function pushAppDeckToCompositor() {
+        var state = root.appdeckVisible ? 1 : 0
+        if (state === root.lastPushedAppDeckState) {
             return
         }
-        if (root.apphubVisible &&
+        if (root.appdeckVisible &&
                 typeof WorkspaceManager !== "undefined" && WorkspaceManager &&
                 WorkspaceManager.ShowAppGrid) {
             WorkspaceManager.ShowAppGrid()
-            root.lastPushedAppHubState = state
+            root.lastPushedAppDeckState = state
             return
         }
         if (typeof WindowingBackend !== "undefined" && WindowingBackend && WindowingBackend.sendCommand) {
-            if (WindowingBackend.sendCommand("apphub " + (root.apphubVisible ? "on" : "off"))) {
-                root.lastPushedAppHubState = state
+            if (WindowingBackend.sendCommand("appdeck " + (root.appdeckVisible ? "on" : "off"))) {
+                root.lastPushedAppDeckState = state
                 WindowingBackend.sendCommand("overlay restack")
             }
         }
     }
 
-    function setAppHubVisible(visible) {
+    function setAppDeckVisible(visible) {
         var v = !!visible
-        if (ShellStateController && ShellStateController.setAppHubVisible) {
-            ShellStateController.setAppHubVisible(v)
-            if (!v && ShellStateController.setAppHubSearchSeed) {
-                ShellStateController.setAppHubSearchSeed("")
+        if (ShellStateController && ShellStateController.setAppDeckVisible) {
+            ShellStateController.setAppDeckVisible(v)
+            if (!v && ShellStateController.setAppDeckSearchSeed) {
+                ShellStateController.setAppDeckSearchSeed("")
             }
         } else {
-            root._apphubVisibleLocal = v
+            root._appdeckVisibleLocal = v
         }
     }
 

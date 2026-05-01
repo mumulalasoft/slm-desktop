@@ -24,14 +24,14 @@ public:
                             int inputY,
                             int inputWidth,
                             int inputHeight);
-    Q_INVOKABLE bool setCollapsed(QWindow *window,
+    Q_INVOKABLE bool setDock(QWindow *window,
                                   int width,
                                   int height,
                                   int inputX,
                                   int inputY,
                                   int inputWidth,
                                   int inputHeight);
-    Q_INVOKABLE bool setExpanded(QWindow *window,
+    Q_INVOKABLE bool setGrid(QWindow *window,
                                  int width,
                                  int height,
                                  int inputX,

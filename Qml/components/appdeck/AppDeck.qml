@@ -109,7 +109,7 @@ Rectangle {
     readonly property int dropPulseFadeDuration: livelyMotion ? 210 : 170
     readonly property real edgePadding: layoutEdgePadding >= 0 ? layoutEdgePadding : 6
     signal appActivated(string appName)
-    signal apphubRequested()
+    signal appdeckRequested()
     signal iconRectsChanged(var rects)
 
     function microAnimationAllowed() {
@@ -325,11 +325,11 @@ Rectangle {
     function collectIconRects() {
         var rects = []
         rects.push({
-            "id": "apphub",
-            "x": dockRow.x + apphubItem.x,
-            "y": dockRow.y + apphubItem.y,
-            "width": apphubItem.width,
-            "height": apphubItem.height,
+            "id": "appdeck",
+            "x": dockRow.x + appdeckItem.x,
+            "y": dockRow.y + appdeckItem.y,
+            "width": appdeckItem.width,
+            "height": appdeckItem.height,
             "pinned": false,
             "modelIndex": -1
         })
@@ -757,25 +757,25 @@ Rectangle {
         spacing: layoutItemSpacing >= 0 ? layoutItemSpacing : 0
 
         AppDeckItem {
-            id: apphubItem
-            label: "AppHub"
-            iconPath: "qrc:/icons/apphub.svg"
+            id: appdeckItem
+            label: "AppDeck"
+            iconPath: "qrc:/icons/appdeck.svg"
             baseSlotWidth: root.iconSlotWidth
             hoverIndicatorEnabled: true
             directHoverOverride: AppDeckController.inputOwnerHost === root.hostName
-                                 && AppDeckController.hoveredItemId === "apphub"
+                                 && AppDeckController.hoveredItemId === "appdeck"
             showRunningDot: false
             hoverLift: root.liftMax
             influence: 0
             liftOffset: (AppDeckController.inputOwnerHost === root.hostName
-                         && AppDeckController.hoveredItemId === "apphub")
+                         && AppDeckController.hoveredItemId === "appdeck")
                         ? root.liftMax : 0
             animationDuration: root.animationDuration
             itemScale: 1.0
             onClicked: {
-                AppDeckController.onActivate("apphub", root.hostName)
-                apphubItem.playBounce("focus")
-                root.apphubRequested()
+                AppDeckController.onActivate("appdeck", root.hostName)
+                appdeckItem.playBounce("focus")
+                root.appdeckRequested()
             }
         }
 

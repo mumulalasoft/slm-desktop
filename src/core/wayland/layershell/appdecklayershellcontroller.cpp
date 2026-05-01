@@ -47,7 +47,7 @@ bool AppDeckLayerShellController::attach(QWindow *window,
                      QRect(inputX, inputY, inputWidth, inputHeight));
 }
 
-bool AppDeckLayerShellController::setCollapsed(QWindow *window,
+bool AppDeckLayerShellController::setDock(QWindow *window,
                                                int width,
                                                int height,
                                                int inputX,
@@ -63,7 +63,7 @@ bool AppDeckLayerShellController::setCollapsed(QWindow *window,
                      QRect(inputX, inputY, inputWidth, inputHeight));
 }
 
-bool AppDeckLayerShellController::setExpanded(QWindow *window,
+bool AppDeckLayerShellController::setGrid(QWindow *window,
                                               int width,
                                               int height,
                                               int inputX,
@@ -105,9 +105,7 @@ bool AppDeckLayerShellController::configure(QWindow *window,
         | LayerShellQt::Window::AnchorLeft
         | LayerShellQt::Window::AnchorRight));
     layerWindow->setExclusiveZone(0);
-    layerWindow->setDesiredSize(QSize(qMax(1, width), qMax(1, height)));
     layerWindow->setScope(QStringLiteral("slm-appdeck"));
-    layerWindow->setCloseOnDismissed(false);
     layerWindow->setLayer(layer == WlrLayerShell::LayerOverlay
                           ? LayerShellQt::Window::LayerOverlay
                           : LayerShellQt::Window::LayerTop);
@@ -159,9 +157,7 @@ bool AppDeckLayerShellController::applyGeometry(QWindow *window,
                           qMax(1, inputRegion.height()));
 
 #ifdef SLM_HAVE_LAYERSHELLQT
-    Q_UNUSED(window)
-    Q_UNUSED(safeWidth)
-    Q_UNUSED(safeHeight)
+    window->resize(safeWidth, safeHeight);
     Q_UNUSED(safeInput)
     return true;
 #else

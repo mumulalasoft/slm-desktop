@@ -16,7 +16,7 @@ FocusScope {
     property real preferredPanelY: -1
     property real preferredPanelWidth: -1
     property real preferredPanelHeight: -1
-    property string apphubSearchSeed: ""
+    property string appdeckSearchSeed: ""
     property string filterText: ""
     property real revealProgress: 1.0
 
@@ -70,17 +70,17 @@ FocusScope {
                 && py <= (contentFrame.y + contentFrame.height)
     }
 
-    onApphubSearchSeedChanged: {
-        if (String(apphubSearchSeed || "").trim().length > 0) {
-            filterText = String(apphubSearchSeed || "")
+    onAppdeckSearchSeedChanged: {
+        if (String(appdeckSearchSeed || "").trim().length > 0) {
+            filterText = String(appdeckSearchSeed || "")
         }
     }
 
     onVisibleChanged: {
         if (visible) {
             revealProgress = 0.0
-            if (String(apphubSearchSeed || "").trim().length > 0) {
-                filterText = String(apphubSearchSeed || "")
+            if (String(appdeckSearchSeed || "").trim().length > 0) {
+                filterText = String(appdeckSearchSeed || "")
             }
             revealAnim.restart()
         } else {
@@ -147,10 +147,10 @@ FocusScope {
                     onClicked: root.dismissRequested()
                 }
 
-                AppDeckComp.AppHubHeader {
+                AppDeckComp.AppDeckGridHeader {
                     id: header
                     anchors.fill: parent
-                    title: "AppHub"
+                    title: "AppDeck"
                     searchText: root.filterText
                     totalCount: root.totalAppCount
                     filteredCount: appsGrid.filteredCount
@@ -175,7 +175,7 @@ FocusScope {
                     onClicked: root.dismissRequested()
                 }
 
-                AppDeckComp.AppHubFavoritesRow {
+                AppDeckComp.AppDeckFavoritesRow {
                     id: favoritesRow
                     anchors.fill: parent
                     favoritesModel: root.favoriteApps
@@ -195,7 +195,7 @@ FocusScope {
                     onClicked: root.dismissRequested()
                 }
 
-                AppDeckComp.AppHubGrid {
+                AppDeckComp.AppDeckGridView {
                     id: appsGrid
                     anchors.fill: parent
                     appModel: root.allAppsModel

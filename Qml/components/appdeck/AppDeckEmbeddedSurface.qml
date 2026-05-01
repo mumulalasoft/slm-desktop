@@ -2,7 +2,7 @@ import QtQuick 2.15
 import QtQuick.Effects
 import Slm_Desktop
 import "." as AppDeckComp
-import "../overlay/AppHubActions.js" as AppHubActions
+import "../overlay/AppDeckActions.js" as AppDeckActions
 import "../shell/PulseController.js" as PulseController
 
 Item {
@@ -18,37 +18,53 @@ Item {
 
     signal requestCollapse()
     signal requestOpenApp(string appId)
-    signal requestOpenAppHub()
+    signal requestOpenAppDeck()
 
-    readonly property var dockItem: collapsedView.dockItem
+    readonly property var dockItem: dockView.dockItem
     readonly property bool rootWindowVisible: !!rootWindow && !!rootWindow.visible
     readonly property bool rootWindowLocked: !!rootWindow && !!rootWindow.lockScreenVisible
-    readonly property string appdeckState: {
-        if (!root.enabled || root.rootWindowLocked) {
-            return "hidden"
+    readonly property bool appDeckHidden: !root.enabled || root.rootWindowLocked
+    readonly property bool appDeckGridRequested: {
+        if (root.appDeckHidden) {
+            return false
         }
         if (root.rootWindow && root.rootWindow.searchVisible === true) {
-            return "context"
+            return true
         }
         if (typeof ShellStateController !== "undefined"
-                && ShellStateController
-                && ShellStateController.apphubVisible === true) {
-            return "expanded"
+                && ShellStateController) {
+            return ShellStateController.appdeckVisible === true
         }
-        if (root.desktopScene && root.desktopScene.apphubVisible === true) {
-            return "expanded"
+        return root.desktopScene ? root.desktopScene.appdeckVisible === true : false
+    }
+    readonly property bool appDeckContextRequested: !root.appDeckHidden
+                                                    && typeof AppDeckController !== "undefined"
+                                                    && AppDeckController
+                                                    && String(AppDeckController.contextItemId || "").length > 0
+    state: root.appDeckGridRequested || root.appDeckContextRequested ? "grid" : "dock"
+    property string mode: {
+        if (root.state === "dock") {
+            return "apps"
         }
-        return "collapsed"
+        if (root.rootWindow && root.rootWindow.searchVisible === true) {
+            return "pulse"
+        }
+        if (root.appDeckContextRequested) {
+            return "context"
+        }
+        return "apps"
     }
 
-    readonly property bool collapsedMode: appdeckState === "collapsed"
-    readonly property bool expandedMode: appdeckState === "expanded"
-    readonly property bool contextMode: appdeckState === "context"
-    readonly property bool hiddenMode: appdeckState === "hidden"
-    readonly property bool immersiveMode: expandedMode || contextMode
+    readonly property bool dockActive: root.state === "dock"
+    readonly property bool gridActive: root.state === "grid"
+    readonly property bool appsMode: root.mode === "apps"
+    readonly property bool gridAppsMode: root.gridActive && root.appsMode
+    readonly property bool pulseMode: root.gridActive && root.mode === "pulse"
+    readonly property bool contextMode: root.gridActive && root.mode === "context"
+    readonly property bool immersiveMode: root.gridActive
     readonly property real surfaceTransition: immersiveMode ? 1.0 : 0.0
-    property real expandedTransition: expandedMode ? 1.0 : 0.0
-    property real contextTransition: contextMode ? 1.0 : 0.0
+    property real appsTransition: gridAppsMode ? 1.0 : 0.0
+    property real pulseTransition: (pulseMode || contextMode) ? 1.0 : 0.0
     property bool appdeckLifecycleActive: false
     property bool appdeckProfilePinned: false
     property string appdeckPrevChannel: ""
@@ -60,29 +76,29 @@ Item {
     readonly property real sharedPanelTopInset: Math.max(
                                                     18,
                                                     Number(root.desktopScene ? root.desktopScene.panelHeight : 0) + 14)
-    readonly property real collapsedDockBottomMargin: Math.max(
+    readonly property real dockBottomMargin: Math.max(
                                                          8,
                                                          Number(root.desktopScene ? root.desktopScene.dockBottomMargin : 0))
     readonly property real sharedPanelBottomInset: Math.max(
                                                        24,
                                                        Math.round(
-                                                           (collapsedView.dockItem
-                                                            ? Number(collapsedView.dockItem.height || 120)
+                                                           (dockView.dockItem
+                                                            ? Number(dockView.dockItem.height || 120)
                                                             : 120)
-                                                           + root.collapsedDockBottomMargin
+                                                           + root.dockBottomMargin
                                                            + 20))
-    readonly property real sharedDockWidth: Math.max(320, Number(root.collapsedInputWidth || 1) + 20)
-    readonly property real expandedContentW: Math.min(1180, Math.max(320, root.width - (sharedPanelMarginX * 2)))
-    readonly property real expandedContentH: Math.min(
+    readonly property real sharedDockWidth: Math.max(320, Number(root.dockInputWidth || 1) + 20)
+    readonly property real gridContentW: Math.min(1180, Math.max(320, root.width - (sharedPanelMarginX * 2)))
+    readonly property real gridContentH: Math.min(
                                                 940,
                                                 Math.max(360,
                                                          root.height - sharedPanelTopInset - sharedPanelBottomInset))
-    readonly property real expandedContentX: Math.round((root.width - expandedContentW) * 0.5)
-    readonly property real expandedContentY: sharedPanelTopInset
-    readonly property real expandedSurfaceW: Math.max(expandedContentW, sharedDockWidth)
-    readonly property real expandedSurfaceH: Math.max(expandedContentH, root.height - expandedContentY - 8)
-    readonly property real expandedSurfaceX: Math.round((root.width - expandedSurfaceW) * 0.5)
-    readonly property real expandedSurfaceY: expandedContentY
+    readonly property real gridContentX: Math.round((root.width - gridContentW) * 0.5)
+    readonly property real gridContentY: sharedPanelTopInset
+    readonly property real gridSurfaceW: Math.max(gridContentW, sharedDockWidth)
+    readonly property real gridSurfaceH: Math.max(gridContentH, root.height - gridContentY - 8)
+    readonly property real gridSurfaceX: Math.round((root.width - gridSurfaceW) * 0.5)
+    readonly property real gridSurfaceY: gridContentY
     readonly property real contextContentW: Math.min(980, Math.max(620, root.width - 80))
     readonly property real contextContentY: Math.max(
                                                 16,
@@ -93,84 +109,84 @@ Item {
     readonly property real contextSurfaceH: Math.max(contextContentH, root.height - contextContentY - 8)
     readonly property real contextSurfaceX: Math.round((root.width - contextSurfaceW) * 0.5)
     readonly property real contextSurfaceY: contextContentY
-    readonly property int collapsedInputX: Math.max(
+    readonly property int dockInputX: Math.max(
                                            0,
                                            Math.round(
-                                               (collapsedView ? Number(collapsedView.x || 0) : 0)
-                                               + (collapsedView.dockItem
-                                                  ? Number(collapsedView.dockItem.x || 0)
-                                                    + Number(collapsedView.dockItem.inputRegionX || 0)
+                                               (dockView ? Number(dockView.x || 0) : 0)
+                                               + (dockView.dockItem
+                                                  ? Number(dockView.dockItem.x || 0)
+                                                    + Number(dockView.dockItem.inputRegionX || 0)
                                                   : 0)))
-    readonly property int collapsedInputY: Math.max(
+    readonly property int dockInputY: Math.max(
                                            0,
                                            Math.round(
-                                               (collapsedView ? Number(collapsedView.y || 0) : 0)
-                                               + (collapsedView.dockItem
-                                                  ? Number(collapsedView.dockItem.y || 0)
-                                                    + Number(collapsedView.dockItem.inputRegionY || 0)
+                                               (dockView ? Number(dockView.y || 0) : 0)
+                                               + (dockView.dockItem
+                                                  ? Number(dockView.dockItem.y || 0)
+                                                    + Number(dockView.dockItem.inputRegionY || 0)
                                                   : 0)))
-    readonly property int collapsedInputWidth: Math.max(
+    readonly property int dockInputWidth: Math.max(
                                                1,
                                                Math.round(
-                                                   collapsedView.dockItem
-                                                   ? Number(collapsedView.dockItem.inputRegionWidth
-                                                            || collapsedView.dockItem.width || 1)
+                                                   dockView.dockItem
+                                                   ? Number(dockView.dockItem.inputRegionWidth
+                                                            || dockView.dockItem.width || 1)
                                                    : 1))
-    readonly property int collapsedInputHeight: Math.max(
+    readonly property int dockInputHeight: Math.max(
                                                 1,
                                                 Math.round(
-                                                    collapsedView.dockItem
-                                                    ? Number(collapsedView.dockItem.inputRegionHeight
-                                                             || collapsedView.dockItem.height || 1)
+                                                    dockView.dockItem
+                                                    ? Number(dockView.dockItem.inputRegionHeight
+                                                             || dockView.dockItem.height || 1)
                                                     : 1))
 
     visible: root.enabled
              && root.dockHostVisible
              && root.rootWindowVisible
-             && !root.hiddenMode
+             && !root.appDeckHidden
 
-    Behavior on expandedTransition {
+    Behavior on appsTransition {
         NumberAnimation {
             duration: root.motionSurfaceDuration
             easing.type: Theme.easingDefault
         }
     }
 
-    Behavior on contextTransition {
+    Behavior on pulseTransition {
         NumberAnimation {
             duration: root.motionSurfaceDuration
             easing.type: Theme.easingDefault
         }
     }
 
-    function setAppHubVisibility(visible) {
+    function setAppDeckVisibility(visible) {
         var v = !!visible
         if (typeof ShellStateController !== "undefined"
                 && ShellStateController
-                && ShellStateController.setAppHubVisible) {
-            ShellStateController.setAppHubVisible(v)
-            if (!v && ShellStateController.setAppHubSearchSeed) {
-                ShellStateController.setAppHubSearchSeed("")
+                && ShellStateController.setAppDeckVisible) {
+            ShellStateController.setAppDeckVisible(v)
+            if (!v && ShellStateController.setAppDeckSearchSeed) {
+                ShellStateController.setAppDeckSearchSeed("")
             }
             return
         }
-        if (root.desktopScene && root.desktopScene.setAppHubVisible) {
-            root.desktopScene.setAppHubVisible(v)
+        if (root.desktopScene && root.desktopScene.setAppDeckVisible) {
+            root.desktopScene.setAppDeckVisible(v)
         }
     }
 
-    function enterCollapsedMode() {
-        setAppHubVisibility(false)
+    function enterDock() {
+        setAppDeckVisibility(false)
         if (root.rootWindow && root.rootWindow.setSearchVisible) {
             root.rootWindow.setSearchVisible(false)
         }
     }
 
-    function enterExpandedMode() {
+    function enterGrid() {
         if (root.rootWindow && root.rootWindow.setSearchVisible) {
             root.rootWindow.setSearchVisible(false)
         }
-        setAppHubVisibility(true)
+        setAppDeckVisibility(true)
     }
 
     function applyPulseQuery(text) {
@@ -251,10 +267,10 @@ Item {
         id: steadyImmersiveSurface
         z: 0.5
         visible: root.immersiveMode
-        x: root.contextMode ? root.contextSurfaceX : root.expandedSurfaceX
-        y: root.contextMode ? root.contextSurfaceY : root.expandedSurfaceY
-        width: root.contextMode ? root.contextSurfaceW : root.expandedSurfaceW
-        height: root.contextMode ? root.contextSurfaceH : root.expandedSurfaceH
+        x: root.pulseMode ? root.contextSurfaceX : root.gridSurfaceX
+        y: root.pulseMode ? root.contextSurfaceY : root.gridSurfaceY
+        width: root.pulseMode ? root.contextSurfaceW : root.gridSurfaceW
+        height: root.pulseMode ? root.contextSurfaceH : root.gridSurfaceH
         radius: Theme.radiusWindow + Math.min(8, Theme.radiusWindow)
         color: Theme.color("windowCard")
         border.width: Theme.borderWidthThin
@@ -282,38 +298,38 @@ Item {
         }
     }
 
-    AppDeckComp.AppDeckExpandedView {
-        id: expandedView
+    AppDeckComp.AppDeckGridAppsView {
+        id: gridAppsView
         anchors.fill: parent
-        visible: root.expandedMode || opacity > 0.01
-        opacity: root.expandedTransition
-        transform: Translate { y: (1.0 - root.expandedTransition) * 14 }
+        visible: root.gridAppsMode || opacity > 0.01
+        opacity: root.appsTransition
+        transform: Translate { y: (1.0 - root.appsTransition) * 14 }
         z: 1
         appsModel: root.appsModel
         desktopScene: root.desktopScene
         panelHeight: root.desktopScene ? root.desktopScene.panelHeight : 0
-        preferredPanelX: root.expandedContentX
-        preferredPanelY: root.expandedContentY
-        preferredPanelWidth: root.expandedContentW
-        preferredPanelHeight: root.expandedContentH
-        apphubSearchSeed: root.desktopScene
-                          ? String(root.desktopScene.apphubSearchSeed || "")
+        preferredPanelX: root.gridContentX
+        preferredPanelY: root.gridContentY
+        preferredPanelWidth: root.gridContentW
+        preferredPanelHeight: root.gridContentH
+        appdeckSearchSeed: root.desktopScene
+                          ? String(root.desktopScene.appdeckSearchSeed || "")
                           : ""
         bottomSafeInset: root.sharedPanelBottomInset
         onDismissRequested: {
-            root.enterCollapsedMode()
+            root.enterDock()
             root.requestCollapse()
         }
         onAppChosen: function(appData) {
             root.requestOpenApp(String(appData && (appData.desktopId || appData.desktopFile || appData.name) || ""))
-            AppHubActions.handleAppChosen(appData)
-            root.enterCollapsedMode()
+            AppDeckActions.handleAppChosen(appData)
+            root.enterDock()
         }
         onAddToDockRequested: function(appData) {
-            AppHubActions.handleAddToDock(appData, root.appsModel)
+            AppDeckActions.handleAddToDock(appData, root.appsModel)
         }
         onAddToDesktopRequested: function(appData) {
-            AppHubActions.handleAddToDesktop(appData, root.desktopScene)
+            AppDeckActions.handleAddToDesktop(appData, root.desktopScene)
         }
     }
 
@@ -321,10 +337,10 @@ Item {
         id: contextView
         anchors.fill: parent
         z: 2
-        active: root.contextMode || root.contextTransition > 0.01
-        enabled: root.contextMode
-        opacity: root.contextTransition
-        transform: Translate { y: (1.0 - root.contextTransition) * 12 }
+        active: root.pulseMode || root.contextMode || root.pulseTransition > 0.01
+        enabled: root.pulseMode || root.contextMode
+        opacity: root.pulseTransition
+        transform: Translate { y: (1.0 - root.pulseTransition) * 12 }
         panelHeight: root.desktopScene ? root.desktopScene.panelHeight : 0
         preferredSurfaceX: root.contextContentX
         preferredSurfaceY: root.contextContentY
@@ -345,11 +361,11 @@ Item {
         providerStats: root.rootWindow ? root.rootWindow.pulseProviderStats : ({})
         previewData: root.rootWindow ? root.rootWindow.pulsePreviewData : ({})
         onCollapseRequested: {
-            root.enterCollapsedMode()
+            root.enterDock()
             root.requestCollapse()
         }
         onDismissRequested: {
-            root.enterCollapsedMode()
+            root.enterDock()
             root.requestCollapse()
         }
         onQueryChanged: function(text) {
@@ -408,33 +424,33 @@ Item {
     }
 
     AppDeckComp.AppDeckCollapsedView {
-        id: collapsedView
+        id: dockView
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: root.collapsedMode ? root.collapsedDockBottomMargin : 0
-        visible: !root.hiddenMode
-                 && (root.collapsedMode || root.expandedMode || root.contextMode || opacity > 0.01)
+        anchors.bottomMargin: root.dockActive ? root.dockBottomMargin : 0
+        visible: !root.appDeckHidden
+                 && (root.dockActive || root.gridAppsMode || root.pulseMode || opacity > 0.01)
         opacity: 1.0
-        scale: root.collapsedMode ? 1.0 : (1.0 - (0.03 * root.surfaceTransition))
-        transform: Translate { y: root.collapsedMode ? 0 : root.surfaceTransition * 10 }
+        scale: root.dockActive ? 1.0 : (1.0 - (0.03 * root.surfaceTransition))
+        transform: Translate { y: root.dockActive ? 0 : root.surfaceTransition * 10 }
         z: 3
         hostName: "appdeck-embedded"
         hideBorder: root.immersiveMode
         transparentBackground: root.immersiveMode
-        acceptsInput: root.dockAcceptsInput && root.collapsedMode
-        rendererActive: root.visible && !root.hiddenMode
+        acceptsInput: root.dockAcceptsInput && root.dockActive
+        rendererActive: root.visible && !root.appDeckHidden
         renderEffectsEnabled: !root.safeRendering
         appsModel: root.appsModel
         onAppActivated: function(appName) {
             root.requestOpenApp(String(appName || ""))
-            root.enterCollapsedMode()
+            root.enterDock()
         }
-        onApphubRequested: {
-            root.requestOpenAppHub()
-            if (root.expandedMode) {
-                root.enterCollapsedMode()
+        onAppdeckRequested: {
+            root.requestOpenAppDeck()
+            if (root.gridAppsMode) {
+                root.enterDock()
             } else {
-                root.enterExpandedMode()
+                root.enterGrid()
             }
         }
     }
@@ -457,21 +473,24 @@ Item {
         }
     }
 
-    onAppdeckStateChanged: {
-        root.beginAppDeckLifecycle(appdeckState)
-        expandedTransition = expandedMode ? 1.0 : 0.0
-        contextTransition = contextMode ? 1.0 : 0.0
-        if (contextMode) {
+    function syncAppDeckStateMode() {
+        root.beginAppDeckLifecycle(root.state + ":" + root.mode)
+        appsTransition = gridAppsMode ? 1.0 : 0.0
+        pulseTransition = (pulseMode || contextMode) ? 1.0 : 0.0
+        if (pulseMode || contextMode) {
             forceActiveFocus()
             Qt.callLater(function() {
                 if (contextView && contextView.forceActiveFocus) {
                     contextView.forceActiveFocus()
                 }
             })
-        } else if (expandedMode) {
+        } else if (gridAppsMode) {
             forceActiveFocus()
         }
     }
+
+    onStateChanged: root.syncAppDeckStateMode()
+    onModeChanged: root.syncAppDeckStateMode()
 
     onVisibleChanged: {
         if (!visible) {
@@ -481,8 +500,8 @@ Item {
 
     Component.onCompleted: {
         console.info("[AppDeckEmbeddedSurface] DOCK_CREATED ptr=" + root)
-        expandedTransition = expandedMode ? 1.0 : 0.0
-        contextTransition = contextMode ? 1.0 : 0.0
+        appsTransition = gridAppsMode ? 1.0 : 0.0
+        pulseTransition = (pulseMode || contextMode) ? 1.0 : 0.0
     }
 
     Component.onDestruction: root.endAppDeckLifecycle()

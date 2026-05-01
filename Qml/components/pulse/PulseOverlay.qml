@@ -193,8 +193,8 @@ Item {
         quickActionModel.append({ "label": "Toggle Dark Mode", "command": "toggle dark mode" })
         quickActionModel.append({ "label": "Toggle Bluetooth", "command": "toggle bluetooth" })
         quickActionModel.append({ "label": "Open Settings", "command": "open settings" })
-        quickActionModel.append({ "label": "Open AppHub", "command": "open apphub" })
-        quickActionModel.append({ "label": "AppHub: Utilities", "command": "open apphub utilities" })
+        quickActionModel.append({ "label": "Open AppDeck", "command": "open appdeck" })
+        quickActionModel.append({ "label": "AppDeck: Utilities", "command": "open appdeck utilities" })
     }
 
     function executeCommand(commandText) {
@@ -225,18 +225,18 @@ Item {
             }
             return false
         }
-        if (c === "open apphub" || c.indexOf("open apphub ") === 0) {
-            var appHubSeed = ""
-            if (c.indexOf("open apphub ") === 0) {
-                appHubSeed = String(c.substring("open apphub ".length) || "").trim()
+        if (c === "open appdeck" || c.indexOf("open appdeck ") === 0) {
+            var appDeckSeed = ""
+            if (c.indexOf("open appdeck ") === 0) {
+                appDeckSeed = String(c.substring("open appdeck ".length) || "").trim()
             }
             if (typeof ShellStateController !== "undefined"
                     && ShellStateController
-                    && ShellStateController.setAppHubSearchSeed) {
-                ShellStateController.setAppHubSearchSeed(appHubSeed)
+                    && ShellStateController.setAppDeckSearchSeed) {
+                ShellStateController.setAppDeckSearchSeed(appDeckSeed)
             }
-            if (typeof ShellStateController !== "undefined" && ShellStateController && ShellStateController.setAppHubVisible) {
-                ShellStateController.setAppHubVisible(true)
+            if (typeof ShellStateController !== "undefined" && ShellStateController && ShellStateController.setAppDeckVisible) {
+                ShellStateController.setAppDeckVisible(true)
                 return true
             }
             return false
@@ -312,10 +312,10 @@ Item {
 
         var supported = [
             { "name": "open settings", "impact": "Open SLM Settings" },
-            { "name": "open apphub", "impact": "Show AppHub overlay" },
-            { "name": "open apphub utilities", "impact": "Open AppHub filtered by utilities" },
-            { "name": "open apphub internet", "impact": "Open AppHub filtered by internet apps" },
-            { "name": "open apphub graphics", "impact": "Open AppHub filtered by graphics apps" },
+            { "name": "open appdeck", "impact": "Show AppDeck overlay" },
+            { "name": "open appdeck utilities", "impact": "Open AppDeck filtered by utilities" },
+            { "name": "open appdeck internet", "impact": "Open AppDeck filtered by internet apps" },
+            { "name": "open appdeck graphics", "impact": "Open AppDeck filtered by graphics apps" },
             { "name": "toggle dark mode", "impact": "Toggle light/dark theme" },
             { "name": "toggle bluetooth", "impact": "Toggle bluetooth.enabled" },
             { "name": "wifi off", "impact": "Route to network control" },

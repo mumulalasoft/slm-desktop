@@ -33,9 +33,9 @@ QtObject {
         if (ShellStateController.setDockHoveredItem) {
             ShellStateController.setDockHoveredItem(String(hoveredItemId || ""))
         }
-        if (ShellStateController.setDockExpandedItem) {
-            // Context menu owner acts as expanded item state.
-            ShellStateController.setDockExpandedItem(String(contextItemId || ""))
+        if (ShellStateController.setDockActiveItem) {
+            // Context menu owner acts as active item state.
+            ShellStateController.setDockActiveItem(String(contextItemId || ""))
         }
     }
 
@@ -44,7 +44,7 @@ QtObject {
             return
         }
         hoveredItemId = String(ShellStateController.dockHoveredItem || "")
-        contextItemId = String(ShellStateController.dockExpandedItem || "")
+        contextItemId = String(ShellStateController.dockActiveItem || "")
     }
 
     function setInputOwner(hostName) {
@@ -160,7 +160,7 @@ QtObject {
         if (typeof ShellStateController !== "undefined" && ShellStateController) {
             try {
                 ShellStateController.dockHoveredItemChanged.connect(root._syncDockStateFromShell)
-                ShellStateController.dockExpandedItemChanged.connect(root._syncDockStateFromShell)
+                ShellStateController.dockActiveItemChanged.connect(root._syncDockStateFromShell)
             } catch (e) {}
         }
     }

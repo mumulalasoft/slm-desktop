@@ -859,7 +859,7 @@ set(DESKTOP_SHELL_QML_FILES
     Qml/components/overlay/PortalConsentDialogWindow.qml
     Qml/components/overlay/FirewallPromptDialog.qml
     Qml/components/overlay/WifiPasswordDialog.qml
-    Qml/components/overlay/AppHubActions.js
+    Qml/components/overlay/AppDeckActions.js
     Qml/components/overlay/SecuritySettingsRouting.js
     # Qml/components/NotificationIndicator.qml
     Qml/components/applet/ScreencastIndicator.qml
@@ -944,11 +944,11 @@ set(DESKTOP_SHELL_QML_FILES
     Qml/components/appdeck/AppDeckAppDelegate.qml
     Qml/components/appdeck/AppDeckItemDelegate.qml
     Qml/components/appdeck/AppDeckCollapsedView.qml
-    Qml/components/appdeck/AppDeckExpandedView.qml
+    Qml/components/appdeck/AppDeckGridAppsView.qml
     Qml/components/appdeck/AppDeckEmbeddedSurface.qml
-    Qml/components/appdeck/AppHubHeader.qml
-    Qml/components/appdeck/AppHubGrid.qml
-    Qml/components/appdeck/AppHubFavoritesRow.qml
+    Qml/components/appdeck/AppDeckGridHeader.qml
+    Qml/components/appdeck/AppDeckGridView.qml
+    Qml/components/appdeck/AppDeckFavoritesRow.qml
     Qml/components/appdeck/AppDeckContextView.qml
     Qml/components/appdeck/PulseQueryHeader.qml
     Qml/components/appdeck/PulseBestMatchCard.qml
@@ -1081,7 +1081,7 @@ set(DESKTOP_SHELL_RESOURCE_FILES
       assets/icons/light/pulse.svg
     assets/icons/logo_white.svg
     assets/icons/logo_black.svg
-    assets/icons/apphub.svg
+    assets/icons/appdeck.svg
     assets/icons/wifi_1_bar.svg
     assets/icons/wifi_1_bar_white.svg
     assets/icons/wifi_2_bar.svg
@@ -1983,22 +1983,22 @@ target_link_libraries(appdecksystem_render_contract_test
 
 add_test(NAME appdecksystem_render_contract_test COMMAND appdecksystem_render_contract_test)
 
-qt_add_executable(desktopscene_apphub_ssot_contract_test
-    tests/desktopscene_apphub_ssot_contract_test.cpp
+qt_add_executable(desktopscene_appdeck_ssot_contract_test
+    tests/desktopscene_appdeck_ssot_contract_test.cpp
 )
 
-target_compile_definitions(desktopscene_apphub_ssot_contract_test
+target_compile_definitions(desktopscene_appdeck_ssot_contract_test
     PRIVATE
         DESKTOP_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\"
 )
 
-target_link_libraries(desktopscene_apphub_ssot_contract_test
+target_link_libraries(desktopscene_appdeck_ssot_contract_test
     PRIVATE
         Qt6::Core
         Qt6::Test
 )
 
-add_test(NAME desktopscene_apphub_ssot_contract_test COMMAND desktopscene_apphub_ssot_contract_test)
+add_test(NAME desktopscene_appdeck_ssot_contract_test COMMAND desktopscene_appdeck_ssot_contract_test)
 
 qt_add_executable(main_search_ssot_contract_test
     tests/main_search_ssot_contract_test.cpp

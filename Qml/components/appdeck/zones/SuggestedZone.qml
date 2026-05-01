@@ -3,7 +3,7 @@ import QtQuick.Controls 2.15
 import Slm_Desktop
 
 // SuggestedZone — strips app yang sering dipakai.
-// Dimuat dari appsModel.topApps(); dirender oleh host (AppDeckExpandedView).
+// Dimuat dari appsModel.topApps(); dirender oleh host (AppDeckGridAppsView).
 QtObject {
     id: root
 

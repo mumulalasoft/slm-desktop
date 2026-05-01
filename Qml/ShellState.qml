@@ -10,7 +10,7 @@ import QtQuick 2.15
 //
 // Hierarchy:
 //   ShellState
-//   ├─ overlayState   — transient overlays (apphub, overview, toTheSpot, notifications)
+//   ├─ overlayState   — transient overlays (appdeck, overview, toTheSpot, notifications)
 //   ├─ modeState      — persistent shell modes (showDesktop, focusMode)
 //   ├─ dockState      — appdeck visibility/opacity
 //   ├─ topBarState    — crown visibility/opacity
@@ -22,7 +22,7 @@ QtObject {
     // ── Sub-objects ───────────────────────────────────────────────────────────
 
     readonly property QtObject overlayState: QtObject {
-        readonly property bool apphubVisible:         ShellStateController ? ShellStateController.apphubVisible : false
+        readonly property bool appdeckVisible:         ShellStateController ? ShellStateController.appdeckVisible : false
         readonly property bool overviewVisible:          ShellStateController ? ShellStateController.workspaceOverviewVisible : false
         readonly property bool toTheSpotVisible:         ShellStateController ? ShellStateController.toTheSpotVisible : false
         readonly property bool notificationsVisible:     ShellStateController ? ShellStateController.notificationsVisible : false
@@ -53,7 +53,7 @@ QtObject {
     // ── Backward-compatible flat aliases ─────────────────────────────────────
     // Keep existing bindings working; new code should use sub-objects above.
 
-    readonly property bool apphubVisible:         overlayState.apphubVisible
+    readonly property bool appdeckVisible:         overlayState.appdeckVisible
     readonly property bool workspaceOverviewVisible: overlayState.overviewVisible
     readonly property bool toTheSpotVisible:         overlayState.toTheSpotVisible
     readonly property bool styleGalleryVisible:      overlayState.styleGalleryVisible

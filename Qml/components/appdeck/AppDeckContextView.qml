@@ -345,7 +345,7 @@ Item {
         var rowIconRaw = String((row && row.icon) || "")
         var rowIconNameRaw = String((row && row.iconName) || "")
         var rowIconSourceRaw = String((row && row.iconSource) || "")
-        // Follow AppHub icon routing:
+        // Follow AppDeck icon routing:
         // 1) iconName -> theme icon
         // 2) explicit source from iconSource/icon
         // 3) non-explicit icon token -> theme icon
@@ -389,7 +389,7 @@ Item {
         // Hard guarantee: Pulse delegates must always receive a concrete iconSource.
         if (iconSourceValue.length <= 0) {
             if (typeValue === "app" || sectionValue === "apps") {
-                iconSourceValue = "qrc:/icons/apphub.svg"
+                iconSourceValue = "qrc:/icons/appdeck.svg"
             } else if (typeValue === "action" || typeValue === "command" || sectionValue === "actions") {
                 iconSourceValue = "qrc:/icons/dark/pulse.svg"
             } else {

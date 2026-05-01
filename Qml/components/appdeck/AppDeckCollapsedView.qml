@@ -16,7 +16,7 @@ Item {
     readonly property alias dockItem: dockSurface
 
     signal appActivated(string appName)
-    signal apphubRequested()
+    signal appdeckRequested()
 
     function syncHideBorder() {
         if (!dockSurface || !dockSurface.hasOwnProperty) {
@@ -47,8 +47,8 @@ Item {
         appsModel: root.appsModel
         Component.onCompleted: root.syncHideBorder()
         onAppActivated: function(appName) { root.appActivated(appName) }
-        onApphubRequested: {
-            root.apphubRequested()
+        onAppdeckRequested: {
+            root.appdeckRequested()
         }
     }
 }
