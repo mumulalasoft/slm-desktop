@@ -257,6 +257,7 @@ Item {
 
         Menu {
             id: shortcutMenu
+            parent: Overlay.overlay
             MenuItem {
                 text: "Open"
                 onTriggered: {

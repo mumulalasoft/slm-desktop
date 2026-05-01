@@ -23,7 +23,7 @@ Menu {
                                           ? anchorWindow.overlay : null)
     readonly property bool windowPopupKind: control.popupType === Popup.Window
 
-    parent: windowPopupKind ? null : popupParent
+    parent: popupParent ?? anchorItem
     popupType: Popup.Window
     z: 3000
     modal: false

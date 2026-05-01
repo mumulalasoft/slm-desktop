@@ -299,9 +299,12 @@ Window {
     transientParent: null
     title: "SLM AppDeck Surface"
 
+    property bool _layerPrepared: !layerShellSupported
+
     visible: !!rootWindow
              && !!rootWindow.visible
              && root.layerShellSupported
+             && root._layerPrepared
     opacity: root.appDeckHidden ? 0.0 : (root.dockLayerReady ? 1.0 : 0.0)
 
     readonly property int dockContentHeight: Math.max(
@@ -845,6 +848,10 @@ Window {
 
     Component.onCompleted: {
         console.info("[AppDeckWindow] DOCK_CREATED ptr=" + root)
+        if (layerShellSupported && typeof AppDeckLayerShell !== "undefined" && AppDeckLayerShell) {
+            AppDeckLayerShell.prepareWindow(root)
+        }
+        _layerPrepared = true
         root.driveSurfaceTransition(root.surfaceTarget, true)
         Qt.callLater(function() { root.syncLayerSurfaceSize() })
     }

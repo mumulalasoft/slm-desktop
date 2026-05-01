@@ -1815,6 +1815,7 @@ Item {
 
     Menu {
         id: launcherShortcutMenu
+        parent: Overlay.overlay
         modal: false
         focus: false
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside | Popup.CloseOnPressOutsideParent

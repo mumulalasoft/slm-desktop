@@ -55,6 +55,7 @@ Item {
 
     Menu {
         id: desktopMenu
+        parent: Overlay.overlay
         modal: false
         focus: false
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside | Popup.CloseOnPressOutsideParent

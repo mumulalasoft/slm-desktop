@@ -440,6 +440,7 @@ Item {
 
                 Menu {
                     id: menu
+                    parent: Overlay.overlay
                     property var actionAppData: ({})
                     MenuItem {
                         text: "Pin to AppDeck"

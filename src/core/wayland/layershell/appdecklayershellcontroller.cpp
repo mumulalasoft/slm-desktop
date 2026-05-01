@@ -1,8 +1,10 @@
 #include "appdecklayershellcontroller.h"
 
+#include "appdeckbootstrapstate.h"
 #include "wlrlayershell.h"
 
 #include <QDebug>
+#include <QRegion>
 #include <QSize>
 #include <QTimer>
 #include <QWindow>
@@ -22,6 +24,11 @@ AppDeckLayerShellController::AppDeckLayerShellController(WlrLayerShell *fallback
     }
 }
 
+void AppDeckLayerShellController::setBootstrapState(AppDeckBootstrapState *state)
+{
+    m_bootstrapState = state;
+}
+
 bool AppDeckLayerShellController::isSupported() const
 {
 #ifdef SLM_HAVE_LAYERSHELLQT
@@ -31,20 +38,36 @@ bool AppDeckLayerShellController::isSupported() const
 #endif
 }
 
-bool AppDeckLayerShellController::attach(QWindow *window,
-                                         int width,
-                                         int height,
-                                         int inputX,
-                                         int inputY,
-                                         int inputWidth,
-                                         int inputHeight)
+void AppDeckLayerShellController::prepareWindow(QWindow *window)
 {
-    return configure(window,
-                     WlrLayerShell::LayerTop,
-                     WlrLayerShell::KeyboardInteractivityNone,
-                     width,
-                     height,
-                     QRect(inputX, inputY, inputWidth, inputHeight));
+#ifdef SLM_HAVE_LAYERSHELLQT
+    if (!window || m_attached) {
+        return;
+    }
+    auto *layerWindow = LayerShellQt::Window::get(window);
+    if (!layerWindow) {
+        return;
+    }
+    layerWindow->setAnchors(static_cast<LayerShellQt::Window::Anchor>(
+        LayerShellQt::Window::AnchorBottom
+        | LayerShellQt::Window::AnchorLeft
+        | LayerShellQt::Window::AnchorRight));
+    layerWindow->setExclusiveZone(0);
+    layerWindow->setScope(QStringLiteral("slm-appdeck"));
+    layerWindow->setLayer(LayerShellQt::Window::LayerTop);
+    layerWindow->setKeyboardInteractivity(LayerShellQt::Window::KeyboardInteractivityNone);
+    watchWindow(window);
+    m_attached = true;
+    m_lastLayer = WlrLayerShell::LayerTop;
+    m_lastKeyboardInteractivity = WlrLayerShell::KeyboardInteractivityNone;
+    if (m_bootstrapState) {
+        m_bootstrapState->setLayerRoleBound(true);
+        m_bootstrapState->markFirstConfigureReceived(0);
+        m_bootstrapState->markConfigureAcked(0);
+    }
+#else
+    Q_UNUSED(window)
+#endif
 }
 
 bool AppDeckLayerShellController::setDock(QWindow *window,
@@ -95,17 +118,21 @@ bool AppDeckLayerShellController::configure(QWindow *window,
 
     watchWindow(window);
 
+    const bool prevAttached = m_attached;
+
 #ifdef SLM_HAVE_LAYERSHELLQT
     auto *layerWindow = LayerShellQt::Window::get(window);
     if (!layerWindow) {
         return false;
     }
-    layerWindow->setAnchors(static_cast<LayerShellQt::Window::Anchor>(
-        LayerShellQt::Window::AnchorBottom
-        | LayerShellQt::Window::AnchorLeft
-        | LayerShellQt::Window::AnchorRight));
-    layerWindow->setExclusiveZone(0);
-    layerWindow->setScope(QStringLiteral("slm-appdeck"));
+    if (!prevAttached) {
+        layerWindow->setAnchors(static_cast<LayerShellQt::Window::Anchor>(
+            LayerShellQt::Window::AnchorBottom
+            | LayerShellQt::Window::AnchorLeft
+            | LayerShellQt::Window::AnchorRight));
+        layerWindow->setExclusiveZone(0);
+        layerWindow->setScope(QStringLiteral("slm-appdeck"));
+    }
     layerWindow->setLayer(layer == WlrLayerShell::LayerOverlay
                           ? LayerShellQt::Window::LayerOverlay
                           : LayerShellQt::Window::LayerTop);
@@ -114,6 +141,14 @@ bool AppDeckLayerShellController::configure(QWindow *window,
             ? LayerShellQt::Window::KeyboardInteractivityExclusive
             : LayerShellQt::Window::KeyboardInteractivityNone);
     m_attached = true;
+    // LayerShellQt menangani configure/ack secara internal — advance bootstrap
+    // state secara manual agar QML gate (dockLayerReady) tidak stuck di false.
+    if (!prevAttached && m_bootstrapState) {
+        m_bootstrapState->setIntegrationEnabled(true);
+        m_bootstrapState->setLayerRoleBound(true);
+        m_bootstrapState->markFirstConfigureReceived(0);
+        m_bootstrapState->markConfigureAcked(0);
+    }
 #else
     if (!m_attached) {
         constexpr int anchors = WlrLayerShell::AnchorBottom
@@ -158,7 +193,10 @@ bool AppDeckLayerShellController::applyGeometry(QWindow *window,
 
 #ifdef SLM_HAVE_LAYERSHELLQT
     window->resize(safeWidth, safeHeight);
-    Q_UNUSED(safeInput)
+    // Set input region agar area transparan di luar dock/grid tidak intercept
+    // pointer events di level kompositor. Qt Wayland menerjemahkan setMask()
+    // ke wl_surface_set_input_region().
+    window->setMask(QRegion(safeInput));
     return true;
 #else
     if (!m_fallbackLayerShell) {
