@@ -133,7 +133,7 @@ trap cleanup EXIT
 # ── Mount hostshare di guest (butuh untuk jalur script install/verify) ────────
 echo "[qemu-smoke] Mounting hostshare di guest..."
 g_scp "$SCRIPT_DIR/qemu-guest-bootstrap.sh" /tmp/qemu-guest-bootstrap.sh
-g_ssh "chmod +x /tmp/qemu-guest-bootstrap.sh && sudo /tmp/qemu-guest-bootstrap.sh --mount-only"
+g_ssh -tt "chmod +x /tmp/qemu-guest-bootstrap.sh && sudo /tmp/qemu-guest-bootstrap.sh --mount-only"
 
 # ── Build di host ────────────────────────────────────────────────────────────
 echo "[qemu-smoke] Building on host..."
