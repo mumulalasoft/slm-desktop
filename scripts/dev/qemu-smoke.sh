@@ -26,10 +26,17 @@ HOST_REPO_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 HOST_BUILD_DIR="${SLM_QEMU_HOST_BUILD_DIR:-$BUILD_DIR}"
 
 RUNTIME_TARGETS=(
-    slm-greeter slm-watchdog slm-recovery-app slm-session-broker slm-svcmgrd slm-loggerd
-    appSlm_Desktop desktopd slm-svcmgrd slm-loggerd slm-portald
-    slm-fileopsd slm-devicesd slm-clipboardd slm-polkit-agent
-    slm-envd slm-recoveryd
+    # greeter → broker pipeline (wajib ada, must_install_bin)
+    slm-greeter slm-watchdog slm-recovery-app slm-session-broker
+    # desktop shell & compositor daemons
+    appSlm_Desktop desktopd slm-svcmgrd slm-loggerd
+    # portals & system daemons
+    slm-portald slm-fileopsd slm-devicesd slm-clipboardd
+    slm-envd slm-envd-helper slm-recoveryd slm-polkit-agent
+    # settings & context
+    slm-settingsd desktop-contextd slm-settings
+    # control utilities
+    indicatorctl windowingctl workspacectl fileopctl devicectl globalmenuctl
 )
 
 usage() {
