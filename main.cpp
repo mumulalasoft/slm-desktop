@@ -105,6 +105,15 @@ static FILE *g_shellLogFile = nullptr;
 static void shellMessageHandler(QtMsgType type, const QMessageLogContext &,
                                 const QString &msg)
 {
+    // Qt emits this warning for every Popup/Menu created in a layer-shell window because
+    // it cannot resolve the containing window via the Window.window attached property
+    // (Popup/Menu are QObject, not QQuickItem). This is a known Qt/layer-shell limitation
+    // and does not affect runtime behavior.
+    if (type == QtWarningMsg
+            && msg.contains(QLatin1String("Window.window does only support types deriving from Item"))) {
+        return;
+    }
+
     const char *level = "DBG";
     switch (type) {
     case QtInfoMsg:     level = "INF"; break;
@@ -545,6 +554,7 @@ int main(int argc, char *argv[])
     AppDeckBootstrapState dockBootstrapState;
     WlrLayerShell wlrLayerShell;
     AppDeckLayerShellController appDeckLayerShell(&wlrLayerShell);
+    appDeckLayerShell.setBootstrapState(&dockBootstrapState);
     if (enableWlrLayerShell) {
         wlrLayerShell.setAppDeckBootstrapState(&dockBootstrapState);
         QObject::connect(&wlrLayerShell, &WlrLayerShell::activeChanged, &app, [&]() {
