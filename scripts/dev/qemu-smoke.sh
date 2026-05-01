@@ -26,7 +26,7 @@ HOST_REPO_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 HOST_BUILD_DIR="${SLM_QEMU_HOST_BUILD_DIR:-$BUILD_DIR}"
 
 RUNTIME_TARGETS=(
-    slm-greeter slm-watchdog slm-recovery-app slm-session-broker slm-shell slm-svcmgrd slm-loggerd
+    slm-greeter slm-watchdog slm-recovery-app slm-session-broker slm-svcmgrd slm-loggerd
     appSlm_Desktop desktopd slm-svcmgrd slm-loggerd slm-portald
     slm-fileopsd slm-devicesd slm-clipboardd slm-polkit-agent
     slm-envd slm-recoveryd
@@ -129,6 +129,11 @@ ssh -o ControlMaster=yes -o "ControlPath=$SSH_CTL" -o ControlPersist=3600 \
 
 cleanup() { ssh -O exit -o "ControlPath=$SSH_CTL" "$SSH_HOST" 2>/dev/null || true; }
 trap cleanup EXIT
+
+# ── Mount hostshare di guest (butuh untuk jalur script install/verify) ────────
+echo "[qemu-smoke] Mounting hostshare di guest..."
+g_scp "$SCRIPT_DIR/qemu-guest-bootstrap.sh" /tmp/qemu-guest-bootstrap.sh
+g_ssh "chmod +x /tmp/qemu-guest-bootstrap.sh && sudo /tmp/qemu-guest-bootstrap.sh --mount-only"
 
 # ── Build di host ────────────────────────────────────────────────────────────
 echo "[qemu-smoke] Building on host..."
