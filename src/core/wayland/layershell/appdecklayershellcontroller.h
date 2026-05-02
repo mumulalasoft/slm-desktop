@@ -53,13 +53,14 @@ private:
                    int height,
                    const QRect &inputRegion);
     bool applyGeometry(QWindow *window, int width, int height, const QRect &inputRegion);
+    void startGeometryGrace();
     void watchWindow(QWindow *window);
 
     WlrLayerShell *m_fallbackLayerShell = nullptr;
     AppDeckBootstrapState *m_bootstrapState = nullptr;
     QPointer<QWindow> m_window;
     bool m_attached = false;
-    bool m_configured = false;
+    bool m_geometrySafe = false;
     int m_lastLayer = -1;
     int m_lastKeyboardInteractivity = -1;
 };

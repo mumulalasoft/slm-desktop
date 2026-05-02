@@ -58,6 +58,11 @@ void AppDeckLayerShellController::prepareWindow(QWindow *window)
     layerWindow->setKeyboardInteractivity(LayerShellQt::Window::KeyboardInteractivityNone);
     watchWindow(window);
     m_attached = true;
+    // Block geometry commits for 50ms to let KWin's configure/ack round-trip
+    // complete. Qt's setMask() triggers wl_surface.commit immediately; any
+    // commit before ack_configure violates the layer-shell protocol and causes
+    // KWin to send wl_display.error ("The Wayland connection broke").
+    startGeometryGrace();
     m_lastLayer = WlrLayerShell::LayerTop;
     m_lastKeyboardInteractivity = WlrLayerShell::KeyboardInteractivityNone;
     if (m_bootstrapState) {
@@ -141,13 +146,15 @@ bool AppDeckLayerShellController::configure(QWindow *window,
             ? LayerShellQt::Window::KeyboardInteractivityExclusive
             : LayerShellQt::Window::KeyboardInteractivityNone);
     m_attached = true;
-    // LayerShellQt menangani configure/ack secara internal — advance bootstrap
-    // state secara manual agar QML gate (dockLayerReady) tidak stuck di false.
-    if (!prevAttached && m_bootstrapState) {
-        m_bootstrapState->setIntegrationEnabled(true);
-        m_bootstrapState->setLayerRoleBound(true);
-        m_bootstrapState->markFirstConfigureReceived(0);
-        m_bootstrapState->markConfigureAcked(0);
+    if (!prevAttached) {
+        // Re-attach after screen change: need a fresh configure/ack cycle.
+        startGeometryGrace();
+        if (m_bootstrapState) {
+            m_bootstrapState->setIntegrationEnabled(true);
+            m_bootstrapState->setLayerRoleBound(true);
+            m_bootstrapState->markFirstConfigureReceived(0);
+            m_bootstrapState->markConfigureAcked(0);
+        }
     }
 #else
     if (!m_attached) {
@@ -192,14 +199,12 @@ bool AppDeckLayerShellController::applyGeometry(QWindow *window,
                           qMax(1, inputRegion.height()));
 
 #ifdef SLM_HAVE_LAYERSHELLQT
-    // Skip geometry on the first call after initial attach. Qt's setMask()
-    // triggers wl_surface.commit immediately, which violates the layer-shell
-    // protocol if KWin's configure/ack round-trip hasn't completed yet.
-    // onSceneGraphInitialized fires after the first rendered frame (i.e. after
-    // KWin's configure is received and acked) and will call syncLayerSurfaceSize
-    // again — that second call is safe.
-    if (!m_configured) {
-        m_configured = true;
+    // Block all geometry commits during the grace period that follows every new
+    // surface attach. Qt's setMask() calls wl_surface.commit immediately; any
+    // commit before KWin's configure/ack violates zwlr_layer_surface_v1 and
+    // causes KWin to send wl_display.error. Return true (optimistic) so callers
+    // don't stall; the layerShellRetryTimer will apply geometry after grace.
+    if (!m_geometrySafe) {
         return true;
     }
     window->resize(safeWidth, safeHeight);
@@ -221,6 +226,15 @@ bool AppDeckLayerShellController::applyGeometry(QWindow *window,
 #endif
 }
 
+void AppDeckLayerShellController::startGeometryGrace()
+{
+#ifdef SLM_HAVE_LAYERSHELLQT
+    m_geometrySafe = false;
+    // 50ms covers the KWin configure/ack round-trip in all tested configurations.
+    QTimer::singleShot(50, this, [this]() { m_geometrySafe = true; });
+#endif
+}
+
 void AppDeckLayerShellController::watchWindow(QWindow *window)
 {
     if (m_window == window) {
@@ -236,7 +250,7 @@ void AppDeckLayerShellController::watchWindow(QWindow *window)
                 return;
             }
             m_attached = false;
-            m_configured = false;
+            m_geometrySafe = false;
             m_lastLayer = -1;
             m_lastKeyboardInteractivity = -1;
         });
