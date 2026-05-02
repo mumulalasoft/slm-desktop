@@ -5356,6 +5356,12 @@ else()
     message(STATUS "slm-greeter: direct PAM authentication disabled (libpam not found)")
 endif()
 target_include_directories(slm-greeter PRIVATE ${CMAKE_SOURCE_DIR})
+# backtrace() for crash-signal handler — available in glibc on Linux without extra linking.
+include(CheckIncludeFile)
+check_include_file("execinfo.h" SLM_HAVE_EXECINFO_H)
+if(SLM_HAVE_EXECINFO_H)
+    target_compile_definitions(slm-greeter PRIVATE SLM_HAVE_EXECINFO_H=1)
+endif()
 
 install(TARGETS slm-session-broker
     RUNTIME DESTINATION ${CMAKE_INSTALL_LIBEXECDIR})

@@ -76,35 +76,70 @@ chmod 0640 "$GREETER_LOG"
 chmod 0640 "$CAGE_LOG"
 cat >"$GREETER_LAUNCHER" <<EOF
 #!/usr/bin/env bash
-set -euo pipefail
+# slm-greeter-greetd-launch — run slm-greeter with retry inside an existing cage session.
+# Exit 0 = greeter requested logout/session-start (normal).
+# Exit non-0 after MAX_RETRIES = persistent failure, cage should exit.
 export LIBSEAT_BACKEND=logind
 export QT_QPA_PLATFORM=wayland
 export QT_QUICK_BACKEND=software
 export LIBGL_ALWAYS_SOFTWARE=1
-{
-  echo "===== \$(date --iso-8601=seconds) slm-greeter-launch start ====="
-  echo "GREETER_BIN=${GREETER_BIN}"
-  echo "GREETD_SOCK=\${GREETD_SOCK:-}"
-  echo "XDG_RUNTIME_DIR=\${XDG_RUNTIME_DIR:-}"
-  echo "QT_QPA_PLATFORM=\${QT_QPA_PLATFORM:-}"
-  echo "QT_QUICK_BACKEND=\${QT_QUICK_BACKEND:-}"
-  echo "LIBGL_ALWAYS_SOFTWARE=\${LIBGL_ALWAYS_SOFTWARE:-}"
-  exec "${GREETER_BIN}"
-} >>"${GREETER_LOG}" 2>&1
+
+_MAX_RETRIES=5
+_attempt=0
+_log="${GREETER_LOG}"
+
+_ts() { date --iso-8601=seconds 2>/dev/null || date; }
+
+while [ "\$_attempt" -lt "\$_MAX_RETRIES" ]; do
+  _attempt=\$((_attempt + 1))
+  {
+    echo "===== \$(_ts) slm-greeter-launch attempt \$_attempt/\$_MAX_RETRIES ====="
+    echo "  GREETER_BIN=${GREETER_BIN}"
+    echo "  GREETD_SOCK=\${GREETD_SOCK:-<unset>}"
+    echo "  XDG_RUNTIME_DIR=\${XDG_RUNTIME_DIR:-<unset>}"
+    echo "  QT_QPA_PLATFORM=\${QT_QPA_PLATFORM:-<unset>}"
+    echo "  WLR_RENDERER=\${WLR_RENDERER:-<unset>}"
+  } >>"\$_log" 2>&1
+
+  "${GREETER_BIN}" >>"\$_log" 2>&1
+  _rc=\$?
+
+  {
+    echo "  greeter exited: code=\$_rc attempt=\$_attempt"
+  } >>"\$_log" 2>&1
+
+  # Exit 0 = normal (login succeeded / session handed off).
+  if [ "\$_rc" -eq 0 ]; then
+    exit 0
+  fi
+
+  if [ "\$_attempt" -lt "\$_MAX_RETRIES" ]; then
+    echo "  retrying in 1s..." >>"\$_log" 2>&1
+    sleep 1
+  fi
+done
+
+echo "===== \$(_ts) slm-greeter-launch: gave up after \$_MAX_RETRIES attempts =====" >>"\$_log" 2>&1
+exit 1
 EOF
 chmod 0755 "$GREETER_LAUNCHER"
 cat >"$GREETER_CAGE_LAUNCHER" <<EOF
 #!/usr/bin/env bash
-set -euo pipefail
+# slm-greeter-cage-launch — start cage compositor and run greeter inside it.
 export LIBSEAT_BACKEND=logind
 export WLR_RENDERER=pixman
+
+_log="${CAGE_LOG}"
+_ts() { date --iso-8601=seconds 2>/dev/null || date; }
+
 {
-  echo "===== \$(date --iso-8601=seconds) slm-greeter-cage-launch start ====="
-  echo "XDG_RUNTIME_DIR=\${XDG_RUNTIME_DIR:-}"
-  echo "GREETD_SOCK=\${GREETD_SOCK:-}"
-  echo "WLR_RENDERER=\${WLR_RENDERER:-}"
-  exec cage -s -- "${GREETER_LAUNCHER}"
-} >>"${CAGE_LOG}" 2>&1
+  echo "===== \$(_ts) slm-greeter-cage-launch start ====="
+  echo "  XDG_RUNTIME_DIR=\${XDG_RUNTIME_DIR:-<unset>}"
+  echo "  GREETD_SOCK=\${GREETD_SOCK:-<unset>}"
+  echo "  WLR_RENDERER=\${WLR_RENDERER:-<unset>}"
+} >>"\$_log" 2>&1
+
+exec cage -s -- "${GREETER_LAUNCHER}" >>"\$_log" 2>&1
 EOF
 chmod 0755 "$GREETER_CAGE_LAUNCHER"
 
