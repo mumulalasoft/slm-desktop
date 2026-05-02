@@ -483,6 +483,10 @@ int main(int argc, char *argv[])
                             QStringLiteral("slm-recoveryd"),
                             QStringLiteral("slm-recoveryd"),
                             QStringLiteral("slm-recoveryd"));
+    installServiceBootstrap(QStringLiteral("org.slm.Desktop.Devices"),
+                            QStringLiteral("slm-devicesd"),
+                            QStringLiteral("slm-devicesd"),
+                            QStringLiteral("slm-devicesd"));
     startupMark(QStringLiteral("service.bootstrap.installed"));
     const AppStartupArgs startupArgs = parseAppStartupArgs(app.arguments());
     startupMark(QStringLiteral("args.parsed"),

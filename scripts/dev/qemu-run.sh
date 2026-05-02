@@ -30,6 +30,8 @@ ATTACH_ISO=0
 HEADLESS=0
 RESET_UEFI_VARS=0
 ENABLE_CLIPBOARD=1
+SNAPSHOT="${SLM_QEMU_SNAPSHOT:-0}"
+WAIT_SSH="${SLM_QEMU_WAIT_SSH:-0}"
 
 default_qemu_memory_mb() {
     local mem_total_kb=0
@@ -92,6 +94,8 @@ Options:
   --bios                Force legacy BIOS boot
   --uefi                Force UEFI boot with OVMF
   --reset-uefi-vars     Recreate local OVMF vars file
+  --snapshot            Discard all disk writes on exit (safe for testing)
+  --wait-ssh            Headless: start VM in background, wait for SSH, then return
   --help                Show this help
 
 Env overrides:
@@ -99,7 +103,8 @@ Env overrides:
   SLM_QEMU_CPUS, SLM_QEMU_SSH_PORT, SLM_QEMU_SSH_USER, SLM_QEMU_DISPLAY,
   SLM_QEMU_SSH_PASSWORD, SLM_QEMU_POINTER, SLM_QEMU_HOSTSHARE_PATH,
   SLM_QEMU_AUTO_MOUNT_HOSTSHARE, SLM_QEMU_STATE_DIR, SLM_QEMU_PROFILE,
-  SLM_QEMU_GL, SLM_QEMU_DISK_CACHE, SLM_QEMU_DISK_AIO, SLM_QEMU_DISK_IO
+  SLM_QEMU_GL, SLM_QEMU_DISK_CACHE, SLM_QEMU_DISK_AIO, SLM_QEMU_DISK_IO,
+  SLM_QEMU_SNAPSHOT, SLM_QEMU_WAIT_SSH
 EOF
 }
 
@@ -184,6 +189,14 @@ while [[ $# -gt 0 ]]; do
             ;;
         --reset-uefi-vars)
             RESET_UEFI_VARS=1
+            shift
+            ;;
+        --snapshot)
+            SNAPSHOT=1
+            shift
+            ;;
+        --wait-ssh)
+            WAIT_SSH=1
             shift
             ;;
         --help|-h)
@@ -353,6 +366,14 @@ if [[ -r /dev/kvm && -w /dev/kvm ]]; then
     ACCEL_LABEL="kvm"
 fi
 
+if [[ "$ATTACH_ISO" == "1" ]]; then
+    if [[ -r /dev/kvm && -w /dev/kvm ]]; then
+        ACCEL_ARGS=("-machine" "type=pc,accel=kvm,vmport=off")
+    else
+        ACCEL_ARGS=("-machine" "type=pc,vmport=off")
+    fi
+fi
+
 QEMU_DEVICE_HELP="$(qemu-system-x86_64 -device help 2>/dev/null || true)"
 GPU_DEVICE="virtio-vga"
 DISPLAY_VALUE="$DISPLAY_BACKEND"
@@ -407,13 +428,12 @@ if [[ "$ATTACH_ISO" == "1" ]]; then
 fi
 
 USE_UEFI=0
-if [[ "$ATTACH_ISO" == "1" ]]; then
-    USE_UEFI=0
-elif [[ "$BOOT_MODE" == "uefi" ]]; then
-    USE_UEFI=1
-elif [[ "$BOOT_MODE" == "auto" && -n "$OVMF_CODE" && -n "$OVMF_VARS_TEMPLATE" ]]; then
+if [[ "$BOOT_MODE" == "uefi" ]]; then
     USE_UEFI=1
 fi
+# Mode "auto" dan "bios" sama-sama default BIOS. UEFI harus eksplisit via --uefi
+# karena installer Ubuntu via ISO selalu BIOS, dan disk hasil instalasi tidak
+# punya UEFI boot entry.
 
 QEMU_ARGS=(
     "${ACCEL_ARGS[@]}"
@@ -515,6 +535,10 @@ elif [[ "$USE_UEFI" != "1" ]]; then
     QEMU_ARGS+=(-boot menu=on)
 fi
 
+if [[ "$SNAPSHOT" == "1" ]]; then
+    QEMU_ARGS+=(-snapshot)
+fi
+
 echo "[qemu-run] VM config"
 echo "  disk       : $DISK_PATH"
 if [[ "$ATTACH_ISO" == "1" ]]; then
@@ -546,6 +570,12 @@ elif [[ "$ATTACH_ISO" == "1" ]]; then
 else
     echo "  firmware   : BIOS"
 fi
+if [[ "$SNAPSHOT" == "1" ]]; then
+    echo "  snapshot   : on (disk writes discarded on exit)"
+fi
+if [[ "$HEADLESS" == "1" && "$WAIT_SSH" == "1" ]]; then
+    echo "  mode       : headless+wait-ssh (background)"
+fi
 echo ""
 if [[ "$AUTO_MOUNT_HOSTSHARE" == "1" ]]; then
     start_hostshare_auto_mount
@@ -555,4 +585,20 @@ else
     echo ""
 fi
 
-exec qemu-system-x86_64 "${QEMU_ARGS[@]}"
+if [[ "$HEADLESS" == "1" && "$WAIT_SSH" == "1" ]]; then
+    qemu-system-x86_64 "${QEMU_ARGS[@]}" &
+    QEMU_BG_PID=$!
+    echo "[qemu-run] VM started in background (PID $QEMU_BG_PID)"
+    echo "[qemu-run] Waiting for SSH on port $SSH_PORT..."
+    if qemu_dev_wait_ssh "$SSH_PORT" 90; then
+        echo "[qemu-run] Guest SSH ready"
+        echo "  ssh     : ssh -p $SSH_PORT $SSH_USER@127.0.0.1"
+        echo "  stop vm : kill $QEMU_BG_PID"
+    else
+        echo "[qemu-run] ERROR: timeout waiting for SSH (90 attempts × 2s)" >&2
+        kill "$QEMU_BG_PID" 2>/dev/null || true
+        exit 1
+    fi
+else
+    exec qemu-system-x86_64 "${QEMU_ARGS[@]}"
+fi

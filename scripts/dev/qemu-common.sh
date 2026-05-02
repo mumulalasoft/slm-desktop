@@ -78,6 +78,23 @@ qemu_dev_ssh_main() {
     exec ssh "${ssh_args[@]}" "${extra_args[@]}"
 }
 
+qemu_dev_wait_ssh() {
+    # Cek ketersediaan sshd di guest via ssh-keyscan (TCP+banner, tanpa auth).
+    # Tidak bergantung pada SSH key atau password sehingga aman untuk semua setup.
+    local ssh_port="${1:-${SLM_QEMU_SSH_PORT:-2222}}"
+    local max_attempts="${2:-90}"
+
+    local attempt=0
+    while ((attempt < max_attempts)); do
+        if ssh-keyscan -p "$ssh_port" -T 2 127.0.0.1 2>/dev/null | grep -q .; then
+            return 0
+        fi
+        ((attempt++)) || true
+        sleep 2
+    done
+    return 1
+}
+
 qemu_dev_scp_main() {
     local ssh_user="${SLM_QEMU_SSH_USER:-garis}"
     local ssh_port="${SLM_QEMU_SSH_PORT:-2222}"

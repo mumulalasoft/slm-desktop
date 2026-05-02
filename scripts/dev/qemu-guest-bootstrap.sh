@@ -223,7 +223,16 @@ if [[ "$SKIP_MOUNT" != "1" ]]; then
     if mountpoint -q "$HOSTSHARE_PATH"; then
         echo "[qemu-guest-bootstrap] hostshare already mounted"
     else
-        "${SUDO[@]}" mount -t 9p -o trans=virtio,version=9p2000.L hostshare "$HOSTSHARE_PATH"
+        "${SUDO[@]}" mount -t 9p -o trans=virtio,version=9p2000.L,msize=262144,access=any hostshare "$HOSTSHARE_PATH"
+    fi
+
+    FSTAB_ENTRY="hostshare  $HOSTSHARE_PATH  9p  trans=virtio,version=9p2000.L,msize=262144,access=any,nofail  0  0"
+    if grep -qF "hostshare" /etc/fstab 2>/dev/null; then
+        echo "[qemu-guest-bootstrap] fstab entry hostshare sudah ada"
+    else
+        echo "[qemu-guest-bootstrap] Menambahkan fstab entry untuk auto-mount on reboot"
+        echo "$FSTAB_ENTRY" | "${SUDO[@]}" tee -a /etc/fstab >/dev/null
+        echo "[qemu-guest-bootstrap] fstab: $FSTAB_ENTRY"
     fi
 fi
 
