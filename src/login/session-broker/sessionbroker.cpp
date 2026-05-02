@@ -450,6 +450,9 @@ CompositorLaunchPlan SessionBroker::buildCompositorPlan()
 
     if (binName == QStringLiteral("kwin_wayland")) {
         plan.backend = CompositorBackend::KWin;
+        // kscreenlocker requires KDE Plasma QML modules not present in this shell
+        if (!plan.args.contains(QStringLiteral("--no-lockscreen")))
+            plan.args << QStringLiteral("--no-lockscreen");
         if (hasDrmCard && plan.env.value(QStringLiteral("KWIN_DRM_DEVICES")).trimmed().isEmpty()) {
             plan.env.insert(QStringLiteral("KWIN_DRM_DEVICES"), firstDrmCard);
             qInfo("compositor: KWIN_DRM_DEVICES=%s (auto)", qPrintable(firstDrmCard));
