@@ -59,6 +59,7 @@ private:
     AppDeckBootstrapState *m_bootstrapState = nullptr;
     QPointer<QWindow> m_window;
     bool m_attached = false;
+    bool m_configured = false;
     int m_lastLayer = -1;
     int m_lastKeyboardInteractivity = -1;
 };

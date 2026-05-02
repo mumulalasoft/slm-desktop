@@ -192,10 +192,19 @@ bool AppDeckLayerShellController::applyGeometry(QWindow *window,
                           qMax(1, inputRegion.height()));
 
 #ifdef SLM_HAVE_LAYERSHELLQT
+    // Skip geometry on the first call after initial attach. Qt's setMask()
+    // triggers wl_surface.commit immediately, which violates the layer-shell
+    // protocol if KWin's configure/ack round-trip hasn't completed yet.
+    // onSceneGraphInitialized fires after the first rendered frame (i.e. after
+    // KWin's configure is received and acked) and will call syncLayerSurfaceSize
+    // again — that second call is safe.
+    if (!m_configured) {
+        m_configured = true;
+        return true;
+    }
     window->resize(safeWidth, safeHeight);
-    // Set input region agar area transparan di luar dock/grid tidak intercept
-    // pointer events di level kompositor. Qt Wayland menerjemahkan setMask()
-    // ke wl_surface_set_input_region().
+    // Qt Wayland translates setMask() to wl_surface_set_input_region so that
+    // transparent areas outside the dock/grid don't intercept pointer events.
     window->setMask(QRegion(safeInput));
     return true;
 #else
@@ -227,6 +236,7 @@ void AppDeckLayerShellController::watchWindow(QWindow *window)
                 return;
             }
             m_attached = false;
+            m_configured = false;
             m_lastLayer = -1;
             m_lastKeyboardInteractivity = -1;
         });
