@@ -1160,11 +1160,6 @@ if(TARGET Poppler::Qt6)
     target_compile_definitions(slm-desktop PRIVATE SLM_HAVE_POPPLER_QT6)
 endif()
 
-add_custom_command(TARGET slm-desktop POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            $<TARGET_FILE:slm-desktop>
-            $<TARGET_FILE_DIR:slm-desktop>/appSlm_Desktop
-)
 
 target_link_libraries(indicatorctl
     PRIVATE
@@ -1215,9 +1210,6 @@ install(TARGETS slm-desktop
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
-
-# Backward-compatible build alias for legacy scripts.
-add_custom_target(appSlm_Desktop DEPENDS slm-desktop)
 
 install(TARGETS indicatorctl
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}

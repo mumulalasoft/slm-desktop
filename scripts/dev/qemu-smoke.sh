@@ -29,7 +29,7 @@ RUNTIME_TARGETS=(
     # greeter → broker pipeline (wajib ada, must_install_bin)
     slm-greeter slm-watchdog slm-recovery-app slm-session-broker
     # desktop shell & compositor daemons
-    appSlm_Desktop desktopd slm-svcmgrd slm-loggerd
+    slm-desktop desktopd slm-svcmgrd slm-loggerd
     # portals & system daemons
     slm-portald slm-fileopsd slm-devicesd slm-clipboardd
     slm-envd slm-envd-helper slm-recoveryd slm-polkit-agent

@@ -25,7 +25,7 @@ Komponen runtime yang sudah ada:
 - `slm-session-broker`
 - `slm-watchdog`
 - `desktopd`
-- `appSlm_Desktop` / `slm-shell`
+- `slm-desktop` / `slm-shell`
 - install/verify scripts di `scripts/login/*`
 
 Tes/guard yang sudah relevan:

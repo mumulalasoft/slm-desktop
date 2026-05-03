@@ -42,10 +42,6 @@ if [[ -z "${APP_BIN}" ]]; then
     APP_BIN="${BUILD_DIR}/slm-desktop"
   elif [[ -x "${BUILD_DIR}/toppanel-Debug/slm-desktop" ]]; then
     APP_BIN="${BUILD_DIR}/toppanel-Debug/slm-desktop"
-  elif [[ -x "${BUILD_DIR}/appSlm_Desktop" ]]; then
-    APP_BIN="${BUILD_DIR}/appSlm_Desktop"
-  elif [[ -x "${BUILD_DIR}/toppanel-Debug/appSlm_Desktop" ]]; then
-    APP_BIN="${BUILD_DIR}/toppanel-Debug/appSlm_Desktop"
   fi
 fi
 

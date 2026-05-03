@@ -1,6 +1,6 @@
 # compositor launcher (kwin-only)
 
-Folder ini sekarang hanya menyimpan launcher untuk menjalankan `appSlm_Desktop`
+Folder ini sekarang hanya menyimpan launcher untuk menjalankan `slm-desktop`
 di host Wayland dengan backend `kwin-wayland`.
 
 ## Jalankan
@@ -21,7 +21,7 @@ cd compositor
 
 - `XDG_SESSION_TYPE=wayland`
 - `WAYLAND_DISPLAY` tersedia
-- binary `appSlm_Desktop` sudah dibuild
+- binary `slm-desktop` sudah dibuild
 
 ## Catatan
 

@@ -26,15 +26,11 @@ for arg in "$@"; do
 done
 
 # ── Resolve desktop binary ────────────────────────────────────────────────────
-DESKTOP_BINARY="$SLM_DESKTOP_BUILD_DIR/appSlm_Desktop"
+DESKTOP_BINARY="$SLM_DESKTOP_BUILD_DIR/slm-desktop"
 if [[ ! -x "$DESKTOP_BINARY" ]]; then
-    # Fallback: cari di build dir konvensional lain
-    DESKTOP_BINARY="$(find "$SCRIPT_DIR/.." -maxdepth 4 -name "appSlm_Desktop" -type f | head -1)"
-    if [[ -z "$DESKTOP_BINARY" ]]; then
-        echo "[desktop-run-dev] ERROR: binary desktop tidak ditemukan. Build dulu:"
-        echo "  cmake --build $SLM_DESKTOP_BUILD_DIR --target appSlm_Desktop"
-        exit 1
-    fi
+    echo "[desktop-run-dev] ERROR: binary desktop tidak ditemukan. Build dulu:"
+    echo "  cmake --build $SLM_DESKTOP_BUILD_DIR --target slm-desktop"
+    exit 1
 fi
 
 # ── Start fileopsd lokal bila diminta ─────────────────────────────────────────

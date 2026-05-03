@@ -111,7 +111,7 @@ bool SessionWatchdog::isSessionHealthy(QString *reason) const
             p.start(QStringLiteral("pgrep"), {QStringLiteral("-x"), name});
             return p.waitForFinished(1500) && p.exitCode() == 0;
         };
-        if (pgrepExists(QStringLiteral("appSlm_Desktop"))
+        if (pgrepExists(QStringLiteral("slm-desktop"))
             || pgrepExists(QStringLiteral("slm-shell"))) {
             qInfo("slm-watchdog: shell confirmed alive via pgrep (no first-frame marker yet)");
             return true;

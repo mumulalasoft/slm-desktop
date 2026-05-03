@@ -126,7 +126,7 @@ int main(int argc, char *argv[])
         engine.addImportPath(qtQmlImportPath);
     // Ensure embedded resources (qrc:/qt/qml) take precedence over the
     // filesystem build/ directory so the Theme-only Slm_Desktop shim is
-    // found before the full Slm_Desktop module written by appSlm_Desktop.
+    // found before the full Slm_Desktop module written by slm-desktop.
     engine.addImportPath(u"qrc:/qt/qml"_s);
     engine.addImageProvider(QStringLiteral("icon"), new ThemeIconProvider);
     const QUrl url = openStyleGallery

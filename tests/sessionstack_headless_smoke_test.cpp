@@ -183,7 +183,7 @@ void SessionStackHeadlessSmokeTest::installPgrepStub()
     requireExecutable(tempBinaryPath(QStringLiteral("pgrep")),
                       QStringLiteral(
                           "#!/bin/sh\n"
-                          "if [ \"$1\" = \"-x\" ] && [ \"$2\" = \"appSlm_Desktop\" ]; then\n"
+                          "if [ \"$1\" = \"-x\" ] && [ \"$2\" = \"slm-desktop\" ]; then\n"
                           "  exit 0\n"
                           "fi\n"
                           "if [ \"$1\" = \"-x\" ] && [ \"$2\" = \"slm-shell\" ]; then\n"

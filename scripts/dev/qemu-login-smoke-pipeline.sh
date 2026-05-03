@@ -19,7 +19,7 @@ RUNTIME_TARGETS=(
     slm-watchdog
     slm-recovery-app
     slm-session-broker
-    appSlm_Desktop
+    slm-desktop
     desktopd
     slm-svcmgrd
     slm-loggerd

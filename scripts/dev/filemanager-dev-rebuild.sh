@@ -49,13 +49,13 @@ if [[ "$BUILD_SHELL" == "1" ]]; then
     fi
     echo "[dev-rebuild] Relinking desktop shell (jobs=$JOBS)..."
     cmake --build "$SLM_DESKTOP_BUILD_DIR" \
-        --target appSlm_Desktop \
+        --target slm-desktop \
         -j "$JOBS"
     echo "[dev-rebuild] Desktop shell OK."
 fi
 
 echo ""
 echo "[dev-rebuild] Selesai. Restart slm-desktop untuk memuat perubahan."
-if pgrep -f "appSlm_Desktop" > /dev/null 2>&1; then
-    echo "  Hint: pkill appSlm_Desktop && bash scripts/dev/desktop-run-dev.sh"
+if pgrep -f "slm-desktop" > /dev/null 2>&1; then
+    echo "  Hint: pkill slm-desktop && bash scripts/dev/desktop-run-dev.sh"
 fi

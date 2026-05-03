@@ -185,7 +185,7 @@ for log_path in /tmp/slm-compositor.log /tmp/slm-shell.log /tmp/slm-smoke-runtim
 done
 
 PROCESS_MATCHES=0
-for pattern in greetd slm-greeter slm-session-broker slm-watchdog appSlm_Desktop slm-shell; do
+for pattern in greetd slm-greeter slm-session-broker slm-watchdog slm-desktop slm-shell; do
     if pgrep -af "$pattern" >"$ARTIFACT_DIR/proc-${pattern}.log" 2>&1; then
         ok "process terlihat: $pattern"
         PROCESS_MATCHES=1

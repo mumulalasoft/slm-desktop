@@ -4,8 +4,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 PROJECT_ROOT="$(cd "${ROOT_DIR}/.." && pwd)"
-APP_BIN_DEFAULT="${PROJECT_ROOT}/build/appSlm_Desktop"
-APP_BIN_ALT="${PROJECT_ROOT}/build/toppanel-Debug/appSlm_Desktop"
+APP_BIN_DEFAULT="${PROJECT_ROOT}/build/slm-desktop"
+APP_BIN_ALT="${PROJECT_ROOT}/build/toppanel-Debug/slm-desktop"
 APP_BIN="${DS_SHELL_APP_BIN:-}"
 
 BACKEND="${DS_WINDOWING_BACKEND:-kwin-wayland}"
@@ -30,7 +30,7 @@ Options:
 
 Environment:
   DS_WINDOWING_BACKEND   Backend mode selection (default: kwin-wayland).
-  DS_SHELL_APP_BIN       Explicit appSlm_Desktop path.
+  DS_SHELL_APP_BIN       Explicit slm-desktop path.
   DS_SKIP_SHELL_AUTOLAUNCH 1 to skip app autolaunch.
   DS_KWIN_PROFILE        1 to enable KWin backend profile logs.
   DS_SHELL_WINDOWED      1 to pass --windowed (default: 1).
@@ -155,7 +155,7 @@ fi
 
 if [[ -z "${APP_BIN}" || ! -x "${APP_BIN}" ]]; then
   echo "Slm Desktop app binary not found."
-  echo "Set DS_SHELL_APP_BIN=/path/to/appSlm_Desktop"
+  echo "Set DS_SHELL_APP_BIN=/path/to/slm-desktop"
   exit 1
 fi
 
