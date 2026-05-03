@@ -840,7 +840,17 @@ void DesktopSettingsClient::onNameOwnerChanged(const QString &name,
     if (name != QLatin1String(kService)) {
         return;
     }
-    Q_UNUSED(newOwner)
+    if (newOwner.isEmpty()) {
+        // Daemon departed: drop stale interface so a future ensureIface()
+        // rebuilds from scratch, and surface unavailability to QML bindings.
+        delete m_iface;
+        m_iface = nullptr;
+        if (m_available) {
+            m_available = false;
+            emit availableChanged();
+        }
+        return;
+    }
     refresh();
 }
 

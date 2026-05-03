@@ -1,4 +1,5 @@
 #include "appdeckbootstrapstate.h"
+#include "../../utils/slmlogcategories.h"
 
 #include <QDebug>
 
@@ -67,9 +68,9 @@ void AppDeckBootstrapState::setIntegrationEnabled(bool enabled)
     m_integrationEnabled = enabled;
     emit integrationEnabledChanged();
     if (enabled) {
-        qInfo().noquote() << QStringLiteral("DOCK_BOOTSTRAP integration enabled");
+        qCInfo(slmLayershell).noquote() << QStringLiteral("DOCK_BOOTSTRAP integration enabled");
     } else {
-        qWarning().noquote() << QStringLiteral("DOCK_BOOTSTRAP integration unavailable");
+        qCWarning(slmLayershell).noquote() << QStringLiteral("DOCK_BOOTSTRAP integration unavailable");
     }
     refreshReadyToRender();
 }
@@ -82,7 +83,7 @@ void AppDeckBootstrapState::setLayerRoleBound(bool bound)
     m_layerRoleBound = bound;
     emit layerRoleBoundChanged();
     if (bound) {
-        qInfo().noquote() << QStringLiteral("DOCK_BOOTSTRAP layer role bound");
+        qCInfo(slmLayershell).noquote() << QStringLiteral("DOCK_BOOTSTRAP layer role bound");
     }
     refreshReadyToRender();
 }
@@ -94,8 +95,8 @@ void AppDeckBootstrapState::markFirstConfigureReceived(quint32 serial)
     }
     m_firstConfigureReceived = true;
     emit firstConfigureReceivedChanged();
-    qInfo().noquote() << QStringLiteral("DOCK_BOOTSTRAP first configure received serial=%1")
-                             .arg(serial);
+    qCInfo(slmLayershell).noquote() << QStringLiteral("DOCK_BOOTSTRAP first configure received serial=%1")
+                                           .arg(serial);
     refreshReadyToRender();
 }
 
@@ -106,8 +107,8 @@ void AppDeckBootstrapState::markConfigureAcked(quint32 serial)
     }
     m_configureAcked = true;
     emit configureAckedChanged();
-    qInfo().noquote() << QStringLiteral("DOCK_BOOTSTRAP configure acked serial=%1")
-                             .arg(serial);
+    qCInfo(slmLayershell).noquote() << QStringLiteral("DOCK_BOOTSTRAP configure acked serial=%1")
+                                           .arg(serial);
     refreshReadyToRender();
 }
 
@@ -118,9 +119,9 @@ void AppDeckBootstrapState::setVisibleToUser(bool visible)
     }
     m_visibleToUser = visible;
     emit visibleToUserChanged();
-    qInfo().noquote() << QStringLiteral("DOCK_BOOTSTRAP visible=%1")
-                             .arg(visible ? QStringLiteral("true")
-                                          : QStringLiteral("false"));
+    qCInfo(slmLayershell).noquote() << QStringLiteral("DOCK_BOOTSTRAP visible=%1")
+                                           .arg(visible ? QStringLiteral("true")
+                                                        : QStringLiteral("false"));
 }
 
 void AppDeckBootstrapState::refreshReadyToRender()
@@ -134,7 +135,7 @@ void AppDeckBootstrapState::refreshReadyToRender()
     }
     m_readyToRender = nextReady;
     emit readyToRenderChanged();
-    qInfo().noquote() << QStringLiteral("DOCK_BOOTSTRAP readyToRender=%1")
-                             .arg(m_readyToRender ? QStringLiteral("true")
-                                                  : QStringLiteral("false"));
+    qCInfo(slmLayershell).noquote() << QStringLiteral("DOCK_BOOTSTRAP readyToRender=%1")
+                                           .arg(m_readyToRender ? QStringLiteral("true")
+                                                                : QStringLiteral("false"));
 }

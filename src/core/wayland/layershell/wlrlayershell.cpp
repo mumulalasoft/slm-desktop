@@ -1,5 +1,6 @@
 #include "wlrlayershell.h"
 #include "appdeckbootstrapstate.h"
+#include "../../utils/slmlogcategories.h"
 
 #include <QDebug>
 #include <QGuiApplication>
@@ -7,6 +8,8 @@
 #include <qpa/qplatformnativeinterface.h>
 #include <wayland-client-core.h>
 #include <wayland-client-protocol.h>
+
+Q_LOGGING_CATEGORY(slmLayershell, "slm.layershell")
 
 // ── WlrLayerShell ─────────────────────────────────────────────────────────────
 
@@ -32,11 +35,11 @@ bool WlrLayerShell::configureAsLayerSurface(QWindow *window,
                                              const QString &nameSpace)
 {
     if (!window) {
-        qWarning() << "[WlrLayerShell] null window";
+        qCWarning(slmLayershell) << "WlrLayerShell: null window";
         return false;
     }
     if (!isActive()) {
-        qWarning() << "[WlrLayerShell] protocol not available";
+        qCWarning(slmLayershell) << "WlrLayerShell: protocol not available";
         return false;
     }
 
@@ -46,14 +49,14 @@ bool WlrLayerShell::configureAsLayerSurface(QWindow *window,
     // Get the wl_surface from the Qt window via the platform native interface.
     QPlatformNativeInterface *native = QGuiApplication::platformNativeInterface();
     if (!native) {
-        qWarning() << "[WlrLayerShell] no platform native interface";
+        qCWarning(slmLayershell) << "WlrLayerShell: no platform native interface";
         return false;
     }
 
     struct ::wl_surface *surface = static_cast<struct ::wl_surface *>(
         native->nativeResourceForWindow(QByteArrayLiteral("surface"), window));
     if (!surface) {
-        qWarning() << "[WlrLayerShell] failed to get wl_surface from window";
+        qCWarning(slmLayershell) << "WlrLayerShell: failed to get wl_surface from window";
         return false;
     }
 
@@ -64,7 +67,7 @@ bool WlrLayerShell::configureAsLayerSurface(QWindow *window,
                           static_cast<uint32_t>(layer),
                           nameSpace);
     if (!layerSurface) {
-        qWarning() << "[WlrLayerShell] failed to create layer surface";
+        qCWarning(slmLayershell) << "WlrLayerShell: failed to create layer surface";
         return false;
     }
 
@@ -106,8 +109,8 @@ bool WlrLayerShell::configureAsLayerSurface(QWindow *window,
         }
     }
 
-    qInfo() << "[WlrLayerShell] configured layer surface for" << window->title()
-            << "layer=" << layer << "anchors=" << anchors << "exclusiveZone=" << exclusiveZone;
+    qCInfo(slmLayershell) << "WlrLayerShell: configured layer surface for" << window->title()
+                          << "layer=" << layer << "anchors=" << anchors << "exclusiveZone=" << exclusiveZone;
     return true;
 }
 

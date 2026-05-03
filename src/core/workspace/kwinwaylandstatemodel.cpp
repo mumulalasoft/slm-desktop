@@ -1,5 +1,6 @@
 #include "kwinwaylandstatemodel.h"
 
+#include "../utils/slmlogcategories.h"
 #include "kwinsupportinfoparser.h"
 #include "kwinwaylandipcclient.h"
 
@@ -450,8 +451,8 @@ void KWinWaylandStateModel::refreshWindows()
         ++m_supportFallbackSkipCount;
         if (!m_supportInformationFallbackEnabled && !m_supportFallbackDisabledLogged) {
             m_supportFallbackDisabledLogged = true;
-            qInfo("KWinWaylandStateModel: supportInformation fallback disabled "
-                  "(set SLM_KWIN_SUPPORT_INFORMATION_FALLBACK=1 to enable)");
+            qCInfo(slmKwin, "supportInformation fallback disabled "
+                   "(set SLM_KWIN_SUPPORT_INFORMATION_FALLBACK=1 to enable)");
         }
     }
 
@@ -1082,7 +1083,7 @@ void KWinWaylandStateModel::maybeLogProfileSnapshot()
     if (!m_profileEnabled) {
         return;
     }
-    qInfo().noquote()
+    qCInfo(slmKwin).noquote()
         << "[kwin-profile]"
         << "connected=" << (connected() ? 1 : 0)
         << "winCount=" << m_windows.size()

@@ -1,5 +1,6 @@
 #include "windowingbackendmanager.h"
 
+#include "../utils/slmlogcategories.h"
 #include "kwinwaylandipcclient.h"
 #include "kwinwaylandstatemodel.h"
 
@@ -57,7 +58,7 @@ QVariantMap kwinWaylandCapabilities()
         { QStringLiteral("command.overlay.restack"), false },
         { QStringLiteral("command.overlay.set-state"), false },
         { QStringLiteral("command.appdeck-mode"), false },
-        { QStringLiteral("command.apphub"), false },
+        { QStringLiteral("command.appdeck"), false },
         { QStringLiteral("command.progress-hide"), false },
     };
 }
@@ -137,8 +138,8 @@ WindowingBackendManager::WindowingBackendManager(QObject *parent)
         m_kwinState->setIpcClient(m_kwinIpc);
         wireSignals();
     } else {
-        qInfo("WindowingBackendManager: KWin active IPC disabled "
-              "(set SLM_KWIN_ACTIVE_IPC=1 to enable)");
+        qCInfo(slmKwin, "active IPC disabled "
+               "(set SLM_KWIN_ACTIVE_IPC=1 to enable)");
     }
 }
 
@@ -187,7 +188,7 @@ QVariantMap WindowingBackendManager::capabilities() const
     caps.insert(QStringLiteral("command.overlay.restack"), overlaySupported);
     caps.insert(QStringLiteral("command.overlay.set-state"), overlaySupported);
     caps.insert(QStringLiteral("command.appdeck-mode"), overlaySupported);
-    caps.insert(QStringLiteral("command.apphub"), overlaySupported);
+    caps.insert(QStringLiteral("command.appdeck"), overlaySupported);
     return caps;
 }
 

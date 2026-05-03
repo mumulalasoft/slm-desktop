@@ -338,6 +338,50 @@ END PROMPT
 
 ## Fokus Aktif (Prioritas Tinggi)
 
+### Stabilisasi Runtime Shell — Phase Lanjutan (D / E / F)
+
+Lanjutan dari commit `2b5fd71` (locale C.UTF-8 + opacity layer-shell + log `[kwin-backend]`). Audit codebase menunjukkan banyak item asli (D-Bus blanket watcher, kategori `slm.dbus`, `WaylandBootstrapManager`) sudah ditangani atau redundant. Scope berikut yang masih valid:
+
+#### D — D-Bus client recovery (focused, 2 file)
+
+- [x] `src/apps/settings/desktopsettingsclient.cpp` — `onNameOwnerChanged` sekarang membedakan departure vs arrival: pada departure (`newOwner.isEmpty()`) langsung delete `m_iface`, set `m_available=false`, emit `availableChanged`; pada arrival tetap `refresh()`.
+- [x] ~~`src/apps/settings/modules/network/firewallserviceclient.cpp`~~ — **NOT NEEDED**. Pemeriksaan ulang menunjukkan `onNameOwnerChanged` di line 847-884 sudah lengkap clear semua cached state (`m_appPolicies`, `m_ipPolicies`, `m_activeConnections`, `m_pendingPrompts`, `m_lastPromptEpochByKey`) + delete `m_iface` saat departure. Hook `NameOwnerChanged` global ke session bus, tidak terikat ke `m_iface`, jadi tidak perlu re-arm. Audit awal salah baca.
+
+Yang sudah cukup, **tidak perlu diutak-atik**:
+- `ClipboardServiceClient`, `AppStateClient`, `ContextClient`, `SessionStateClient` — sudah punya `QDBusServiceWatcher` + auto-refresh.
+- `AppIdentityClient`, `EnvServiceClient`, `LogServiceClient`, `SvcManagerClient` — fire-and-forget, watcher tidak relevan.
+- `DaemonHealthClient`, `CleanerServiceClient` — single snapshot atau manual hook sudah memadai.
+
+#### E — Q_LOGGING_CATEGORY (kwin + layershell saja)
+
+- [x] `src/core/utils/slmlogcategories.h` dibuat dengan `Q_DECLARE_LOGGING_CATEGORY(slmKwin)` + `Q_DECLARE_LOGGING_CATEGORY(slmLayershell)`. Definisi `slmKwin` di `kwinwaylandipcclient.cpp` (terpakai di 3 target build), `slmLayershell` di `wlrlayershell.cpp` (hanya `slm-desktop`).
+- [x] 5 call-site kwin → `qCInfo(slmKwin, ...)`:
+  - `src/core/workspace/kwinwaylandipcclient.cpp:54, 396`
+  - `src/core/workspace/kwinwaylandstatemodel.cpp:453, 1085`
+  - `src/core/workspace/windowingbackendmanager.cpp:140`
+- [x] 15 call-site layershell → `qCInfo(slmLayershell, ...)` / `qCWarning` / `qCDebug`:
+  - `src/core/wayland/layershell/appdeckbootstrapstate.cpp:70, 72, 85, 97, 109, 121, 137`
+  - `src/core/wayland/layershell/appdecklayerwindow.cpp:61, 102`
+  - `src/core/wayland/layershell/wlrlayershell.cpp:35, 39, 49, 56, 67, 109`
+- **Tidak dilakukan**: kategori `slm.dbus` — call-site tersebar di puluhan daemon (~70 sites), refactor besar dengan nilai rendah. Buka lagi hanya bila ada kebutuhan filter spesifik.
+
+#### F — WaylandBootstrapManager — DROPPED
+
+Tidak akan dikerjakan. Alasan eksplisit:
+- Qt Wayland plugin sudah bind `wl_seat`/`wl_output` saat `QGuiApplication` constructor return.
+- First consumer di `main.cpp:164` (`screenSummary()`) sudah defensive (handle `screens().isEmpty()`).
+- Handler existing `screenAdded/Removed/primaryScreenChanged` (`main.cpp:396-407`) sudah reaktif untuk hot-plug.
+- Layer-shell race utama sudah dibereskan di commit `cc73ba3` (expose-event filter — bukan timer polling).
+- Menambah parallel `wl_display` registry manager = duplikasi kerja Qt + risiko race dengan plugin internal.
+
+Buka kembali ke roadmap **HANYA** bila muncul bukti race konkrit pasca-`QGuiApplication` (mis. crash/null-deref pada konsumsi `screens()` atau input device).
+
+#### Acceptance criteria phase lanjutan
+
+- [x] D selesai: `desktopsettingsclient` clear stale state pada owner-departure (delete iface + flag m_available + emit signal); `firewallserviceclient` ternyata sudah benar (audit awal salah).
+- [x] E selesai: `slmlogcategories.h` dibuat; 20 call-site (5 kwin + 15 layershell) migrate ke `qC*` macro; runtime filter via `QT_LOGGING_RULES=slm.kwin=true;slm.layershell=true` berfungsi.
+- [x] F: tetap di-drop sampai bukti regresi muncul.
+
 ### Implement SLM Pulse UI (Command-First, Non-Spotlight, Anti-Failure)
 
 OBJECTIVE:
@@ -348,12 +392,12 @@ Pulse harus:
 - punya multi-section UI
 - punya command mode
 - punya quick actions
-- terintegrasi dengan AppHub, AppDeck, dan Crown
+- terintegrasi dengan AppDeck, AppDeck, dan Crown
 
 Pulse BUKAN:
 - dialog search biasa
 - list vertikal panjang
-- launcher pengganti AppHub
+- launcher pengganti AppDeck
 
 --------------------------------------------------
 
@@ -392,7 +436,7 @@ PulseController:
 
 Layer:
 - PulseLayer (overlay)
-- di atas AppHub
+- di atas AppDeck
 - tidak menutup Crown
 - tidak menutupi AppDeck sepenuhnya
 
@@ -537,7 +581,7 @@ AppDeck:
 - launch update running state
 - bisa pin langsung
 
-AppHub:
+AppDeck:
 - bisa buka kategori
 
 Crown:
@@ -1214,7 +1258,7 @@ MenuContext:
 
 Layer order:
 
-Crown > AppDeck > AppHub > Windows > DesktopSurface > Wallpaper
+Crown > AppDeck > AppDeck > Windows > DesktopSurface > Wallpaper
 
 FAIL if:
 - Desktop overlaps windows
@@ -1311,7 +1355,7 @@ Anything else is INVALID.
 - [ ] User dapat memindah icon ke area kosong mana saja secara bebas.
 - [ ] Posisi icon stabil, tidak lompat-lompat.
 - [ ] Perubahan isi `~/Desktop` tersinkron otomatis.
-- [ ] Drop dari AppHub dan AppDeck membuat shortcut valid lalu ditempatkan ke slot kosong yang legal.
+- [ ] Drop dari AppDeck dan AppDeck membuat shortcut valid lalu ditempatkan ke slot kosong yang legal.
 - [ ] Re-arrange otomatis/manual tersedia.
 - [ ] Siap untuk perubahan ukuran layar, work area, scale factor, dan jalur multi-monitor.
 
@@ -1333,7 +1377,7 @@ Anything else is INVALID.
   - [ ] `mtime` / `version`
 - [ ] Buat `DesktopPlacementEngine` sebagai satu-satunya source of truth posisi.
 - [ ] Buat `DesktopFileWatcher` untuk event add/remove/rename/move/metadata + debounce.
-- [ ] Buat `DesktopShortcutImporter` untuk drop AppHub/AppDeck.
+- [ ] Buat `DesktopShortcutImporter` untuk drop AppDeck/AppDeck.
 - [ ] Buat `DesktopPositionStore` untuk persist posisi restart-safe.
 
 ### Larangan Implementasi (Hard Rule)
@@ -1389,7 +1433,7 @@ Anything else is INVALID.
 - [ ] Rename/move: pertahankan posisi bila identity masih match.
 - [ ] Tangani atomic rename agar tidak menimbulkan ghost duplicate.
 
-### Integrasi AppHub dan AppDeck
+### Integrasi AppDeck dan AppDeck
 - [ ] Definisikan payload drag internal:
   - [ ] `application/x-slm-app-entry`
   - [ ] `application/x-slm-desktop-item`
@@ -1440,7 +1484,7 @@ Anything else is INVALID.
 - [ ] Item pertama di `(0,0)` tampil benar.
 - [ ] Drag item ke row `0` berhasil.
 - [ ] Drag item ke column `0` berhasil.
-- [ ] Drop shortcut dari AppHub ke desktop berhasil.
+- [ ] Drop shortcut dari AppDeck ke desktop berhasil.
 - [ ] Drop shortcut dari AppDeck ke desktop berhasil.
 - [ ] File baru di `~/Desktop` muncul otomatis.
 - [ ] File dihapus dari `~/Desktop` hilang otomatis.
@@ -1457,7 +1501,7 @@ Anything else is INVALID.
 - [ ] Implementasi `DesktopItem.qml`.
 - [ ] Implementasi `DesktopPlacementEngine` (C++ preferred, JS helper acceptable jika rapi).
 - [ ] Integrasi watcher `~/Desktop`.
-- [ ] Integrasi drop AppHub dan AppDeck.
+- [ ] Integrasi drop AppDeck dan AppDeck.
 - [ ] Integrasi penyimpanan posisi persisten.
 - [ ] Checklist bugfix row 0 / column 0.
 - [ ] Skenario test manual.
@@ -1480,13 +1524,13 @@ Anything else is INVALID.
 - [ ] Implement `DesktopFileWatcher` debounced (100-300ms).
 - [ ] Implement `DesktopPositionStore` (identity stabil + restore posisi).
 - [ ] Implement startup flow: scan desktop -> load posisi -> resolve collision -> place missing.
-- [ ] Integrasi drop payload AppHub (`application/x-slm-app-entry`).
+- [ ] Integrasi drop payload AppDeck (`application/x-slm-app-entry`).
 - [ ] Integrasi drop payload AppDeck (`application/x-slm-desktop-item`).
 - [ ] Implement `DesktopShortcutImporter` + pembuatan shortcut aman.
 - [ ] DoD M2:
   - [ ] File add/remove/rename/move di `~/Desktop` sinkron tanpa full reset.
   - [ ] Restart shell mempertahankan posisi.
-  - [ ] Drop AppHub/AppDeck membuat item valid dan langsung terpasang.
+  - [ ] Drop AppDeck/AppDeck membuat item valid dan langsung terpasang.
 
 #### M3 - Re-arrange, Hardening, QA (Target: Week 3)
 - [ ] Implement `Snap to Grid` dan `Clean Up Desktop`.
@@ -1534,7 +1578,7 @@ Anything else is INVALID.
 - [ ] `DesktopShortcutImporter` + shortcut creation policy.
   - Owner: Integration Engineer
   - Estimasi: 1.5 hari
-- [ ] Integrasi drop payload AppHub + AppDeck.
+- [ ] Integrasi drop payload AppDeck + AppDeck.
   - Owner: Integration Engineer + QML UI Engineer
   - Estimasi: 1 hari
 - [ ] Regression pass sinkronisasi `~/Desktop`.
@@ -1581,7 +1625,7 @@ Anything else is INVALID.
 - [ ] P0 - M1: `DesktopItem.qml` state lengkap (select/hover/drag/rename-ready). (Owner: QML UI Engineer)
 - [ ] P1 - M2: `DesktopFileWatcher` debounced + event classifier. (Owner: Platform/Filesystem Engineer)
 - [ ] P1 - M2: `DesktopPositionStore` + restore/migration posisi. (Owner: Platform/Filesystem Engineer)
-- [ ] P1 - M2: `DesktopShortcutImporter` + drop AppHub/AppDeck. (Owner: Integration Engineer)
+- [ ] P1 - M2: `DesktopShortcutImporter` + drop AppDeck/AppDeck. (Owner: Integration Engineer)
 - [ ] P2 - M3: Re-arrange (sort/snap/cleanup) via PlacementEngine. (Owner: Core Shell Engineer)
 - [ ] P2 - M3: Geometry reflow hardening (resize/scale/workarea). (Owner: Core Shell Engineer)
 - [ ] P2 - M3: QA full checklist + stabilization. (Owner: QA Engineer)
@@ -1593,7 +1637,7 @@ Anything else is INVALID.
 - [ ] Migrasi desktop surface ke source of truth placement engine (hilangkan ketergantungan posisi pada flow delegate grid bawaan).
   - Owner: QML UI Engineer
   - Target output: `DesktopView.qml` + `DesktopItem.qml` awal terintegrasi.
-- [ ] Definisikan kontrak payload drop AppHub/AppDeck dan importer shortcut tunggal.
+- [ ] Definisikan kontrak payload drop AppDeck/AppDeck dan importer shortcut tunggal.
   - Owner: Integration Engineer
   - Target output: dokumen kontrak + adaptor import awal.
 
@@ -1647,7 +1691,7 @@ Anything else is INVALID.
   - Dampak: ghost item, duplicate, missing icon sementara.
   - Mitigasi: debounce + coalescing event + reconciliation pass terjadwal.
   - Owner: Platform/Filesystem Engineer
-- [ ] R3: Drag-drop AppHub/AppDeck tidak konsisten payload.
+- [ ] R3: Drag-drop AppDeck/AppDeck tidak konsisten payload.
   - Dampak: shortcut gagal dibuat atau metadata tidak lengkap.
   - Mitigasi: kontrak payload tunggal + validator + fallback wrapper policy.
   - Owner: Integration Engineer
@@ -1675,7 +1719,7 @@ Anything else is INVALID.
 #### Gate M2 (Harus Lulus Semua)
 - [ ] File watcher sinkron add/remove/rename/move tanpa full reset.
 - [ ] Posisi restart-safe dari position store.
-- [ ] Drop AppHub dan AppDeck membuat shortcut valid + terpasang benar.
+- [ ] Drop AppDeck dan AppDeck membuat shortcut valid + terpasang benar.
 - [ ] Tidak ada duplicate/ghost dari atomic rename.
 - [ ] Bukti artefak:
   - [ ] commit/PR
@@ -1712,7 +1756,7 @@ Anything else is INVALID.
 - [ ] Selasa:
   - [ ] implement `DesktopPositionStore` + restore path.
 - [ ] Rabu-Kamis:
-  - [ ] integrasi `DesktopShortcutImporter` untuk AppHub/AppDeck.
+  - [ ] integrasi `DesktopShortcutImporter` untuk AppDeck/AppDeck.
   - [ ] validasi payload + kebijakan wrapper shortcut.
 - [ ] Jumat:
   - [ ] test sinkronisasi filesystem + restart-safe.
@@ -1754,99 +1798,3 @@ Anything else is INVALID.
 - [ ] Target gate:
   - [ ] `Gate M1 / Gate M2 / Gate M3`
 
-### Contoh Laporan Minggu 1 (Sample)
-
-#### Ringkasan
-- [x] Milestone aktif: `M1`
-- [x] Status minggu ini: `At Risk`
-- [x] Persentase progres aktual: `55%`
-
-#### Capaian
-- [x] Program Desktop View Spatial Placement + checklist lengkap ditambahkan ke dokumen kerja.
-  - Referensi: [docs/TODO.md](/home/garis/Development/Qt/Desktop_Shell/docs/TODO.md)
-- [x] Milestone `M1/M2/M3`, owner matrix, estimasi hari, dan Kanban harian sudah tersedia.
-  - Referensi: [docs/TODO.md](/home/garis/Development/Qt/Desktop_Shell/docs/TODO.md)
-- [x] Acceptance gate dan risk register sudah didefinisikan.
-  - Referensi: [docs/TODO.md](/home/garis/Development/Qt/Desktop_Shell/docs/TODO.md)
-
-#### Risiko dan Blocker
-- [x] Risiko utama:
-  - [x] Bug render klasik `row 0 / column 0` masih muncul.
-  - [x] Mismatch jumlah item render vs isi `~/Desktop` pada fase init.
-- [x] Blocker aktif:
-  - [x] Arsitektur render saat ini masih membawa state lama berbasis slot-map/grid visual.
-- [x] Rencana mitigasi:
-  - [x] Prioritaskan `P0`: migrasi ke placement engine sebagai source of truth tunggal.
-  - [x] Startup placement dipaksa sekuensial-deterministik sebelum optimisasi lanjutan.
-
-#### Rencana Minggu Berikutnya
-- [x] Fokus utama:
-  - [x] Implementasi `DesktopPlacementEngine` minimal viable + occupancy map.
-  - [x] Implementasi `DesktopView.qml` absolute placement tanpa flow layout bawaan.
-  - [x] Validasi eksplisit cell `(0,0)`, `(0,1)`, `(1,0)`, `(1,1)`.
-- [x] Target gate:
-  - [x] `Gate M1` (minimal pass untuk bug row/column 0).
-
-### Contoh Laporan Minggu 2 (Sample)
-
-#### Ringkasan
-- [x] Milestone aktif: `M2`
-- [x] Status minggu ini: `On Track`
-- [x] Persentase progres aktual: `78%`
-
-#### Capaian
-- [x] `DesktopFileWatcher` debounced aktif untuk event add/remove/rename/move.
-  - Referensi: implementasi watcher + debounce timer (artefak commit/PR internal tim).
-- [x] `DesktopPositionStore` baseline tersambung untuk restore posisi startup.
-  - Referensi: store metadata posisi per identity key.
-- [x] Integrasi awal importer shortcut AppHub/AppDeck ke pipeline desktop item.
-  - Referensi: adaptor payload drag internal + validasi minimum.
-
-#### Risiko dan Blocker
-- [x] Risiko utama:
-  - [x] Potensi race saat burst event filesystem + atomic rename.
-- [x] Blocker aktif:
-  - [x] Belum ada coalescing event lanjutan untuk kasus rename kompleks.
-- [x] Rencana mitigasi:
-  - [x] Tambah reconciliation pass setelah burst.
-  - [x] Tambah guard duplicate identity di tahap import/sync.
-
-#### Rencana Minggu Berikutnya
-- [x] Fokus utama:
-  - [x] Finalisasi re-arrange (`Sort`, `Snap to Grid`, `Clean Up Desktop`).
-  - [x] Hardening geometry reflow untuk resize/workarea/scale changes.
-  - [x] Menutup seluruh checklist QA wajib.
-- [x] Target gate:
-  - [x] `Gate M2`
-
-### Contoh Laporan Minggu 3 (Sample)
-
-#### Ringkasan
-- [x] Milestone aktif: `M3`
-- [x] Status minggu ini: `On Track`
-- [x] Persentase progres aktual: `100%`
-
-#### Capaian
-- [x] Re-arrange actions stabil via placement engine (`Sort/Snap/Clean Up`).
-  - Referensi: modul action desktop + placement engine hooks.
-- [x] Reflow geometri stabil pada perubahan resolusi/workarea/scale.
-  - Referensi: logic `reflowOnGeometryChange()` + remap nearest free cell.
-- [x] Checklist QA wajib lulus.
-  - Referensi: hasil eksekusi checklist manual desktop view.
-- [x] Tidak ada selisih jumlah render vs isi `~/Desktop`.
-  - Referensi: verifikasi startup + runtime sync test.
-
-#### Risiko dan Blocker
-- [x] Risiko residual:
-  - [x] Variasi perilaku compositor multi-monitor (future scope).
-- [x] Blocker aktif:
-  - [x] Tidak ada blocker kritis untuk release scope saat ini.
-- [x] Rencana mitigasi:
-  - [x] Masukkan multi-monitor hardening ke backlog fase berikutnya.
-
-#### Rencana Minggu Berikutnya
-- [x] Fokus utama:
-  - [x] Monitoring pasca-rilis + perbaikan minor non-blocking.
-  - [x] Persiapan fase lanjutan (multi-monitor optimization).
-- [x] Target gate:
-  - [x] `Gate M3` (closed)

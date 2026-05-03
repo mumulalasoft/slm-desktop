@@ -1,5 +1,6 @@
 #include "appdecklayerwindow.h"
 #include "wlrlayershell.h"
+#include "../../utils/slmlogcategories.h"
 
 #include <QDebug>
 #include <QExposeEvent>
@@ -58,7 +59,7 @@ void AppDeckLayerWindow::setExclusiveZone(int zone)
     // If already configured, we can't easily update — for now log a warning.
     // Future: support set_exclusive_zone updates.
     if (m_layerConfigured) {
-        qDebug() << "[AppDeckLayerWindow] exclusiveZone changed after config — zone=" << zone;
+        qCDebug(slmLayershell) << "AppDeckLayerWindow: exclusiveZone changed after config — zone=" << zone;
     }
 }
 
@@ -85,7 +86,7 @@ void AppDeckLayerWindow::tryConfigureLayerSurface()
         return;
     }
 
-    // Layer TOP puts appdeck above normal windows and AppHub overlays.
+    // Layer TOP puts appdeck above normal windows and AppDeck overlays.
     // AnchorBottom pins the surface to the bottom of the screen.
     // AnchorLeft | AnchorRight stretches the appdeck horizontally.
     constexpr int layer   = WlrLayerShell::LayerTop;
@@ -99,7 +100,7 @@ void AppDeckLayerWindow::tryConfigureLayerSurface()
         m_retryTimer.stop();
         m_layerConfigured = true;
         emit layerConfiguredChanged();
-        qInfo() << "[AppDeckLayerWindow] layer surface configured";
+        qCInfo(slmLayershell) << "AppDeckLayerWindow: layer surface configured";
     } else {
         if (!m_retryTimer.isActive()) {
             m_retryTimer.start();

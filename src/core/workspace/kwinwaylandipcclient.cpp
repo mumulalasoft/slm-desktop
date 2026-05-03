@@ -1,5 +1,7 @@
 #include "kwinwaylandipcclient.h"
 
+#include "../utils/slmlogcategories.h"
+
 #include <QDateTime>
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
@@ -14,6 +16,8 @@
 #include <QMetaType>
 #include <QProcessEnvironment>
 #include <QTimer>
+
+Q_LOGGING_CATEGORY(slmKwin, "slm.kwin")
 
 namespace {
 constexpr auto kKWinService = "org.kde.KWin";
@@ -51,9 +55,9 @@ KWinWaylandIpcClient::KWinWaylandIpcClient(QObject *parent)
                 });
     }
     refreshConnected();
-    qInfo("[kwin-backend] KWin IPC client initialised (connected=%s, service=%s)",
-          m_connected ? "true" : "false",
-          kKWinService);
+    qCInfo(slmKwin, "KWin IPC client initialised (connected=%s, service=%s)",
+           m_connected ? "true" : "false",
+           kKWinService);
 }
 
 KWinWaylandIpcClient::~KWinWaylandIpcClient() = default;
@@ -393,8 +397,8 @@ void KWinWaylandIpcClient::refreshConnected()
     }
     if (next != m_connected) {
         m_connected = next;
-        qInfo("[kwin-backend] connection state changed: connected=%s",
-              m_connected ? "true" : "false");
+        qCInfo(slmKwin, "connection state changed: connected=%s",
+               m_connected ? "true" : "false");
         emit connectedChanged();
     }
 }
