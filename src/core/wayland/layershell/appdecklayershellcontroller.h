@@ -27,6 +27,17 @@ public:
     // tidak memicu warning "already has a shell integration".
     Q_INVOKABLE void prepareWindow(QWindow *window);
 
+    // Call this immediately before making the window visible so the grace
+    // period starts relative to the actual surface creation, not prepareWindow.
+    Q_INVOKABLE void onWindowAboutToShow();
+
+    // Suspend/resume Qt's render loop on a QQuickWindow. Call suspendRendering
+    // before showing the window to prevent the second wl_surface.commit (from
+    // Qt's render thread) from landing before KWin's ack_configure arrives.
+    // Call resumeRendering once the configure/ack cycle is complete (>50ms).
+    Q_INVOKABLE void suspendRendering(QWindow *window);
+    Q_INVOKABLE void resumeRendering(QWindow *window);
+
     Q_INVOKABLE bool setDock(QWindow *window,
                              int width,
                              int height,
@@ -53,6 +64,7 @@ private:
                    int height,
                    const QRect &inputRegion);
     bool applyGeometry(QWindow *window, int width, int height, const QRect &inputRegion);
+    bool eventFilter(QObject *obj, QEvent *event) override;
     void startGeometryGrace();
     void watchWindow(QWindow *window);
 
@@ -61,6 +73,7 @@ private:
     QPointer<QWindow> m_window;
     bool m_attached = false;
     bool m_geometrySafe = false;
+    bool m_exposeSeen = false;
     int m_lastLayer = -1;
     int m_lastKeyboardInteractivity = -1;
 };

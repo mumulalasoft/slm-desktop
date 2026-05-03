@@ -361,33 +361,16 @@ Window {
         }
     }
 
-    Behavior on width {
-        NumberAnimation {
-            duration: root.motionSurfaceDuration
-            easing.type: Theme.easingDefault
-        }
-    }
-
-    Behavior on height {
-        NumberAnimation {
-            duration: root.motionSurfaceDuration
-            easing.type: Theme.easingDefault
-        }
-    }
-
-    Behavior on x {
-        NumberAnimation {
-            duration: root.motionSurfaceDuration
-            easing.type: Theme.easingDefault
-        }
-    }
-
-    Behavior on y {
-        NumberAnimation {
-            duration: root.motionSurfaceDuration
-            easing.type: Theme.easingDefault
-        }
-    }
+    // No Behavior on width/height/x/y for the layer-shell Window root.
+    // Animating those triggers QWindow::setGeometry every frame, which Qt's
+    // Wayland plugin translates into per-tick wl_surface_set_size + commit on
+    // the layer surface. KWin replies to each set_size with a new configure
+    // event; if commits race ahead of acks (very likely at animation rate),
+    // the protocol violation drops the wl_display connection.
+    // Visual transitions between dock/grid/pulse already animate via inner
+    // content (surfaceMorph, gridAppsView/contextView opacity+transform,
+    // dockView scale+transform) — those are pure client-side render and are
+    // unaffected.
 
     readonly property int exclusiveZone: dockActive
                                          ? Math.max(0, Math.ceil(dockView.dockItem ? dockView.dockItem.height : 0))
@@ -846,10 +829,33 @@ Window {
         function onInputRegionHeightChanged() { root.syncLayerSurfaceSize() }
     }
 
+    // Fallback: if LayerShellQt's sendExpose (and therefore the C++ eventFilter)
+    // never fires within 1 s (e.g. headless or non-wlr compositor), mark the
+    // bootstrap ready anyway so the dock doesn't stay invisible forever.
+    Timer {
+        id: layerShellFallbackTimer
+        interval: 1000
+        repeat: false
+        onTriggered: {
+            if (root.bootstrap && !root.bootstrap.readyToRender) {
+                console.warn("[AppDeckWindow] layer-shell expose not received within 1 s, using fallback")
+                root.bootstrap.markFirstConfigureReceived(0)
+                root.bootstrap.markConfigureAcked(0)
+            }
+        }
+    }
+
     Component.onCompleted: {
         console.info("[AppDeckWindow] DOCK_CREATED ptr=" + root)
         if (layerShellSupported && typeof AppDeckLayerShell !== "undefined" && AppDeckLayerShell) {
+            // prepareWindow sets layer-shell properties and installs an event filter
+            // that fires markFirstConfigureReceived/markConfigureAcked when
+            // LayerShellQt calls sendExpose() after receiving the real configure.
+            // Setting _layerPrepared immediately lets the surface be created so
+            // that configure/ack cycle can proceed; opacity=0 hides content until
+            // bootstrap.readyToRender becomes true.
             AppDeckLayerShell.prepareWindow(root)
+            layerShellFallbackTimer.start()
         }
         _layerPrepared = true
         root.driveSurfaceTransition(root.surfaceTarget, true)

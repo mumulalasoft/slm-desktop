@@ -92,10 +92,6 @@ bool WlrLayerShell::configureAsLayerSurface(QWindow *window,
         QObject::connect(surfaceObj, &WlrLayerSurfaceV1::configureAcked,
                          m_dockBootstrapState, &AppDeckBootstrapState::markConfigureAcked);
     }
-    QObject::connect(surfaceObj, &WlrLayerSurfaceV1::configured, window, [window]() {
-        // Commit the surface after configuration so the compositor shows it.
-        window->requestActivate();
-    });
     QObject::connect(surfaceObj, &WlrLayerSurfaceV1::closed, window, [window, surfaceObj]() {
         surfaceObj->deleteLater();
         window->close();

@@ -58,21 +58,37 @@ void AppDeckLayerShellController::prepareWindow(QWindow *window)
     layerWindow->setKeyboardInteractivity(LayerShellQt::Window::KeyboardInteractivityNone);
     watchWindow(window);
     m_attached = true;
-    // Block geometry commits for 50ms to let KWin's configure/ack round-trip
-    // complete. Qt's setMask() triggers wl_surface.commit immediately; any
-    // commit before ack_configure violates the layer-shell protocol and causes
-    // KWin to send wl_display.error ("The Wayland connection broke").
     startGeometryGrace();
     m_lastLayer = WlrLayerShell::LayerTop;
     m_lastKeyboardInteractivity = WlrLayerShell::KeyboardInteractivityNone;
     if (m_bootstrapState) {
         m_bootstrapState->setLayerRoleBound(true);
-        m_bootstrapState->markFirstConfigureReceived(0);
-        m_bootstrapState->markConfigureAcked(0);
     }
+    // Watch for the first expose event, which LayerShellQt fires (via sendExpose)
+    // only after receiving and acking zwlr_layer_surface_v1.configure. That is the
+    // correct moment to advance bootstrap — not a fixed-delay timer.
+    m_exposeSeen = false;
+    window->installEventFilter(this);
 #else
     Q_UNUSED(window)
 #endif
+}
+
+void AppDeckLayerShellController::onWindowAboutToShow()
+{
+#ifdef SLM_HAVE_LAYERSHELLQT
+    startGeometryGrace();
+#endif
+}
+
+void AppDeckLayerShellController::suspendRendering(QWindow *window)
+{
+    Q_UNUSED(window)
+}
+
+void AppDeckLayerShellController::resumeRendering(QWindow *window)
+{
+    Q_UNUSED(window)
 }
 
 bool AppDeckLayerShellController::setDock(QWindow *window,
@@ -138,13 +154,17 @@ bool AppDeckLayerShellController::configure(QWindow *window,
         layerWindow->setExclusiveZone(0);
         layerWindow->setScope(QStringLiteral("slm-appdeck"));
     }
-    layerWindow->setLayer(layer == WlrLayerShell::LayerOverlay
-                          ? LayerShellQt::Window::LayerOverlay
-                          : LayerShellQt::Window::LayerTop);
-    layerWindow->setKeyboardInteractivity(
-        keyboardInteractivity == WlrLayerShell::KeyboardInteractivityExclusive
-            ? LayerShellQt::Window::KeyboardInteractivityExclusive
-            : LayerShellQt::Window::KeyboardInteractivityNone);
+    if (m_lastLayer != layer) {
+        layerWindow->setLayer(layer == WlrLayerShell::LayerOverlay
+                              ? LayerShellQt::Window::LayerOverlay
+                              : LayerShellQt::Window::LayerTop);
+    }
+    if (m_lastKeyboardInteractivity != keyboardInteractivity) {
+        layerWindow->setKeyboardInteractivity(
+            keyboardInteractivity == WlrLayerShell::KeyboardInteractivityExclusive
+                ? LayerShellQt::Window::KeyboardInteractivityExclusive
+                : LayerShellQt::Window::KeyboardInteractivityNone);
+    }
     m_attached = true;
     if (!prevAttached) {
         // Re-attach after screen change: need a fresh configure/ack cycle.
@@ -224,6 +244,24 @@ bool AppDeckLayerShellController::applyGeometry(QWindow *window,
                                                                           safeInput.height());
     return sizeOk && inputOk;
 #endif
+}
+
+bool AppDeckLayerShellController::eventFilter(QObject *obj, QEvent *event)
+{
+#ifdef SLM_HAVE_LAYERSHELLQT
+    if (!m_exposeSeen && event->type() == QEvent::Expose) {
+        auto *window = qobject_cast<QWindow *>(obj);
+        if (window && window->isExposed()) {
+            m_exposeSeen = true;
+            window->removeEventFilter(this);
+            if (m_bootstrapState) {
+                m_bootstrapState->markFirstConfigureReceived(0);
+                m_bootstrapState->markConfigureAcked(0);
+            }
+        }
+    }
+#endif
+    return QObject::eventFilter(obj, event);
 }
 
 void AppDeckLayerShellController::startGeometryGrace()

@@ -664,6 +664,14 @@ QProcessEnvironment SessionBroker::buildShellEnvironment() const
     if (env.value(QStringLiteral("LIBSEAT_BACKEND")).isEmpty())
         env.insert(QStringLiteral("LIBSEAT_BACKEND"),    QStringLiteral("logind"));
 
+    // Enable full Wayland protocol tracing when the sentinel file exists.
+    // Usage: touch /tmp/slm-wayland-debug  (before login), then check slm-shell.log.
+    if (!qgetenv("SLM_WAYLAND_DEBUG").isEmpty()
+            || QFile::exists(QStringLiteral("/tmp/slm-wayland-debug"))) {
+        env.insert(QStringLiteral("WAYLAND_DEBUG"), QStringLiteral("client"));
+        qInfo("shell env: WAYLAND_DEBUG=client enabled (sentinel or SLM_WAYLAND_DEBUG set)");
+    }
+
     return env;
 }
 
