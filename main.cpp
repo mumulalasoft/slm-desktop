@@ -6,6 +6,7 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QCoreApplication>
+#include <QLocale>
 #include <QUrl>
 #include <QTimer>
 #include <QDateTime>
@@ -23,6 +24,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QTextStream>
+#include <clocale>
 #include <csignal>
 #include <cstdio>
 #if defined(__linux__)
@@ -234,6 +236,21 @@ int main(int argc, char *argv[])
           qgetenv("SLM_SESSION_MODE").constData());
     writeShellLifecycle(QStringLiteral("started"));
 
+    // ── Locale pre-flight ─────────────────────────────────────────────────────
+    // Force a UTF-8 locale before QGuiApplication so QLocale::system() and any
+    // libc consumer (iconv, fontconfig, glib) agree. Missing/non-UTF-8 locale
+    // causes Qt warnings ("Detected locale ... lacks UTF-8 encoding").
+    if (qgetenv("LANG").isEmpty()) {
+        qputenv("LANG", "C.UTF-8");
+    }
+    if (qgetenv("LC_ALL").isEmpty()) {
+        qputenv("LC_ALL", "C.UTF-8");
+    }
+    if (qgetenv("LC_CTYPE").isEmpty()) {
+        qputenv("LC_CTYPE", "C.UTF-8");
+    }
+    std::setlocale(LC_ALL, "");
+
     // ── Wayland pre-flight ────────────────────────────────────────────────────
     // Ensure WAYLAND_DISPLAY is set before QGuiApplication loads the platform plugin.
     if (qgetenv("WAYLAND_DISPLAY").isEmpty()) {
@@ -345,6 +362,10 @@ int main(int argc, char *argv[])
     QGuiApplication app(argc, argv);
     qInfo("SLM-SHELL: Qt platform plugin loaded: '%s'",
           qPrintable(app.platformName()));
+    qInfo("SLM-SHELL: Locale: %s (LANG=%s LC_ALL=%s)",
+          qPrintable(QLocale::system().name()),
+          qgetenv("LANG").constData(),
+          qgetenv("LC_ALL").constData());
     writeShellLifecycle(QStringLiteral("platformLoaded"));
 
     // Hard-fail if Qt chose a non-Wayland backend. Exit code 101 lets the

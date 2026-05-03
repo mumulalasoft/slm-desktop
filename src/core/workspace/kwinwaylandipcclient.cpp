@@ -51,6 +51,9 @@ KWinWaylandIpcClient::KWinWaylandIpcClient(QObject *parent)
                 });
     }
     refreshConnected();
+    qInfo("[kwin-backend] KWin IPC client initialised (connected=%s, service=%s)",
+          m_connected ? "true" : "false",
+          kKWinService);
 }
 
 KWinWaylandIpcClient::~KWinWaylandIpcClient() = default;
@@ -148,14 +151,14 @@ bool KWinWaylandIpcClient::sendCommand(const QString &command)
                 ok = false;
             }
         }
-    } else if (cmd.startsWith(QStringLiteral("apphub "))) {
-        const QString state = cmd.mid(QStringLiteral("apphub ").size()).trimmed().toLower();
+    } else if (cmd.startsWith(QStringLiteral("appdeck "))) {
+        const QString state = cmd.mid(QStringLiteral("appdeck ").size()).trimmed().toLower();
         if (state != QStringLiteral("on") && state != QStringLiteral("off")) {
-            error = QStringLiteral("invalid-apphub-state");
+            error = QStringLiteral("invalid-appdeck-state");
             ok = false;
         } else {
             ok = invokeOverlayBridge(QStringLiteral("set-state"),
-                                     QStringList{QStringLiteral("apphub"), state},
+                                     QStringList{QStringLiteral("appdeck"), state},
                                      &error);
         }
     } else if (cmd == QStringLiteral("show-desktop")) {
@@ -390,6 +393,8 @@ void KWinWaylandIpcClient::refreshConnected()
     }
     if (next != m_connected) {
         m_connected = next;
+        qInfo("[kwin-backend] connection state changed: connected=%s",
+              m_connected ? "true" : "false");
         emit connectedChanged();
     }
 }

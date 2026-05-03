@@ -305,7 +305,9 @@ Window {
              && !!rootWindow.visible
              && root.layerShellSupported
              && root._layerPrepared
-    opacity: root.appDeckHidden ? 0.0 : (root.dockLayerReady ? 1.0 : 0.0)
+    // NOTE: opacity must NOT be set on Window (Wayland layer-shell warns).
+    // Visual fade is delegated to the inner content Item (see anchors-fill Item below).
+    readonly property real contentOpacity: root.appDeckHidden ? 0.0 : (root.dockLayerReady ? 1.0 : 0.0)
 
     readonly property int dockContentHeight: Math.max(
                                                  108,
@@ -453,6 +455,7 @@ Window {
 
     Item {
         anchors.fill: parent
+        opacity: root.contentOpacity
 
         Rectangle {
             anchors.fill: parent
