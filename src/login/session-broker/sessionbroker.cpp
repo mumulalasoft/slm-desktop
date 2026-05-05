@@ -644,6 +644,71 @@ QString SessionBroker::scanNewWaylandSocket(const QString &runtimeDir, qint64 st
     return {};
 }
 
+bool SessionBroker::restartSessionStack(QString *failureReason)
+{
+    if (failureReason) {
+        failureReason->clear();
+    }
+
+    if (m_shellProcess.state() != QProcess::NotRunning) {
+        m_shellProcess.terminate();
+        if (!m_shellProcess.waitForFinished(1500)) {
+            m_shellProcess.kill();
+            m_shellProcess.waitForFinished(1500);
+        }
+    }
+
+    if (m_watchdogProcess.state() != QProcess::NotRunning) {
+        m_watchdogProcess.terminate();
+        if (!m_watchdogProcess.waitForFinished(1000)) {
+            m_watchdogProcess.kill();
+            m_watchdogProcess.waitForFinished(1000);
+        }
+    }
+
+    m_activeWaylandDisplay.clear();
+    if (!launchCompositor()) {
+        const QString reason = QStringLiteral("compositor-restart-failed:%1:%2")
+                                   .arg(m_plan.binary, m_compositorProcess.errorString());
+        if (failureReason) {
+            *failureReason = reason;
+        }
+        return false;
+    }
+
+    m_activeWaylandDisplay = detectWaylandSocket();
+    if (m_activeWaylandDisplay.isEmpty()) {
+        const QString reason = m_compositorProcess.state() == QProcess::NotRunning
+                ? compositorExitReason(QStringLiteral("compositor-restart-exited-before-socket"))
+                : QStringLiteral("compositor-restart-socket-timeout");
+        if (failureReason) {
+            *failureReason = reason;
+        }
+        terminateCompositor(reason);
+        return false;
+    }
+
+    qputenv("WAYLAND_DISPLAY", m_activeWaylandDisplay.toLocal8Bit());
+
+    QString reason;
+    if (!launchShell(&reason)) {
+        terminateCompositor(reason);
+        if (failureReason) {
+            *failureReason = reason;
+        }
+        return false;
+    }
+    if (!launchWatchdog(&reason)) {
+        terminateCompositor(reason);
+        if (failureReason) {
+            *failureReason = reason;
+        }
+        return false;
+    }
+
+    return true;
+}
+
 // ── Shell launch ──────────────────────────────────────────────────────────────
 
 QProcessEnvironment SessionBroker::buildShellEnvironment() const
@@ -654,8 +719,17 @@ QProcessEnvironment SessionBroker::buildShellEnvironment() const
     env.insert(QStringLiteral("XDG_SESSION_TYPE"),     QStringLiteral("wayland"));
     env.insert(QStringLiteral("XDG_CURRENT_DESKTOP"),  QStringLiteral("SLM"));
     env.insert(QStringLiteral("QT_QPA_PLATFORM"),      QStringLiteral("wayland"));
+    env.insert(QStringLiteral("QT_QUICK_BACKEND"),     QStringLiteral("software"));
     env.insert(QStringLiteral("SLM_OFFICIAL_SESSION"), QStringLiteral("1"));
     env.insert(QStringLiteral("SLM_SESSION_MODE"),     startupModeToString(m_finalMode));
+
+    // These knobs are useful when forcing KWin's renderer via compositorEnv,
+    // but they are harmful if inherited by the Qt shell/daemon stack. In QEMU
+    // they can push client-side Qt into broken llvmpipe/zink paths after the
+    // first frame. Keep renderer overrides scoped to the compositor process.
+    env.remove(QStringLiteral("KWIN_COMPOSE"));
+    env.remove(QStringLiteral("LIBGL_ALWAYS_SOFTWARE"));
+    env.remove(QStringLiteral("QSG_RHI_BACKEND"));
 
     if (env.value(QStringLiteral("GDK_BACKEND")).isEmpty())
         env.insert(QStringLiteral("GDK_BACKEND"),        QStringLiteral("wayland,x11"));
@@ -728,13 +802,25 @@ bool SessionBroker::launchWatchdog(QString *failureReason)
     if (failureReason) {
         failureReason->clear();
     }
-    qint64 pid = 0;
-    if (QProcess::startDetached(QStringLiteral("slm-watchdog"), {}, QString(), &pid)) {
-        qInfo("slm-session-broker: watchdog started (pid=%lld)", (long long)pid);
+
+    QProcessEnvironment watchdogEnv = buildShellEnvironment();
+    m_watchdogProcess.setProgram(QStringLiteral("slm-watchdog"));
+    m_watchdogProcess.setArguments({});
+    m_watchdogProcess.setProcessEnvironment(watchdogEnv);
+    m_watchdogProcess.setProcessChannelMode(QProcess::MergedChannels);
+    m_watchdogProcess.setStandardOutputFile(QStringLiteral("/tmp/slm-session-broker.log"),
+                                            QIODeviceBase::Append);
+    m_watchdogProcess.start();
+    if (m_watchdogProcess.waitForStarted(5000)) {
+        qInfo("slm-session-broker: watchdog started (pid=%lld)",
+              (long long)m_watchdogProcess.processId());
         return true;
     }
-    const QString reason = QStringLiteral("watchdog-launch-failed:slm-watchdog");
-    qWarning("slm-session-broker: failed to start slm-watchdog");
+
+    const QString reason = QStringLiteral("watchdog-launch-failed:slm-watchdog:%1")
+                               .arg(m_watchdogProcess.errorString());
+    qWarning("slm-session-broker: failed to start slm-watchdog: %s",
+             qUtf8Printable(m_watchdogProcess.errorString()));
     if (failureReason) {
         *failureReason = reason;
     }
@@ -752,12 +838,36 @@ QString SessionBroker::monitorSession()
 
     while (m_compositorProcess.state() == QProcess::Running) {
         if (m_compositorProcess.waitForFinished(250)) {
+            const bool shellRendered = readLifecycleMarker(QStringLiteral("firstFrame"));
+            if (shellRendered) {
+                promoteHealthyAfterFirstFrame();
+            }
+            if (shellRendered && m_compositorRestartCount < 3) {
+                qWarning("session: compositor exited after first frame; restarting stack (%d/3)",
+                         m_compositorRestartCount + 1);
+                ++m_compositorRestartCount;
+                QString restartFailure;
+                if (!restartSessionStack(&restartFailure)) {
+                    return restartFailure;
+                }
+                continue;
+            } else if (shellRendered) {
+                qCritical("session: compositor restart limit reached after first frame");
+                return QStringLiteral("compositor-restart-limit-after-first-frame");
+            }
             break;
+        }
+
+        if (readLifecycleMarker(QStringLiteral("firstFrame"))) {
+            promoteHealthyAfterFirstFrame();
         }
 
         if (m_shellProcess.waitForFinished(0)
             || m_shellProcess.state() == QProcess::NotRunning) {
             const bool shellRendered = readLifecycleMarker(QStringLiteral("firstFrame"));
+            if (shellRendered) {
+                promoteHealthyAfterFirstFrame();
+            }
             const bool healthy = watchdogMarkedHealthy();
             const qint64 uptimeMs = m_shellLaunchTimeMs > 0
                     ? QDateTime::currentMSecsSinceEpoch() - m_shellLaunchTimeMs
@@ -773,9 +883,22 @@ QString SessionBroker::monitorSession()
                     : QString{};
             if (shellFailed) {
                 qCritical("session: shell failure detected: %s", qUtf8Printable(reason));
+            } else if (m_shellRestartCount < 3) {
+                qWarning("session: shell exited after first frame (uptime=%lldms); "
+                         "restarting shell (%d/3) instead of ending session",
+                         (long long)uptimeMs, m_shellRestartCount + 1);
+                ++m_shellRestartCount;
+                QString restartFailure;
+                if (!launchShell(&restartFailure)) {
+                    terminateCompositor(restartFailure);
+                    return restartFailure;
+                }
+                continue;
             } else {
-                qInfo("session: shell exited after healthy proof (uptime=%lldms first_frame=%s)",
-                      (long long)uptimeMs, shellRendered ? "yes" : "no");
+                const QString restartLimit = QStringLiteral("shell-restart-limit-after-first-frame");
+                qCritical("session: shell restart limit reached after first frame");
+                terminateCompositor(restartLimit);
+                return restartLimit;
             }
             terminateCompositor(reason.isEmpty() ? QStringLiteral("shell-ended") : reason);
             return reason;
@@ -986,6 +1109,62 @@ bool SessionBroker::readLifecycleMarker(const QString &phase) const
     if (!f.open(QIODevice::ReadOnly)) return false;
     const QJsonObject obj = QJsonDocument::fromJson(f.readAll()).object();
     return !obj.value(phase).toString().isEmpty();
+}
+
+bool SessionBroker::promoteHealthyAfterFirstFrame()
+{
+    if (m_promotedHealthyFromFirstFrame) {
+        return true;
+    }
+
+    QString err;
+    SessionState state;
+    if (!SessionStateIO::load(state, err)) {
+        qWarning("session: could not load state for first-frame promotion: %s",
+                 qUtf8Printable(err));
+        state = m_state;
+    }
+
+    if (state.lastBootStatus == QStringLiteral("healthy")
+        && !state.configPending
+        && state.crashCount == 0) {
+        m_state = state;
+        m_promotedHealthyFromFirstFrame = true;
+        return true;
+    }
+
+    state.crashCount = 0;
+    state.configPending = false;
+    state.safeModeForced = false;
+    state.lastBootStatus = QStringLiteral("healthy");
+    state.recoveryReason.clear();
+    state.lastCrashReason.clear();
+    state.lastUpdated = QDateTime::currentDateTimeUtc();
+
+    const QString snapshotId = m_config.snapshot(&err);
+    if (snapshotId.isEmpty()) {
+        qWarning("session: could not snapshot first-frame healthy config: %s",
+                 qUtf8Printable(err));
+    } else {
+        state.lastGoodSnapshot = snapshotId;
+        qInfo("session: first-frame healthy snapshot=%s", qUtf8Printable(snapshotId));
+    }
+
+    if (!m_config.promoteToLastGood(&err)) {
+        qWarning("session: could not promote first-frame config to last-good: %s",
+                 qUtf8Printable(err));
+    }
+
+    if (!SessionStateIO::save(state, err)) {
+        qWarning("session: could not save first-frame healthy state: %s",
+                 qUtf8Printable(err));
+        return false;
+    }
+
+    m_state = state;
+    m_promotedHealthyFromFirstFrame = true;
+    qInfo("session: first frame promoted session healthy (crash_count reset to 0)");
+    return true;
 }
 
 QString SessionBroker::crashReportFilePath() const

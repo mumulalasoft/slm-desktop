@@ -46,6 +46,7 @@ private:
     bool                 launchCompositor();
     QString              detectWaylandSocket();
     QString              scanNewWaylandSocket(const QString &runtimeDir, qint64 startMs);
+    bool                 restartSessionStack(QString *failureReason = nullptr);
 
     QProcessEnvironment  buildShellEnvironment() const;
     bool                 launchShell(QString *failureReason = nullptr);
@@ -61,6 +62,7 @@ private:
 
     QString              lifecycleFilePath() const;
     bool                 readLifecycleMarker(const QString &phase) const;
+    bool                 promoteHealthyAfterFirstFrame();
     QString              crashReportFilePath() const;
     void                 writeCrashReport(const QString &phase, const QString &reason) const;
 
@@ -72,9 +74,12 @@ private:
     StartupMode          m_finalMode             = StartupMode::Normal;
     qint64               m_compositorLaunchTimeMs = 0;
     qint64               m_shellLaunchTimeMs     = 0;
+    int                  m_shellRestartCount     = 0;
+    int                  m_compositorRestartCount = 0;
     qint64               m_compositorLogStartOffset = 0;
     qint64               m_shellLogStartOffset   = 0;
     bool                 m_compositorStopRequested = false;
+    bool                 m_promotedHealthyFromFirstFrame = false;
     QString              m_compositorStopReason;
     SessionState         m_state;
     ConfigManager        m_config;
@@ -82,6 +87,7 @@ private:
     QString              m_activeWaylandDisplay;
     QProcess             m_compositorProcess;
     QProcess             m_shellProcess;
+    QProcess             m_watchdogProcess;
 };
 
 } // namespace Slm::Login

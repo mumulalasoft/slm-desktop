@@ -3,8 +3,10 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QCoreApplication>
 #include <QProcess>
 #include <QStandardPaths>
+#include <QTimer>
 
 using namespace Qt::StringLiterals;
 
@@ -309,8 +311,11 @@ void GreeterApp::onSuccess()
     }
     case LoginStep::WaitingStartSession:
         m_loginStep = LoginStep::Idle;
-        qInfo("greetd_success: start_session confirmed — emitting loginSuccess");
+        qInfo("greetd_success: start_session confirmed — exiting greeter for session handoff");
         emit loginSuccess();
+        QTimer::singleShot(0, [] {
+            QCoreApplication::exit(0);
+        });
         break;
     default:
         qWarning("greetd_success: unexpected success at step=%d (ignored)",
