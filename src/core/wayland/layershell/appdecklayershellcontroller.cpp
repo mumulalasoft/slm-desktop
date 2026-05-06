@@ -44,18 +44,18 @@ void AppDeckLayerShellController::prepareWindow(QWindow *window)
     if (!window || m_attached) {
         return;
     }
-    auto *layerWindow = LayerShellQt::Window::get(window);
-    if (!layerWindow) {
+    m_layerWindow = LayerShellQt::Window::get(window);
+    if (!m_layerWindow) {
         return;
     }
-    layerWindow->setAnchors(static_cast<LayerShellQt::Window::Anchor>(
+    m_layerWindow->setAnchors(static_cast<LayerShellQt::Window::Anchor>(
         LayerShellQt::Window::AnchorBottom
         | LayerShellQt::Window::AnchorLeft
         | LayerShellQt::Window::AnchorRight));
-    layerWindow->setExclusiveZone(0);
-    layerWindow->setScope(QStringLiteral("slm-appdeck"));
-    layerWindow->setLayer(LayerShellQt::Window::LayerTop);
-    layerWindow->setKeyboardInteractivity(LayerShellQt::Window::KeyboardInteractivityNone);
+    m_layerWindow->setExclusiveZone(0);
+    m_layerWindow->setScope(QStringLiteral("slm-appdeck"));
+    m_layerWindow->setLayer(LayerShellQt::Window::LayerTop);
+    m_layerWindow->setKeyboardInteractivity(LayerShellQt::Window::KeyboardInteractivityNone);
     watchWindow(window);
     m_attached = true;
     startGeometryGrace();
@@ -69,6 +69,34 @@ void AppDeckLayerShellController::prepareWindow(QWindow *window)
     // correct moment to advance bootstrap — not a fixed-delay timer.
     m_exposeSeen = false;
     window->installEventFilter(this);
+#else
+    Q_UNUSED(window)
+#endif
+}
+
+void AppDeckLayerShellController::prepareTopBarWindow(QWindow *window)
+{
+#ifdef SLM_HAVE_LAYERSHELLQT
+    if (!window || m_attached) {
+        return;
+    }
+    m_layerWindow = LayerShellQt::Window::get(window);
+    if (!m_layerWindow) {
+        return;
+    }
+    m_layerWindow->setAnchors(static_cast<LayerShellQt::Window::Anchor>(
+        LayerShellQt::Window::AnchorTop
+        | LayerShellQt::Window::AnchorLeft
+        | LayerShellQt::Window::AnchorRight));
+    m_layerWindow->setExclusiveZone(0);
+    m_layerWindow->setScope(QStringLiteral("slm-crown"));
+    m_layerWindow->setLayer(LayerShellQt::Window::LayerTop);
+    m_layerWindow->setKeyboardInteractivity(LayerShellQt::Window::KeyboardInteractivityNone);
+    watchWindow(window);
+    m_attached = true;
+    startGeometryGrace();
+    m_lastLayer = WlrLayerShell::LayerTop;
+    m_lastKeyboardInteractivity = WlrLayerShell::KeyboardInteractivityNone;
 #else
     Q_UNUSED(window)
 #endif
@@ -102,6 +130,11 @@ bool AppDeckLayerShellController::setDock(QWindow *window,
     return configure(window,
                      WlrLayerShell::LayerTop,
                      WlrLayerShell::KeyboardInteractivityNone,
+                     WlrLayerShell::AnchorBottom
+                         | WlrLayerShell::AnchorLeft
+                         | WlrLayerShell::AnchorRight,
+                     0,
+                     QStringLiteral("slm-appdeck"),
                      width,
                      height,
                      QRect(inputX, inputY, inputWidth, inputHeight));
@@ -118,6 +151,33 @@ bool AppDeckLayerShellController::setGrid(QWindow *window,
     return configure(window,
                      WlrLayerShell::LayerOverlay,
                      WlrLayerShell::KeyboardInteractivityExclusive,
+                     WlrLayerShell::AnchorBottom
+                         | WlrLayerShell::AnchorLeft
+                         | WlrLayerShell::AnchorRight,
+                     0,
+                     QStringLiteral("slm-appdeck"),
+                     width,
+                     height,
+                     QRect(inputX, inputY, inputWidth, inputHeight));
+}
+
+bool AppDeckLayerShellController::setTopBar(QWindow *window,
+                                            int width,
+                                            int height,
+                                            int inputX,
+                                            int inputY,
+                                            int inputWidth,
+                                            int inputHeight,
+                                            int exclusiveZone)
+{
+    return configure(window,
+                     WlrLayerShell::LayerTop,
+                     WlrLayerShell::KeyboardInteractivityNone,
+                     WlrLayerShell::AnchorTop
+                         | WlrLayerShell::AnchorLeft
+                         | WlrLayerShell::AnchorRight,
+                     qMax(0, exclusiveZone),
+                     QStringLiteral("slm-crown"),
                      width,
                      height,
                      QRect(inputX, inputY, inputWidth, inputHeight));
@@ -126,6 +186,9 @@ bool AppDeckLayerShellController::setGrid(QWindow *window,
 bool AppDeckLayerShellController::configure(QWindow *window,
                                             int layer,
                                             int keyboardInteractivity,
+                                            int anchors,
+                                            int exclusiveZone,
+                                            const QString &scope,
                                             int width,
                                             int height,
                                             const QRect &inputRegion)
@@ -142,25 +205,38 @@ bool AppDeckLayerShellController::configure(QWindow *window,
     const bool prevAttached = m_attached;
 
 #ifdef SLM_HAVE_LAYERSHELLQT
-    auto *layerWindow = LayerShellQt::Window::get(window);
-    if (!layerWindow) {
+    if (!m_layerWindow || !prevAttached) {
+        m_layerWindow = LayerShellQt::Window::get(window);
+    }
+    if (!m_layerWindow) {
         return false;
     }
     if (!prevAttached) {
-        layerWindow->setAnchors(static_cast<LayerShellQt::Window::Anchor>(
-            LayerShellQt::Window::AnchorBottom
-            | LayerShellQt::Window::AnchorLeft
-            | LayerShellQt::Window::AnchorRight));
-        layerWindow->setExclusiveZone(0);
-        layerWindow->setScope(QStringLiteral("slm-appdeck"));
+        int qtAnchors = 0;
+        if (anchors & WlrLayerShell::AnchorTop) {
+            qtAnchors |= LayerShellQt::Window::AnchorTop;
+        }
+        if (anchors & WlrLayerShell::AnchorBottom) {
+            qtAnchors |= LayerShellQt::Window::AnchorBottom;
+        }
+        if (anchors & WlrLayerShell::AnchorLeft) {
+            qtAnchors |= LayerShellQt::Window::AnchorLeft;
+        }
+        if (anchors & WlrLayerShell::AnchorRight) {
+            qtAnchors |= LayerShellQt::Window::AnchorRight;
+        }
+        m_layerWindow->setAnchors(static_cast<LayerShellQt::Window::Anchor>(qtAnchors));
+        m_layerWindow->setExclusiveZone(qMax(0, exclusiveZone));
+        m_layerWindow->setScope(scope);
     }
+    m_layerWindow->setExclusiveZone(qMax(0, exclusiveZone));
     if (m_lastLayer != layer) {
-        layerWindow->setLayer(layer == WlrLayerShell::LayerOverlay
-                              ? LayerShellQt::Window::LayerOverlay
-                              : LayerShellQt::Window::LayerTop);
+        m_layerWindow->setLayer(layer == WlrLayerShell::LayerOverlay
+                                ? LayerShellQt::Window::LayerOverlay
+                                : LayerShellQt::Window::LayerTop);
     }
     if (m_lastKeyboardInteractivity != keyboardInteractivity) {
-        layerWindow->setKeyboardInteractivity(
+        m_layerWindow->setKeyboardInteractivity(
             keyboardInteractivity == WlrLayerShell::KeyboardInteractivityExclusive
                 ? LayerShellQt::Window::KeyboardInteractivityExclusive
                 : LayerShellQt::Window::KeyboardInteractivityNone);
@@ -178,18 +254,16 @@ bool AppDeckLayerShellController::configure(QWindow *window,
     }
 #else
     if (!m_attached) {
-        constexpr int anchors = WlrLayerShell::AnchorBottom
-                                | WlrLayerShell::AnchorLeft
-                                | WlrLayerShell::AnchorRight;
         if (!m_fallbackLayerShell->configureAsLayerSurface(window,
                                                            layer,
                                                            anchors,
-                                                           0,
-                                                           QStringLiteral("slm-appdeck"))) {
+                                                           qMax(0, exclusiveZone),
+                                                           scope)) {
             return false;
         }
         m_attached = true;
     }
+    m_fallbackLayerShell->setExclusiveZone(window, qMax(0, exclusiveZone));
     if (m_lastLayer != layer) {
         m_fallbackLayerShell->setLayer(window, layer);
     }

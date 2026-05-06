@@ -8,6 +8,12 @@ class QWindow;
 class WlrLayerShell;
 class AppDeckBootstrapState;
 
+#ifdef SLM_HAVE_LAYERSHELLQT
+namespace LayerShellQt {
+class Window;
+}
+#endif
+
 class AppDeckLayerShellController : public QObject
 {
     Q_OBJECT
@@ -26,6 +32,7 @@ public:
     // Konfigurasi LayerShellQt sebelum window pertama kali ditampilkan agar
     // tidak memicu warning "already has a shell integration".
     Q_INVOKABLE void prepareWindow(QWindow *window);
+    Q_INVOKABLE void prepareTopBarWindow(QWindow *window);
 
     // Call this immediately before making the window visible so the grace
     // period starts relative to the actual surface creation, not prepareWindow.
@@ -52,6 +59,14 @@ public:
                              int inputY,
                              int inputWidth,
                              int inputHeight);
+    Q_INVOKABLE bool setTopBar(QWindow *window,
+                               int width,
+                               int height,
+                               int inputX,
+                               int inputY,
+                               int inputWidth,
+                               int inputHeight,
+                               int exclusiveZone);
 
 signals:
     void supportedChanged();
@@ -60,6 +75,9 @@ private:
     bool configure(QWindow *window,
                    int layer,
                    int keyboardInteractivity,
+                   int anchors,
+                   int exclusiveZone,
+                   const QString &scope,
                    int width,
                    int height,
                    const QRect &inputRegion);
@@ -71,6 +89,9 @@ private:
     WlrLayerShell *m_fallbackLayerShell = nullptr;
     AppDeckBootstrapState *m_bootstrapState = nullptr;
     QPointer<QWindow> m_window;
+#ifdef SLM_HAVE_LAYERSHELLQT
+    LayerShellQt::Window *m_layerWindow = nullptr;
+#endif
     bool m_attached = false;
     bool m_geometrySafe = false;
     bool m_exposeSeen = false;

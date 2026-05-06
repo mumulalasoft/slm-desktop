@@ -3874,6 +3874,11 @@ qt6_add_resources(crown_popups_smoke_test crown_smoke_qml_raw
     PREFIX "/qt/qml/Slm_Desktop"
     FILES ${DESKTOP_SHELL_QML_FILES}
 )
+qt6_add_resources(crown_popups_smoke_test crown_smoke_theme_shim
+    PREFIX "/qt/qml/Slm_Desktop/third_party/slm-style/qml/SlmStyle"
+    BASE "${CMAKE_SOURCE_DIR}/third_party/slm-style/qml/SlmStyle"
+    FILES "${CMAKE_SOURCE_DIR}/third_party/slm-style/qml/SlmStyle/Theme.qml"
+)
 
 target_compile_definitions(crown_popups_smoke_test
     PRIVATE

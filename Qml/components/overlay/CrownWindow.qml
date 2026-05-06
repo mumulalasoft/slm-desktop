@@ -1,8 +1,9 @@
 import QtQuick 2.15
+import QtQuick.Window 2.15
 import Slm_Desktop
 import "../crown" as CrownComp
 
-Item {
+Window {
     id: root
 
     required property var rootWindow
@@ -12,9 +13,14 @@ Item {
     // Hybrid mode: defer applet bootstrap off critical load path, but start quickly.
     readonly property bool deferredReady: !!(shellApi && shellApi.startupTopbarBootstrapReady)
     readonly property bool startupItemsReady: !!topBarSurface && !!topBarSurface.startupItemsReady
+    readonly property bool layerShellSupported: (typeof CrownLayerShell !== "undefined")
+                                                && !!CrownLayerShell
+                                                && !!CrownLayerShell.supported
+    property bool _layerPrepared: !layerShellSupported
 
     readonly property bool anyPopupOpen: !!topBarSurface && !!topBarSurface.anyPopupOpen
     readonly property int popupHeadroom: Math.round(Math.min((rootWindow ? rootWindow.height : 0) * 0.45, 420))
+    readonly property int panelHeight: desktopScene ? desktopScene.panelHeight : 0
 
     signal launcherRequested()
     signal pulseRequested()
@@ -27,18 +33,38 @@ Item {
         }
     }
 
-    // Crown is a persistent layer — never hidden by overlay state.
-    // Opacity dims when apphub is open so it blends with the frosted backdrop.
-    visible: !!rootWindow && rootWindow.visible
-    opacity: ShellState.topBarOpacity
-    z: ShellZOrder.topBar
-    Behavior on opacity {
-        NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault }
-    }
+    color: "transparent"
+    transientParent: null
+    title: "SLM Crown Surface"
+
+    // Crown is a persistent layer-shell surface. It owns the top-bar and popup
+    // input region independently from the desktop window, matching AppDeck.
+    visible: !!rootWindow && rootWindow.visible && root._layerPrepared
     x: 0
     y: 0
     width: rootWindow ? rootWindow.width : 0
-    height: (desktopScene ? desktopScene.panelHeight : 0) + (anyPopupOpen ? popupHeadroom : 0)
+    height: root.panelHeight + (anyPopupOpen ? popupHeadroom : 0)
+
+    function syncLayerSurfaceSize() {
+        if (!root.layerShellSupported || typeof CrownLayerShell === "undefined" || !CrownLayerShell) {
+            return
+        }
+        CrownLayerShell.setTopBar(root,
+                                  Math.max(1, Math.round(root.width)),
+                                  Math.max(1, Math.round(root.height)),
+                                  0,
+                                  0,
+                                  Math.max(1, Math.round(root.width)),
+                                  Math.max(1, Math.round(root.height)),
+                                  Math.max(0, Math.round(root.panelHeight)))
+    }
+
+    onVisibleChanged: root.syncLayerSurfaceSize()
+    onWidthChanged: root.syncLayerSurfaceSize()
+    onHeightChanged: root.syncLayerSurfaceSize()
+    onPanelHeightChanged: root.syncLayerSurfaceSize()
+    onAnyPopupOpenChanged: Qt.callLater(function() { root.syncLayerSurfaceSize() })
+    onSceneGraphInitialized: root.syncLayerSurfaceSize()
 
     PopupHostLayer {
         id: popupHostLayer
@@ -50,13 +76,18 @@ Item {
     Item {
         anchors.fill: parent
         clip: !root.anyPopupOpen
+        opacity: ShellState.topBarOpacity
+
+        Behavior on opacity {
+            NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault }
+        }
 
         CrownComp.Crown {
             id: topBarSurface
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top
-            height: desktopScene ? desktopScene.panelHeight : 0
+            height: root.panelHeight
             deferredReady: root.deferredReady
             popupHost: popupHostLayer
             fileManagerContent: (root.shellApi
@@ -74,5 +105,21 @@ Item {
             }
             onStartupItemsReadyReached: root.startupItemsReadyReached()
         }
+    }
+
+    Timer {
+        id: layerShellRetryTimer
+        interval: 300
+        repeat: true
+        running: root.visible && root.layerShellSupported
+        onTriggered: root.syncLayerSurfaceSize()
+    }
+
+    Component.onCompleted: {
+        if (root.layerShellSupported && typeof CrownLayerShell !== "undefined" && CrownLayerShell) {
+            CrownLayerShell.prepareTopBarWindow(root)
+        }
+        root._layerPrepared = true
+        Qt.callLater(function() { root.syncLayerSurfaceSize() })
     }
 }

@@ -88,7 +88,7 @@ bool WlrLayerShell::configureAsLayerSurface(QWindow *window,
 
     // The WlrLayerSurfaceV1 object manages the ack_configure lifecycle.
     auto *surfaceObj = new WlrLayerSurfaceV1(layerSurface, surface, window);
-    if (m_dockBootstrapState) {
+    if (m_dockBootstrapState && nameSpace == QStringLiteral("slm-appdeck")) {
         m_dockBootstrapState->setLayerRoleBound(true);
         QObject::connect(surfaceObj, &WlrLayerSurfaceV1::firstConfigureReceived,
                          m_dockBootstrapState, &AppDeckBootstrapState::markFirstConfigureReceived);

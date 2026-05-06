@@ -92,6 +92,22 @@ private slots:
         QVERIFY(!text.contains(QStringLiteral(".raise(")));
         QVERIFY(!text.contains(QStringLiteral("overlay restack")));
     }
+
+    void crownWindow_usesDedicatedLayerShellSurface()
+    {
+        const QString path = QStringLiteral(DESKTOP_SOURCE_DIR) + QStringLiteral("/Qml/components/overlay/CrownWindow.qml");
+        const QString text = readTextFile(path);
+        QVERIFY2(!text.isEmpty(), qPrintable(QStringLiteral("failed to read %1").arg(path)));
+
+        QVERIFY(text.contains(QStringLiteral("Window {")));
+        QVERIFY(text.contains(QStringLiteral("CrownLayerShell")));
+        QVERIFY(text.contains(QStringLiteral("prepareTopBarWindow(root)")));
+        QVERIFY(text.contains(QStringLiteral("CrownLayerShell.setTopBar(root,")));
+        QVERIFY(text.contains(QStringLiteral("transientParent: null")));
+        QVERIFY(!text.contains(QStringLiteral("WindowStaysOnTopHint")));
+        QVERIFY(!text.contains(QStringLiteral("Qt.Tool")));
+        QVERIFY(!text.contains(QStringLiteral(".raise(")));
+    }
 };
 
 QTEST_MAIN(AppDeckSystemRenderContractTest)
