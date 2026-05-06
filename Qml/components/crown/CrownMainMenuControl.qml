@@ -13,6 +13,7 @@ Item {
     property int logoVisualOffsetX: -1
     property int logoVisualOffsetY: 0
     property var popupHost: null
+    property var rootWindow: null
     property int popupGap: Theme.metric("spacingSm")
     property var searchProfilesModel: []
     readonly property bool popupOpen: mainMenu.opened
@@ -80,8 +81,23 @@ Item {
 
     function _lockScreen() {
         mainMenu.close()
-        if (typeof ShellStateController !== "undefined" && ShellStateController)
+        if (typeof SessionStateClient !== "undefined" && SessionStateClient
+                && typeof SessionStateClient.lock === "function") {
+            SessionStateClient.lock()
+        } else if (root.rootWindow && "lockScreenVisible" in root.rootWindow) {
+            root.rootWindow.lockScreenVisible = true
+        }
+        if (typeof ShellStateController !== "undefined" && ShellStateController
+                && typeof ShellStateController.setLockScreenActive === "function") {
             ShellStateController.setLockScreenActive(true)
+        }
+    }
+
+    function _logOut() {
+        mainMenu.close()
+        if (root._hasPowerAction("logout")) {
+            PowerBridge.logout()
+        }
     }
 
     function _buildRecentApps() {
@@ -219,6 +235,16 @@ Item {
         return typeof PowerBridge !== "undefined"
                 && PowerBridge
                 && typeof PowerBridge[actionName] === "function"
+    }
+
+    function _hasLockAction() {
+        return (typeof SessionStateClient !== "undefined"
+                    && SessionStateClient
+                    && typeof SessionStateClient.lock === "function")
+                || (root.rootWindow && "lockScreenVisible" in root.rootWindow)
+                || (typeof ShellStateController !== "undefined"
+                    && ShellStateController
+                    && typeof ShellStateController.setLockScreenActive === "function")
     }
 
     // ── Button ────────────────────────────────────────────────────────────────
@@ -447,15 +473,14 @@ Item {
 
         DSStyle.MenuItem {
             text: qsTr("Lock Screen")
+            enabled: root._hasLockAction()
             onTriggered: root._lockScreen()
         }
 
         DSStyle.MenuItem {
             text: qsTr("Log Out\u2026")
-            onTriggered: {
-                mainMenu.close()
-                if (typeof PowerBridge !== "undefined" && PowerBridge) PowerBridge.logout()
-            }
+            enabled: root._hasPowerAction("logout")
+            onTriggered: root._logOut()
         }
     }
 }

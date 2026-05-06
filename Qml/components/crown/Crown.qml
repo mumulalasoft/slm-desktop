@@ -14,6 +14,7 @@ Rectangle {
     id: root
     property var fileManagerContent: null
     property var desktopMenuProvider: null
+    property var rootWindow: null
     property bool deferredReady: true
     readonly property bool startupTraceEnabled: (typeof StartupTraceEnabled !== "undefined") ? !!StartupTraceEnabled : false
     property var popupHost: null
@@ -393,6 +394,7 @@ Rectangle {
                     iconButtonH: root.iconButtonH
                     iconGlyph: root.iconGlyph
                     popupHost: root.resolvedPopupHost
+                    rootWindow: root.rootWindow
                     popupGap: root.popupGap
                     searchProfilesModel: root.searchProfilesModel
                     onPopupHintRequested: {

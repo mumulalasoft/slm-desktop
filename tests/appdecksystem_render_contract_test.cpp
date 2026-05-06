@@ -184,7 +184,16 @@ private slots:
         QVERIFY(mainMenuText.contains(QStringLiteral("DSStyle.MenuItem")));
         QVERIFY(mainMenuText.contains(QStringLiteral("DSStyle.MenuSeparator")));
         QVERIFY(mainMenuText.contains(QStringLiteral("DSStyle.Menu {")));
+        QVERIFY(mainMenuText.contains(QStringLiteral("property var rootWindow: null")));
         QVERIFY(mainMenuText.contains(QStringLiteral("function _hasPowerAction(actionName)")));
+        QVERIFY(mainMenuText.contains(QStringLiteral("function _hasLockAction()")));
+        QVERIFY(mainMenuText.contains(QStringLiteral("function _logOut()")));
+        QVERIFY(mainMenuText.contains(QStringLiteral("SessionStateClient.lock()")));
+        QVERIFY(mainMenuText.contains(QStringLiteral("root.rootWindow.lockScreenVisible = true")));
+        QVERIFY(mainMenuText.contains(QStringLiteral("ShellStateController.setLockScreenActive(true)")));
+        QVERIFY(mainMenuText.contains(QStringLiteral("enabled: root._hasLockAction()")));
+        QVERIFY(mainMenuText.contains(QStringLiteral("enabled: root._hasPowerAction(\"logout\")")));
+        QVERIFY(mainMenuText.contains(QStringLiteral("PowerBridge.logout()")));
         QVERIFY(mainMenuText.contains(QStringLiteral("PowerBridge.reboot()")));
         QVERIFY(mainMenuText.contains(QStringLiteral("PowerBridge.powerOff()")));
         QVERIFY(mainMenuText.contains(QStringLiteral("enabled: root._hasPowerAction(\"reboot\")")));
@@ -196,6 +205,22 @@ private slots:
         QVERIFY(!mainMenuText.contains(QStringLiteral("        MenuSeparator {")));
         QVERIFY(!mainMenuText.contains(QStringLiteral("        Menu {")));
         QVERIFY(!mainMenuText.contains(QStringLiteral("background: DSStyle.PopupSurface")));
+
+        const QString crownPath = base + QStringLiteral("/Qml/components/crown/Crown.qml");
+        const QString crownText = readTextFile(crownPath);
+        QVERIFY2(!crownText.isEmpty(), qPrintable(QStringLiteral("failed to read %1").arg(crownPath)));
+        QVERIFY(crownText.contains(QStringLiteral("property var rootWindow: null")));
+        QVERIFY(crownText.contains(QStringLiteral("rootWindow: root.rootWindow")));
+
+        const QString crownWindowPath = base + QStringLiteral("/Qml/components/overlay/CrownWindow.qml");
+        const QString crownWindowText = readTextFile(crownWindowPath);
+        QVERIFY2(!crownWindowText.isEmpty(), qPrintable(QStringLiteral("failed to read %1").arg(crownWindowPath)));
+        QVERIFY(crownWindowText.contains(QStringLiteral("rootWindow: root.rootWindow")));
+
+        const QString crownInlinePath = base + QStringLiteral("/Qml/components/overlay/CrownInlineLayer.qml");
+        const QString crownInlineText = readTextFile(crownInlinePath);
+        QVERIFY2(!crownInlineText.isEmpty(), qPrintable(QStringLiteral("failed to read %1").arg(crownInlinePath)));
+        QVERIFY(crownInlineText.contains(QStringLiteral("rootWindow: root.rootWindow")));
     }
 
     void qemuSmokeWrapper_keepsLayerShellEnabled()

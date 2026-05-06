@@ -56,6 +56,7 @@ Item {
             anchors.right: parent.right
             anchors.top: parent.top
             height: root.safePanelHeight
+            rootWindow: root.rootWindow
             deferredReady: root.deferredReady
             popupHost: popupHostLayer
             fileManagerContent: (root.shellApi
