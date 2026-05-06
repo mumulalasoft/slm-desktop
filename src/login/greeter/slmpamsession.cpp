@@ -9,12 +9,52 @@
 #include <fcntl.h>
 #include <grp.h>
 #include <pwd.h>
+#include <string>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <sys/vt.h>
 #include <unistd.h>
 
 namespace Slm::Login {
+
+namespace {
+
+bool ensureRuntimeDir(const QString &path, uid_t uid, gid_t gid)
+{
+    const QByteArray bytes = path.toLocal8Bit();
+    struct stat st{};
+    if (::stat(bytes.constData(), &st) != 0) {
+        if (errno != ENOENT) {
+            qWarning("SLM-PAM: stat('%s') failed: %s", bytes.constData(), strerror(errno));
+            return false;
+        }
+        if (::mkdir(bytes.constData(), 0700) != 0 && errno != EEXIST) {
+            qWarning("SLM-PAM: mkdir('%s') failed: %s", bytes.constData(), strerror(errno));
+            return false;
+        }
+        if (::stat(bytes.constData(), &st) != 0) {
+            qWarning("SLM-PAM: stat('%s') after mkdir failed: %s", bytes.constData(), strerror(errno));
+            return false;
+        }
+    }
+
+    if (!S_ISDIR(st.st_mode)) {
+        qWarning("SLM-PAM: XDG_RUNTIME_DIR path is not a directory: %s", bytes.constData());
+        return false;
+    }
+    if ((st.st_uid != uid || st.st_gid != gid) && ::chown(bytes.constData(), uid, gid) != 0) {
+        qWarning("SLM-PAM: chown('%s', %u, %u) failed: %s",
+                 bytes.constData(), uid, gid, strerror(errno));
+        return false;
+    }
+    if ((st.st_mode & 0777) != 0700 && ::chmod(bytes.constData(), 0700) != 0) {
+        qWarning("SLM-PAM: chmod('%s', 0700) failed: %s", bytes.constData(), strerror(errno));
+        return false;
+    }
+    return true;
+}
+
+} // namespace
 
 SlmPamSession::SlmPamSession(QObject *parent) : QObject(parent) {}
 
@@ -133,6 +173,13 @@ bool SlmPamSession::authenticate(const QString &username, const QString &passwor
         return false;
     }
 
+    const QByteArray ttyName = "/dev/tty" + QByteArray::number(m_sessionVT);
+    ret = pam_set_item(m_pamh, PAM_TTY, ttyName.constData());
+    if (ret != PAM_SUCCESS) {
+        qWarning("SLM-PAM: pam_set_item(PAM_TTY=%s) failed: %s",
+                 ttyName.constData(), pam_strerror(m_pamh, ret));
+    }
+
     // Set session vars BEFORE pam_open_session so pam_systemd.so picks them up.
     pam_putenv(m_pamh, "XDG_SESSION_TYPE=wayland");
     pam_putenv(m_pamh, "XDG_SESSION_CLASS=user");
@@ -222,7 +269,19 @@ bool SlmPamSession::openSession()
     }
 
     // Validation — warn but do not abort; session may still work.
-    const QString runtimeDir = m_pamEnv.value(QStringLiteral("XDG_RUNTIME_DIR"));
+    QString runtimeDir = m_pamEnv.value(QStringLiteral("XDG_RUNTIME_DIR"));
+    const QString fallbackRuntimeDir = QStringLiteral("/run/user/") + QString::number(m_uid);
+    if (runtimeDir.isEmpty()) {
+        runtimeDir = fallbackRuntimeDir;
+        if (ensureRuntimeDir(runtimeDir, m_uid, m_gid)) {
+            m_pamEnv.insert(QStringLiteral("XDG_RUNTIME_DIR"), runtimeDir);
+            qWarning("SLM-PAM: pam_systemd.so did not export XDG_RUNTIME_DIR; "
+                     "created fallback runtime dir '%s'", qPrintable(runtimeDir));
+        }
+    } else if (runtimeDir == fallbackRuntimeDir) {
+        ensureRuntimeDir(runtimeDir, m_uid, m_gid);
+    }
+
     const QString sessionId  = m_pamEnv.value(QStringLiteral("XDG_SESSION_ID"));
     qInfo("SLM-PAM: XDG_RUNTIME_DIR='%s' XDG_SESSION_ID='%s'",
           qPrintable(runtimeDir), qPrintable(sessionId));
@@ -298,8 +357,10 @@ qint64 SlmPamSession::launchSession(const QStringList &cmdOverride)
 
     const uid_t uid = m_uid;
     const gid_t gid = m_gid;
+    const int sessionVT = m_sessionVT;
     const std::string usernameStd = m_username.toStdString();
     const std::string homeDirStd  = std::string(pw->pw_dir);
+    const std::string ttyPathStd = "/dev/tty" + std::to_string(m_sessionVT);
 
     m_proc = new QProcess(this);
     m_proc->setProgram(fullCmd.first());
@@ -307,8 +368,31 @@ qint64 SlmPamSession::launchSession(const QStringList &cmdOverride)
     m_proc->setProcessEnvironment(childQEnv);
     m_proc->setProcessChannelMode(QProcess::ForwardedChannels);
 
-    m_proc->setChildProcessModifier([uid, gid, usernameStd, homeDirStd]() {
+    m_proc->setChildProcessModifier([uid, gid, sessionVT, usernameStd, homeDirStd, ttyPathStd]() {
         // Runs in child between fork() and exec() — only POSIX calls, no Qt.
+        if (sessionVT > 0) {
+            if (setsid() < 0) {
+                const char msg[] = "SLM-PAM: setsid failed\n";
+                write(STDERR_FILENO, msg, sizeof(msg) - 1);
+                _exit(126);
+            }
+
+            const int ttyFd = open(ttyPathStd.c_str(), O_RDWR | O_CLOEXEC);
+            if (ttyFd < 0) {
+                const char msg[] = "SLM-PAM: open session tty failed\n";
+                write(STDERR_FILENO, msg, sizeof(msg) - 1);
+                _exit(126);
+            }
+            if (ioctl(ttyFd, TIOCSCTTY, 1) < 0) {
+                const char msg[] = "SLM-PAM: TIOCSCTTY failed\n";
+                write(STDERR_FILENO, msg, sizeof(msg) - 1);
+                close(ttyFd);
+                _exit(126);
+            }
+            dup2(ttyFd, STDIN_FILENO);
+            close(ttyFd);
+        }
+
         if (initgroups(usernameStd.c_str(), gid) < 0) {
             const char msg[] = "SLM-PAM: initgroups failed\n";
             write(STDERR_FILENO, msg, sizeof(msg) - 1);

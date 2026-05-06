@@ -122,11 +122,22 @@ echo "[qemu-guest-session-smoke] timeout=${TIMEOUT_SEC}s" | tee -a "$ARTIFACT_DI
 
 capture_cmd "uname" uname -a || true
 capture_cmd "os-release" cat /etc/os-release || true
+capture_cmd "pam-slm" cat /etc/pam.d/slm || true
+capture_cmd "pam-login" cat /etc/pam.d/login || true
+capture_cmd "slm-greeter-unit" systemctl cat slm-greeter || true
 capture_cmd "greetd-status" systemctl status greetd --no-pager --full || true
 capture_cmd "greetd-enabled" systemctl is-enabled greetd || true
 capture_cmd "greetd-active" systemctl is-active greetd || true
 capture_cmd "journal-greetd" journalctl -b -u greetd --no-pager || true
+capture_cmd "slm-greeter-service-status" systemctl status slm-greeter --no-pager --full || true
+capture_cmd "slm-greeter-service-enabled" systemctl is-enabled slm-greeter || true
+capture_cmd "slm-greeter-service-active" systemctl is-active slm-greeter || true
+capture_cmd "journal-slm-greeter-service" journalctl -b -u slm-greeter --no-pager || true
+capture_cmd "journal-logind" journalctl -b -u systemd-logind --no-pager || true
 capture_cmd "journal-user" journalctl -b "_UID=$(id -u "$SESSION_USER")" --no-pager || true
+capture_cmd "greetd-log-dir" bash -lc "ls -la /var/lib/greetd/logs 2>/dev/null || true" || true
+capture_cmd "greetd-slm-greeter-log" cat /var/lib/greetd/logs/slm-greeter.log || true
+capture_cmd "greetd-slm-cage-log" cat /var/lib/greetd/logs/slm-greeter-cage.log || true
 capture_cmd "ps-ef" ps -ef || true
 capture_cmd "loginctl" loginctl list-sessions || true
 capture_cmd "state-initial" cat "$STATE_FILE" || true
@@ -135,22 +146,28 @@ if [[ -d "$RUNTIME_DIR" ]]; then
     capture_cmd "runtime-dir" find "$RUNTIME_DIR" -maxdepth 1 -printf "%M %u %g %s %p\n" || true
 fi
 
-if systemctl is-active greetd >/dev/null 2>&1; then
+if systemctl is-active slm-greeter >/dev/null 2>&1; then
+    ok "slm-greeter service active"
+elif systemctl is-active greetd >/dev/null 2>&1; then
     ok "greetd active"
 else
-    ng "greetd tidak aktif"
+    ng "display manager tidak aktif (slm-greeter/greetd)"
 fi
 
-if [[ -f /etc/greetd/config.toml ]]; then
+if systemctl is-active greetd >/dev/null 2>&1 && [[ -f /etc/greetd/config.toml ]]; then
     ok "/etc/greetd/config.toml ada"
     cp /etc/greetd/config.toml "$ARTIFACT_DIR/greetd-config.toml"
+elif systemctl is-active slm-greeter >/dev/null 2>&1; then
+    ok "direct-PAM slm-greeter mode aktif"
 else
-    ng "/etc/greetd/config.toml hilang"
+    ng "konfigurasi display manager tidak lengkap"
 fi
 
 if [[ -f /usr/share/wayland-sessions/slm.desktop ]]; then
     ok "/usr/share/wayland-sessions/slm.desktop ada"
     cp /usr/share/wayland-sessions/slm.desktop "$ARTIFACT_DIR/slm.desktop"
+elif systemctl is-active slm-greeter >/dev/null 2>&1; then
+    warnf "/usr/share/wayland-sessions/slm.desktop hilang, direct-PAM tidak memakainya"
 else
     ng "/usr/share/wayland-sessions/slm.desktop hilang"
 fi
@@ -173,7 +190,9 @@ else
     warnf "last-crash.json tidak ditemukan di ${CRASH_REPORT_FILE}"
 fi
 
-for log_path in /tmp/slm-compositor.log /tmp/slm-shell.log /tmp/slm-smoke-runtime.log /tmp/slm-session-broker.log; do
+for log_path in /tmp/slm-compositor.log /tmp/slm-shell.log /tmp/slm-smoke-runtime.log \
+                /tmp/slm-session-broker.log /tmp/slm-session-broker-launch.log \
+                /tmp/slm-greeter.log /tmp/slm-greeter-service.log; do
     if [[ -f "$log_path" ]]; then
         log_name="$(basename "$log_path")"
         cp "$log_path" "$ARTIFACT_DIR/$log_name"
@@ -185,7 +204,7 @@ for log_path in /tmp/slm-compositor.log /tmp/slm-shell.log /tmp/slm-smoke-runtim
 done
 
 PROCESS_MATCHES=0
-for pattern in greetd slm-greeter slm-session-broker slm-watchdog slm-desktop slm-shell; do
+for pattern in greetd cage slm-greeter slm-session-broker slm-watchdog slm-desktop slm-shell; do
     if pgrep -af "$pattern" >"$ARTIFACT_DIR/proc-${pattern}.log" 2>&1; then
         ok "process terlihat: $pattern"
         PROCESS_MATCHES=1

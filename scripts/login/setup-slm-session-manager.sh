@@ -94,6 +94,7 @@ password   include      common-password
 session    required     pam_env.so readenv=1
 session    required     pam_limits.so
 session    required     pam_unix.so
+session    optional     pam_loginuid.so
 session    required     pam_systemd.so
 EOF
 echo "[setup-slm][OK] /etc/pam.d/slm"

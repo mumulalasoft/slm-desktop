@@ -274,6 +274,46 @@ ln -sfn /usr/libexec/slm-session-broker /usr/local/bin/slm-session-broker
 install -Dm755 '$BUILD_DIR/slm-desktop' /usr/local/bin/slm-shell.real
 printf '%s\n' '#!/bin/sh' 'unset KWIN_COMPOSE LIBGL_ALWAYS_SOFTWARE QSG_RHI_BACKEND' 'exec env QT_QUICK_BACKEND=software SLM_DISABLE_LAYER_SHELL=1 SLM_DISABLE_APPDECK=1 /usr/local/bin/slm-shell.real \"\$@\"' > /usr/local/bin/slm-shell
 chmod 755 /usr/local/bin/slm-shell
+install -d -m0755 /usr/local/libexec
+cat > /usr/local/libexec/slm-session-broker-launch <<'SLM_BROKER_LAUNCH'
+#!/usr/bin/env bash
+set -u
+export SLM_OFFICIAL_SESSION=1
+export XDG_SESSION_TYPE=\${XDG_SESSION_TYPE:-wayland}
+export XDG_CURRENT_DESKTOP=\${XDG_CURRENT_DESKTOP:-SLM}
+export LANG=\${LANG:-C.UTF-8}
+export LC_ALL=\${LC_ALL:-C.UTF-8}
+if [[ -z \"\${XDG_RUNTIME_DIR:-}\" ]]; then
+    export XDG_RUNTIME_DIR=\"/run/user/\${UID}\"
+fi
+log=/tmp/slm-session-broker-launch.log
+{
+    echo \"===== \$(date --iso-8601=seconds 2>/dev/null || date) slm-session-broker-launch start =====\"
+    echo \"uid=\$(id -u) gid=\$(id -g) user=\$(id -un)\"
+    echo \"argv=\$*\"
+    echo \"XDG_SESSION_ID=\${XDG_SESSION_ID:-<unset>}\"
+    echo \"XDG_RUNTIME_DIR=\${XDG_RUNTIME_DIR:-<unset>}\"
+    echo \"XDG_SEAT=\${XDG_SEAT:-<unset>}\"
+    echo \"XDG_VTNR=\${XDG_VTNR:-<unset>}\"
+    echo \"PATH=\${PATH:-<unset>}\"
+    if command -v loginctl >/dev/null 2>&1 && [[ -n \"\${XDG_SESSION_ID:-}\" ]]; then
+        loginctl show-session \"\${XDG_SESSION_ID}\" --no-pager 2>&1 || true
+    fi
+    ldd /usr/libexec/slm-session-broker 2>&1 | grep -E 'not found|libQt6Core|libicu' || true
+} >>\"\$log\" 2>&1
+exec /usr/libexec/slm-session-broker \"\$@\" >>\"\$log\" 2>&1
+SLM_BROKER_LAUNCH
+chmod 0755 /usr/local/libexec/slm-session-broker-launch
+install -d -m0755 /usr/share/wayland-sessions
+cat > /usr/share/wayland-sessions/slm.desktop <<'SLM_DESKTOP_ENTRY'
+[Desktop Entry]
+Name=SLM Desktop
+Comment=Start SLM Desktop
+Exec=/usr/local/libexec/slm-session-broker-launch --mode normal
+Type=Application
+DesktopNames=SLM
+X-GDM-SessionRegisters=true
+SLM_DESKTOP_ENTRY
 install -d -m0755 -o \"\$session_user\" -g \"\$session_user\" \"\$session_home/.config/slm-desktop\"
 cat > \"\$session_home/.config/slm-desktop/config.json\" <<'SLM_CONFIG_JSON'
 {
@@ -302,10 +342,118 @@ SLM_STATE_JSON
 chown \"\$session_user:\$session_user\" \"\$session_home/.config/slm-desktop/config.json\" \"\$session_home/.config/slm-desktop/state.json\"
 echo '[qemu-smoke][guest] installed fast runtime + KWin software config'
 ldd /usr/local/bin/slm-shell.real /usr/libexec/slm-session-broker | grep -E 'libicu(i18n|uc|data)\\.so|libQt6Core\\.so|not found' || true
-if command -v systemctl >/dev/null 2>&1 && systemctl cat greetd.service >/dev/null 2>&1; then
+: > /tmp/slm-greeter.log
+: > /tmp/slm-greeter-service.log
+: > /tmp/slm-session-broker.log
+: > /tmp/slm-session-broker-launch.log
+: > /tmp/slm-compositor.log
+: > /tmp/slm-shell.log
+if ! command -v cage >/dev/null 2>&1; then
+    echo '[qemu-smoke][guest] cage not found; install cage before greetd greeter mode' >&2
+    exit 1
+fi
+if ! command -v greetd >/dev/null 2>&1; then
+    echo '[qemu-smoke][guest] greetd not found; install greetd before fast smoke' >&2
+    exit 1
+fi
+if ! id -u greeter >/dev/null 2>&1; then
+    useradd --system --home /var/lib/greetd --create-home --shell /bin/sh greeter
+else
+    current_shell=\$(getent passwd greeter | awk -F: '{print \$7}')
+    if [[ \"\$current_shell\" == */nologin || \"\$current_shell\" == */false ]]; then
+        usermod --shell /bin/sh greeter
+    fi
+fi
+passwd -l greeter >/dev/null 2>&1 || true
+install -d -m0755 /usr/local/libexec
+install -d -m0750 /var/lib/greetd/logs
+: > /var/lib/greetd/logs/slm-greeter.log
+: > /var/lib/greetd/logs/slm-greeter-cage.log
+chown -R greeter:greeter /var/lib/greetd /var/lib/greetd/logs
+chmod 0640 /var/lib/greetd/logs/slm-greeter.log /var/lib/greetd/logs/slm-greeter-cage.log
+cat > /etc/pam.d/slm <<'SLM_PAM'
+#%PAM-1.0
+auth       requisite    pam_nologin.so
+auth       include      common-auth
+account    include      common-account
+password   include      common-password
+session    required     pam_env.so readenv=1
+session    required     pam_limits.so
+session    required     pam_unix.so
+session    optional     pam_loginuid.so
+session    required     pam_systemd.so debug
+SLM_PAM
+cat > /etc/pam.d/greetd <<'GREETD_PAM'
+#%PAM-1.0
+auth       requisite    pam_nologin.so
+auth       include      common-auth
+account    include      common-account
+password   include      common-password
+session    required     pam_env.so readenv=1
+session    required     pam_limits.so
+session    required     pam_unix.so
+session    optional     pam_loginuid.so
+session    required     pam_systemd.so debug
+GREETD_PAM
+cat > /etc/pam.d/greetd-greeter <<'GREETD_GREETER_PAM'
+#%PAM-1.0
+auth       include      common-auth
+account    include      common-account
+session    required     pam_unix.so
+session    required     pam_systemd.so debug
+GREETD_GREETER_PAM
+cat > /usr/local/libexec/slm-greeter-greetd-launch <<'SLM_GREETER_LAUNCH'
+#!/usr/bin/env bash
+set -u
+export LIBSEAT_BACKEND=logind
+export QT_QPA_PLATFORM=wayland
+export QT_QUICK_BACKEND=software
+export LIBGL_ALWAYS_SOFTWARE=1
+log=/var/lib/greetd/logs/slm-greeter.log
+{
+    echo \"===== \$(date --iso-8601=seconds 2>/dev/null || date) slm-greeter start =====\"
+    echo \"  GREETD_SOCK=\${GREETD_SOCK:-<unset>}\"
+    echo \"  XDG_RUNTIME_DIR=\${XDG_RUNTIME_DIR:-<unset>}\"
+    echo \"  WAYLAND_DISPLAY=\${WAYLAND_DISPLAY:-<unset>}\"
+} >>\"\$log\" 2>&1
+exec /usr/local/bin/slm-greeter >>\"\$log\" 2>&1
+SLM_GREETER_LAUNCH
+chmod 0755 /usr/local/libexec/slm-greeter-greetd-launch
+cat > /usr/local/libexec/slm-greeter-cage-launch <<'SLM_GREETER_CAGE'
+#!/usr/bin/env bash
+set -u
+export LIBSEAT_BACKEND=logind
+export WLR_RENDERER=pixman
+log=/var/lib/greetd/logs/slm-greeter-cage.log
+{
+    echo \"===== \$(date --iso-8601=seconds 2>/dev/null || date) cage start =====\"
+    echo \"  GREETD_SOCK=\${GREETD_SOCK:-<unset>}\"
+    echo \"  XDG_RUNTIME_DIR=\${XDG_RUNTIME_DIR:-<unset>}\"
+} >>\"\$log\" 2>&1
+exec cage -s -- /usr/local/libexec/slm-greeter-greetd-launch >>\"\$log\" 2>&1
+SLM_GREETER_CAGE
+chmod 0755 /usr/local/libexec/slm-greeter-cage-launch
+install -d -m0755 /etc/greetd
+cat > /etc/greetd/config.toml <<'GREETD_CONFIG'
+[terminal]
+vt = 7
+
+[default_session]
+command = \"/usr/local/libexec/slm-greeter-cage-launch\"
+user = \"greeter\"
+GREETD_CONFIG
+if command -v systemctl >/dev/null 2>&1; then
+    systemctl daemon-reload
+    systemctl disable --now slm-greeter.service 2>/dev/null || true
+    greetd_unit=\$(systemctl show -p FragmentPath --value greetd.service 2>/dev/null || true)
+    if [[ -n \"\$greetd_unit\" && -f \"\$greetd_unit\" ]]; then
+        ln -sfn \"\$greetd_unit\" /etc/systemd/system/display-manager.service
+    fi
+    systemctl daemon-reload
+    systemctl enable greetd.service
     systemctl reset-failed greetd.service || true
     systemctl restart greetd.service
-    echo '[qemu-smoke][guest] restarted greetd to load the new greeter'
+    echo '[qemu-smoke][guest] enabled greetd handoff and disabled direct-PAM slm-greeter.service'
 fi
 ")"
 else

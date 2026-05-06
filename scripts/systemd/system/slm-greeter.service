@@ -26,20 +26,27 @@ After=greetd.service getty@tty7.service
 
 [Service]
 Type=simple
+PAMName=login
+UtmpIdentifier=tty7
+UtmpMode=user
 # cage -s : use libseat (logind) for seat management
 # The slm-greeter binary uses SlmPamSession for PAM auth when GREETD_SOCK is absent.
-ExecStart=/usr/bin/cage -s -- /usr/local/bin/slm-greeter
+ExecStartPre=/bin/sh -c 'command -v chvt >/dev/null 2>&1 && chvt 7 || true'
+ExecStart=/bin/sh -c 'exec cage -s -- /usr/local/bin/slm-greeter >>/tmp/slm-greeter-service.log 2>&1'
 Restart=on-failure
 RestartSec=2
+RuntimeDirectory=slm-greeter
+RuntimeDirectoryMode=0700
 
 # Bind to TTY7 so cage owns that VT. cage opens the DRM device once;
 # on VT switch logind pauses cage and gives DRM master to the user session.
 TTYPath=/dev/tty7
-StandardInput=tty
+StandardInput=tty-force
 StandardOutput=journal
 StandardError=journal
 TTYReset=yes
 TTYVHangup=yes
+TTYVTDisallocate=yes
 
 # Environment for cage and the greeter.
 Environment=LIBSEAT_BACKEND=logind
@@ -48,6 +55,7 @@ Environment=QT_QUICK_BACKEND=software
 Environment=LIBGL_ALWAYS_SOFTWARE=1
 Environment=QT_QPA_PLATFORM=wayland
 Environment=SLM_GREETER_MODE=direct
+Environment=XDG_RUNTIME_DIR=/run/slm-greeter
 
 [Install]
 WantedBy=graphical.target

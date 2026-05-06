@@ -40,9 +40,11 @@ fi
 
 GREETER_CAGE_LAUNCHER="/usr/local/libexec/slm-greeter-cage-launch"
 GREETER_LAUNCHER="/usr/local/libexec/slm-greeter-greetd-launch"
+BROKER_LAUNCHER="/usr/local/libexec/slm-session-broker-launch"
 GREETER_LOG_DIR="/var/lib/greetd/logs"
 GREETER_LOG="${GREETER_LOG_DIR}/slm-greeter.log"
 CAGE_LOG="${GREETER_LOG_DIR}/slm-greeter-cage.log"
+BROKER_LOG="/tmp/slm-session-broker-launch.log"
 GREETER_SHELL="${SLM_GREETER_SHELL:-/bin/sh}"
 
 ensure_greeter_user() {
@@ -123,6 +125,35 @@ echo "===== \$(_ts) slm-greeter-launch: gave up after \$_MAX_RETRIES attempts ==
 exit 1
 EOF
 chmod 0755 "$GREETER_LAUNCHER"
+cat >"$BROKER_LAUNCHER" <<'EOF'
+#!/usr/bin/env bash
+set -u
+export SLM_OFFICIAL_SESSION=1
+export XDG_SESSION_TYPE=${XDG_SESSION_TYPE:-wayland}
+export XDG_CURRENT_DESKTOP=${XDG_CURRENT_DESKTOP:-SLM}
+export LANG=${LANG:-C.UTF-8}
+export LC_ALL=${LC_ALL:-C.UTF-8}
+if [[ -z "${XDG_RUNTIME_DIR:-}" ]]; then
+  export XDG_RUNTIME_DIR="/run/user/$(id -u)"
+fi
+log="/tmp/slm-session-broker-launch.log"
+{
+  echo "===== $(date --iso-8601=seconds 2>/dev/null || date) slm-session-broker-launch start ====="
+  echo "uid=$(id -u) gid=$(id -g) user=$(id -un)"
+  echo "argv=$*"
+  echo "XDG_SESSION_ID=${XDG_SESSION_ID:-<unset>}"
+  echo "XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-<unset>}"
+  echo "XDG_SEAT=${XDG_SEAT:-<unset>}"
+  echo "XDG_VTNR=${XDG_VTNR:-<unset>}"
+  echo "PATH=${PATH:-<unset>}"
+  if command -v loginctl >/dev/null 2>&1 && [[ -n "${XDG_SESSION_ID:-}" ]]; then
+    loginctl show-session "${XDG_SESSION_ID}" --no-pager 2>&1 || true
+  fi
+  ldd /usr/libexec/slm-session-broker 2>&1 | grep -E 'not found|libQt6Core|libicu' || true
+} >>"$log" 2>&1
+exec /usr/libexec/slm-session-broker "$@" >>"$log" 2>&1
+EOF
+chmod 0755 "$BROKER_LAUNCHER"
 cat >"$GREETER_CAGE_LAUNCHER" <<EOF
 #!/usr/bin/env bash
 # slm-greeter-cage-launch — start cage compositor and run greeter inside it.

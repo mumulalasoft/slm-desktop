@@ -188,6 +188,14 @@ void GreeterApp::loginViaPam(const QString &username, const QString &password,
 
     m_loginStep = LoginStep::WaitingAuthChallenge;
 
+    const QString broker = resolveSessionBrokerCommand();
+    if (broker.isEmpty()) {
+        m_loginStep = LoginStep::Idle;
+        emit loginError(QStringLiteral("session_start_error"),
+                        QStringLiteral("SLM session broker not found"));
+        return;
+    }
+
     if (!m_pamSession->authenticate(username, password)) {
         m_loginStep = LoginStep::Idle;
         emit loginError(QStringLiteral("auth_error"),
@@ -202,7 +210,14 @@ void GreeterApp::loginViaPam(const QString &username, const QString &password,
         return;
     }
 
-    const qint64 pid = m_pamSession->launchSession();
+    const QString sessionMode = mode.isEmpty() ? QStringLiteral("normal") : mode;
+    const qint64 pid = m_pamSession->launchSession({
+        QStringLiteral("dbus-run-session"),
+        QStringLiteral("--"),
+        broker,
+        QStringLiteral("--mode"),
+        sessionMode,
+    });
     if (pid < 0) {
         m_pamSession->closeSession();
         m_loginStep = LoginStep::Idle;
