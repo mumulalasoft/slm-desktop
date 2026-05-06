@@ -811,6 +811,7 @@ set_source_files_properties(Qml/CrownPopupController.qml PROPERTIES QT_QML_SINGL
 set_source_files_properties(Qml/MotionController.qml    PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
 
 set(DESKTOP_SHELL_QML_FILES
+    FastMain.qml
     Main.qml
     third_party/slm-style/qml/SlmStyle/Theme.qml
     Qml/IndicatorRegistry.qml

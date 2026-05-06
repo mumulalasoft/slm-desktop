@@ -954,15 +954,26 @@ Window {
         Qt::QueuedConnection);
     // Prefer direct qrc loading for startup reliability. Support both resource
     // prefixes used by different Qt/CMake generator configurations.
-    const QString mainQmlQtPrefix = ResourcePaths::Qml::mainQtPrefix();
-    const QString mainQmlModulePrefix = ResourcePaths::Qml::mainModulePrefix();
+    const bool fastFirstFrame = envFlagEnabled("SLM_FAST_FIRST_FRAME");
+    const QString mainQmlQtPrefix = fastFirstFrame
+            ? ResourcePaths::Qml::fastMainQtPrefix()
+            : ResourcePaths::Qml::mainQtPrefix();
+    const QString mainQmlModulePrefix = fastFirstFrame
+            ? ResourcePaths::Qml::fastMainModulePrefix()
+            : ResourcePaths::Qml::mainModulePrefix();
+    const QString mainQmlQtPrefixUrl = fastFirstFrame
+            ? ResourcePaths::Qml::fastMainQtPrefixUrl()
+            : ResourcePaths::Qml::mainQtPrefixUrl();
+    const QString mainQmlModulePrefixUrl = fastFirstFrame
+            ? ResourcePaths::Qml::fastMainModulePrefixUrl()
+            : ResourcePaths::Qml::mainModulePrefixUrl();
     startupMark(QStringLiteral("qml.load.begin"));
     if (QFile::exists(mainQmlQtPrefix)) {
-        engine.load(QUrl(ResourcePaths::Qml::mainQtPrefixUrl()));
+        engine.load(QUrl(mainQmlQtPrefixUrl));
     } else if (QFile::exists(mainQmlModulePrefix)) {
-        engine.load(QUrl(ResourcePaths::Qml::mainModulePrefixUrl()));
+        engine.load(QUrl(mainQmlModulePrefixUrl));
     } else {
-        qCritical().noquote() << "[startup] Main.qml resource not found in qrc prefixes:"
+        qCritical().noquote() << "[startup] QML entry resource not found in qrc prefixes:"
                               << mainQmlQtPrefix << "or" << mainQmlModulePrefix;
     }
     if (startupLogs) {
@@ -997,7 +1008,7 @@ Window {
                       shellWindow->width(), shellWindow->height());
                 closeStartupCover();
                 writeShellLifecycle(QStringLiteral("firstFrame"));
-                QTimer::singleShot(250, &app, startServiceBootstraps);
+                QTimer::singleShot(fastFirstFrame ? 3000 : 250, &app, startServiceBootstraps);
                 startupMark(QStringLiteral("window.firstFrameSwapped"),
                             QStringLiteral("visible=%1 size=%2x%3")
                                 .arg(shellWindow->isVisible() ? QStringLiteral("true")

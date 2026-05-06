@@ -146,10 +146,12 @@ log="/tmp/slm-session-broker-launch.log"
   echo "XDG_SEAT=${XDG_SEAT:-<unset>}"
   echo "XDG_VTNR=${XDG_VTNR:-<unset>}"
   echo "PATH=${PATH:-<unset>}"
-  if command -v loginctl >/dev/null 2>&1 && [[ -n "${XDG_SESSION_ID:-}" ]]; then
-    loginctl show-session "${XDG_SESSION_ID}" --no-pager 2>&1 || true
+  if [[ "${SLM_BROKER_LAUNCH_DIAGNOSTICS:-0}" == "1" ]]; then
+    if command -v loginctl >/dev/null 2>&1 && [[ -n "${XDG_SESSION_ID:-}" ]]; then
+      loginctl show-session "${XDG_SESSION_ID}" --no-pager 2>&1 || true
+    fi
+    ldd /usr/libexec/slm-session-broker 2>&1 | grep -E 'not found|libQt6Core|libicu' || true
   fi
-  ldd /usr/libexec/slm-session-broker 2>&1 | grep -E 'not found|libQt6Core|libicu' || true
 } >>"$log" 2>&1
 exec /usr/libexec/slm-session-broker "$@" >>"$log" 2>&1
 EOF

@@ -1366,6 +1366,10 @@ void SessionBroker::validateLogindSession()
         qInfo("  %s=%s", key, val.isEmpty() ? "<unset>" : val.constData());
     }
 
+    if (!envFlagEnabled("SLM_SESSION_DIAGNOSTICS")) {
+        return;
+    }
+
     if (!sessionId.isEmpty()) {
         QProcess lc;
         lc.start(QStringLiteral("loginctl"),

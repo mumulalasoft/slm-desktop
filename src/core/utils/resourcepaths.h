@@ -10,9 +10,19 @@ inline QString mainQtPrefix()
     return QStringLiteral(":/qt/qml/Slm_Desktop/Main.qml");
 }
 
+inline QString fastMainQtPrefix()
+{
+    return QStringLiteral(":/qt/qml/Slm_Desktop/FastMain.qml");
+}
+
 inline QString mainModulePrefix()
 {
     return QStringLiteral(":/Slm_Desktop/Main.qml");
+}
+
+inline QString fastMainModulePrefix()
+{
+    return QStringLiteral(":/Slm_Desktop/FastMain.qml");
 }
 
 inline QString mainQtPrefixUrl()
@@ -20,9 +30,19 @@ inline QString mainQtPrefixUrl()
     return QStringLiteral("qrc:/qt/qml/Slm_Desktop/Main.qml");
 }
 
+inline QString fastMainQtPrefixUrl()
+{
+    return QStringLiteral("qrc:/qt/qml/Slm_Desktop/FastMain.qml");
+}
+
 inline QString mainModulePrefixUrl()
 {
     return QStringLiteral("qrc:/Slm_Desktop/Main.qml");
+}
+
+inline QString fastMainModulePrefixUrl()
+{
+    return QStringLiteral("qrc:/Slm_Desktop/FastMain.qml");
 }
 
 inline QString indicatorExampleQml()
