@@ -238,6 +238,19 @@ Row {
         return []
     }
 
+    function _loadingMenuItems() {
+        return [
+            { "id": -999001, "label": "Loading menu...", "enabled": false }
+        ]
+    }
+
+    function _emptyMenuItems(menuRow) {
+        var label = menuRow ? String(menuRow.label || "Menu") : "Menu"
+        return [
+            { "id": -999002, "label": label + " has no menu items", "enabled": false }
+        ]
+    }
+
     function _rowsCount(rows) {
         if (!rows) {
             return 0
@@ -434,9 +447,7 @@ Row {
                                         && GlobalMenuManager.activateMenu) {
                                     GlobalMenuManager.activateMenu(categoryItem._myMenuId)
                                 }
-                                dropdown.menuItems = [
-                                    { "id": -999001, "label": "Loading menu...", "enabled": false }
-                                ]
+                                dropdown.menuItems = root._loadingMenuItems()
                                 root._positionCategoryDropdown(dropdown, categoryItem)
                                 root.menuBarOpenId = categoryItem._myMenuId
                                 openRetryAttempts = 0
@@ -488,7 +499,9 @@ Row {
                             return
                         }
                         openRetryAttempts += 1
-                        if (openRetryAttempts >= 8) {
+                        if (openRetryAttempts >= 25) {
+                            dropdown.menuItems = root._emptyMenuItems(modelData)
+                            root._positionCategoryDropdown(dropdown, categoryItem)
                             stop()
                         }
                     }
@@ -533,6 +546,22 @@ Row {
                             dropdown.close()
                         } else {
                             openRetryTimer.stop()
+                        }
+                    }
+                }
+
+                Connections {
+                    target: (typeof GlobalMenuManager !== "undefined") ? GlobalMenuManager : null
+                    ignoreUnknownSignals: true
+                    function onChanged() {
+                        if (root.menuBarOpenId !== categoryItem._myMenuId || !dropdown.visible) {
+                            return
+                        }
+                        var refreshedRows = root._menuItemsFor(modelData)
+                        if (root._rowsCount(refreshedRows) > 0) {
+                            openRetryTimer.stop()
+                            dropdown.menuItems = refreshedRows
+                            root._positionCategoryDropdown(dropdown, categoryItem)
                         }
                     }
                 }

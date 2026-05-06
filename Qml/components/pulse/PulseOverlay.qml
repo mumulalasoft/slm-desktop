@@ -242,8 +242,8 @@ Item {
             return false
         }
         if (c === "shutdown") {
-            if (typeof PowerBridge !== "undefined" && PowerBridge && PowerBridge.shutdown) {
-                PowerBridge.shutdown()
+            if (typeof PowerBridge !== "undefined" && PowerBridge && PowerBridge.powerOff) {
+                PowerBridge.powerOff()
                 return true
             }
             return false

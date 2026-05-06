@@ -21,11 +21,13 @@ public:
     bool canReboot()   const;
     bool canPowerOff() const;
 
-    Q_INVOKABLE void sleep();
-    Q_INVOKABLE void reboot();
-    Q_INVOKABLE void shutdown();
-    Q_INVOKABLE void logout();
+    Q_INVOKABLE bool sleep();
+    Q_INVOKABLE bool reboot();
+    Q_INVOKABLE bool powerOff();
+    Q_INVOKABLE bool shutdown();
+    Q_INVOKABLE bool logout();
 
 private:
     static bool systemctlCan(const QString &verb);
+    static bool startSystemctlAction(const QString &verb);
 };

@@ -155,6 +155,11 @@ private slots:
         QVERIFY(brandText.contains(QStringLiteral("property int menuBarHeight")));
         QVERIFY(brandText.contains(QStringLiteral("height: Math.max(1, menuBarHeight)")));
         QVERIFY(brandText.contains(QStringLiteral("height: root.menuBarHeight")));
+        QVERIFY(brandText.contains(QStringLiteral("function _loadingMenuItems()")));
+        QVERIFY(brandText.contains(QStringLiteral("function _emptyMenuItems(menuRow)")));
+        QVERIFY(brandText.contains(QStringLiteral("openRetryAttempts >= 25")));
+        QVERIFY(brandText.contains(QStringLiteral("dropdown.menuItems = root._emptyMenuItems(modelData)")));
+        QVERIFY(brandText.contains(QStringLiteral("function onChanged()")));
     }
 
     void crownMainMenuUsesThemeMenuAndCenteredLogoSlot()
@@ -179,6 +184,14 @@ private slots:
         QVERIFY(mainMenuText.contains(QStringLiteral("DSStyle.MenuItem")));
         QVERIFY(mainMenuText.contains(QStringLiteral("DSStyle.MenuSeparator")));
         QVERIFY(mainMenuText.contains(QStringLiteral("DSStyle.Menu {")));
+        QVERIFY(mainMenuText.contains(QStringLiteral("function _hasPowerAction(actionName)")));
+        QVERIFY(mainMenuText.contains(QStringLiteral("PowerBridge.reboot()")));
+        QVERIFY(mainMenuText.contains(QStringLiteral("PowerBridge.powerOff()")));
+        QVERIFY(mainMenuText.contains(QStringLiteral("enabled: root._hasPowerAction(\"reboot\")")));
+        QVERIFY(mainMenuText.contains(QStringLiteral("enabled: root._hasPowerAction(\"powerOff\")")));
+        QVERIFY(!mainMenuText.contains(QStringLiteral("enabled: typeof PowerBridge !== \"undefined\" && PowerBridge && PowerBridge.canReboot")));
+        QVERIFY(!mainMenuText.contains(QStringLiteral("enabled: typeof PowerBridge !== \"undefined\" && PowerBridge && PowerBridge.canPowerOff")));
+        QVERIFY(!mainMenuText.contains(QStringLiteral("PowerBridge.shutdown()")));
         QVERIFY(!mainMenuText.contains(QStringLiteral("        MenuItem {")));
         QVERIFY(!mainMenuText.contains(QStringLiteral("        MenuSeparator {")));
         QVERIFY(!mainMenuText.contains(QStringLiteral("        Menu {")));

@@ -215,6 +215,12 @@ Item {
         return "image://themeicon/" + name + "?v=" + rev
     }
 
+    function _hasPowerAction(actionName) {
+        return typeof PowerBridge !== "undefined"
+                && PowerBridge
+                && typeof PowerBridge[actionName] === "function"
+    }
+
     // ── Button ────────────────────────────────────────────────────────────────
 
     Rectangle {
@@ -419,7 +425,7 @@ Item {
 
         DSStyle.MenuItem {
             text: qsTr("Restart\u2026")
-            enabled: typeof PowerBridge !== "undefined" && PowerBridge && PowerBridge.canReboot
+            enabled: root._hasPowerAction("reboot")
             onTriggered: {
                 mainMenu.close()
                 if (typeof PowerBridge !== "undefined" && PowerBridge) PowerBridge.reboot()
@@ -428,10 +434,10 @@ Item {
 
         DSStyle.MenuItem {
             text: qsTr("Shut Down\u2026")
-            enabled: typeof PowerBridge !== "undefined" && PowerBridge && PowerBridge.canPowerOff
+            enabled: root._hasPowerAction("powerOff")
             onTriggered: {
                 mainMenu.close()
-                if (typeof PowerBridge !== "undefined" && PowerBridge) PowerBridge.shutdown()
+                if (typeof PowerBridge !== "undefined" && PowerBridge) PowerBridge.powerOff()
             }
         }
 
