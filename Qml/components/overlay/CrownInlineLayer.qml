@@ -28,7 +28,7 @@ Item {
         }
     }
 
-    visible: !!rootWindow && rootWindow.visible
+    visible: !!rootWindow && rootWindow.visible && !rootWindow.lockScreenVisible
     opacity: ShellState.topBarOpacity
     z: ShellZOrder.topBar
     Behavior on opacity {

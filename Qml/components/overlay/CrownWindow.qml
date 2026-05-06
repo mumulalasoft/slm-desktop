@@ -41,7 +41,10 @@ Window {
 
     // Crown is a persistent layer-shell surface. It owns the top-bar and popup
     // input region independently from the desktop window, matching AppDeck.
-    visible: !!rootWindow && rootWindow.visible && root._layerPrepared
+    visible: !!rootWindow
+             && rootWindow.visible
+             && !rootWindow.lockScreenVisible
+             && root._layerPrepared
     x: 0
     y: 0
     width: rootWindow ? rootWindow.width : 0

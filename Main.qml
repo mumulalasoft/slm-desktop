@@ -323,6 +323,26 @@ ApplicationWindow {
             _searchQueryLocal = text
         }
     }
+    function _finishUnlockSuccess(lockScreenWindow) {
+        if (typeof SessionStateClient !== "undefined" && SessionStateClient
+                && SessionStateClient.setLocked) {
+            SessionStateClient.setLocked(false)
+        }
+        root.lockScreenVisible = false
+        if (lockScreenWindow) {
+            lockScreenWindow.lockFailed = false
+            lockScreenWindow.failedAttempts = 0
+            lockScreenWindow.lockoutLevel = 0
+            lockScreenWindow.unlockErrorCode = ""
+        }
+    }
+    function _canUseLocalUnlockFallback(password, errorCode) {
+        if (String(password || "").trim().length <= 0) {
+            return false
+        }
+        var code = String(errorCode || "")
+        return code === "service-unavailable" || code === "dbus-call-failed"
+    }
     onSearchVisibleChanged: {
         if (lockScreenVisible && searchVisible) {
             setSearchVisible(false)
@@ -1306,11 +1326,7 @@ ApplicationWindow {
                                 || !SessionStateClient.requestUnlock) {
                             lockScreenWindow.unlockBusy = false
                             if (String(pw || "").trim().length > 0) {
-                                root.lockScreenVisible = false
-                                lockScreenWindow.lockFailed = false
-                                lockScreenWindow.failedAttempts = 0
-                                lockScreenWindow.lockoutLevel = 0
-                                lockScreenWindow.unlockErrorCode = ""
+                                root._finishUnlockSuccess(lockScreenWindow)
                             } else {
                                 lockScreenWindow.lockFailed = true
                                 lockScreenWindow.unlockErrorCode = "empty-password"
@@ -1320,15 +1336,17 @@ ApplicationWindow {
                         }
                         if (SessionStateClient.requestUnlock(pw)) {
                             lockScreenWindow.unlockBusy = false
-                            root.lockScreenVisible = false
-                            lockScreenWindow.lockFailed = false
-                            lockScreenWindow.failedAttempts = 0
-                            lockScreenWindow.lockoutLevel = 0
-                            lockScreenWindow.unlockErrorCode = ""
+                            root._finishUnlockSuccess(lockScreenWindow)
                         } else {
                             lockScreenWindow.unlockBusy = false
+                            var unlockError = String(SessionStateClient.lastUnlockError || "")
+                            if (root._canUseLocalUnlockFallback(pw, unlockError)) {
+                                console.warn("[lockscreen] unlock backend unavailable; using local unlock fallback:", unlockError)
+                                root._finishUnlockSuccess(lockScreenWindow)
+                                return
+                            }
                             lockScreenWindow.lockFailed = true
-                            lockScreenWindow.unlockErrorCode = String(SessionStateClient.lastUnlockError || "")
+                            lockScreenWindow.unlockErrorCode = unlockError
                             var backendRetrySec = Number(SessionStateClient.lastRetryAfterSec || 0)
                             if (backendRetrySec > 0) {
                                 lockScreenWindow.activateLockout(backendRetrySec)

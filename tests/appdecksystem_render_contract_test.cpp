@@ -105,11 +105,43 @@ private slots:
         QVERIFY(text.contains(QStringLiteral("CrownLayerShell.setTopBar(root,")));
         QVERIFY(text.contains(QStringLiteral("readonly property int safePanelHeight")));
         QVERIFY(text.contains(QStringLiteral("height: root.surfaceHeight")));
+        QVERIFY(text.contains(QStringLiteral("!rootWindow.lockScreenVisible")));
         QVERIFY(text.contains(QStringLiteral("Math.max(1, Math.round(root.safePanelHeight))")));
         QVERIFY(text.contains(QStringLiteral("transientParent: null")));
         QVERIFY(!text.contains(QStringLiteral("WindowStaysOnTopHint")));
         QVERIFY(!text.contains(QStringLiteral("Qt.Tool")));
         QVERIFY(!text.contains(QStringLiteral(".raise(")));
+    }
+
+    void lockScreenWindow_usesSecurityLayerShellOverlay()
+    {
+        const QString base = QStringLiteral(DESKTOP_SOURCE_DIR);
+        const QString lockPath = base + QStringLiteral("/Qml/components/overlay/LockScreenWindow.qml");
+        const QString lockText = readTextFile(lockPath);
+        QVERIFY2(!lockText.isEmpty(), qPrintable(QStringLiteral("failed to read %1").arg(lockPath)));
+
+        QVERIFY(lockText.contains(QStringLiteral("SecurityLayerShell")));
+        QVERIFY(lockText.contains(QStringLiteral("prepareSecurityOverlayWindow(root)")));
+        QVERIFY(lockText.contains(QStringLiteral("SecurityLayerShell.setSecurityOverlay(root,")));
+        QVERIFY(lockText.contains(QStringLiteral("transientParent: root.layerShellSupported ? null : rootWindow")));
+        QVERIFY(lockText.contains(QStringLiteral("title: \"SLM Security Overlay\"")));
+
+        const QString controllerPath = base + QStringLiteral("/src/core/wayland/layershell/appdecklayershellcontroller.cpp");
+        const QString controllerText = readTextFile(controllerPath);
+        QVERIFY2(!controllerText.isEmpty(), qPrintable(QStringLiteral("failed to read %1").arg(controllerPath)));
+        QVERIFY(controllerText.contains(QStringLiteral("prepareSecurityOverlayWindow")));
+        QVERIFY(controllerText.contains(QStringLiteral("setSecurityOverlay")));
+        QVERIFY(controllerText.contains(QStringLiteral("setScope(QStringLiteral(\"slm-lockscreen\"))")));
+        QVERIFY(controllerText.contains(QStringLiteral("LayerShellQt::Window::LayerOverlay")));
+        QVERIFY(controllerText.contains(QStringLiteral("KeyboardInteractivityExclusive")));
+        QVERIFY(controllerText.contains(QStringLiteral("WlrLayerShell::LayerOverlay")));
+        QVERIFY(controllerText.contains(QStringLiteral("WlrLayerShell::KeyboardInteractivityExclusive")));
+
+        const QString mainPath = base + QStringLiteral("/main.cpp");
+        const QString mainText = readTextFile(mainPath);
+        QVERIFY2(!mainText.isEmpty(), qPrintable(QStringLiteral("failed to read %1").arg(mainPath)));
+        QVERIFY(mainText.contains(QStringLiteral("AppDeckLayerShellController securityLayerShell(&wlrLayerShell);")));
+        QVERIFY(mainText.contains(QStringLiteral("\"SecurityLayerShell\"")));
     }
 
     void mainWindow_embedsCrownFallbackWhenLayerShellIsUnavailable()
@@ -123,6 +155,11 @@ private slots:
         QVERIFY(mainText.contains(QStringLiteral("sourceComponent: root.crownLayerShellSupported ? crownLayerShellComponent : crownInlineComponent")));
         QVERIFY(mainText.contains(QStringLiteral("OverlayComp.CrownWindow")));
         QVERIFY(mainText.contains(QStringLiteral("OverlayComp.CrownInlineLayer")));
+        QVERIFY(mainText.contains(QStringLiteral("function _finishUnlockSuccess(lockScreenWindow)")));
+        QVERIFY(mainText.contains(QStringLiteral("function _canUseLocalUnlockFallback(password, errorCode)")));
+        QVERIFY(mainText.contains(QStringLiteral("code === \"service-unavailable\" || code === \"dbus-call-failed\"")));
+        QVERIFY(mainText.contains(QStringLiteral("root._finishUnlockSuccess(lockScreenWindow)")));
+        QVERIFY(mainText.contains(QStringLiteral("unlock backend unavailable; using local unlock fallback")));
 
         const QString fallbackPath = base + QStringLiteral("/Qml/components/overlay/CrownInlineLayer.qml");
         const QString fallbackText = readTextFile(fallbackPath);
@@ -133,6 +170,7 @@ private slots:
         QVERIFY(fallbackText.contains(QStringLiteral("ShellZOrder.topBar")));
         QVERIFY(fallbackText.contains(QStringLiteral("readonly property int safePanelHeight")));
         QVERIFY(fallbackText.contains(QStringLiteral("height: root.safePanelHeight")));
+        QVERIFY(fallbackText.contains(QStringLiteral("!rootWindow.lockScreenVisible")));
         QVERIFY(!fallbackText.contains(QStringLiteral("CrownLayerShell")));
     }
 

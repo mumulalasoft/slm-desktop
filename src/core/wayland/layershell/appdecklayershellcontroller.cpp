@@ -102,6 +102,35 @@ void AppDeckLayerShellController::prepareTopBarWindow(QWindow *window)
 #endif
 }
 
+void AppDeckLayerShellController::prepareSecurityOverlayWindow(QWindow *window)
+{
+#ifdef SLM_HAVE_LAYERSHELLQT
+    if (!window || m_attached) {
+        return;
+    }
+    m_layerWindow = LayerShellQt::Window::get(window);
+    if (!m_layerWindow) {
+        return;
+    }
+    m_layerWindow->setAnchors(static_cast<LayerShellQt::Window::Anchor>(
+        LayerShellQt::Window::AnchorTop
+        | LayerShellQt::Window::AnchorBottom
+        | LayerShellQt::Window::AnchorLeft
+        | LayerShellQt::Window::AnchorRight));
+    m_layerWindow->setExclusiveZone(0);
+    m_layerWindow->setScope(QStringLiteral("slm-lockscreen"));
+    m_layerWindow->setLayer(LayerShellQt::Window::LayerOverlay);
+    m_layerWindow->setKeyboardInteractivity(LayerShellQt::Window::KeyboardInteractivityExclusive);
+    watchWindow(window);
+    m_attached = true;
+    startGeometryGrace();
+    m_lastLayer = WlrLayerShell::LayerOverlay;
+    m_lastKeyboardInteractivity = WlrLayerShell::KeyboardInteractivityExclusive;
+#else
+    Q_UNUSED(window)
+#endif
+}
+
 void AppDeckLayerShellController::onWindowAboutToShow()
 {
 #ifdef SLM_HAVE_LAYERSHELLQT
@@ -178,6 +207,28 @@ bool AppDeckLayerShellController::setTopBar(QWindow *window,
                          | WlrLayerShell::AnchorRight,
                      qMax(0, exclusiveZone),
                      QStringLiteral("slm-crown"),
+                     width,
+                     height,
+                     QRect(inputX, inputY, inputWidth, inputHeight));
+}
+
+bool AppDeckLayerShellController::setSecurityOverlay(QWindow *window,
+                                                     int width,
+                                                     int height,
+                                                     int inputX,
+                                                     int inputY,
+                                                     int inputWidth,
+                                                     int inputHeight)
+{
+    return configure(window,
+                     WlrLayerShell::LayerOverlay,
+                     WlrLayerShell::KeyboardInteractivityExclusive,
+                     WlrLayerShell::AnchorTop
+                         | WlrLayerShell::AnchorBottom
+                         | WlrLayerShell::AnchorLeft
+                         | WlrLayerShell::AnchorRight,
+                     0,
+                     QStringLiteral("slm-lockscreen"),
                      width,
                      height,
                      QRect(inputX, inputY, inputWidth, inputHeight));

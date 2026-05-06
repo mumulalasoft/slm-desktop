@@ -673,6 +673,7 @@ Window {
     WlrLayerShell wlrLayerShell;
     AppDeckLayerShellController appDeckLayerShell(&wlrLayerShell);
     AppDeckLayerShellController crownLayerShell(&wlrLayerShell);
+    AppDeckLayerShellController securityLayerShell(&wlrLayerShell);
     appDeckLayerShell.setBootstrapState(&dockBootstrapState);
     if (enableWlrLayerShell) {
         wlrLayerShell.setAppDeckBootstrapState(&dockBootstrapState);
@@ -908,6 +909,7 @@ Window {
         engine.rootContext()->setContextProperty(QStringLiteral("WlrLayerShell"), &wlrLayerShell);
         engine.rootContext()->setContextProperty(QStringLiteral("AppDeckLayerShell"), &appDeckLayerShell);
         engine.rootContext()->setContextProperty(QStringLiteral("CrownLayerShell"), &crownLayerShell);
+        engine.rootContext()->setContextProperty(QStringLiteral("SecurityLayerShell"), &securityLayerShell);
         engine.rootContext()->setContextProperty(QStringLiteral("AppDeckBootstrapState"), &dockBootstrapState);
     }
 #endif

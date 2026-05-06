@@ -18,27 +18,45 @@ Window {
     property int lockoutLevel: 0
     property bool unlockBusy: false
     property date now: new Date()
+    readonly property bool layerShellSupported: (typeof SecurityLayerShell !== "undefined")
+                                                && !!SecurityLayerShell
+                                                && !!SecurityLayerShell.supported
+    property bool _layerPrepared: !layerShellSupported
 
     readonly property real uiScale: Math.max(0.90, Math.min(1.20,
                                    Math.min(width / 1920, height / 1080)))
 
     signal unlockRequested(string password)
 
-    visible: !!rootWindow && !!rootWindow.visible && overlayVisible
+    visible: !!rootWindow && !!rootWindow.visible && overlayVisible && root._layerPrepared
     color: "transparent"
-    flags: Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
+    flags: Qt.FramelessWindowHint | (root.layerShellSupported ? 0 : Qt.WindowStaysOnTopHint)
     modality: Qt.ApplicationModal
-    transientParent: rootWindow
-    title: "Lock Screen"
+    transientParent: root.layerShellSupported ? null : rootWindow
+    title: "SLM Security Overlay"
 
     width: rootWindow ? rootWindow.width : Screen.width
     height: rootWindow ? rootWindow.height : Screen.height
     x: rootWindow ? rootWindow.x : 0
     y: rootWindow ? rootWindow.y : 0
 
+    function syncSecurityLayerSurface() {
+        if (!root.layerShellSupported || typeof SecurityLayerShell === "undefined" || !SecurityLayerShell) {
+            return
+        }
+        SecurityLayerShell.setSecurityOverlay(root,
+                                             Math.max(1, Math.round(root.width)),
+                                             Math.max(1, Math.round(root.height)),
+                                             0,
+                                             0,
+                                             Math.max(1, Math.round(root.width)),
+                                             Math.max(1, Math.round(root.height)))
+    }
+
     onVisibleChanged: {
         unlockBusy = false
         if (visible) {
+            root.syncSecurityLayerSurface()
             lockFailed = false
             unlockErrorCode = ""
             failedAttempts = 0
@@ -53,6 +71,31 @@ Window {
             requestActivate()
             passwordField.forceActiveFocus()
         }
+    }
+
+    onOverlayVisibleChanged: {
+        if (overlayVisible && root.layerShellSupported && typeof SecurityLayerShell !== "undefined" && SecurityLayerShell) {
+            SecurityLayerShell.onWindowAboutToShow()
+        }
+    }
+    onWidthChanged: root.syncSecurityLayerSurface()
+    onHeightChanged: root.syncSecurityLayerSurface()
+    onSceneGraphInitialized: root.syncSecurityLayerSurface()
+
+    Timer {
+        id: layerShellRetryTimer
+        interval: 300
+        repeat: true
+        running: root.visible && root.layerShellSupported
+        onTriggered: root.syncSecurityLayerSurface()
+    }
+
+    Component.onCompleted: {
+        if (root.layerShellSupported && typeof SecurityLayerShell !== "undefined" && SecurityLayerShell) {
+            SecurityLayerShell.prepareSecurityOverlayWindow(root)
+        }
+        root._layerPrepared = true
+        Qt.callLater(function() { root.syncSecurityLayerSurface() })
     }
 
     onLockFailedChanged: {

@@ -9,7 +9,9 @@ import QtQuick 2.15
 // at the Wayland protocol level — not by these z-values.
 //
 // Compositor surface order (high → low):
-//   LayerTop:  AppDeckWindow (wlr-layer-shell)   ← above everything
+//   Security:  LockScreenWindow (wlr-layer-shell Overlay + exclusive keyboard),
+//              plus hidden shell chrome while locked
+//   LayerTop:  AppDeckWindow/CrownWindow (wlr-layer-shell)
 //   Normal:    Application windows
 //   Shell ApplicationWindow (contains items below)
 //

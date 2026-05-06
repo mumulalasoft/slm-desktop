@@ -33,6 +33,7 @@ public:
     // tidak memicu warning "already has a shell integration".
     Q_INVOKABLE void prepareWindow(QWindow *window);
     Q_INVOKABLE void prepareTopBarWindow(QWindow *window);
+    Q_INVOKABLE void prepareSecurityOverlayWindow(QWindow *window);
 
     // Call this immediately before making the window visible so the grace
     // period starts relative to the actual surface creation, not prepareWindow.
@@ -67,6 +68,13 @@ public:
                                int inputWidth,
                                int inputHeight,
                                int exclusiveZone);
+    Q_INVOKABLE bool setSecurityOverlay(QWindow *window,
+                                        int width,
+                                        int height,
+                                        int inputX,
+                                        int inputY,
+                                        int inputWidth,
+                                        int inputHeight);
 
 signals:
     void supportedChanged();
