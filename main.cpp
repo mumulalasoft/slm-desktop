@@ -24,9 +24,11 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QTextStream>
+#include <QVector>
 #include <clocale>
 #include <csignal>
 #include <cstdio>
+#include <utility>
 #if defined(__linux__)
 #include <execinfo.h>
 #include <unistd.h>
@@ -381,6 +383,80 @@ int main(int argc, char *argv[])
     qInfo("SLM-SHELL: Wayland backend confirmed — connecting to compositor");
     writeShellLifecycle(QStringLiteral("waylandOk"));
 
+    QQmlApplicationEngine *startupCoverEngine = nullptr;
+    auto closeStartupCover = [&]() {
+        if (!startupCoverEngine) {
+            return;
+        }
+        for (QObject *root : startupCoverEngine->rootObjects()) {
+            if (auto *window = qobject_cast<QWindow *>(root)) {
+                window->close();
+            }
+        }
+        startupCoverEngine->deleteLater();
+        startupCoverEngine = nullptr;
+        qInfo("SLM-SHELL: startup cover dismissed");
+    };
+    if (!envFlagEnabled("SLM_DISABLE_STARTUP_COVER")) {
+        startupCoverEngine = new QQmlApplicationEngine(&app);
+        static constexpr auto kStartupCoverQml = R"QML(
+import QtQuick
+import QtQuick.Window
+
+Window {
+    id: root
+    visible: true
+    visibility: Window.FullScreen
+    flags: Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
+    title: "SLM Desktop Starting"
+    color: "#111418"
+
+    Rectangle {
+        anchors.fill: parent
+        color: "#111418"
+    }
+
+    Column {
+        anchors.centerIn: parent
+        spacing: 14
+
+        Text {
+            anchors.horizontalCenter: parent.horizontalCenter
+            text: "SLM"
+            color: "#f4f7fb"
+            font.pixelSize: 40
+            font.weight: Font.DemiBold
+            horizontalAlignment: Text.AlignHCenter
+        }
+
+        Rectangle {
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: 72
+            height: 2
+            color: "#62d2a2"
+        }
+
+        Text {
+            anchors.horizontalCenter: parent.horizontalCenter
+            text: "Starting desktop"
+            color: "#b9c2ce"
+            font.pixelSize: 14
+            horizontalAlignment: Text.AlignHCenter
+        }
+    }
+}
+)QML";
+        startupCoverEngine->loadData(QByteArray(kStartupCoverQml),
+                                     QUrl(QStringLiteral("qrc:/SlmStartupCover.qml")));
+        if (startupCoverEngine->rootObjects().isEmpty()) {
+            qWarning("SLM-SHELL: startup cover failed to load");
+            startupCoverEngine->deleteLater();
+            startupCoverEngine = nullptr;
+        } else {
+            qInfo("SLM-SHELL: startup cover shown");
+        }
+    }
+
     const auto logScreenState = [](const char *event, QScreen *screen = nullptr) {
         const QString changed = screen
                 ? (screen->name().isEmpty() ? QStringLiteral("<unnamed>") : screen->name())
@@ -438,6 +514,23 @@ int main(int argc, char *argv[])
         }
         return started;
     };
+    QVector<Slm::Bootstrap::DaemonServiceBootstrapRunner *> serviceBootstrapRunners;
+    bool serviceBootstrapStarted = false;
+    const auto startServiceBootstraps = [&]() {
+        if (serviceBootstrapStarted) {
+            return;
+        }
+        serviceBootstrapStarted = true;
+        for (Slm::Bootstrap::DaemonServiceBootstrapRunner *runner : std::as_const(serviceBootstrapRunners)) {
+            if (runner) {
+                runner->start();
+            }
+        }
+        qInfo("SLM-SHELL: deferred service bootstrap started (count=%lld)",
+              static_cast<long long>(serviceBootstrapRunners.size()));
+        startupMark(QStringLiteral("service.bootstrap.started"),
+                    QStringLiteral("count=%1").arg(serviceBootstrapRunners.size()));
+    };
     const auto installServiceBootstrap = [&](const QString &service,
                                              const QString &localBinary,
                                              const QString &fallbackBinary,
@@ -486,7 +579,7 @@ int main(int argc, char *argv[])
             startupMark(QStringLiteral("service.gaveUp"),
                         QStringLiteral("%1 attempt=%2").arg(logName).arg(attempt));
         });
-        runner->start();
+        serviceBootstrapRunners.append(runner);
     };
     installServiceBootstrap(QStringLiteral("org.freedesktop.SLMCapabilities"),
                             QStringLiteral("desktopd"),
@@ -902,7 +995,9 @@ int main(int argc, char *argv[])
                       (long long)elapsed,
                       shellWindow->isVisible() ? "true" : "false",
                       shellWindow->width(), shellWindow->height());
+                closeStartupCover();
                 writeShellLifecycle(QStringLiteral("firstFrame"));
+                QTimer::singleShot(250, &app, startServiceBootstraps);
                 startupMark(QStringLiteral("window.firstFrameSwapped"),
                             QStringLiteral("visible=%1 size=%2x%3")
                                 .arg(shellWindow->isVisible() ? QStringLiteral("true")
@@ -970,6 +1065,7 @@ int main(int argc, char *argv[])
                     QStringLiteral("path=%1").arg(startupTracePath));
     }
 
+    QTimer::singleShot(5000, &app, startServiceBootstraps);
     const int ret = app.exec();
     qInfo("=== slm-shell exit (code=%d) ===", ret);
     if (g_shellLogFile) {

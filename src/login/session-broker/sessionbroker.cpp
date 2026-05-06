@@ -82,6 +82,12 @@ bool acceptsRegularWaylandSocketForTests()
     return qEnvironmentVariableIsSet("SLM_TEST_ACCEPT_REGULAR_WAYLAND_SOCKET");
 }
 
+bool envFlagEnabled(const char *name)
+{
+    const QByteArray value = qgetenv(name).trimmed().toLower();
+    return value == "1" || value == "true" || value == "yes" || value == "on";
+}
+
 } // namespace
 
 SessionBroker::SessionBroker(StartupMode requestedMode, QObject *parent)
@@ -377,6 +383,10 @@ QString SessionBroker::preflightMissingComponentReason() const
 
 QString SessionBroker::kwinGetCustomSocketFlag(const QString &bin)
 {
+    if (!envFlagEnabled("SLM_KWIN_PROBE_SOCKET_FLAG")) {
+        return QStringLiteral("--socket");
+    }
+
     QProcess p;
     p.start(bin, {QStringLiteral("--help")});
     if (!p.waitForFinished(3000)) return {};
@@ -457,13 +467,18 @@ CompositorLaunchPlan SessionBroker::buildCompositorPlan()
             plan.env.insert(QStringLiteral("KWIN_DRM_DEVICES"), firstDrmCard);
             qInfo("compositor: KWIN_DRM_DEVICES=%s (auto)", qPrintable(firstDrmCard));
         }
-        const QString socketFlag = kwinGetCustomSocketFlag(compositorBin);
+        const bool argsAlreadySetSocket = plan.args.contains(QStringLiteral("--socket"))
+                || plan.args.contains(QStringLiteral("--wayland-display"));
+        const QString socketFlag = argsAlreadySetSocket ? QString{} : kwinGetCustomSocketFlag(compositorBin);
         if (!socketFlag.isEmpty()) {
             plan.args << socketFlag << QString::fromLatin1(kSlmWaylandSocketName);
             plan.socketStrategy = SocketStrategy::Fixed;
             plan.socketName     = QString::fromLatin1(kSlmWaylandSocketName);
-            qInfo("compositor: kwin socket flag '%s' → using fixed socket '%s'",
+            qInfo("compositor: kwin socket flag '%s' -> using fixed socket '%s'",
                   qPrintable(socketFlag), kSlmWaylandSocketName);
+        } else if (argsAlreadySetSocket) {
+            qWarning("compositor: custom KWin socket argument supplied by config; scanning for socket");
+            plan.socketStrategy = SocketStrategy::Scan;
         } else {
             qWarning("compositor: kwin_wayland has no custom socket flag — "
                      "will scan for socket after launch");

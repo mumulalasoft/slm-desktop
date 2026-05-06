@@ -55,6 +55,12 @@ QString fromUtf8(const char *value)
     return value ? QString::fromUtf8(value) : QString();
 }
 
+bool envFlagEnabled(const char *name)
+{
+    const QByteArray value = qgetenv(name).trimmed().toLower();
+    return value == "1" || value == "true" || value == "yes" || value == "on";
+}
+
 QString appCatalogSignature(const DesktopAppEntry &app)
 {
     QString signature;
@@ -775,7 +781,13 @@ DesktopAppModel::DesktopAppModel(QObject *parent)
     setupDesktopDirMonitors();
 
     loadLaunchHistory();
-    QTimer::singleShot(0, this, &DesktopAppModel::refresh);
+    if (envFlagEnabled("SLM_APPMODEL_SYNC_INITIAL_REFRESH")) {
+        qCInfo(lcAppModel) << "DesktopAppModel initial refresh scheduled synchronously";
+        QTimer::singleShot(0, this, &DesktopAppModel::refresh);
+    } else {
+        qCInfo(lcAppModel) << "DesktopAppModel initial refresh scheduled asynchronously";
+        QTimer::singleShot(0, this, &DesktopAppModel::refreshAsync);
+    }
 }
 
 DesktopAppModel::~DesktopAppModel()
@@ -879,7 +891,7 @@ void DesktopAppModel::setupDesktopDirMonitors()
         }
         g_signal_connect(monitor, "changed", G_CALLBACK(&DesktopAppModel::onDesktopDirChanged), this);
         m_appDirMonitors.push_back(monitor);
-        qCDebug(lcAppModel) << "Monitoring desktop directory:" << root;
+
     }
 }
 
@@ -1149,7 +1161,7 @@ void DesktopAppModel::refresh()
         if (!desktopInfo) {
             // Some test desktop entries may not be accepted by GDesktopAppInfo
             // (e.g. Exec points to a command not currently resolvable in PATH).
-            // Keep them discoverable in AppHub via a permissive keyfile parse.
+            // Keep them discoverable in AppDeck via a permissive keyfile parse.
             GKeyFile *kf = g_key_file_new();
             GError *loadError = nullptr;
             const gboolean loaded = g_key_file_load_from_file(

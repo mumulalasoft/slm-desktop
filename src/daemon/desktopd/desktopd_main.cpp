@@ -49,7 +49,11 @@ int main(int argc, char *argv[])
         appModel.setMonitorRefreshEnabled(false);
         qInfo("DesktopAppModel monitor refresh disabled for KWin runtime");
     }
-    appModel.refresh();
+    if (envFlagEnabled("SLM_DESKTOPD_SYNC_INITIAL_REFRESH")) {
+        appModel.refresh();
+    } else {
+        appModel.refreshAsync();
+    }
 
     SpacesManager spacesManager;
     WorkspaceManager workspaceManager(&windowingBackendManager,
