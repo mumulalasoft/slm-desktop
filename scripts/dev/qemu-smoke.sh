@@ -272,7 +272,7 @@ install -Dm755 '$BUILD_DIR/slm-recovery-app' /usr/local/bin/slm-recovery-app
 install -Dm755 '$BUILD_DIR/slm-session-broker' /usr/libexec/slm-session-broker
 ln -sfn /usr/libexec/slm-session-broker /usr/local/bin/slm-session-broker
 install -Dm755 '$BUILD_DIR/slm-desktop' /usr/local/bin/slm-shell.real
-printf '%s\n' '#!/bin/sh' 'unset KWIN_COMPOSE LIBGL_ALWAYS_SOFTWARE QSG_RHI_BACKEND' 'exec env QT_QUICK_BACKEND=software SLM_DISABLE_LAYER_SHELL=1 SLM_DISABLE_APPDECK=1 SLM_FAST_FIRST_FRAME=1 SLM_STARTUP_LOG=1 SLM_STARTUP_TRACE=1 /usr/local/bin/slm-shell.real \"\$@\"' > /usr/local/bin/slm-shell
+printf '%s\n' '#!/bin/sh' 'unset KWIN_COMPOSE LIBGL_ALWAYS_SOFTWARE QSG_RHI_BACKEND' 'exec env QT_QUICK_BACKEND=software SLM_DISABLE_APPDECK=1 SLM_FAST_FIRST_FRAME=1 SLM_STARTUP_LOG=1 SLM_STARTUP_TRACE=1 /usr/local/bin/slm-shell.real \"\$@\"' > /usr/local/bin/slm-shell
 chmod 755 /usr/local/bin/slm-shell
 install -d -m0755 /usr/local/libexec
 cat > /usr/local/libexec/slm-session-broker-launch <<'SLM_BROKER_LAUNCH'

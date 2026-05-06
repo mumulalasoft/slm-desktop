@@ -10,6 +10,8 @@ Item {
     property int iconButtonW: Theme.metric("controlHeightRegular")
     property int iconButtonH: Theme.metric("controlHeightCompact")
     property int iconGlyph: 18
+    property int logoVisualOffsetX: -1
+    property int logoVisualOffsetY: 0
     property var popupHost: null
     property int popupGap: Theme.metric("spacingSm")
     property var searchProfilesModel: []
@@ -225,20 +227,27 @@ Item {
             ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault }
         }
 
-        Image {
-            id: crownLogo
+        Item {
+            id: logoSlot
             anchors.centerIn: parent
-            width: root.iconGlyph
-            height: root.iconGlyph
-            fillMode: Image.PreserveAspectFit
-            asynchronous: true
-            cache: true
-            source: Theme.darkMode ? "qrc:/icons/dark/logo.svg" : "qrc:/icons/light/logo.svg"
-            opacity: Theme.opacityIconMuted
+            anchors.horizontalCenterOffset: root.logoVisualOffsetX
+            anchors.verticalCenterOffset: root.logoVisualOffsetY
+            width: Math.round(root.iconGlyph)
+            height: Math.round(root.iconGlyph)
+
+            Image {
+                id: crownLogo
+                anchors.fill: parent
+                fillMode: Image.PreserveAspectFit
+                asynchronous: true
+                cache: true
+                source: Theme.darkMode ? "qrc:/icons/dark/logo.svg" : "qrc:/icons/light/logo.svg"
+                opacity: Theme.opacityIconMuted
+            }
         }
 
         Label {
-            anchors.centerIn: parent
+            anchors.centerIn: logoSlot
             visible: crownLogo.status !== Image.Ready
             text: "⌘"
             color: Theme.color("textOnGlass")
@@ -282,32 +291,27 @@ Item {
             root.popupHintCleared()
             root.lastCloseMs = Date.now()
         }
-        background: DSStyle.PopupSurface {
-            implicitWidth: Theme.metric("popupWidthS")
-            implicitHeight: 40
-            popupOpacity: Theme.popupSurfaceOpacityStrong
-        }
 
         // ── System info & settings ────────────────────────────────────────────
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: qsTr("About This Computer")
             onTriggered: root._openSettings("about")
         }
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: qsTr("System Settings\u2026")
             onTriggered: root._openSettings("")
         }
 
-        MenuSeparator {}
+        DSStyle.MenuSeparator {}
 
         // ── Recent Applications submenu ───────────────────────────────────────
 
-        Menu {
+        DSStyle.Menu {
             id: recentAppsMenu
             title: qsTr("Recent Applications")
-            property string entryIconSource: "qrc:/icons/apphub.svg"
+            property string entryIconSource: "qrc:/icons/appdeck.svg"
             property string entryIconName: "application-x-executable-symbolic"
             icon.name: "application-x-executable-symbolic"
             icon.source: root._themeIconSource("application-x-executable-symbolic")
@@ -321,7 +325,7 @@ Item {
                     text: String(entry.label || "")
                     enabled: text.length > 0
                     iconSource: String(entry.iconSource || "")
-                    fallbackIconSource: "qrc:/icons/apphub.svg"
+                    fallbackIconSource: "qrc:/icons/appdeck.svg"
                     onTriggered: {
                         mainMenu.close()
                         if (typeof AppCommandRouter === "undefined" || !AppCommandRouter) return
@@ -349,7 +353,7 @@ Item {
 
         // ── Recent Files submenu ──────────────────────────────────────────────
 
-        Menu {
+        DSStyle.Menu {
             id: recentFilesMenu
             title: qsTr("Recent Files")
             property string entryIconSource: "qrc:/icons/logo.svg"
@@ -385,11 +389,11 @@ Item {
             property var _rows: []
         }
 
-        MenuSeparator {}
+        DSStyle.MenuSeparator {}
 
         // ── Force Quit ────────────────────────────────────────────────────────
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: qsTr("Force Quit…")
             onTriggered: {
                 mainMenu.close()
@@ -400,11 +404,11 @@ Item {
             }
         }
 
-        MenuSeparator {}
+        DSStyle.MenuSeparator {}
 
         // ── Power actions ─────────────────────────────────────────────────────
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: qsTr("Sleep")
             enabled: typeof PowerBridge !== "undefined" && PowerBridge && PowerBridge.canSuspend
             onTriggered: {
@@ -413,7 +417,7 @@ Item {
             }
         }
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: qsTr("Restart\u2026")
             enabled: typeof PowerBridge !== "undefined" && PowerBridge && PowerBridge.canReboot
             onTriggered: {
@@ -422,7 +426,7 @@ Item {
             }
         }
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: qsTr("Shut Down\u2026")
             enabled: typeof PowerBridge !== "undefined" && PowerBridge && PowerBridge.canPowerOff
             onTriggered: {
@@ -431,16 +435,16 @@ Item {
             }
         }
 
-        MenuSeparator {}
+        DSStyle.MenuSeparator {}
 
         // ── Session actions ───────────────────────────────────────────────────
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: qsTr("Lock Screen")
             onTriggered: root._lockScreen()
         }
 
-        MenuItem {
+        DSStyle.MenuItem {
             text: qsTr("Log Out\u2026")
             onTriggered: {
                 mainMenu.close()

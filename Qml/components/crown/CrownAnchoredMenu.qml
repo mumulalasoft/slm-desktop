@@ -1,8 +1,9 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import Slm_Desktop
+import SlmStyle as DSStyle
 
-Menu {
+DSStyle.Menu {
     id: control
 
     property var anchorItem: null

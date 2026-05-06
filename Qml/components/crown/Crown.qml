@@ -374,13 +374,17 @@ Rectangle {
     }
 
     Row {
+        id: leftCluster
         anchors.left: parent.left
         anchors.leftMargin: root.panelInset
         anchors.verticalCenter: parent.verticalCenter
+        height: Math.max(root.iconButtonH, Math.min(parent.height, Theme.metric("topBarHeight")))
         spacing: root.panelGap
 
         Loader {
             id: mainMenuControlLoader
+            width: item ? item.implicitWidth : root.iconButtonW
+            height: item ? item.implicitHeight : root.iconButtonH
             active: root.deferredReady
             asynchronous: true
             sourceComponent: Component {
@@ -430,8 +434,10 @@ Rectangle {
         }
         TB.CrownBrandSection {
             id: brandSection
+            height: leftCluster.height
             fileManagerContent: root.fileManagerContent
             desktopMenuProvider: root.desktopMenuProvider
+            menuBarHeight: leftCluster.height
         }
 
     }

@@ -61,6 +61,9 @@ ApplicationWindow {
     readonly property bool appDeckLayerShellSupported: (typeof AppDeckLayerShell !== "undefined")
                                                        && !!AppDeckLayerShell
                                                        && !!AppDeckLayerShell.supported
+    readonly property bool crownLayerShellSupported: (typeof CrownLayerShell !== "undefined")
+                                                     && !!CrownLayerShell
+                                                     && !!CrownLayerShell.supported
     readonly property bool appDeckDisabled: (typeof DisableAppDeck !== "undefined")
                                            && !!DisableAppDeck
     readonly property bool embeddedAppDeckDisabled: (typeof DisableEmbeddedAppDeck !== "undefined")
@@ -69,6 +72,7 @@ ApplicationWindow {
                                                         && appDeckLayerShellSupported
     readonly property bool forceKwinTopLevelOverlays: !!readSetting("shell.forceKwinTopLevelOverlays", false)
     readonly property bool nonCriticalTopLevelWindowsAllowed: appDeckLayerShellSupported || forceKwinTopLevelOverlays
+    readonly property var topBarWindow: topBarWindowLoader.item
     function markStartupTopbarItemsReady() {
         if (!startupTopbarItemsReady) {
             startupTopbarItemsReady = true
@@ -1057,35 +1061,78 @@ ApplicationWindow {
     }
     readonly property var detachedFileManagerWindow: detachedFileManagerWindowLoader.item
 
-    OverlayComp.CrownWindow {
-        id: topBarWindow
-        rootWindow: root
-        desktopScene: desktopScene
-        shellApi: root
-        desktopMenuProvider: desktopMenuProvider
-        onStartupItemsReadyReached: root.markStartupTopbarItemsReady()
-        onStartupItemsReadyChanged: {
-            if (startupItemsReady) {
-                root.markStartupTopbarItemsReady()
+    Loader {
+        id: topBarWindowLoader
+        active: true
+        asynchronous: false
+        sourceComponent: root.crownLayerShellSupported ? crownLayerShellComponent : crownInlineComponent
+    }
+
+    Component {
+        id: crownLayerShellComponent
+        OverlayComp.CrownWindow {
+            rootWindow: root
+            desktopScene: desktopScene
+            shellApi: root
+            desktopMenuProvider: desktopMenuProvider
+            onStartupItemsReadyReached: root.markStartupTopbarItemsReady()
+            onStartupItemsReadyChanged: {
+                if (startupItemsReady) {
+                    root.markStartupTopbarItemsReady()
+                }
+            }
+            onLauncherRequested: {
+                if (desktopScene && desktopScene.setAppDeckVisible) {
+                    desktopScene.setAppDeckVisible(!desktopScene.appdeckVisible)
+                }
+            }
+            onPulseRequested: {
+                if (root.pulseVisible) {
+                    root.setSearchVisible(false)
+                    return
+                }
+                if ((Date.now() - Number(root.pulseLastCloseMs || 0)) < 220) {
+                    return
+                }
+                root.setSearchVisible(true)
+            }
+            onScreenshotCaptureRequested: function(mode, delaySec, grabPointer, concealText) {
+                ScreenshotController.startFromCrown(root, mode, delaySec, grabPointer, concealText)
             }
         }
-        onLauncherRequested: {
-            if (desktopScene && desktopScene.setAppDeckVisible) {
-                desktopScene.setAppDeckVisible(!desktopScene.appdeckVisible)
+    }
+
+    Component {
+        id: crownInlineComponent
+        OverlayComp.CrownInlineLayer {
+            rootWindow: root
+            desktopScene: desktopScene
+            shellApi: root
+            desktopMenuProvider: desktopMenuProvider
+            onStartupItemsReadyReached: root.markStartupTopbarItemsReady()
+            onStartupItemsReadyChanged: {
+                if (startupItemsReady) {
+                    root.markStartupTopbarItemsReady()
+                }
             }
-        }
-        onPulseRequested: {
-            if (root.pulseVisible) {
-                root.setSearchVisible(false)
-                return
+            onLauncherRequested: {
+                if (desktopScene && desktopScene.setAppDeckVisible) {
+                    desktopScene.setAppDeckVisible(!desktopScene.appdeckVisible)
+                }
             }
-            if ((Date.now() - Number(root.pulseLastCloseMs || 0)) < 220) {
-                return
+            onPulseRequested: {
+                if (root.pulseVisible) {
+                    root.setSearchVisible(false)
+                    return
+                }
+                if ((Date.now() - Number(root.pulseLastCloseMs || 0)) < 220) {
+                    return
+                }
+                root.setSearchVisible(true)
             }
-            root.setSearchVisible(true)
-        }
-        onScreenshotCaptureRequested: function(mode, delaySec, grabPointer, concealText) {
-            ScreenshotController.startFromCrown(root, mode, delaySec, grabPointer, concealText)
+            onScreenshotCaptureRequested: function(mode, delaySec, grabPointer, concealText) {
+                ScreenshotController.startFromCrown(root, mode, delaySec, grabPointer, concealText)
+            }
         }
     }
 

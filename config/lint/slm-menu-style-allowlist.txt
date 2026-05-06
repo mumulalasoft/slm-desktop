@@ -1,0 +1,25 @@
+# Existing QML files that still use bare QtQuick.Controls Menu/MenuItem/MenuSeparator.
+# New menu usage should import SlmStyle and use DSStyle.Menu, DSStyle.MenuItem,
+# and DSStyle.MenuSeparator instead.
+Qml/apps/filemanager/FileManagerMenus.qml
+Qml/apps/filemanager/FileManagerSidebarContextMenu.qml
+Qml/apps/settings/components/AuthorizationHint.qml
+Qml/components/appdeck/AppDeckAppDelegate.qml
+Qml/components/appdeck/AppDeckGridView.qml
+Qml/components/applet/BatteryApplet.qml
+Qml/components/applet/BluetoothApplet.qml
+Qml/components/applet/ClipboardApplet.qml
+Qml/components/applet/ControlCenterApplet.qml
+Qml/components/applet/ControlPanelApplet.qml
+Qml/components/applet/DatetimeApplet.qml
+Qml/components/applet/InputCaptureIndicator.qml
+Qml/components/applet/NetworkApplet.qml
+Qml/components/applet/NotificationApplet.qml
+Qml/components/applet/PrintJobApplet.qml
+Qml/components/applet/ScreencastIndicator.qml
+Qml/components/applet/SoundApplet.qml
+Qml/components/contextmenu/ContextMenu.qml
+Qml/components/contextmenu/DesktopContextMenu.qml
+Qml/components/desktop/DesktopSurface.qml
+Qml/components/indicators/AppIndicatorItem.qml
+Qml/components/shell/ShellShortcutTile.qml

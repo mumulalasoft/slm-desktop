@@ -774,6 +774,12 @@ add_custom_target(lint_slm_style_usage
     COMMENT "Checking SLM style component usage in QML"
 )
 
+add_custom_target(lint_slm_menu_style
+    COMMAND ${CMAKE_SOURCE_DIR}/scripts/check-slm-menu-style.sh
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    COMMENT "Checking SLM menu style usage in QML"
+)
+
 add_custom_target(lint_animation_tokens
     COMMAND ${CMAKE_SOURCE_DIR}/scripts/check-animation-token-usage.sh
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
@@ -847,6 +853,7 @@ set(DESKTOP_SHELL_QML_FILES
     Qml/components/overlay/ShellEventBridge.qml
     Qml/components/overlay/ShellSystemWindows.qml
     Qml/components/overlay/CrownWindow.qml
+    Qml/components/overlay/CrownInlineLayer.qml
     Qml/components/overlay/PopupHostLayer.qml
     Qml/components/overlay/CrownPopupStateController.qml
     Qml/components/overlay/AppDeckWindow.qml

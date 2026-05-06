@@ -9,11 +9,12 @@ Row {
 
     readonly property int _focusRevealHitWidth: Math.max(20, Theme.metric("spacingXl") * 2)
     width: _menuVisible ? implicitWidth : _focusRevealHitWidth
-    height: (implicitHeight > 0) ? implicitHeight : (parent ? parent.height : Theme.metric("topBarHeight"))
+    height: Math.max(1, menuBarHeight)
 
     property var fileManagerContent: null
     property var desktopMenuProvider: null
     property bool _focusReveal: false
+    property int menuBarHeight: Theme.metric("controlHeightCompact")
 
     // -1 = no category menu open; ≥0 = menuId of the open category dropdown.
     property int menuBarOpenId: -1
@@ -397,7 +398,7 @@ Row {
 
     Row {
         visible: root._menuVisible
-        height: root.height
+        height: root.menuBarHeight
         spacing: 2
 
         Repeater {

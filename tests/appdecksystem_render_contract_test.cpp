@@ -103,10 +103,97 @@ private slots:
         QVERIFY(text.contains(QStringLiteral("CrownLayerShell")));
         QVERIFY(text.contains(QStringLiteral("prepareTopBarWindow(root)")));
         QVERIFY(text.contains(QStringLiteral("CrownLayerShell.setTopBar(root,")));
+        QVERIFY(text.contains(QStringLiteral("readonly property int safePanelHeight")));
+        QVERIFY(text.contains(QStringLiteral("height: root.surfaceHeight")));
+        QVERIFY(text.contains(QStringLiteral("Math.max(1, Math.round(root.safePanelHeight))")));
         QVERIFY(text.contains(QStringLiteral("transientParent: null")));
         QVERIFY(!text.contains(QStringLiteral("WindowStaysOnTopHint")));
         QVERIFY(!text.contains(QStringLiteral("Qt.Tool")));
         QVERIFY(!text.contains(QStringLiteral(".raise(")));
+    }
+
+    void mainWindow_embedsCrownFallbackWhenLayerShellIsUnavailable()
+    {
+        const QString base = QStringLiteral(DESKTOP_SOURCE_DIR);
+        const QString mainPath = base + QStringLiteral("/Main.qml");
+        const QString mainText = readTextFile(mainPath);
+        QVERIFY2(!mainText.isEmpty(), qPrintable(QStringLiteral("failed to read %1").arg(mainPath)));
+
+        QVERIFY(mainText.contains(QStringLiteral("readonly property bool crownLayerShellSupported")));
+        QVERIFY(mainText.contains(QStringLiteral("sourceComponent: root.crownLayerShellSupported ? crownLayerShellComponent : crownInlineComponent")));
+        QVERIFY(mainText.contains(QStringLiteral("OverlayComp.CrownWindow")));
+        QVERIFY(mainText.contains(QStringLiteral("OverlayComp.CrownInlineLayer")));
+
+        const QString fallbackPath = base + QStringLiteral("/Qml/components/overlay/CrownInlineLayer.qml");
+        const QString fallbackText = readTextFile(fallbackPath);
+        QVERIFY2(!fallbackText.isEmpty(), qPrintable(QStringLiteral("failed to read %1").arg(fallbackPath)));
+
+        QVERIFY(fallbackText.contains(QStringLiteral("Item {")));
+        QVERIFY(fallbackText.contains(QStringLiteral("CrownComp.Crown")));
+        QVERIFY(fallbackText.contains(QStringLiteral("ShellZOrder.topBar")));
+        QVERIFY(fallbackText.contains(QStringLiteral("readonly property int safePanelHeight")));
+        QVERIFY(fallbackText.contains(QStringLiteral("height: root.safePanelHeight")));
+        QVERIFY(!fallbackText.contains(QStringLiteral("CrownLayerShell")));
+    }
+
+    void crownTopbarControlsUseStableHeights()
+    {
+        const QString base = QStringLiteral(DESKTOP_SOURCE_DIR);
+        const QString crownPath = base + QStringLiteral("/Qml/components/crown/Crown.qml");
+        const QString crownText = readTextFile(crownPath);
+        QVERIFY2(!crownText.isEmpty(), qPrintable(QStringLiteral("failed to read %1").arg(crownPath)));
+
+        QVERIFY(crownText.contains(QStringLiteral("id: leftCluster")));
+        QVERIFY(crownText.contains(QStringLiteral("height: Math.max(root.iconButtonH")));
+        QVERIFY(crownText.contains(QStringLiteral("width: item ? item.implicitWidth : root.iconButtonW")));
+        QVERIFY(crownText.contains(QStringLiteral("menuBarHeight: leftCluster.height")));
+
+        const QString brandPath = base + QStringLiteral("/Qml/components/crown/CrownBrandSection.qml");
+        const QString brandText = readTextFile(brandPath);
+        QVERIFY2(!brandText.isEmpty(), qPrintable(QStringLiteral("failed to read %1").arg(brandPath)));
+
+        QVERIFY(brandText.contains(QStringLiteral("property int menuBarHeight")));
+        QVERIFY(brandText.contains(QStringLiteral("height: Math.max(1, menuBarHeight)")));
+        QVERIFY(brandText.contains(QStringLiteral("height: root.menuBarHeight")));
+    }
+
+    void crownMainMenuUsesThemeMenuAndCenteredLogoSlot()
+    {
+        const QString base = QStringLiteral(DESKTOP_SOURCE_DIR);
+        const QString anchoredPath = base + QStringLiteral("/Qml/components/crown/CrownAnchoredMenu.qml");
+        const QString anchoredText = readTextFile(anchoredPath);
+        QVERIFY2(!anchoredText.isEmpty(), qPrintable(QStringLiteral("failed to read %1").arg(anchoredPath)));
+
+        QVERIFY(anchoredText.contains(QStringLiteral("import SlmStyle as DSStyle")));
+        QVERIFY(anchoredText.contains(QStringLiteral("DSStyle.Menu {")));
+
+        const QString mainMenuPath = base + QStringLiteral("/Qml/components/crown/CrownMainMenuControl.qml");
+        const QString mainMenuText = readTextFile(mainMenuPath);
+        QVERIFY2(!mainMenuText.isEmpty(), qPrintable(QStringLiteral("failed to read %1").arg(mainMenuPath)));
+
+        QVERIFY(mainMenuText.contains(QStringLiteral("id: logoSlot")));
+        QVERIFY(mainMenuText.contains(QStringLiteral("property int logoVisualOffsetX")));
+        QVERIFY(mainMenuText.contains(QStringLiteral("anchors.horizontalCenterOffset: root.logoVisualOffsetX")));
+        QVERIFY(mainMenuText.contains(QStringLiteral("anchors.centerIn: parent")));
+        QVERIFY(mainMenuText.contains(QStringLiteral("anchors.fill: parent")));
+        QVERIFY(mainMenuText.contains(QStringLiteral("DSStyle.MenuItem")));
+        QVERIFY(mainMenuText.contains(QStringLiteral("DSStyle.MenuSeparator")));
+        QVERIFY(mainMenuText.contains(QStringLiteral("DSStyle.Menu {")));
+        QVERIFY(!mainMenuText.contains(QStringLiteral("        MenuItem {")));
+        QVERIFY(!mainMenuText.contains(QStringLiteral("        MenuSeparator {")));
+        QVERIFY(!mainMenuText.contains(QStringLiteral("        Menu {")));
+        QVERIFY(!mainMenuText.contains(QStringLiteral("background: DSStyle.PopupSurface")));
+    }
+
+    void qemuSmokeWrapper_keepsLayerShellEnabled()
+    {
+        const QString path = QStringLiteral(DESKTOP_SOURCE_DIR) + QStringLiteral("/scripts/dev/qemu-smoke.sh");
+        const QString text = readTextFile(path);
+        QVERIFY2(!text.isEmpty(), qPrintable(QStringLiteral("failed to read %1").arg(path)));
+
+        QVERIFY(text.contains(QStringLiteral("/usr/local/bin/slm-shell.real")));
+        QVERIFY(text.contains(QStringLiteral("SLM_FAST_FIRST_FRAME=1")));
+        QVERIFY(!text.contains(QStringLiteral("SLM_DISABLE_LAYER_SHELL=1")));
     }
 };
 
