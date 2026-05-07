@@ -162,8 +162,8 @@ void ShellStateController::dismissAllOverlays()
 
 void ShellStateController::recomputeDerivedState()
 {
-    // topBarOpacity: hidden during appdeck, full otherwise
-    const qreal newCrownOpacity = m_appdeckVisible ? 0.0 : 1.0;
+    // Crown is persistent shell chrome and remains visible above AppDeck.
+    const qreal newCrownOpacity = 1.0;
     if (!qFuzzyCompare(m_topBarOpacity, newCrownOpacity)) {
         m_topBarOpacity = newCrownOpacity;
         emit topBarOpacityChanged(m_topBarOpacity);

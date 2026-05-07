@@ -1,7 +1,6 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import "components"
-import "components/appdeck" as AppDeckComp
 import "components/compositor" as CompositorComp
 import "components/shell" as ShellComp
 
@@ -15,12 +14,7 @@ Item {
 
     property var dockItem: null
     property var pulseResultsModel: null
-    property bool embeddedAppDeckEnabled: false
-    property bool embeddedAppDeckSafeRendering: false
-    readonly property var effectiveDockItem: embeddedAppDeckEnabled
-                                             && embeddedAppDeckLoader.item
-                                             ? embeddedAppDeckLoader.item.dockItem
-                                             : dockItem
+    readonly property var effectiveDockItem: dockItem
     // appdeckVisible owner: ShellStateController (SSOT).
     // Keep a local fallback only when controller is unavailable.
     property bool _appdeckVisibleLocal: false
@@ -351,27 +345,6 @@ Item {
             NumberAnimation {
                 duration: Theme.durationFast
                 easing.type: Theme.easingLight
-            }
-        }
-    }
-
-    Loader {
-        id: embeddedAppDeckLoader
-        anchors.fill: parent
-        z: 910
-        active: root.embeddedAppDeckEnabled
-        asynchronous: false
-        sourceComponent: Component {
-            AppDeckComp.AppDeckEmbeddedSurface {
-                rootWindow: root.shellApi
-                desktopScene: root
-                appsModel: (typeof AppDeckModel !== "undefined" && AppDeckModel) ? AppDeckModel : []
-                pulseResultsModel: root.pulseResultsModel
-                safeRendering: root.embeddedAppDeckSafeRendering
-                dockHostVisible: root.embeddedAppDeckEnabled
-                                 && !root.workspaceVisible
-                onRequestOpenApp: root.setAppDeckVisible(false)
-                onRequestCollapse: root.setAppDeckVisible(false)
             }
         }
     }

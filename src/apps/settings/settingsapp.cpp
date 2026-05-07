@@ -308,8 +308,6 @@ void SettingsApp::raiseWindow()
         QQuickWindow *window = qobject_cast<QQuickWindow*>(obj);
         if (window) {
             window->show();
-            window->raise();
-            window->requestActivate();
             return;
         }
     }

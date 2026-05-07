@@ -10,40 +10,14 @@ Window {
     visible: overlayVisible
     color: "transparent"
     flags: Qt.FramelessWindowHint
-           | Qt.WindowStaysOnTopHint
            | Qt.WindowDoesNotAcceptFocus
            | Qt.WindowTransparentForInput
-    transientParent: rootWindow
+    transientParent: null
     title: "Desktop Global Progress"
     width: 460
     height: 96
     x: (rootWindow ? rootWindow.x : 0) + Math.round(((rootWindow ? rootWindow.width : 0) - width) * 0.5)
     y: (rootWindow ? rootWindow.y : 0) + 10
-    onVisibleChanged: {
-        if (visible) {
-            raise()
-        }
-    }
-    onXChanged: {
-        if (visible) {
-            raise()
-        }
-    }
-    onYChanged: {
-        if (visible) {
-            raise()
-        }
-    }
-
-    Timer {
-        interval: 16
-        running: root.visible
-        repeat: true
-        onTriggered: {
-            root.raise()
-        }
-    }
-
     GlobalProgressOverlay {
         anchors.fill: parent
     }

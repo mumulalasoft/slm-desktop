@@ -31,7 +31,7 @@ Window {
                      Math.min(maximumHeight, contentColumn.implicitHeight + Theme.spacingXxl * 2))
 
     // ── window chrome ─────────────────────────────────────────────────────────
-    flags: Qt.Dialog | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
+    flags: Qt.Dialog | Qt.FramelessWindowHint
     modality: Qt.ApplicationModal
     title: qsTr("Join Wi-Fi Network")
     color: "transparent"

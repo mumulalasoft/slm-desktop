@@ -21,7 +21,7 @@ Window {
     visible: !!shellApi && shellApi.detachedFileManagerVisible
     color: "transparent"
     flags: Qt.FramelessWindowHint | Qt.NoDropShadowWindowHint
-    transientParent: rootWindow
+    transientParent: null
     title: "Desktop File Manager"
     property bool applyingPolicy: false
     readonly property int resizeHandle: 8
@@ -153,7 +153,6 @@ Window {
             x = (rootWindow ? rootWindow.x : 0) + Math.round(((rootWindow ? rootWindow.width : width) - width) / 2)
             y = (rootWindow ? rootWindow.y : 0) + panelHeight + 16
             enforceGeometryPolicy()
-            requestActivate()
         }
         FileManagerGlobalMenuController.syncOverride(shellApi, root)
     }

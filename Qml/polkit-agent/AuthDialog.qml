@@ -25,7 +25,7 @@ Window {
                                      && authDialogController.errorMessage !== ""
 
     visible: controllerActive || isClosing
-    flags: Qt.Dialog | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
+    flags: Qt.Dialog | Qt.FramelessWindowHint
     modality: Qt.ApplicationModal
     title: "Authentication Required"
     color: "transparent"

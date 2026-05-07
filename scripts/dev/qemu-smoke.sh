@@ -15,6 +15,8 @@ source "$SCRIPT_DIR/qemu-common.sh"
 STATE_DIR="$(qemu_dev_state_dir)"
 SSH_USER="${SLM_QEMU_SSH_USER:-garis}"
 SSH_PORT="${SLM_QEMU_SSH_PORT:-2222}"
+SSH_IDENTITY_FILE="${SLM_QEMU_SSH_IDENTITY_FILE:-$STATE_DIR/id_ed25519}"
+SSH_PASSWORD="${SLM_QEMU_SSH_PASSWORD:-}"
 SESSION_USER="${SLM_QEMU_SESSION_USER:-$SSH_USER}"
 REPO_DIR="${SLM_QEMU_GUEST_REPO_DIR:-/mnt/hostshare}"
 BUILD_DIR="${SLM_QEMU_GUEST_BUILD_DIR:-/home/${SSH_USER}/.cache/slm-qemu/build/dev}"
@@ -67,6 +69,8 @@ Usage: bash scripts/dev/qemu-smoke.sh [options]
 Options:
   --user USER           SSH user. Default: $SSH_USER
   --port PORT           SSH port. Default: $SSH_PORT
+  --identity-file PATH  SSH private key. Default: $SSH_IDENTITY_FILE if present
+  --password PASSWORD   SSH password, requires sshpass. Default: SLM_QEMU_SSH_PASSWORD
   --session-user USER   Desktop session user. Default: $SESSION_USER
   --repo-dir PATH       Repo path in guest. Default: $REPO_DIR
   --build-dir PATH      Build dir in guest (rsync target). Default: $BUILD_DIR
@@ -92,6 +96,8 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --user)           SSH_USER="$2";           shift 2 ;;
         --port)           SSH_PORT="$2";           shift 2 ;;
+        --identity-file)  SSH_IDENTITY_FILE="$2";  shift 2 ;;
+        --password)       SSH_PASSWORD="$2";       shift 2 ;;
         --session-user)   SESSION_USER="$2";       shift 2 ;;
         --repo-dir)       REPO_DIR="$2";           shift 2 ;;
         --build-dir)      BUILD_DIR="$2";          shift 2 ;;
@@ -171,18 +177,85 @@ SCP_OPTS=(
     -o "UserKnownHostsFile=$KNOWN_HOSTS"
     -P "$SSH_PORT"
 )
+SSH_CMD=(ssh)
+SCP_CMD=(scp)
+SSH_BASE_OPTS=("${SSH_OPTS[@]}")
+SCP_BASE_OPTS=("${SCP_OPTS[@]}")
+if [[ -n "$SSH_PASSWORD" ]]; then
+    if ! command -v sshpass >/dev/null 2>&1; then
+        echo "[qemu-smoke] ERROR: --password/SLM_QEMU_SSH_PASSWORD membutuhkan sshpass di host." >&2
+        exit 1
+    fi
+    SSH_CMD=(sshpass -p "$SSH_PASSWORD" ssh)
+    SCP_CMD=(sshpass -p "$SSH_PASSWORD" scp)
+    SSH_OPTS=(-o PreferredAuthentications=password,publickey "${SSH_OPTS[@]}")
+    SCP_OPTS=(-o PreferredAuthentications=password,publickey "${SCP_OPTS[@]}")
+else
+    SSH_OPTS=(-o BatchMode=yes -o NumberOfPasswordPrompts=0 -o IdentitiesOnly=yes "${SSH_OPTS[@]}")
+    SCP_OPTS=(-o BatchMode=yes -o NumberOfPasswordPrompts=0 -o IdentitiesOnly=yes "${SCP_OPTS[@]}")
+fi
+if [[ -f "$SSH_IDENTITY_FILE" ]]; then
+    SSH_OPTS=(-i "$SSH_IDENTITY_FILE" "${SSH_OPTS[@]}")
+    SCP_OPTS=(-i "$SSH_IDENTITY_FILE" "${SCP_OPTS[@]}")
+fi
 
-g_ssh()  { ssh  "${SSH_OPTS[@]}" "$SSH_HOST" "$@"; }
-g_scp()  { scp  "${SCP_OPTS[@]}" "$1" "$SSH_HOST:$2"; }
-g_scpr() { scp  "${SCP_OPTS[@]}" -r "$SSH_HOST:$1" "$2"; }
+g_ssh()  { "${SSH_CMD[@]}" "${SSH_OPTS[@]}" "$SSH_HOST" "$@"; }
+g_scp()  { "${SCP_CMD[@]}" "${SCP_OPTS[@]}" "$1" "$SSH_HOST:$2"; }
+g_scpr() { "${SCP_CMD[@]}" "${SCP_OPTS[@]}" -r "$SSH_HOST:$1" "$2"; }
 
 # Buka master connection terlebih dahulu; semua g_ssh/g_scp berikutnya reuse ini.
 # ControlPersist=3600 supaya master tidak expire selama build lokal berlangsung.
-ssh -o ControlMaster=yes -o "ControlPath=$SSH_CTL" -o ControlPersist=3600 \
-    -o StrictHostKeyChecking=accept-new -o "UserKnownHostsFile=$KNOWN_HOSTS" \
-    -p "$SSH_PORT" -N -f "$SSH_HOST"
+open_master_connection() {
+    "${SSH_CMD[@]}" \
+        "${SSH_OPTS[@]}" \
+        -o ControlMaster=yes \
+        -o ControlPersist=3600 \
+        -N -f "$SSH_HOST"
+}
 
-cleanup() { ssh -O exit -o "ControlPath=$SSH_CTL" "$SSH_HOST" 2>/dev/null || true; }
+interactive_tty_available() {
+    [[ -e /dev/tty ]] || return 1
+    ( : <>/dev/tty ) >/dev/null 2>&1
+}
+
+open_master_connection_interactive() {
+    interactive_tty_available || return 1
+    "${SSH_CMD[@]}" \
+        "${SSH_OPTS[@]}" \
+        -o ControlMaster=yes \
+        -o ControlPersist=3600 \
+        -N -f "$SSH_HOST" \
+        </dev/tty >/dev/tty
+}
+
+if ! open_master_connection; then
+    if [[ -z "$SSH_PASSWORD" ]] && interactive_tty_available; then
+        echo "[qemu-smoke] Public-key auth gagal; mencoba login password interaktif untuk $SSH_HOST..."
+        SSH_OPTS=(-o PreferredAuthentications=publickey,password "${SSH_BASE_OPTS[@]}")
+        SCP_OPTS=(-o PreferredAuthentications=publickey,password "${SCP_BASE_OPTS[@]}")
+        if [[ -f "$SSH_IDENTITY_FILE" ]]; then
+            SSH_OPTS=(-i "$SSH_IDENTITY_FILE" "${SSH_OPTS[@]}")
+            SCP_OPTS=(-i "$SSH_IDENTITY_FILE" "${SCP_OPTS[@]}")
+        fi
+        if ! open_master_connection_interactive; then
+            echo "[qemu-smoke] ERROR: SSH login gagal untuk $SSH_HOST port $SSH_PORT." >&2
+            exit 1
+        fi
+    else
+        echo "[qemu-smoke] ERROR: SSH login non-interaktif gagal untuk $SSH_HOST port $SSH_PORT." >&2
+        echo "[qemu-smoke]        Tidak ada password/key valid dan /dev/tty tidak tersedia untuk prompt." >&2
+        echo "[qemu-smoke]        Jalankan dari terminal, pasang public key ke guest," >&2
+        echo "[qemu-smoke]        atau set SLM_QEMU_SSH_PASSWORD bila sshpass tersedia." >&2
+        exit 1
+    fi
+fi
+
+cleanup() {
+    "${SSH_CMD[@]}" \
+        -o "ControlPath=$SSH_CTL" \
+        -p "$SSH_PORT" \
+        -O exit "$SSH_HOST" 2>/dev/null || true
+}
 trap cleanup EXIT
 
 # ── Mount hostshare di guest (hanya perlu untuk pipeline penuh) ───────────────
@@ -240,7 +313,7 @@ if [[ "$FAST_MODE" == "1" ]]; then
     echo "[qemu-smoke] Syncing minimal artifacts ke guest ($BUILD_DIR)..."
     g_ssh "mkdir -p $(printf '%q' "$BUILD_DIR")"
     rsync -az \
-        -e "ssh -p $SSH_PORT -o ControlPath=$SSH_CTL -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=$KNOWN_HOSTS" \
+        -e "$(printf '%q ' "${SSH_CMD[@]}" "${SSH_OPTS[@]}")" \
         "$HOST_BUILD_DIR/slm-greeter" \
         "$HOST_BUILD_DIR/slm-watchdog" \
         "$HOST_BUILD_DIR/slm-recovery-app" \
@@ -250,7 +323,7 @@ if [[ "$FAST_MODE" == "1" ]]; then
 else
     echo "[qemu-smoke] Syncing full build tree ke guest ($BUILD_DIR)..."
     rsync -az --delete \
-        -e "ssh -p $SSH_PORT -o ControlPath=$SSH_CTL -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=$KNOWN_HOSTS" \
+        -e "$(printf '%q ' "${SSH_CMD[@]}" "${SSH_OPTS[@]}")" \
         "$HOST_BUILD_DIR/" \
         "$SSH_HOST:$BUILD_DIR/"
 fi
@@ -272,8 +345,14 @@ install -Dm755 '$BUILD_DIR/slm-recovery-app' /usr/local/bin/slm-recovery-app
 install -Dm755 '$BUILD_DIR/slm-session-broker' /usr/libexec/slm-session-broker
 ln -sfn /usr/libexec/slm-session-broker /usr/local/bin/slm-session-broker
 install -Dm755 '$BUILD_DIR/slm-desktop' /usr/local/bin/slm-shell.real
-printf '%s\n' '#!/bin/sh' 'unset KWIN_COMPOSE LIBGL_ALWAYS_SOFTWARE QSG_RHI_BACKEND' 'exec env QT_QUICK_BACKEND=software SLM_DISABLE_APPDECK=1 SLM_FAST_FIRST_FRAME=1 SLM_STARTUP_LOG=1 SLM_STARTUP_TRACE=1 /usr/local/bin/slm-shell.real \"\$@\"' > /usr/local/bin/slm-shell
+cat > /usr/local/bin/slm-shell <<'SLM_SHELL_WRAPPER'
+#!/bin/sh
+unset KWIN_COMPOSE LIBGL_ALWAYS_SOFTWARE QSG_RHI_BACKEND
+exec env QT_QUICK_BACKEND=software SLM_FAST_FIRST_FRAME=1 SLM_STARTUP_LOG=1 SLM_STARTUP_TRACE=1 /usr/local/bin/slm-shell.real "$@"
+SLM_SHELL_WRAPPER
 chmod 755 /usr/local/bin/slm-shell
+file /usr/local/bin/slm-shell /usr/local/bin/slm-shell.real
+/bin/sh -n /usr/local/bin/slm-shell
 install -d -m0755 /usr/local/libexec
 cat > /usr/local/libexec/slm-session-broker-launch <<'SLM_BROKER_LAUNCH'
 #!/usr/bin/env bash

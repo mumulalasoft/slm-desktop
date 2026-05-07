@@ -61,6 +61,8 @@ set(DESKTOP_SHELL_MODELS_AND_RUNTIME
     src/core/motion/slmmotioncontroller.h
     src/core/shell/shellstatecontroller.cpp
     src/core/shell/shellstatecontroller.h
+    src/core/shell/shellpolicycontroller.cpp
+    src/core/shell/shellpolicycontroller.h
     src/core/shell/shellinputrouter.cpp
     src/core/shell/shellinputrouter.h
     src/core/shell/shelllayerwatchdog.cpp

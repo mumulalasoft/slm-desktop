@@ -4,14 +4,46 @@
 #include "wlrlayershell.h"
 
 #include <QDebug>
+#include <QLoggingCategory>
 #include <QRegion>
 #include <QSize>
+#include <QStringList>
 #include <QTimer>
 #include <QWindow>
 
 #ifdef SLM_HAVE_LAYERSHELLQT
 #include <LayerShellQt/Window>
 #endif
+
+Q_LOGGING_CATEGORY(slmSurfaceStacking, "slm.stacking")
+
+namespace {
+QString layerName(int layer)
+{
+    switch (layer) {
+    case WlrLayerShell::LayerOverlay:
+        return QStringLiteral("OverlayLayer");
+    case WlrLayerShell::LayerTop:
+        return QStringLiteral("TopLayer");
+    case WlrLayerShell::LayerBottom:
+        return QStringLiteral("BottomLayer");
+    case WlrLayerShell::LayerBackground:
+        return QStringLiteral("BackgroundLayer");
+    default:
+        return QStringLiteral("UnknownLayer");
+    }
+}
+
+QString anchorName(int anchors)
+{
+    QStringList parts;
+    if (anchors & WlrLayerShell::AnchorTop) parts << QStringLiteral("top");
+    if (anchors & WlrLayerShell::AnchorBottom) parts << QStringLiteral("bottom");
+    if (anchors & WlrLayerShell::AnchorLeft) parts << QStringLiteral("left");
+    if (anchors & WlrLayerShell::AnchorRight) parts << QStringLiteral("right");
+    return parts.join(QLatin1Char('|'));
+}
+}
 
 AppDeckLayerShellController::AppDeckLayerShellController(WlrLayerShell *fallbackLayerShell,
                                                          QObject *parent)
@@ -64,11 +96,8 @@ void AppDeckLayerShellController::prepareWindow(QWindow *window)
     if (m_bootstrapState) {
         m_bootstrapState->setLayerRoleBound(true);
     }
-    // Watch for the first expose event, which LayerShellQt fires (via sendExpose)
-    // only after receiving and acking zwlr_layer_surface_v1.configure. That is the
-    // correct moment to advance bootstrap — not a fixed-delay timer.
-    m_exposeSeen = false;
-    window->installEventFilter(this);
+    qCInfo(slmSurfaceStacking).noquote()
+        << "[APPDECK] [LAYERSHELL] [SURFACE_READY] prepared layer=TopLayer anchors=bottom|left|right exclusiveZone=0 scope=slm-appdeck";
 #else
     Q_UNUSED(window)
 #endif
@@ -90,13 +119,44 @@ void AppDeckLayerShellController::prepareTopBarWindow(QWindow *window)
         | LayerShellQt::Window::AnchorRight));
     m_layerWindow->setExclusiveZone(0);
     m_layerWindow->setScope(QStringLiteral("slm-crown"));
-    m_layerWindow->setLayer(LayerShellQt::Window::LayerTop);
+    m_layerWindow->setLayer(LayerShellQt::Window::LayerOverlay);
     m_layerWindow->setKeyboardInteractivity(LayerShellQt::Window::KeyboardInteractivityNone);
     watchWindow(window);
     m_attached = true;
     startGeometryGrace();
-    m_lastLayer = WlrLayerShell::LayerTop;
+    m_lastLayer = WlrLayerShell::LayerOverlay;
     m_lastKeyboardInteractivity = WlrLayerShell::KeyboardInteractivityNone;
+    qCInfo(slmSurfaceStacking).noquote()
+        << "[CROWN] [LAYERSHELL] [SURFACE_READY] prepared layer=OverlayLayer anchors=top|left|right exclusiveZone=0 scope=slm-crown";
+#else
+    Q_UNUSED(window)
+#endif
+}
+
+void AppDeckLayerShellController::prepareNotificationWindow(QWindow *window)
+{
+#ifdef SLM_HAVE_LAYERSHELLQT
+    if (!window || m_attached) {
+        return;
+    }
+    m_layerWindow = LayerShellQt::Window::get(window);
+    if (!m_layerWindow) {
+        return;
+    }
+    m_layerWindow->setAnchors(static_cast<LayerShellQt::Window::Anchor>(
+        LayerShellQt::Window::AnchorTop
+        | LayerShellQt::Window::AnchorRight));
+    m_layerWindow->setExclusiveZone(0);
+    m_layerWindow->setScope(QStringLiteral("slm-notifyd"));
+    m_layerWindow->setLayer(LayerShellQt::Window::LayerOverlay);
+    m_layerWindow->setKeyboardInteractivity(LayerShellQt::Window::KeyboardInteractivityNone);
+    watchWindow(window);
+    m_attached = true;
+    startGeometryGrace();
+    m_lastLayer = WlrLayerShell::LayerOverlay;
+    m_lastKeyboardInteractivity = WlrLayerShell::KeyboardInteractivityNone;
+    qCInfo(slmSurfaceStacking).noquote()
+        << "[NOTIFY] [LAYERSHELL] [SURFACE_READY] prepared layer=OverlayLayer anchors=top|right exclusiveZone=0 scope=slm-notifyd";
 #else
     Q_UNUSED(window)
 #endif
@@ -126,6 +186,8 @@ void AppDeckLayerShellController::prepareSecurityOverlayWindow(QWindow *window)
     startGeometryGrace();
     m_lastLayer = WlrLayerShell::LayerOverlay;
     m_lastKeyboardInteractivity = WlrLayerShell::KeyboardInteractivityExclusive;
+    qCInfo(slmSurfaceStacking).noquote()
+        << "[LOCKSCREEN] [LAYERSHELL] [SURFACE_READY] prepared layer=OverlayLayer anchors=top|bottom|left|right exclusiveZone=0 scope=slm-lockscreen";
 #else
     Q_UNUSED(window)
 #endif
@@ -178,8 +240,8 @@ bool AppDeckLayerShellController::setGrid(QWindow *window,
                                               int inputHeight)
 {
     return configure(window,
-                     WlrLayerShell::LayerOverlay,
-                     WlrLayerShell::KeyboardInteractivityExclusive,
+                     WlrLayerShell::LayerTop,
+                     WlrLayerShell::KeyboardInteractivityNone,
                      WlrLayerShell::AnchorBottom
                          | WlrLayerShell::AnchorLeft
                          | WlrLayerShell::AnchorRight,
@@ -200,13 +262,33 @@ bool AppDeckLayerShellController::setTopBar(QWindow *window,
                                             int exclusiveZone)
 {
     return configure(window,
-                     WlrLayerShell::LayerTop,
+                     WlrLayerShell::LayerOverlay,
                      WlrLayerShell::KeyboardInteractivityNone,
                      WlrLayerShell::AnchorTop
                          | WlrLayerShell::AnchorLeft
                          | WlrLayerShell::AnchorRight,
                      qMax(0, exclusiveZone),
                      QStringLiteral("slm-crown"),
+                     width,
+                     height,
+                     QRect(inputX, inputY, inputWidth, inputHeight));
+}
+
+bool AppDeckLayerShellController::setNotificationSurface(QWindow *window,
+                                                         int width,
+                                                         int height,
+                                                         int inputX,
+                                                         int inputY,
+                                                         int inputWidth,
+                                                         int inputHeight)
+{
+    return configure(window,
+                     WlrLayerShell::LayerOverlay,
+                     WlrLayerShell::KeyboardInteractivityNone,
+                     WlrLayerShell::AnchorTop
+                         | WlrLayerShell::AnchorRight,
+                     0,
+                     QStringLiteral("slm-notifyd"),
                      width,
                      height,
                      QRect(inputX, inputY, inputWidth, inputHeight));
@@ -325,6 +407,18 @@ bool AppDeckLayerShellController::configure(QWindow *window,
 
     m_lastLayer = layer;
     m_lastKeyboardInteractivity = keyboardInteractivity;
+    qCInfo(slmSurfaceStacking).noquote()
+        << "[STACKING] [LAYERSHELL]"
+        << "scope=" + scope
+        << "layer=" + layerName(layer)
+        << "anchors=" + anchorName(anchors)
+        << "exclusiveZone=" + QString::number(qMax(0, exclusiveZone))
+        << "size=" + QStringLiteral("%1x%2").arg(qMax(1, width)).arg(qMax(1, height))
+        << "input=" + QStringLiteral("%1,%2 %3x%4")
+                        .arg(qMax(0, inputRegion.x()))
+                        .arg(qMax(0, inputRegion.y()))
+                        .arg(qMax(1, inputRegion.width()))
+                        .arg(qMax(1, inputRegion.height()));
     return applyGeometry(window, width, height, inputRegion);
 }
 
@@ -356,6 +450,15 @@ bool AppDeckLayerShellController::applyGeometry(QWindow *window,
     // Qt Wayland translates setMask() to wl_surface_set_input_region so that
     // transparent areas outside the dock/grid don't intercept pointer events.
     window->setMask(QRegion(safeInput));
+    qCInfo(slmSurfaceStacking).noquote()
+        << "[INPUT_REGION]"
+        << "window=" + window->title()
+        << "size=" + QStringLiteral("%1x%2").arg(safeWidth).arg(safeHeight)
+        << "input=" + QStringLiteral("%1,%2 %3x%4")
+                        .arg(safeInput.x())
+                        .arg(safeInput.y())
+                        .arg(safeInput.width())
+                        .arg(safeInput.height());
     return true;
 #else
     if (!m_fallbackLayerShell) {
@@ -383,6 +486,11 @@ bool AppDeckLayerShellController::eventFilter(QObject *obj, QEvent *event)
                 m_bootstrapState->markFirstConfigureReceived(0);
                 m_bootstrapState->markConfigureAcked(0);
             }
+            qCInfo(slmSurfaceStacking).noquote()
+                << "[SURFACE_READY] [LAYERSHELL]"
+                << "window=" + window->title()
+                << "layer=" + layerName(m_lastLayer);
+            emit surfaceReady();
         }
     }
 #endif
@@ -403,7 +511,14 @@ void AppDeckLayerShellController::watchWindow(QWindow *window)
     if (m_window == window) {
         return;
     }
+    if (m_window) {
+        m_window->removeEventFilter(this);
+    }
     m_window = window;
+    // LayerShellQt emits Expose after zwlr_layer_surface_v1.configure is acked.
+    // Use that event as surface readiness instead of fixed startup delays.
+    m_exposeSeen = false;
+    window->installEventFilter(this);
     connect(window, &QWindow::screenChanged, this, [this, window]() {
         if (!window || !window->isExposed()) {
             return;

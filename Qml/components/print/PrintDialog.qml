@@ -40,9 +40,9 @@ Window {
     signal closeRequested()
 
     color: Theme.color("menuBg")
-    flags: Qt.Dialog | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
+    flags: Qt.Dialog | Qt.FramelessWindowHint
     modality: Qt.ApplicationModal
-    transientParent: parentWindow
+    transientParent: null
     title: "Print"
     width: parentWindow ? Math.min(920, Math.max(760, parentWindow.width - 240)) : 840
     height: parentWindow ? Math.min(640, Math.max(500, parentWindow.height - 180)) : 560
@@ -211,7 +211,6 @@ Window {
 
     onVisibleChanged: {
         if (visible) {
-            requestActivate()
             initializeSession()
         }
     }

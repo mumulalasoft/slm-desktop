@@ -853,7 +853,6 @@ set(DESKTOP_SHELL_QML_FILES
     Qml/components/overlay/ShellEventBridge.qml
     Qml/components/overlay/ShellSystemWindows.qml
     Qml/components/overlay/CrownWindow.qml
-    Qml/components/overlay/CrownInlineLayer.qml
     Qml/components/overlay/PopupHostLayer.qml
     Qml/components/overlay/CrownPopupStateController.qml
     Qml/components/overlay/AppDeckWindow.qml
@@ -953,7 +952,6 @@ set(DESKTOP_SHELL_QML_FILES
     Qml/components/appdeck/AppDeckItemDelegate.qml
     Qml/components/appdeck/AppDeckCollapsedView.qml
     Qml/components/appdeck/AppDeckGridAppsView.qml
-    Qml/components/appdeck/AppDeckEmbeddedSurface.qml
     Qml/components/appdeck/AppDeckGridHeader.qml
     Qml/components/appdeck/AppDeckGridView.qml
     Qml/components/appdeck/AppDeckFavoritesRow.qml
@@ -2218,6 +2216,37 @@ target_link_libraries(shell_state_controller_test
 target_include_directories(shell_state_controller_test PRIVATE ${CMAKE_SOURCE_DIR})
 
 add_test(NAME shell_state_controller_test COMMAND shell_state_controller_test)
+
+qt_add_executable(shell_policy_controller_test
+    src/core/shell/shellstatecontroller.cpp
+    src/core/shell/shellstatecontroller.h
+    src/core/shell/shellpolicycontroller.cpp
+    src/core/shell/shellpolicycontroller.h
+    src/core/workspace/windowingbackendmanager.cpp
+    src/core/workspace/windowingbackendmanager.h
+    src/core/workspace/kwinwaylandipcclient.cpp
+    src/core/workspace/kwinwaylandipcclient.h
+    src/core/workspace/kwinwaylandstatemodel.cpp
+    src/core/workspace/kwinwaylandstatemodel.h
+    src/core/workspace/kwinsupportinfoparser.cpp
+    src/core/workspace/kwinsupportinfoparser.h
+    tests/shell_policy_controller_test.cpp
+)
+
+target_link_libraries(shell_policy_controller_test
+    PRIVATE
+        Qt6::Core
+        Qt6::DBus
+        Qt6::Concurrent
+        Qt6::Gui
+        Qt6::Network
+        Qt6::Test
+        PkgConfig::GIO
+)
+
+target_include_directories(shell_policy_controller_test PRIVATE ${CMAKE_SOURCE_DIR})
+
+add_test(NAME shell_policy_controller_test COMMAND shell_policy_controller_test)
 
 qt_add_executable(shell_input_router_test
     src/core/shell/shellstatecontroller.cpp

@@ -91,6 +91,7 @@
 #include "src/filemanager/ThumbnailImageProvider.h"
 #include "src/core/motion/slmmotioncontroller.h"
 #include "src/core/shell/shellstatecontroller.h"
+#include "src/core/shell/shellpolicycontroller.h"
 #include "src/core/shell/shellinputrouter.h"
 #include "src/core/shell/shelllayerwatchdog.h"
 #ifdef SLM_HAVE_WAYLANDCLIENT
@@ -668,32 +669,27 @@ Window {
     Slm::ContextMenu::ContextMenuService contextMenuService;
     Slm::System::MissingComponentController missingComponentController;
 #ifdef SLM_HAVE_WAYLANDCLIENT
-    const bool enableWlrLayerShell = !envFlagEnabled("SLM_DISABLE_LAYER_SHELL");
     AppDeckBootstrapState dockBootstrapState;
     WlrLayerShell wlrLayerShell;
     AppDeckLayerShellController appDeckLayerShell(&wlrLayerShell);
     AppDeckLayerShellController crownLayerShell(&wlrLayerShell);
+    AppDeckLayerShellController notificationLayerShell(&wlrLayerShell);
     AppDeckLayerShellController securityLayerShell(&wlrLayerShell);
     appDeckLayerShell.setBootstrapState(&dockBootstrapState);
-    if (enableWlrLayerShell) {
-        wlrLayerShell.setAppDeckBootstrapState(&dockBootstrapState);
-        QObject::connect(&wlrLayerShell, &WlrLayerShell::activeChanged, &app, [&]() {
-            dockBootstrapState.setIntegrationEnabled(wlrLayerShell.isActive());
-        });
+    wlrLayerShell.setAppDeckBootstrapState(&dockBootstrapState);
+    QObject::connect(&wlrLayerShell, &WlrLayerShell::activeChanged, &app, [&]() {
         dockBootstrapState.setIntegrationEnabled(wlrLayerShell.isActive());
-    } else {
-        qInfo("DOCK_BOOTSTRAP layer-shell disabled by SLM_DISABLE_LAYER_SHELL");
-        if (!envFlagEnabled("SLM_SHELL_DYNAMIC_APP_REFRESH")) {
-            appModel.setMonitorRefreshEnabled(false);
-            qInfo("DesktopAppModel monitor refresh disabled for KWin runtime");
-        }
-    }
+        qInfo("[LAYERSHELL] activeChanged supported=%s", wlrLayerShell.isActive() ? "true" : "false");
+    });
+    dockBootstrapState.setIntegrationEnabled(wlrLayerShell.isActive());
+    qInfo("[LAYERSHELL] deterministic LayerShellQt architecture enabled");
 #endif
     Slm::Print::PrinterManager printerManager;
     Slm::Print::PrintSession printSession;
     Slm::Print::PrintPreviewModel printPreviewModel;
     Slm::Print::JobSubmitter printJobSubmitter;
     WindowingBackendManager windowingBackendManager;
+    ShellPolicyController shellPolicyController(&shellStateController, &windowingBackendManager);
     CompositorInputCaptureBackendService compositorInputCaptureBackendService(&windowingBackendManager);
     CompositorInputCapturePrimitiveService compositorInputCapturePrimitiveService(&windowingBackendManager);
     WorkspacePreviewManager workspacePreviewManager;
@@ -905,15 +901,16 @@ Window {
     engine.rootContext()->setContextProperty(QStringLiteral("slmActionTreeDebug"),
                                              slmActionTreeDebug);
 #ifdef SLM_HAVE_WAYLANDCLIENT
-    if (enableWlrLayerShell) {
-        engine.rootContext()->setContextProperty(QStringLiteral("WlrLayerShell"), &wlrLayerShell);
-        engine.rootContext()->setContextProperty(QStringLiteral("AppDeckLayerShell"), &appDeckLayerShell);
-        engine.rootContext()->setContextProperty(QStringLiteral("CrownLayerShell"), &crownLayerShell);
-        engine.rootContext()->setContextProperty(QStringLiteral("SecurityLayerShell"), &securityLayerShell);
-        engine.rootContext()->setContextProperty(QStringLiteral("AppDeckBootstrapState"), &dockBootstrapState);
-    }
+    engine.rootContext()->setContextProperty(QStringLiteral("WlrLayerShell"), &wlrLayerShell);
+    engine.rootContext()->setContextProperty(QStringLiteral("AppDeckLayerShell"), &appDeckLayerShell);
+    engine.rootContext()->setContextProperty(QStringLiteral("CrownLayerShell"), &crownLayerShell);
+    engine.rootContext()->setContextProperty(QStringLiteral("NotificationLayerShell"), &notificationLayerShell);
+    engine.rootContext()->setContextProperty(QStringLiteral("SecurityLayerShell"), &securityLayerShell);
+    engine.rootContext()->setContextProperty(QStringLiteral("AppDeckBootstrapState"), &dockBootstrapState);
 #endif
     engine.rootContext()->setContextProperty(QStringLiteral("SessionStateClient"), &sessionStateClient);
+    engine.rootContext()->setContextProperty(QStringLiteral("ShellPolicyController"), &shellPolicyController);
+    engine.rootContext()->setContextProperty(QStringLiteral("ShellVisibilityPolicy"), &shellPolicyController);
     engine.rootContext()->setContextProperty(QStringLiteral("FirewallServiceClient"), &firewallServiceClient);
     engine.rootContext()->setContextProperty(QStringLiteral("MissingComponents"), &missingComponentController);
     engine.rootContext()->setContextProperty(QStringLiteral("PrintManager"), &printerManager);

@@ -62,6 +62,7 @@ QVariantMap parseSupportWindowBlockNoIcon(const QStringList &block, int activeSp
     int space = activeSpace;
     bool minimized = false;
     bool focused = false;
+    bool fullscreen = false;
     bool hasUsefulField = false;
 
     for (const QString &rawLine : block) {
@@ -100,6 +101,11 @@ QVariantMap parseSupportWindowBlockNoIcon(const QStringList &block, int activeSp
             minimized = (val.compare(QStringLiteral("true"), Qt::CaseInsensitive) == 0 ||
                          val == QStringLiteral("1") ||
                          val.compare(QStringLiteral("yes"), Qt::CaseInsensitive) == 0);
+        } else if (key.contains(QStringLiteral("fullscreen"))
+                   || key.contains(QStringLiteral("full screen"))) {
+            fullscreen = (val.compare(QStringLiteral("true"), Qt::CaseInsensitive) == 0 ||
+                          val == QStringLiteral("1") ||
+                          val.compare(QStringLiteral("yes"), Qt::CaseInsensitive) == 0);
         } else if (key == QStringLiteral("active") || key.contains(QStringLiteral("focused"))) {
             focused = (val.compare(QStringLiteral("true"), Qt::CaseInsensitive) == 0 ||
                        val == QStringLiteral("1") ||
@@ -128,6 +134,7 @@ QVariantMap parseSupportWindowBlockNoIcon(const QStringList &block, int activeSp
         { QStringLiteral("mapped"), true },
         { QStringLiteral("minimized"), minimized },
         { QStringLiteral("focused"), focused },
+        { QStringLiteral("fullscreen"), fullscreen },
         { QStringLiteral("space"), space },
         { QStringLiteral("lastEvent"), QStringLiteral("snapshot") },
     };
@@ -181,6 +188,8 @@ QVector<QVariantMap> parseSupportInformationDump(const QString &dump, int active
             !lower.contains(QStringLiteral("desktop")) &&
             !lower.contains(QStringLiteral("geometry")) &&
             !lower.contains(QStringLiteral("minimized")) &&
+            !lower.contains(QStringLiteral("fullscreen")) &&
+            !lower.contains(QStringLiteral("full screen")) &&
             !lower.contains(QStringLiteral("active"))) {
             flushBlock();
             continue;

@@ -40,13 +40,13 @@ private slots:
 
         QVERIFY(ctrl.apphubVisible());
         QVERIFY(ctrl.anyOverlayVisible());
-        QCOMPARE(ctrl.topBarOpacity(), 0.0);
+        QCOMPARE(ctrl.topBarOpacity(), 1.0);
         QCOMPARE(ctrl.dockOpacity(), 1.0);
         QVERIFY(ctrl.workspaceBlurred());
         QCOMPARE(ctrl.workspaceBlurAlpha(), 0.50);
         QVERIFY(ctrl.workspaceInteractionBlocked());
 
-        QCOMPARE(topBarSpy.count(), 1);
+        QCOMPARE(topBarSpy.count(), 0);
         QCOMPARE(dockSpy.count(), 0);
         QCOMPARE(blurSpy.count(), 1);
         QCOMPARE(blockSpy.count(), 1);

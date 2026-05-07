@@ -16,11 +16,10 @@ Window {
 
     visible: !!parentWindow && parentWindow.visible && bubbleActive
     color: "transparent"
-    flags: Qt.ToolTip
-           | Qt.FramelessWindowHint
+    flags: Qt.FramelessWindowHint
            | Qt.WindowDoesNotAcceptFocus
            | Qt.WindowTransparentForInput
-    transientParent: parentWindow
+    transientParent: null
     title: "Desktop Notification Bubble"
     width: 360
     height: Math.max(1, Math.ceil(notificationBubbleItem.height))

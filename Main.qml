@@ -66,13 +66,30 @@ ApplicationWindow {
                                                      && !!CrownLayerShell.supported
     readonly property bool appDeckDisabled: (typeof DisableAppDeck !== "undefined")
                                            && !!DisableAppDeck
-    readonly property bool embeddedAppDeckDisabled: (typeof DisableEmbeddedAppDeck !== "undefined")
-                                                   && !!DisableEmbeddedAppDeck
     readonly property bool externalAppDeckWindowAllowed: !appDeckDisabled
                                                         && appDeckLayerShellSupported
     readonly property bool forceKwinTopLevelOverlays: !!readSetting("shell.forceKwinTopLevelOverlays", false)
-    readonly property bool nonCriticalTopLevelWindowsAllowed: appDeckLayerShellSupported || forceKwinTopLevelOverlays
+    readonly property bool nonCriticalTopLevelWindowsAllowed: appDeckLayerShellSupported
     readonly property var topBarWindow: topBarWindowLoader.item
+    function markStartupTopbarBootstrapReady() {
+        if (startupTopbarBootstrapReady) {
+            return
+        }
+        startupTopbarBootstrapReady = true
+        startupQmlMark("main.crownBootstrap.ready")
+        maybeAttachAppDeck()
+    }
+    function maybeAttachAppDeck() {
+        if (appDeckAttachReady
+                || !dockLoadGateOpen
+                || !startupTopbarBootstrapReady
+                || !startupTopbarItemsReady
+                || !externalAppDeckWindowAllowed) {
+            return
+        }
+        appDeckAttachReady = true
+        startupQmlMark("main.appdeck.attach.ready")
+    }
     function markStartupTopbarItemsReady() {
         if (!startupTopbarItemsReady) {
             startupTopbarItemsReady = true
@@ -82,6 +99,7 @@ ApplicationWindow {
             dockLoadGateOpen = true
             startupQmlMark("main.dockLoadGate.open")
         }
+        maybeAttachAppDeck()
     }
     property bool startWindowed: (typeof AppStartWindowed !== "undefined") ? !!AppStartWindowed : false
     property int startWindowWidthHint: (typeof AppStartWindowWidth !== "undefined") ? Number(AppStartWindowWidth) : 0
@@ -528,7 +546,6 @@ ApplicationWindow {
             if (typeof SessionStateClient !== "undefined" && SessionStateClient) {
                 root.lockScreenVisible = !!SessionStateClient.locked
             }
-            startupTopbarBootstrapTimer.restart()
             if (root.nonCriticalTopLevelWindowsAllowed) {
                 startupNonCriticalWindowsTimer.restart()
             } else {
@@ -544,16 +561,6 @@ ApplicationWindow {
     }
 
     Timer {
-        id: startupTopbarBootstrapTimer
-        interval: 250
-        repeat: false
-        onTriggered: {
-            root.startupTopbarBootstrapReady = true
-            root.startupQmlMark("main.crownBootstrap.ready")
-        }
-    }
-
-    Timer {
         id: startupNonCriticalWindowsTimer
         interval: 1500
         repeat: false
@@ -563,17 +570,15 @@ ApplicationWindow {
         }
     }
 
-    Timer {
-        id: appDeckAttachTimer
-        interval: 300
-        repeat: false
-        running: root.dockLoadGateOpen
-                 && root.startupTopbarItemsReady
-                 && root.appDeckLayerShellSupported
-                 && !root.appDeckAttachReady
-        onTriggered: {
-            root.appDeckAttachReady = true
-            root.startupQmlMark("main.appdeck.attach.ready")
+    onDockLoadGateOpenChanged: maybeAttachAppDeck()
+    onStartupTopbarBootstrapReadyChanged: maybeAttachAppDeck()
+    onStartupTopbarItemsReadyChanged: maybeAttachAppDeck()
+    onExternalAppDeckWindowAllowedChanged: maybeAttachAppDeck()
+
+    Connections {
+        target: (typeof CrownLayerShell !== "undefined") ? CrownLayerShell : null
+        function onSurfaceReady() {
+            root.markStartupTopbarBootstrapReady()
         }
     }
 
@@ -853,10 +858,6 @@ ApplicationWindow {
         anchors.fill: parent
         dockItem: (dockWindowLoader && dockWindowLoader.item) ? dockWindowLoader.item.dockItem : null
         pulseResultsModel: pulseResultsStore
-        embeddedAppDeckEnabled: !root.appDeckDisabled
-                                && !root.externalAppDeckWindowAllowed
-                                && !root.embeddedAppDeckDisabled
-        embeddedAppDeckSafeRendering: !root.appDeckLayerShellSupported
         shellApi: root
         desktopViewController: desktopViewController
         desktopMenuProvider: desktopMenuProvider
@@ -1085,46 +1086,12 @@ ApplicationWindow {
         id: topBarWindowLoader
         active: true
         asynchronous: false
-        sourceComponent: root.crownLayerShellSupported ? crownLayerShellComponent : crownInlineComponent
+        sourceComponent: crownLayerShellComponent
     }
 
     Component {
         id: crownLayerShellComponent
         OverlayComp.CrownWindow {
-            rootWindow: root
-            desktopScene: desktopScene
-            shellApi: root
-            desktopMenuProvider: desktopMenuProvider
-            onStartupItemsReadyReached: root.markStartupTopbarItemsReady()
-            onStartupItemsReadyChanged: {
-                if (startupItemsReady) {
-                    root.markStartupTopbarItemsReady()
-                }
-            }
-            onLauncherRequested: {
-                if (desktopScene && desktopScene.setAppDeckVisible) {
-                    desktopScene.setAppDeckVisible(!desktopScene.appdeckVisible)
-                }
-            }
-            onPulseRequested: {
-                if (root.pulseVisible) {
-                    root.setSearchVisible(false)
-                    return
-                }
-                if ((Date.now() - Number(root.pulseLastCloseMs || 0)) < 220) {
-                    return
-                }
-                root.setSearchVisible(true)
-            }
-            onScreenshotCaptureRequested: function(mode, delaySec, grabPointer, concealText) {
-                ScreenshotController.startFromCrown(root, mode, delaySec, grabPointer, concealText)
-            }
-        }
-    }
-
-    Component {
-        id: crownInlineComponent
-        OverlayComp.CrownInlineLayer {
             rootWindow: root
             desktopScene: desktopScene
             shellApi: root

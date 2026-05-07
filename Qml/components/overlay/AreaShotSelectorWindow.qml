@@ -22,19 +22,13 @@ Window {
 
     visible: !!rootWindow && !!rootWindow.visible && selecting
     color: "transparent"
-    flags: Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
-    transientParent: rootWindow
+    flags: Qt.FramelessWindowHint
+    transientParent: null
     title: "Desktop Area Screenshot Selector"
     x: rootWindow ? rootWindow.x : 0
     y: rootWindow ? rootWindow.y : 0
     width: rootWindow ? rootWindow.width : 0
     height: rootWindow ? rootWindow.height : 0
-
-    onVisibleChanged: {
-        if (visible) {
-            requestActivate()
-        }
-    }
 
     Item {
         anchors.fill: parent
@@ -91,4 +85,3 @@ Window {
         }
     }
 }
-

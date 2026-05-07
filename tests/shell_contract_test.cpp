@@ -104,7 +104,7 @@ private slots:
         ShellStateController state;
         ShellLayerWatchdog watchdog(&state);
 
-        // All overlays active — topBarOpacity is hidden (0.0) by apphub
+        // All overlays active — Crown remains visible as persistent shell chrome.
         state.setAppHubVisible(true);
         state.setWorkspaceOverviewVisible(true);
         state.setPulseVisible(true);
@@ -175,7 +175,7 @@ private slots:
         state.setAppHubVisible(true);
 
         QVERIFY(state.anyOverlayVisible());
-        QCOMPARE(state.topBarOpacity(), 0.0);   // hidden behind apphub fullscreen
+        QCOMPARE(state.topBarOpacity(), 1.0);   // Crown stays visible above AppDeck
         QCOMPARE(state.dockOpacity(), 1.0);     // appdeck stays visible (apphub has its own appdeck row)
         QVERIFY(state.workspaceBlurred());
         QVERIFY(state.workspaceInteractionBlocked());

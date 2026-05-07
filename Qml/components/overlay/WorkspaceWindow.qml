@@ -11,8 +11,8 @@ Window {
 
     visible: !!rootWindow && !!desktopScene && rootWindow.visible && ShellState.workspaceOverviewVisible
     color: "transparent"
-    flags: Qt.FramelessWindowHint | Qt.WindowDoesNotAcceptFocus | Qt.WindowStaysOnTopHint
-    transientParent: rootWindow
+    flags: Qt.FramelessWindowHint | Qt.WindowDoesNotAcceptFocus
+    transientParent: null
     title: "Desktop Workspace"
     x: rootWindow ? rootWindow.x : 0
     y: rootWindow ? rootWindow.y : 0

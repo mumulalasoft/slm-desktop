@@ -33,6 +33,7 @@ public:
     // tidak memicu warning "already has a shell integration".
     Q_INVOKABLE void prepareWindow(QWindow *window);
     Q_INVOKABLE void prepareTopBarWindow(QWindow *window);
+    Q_INVOKABLE void prepareNotificationWindow(QWindow *window);
     Q_INVOKABLE void prepareSecurityOverlayWindow(QWindow *window);
 
     // Call this immediately before making the window visible so the grace
@@ -75,9 +76,17 @@ public:
                                         int inputY,
                                         int inputWidth,
                                         int inputHeight);
+    Q_INVOKABLE bool setNotificationSurface(QWindow *window,
+                                            int width,
+                                            int height,
+                                            int inputX,
+                                            int inputY,
+                                            int inputWidth,
+                                            int inputHeight);
 
 signals:
     void supportedChanged();
+    void surfaceReady();
 
 private:
     bool configure(QWindow *window,

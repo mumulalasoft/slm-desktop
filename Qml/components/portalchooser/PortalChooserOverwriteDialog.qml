@@ -16,20 +16,14 @@ Window {
     signal escapeRequested()
 
     color: Theme.color("menuBg")
-    flags: Qt.Dialog | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
+    flags: Qt.Dialog | Qt.FramelessWindowHint
     modality: Qt.ApplicationModal
-    transientParent: transientParentWindow ? transientParentWindow : parentWindow
+    transientParent: null
     title: "Replace File?"
     width: 460
     height: 182
     x: parentWindow ? parentWindow.x + Math.round((parentWindow.width - width) / 2) : 0
     y: parentWindow ? parentWindow.y + Math.round((parentWindow.height - height) / 2) : 0
-
-    onVisibleChanged: {
-        if (visible) {
-            requestActivate()
-        }
-    }
 
     Shortcut {
         sequence: "Escape"

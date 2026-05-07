@@ -29,9 +29,9 @@ Window {
              && !!rootWindow.visible
              && !!chooserApi.shellRoot.portalFileChooserVisible
     color: Theme.color("menuBg")
-    flags: Qt.Dialog | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
+    flags: Qt.Dialog | Qt.FramelessWindowHint
     modality: Qt.ApplicationModal
-    transientParent: rootWindow
+    transientParent: null
     title: (chooserApi && chooserApi.shellRoot) ? String(chooserApi.shellRoot.portalChooserTitle || "") : ""
     width: 900
     height: 560
@@ -41,7 +41,6 @@ Window {
     onVisibleChanged: {
         if (visible) {
             wireChooserContext()
-            requestActivate()
             width = Math.max(760, Number((chooserApi.shellRoot && chooserApi.shellRoot.portalChooserWindowWidth)
                                          || chooserApi.portalChooserDefaultWidth()))
             height = Math.max(500, Number((chooserApi.shellRoot && chooserApi.shellRoot.portalChooserWindowHeight)

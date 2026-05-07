@@ -13,13 +13,37 @@ Window {
     required property var desktopScene
     required property var appsModel
     required property var pulseResultsModel
-    property bool dockHostVisible: Number(ShellState.dockOpacity || 1.0) > 0.01
-    property bool dockAcceptsInput: true
     property int zoomHeadroom: 18
 
     signal requestOpenApp(string appId)
     signal requestCollapse()
     signal requestOpenAppDeck()
+
+    readonly property var shellPolicy: (typeof ShellPolicyController !== "undefined")
+                                       ? ShellPolicyController
+                                       : null
+    readonly property bool policySurfaceVisible: !root.shellPolicy
+                                                 || root.shellPolicy.appDeckSurfaceVisible
+    readonly property bool policyContentVisible: !root.shellPolicy
+                                                 || root.shellPolicy.appDeckContentVisible
+    readonly property bool policyEdgeRevealEnabled: !!root.shellPolicy
+                                                    && root.shellPolicy.edgeRevealEnabled
+    readonly property bool policyAllowsExpandedModes: !root.shellPolicy
+                                                      || root.shellPolicy.visibilityPolicyName === "Normal"
+    readonly property int revealActivationHeight: root.shellPolicy
+                                                 ? Math.max(1, Math.round(root.shellPolicy.edgeRevealSize || 6))
+                                                 : 6
+    readonly property bool appDeckSuppressed: !rootWindow
+                                              || rootWindow.lockScreenVisible
+                                              || !root.policySurfaceVisible
+    readonly property bool policySensorOnly: !root.appDeckSuppressed
+                                             && root.policyEdgeRevealEnabled
+                                             && !root.policyContentVisible
+                                             && root.dockActive
+    property bool dockHostVisible: Number(ShellState.dockOpacity || 1.0) > 0.01
+                                   && root.policyContentVisible
+    property bool dockAcceptsInput: root.policyContentVisible
+    property bool bottomRevealHeld: false
 
     readonly property var dockItem: dockView.dockItem
     readonly property var bootstrap: (typeof AppDeckBootstrapState !== "undefined") ? AppDeckBootstrapState : null
@@ -30,9 +54,12 @@ Window {
                                            || (bootstrap ? !!bootstrap.readyToRender : true)
     readonly property bool bootstrapSurfaceVisible: root.layerShellSupported && !root.dockLayerReady
 
-    readonly property bool appDeckHidden: !rootWindow || rootWindow.lockScreenVisible
+    readonly property bool appDeckHidden: root.appDeckSuppressed
     readonly property bool appDeckGridRequested: {
         if (root.appDeckHidden) {
+            return false
+        }
+        if (!root.policyAllowsExpandedModes) {
             return false
         }
         if (rootWindow.searchVisible === true) {
@@ -44,6 +71,7 @@ Window {
         return desktopScene ? desktopScene.appdeckVisible === true : false
     }
     readonly property bool appDeckContextRequested: !root.appDeckHidden
+                                                    && root.policyAllowsExpandedModes
                                                     && typeof AppDeckController !== "undefined"
                                                     && AppDeckController
                                                     && String(AppDeckController.contextItemId || "").length > 0
@@ -298,16 +326,20 @@ Window {
     color: "transparent"
     transientParent: null
     title: "SLM AppDeck Surface"
+    flags: Qt.FramelessWindowHint | Qt.NoDropShadowWindowHint
 
     property bool _layerPrepared: !layerShellSupported
 
     visible: !!rootWindow
              && !!rootWindow.visible
+             && root.policySurfaceVisible
              && root.layerShellSupported
              && root._layerPrepared
     // NOTE: opacity must NOT be set on Window (Wayland layer-shell warns).
     // Visual fade is delegated to the inner content Item (see anchors-fill Item below).
-    readonly property real contentOpacity: root.appDeckHidden ? 0.0 : (root.dockLayerReady ? 1.0 : 0.0)
+    readonly property real contentOpacity: root.appDeckHidden || !root.policyContentVisible
+                                           ? 0.0
+                                           : (root.dockLayerReady ? 1.0 : 0.0)
 
     readonly property int dockContentHeight: Math.max(
                                                  108,
@@ -337,11 +369,11 @@ Window {
                                                   )
 
     width: Number(root.targetScreenGeometry.width || (rootWindow ? rootWindow.width : Screen.width))
+    x: Number(root.targetScreenGeometry.x || 0)
+    y: Number(root.targetScreenGeometry.y || 0)
     height: appDeckHidden
             ? 1
-            : (dockActive
-               ? dockSurfaceHeight
-               : Number(root.targetScreenGeometry.height || (rootWindow ? rootWindow.height : Screen.height)))
+            : Number(root.targetScreenGeometry.height || (rootWindow ? rootWindow.height : Screen.height))
     Behavior on fallbackSurfaceTransition {
         NumberAnimation {
             duration: root.motionSurfaceDuration
@@ -374,7 +406,7 @@ Window {
     // dockView scale+transform) — those are pure client-side render and are
     // unaffected.
 
-    readonly property int exclusiveZone: dockActive
+    readonly property int exclusiveZone: dockActive && root.policyContentVisible
                                          ? Math.max(0, Math.ceil(dockView.dockItem ? dockView.dockItem.height : 0))
                                          : 0
     readonly property int dockInputX: Math.max(
@@ -418,6 +450,8 @@ Window {
         if (typeof AppDeckLayerShell === "undefined" || !AppDeckLayerShell) {
             return
         }
+        var w = Math.max(1, Math.round(root.width))
+        var h = Math.max(1, Math.round(root.appDeckHidden ? 1 : root.height))
         var surfaceX = root.dockActive ? root.dockInputX
                                           : (root.pulseMode ? root.contextSurfaceX : root.gridSurfaceX)
         var surfaceY = root.dockActive ? root.dockInputY
@@ -426,8 +460,12 @@ Window {
                                           : (root.pulseMode ? root.contextSurfaceW : root.gridSurfaceW)
         var surfaceH = root.dockActive ? root.dockInputHeight
                                           : (root.pulseMode ? root.contextSurfaceH : root.gridSurfaceH)
-        var w = Math.max(1, Math.round(root.width))
-        var h = Math.max(1, Math.round(root.appDeckHidden ? 1 : root.height))
+        if (root.policySensorOnly) {
+            surfaceX = 0
+            surfaceY = Math.max(0, h - root.revealActivationHeight)
+            surfaceW = w
+            surfaceH = root.revealActivationHeight
+        }
         if (root.immersiveMode) {
             AppDeckLayerShell.setGrid(root, w, h,
                                           Math.max(0, Math.round(surfaceX)),
@@ -456,6 +494,13 @@ Window {
     Item {
         anchors.fill: parent
         opacity: root.contentOpacity
+
+        Behavior on opacity {
+            NumberAnimation {
+                duration: Theme.durationFast
+                easing.type: Theme.easingDefault
+            }
+        }
 
         Rectangle {
             anchors.fill: parent
@@ -764,6 +809,40 @@ Window {
                 }
             }
         }
+
+        HoverHandler {
+            id: bottomRevealHoldHandler
+            target: dockView
+            enabled: root.policyEdgeRevealEnabled && root.policyContentVisible && root.dockActive
+            onHoveredChanged: {
+                root.bottomRevealHeld = hovered
+                if (hovered && root.shellPolicy && root.shellPolicy.requestBottomEdgeReveal) {
+                    root.shellPolicy.requestBottomEdgeReveal("bottom-dock-hover")
+                }
+            }
+        }
+    }
+
+    MouseArea {
+        id: bottomRevealSensor
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        height: root.revealActivationHeight
+        z: 50
+        hoverEnabled: true
+        acceptedButtons: Qt.NoButton
+        enabled: root.policySensorOnly
+        onEntered: {
+            if (root.shellPolicy && root.shellPolicy.requestBottomEdgeReveal) {
+                root.shellPolicy.requestBottomEdgeReveal("bottom-edge")
+            }
+        }
+        onPositionChanged: {
+            if (root.shellPolicy && root.shellPolicy.requestBottomEdgeReveal) {
+                root.shellPolicy.requestBottomEdgeReveal("bottom-edge-motion")
+            }
+        }
     }
 
     Timer {
@@ -782,6 +861,21 @@ Window {
                 return
             }
             PulseController.refreshResults(root.rootWindow, root.pulseResultsModel, false)
+        }
+    }
+
+    Timer {
+        id: bottomRevealHoldTimer
+        interval: 800
+        repeat: true
+        running: root.bottomRevealHeld
+                 && root.policyEdgeRevealEnabled
+                 && root.policyContentVisible
+                 && root.dockActive
+        onTriggered: {
+            if (root.shellPolicy && root.shellPolicy.requestBottomEdgeReveal) {
+                root.shellPolicy.requestBottomEdgeReveal("bottom-dock-hover-hold")
+            }
         }
     }
 
@@ -810,6 +904,14 @@ Window {
     }
     onWidthChanged: root.syncLayerSurfaceSize()
     onHeightChanged: root.syncLayerSurfaceSize()
+    onPolicySurfaceVisibleChanged: root.syncLayerSurfaceSize()
+    onPolicyContentVisibleChanged: {
+        console.info("[APPDECK] [SHELL_POLICY] contentVisible=" + root.policyContentVisible
+                     + " sensorOnly=" + root.policySensorOnly
+                     + " policy=" + (root.shellPolicy ? root.shellPolicy.visibilityPolicyName : "Normal"))
+        root.syncAppDeckStateMode()
+    }
+    onPolicySensorOnlyChanged: root.syncLayerSurfaceSize()
 
     Connections {
         target: root.desktopScene ? root.desktopScene : null
@@ -861,6 +963,9 @@ Window {
             layerShellFallbackTimer.start()
         }
         _layerPrepared = true
+        console.info("[APPDECK] [LAYER_STATE] policySurface=" + root.policySurfaceVisible
+                     + " policyContent=" + root.policyContentVisible
+                     + " layer=TopLayer")
         root.driveSurfaceTransition(root.surfaceTarget, true)
         Qt.callLater(function() { root.syncLayerSurfaceSize() })
     }

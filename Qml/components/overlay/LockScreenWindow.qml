@@ -28,11 +28,11 @@ Window {
 
     signal unlockRequested(string password)
 
-    visible: !!rootWindow && !!rootWindow.visible && overlayVisible && root._layerPrepared
+    visible: !!rootWindow && !!rootWindow.visible && overlayVisible && root.layerShellSupported && root._layerPrepared
     color: "transparent"
-    flags: Qt.FramelessWindowHint | (root.layerShellSupported ? 0 : Qt.WindowStaysOnTopHint)
+    flags: Qt.FramelessWindowHint
     modality: Qt.ApplicationModal
-    transientParent: root.layerShellSupported ? null : rootWindow
+    transientParent: null
     title: "SLM Security Overlay"
 
     width: rootWindow ? rootWindow.width : Screen.width
@@ -68,7 +68,6 @@ Window {
             lockoutTick.stop()
             passwordField.text = ""
             root.now = new Date()
-            requestActivate()
             passwordField.forceActiveFocus()
         }
     }
