@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QObject>
+#include <QHash>
 #include <QPointer>
 #include <QRect>
 
@@ -89,6 +90,20 @@ signals:
     void surfaceReady();
 
 private:
+    struct SurfaceState {
+        QPointer<QWindow> window;
+#ifdef SLM_HAVE_LAYERSHELLQT
+        LayerShellQt::Window *layerWindow = nullptr;
+#endif
+        bool watched = false;
+        bool attached = false;
+        bool geometrySafe = false;
+        bool exposeSeen = false;
+        int lastLayer = -1;
+        int lastKeyboardInteractivity = -1;
+    };
+
+    SurfaceState &stateFor(QWindow *window);
     bool configure(QWindow *window,
                    int layer,
                    int keyboardInteractivity,
@@ -100,18 +115,10 @@ private:
                    const QRect &inputRegion);
     bool applyGeometry(QWindow *window, int width, int height, const QRect &inputRegion);
     bool eventFilter(QObject *obj, QEvent *event) override;
-    void startGeometryGrace();
+    void startGeometryGrace(QWindow *window);
     void watchWindow(QWindow *window);
 
     WlrLayerShell *m_fallbackLayerShell = nullptr;
     AppDeckBootstrapState *m_bootstrapState = nullptr;
-    QPointer<QWindow> m_window;
-#ifdef SLM_HAVE_LAYERSHELLQT
-    LayerShellQt::Window *m_layerWindow = nullptr;
-#endif
-    bool m_attached = false;
-    bool m_geometrySafe = false;
-    bool m_exposeSeen = false;
-    int m_lastLayer = -1;
-    int m_lastKeyboardInteractivity = -1;
+    QHash<QWindow *, SurfaceState> m_surfaces;
 };

@@ -42,6 +42,11 @@ bool SessionStateClient::locked() const
     return m_locked;
 }
 
+QString SessionStateClient::lockState() const
+{
+    return m_lockState;
+}
+
 QString SessionStateClient::userName() const
 {
     return m_userName;
@@ -63,6 +68,7 @@ void SessionStateClient::lock()
         m_iface->call(QStringLiteral("Lock"));
     }
     setLocked(true);
+    setLockState(QStringLiteral("Locking"));
 }
 
 bool SessionStateClient::requestUnlock(const QString &password)
@@ -88,7 +94,6 @@ bool SessionStateClient::requestUnlock(const QString &password)
                 emit lastUnlockResultChanged();
             }
             if (ok) {
-                setLocked(false);
                 return true;
             }
             return false;
@@ -117,14 +122,38 @@ void SessionStateClient::setLocked(bool locked)
     emit lockedChanged();
 }
 
+void SessionStateClient::setLockState(const QString &state)
+{
+    const QString normalized = state.trimmed().isEmpty() ? QStringLiteral("Active") : state.trimmed();
+    if (m_lockState == normalized) {
+        return;
+    }
+    m_lockState = normalized;
+    emit lockStateChanged();
+}
+
 void SessionStateClient::onSessionLocked()
 {
     setLocked(true);
+    if (m_lockState != QStringLiteral("Locked")) {
+        setLockState(QStringLiteral("Locked"));
+    }
 }
 
 void SessionStateClient::onSessionUnlocked()
 {
     setLocked(false);
+    setLockState(QStringLiteral("Active"));
+}
+
+void SessionStateClient::onLockStateChanged(const QString &state)
+{
+    setLockState(state);
+    if (state == QStringLiteral("Locked") || state == QStringLiteral("Locking")) {
+        setLocked(true);
+    } else if (state == QStringLiteral("Active")) {
+        setLocked(false);
+    }
 }
 
 void SessionStateClient::onNameOwnerChanged(const QString &name,
@@ -158,6 +187,13 @@ void SessionStateClient::bindSignals()
                 QStringLiteral("SessionUnlocked"),
                 this,
                 SLOT(onSessionUnlocked()));
+
+    bus.connect(QString::fromLatin1(kService),
+                QString::fromLatin1(kPath),
+                QString::fromLatin1(kIface),
+                QStringLiteral("LockStateChanged"),
+                this,
+                SLOT(onLockStateChanged(QString)));
 
     auto *watcher = new QDBusServiceWatcher(QString::fromLatin1(kService),
                                              bus,

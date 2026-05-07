@@ -130,6 +130,9 @@ private slots:
         QVERIFY(lockText.contains(QStringLiteral("SecurityLayerShell")));
         QVERIFY(lockText.contains(QStringLiteral("prepareSecurityOverlayWindow(root)")));
         QVERIFY(lockText.contains(QStringLiteral("SecurityLayerShell.setSecurityOverlay(root,")));
+        QVERIFY(lockText.contains(QStringLiteral("property var targetScreen")));
+        QVERIFY(lockText.contains(QStringLiteral("[LOCKSCREEN] [MONITOR]")));
+        QVERIFY(lockText.contains(QStringLiteral("[LOCKSCREEN] [INPUT_BLOCK]")));
         QVERIFY(lockText.contains(QStringLiteral("transientParent: null")));
         QVERIFY(lockText.contains(QStringLiteral("&& root.layerShellSupported")));
         QVERIFY(!lockText.contains(QStringLiteral("WindowStaysOnTopHint")));
@@ -146,6 +149,12 @@ private slots:
         QVERIFY(controllerText.contains(QStringLiteral("KeyboardInteractivityExclusive")));
         QVERIFY(controllerText.contains(QStringLiteral("WlrLayerShell::LayerOverlay")));
         QVERIFY(controllerText.contains(QStringLiteral("WlrLayerShell::KeyboardInteractivityExclusive")));
+        QVERIFY(controllerText.contains(QStringLiteral("SurfaceState &")));
+
+        const QString controllerHeaderPath = base + QStringLiteral("/src/core/wayland/layershell/appdecklayershellcontroller.h");
+        const QString controllerHeaderText = readTextFile(controllerHeaderPath);
+        QVERIFY2(!controllerHeaderText.isEmpty(), qPrintable(QStringLiteral("failed to read %1").arg(controllerHeaderPath)));
+        QVERIFY(controllerHeaderText.contains(QStringLiteral("QHash<QWindow *, SurfaceState>")));
 
         const QString mainPath = base + QStringLiteral("/main.cpp");
         const QString mainText = readTextFile(mainPath);
@@ -175,10 +184,20 @@ private slots:
         QVERIFY(!mainText.contains(QStringLiteral("sourceComponent: root.crownLayerShellSupported ? crownLayerShellComponent : crownInlineComponent")));
         QVERIFY(!mainText.contains(QStringLiteral("OverlayComp.CrownInlineLayer")));
         QVERIFY(mainText.contains(QStringLiteral("function _finishUnlockSuccess(lockScreenWindow)")));
-        QVERIFY(mainText.contains(QStringLiteral("function _canUseLocalUnlockFallback(password, errorCode)")));
-        QVERIFY(mainText.contains(QStringLiteral("code === \"service-unavailable\" || code === \"dbus-call-failed\"")));
         QVERIFY(mainText.contains(QStringLiteral("root._finishUnlockSuccess(lockScreenWindow)")));
-        QVERIFY(mainText.contains(QStringLiteral("unlock backend unavailable; using local unlock fallback")));
+        QVERIFY(!mainText.contains(QStringLiteral("_canUseLocalUnlockFallback")));
+        QVERIFY(!mainText.contains(QStringLiteral("unlock backend unavailable; using local unlock fallback")));
+        QVERIFY(!mainText.contains(QStringLiteral("SessionStateClient.setLocked(false)")));
+        QVERIFY(!mainText.contains(QStringLiteral("SessionStateClient.setLocked")));
+        QVERIFY(mainText.contains(QStringLiteral("Instantiator")));
+        QVERIFY(mainText.contains(QStringLiteral("Qt.application.screens")));
+        QVERIFY(mainText.contains(QStringLiteral("targetScreen: modelData")));
+
+        const QString sessionClientPath = base + QStringLiteral("/src/services/session/SessionStateClient.h");
+        const QString sessionClientText = readTextFile(sessionClientPath);
+        QVERIFY2(!sessionClientText.isEmpty(), qPrintable(QStringLiteral("failed to read %1").arg(sessionClientPath)));
+        QVERIFY(!sessionClientText.contains(QStringLiteral("Q_INVOKABLE void setLocked")));
+        QVERIFY(sessionClientText.contains(QStringLiteral("Q_PROPERTY(QString lockState READ lockState NOTIFY lockStateChanged)")));
 
         QVERIFY(!mainText.contains(QStringLiteral("embeddedAppDeckEnabled: !root.appDeckDisabled")));
 

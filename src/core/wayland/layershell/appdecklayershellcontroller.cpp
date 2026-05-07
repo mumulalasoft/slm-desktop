@@ -70,29 +70,41 @@ bool AppDeckLayerShellController::isSupported() const
 #endif
 }
 
+AppDeckLayerShellController::SurfaceState &
+AppDeckLayerShellController::stateFor(QWindow *window)
+{
+    SurfaceState &state = m_surfaces[window];
+    state.window = window;
+    return state;
+}
+
 void AppDeckLayerShellController::prepareWindow(QWindow *window)
 {
 #ifdef SLM_HAVE_LAYERSHELLQT
-    if (!window || m_attached) {
+    if (!window) {
         return;
     }
-    m_layerWindow = LayerShellQt::Window::get(window);
-    if (!m_layerWindow) {
+    SurfaceState &state = stateFor(window);
+    if (state.attached) {
         return;
     }
-    m_layerWindow->setAnchors(static_cast<LayerShellQt::Window::Anchor>(
+    state.layerWindow = LayerShellQt::Window::get(window);
+    if (!state.layerWindow) {
+        return;
+    }
+    state.layerWindow->setAnchors(static_cast<LayerShellQt::Window::Anchor>(
         LayerShellQt::Window::AnchorBottom
         | LayerShellQt::Window::AnchorLeft
         | LayerShellQt::Window::AnchorRight));
-    m_layerWindow->setExclusiveZone(0);
-    m_layerWindow->setScope(QStringLiteral("slm-appdeck"));
-    m_layerWindow->setLayer(LayerShellQt::Window::LayerTop);
-    m_layerWindow->setKeyboardInteractivity(LayerShellQt::Window::KeyboardInteractivityNone);
+    state.layerWindow->setExclusiveZone(0);
+    state.layerWindow->setScope(QStringLiteral("slm-appdeck"));
+    state.layerWindow->setLayer(LayerShellQt::Window::LayerTop);
+    state.layerWindow->setKeyboardInteractivity(LayerShellQt::Window::KeyboardInteractivityNone);
     watchWindow(window);
-    m_attached = true;
-    startGeometryGrace();
-    m_lastLayer = WlrLayerShell::LayerTop;
-    m_lastKeyboardInteractivity = WlrLayerShell::KeyboardInteractivityNone;
+    state.attached = true;
+    startGeometryGrace(window);
+    state.lastLayer = WlrLayerShell::LayerTop;
+    state.lastKeyboardInteractivity = WlrLayerShell::KeyboardInteractivityNone;
     if (m_bootstrapState) {
         m_bootstrapState->setLayerRoleBound(true);
     }
@@ -106,26 +118,30 @@ void AppDeckLayerShellController::prepareWindow(QWindow *window)
 void AppDeckLayerShellController::prepareTopBarWindow(QWindow *window)
 {
 #ifdef SLM_HAVE_LAYERSHELLQT
-    if (!window || m_attached) {
+    if (!window) {
         return;
     }
-    m_layerWindow = LayerShellQt::Window::get(window);
-    if (!m_layerWindow) {
+    SurfaceState &state = stateFor(window);
+    if (state.attached) {
         return;
     }
-    m_layerWindow->setAnchors(static_cast<LayerShellQt::Window::Anchor>(
+    state.layerWindow = LayerShellQt::Window::get(window);
+    if (!state.layerWindow) {
+        return;
+    }
+    state.layerWindow->setAnchors(static_cast<LayerShellQt::Window::Anchor>(
         LayerShellQt::Window::AnchorTop
         | LayerShellQt::Window::AnchorLeft
         | LayerShellQt::Window::AnchorRight));
-    m_layerWindow->setExclusiveZone(0);
-    m_layerWindow->setScope(QStringLiteral("slm-crown"));
-    m_layerWindow->setLayer(LayerShellQt::Window::LayerOverlay);
-    m_layerWindow->setKeyboardInteractivity(LayerShellQt::Window::KeyboardInteractivityNone);
+    state.layerWindow->setExclusiveZone(0);
+    state.layerWindow->setScope(QStringLiteral("slm-crown"));
+    state.layerWindow->setLayer(LayerShellQt::Window::LayerOverlay);
+    state.layerWindow->setKeyboardInteractivity(LayerShellQt::Window::KeyboardInteractivityNone);
     watchWindow(window);
-    m_attached = true;
-    startGeometryGrace();
-    m_lastLayer = WlrLayerShell::LayerOverlay;
-    m_lastKeyboardInteractivity = WlrLayerShell::KeyboardInteractivityNone;
+    state.attached = true;
+    startGeometryGrace(window);
+    state.lastLayer = WlrLayerShell::LayerOverlay;
+    state.lastKeyboardInteractivity = WlrLayerShell::KeyboardInteractivityNone;
     qCInfo(slmSurfaceStacking).noquote()
         << "[CROWN] [LAYERSHELL] [SURFACE_READY] prepared layer=OverlayLayer anchors=top|left|right exclusiveZone=0 scope=slm-crown";
 #else
@@ -136,25 +152,29 @@ void AppDeckLayerShellController::prepareTopBarWindow(QWindow *window)
 void AppDeckLayerShellController::prepareNotificationWindow(QWindow *window)
 {
 #ifdef SLM_HAVE_LAYERSHELLQT
-    if (!window || m_attached) {
+    if (!window) {
         return;
     }
-    m_layerWindow = LayerShellQt::Window::get(window);
-    if (!m_layerWindow) {
+    SurfaceState &state = stateFor(window);
+    if (state.attached) {
         return;
     }
-    m_layerWindow->setAnchors(static_cast<LayerShellQt::Window::Anchor>(
+    state.layerWindow = LayerShellQt::Window::get(window);
+    if (!state.layerWindow) {
+        return;
+    }
+    state.layerWindow->setAnchors(static_cast<LayerShellQt::Window::Anchor>(
         LayerShellQt::Window::AnchorTop
         | LayerShellQt::Window::AnchorRight));
-    m_layerWindow->setExclusiveZone(0);
-    m_layerWindow->setScope(QStringLiteral("slm-notifyd"));
-    m_layerWindow->setLayer(LayerShellQt::Window::LayerOverlay);
-    m_layerWindow->setKeyboardInteractivity(LayerShellQt::Window::KeyboardInteractivityNone);
+    state.layerWindow->setExclusiveZone(0);
+    state.layerWindow->setScope(QStringLiteral("slm-notifyd"));
+    state.layerWindow->setLayer(LayerShellQt::Window::LayerOverlay);
+    state.layerWindow->setKeyboardInteractivity(LayerShellQt::Window::KeyboardInteractivityNone);
     watchWindow(window);
-    m_attached = true;
-    startGeometryGrace();
-    m_lastLayer = WlrLayerShell::LayerOverlay;
-    m_lastKeyboardInteractivity = WlrLayerShell::KeyboardInteractivityNone;
+    state.attached = true;
+    startGeometryGrace(window);
+    state.lastLayer = WlrLayerShell::LayerOverlay;
+    state.lastKeyboardInteractivity = WlrLayerShell::KeyboardInteractivityNone;
     qCInfo(slmSurfaceStacking).noquote()
         << "[NOTIFY] [LAYERSHELL] [SURFACE_READY] prepared layer=OverlayLayer anchors=top|right exclusiveZone=0 scope=slm-notifyd";
 #else
@@ -165,27 +185,31 @@ void AppDeckLayerShellController::prepareNotificationWindow(QWindow *window)
 void AppDeckLayerShellController::prepareSecurityOverlayWindow(QWindow *window)
 {
 #ifdef SLM_HAVE_LAYERSHELLQT
-    if (!window || m_attached) {
+    if (!window) {
         return;
     }
-    m_layerWindow = LayerShellQt::Window::get(window);
-    if (!m_layerWindow) {
+    SurfaceState &state = stateFor(window);
+    if (state.attached) {
         return;
     }
-    m_layerWindow->setAnchors(static_cast<LayerShellQt::Window::Anchor>(
+    state.layerWindow = LayerShellQt::Window::get(window);
+    if (!state.layerWindow) {
+        return;
+    }
+    state.layerWindow->setAnchors(static_cast<LayerShellQt::Window::Anchor>(
         LayerShellQt::Window::AnchorTop
         | LayerShellQt::Window::AnchorBottom
         | LayerShellQt::Window::AnchorLeft
         | LayerShellQt::Window::AnchorRight));
-    m_layerWindow->setExclusiveZone(0);
-    m_layerWindow->setScope(QStringLiteral("slm-lockscreen"));
-    m_layerWindow->setLayer(LayerShellQt::Window::LayerOverlay);
-    m_layerWindow->setKeyboardInteractivity(LayerShellQt::Window::KeyboardInteractivityExclusive);
+    state.layerWindow->setExclusiveZone(0);
+    state.layerWindow->setScope(QStringLiteral("slm-lockscreen"));
+    state.layerWindow->setLayer(LayerShellQt::Window::LayerOverlay);
+    state.layerWindow->setKeyboardInteractivity(LayerShellQt::Window::KeyboardInteractivityExclusive);
     watchWindow(window);
-    m_attached = true;
-    startGeometryGrace();
-    m_lastLayer = WlrLayerShell::LayerOverlay;
-    m_lastKeyboardInteractivity = WlrLayerShell::KeyboardInteractivityExclusive;
+    state.attached = true;
+    startGeometryGrace(window);
+    state.lastLayer = WlrLayerShell::LayerOverlay;
+    state.lastKeyboardInteractivity = WlrLayerShell::KeyboardInteractivityExclusive;
     qCInfo(slmSurfaceStacking).noquote()
         << "[LOCKSCREEN] [LAYERSHELL] [SURFACE_READY] prepared layer=OverlayLayer anchors=top|bottom|left|right exclusiveZone=0 scope=slm-lockscreen";
 #else
@@ -196,7 +220,11 @@ void AppDeckLayerShellController::prepareSecurityOverlayWindow(QWindow *window)
 void AppDeckLayerShellController::onWindowAboutToShow()
 {
 #ifdef SLM_HAVE_LAYERSHELLQT
-    startGeometryGrace();
+    for (auto it = m_surfaces.begin(); it != m_surfaces.end(); ++it) {
+        if (it.value().window) {
+            startGeometryGrace(it.value().window);
+        }
+    }
 #endif
 }
 
@@ -335,13 +363,14 @@ bool AppDeckLayerShellController::configure(QWindow *window,
 
     watchWindow(window);
 
-    const bool prevAttached = m_attached;
+    SurfaceState &state = stateFor(window);
+    const bool prevAttached = state.attached;
 
 #ifdef SLM_HAVE_LAYERSHELLQT
-    if (!m_layerWindow || !prevAttached) {
-        m_layerWindow = LayerShellQt::Window::get(window);
+    if (!state.layerWindow || !prevAttached) {
+        state.layerWindow = LayerShellQt::Window::get(window);
     }
-    if (!m_layerWindow) {
+    if (!state.layerWindow) {
         return false;
     }
     if (!prevAttached) {
@@ -358,26 +387,26 @@ bool AppDeckLayerShellController::configure(QWindow *window,
         if (anchors & WlrLayerShell::AnchorRight) {
             qtAnchors |= LayerShellQt::Window::AnchorRight;
         }
-        m_layerWindow->setAnchors(static_cast<LayerShellQt::Window::Anchor>(qtAnchors));
-        m_layerWindow->setExclusiveZone(qMax(0, exclusiveZone));
-        m_layerWindow->setScope(scope);
+        state.layerWindow->setAnchors(static_cast<LayerShellQt::Window::Anchor>(qtAnchors));
+        state.layerWindow->setExclusiveZone(qMax(0, exclusiveZone));
+        state.layerWindow->setScope(scope);
     }
-    m_layerWindow->setExclusiveZone(qMax(0, exclusiveZone));
-    if (m_lastLayer != layer) {
-        m_layerWindow->setLayer(layer == WlrLayerShell::LayerOverlay
+    state.layerWindow->setExclusiveZone(qMax(0, exclusiveZone));
+    if (state.lastLayer != layer) {
+        state.layerWindow->setLayer(layer == WlrLayerShell::LayerOverlay
                                 ? LayerShellQt::Window::LayerOverlay
                                 : LayerShellQt::Window::LayerTop);
     }
-    if (m_lastKeyboardInteractivity != keyboardInteractivity) {
-        m_layerWindow->setKeyboardInteractivity(
+    if (state.lastKeyboardInteractivity != keyboardInteractivity) {
+        state.layerWindow->setKeyboardInteractivity(
             keyboardInteractivity == WlrLayerShell::KeyboardInteractivityExclusive
                 ? LayerShellQt::Window::KeyboardInteractivityExclusive
                 : LayerShellQt::Window::KeyboardInteractivityNone);
     }
-    m_attached = true;
+    state.attached = true;
     if (!prevAttached) {
         // Re-attach after screen change: need a fresh configure/ack cycle.
-        startGeometryGrace();
+        startGeometryGrace(window);
         if (m_bootstrapState) {
             m_bootstrapState->setIntegrationEnabled(true);
             m_bootstrapState->setLayerRoleBound(true);
@@ -386,7 +415,7 @@ bool AppDeckLayerShellController::configure(QWindow *window,
         }
     }
 #else
-    if (!m_attached) {
+    if (!state.attached) {
         if (!m_fallbackLayerShell->configureAsLayerSurface(window,
                                                            layer,
                                                            anchors,
@@ -394,19 +423,19 @@ bool AppDeckLayerShellController::configure(QWindow *window,
                                                            scope)) {
             return false;
         }
-        m_attached = true;
+        state.attached = true;
     }
     m_fallbackLayerShell->setExclusiveZone(window, qMax(0, exclusiveZone));
-    if (m_lastLayer != layer) {
+    if (state.lastLayer != layer) {
         m_fallbackLayerShell->setLayer(window, layer);
     }
-    if (m_lastKeyboardInteractivity != keyboardInteractivity) {
+    if (state.lastKeyboardInteractivity != keyboardInteractivity) {
         m_fallbackLayerShell->setKeyboardInteractivity(window, keyboardInteractivity);
     }
 #endif
 
-    m_lastLayer = layer;
-    m_lastKeyboardInteractivity = keyboardInteractivity;
+    state.lastLayer = layer;
+    state.lastKeyboardInteractivity = keyboardInteractivity;
     qCInfo(slmSurfaceStacking).noquote()
         << "[STACKING] [LAYERSHELL]"
         << "scope=" + scope
@@ -443,7 +472,8 @@ bool AppDeckLayerShellController::applyGeometry(QWindow *window,
     // commit before KWin's configure/ack violates zwlr_layer_surface_v1 and
     // causes KWin to send wl_display.error. Return true (optimistic) so callers
     // don't stall; the layerShellRetryTimer will apply geometry after grace.
-    if (!m_geometrySafe) {
+    SurfaceState &state = stateFor(window);
+    if (!state.geometrySafe) {
         return true;
     }
     window->resize(safeWidth, safeHeight);
@@ -477,11 +507,13 @@ bool AppDeckLayerShellController::applyGeometry(QWindow *window,
 bool AppDeckLayerShellController::eventFilter(QObject *obj, QEvent *event)
 {
 #ifdef SLM_HAVE_LAYERSHELLQT
-    if (!m_exposeSeen && event->type() == QEvent::Expose) {
-        auto *window = qobject_cast<QWindow *>(obj);
-        if (window && window->isExposed()) {
-            m_exposeSeen = true;
+    auto *window = qobject_cast<QWindow *>(obj);
+    if (window && event->type() == QEvent::Expose) {
+        SurfaceState &state = stateFor(window);
+        if (!state.exposeSeen && window->isExposed()) {
+            state.exposeSeen = true;
             window->removeEventFilter(this);
+            state.watched = false;
             if (m_bootstrapState) {
                 m_bootstrapState->markFirstConfigureReceived(0);
                 m_bootstrapState->markConfigureAcked(0);
@@ -489,7 +521,7 @@ bool AppDeckLayerShellController::eventFilter(QObject *obj, QEvent *event)
             qCInfo(slmSurfaceStacking).noquote()
                 << "[SURFACE_READY] [LAYERSHELL]"
                 << "window=" + window->title()
-                << "layer=" + layerName(m_lastLayer);
+                << "layer=" + layerName(state.lastLayer);
             emit surfaceReady();
         }
     }
@@ -497,28 +529,43 @@ bool AppDeckLayerShellController::eventFilter(QObject *obj, QEvent *event)
     return QObject::eventFilter(obj, event);
 }
 
-void AppDeckLayerShellController::startGeometryGrace()
+void AppDeckLayerShellController::startGeometryGrace(QWindow *window)
 {
 #ifdef SLM_HAVE_LAYERSHELLQT
-    m_geometrySafe = false;
+    if (!window) {
+        return;
+    }
+    SurfaceState &state = stateFor(window);
+    state.geometrySafe = false;
     // 50ms covers the KWin configure/ack round-trip in all tested configurations.
-    QTimer::singleShot(50, this, [this]() { m_geometrySafe = true; });
+    QPointer<QWindow> guardedWindow(window);
+    QTimer::singleShot(50, this, [this, guardedWindow]() {
+        if (!guardedWindow) {
+            return;
+        }
+        SurfaceState &state = stateFor(guardedWindow);
+        state.geometrySafe = true;
+    });
 #endif
 }
 
 void AppDeckLayerShellController::watchWindow(QWindow *window)
 {
-    if (m_window == window) {
+    if (!window) {
         return;
     }
-    if (m_window) {
-        m_window->removeEventFilter(this);
+    SurfaceState &state = stateFor(window);
+    if (state.watched) {
+        return;
     }
-    m_window = window;
     // LayerShellQt emits Expose after zwlr_layer_surface_v1.configure is acked.
     // Use that event as surface readiness instead of fixed startup delays.
-    m_exposeSeen = false;
+    state.exposeSeen = false;
+    state.watched = true;
     window->installEventFilter(this);
+    connect(window, &QObject::destroyed, this, [this, window]() {
+        m_surfaces.remove(window);
+    });
     connect(window, &QWindow::screenChanged, this, [this, window]() {
         if (!window || !window->isExposed()) {
             return;
@@ -527,10 +574,11 @@ void AppDeckLayerShellController::watchWindow(QWindow *window)
             if (!window || !window->isExposed()) {
                 return;
             }
-            m_attached = false;
-            m_geometrySafe = false;
-            m_lastLayer = -1;
-            m_lastKeyboardInteractivity = -1;
+            SurfaceState &state = stateFor(window);
+            state.attached = false;
+            state.geometrySafe = false;
+            state.lastLayer = -1;
+            state.lastKeyboardInteractivity = -1;
         });
     });
 }

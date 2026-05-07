@@ -85,6 +85,7 @@ private slots:
         QVERIFY(out.value(QStringLiteral("ok")).toBool());
         QCOMPARE(out.value(QStringLiteral("service")).toString(), QString::fromLatin1(kService));
         QCOMPARE(out.value(QStringLiteral("api_version")).toString(), QStringLiteral("1.0"));
+        QCOMPARE(out.value(QStringLiteral("lock_state")).toString(), QStringLiteral("Active"));
 
         QDBusReply<QVariantMap> capsReply = iface.call(QStringLiteral("GetCapabilities"));
         QVERIFY(capsReply.isValid());
@@ -94,6 +95,8 @@ private slots:
         const QStringList list = caps.value(QStringLiteral("capabilities")).toStringList();
         QVERIFY(list.contains(QStringLiteral("inhibit")));
         QVERIFY(list.contains(QStringLiteral("lock")));
+        QVERIFY(list.contains(QStringLiteral("lock-state")));
+        QCOMPARE(caps.value(QStringLiteral("lock_state")).toString(), QStringLiteral("Active"));
     }
 
     void dbusInhibit_returnsCookie()
@@ -136,9 +139,11 @@ private slots:
         QSignalSpy idleSpy(&service, SIGNAL(IdleChanged(bool)));
         QSignalSpy lockedSpy(&service, SIGNAL(SessionLocked()));
         QSignalSpy unlockedSpy(&service, SIGNAL(SessionUnlocked()));
+        QSignalSpy stateSpy(&service, SIGNAL(LockStateChanged(QString)));
         QVERIFY(idleSpy.isValid());
         QVERIFY(lockedSpy.isValid());
         QVERIFY(unlockedSpy.isValid());
+        QVERIFY(stateSpy.isValid());
 
         QVERIFY(QMetaObject::invokeMethod(&manager,
                                           "onScreenSaverActiveChanged",
@@ -146,7 +151,9 @@ private slots:
                                           Q_ARG(bool, true)));
         QTRY_VERIFY_WITH_TIMEOUT(idleSpy.count() >= 1, 1000);
         QTRY_VERIFY_WITH_TIMEOUT(lockedSpy.count() >= 1, 1000);
+        QTRY_VERIFY_WITH_TIMEOUT(stateSpy.count() >= 1, 1000);
         QCOMPARE(idleSpy.at(0).at(0).toBool(), true);
+        QCOMPARE(stateSpy.last().at(0).toString(), QStringLiteral("Locked"));
 
         QVERIFY(QMetaObject::invokeMethod(&manager,
                                           "onScreenSaverActiveChanged",
@@ -155,6 +162,7 @@ private slots:
         QTRY_VERIFY_WITH_TIMEOUT(idleSpy.count() >= 2, 1000);
         QTRY_VERIFY_WITH_TIMEOUT(unlockedSpy.count() >= 1, 1000);
         QCOMPARE(idleSpy.at(1).at(0).toBool(), false);
+        QCOMPARE(stateSpy.last().at(0).toString(), QStringLiteral("Active"));
     }
 
     void unlock_rateLimited_returnsRetryAfter()

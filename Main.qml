@@ -1,6 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Window 2.15
+import QtQml.Models 2.15
 import Slm_Desktop
 import SlmStyle as DSStyle
 import "Qml/components" as Components
@@ -342,10 +343,6 @@ ApplicationWindow {
         }
     }
     function _finishUnlockSuccess(lockScreenWindow) {
-        if (typeof SessionStateClient !== "undefined" && SessionStateClient
-                && SessionStateClient.setLocked) {
-            SessionStateClient.setLocked(false)
-        }
         root.lockScreenVisible = false
         if (lockScreenWindow) {
             lockScreenWindow.lockFailed = false
@@ -354,12 +351,44 @@ ApplicationWindow {
             lockScreenWindow.unlockErrorCode = ""
         }
     }
-    function _canUseLocalUnlockFallback(password, errorCode) {
-        if (String(password || "").trim().length <= 0) {
-            return false
+    function _handleLockscreenUnlock(lockScreenWindow, password) {
+        if (!lockScreenWindow || lockScreenWindow.lockoutActive || lockScreenWindow.unlockBusy) {
+            return
         }
-        var code = String(errorCode || "")
-        return code === "service-unavailable" || code === "dbus-call-failed"
+        lockScreenWindow.unlockBusy = true
+        var pw = password
+        Qt.callLater(function() {
+            if (typeof SessionStateClient === "undefined" || !SessionStateClient
+                    || !SessionStateClient.requestUnlock) {
+                lockScreenWindow.unlockBusy = false
+                lockScreenWindow.lockFailed = true
+                lockScreenWindow.unlockErrorCode = String(pw || "").trim().length > 0
+                        ? "service-unavailable" : "empty-password"
+                lockScreenWindow.failedAttempts = Number(lockScreenWindow.failedAttempts || 0) + 1
+                return
+            }
+            if (SessionStateClient.requestUnlock(pw)) {
+                lockScreenWindow.unlockBusy = false
+                root._finishUnlockSuccess(lockScreenWindow)
+            } else {
+                lockScreenWindow.unlockBusy = false
+                var unlockError = String(SessionStateClient.lastUnlockError || "")
+                lockScreenWindow.lockFailed = true
+                lockScreenWindow.unlockErrorCode = unlockError
+                var backendRetrySec = Number(SessionStateClient.lastRetryAfterSec || 0)
+                if (backendRetrySec > 0) {
+                    lockScreenWindow.activateLockout(backendRetrySec)
+                } else {
+                    lockScreenWindow.failedAttempts = Number(lockScreenWindow.failedAttempts || 0) + 1
+                    if (lockScreenWindow.failedAttempts >= 5) {
+                        lockScreenWindow.lockoutLevel = Number(lockScreenWindow.lockoutLevel || 0) + 1
+                        var lvl = lockScreenWindow.lockoutLevel
+                        var sec = lvl >= 5 ? 300 : lvl === 4 ? 120 : lvl === 3 ? 60 : lvl === 2 ? 30 : 10
+                        lockScreenWindow.activateLockout(sec)
+                    }
+                }
+            }
+        })
     }
     onSearchVisibleChanged: {
         if (lockScreenVisible && searchVisible) {
@@ -1271,6 +1300,7 @@ ApplicationWindow {
             OverlayComp.LockScreenWindow {
                 id: lockScreenWindow
                 rootWindow: root
+                targetScreen: root.screen
                 overlayVisible: root.lockScreenVisible
                 userName: (typeof SessionStateClient !== "undefined" && SessionStateClient && SessionStateClient.userName)
                           ? String(SessionStateClient.userName)
@@ -1283,52 +1313,28 @@ ApplicationWindow {
                     }
                 }
                 onUnlockRequested: function(password) {
-                    if (lockScreenWindow.lockoutActive || lockScreenWindow.unlockBusy) {
-                        return
-                    }
-                    lockScreenWindow.unlockBusy = true
-                    var pw = password
-                    Qt.callLater(function() {
-                        if (typeof SessionStateClient === "undefined" || !SessionStateClient
-                                || !SessionStateClient.requestUnlock) {
-                            lockScreenWindow.unlockBusy = false
-                            if (String(pw || "").trim().length > 0) {
-                                root._finishUnlockSuccess(lockScreenWindow)
-                            } else {
-                                lockScreenWindow.lockFailed = true
-                                lockScreenWindow.unlockErrorCode = "empty-password"
-                                lockScreenWindow.failedAttempts = Number(lockScreenWindow.failedAttempts || 0) + 1
-                            }
-                            return
-                        }
-                        if (SessionStateClient.requestUnlock(pw)) {
-                            lockScreenWindow.unlockBusy = false
-                            root._finishUnlockSuccess(lockScreenWindow)
-                        } else {
-                            lockScreenWindow.unlockBusy = false
-                            var unlockError = String(SessionStateClient.lastUnlockError || "")
-                            if (root._canUseLocalUnlockFallback(pw, unlockError)) {
-                                console.warn("[lockscreen] unlock backend unavailable; using local unlock fallback:", unlockError)
-                                root._finishUnlockSuccess(lockScreenWindow)
-                                return
-                            }
-                            lockScreenWindow.lockFailed = true
-                            lockScreenWindow.unlockErrorCode = unlockError
-                            var backendRetrySec = Number(SessionStateClient.lastRetryAfterSec || 0)
-                            if (backendRetrySec > 0) {
-                                lockScreenWindow.activateLockout(backendRetrySec)
-                            } else {
-                                lockScreenWindow.failedAttempts = Number(lockScreenWindow.failedAttempts || 0) + 1
-                                if (lockScreenWindow.failedAttempts >= 5) {
-                                    lockScreenWindow.lockoutLevel = Number(lockScreenWindow.lockoutLevel || 0) + 1
-                                    var lvl = lockScreenWindow.lockoutLevel
-                                    var sec = lvl >= 5 ? 300 : lvl === 4 ? 120 : lvl === 3 ? 60 : lvl === 2 ? 30 : 10
-                                    lockScreenWindow.activateLockout(sec)
-                                }
-                            }
-                        }
-                    })
+                    root._handleLockscreenUnlock(lockScreenWindow, password)
                 }
+            }
+        }
+    }
+
+    Instantiator {
+        id: secondaryLockScreenSurfaces
+        active: !!root.lockScreenVisible
+        model: Qt.application && Qt.application.screens ? Qt.application.screens : []
+        delegate: OverlayComp.LockScreenWindow {
+            id: secondaryLockScreenWindow
+            readonly property string screenName: targetScreen && targetScreen.name ? String(targetScreen.name) : ""
+            readonly property string primaryScreenName: root.screen && root.screen.name ? String(root.screen.name) : ""
+            rootWindow: root
+            targetScreen: modelData
+            overlayVisible: root.lockScreenVisible && screenName !== primaryScreenName
+            userName: (typeof SessionStateClient !== "undefined" && SessionStateClient && SessionStateClient.userName)
+                      ? String(SessionStateClient.userName)
+                      : "User"
+            onUnlockRequested: function(password) {
+                root._handleLockscreenUnlock(secondaryLockScreenWindow, password)
             }
         }
     }

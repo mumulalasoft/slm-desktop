@@ -70,7 +70,9 @@ Options:
   --user USER           SSH user. Default: $SSH_USER
   --port PORT           SSH port. Default: $SSH_PORT
   --identity-file PATH  SSH private key. Default: $SSH_IDENTITY_FILE if present
-  --password PASSWORD   SSH password, requires sshpass. Default: SLM_QEMU_SSH_PASSWORD
+  --password PASSWORD   SSH password. Uses sshpass when available; otherwise
+                        falls back to an interactive SSH prompt when /dev/tty exists.
+                        Default: SLM_QEMU_SSH_PASSWORD
   --session-user USER   Desktop session user. Default: $SESSION_USER
   --repo-dir PATH       Repo path in guest. Default: $REPO_DIR
   --build-dir PATH      Build dir in guest (rsync target). Default: $BUILD_DIR
@@ -181,15 +183,23 @@ SSH_CMD=(ssh)
 SCP_CMD=(scp)
 SSH_BASE_OPTS=("${SSH_OPTS[@]}")
 SCP_BASE_OPTS=("${SCP_OPTS[@]}")
-if [[ -n "$SSH_PASSWORD" ]]; then
-    if ! command -v sshpass >/dev/null 2>&1; then
-        echo "[qemu-smoke] ERROR: --password/SLM_QEMU_SSH_PASSWORD membutuhkan sshpass di host." >&2
-        exit 1
-    fi
-    SSH_CMD=(sshpass -p "$SSH_PASSWORD" ssh)
-    SCP_CMD=(sshpass -p "$SSH_PASSWORD" scp)
-    SSH_OPTS=(-o PreferredAuthentications=password,publickey "${SSH_OPTS[@]}")
-    SCP_OPTS=(-o PreferredAuthentications=password,publickey "${SCP_OPTS[@]}")
+SSH_PASSWORD_MODE=0
+if [[ -n "$SSH_PASSWORD" ]] && command -v sshpass >/dev/null 2>&1; then
+    SSH_PASSWORD_MODE=1
+    SSH_CMD=(env "SSHPASS=$SSH_PASSWORD" sshpass -e ssh)
+    SCP_CMD=(env "SSHPASS=$SSH_PASSWORD" sshpass -e scp)
+    SSH_OPTS=(
+        -o BatchMode=no
+        -o NumberOfPasswordPrompts=1
+        -o PreferredAuthentications=password,keyboard-interactive,publickey
+        "${SSH_OPTS[@]}"
+    )
+    SCP_OPTS=(
+        -o BatchMode=no
+        -o NumberOfPasswordPrompts=1
+        -o PreferredAuthentications=password,keyboard-interactive,publickey
+        "${SCP_OPTS[@]}"
+    )
 else
     SSH_OPTS=(-o BatchMode=yes -o NumberOfPasswordPrompts=0 -o IdentitiesOnly=yes "${SSH_OPTS[@]}")
     SCP_OPTS=(-o BatchMode=yes -o NumberOfPasswordPrompts=0 -o IdentitiesOnly=yes "${SCP_OPTS[@]}")
@@ -229,10 +239,20 @@ open_master_connection_interactive() {
 }
 
 if ! open_master_connection; then
-    if [[ -z "$SSH_PASSWORD" ]] && interactive_tty_available; then
+    if interactive_tty_available; then
         echo "[qemu-smoke] Public-key auth gagal; mencoba login password interaktif untuk $SSH_HOST..."
-        SSH_OPTS=(-o PreferredAuthentications=publickey,password "${SSH_BASE_OPTS[@]}")
-        SCP_OPTS=(-o PreferredAuthentications=publickey,password "${SCP_BASE_OPTS[@]}")
+        SSH_CMD=(ssh)
+        SCP_CMD=(scp)
+        SSH_OPTS=(
+            -o BatchMode=no
+            -o PreferredAuthentications=publickey,password,keyboard-interactive
+            "${SSH_BASE_OPTS[@]}"
+        )
+        SCP_OPTS=(
+            -o BatchMode=no
+            -o PreferredAuthentications=publickey,password,keyboard-interactive
+            "${SCP_BASE_OPTS[@]}"
+        )
         if [[ -f "$SSH_IDENTITY_FILE" ]]; then
             SSH_OPTS=(-i "$SSH_IDENTITY_FILE" "${SSH_OPTS[@]}")
             SCP_OPTS=(-i "$SSH_IDENTITY_FILE" "${SCP_OPTS[@]}")
@@ -243,9 +263,13 @@ if ! open_master_connection; then
         fi
     else
         echo "[qemu-smoke] ERROR: SSH login non-interaktif gagal untuk $SSH_HOST port $SSH_PORT." >&2
-        echo "[qemu-smoke]        Tidak ada password/key valid dan /dev/tty tidak tersedia untuk prompt." >&2
-        echo "[qemu-smoke]        Jalankan dari terminal, pasang public key ke guest," >&2
-        echo "[qemu-smoke]        atau set SLM_QEMU_SSH_PASSWORD bila sshpass tersedia." >&2
+        if [[ -n "$SSH_PASSWORD" && "$SSH_PASSWORD_MODE" != "1" ]]; then
+            echo "[qemu-smoke]        SLM_QEMU_SSH_PASSWORD sudah diset, tapi sshpass tidak ditemukan." >&2
+            echo "[qemu-smoke]        Install sshpass di host atau jalankan dari terminal interaktif." >&2
+        else
+            echo "[qemu-smoke]        Tidak ada password/key valid dan /dev/tty tidak tersedia untuk prompt." >&2
+            echo "[qemu-smoke]        Pasang public key ke guest atau set SLM_QEMU_SSH_PASSWORD dengan sshpass tersedia." >&2
+        fi
         exit 1
     fi
 fi

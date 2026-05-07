@@ -7,6 +7,7 @@ Window {
     id: root
 
     required property var rootWindow
+    property var targetScreen: rootWindow && rootWindow.screen ? rootWindow.screen : null
     property bool overlayVisible: false
     property string userName: "User"
     property bool lockFailed: false
@@ -34,11 +35,20 @@ Window {
     modality: Qt.ApplicationModal
     transientParent: null
     title: "SLM Security Overlay"
+    screen: root.targetScreen ? root.targetScreen : rootWindow.screen
 
-    width: rootWindow ? rootWindow.width : Screen.width
-    height: rootWindow ? rootWindow.height : Screen.height
-    x: rootWindow ? rootWindow.x : 0
-    y: rootWindow ? rootWindow.y : 0
+    width: root.targetScreen && root.targetScreen.geometry
+           ? Math.max(1, Math.round(root.targetScreen.geometry.width))
+           : (rootWindow ? rootWindow.width : Screen.width)
+    height: root.targetScreen && root.targetScreen.geometry
+            ? Math.max(1, Math.round(root.targetScreen.geometry.height))
+            : (rootWindow ? rootWindow.height : Screen.height)
+    x: root.targetScreen && root.targetScreen.geometry
+       ? Math.round(root.targetScreen.geometry.x)
+       : (rootWindow ? rootWindow.x : 0)
+    y: root.targetScreen && root.targetScreen.geometry
+       ? Math.round(root.targetScreen.geometry.y)
+       : (rootWindow ? rootWindow.y : 0)
 
     function syncSecurityLayerSurface() {
         if (!root.layerShellSupported || typeof SecurityLayerShell === "undefined" || !SecurityLayerShell) {
@@ -69,6 +79,10 @@ Window {
             passwordField.text = ""
             root.now = new Date()
             passwordField.forceActiveFocus()
+            console.info("[LOCKSCREEN] [MONITOR] surface visible screen="
+                         + (root.targetScreen && root.targetScreen.name ? root.targetScreen.name : "default")
+                         + " geometry=" + root.x + "," + root.y + " " + root.width + "x" + root.height)
+            console.info("[LOCKSCREEN] [INPUT_BLOCK] active=true inputRegion=fullscreen keyboard=exclusive")
         }
     }
 

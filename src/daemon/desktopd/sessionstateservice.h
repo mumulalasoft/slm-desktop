@@ -20,6 +20,7 @@ class SessionStateService : public QObject, protected QDBusContext
     Q_CLASSINFO("D-Bus Interface", "org.slm.SessionState1")
     Q_PROPERTY(bool serviceRegistered READ serviceRegistered NOTIFY serviceRegisteredChanged)
     Q_PROPERTY(QString apiVersion READ apiVersion CONSTANT)
+    Q_PROPERTY(QString lockState READ lockState NOTIFY LockStateChanged)
 
 public:
     explicit SessionStateService(SessionStateManager *manager, QObject *parent = nullptr);
@@ -27,6 +28,7 @@ public:
 
     bool serviceRegistered() const;
     QString apiVersion() const;
+    QString lockState() const;
 
 public slots:
     QVariantMap Ping() const;
@@ -42,6 +44,7 @@ signals:
     void serviceRegisteredChanged();
     void SessionLocked();
     void SessionUnlocked();
+    void LockStateChanged(const QString &state);
     void IdleChanged(bool idle);
     void ActiveAppChanged(const QString &app_id);
 
@@ -60,9 +63,13 @@ private:
     void registerDbusService();
     void setupSecurity();
     bool checkPermission(Slm::Permissions::Capability capability, const QString &methodName);
+    void setLockState(const QString &state, const QString &reason);
+    void onManagerSessionLocked();
+    void onManagerSessionUnlocked();
 
     SessionStateManager *m_manager = nullptr;
     bool m_serviceRegistered = false;
+    QString m_lockState = QStringLiteral("Active");
 
     mutable Slm::Permissions::PermissionStore m_permissionStore;
     mutable Slm::Permissions::TrustResolver m_trustResolver;
