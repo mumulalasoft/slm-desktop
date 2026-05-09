@@ -412,6 +412,16 @@ qt_add_executable(slm-svcmgrd
     src/services/svcmgr/svcmanagerdbusinterface.h
 )
 
+# slm-lockd — minimal lockscreen supervisor. Watches the shell process via
+# its well-known DBus name (org.slm.Desktop) and forces desktopd's
+# SessionState to Locked when the shell disappears, so the daemon-side
+# authoritative lock state survives a UI crash.
+qt_add_executable(slm-lockd
+    src/daemon/lockd/lockd_main.cpp
+    src/daemon/lockd/shellliveness.cpp
+    src/daemon/lockd/shellliveness.h
+)
+
 qt_add_executable(slm-package-policy-service
     src/daemon/packagepolicyd/packagepolicyd_main.cpp
     src/services/packagepolicy/packagetransaction.cpp
@@ -743,6 +753,13 @@ target_link_libraries(slm-svcmgrd
         Qt6::DBus
 )
 target_include_directories(slm-svcmgrd PRIVATE ${CMAKE_SOURCE_DIR})
+
+target_link_libraries(slm-lockd
+    PRIVATE
+        Qt6::Core
+        Qt6::DBus
+)
+target_include_directories(slm-lockd PRIVATE ${CMAKE_SOURCE_DIR})
 
 if(TARGET slm-archived)
 target_link_libraries(slm-archived
@@ -1440,6 +1457,23 @@ target_link_libraries(appcommandrouter_test
 )
 
 add_test(NAME appcommandrouter_test COMMAND appcommandrouter_test)
+
+qt_add_executable(screenshotmanager_lock_test
+    src/services/screenshot/screenshotmanager.cpp
+    src/services/screenshot/screenshotmanager.h
+    tests/screenshotmanager_lock_test.cpp
+)
+
+target_link_libraries(screenshotmanager_lock_test
+    PRIVATE
+        Qt6::Core
+        Qt6::DBus
+        Qt6::Gui
+        Qt6::Network
+        Qt6::Test
+)
+
+add_test(NAME screenshotmanager_lock_test COMMAND screenshotmanager_lock_test)
 
 qt_add_executable(windowingbackendmanager_test
     src/core/workspace/windowingbackendmanager.cpp
@@ -2492,6 +2526,58 @@ target_link_libraries(globalmenususpendbridge_test
 
 add_test(NAME globalmenususpendbridge_test COMMAND globalmenususpendbridge_test)
 set_tests_properties(globalmenususpendbridge_test PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
+qt_add_executable(sessionstatemanager_suspend_test
+    src/daemon/desktopd/sessionstatemanager.cpp
+    src/daemon/desktopd/sessionstatemanager.h
+    src/core/workspace/windowingbackendmanager.cpp
+    src/core/workspace/windowingbackendmanager.h
+    src/core/workspace/kwinwaylandipcclient.cpp
+    src/core/workspace/kwinwaylandipcclient.h
+    src/core/workspace/kwinwaylandstatemodel.cpp
+    src/core/workspace/kwinwaylandstatemodel.h
+    src/core/workspace/kwinsupportinfoparser.cpp
+    src/core/workspace/kwinsupportinfoparser.h
+    tests/sessionstatemanager_suspend_test.cpp
+)
+
+target_include_directories(sessionstatemanager_suspend_test PRIVATE ${CMAKE_SOURCE_DIR})
+
+target_link_libraries(sessionstatemanager_suspend_test
+    PRIVATE
+        Qt6::Core
+        Qt6::DBus
+        Qt6::Network
+        Qt6::Concurrent
+        Qt6::Sql
+        Qt6::Test
+        PkgConfig::GIO
+)
+
+add_test(NAME sessionstatemanager_suspend_test COMMAND sessionstatemanager_suspend_test)
+set_tests_properties(sessionstatemanager_suspend_test PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
+qt_add_executable(lockd_shell_liveness_test
+    src/daemon/lockd/shellliveness.cpp
+    src/daemon/lockd/shellliveness.h
+    tests/lockd_shell_liveness_test.cpp
+)
+
+target_include_directories(lockd_shell_liveness_test PRIVATE ${CMAKE_SOURCE_DIR})
+
+target_link_libraries(lockd_shell_liveness_test
+    PRIVATE
+        Qt6::Core
+        Qt6::DBus
+        Qt6::Test
+)
+
+add_test(NAME lockd_shell_liveness_test COMMAND lockd_shell_liveness_test)
+set_tests_properties(lockd_shell_liveness_test PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 

@@ -36,11 +36,15 @@ signals:
     void lockedChanged();
     void lockStateChanged();
     void lastUnlockResultChanged();
+    // Forwarded from desktopd's Resumed DBus signal so QML lockscreen
+    // surfaces can re-attach their LayerShell security overlay on wake.
+    void resumed();
 
 private slots:
     void onSessionLocked();
     void onSessionUnlocked();
     void onLockStateChanged(const QString &state);
+    void onResumed();
     void onNameOwnerChanged(const QString &name, const QString &oldOwner, const QString &newOwner);
 
 private:

@@ -481,6 +481,13 @@ Window {
         }
     }
 
+    // The timer must keep running while the window is visible: configure()
+    // refuses calls before QWindow::isExposed() is true, so the very first
+    // syncLayerSurfaceSize triggered by onVisibleChanged / property handlers
+    // can return without applying anything. The timer guarantees a retry
+    // after KWin's configure/ack populates exposure. Once geometry is
+    // actually applied, the C++ idempotency cache turns subsequent fires
+    // into a cheap no-op (Q_INVOKABLE call + arg compare + bail).
     Timer {
         id: layerShellRetryTimer
         interval: 300
@@ -490,6 +497,15 @@ Window {
     }
 
     onSceneGraphInitialized: root.syncLayerSurfaceSize()
+    onAppDeckHiddenChanged: root.syncLayerSurfaceSize()
+    onImmersiveModeChanged: root.syncLayerSurfaceSize()
+    onPulseModeChanged: root.syncLayerSurfaceSize()
+    onDockActiveChanged: root.syncLayerSurfaceSize()
+    onDockLayerReadyChanged: {
+        if (root.dockLayerReady) {
+            root.syncLayerSurfaceSize()
+        }
+    }
 
     Item {
         anchors.fill: parent

@@ -26,7 +26,7 @@ SMOKE_TIMEOUT="${SLM_QEMU_SESSION_SMOKE_TIMEOUT_SEC:-90}"
 BUILD_ONLY="${SLM_QEMU_SMOKE_BUILD_ONLY:-auto}"
 SKIP_BUILD=0
 STRICT_PROCESS=0
-FAST_MODE="${SLM_QEMU_SMOKE_FAST:-1}"
+FAST_MODE="${SLM_QEMU_SMOKE_FAST:-0}"
 HOST_ARTIFACT_ROOT="${SLM_QEMU_SESSION_SMOKE_ARTIFACT_ROOT:-$PWD/artifacts/qemu-session-smoke}"
 HOST_REPO_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 HOST_CMAKE_PREFIX_PATH="${SLM_QEMU_HOST_CMAKE_PREFIX_PATH:-/usr}"
@@ -44,13 +44,15 @@ FAST_TARGETS=(
     slm-recovery-app
     slm-session-broker
     slm-desktop
+    desktopd
+    slm-lockd
 )
 
 FULL_TARGETS=(
     # greeter → broker pipeline (wajib ada, must_install_bin)
     slm-greeter slm-watchdog slm-recovery-app slm-session-broker
     # desktop shell & compositor daemons
-    slm-desktop desktopd slm-svcmgrd slm-loggerd
+    slm-desktop desktopd slm-svcmgrd slm-loggerd slm-lockd
     # portals & system daemons
     slm-portald slm-fileopsd slm-devicesd slm-clipboardd
     slm-envd slm-envd-helper slm-recoveryd slm-polkit-agent
@@ -82,8 +84,8 @@ Options:
   --jobs N              Parallel build jobs. Default: $JOBS
   --timeout SEC         Smoke wait timeout. Default: $SMOKE_TIMEOUT
   --artifact-root PATH  Host artifact dir. Default: $HOST_ARTIFACT_ROOT
-  --fast                Fast path: target minimum + install sempit. Default.
-  --full                Pipeline penuh lama: mount + install/verify script.
+  --fast                Fast path: target minimum + install sempit.
+  --full                Pipeline penuh: mount + install/verify script. Default.
   --configure           Force cmake configure before build
   --build-only          Skip configure, only cmake --build. Default when
                         host build dir already has CMakeCache.txt.
@@ -324,11 +326,11 @@ for t in "${FAST_TARGETS[@]}"; do
 done
 
 echo "[qemu-smoke] Host dependency check..."
-if ldd "$HOST_BUILD_DIR/slm-desktop" "$HOST_BUILD_DIR/slm-session-broker" | grep -q 'not found'; then
-    ldd "$HOST_BUILD_DIR/slm-desktop" "$HOST_BUILD_DIR/slm-session-broker" | grep 'not found' >&2
+if ldd "$HOST_BUILD_DIR/slm-desktop" "$HOST_BUILD_DIR/slm-session-broker" "$HOST_BUILD_DIR/desktopd" | grep -q 'not found'; then
+    ldd "$HOST_BUILD_DIR/slm-desktop" "$HOST_BUILD_DIR/slm-session-broker" "$HOST_BUILD_DIR/desktopd" | grep 'not found' >&2
     exit 1
 fi
-ldd "$HOST_BUILD_DIR/slm-desktop" "$HOST_BUILD_DIR/slm-session-broker" \
+ldd "$HOST_BUILD_DIR/slm-desktop" "$HOST_BUILD_DIR/slm-session-broker" "$HOST_BUILD_DIR/desktopd" \
     | grep -E 'libicu(i18n|uc|data)\.so|libQt6Core\.so' \
     | sed 's/^/[qemu-smoke]   /' || true
 
@@ -343,6 +345,8 @@ if [[ "$FAST_MODE" == "1" ]]; then
         "$HOST_BUILD_DIR/slm-recovery-app" \
         "$HOST_BUILD_DIR/slm-session-broker" \
         "$HOST_BUILD_DIR/slm-desktop" \
+        "$HOST_BUILD_DIR/desktopd" \
+        "$HOST_BUILD_DIR/slm-lockd" \
         "$SSH_HOST:$BUILD_DIR/"
 else
     echo "[qemu-smoke] Syncing full build tree ke guest ($BUILD_DIR)..."
@@ -369,6 +373,8 @@ install -Dm755 '$BUILD_DIR/slm-recovery-app' /usr/local/bin/slm-recovery-app
 install -Dm755 '$BUILD_DIR/slm-session-broker' /usr/libexec/slm-session-broker
 ln -sfn /usr/libexec/slm-session-broker /usr/local/bin/slm-session-broker
 install -Dm755 '$BUILD_DIR/slm-desktop' /usr/local/bin/slm-shell.real
+install -Dm755 '$BUILD_DIR/desktopd' /usr/local/bin/desktopd
+install -Dm755 '$BUILD_DIR/slm-lockd' /usr/local/bin/slm-lockd
 cat > /usr/local/bin/slm-shell <<'SLM_SHELL_WRAPPER'
 #!/bin/sh
 unset KWIN_COMPOSE LIBGL_ALWAYS_SOFTWARE QSG_RHI_BACKEND
@@ -389,6 +395,7 @@ export LC_ALL=\${LC_ALL:-C.UTF-8}
 if [[ -z \"\${XDG_RUNTIME_DIR:-}\" ]]; then
     export XDG_RUNTIME_DIR=\"/run/user/\${UID}\"
 fi
+ulimit -c unlimited 2>/dev/null || true
 log=/tmp/slm-session-broker-launch.log
 {
     echo \"===== \$(date --iso-8601=seconds 2>/dev/null || date) slm-session-broker-launch start =====\"
@@ -428,7 +435,10 @@ cat > \"\$session_home/.config/slm-desktop/config.json\" <<'SLM_CONFIG_JSON'
   \"shellArgs\": [],
   \"compositorEnv\": {
     \"KWIN_COMPOSE\": \"Q\",
-    \"KWIN_FORCE_SW_CURSOR\": \"1\"
+    \"KWIN_FORCE_SW_CURSOR\": \"1\",
+    \"LIBSEAT_BACKEND\": \"logind\",
+    \"QT_LOGGING_RULES\": \"kwin*.debug=true;qt.qpa.wayland.debug=true;libwayland*.debug=true\",
+    \"QT_MESSAGE_PATTERN\": \"[%{time yyyy-MM-dd hh:mm:ss.zzz}] [%{type}] %{category}: %{message}\"
   }
 }
 SLM_CONFIG_JSON
@@ -447,12 +457,16 @@ SLM_STATE_JSON
 chown \"\$session_user:\$session_user\" \"\$session_home/.config/slm-desktop/config.json\" \"\$session_home/.config/slm-desktop/state.json\"
 echo '[qemu-smoke][guest] installed fast runtime + KWin software config'
 ldd /usr/local/bin/slm-shell.real /usr/libexec/slm-session-broker | grep -E 'libicu(i18n|uc|data)\\.so|libQt6Core\\.so|not found' || true
-: > /tmp/slm-greeter.log
-: > /tmp/slm-greeter-service.log
-: > /tmp/slm-session-broker.log
-: > /tmp/slm-session-broker-launch.log
-: > /tmp/slm-compositor.log
-: > /tmp/slm-shell.log
+for log in /tmp/slm-greeter.log /tmp/slm-greeter-service.log /tmp/slm-session-broker.log /tmp/slm-session-broker-launch.log /tmp/slm-compositor.log /tmp/slm-shell.log; do
+    : > \"\$log\"
+    chown \"\$session_user:\$session_user\" \"\$log\"
+    chmod 0664 \"\$log\"
+done
+for log in /tmp/slm-desktopd.log /tmp/slm-lockd.log; do
+    : > \"\$log\"
+    chown \"\$session_user:\$session_user\" \"\$log\"
+    chmod 0664 \"\$log\"
+done
 if ! command -v cage >/dev/null 2>&1; then
     echo '[qemu-smoke][guest] cage not found; install cage before greetd greeter mode' >&2
     exit 1
@@ -524,22 +538,65 @@ log=/var/lib/greetd/logs/slm-greeter.log
 exec /usr/local/bin/slm-greeter >>\"\$log\" 2>&1
 SLM_GREETER_LAUNCH
 chmod 0755 /usr/local/libexec/slm-greeter-greetd-launch
-cat > /usr/local/libexec/slm-greeter-cage-launch <<'SLM_GREETER_CAGE'
+    # Install greeter wrapper
+    cat > /usr/local/libexec/slm-greeter-cage-launch <<'SLM_GREETER_CAGE'
 #!/usr/bin/env bash
+# Long-lived greetd default_session wrapper.
 set -u
 export LIBSEAT_BACKEND=logind
 export WLR_RENDERER=pixman
 log=/var/lib/greetd/logs/slm-greeter-cage.log
-{
-    echo \"===== \$(date --iso-8601=seconds 2>/dev/null || date) cage start =====\"
-    echo \"  GREETD_SOCK=\${GREETD_SOCK:-<unset>}\"
-    echo \"  XDG_RUNTIME_DIR=\${XDG_RUNTIME_DIR:-<unset>}\"
-} >>\"\$log\" 2>&1
-exec cage -s -- /usr/local/libexec/slm-greeter-greetd-launch >>\"\$log\" 2>&1
+log_msg() { echo "$(date --iso-8601=seconds 2>/dev/null || date) cage-launch [pid=$$]: $*" >>"$log"; }
+
+log_msg "===== start pid=$$ GREETD_SOCK=${GREETD_SOCK:-<unset>} XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-<unset>} ====="
+
+# Kill any orphaned cage from a previous greetd run before we start.
+pkill -KILL -x cage 2>/dev/null || true
+sleep 0.2
+
+while true; do
+    log_msg "starting cage"
+    cage -s -- /usr/local/libexec/slm-greeter-greetd-launch >>"$log" 2>&1
+    rc=$?
+    log_msg "cage exited rc=$rc"
+
+    # Wait for the user session to be fully registered and its compositor to start.
+    # We use a 3-second grace period because QEMU is slow.
+    sleep 3
+    waited=3
+
+    # Check for active user sessions. We use sudo to ensure we can see all sessions
+    # and processes, and check for BOTH kwin_wayland AND any session by UID 1000.
+    while true; do
+        # 1. Check for kwin_wayland process (any user)
+        if pgrep -x kwin_wayland >/dev/null 2>&1; then
+            [ "$waited" -eq 3 ] && log_msg "kwin_wayland detected — holding off cage restart"
+        # 2. Check for any active session for user 1000
+        elif loginctl list-sessions --no-pager 2>/dev/null | grep -v -E "SESSION|greeter" | grep -q .; then
+            [ "$waited" -eq 3 ] && log_msg "user session detected via loginctl — holding off cage restart"
+        else
+            # No session detected
+            break
+        fi
+        
+        waited=$(( waited + 1 ))
+        sleep 1
+    done
+
+    if [ "$waited" -gt 3 ]; then
+        log_msg "user session ended after ${waited}s — restarting cage"
+        sleep 1
+    else
+        log_msg "no user session detected after grace period — restarting cage immediately"
+        sleep 0.5
+    fi
+done
 SLM_GREETER_CAGE
-chmod 0755 /usr/local/libexec/slm-greeter-cage-launch
-install -d -m0755 /etc/greetd
-cat > /etc/greetd/config.toml <<'GREETD_CONFIG'
+    chmod 0755 /usr/local/libexec/slm-greeter-cage-launch
+
+    # Configure greetd to use VT7 for greeter to avoid conflict with user session on VT1
+    install -d -m0755 /etc/greetd
+    cat > /etc/greetd/config.toml <<'GREETD_CONFIG'
 [terminal]
 vt = 7
 
@@ -547,6 +604,41 @@ vt = 7
 command = \"/usr/local/libexec/slm-greeter-cage-launch\"
 user = \"greeter\"
 GREETD_CONFIG
+mkdir -p /etc/systemd/user
+cat > /etc/systemd/user/slm-desktopd.service <<'DESKTOPD_UNIT'
+[Unit]
+Description=SLM Desktop Session State Daemon
+After=dbus.socket
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/desktopd
+StandardOutput=append:/tmp/slm-desktopd.log
+StandardError=append:/tmp/slm-desktopd.log
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=default.target
+DESKTOPD_UNIT
+cat > /etc/systemd/user/slm-lockd.service <<'LOCKD_UNIT'
+[Unit]
+Description=SLM Lockscreen Supervisor
+After=dbus.socket slm-desktopd.service
+Wants=slm-desktopd.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/slm-lockd --shell-name org.slm.Desktop
+StandardOutput=append:/tmp/slm-lockd.log
+StandardError=append:/tmp/slm-lockd.log
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=default.target
+LOCKD_UNIT
+echo '[qemu-smoke][guest] installed slm-desktopd.service and slm-lockd.service unit files'
 if command -v systemctl >/dev/null 2>&1; then
     systemctl daemon-reload
     systemctl disable --now slm-greeter.service 2>/dev/null || true
@@ -559,6 +651,8 @@ if command -v systemctl >/dev/null 2>&1; then
     systemctl reset-failed greetd.service || true
     systemctl restart greetd.service
     echo '[qemu-smoke][guest] enabled greetd handoff and disabled direct-PAM slm-greeter.service'
+    systemctl --global enable slm-desktopd.service slm-lockd.service 2>/dev/null || true
+    echo '[qemu-smoke][guest] globally enabled slm-desktopd and slm-lockd user services'
 fi
 ")"
 else

@@ -19,7 +19,7 @@ static const char *const WindowMovePrev      = "window.move_workspace_prev";
 static const char *const WindowMoveNext      = "window.move_workspace_next";
 // Overlay dismiss
 static const char *const OverlayDismiss      = "overlay.dismiss";
-// Screenshot (always allowed — no shell-mode guard)
+// Screenshot (always allowed in non-lock layers; hard-blocked while locked)
 static const char *const ScreenshotArea      = "screenshot.area";
 static const char *const ScreenshotFullscreen = "screenshot.fullscreen";
 // Debug
@@ -33,8 +33,13 @@ bool ShellInputRouter::actionAllowedInLayer(const QString &action, ShellLayer la
 {
     using L = ShellLayer;
 
-    // Lock screen: only lock action is meaningful (others are silently blocked).
+    // Lock screen: only the lock action itself is meaningful. Screenshots are
+    // hard-blocked here as defense-in-depth — see also ScreenshotManager's
+    // capture-time guard. All other actions are silently blocked.
     if (layer == L::LockScreen) {
+        if (action.startsWith(QLatin1String("screenshot."))) {
+            return false;
+        }
         return action == QLatin1String(ShellAction::Lock);
     }
 

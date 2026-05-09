@@ -32,6 +32,9 @@ public:
     // Blocking: returns 0 on clean session end, non-zero on failure.
     int run();
 
+    // Async-signal-safe: set termination flag so monitorSession() shuts down gracefully.
+    static void requestTermination();
+
 private:
     void                readState();
     StartupMode         evaluateMode(const PlatformStatus &platform);

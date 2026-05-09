@@ -75,10 +75,17 @@ if [[ -f /etc/greetd/config.toml ]]; then
     fail=$((fail + 1))
   fi
 
+  if grep -q 'vt = 7' /etc/greetd/config.toml; then
+    echo "[OK] greetd configured to use VT7 (safe separation)"
+  else
+    echo "[WARN] greetd is not using VT7; may conflict with user session"
+    warn=$((warn + 1))
+  fi
+
   if grep -Eq '^command = ".*slm-greeter-cage-launch"' /etc/greetd/config.toml; then
     echo "[OK] greetd default_session launches cage wrapper for greeter"
   elif grep -Eq '^command = "env LIBSEAT_BACKEND=logind cage -s -- .*slm-greeter' /etc/greetd/config.toml; then
-    echo "[WARN] greetd default_session launches slm-greeter directly via cage"
+    echo "[WARN] greetd default_session launches slm-greeter directly via cage (no handoff protection)"
     warn=$((warn + 1))
   else
     echo "[FAIL] greetd default_session is not wired to slm-greeter via cage"

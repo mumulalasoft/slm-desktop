@@ -156,23 +156,58 @@ log="/tmp/slm-session-broker-launch.log"
 exec /usr/libexec/slm-session-broker "$@" >>"$log" 2>&1
 EOF
 chmod 0755 "$BROKER_LAUNCHER"
-cat >"$GREETER_CAGE_LAUNCHER" <<EOF
+cat >"$GREETER_CAGE_LAUNCHER" <<'EOF'
 #!/usr/bin/env bash
-# slm-greeter-cage-launch — start cage compositor and run greeter inside it.
+# Long-lived greetd default_session wrapper.
+set -u
 export LIBSEAT_BACKEND=logind
 export WLR_RENDERER=pixman
-
-_log="${CAGE_LOG}"
+_log="/var/lib/greetd/logs/slm-greeter-cage.log"
 _ts() { date --iso-8601=seconds 2>/dev/null || date; }
+_log_msg() { echo "$(_ts) cage-launch [pid=$$]: $*" >>"$_log"; }
 
-{
-  echo "===== \$(_ts) slm-greeter-cage-launch start ====="
-  echo "  XDG_RUNTIME_DIR=\${XDG_RUNTIME_DIR:-<unset>}"
-  echo "  GREETD_SOCK=\${GREETD_SOCK:-<unset>}"
-  echo "  WLR_RENDERER=\${WLR_RENDERER:-<unset>}"
-} >>"\$_log" 2>&1
+_log_msg "===== start pid=$$ GREETD_SOCK=${GREETD_SOCK:-<unset>} XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-<unset>} ====="
 
-exec cage -s -- "${GREETER_LAUNCHER}" >>"\$_log" 2>&1
+# Kill any orphaned cage from a previous greetd run before we start.
+pkill -KILL -x cage 2>/dev/null || true
+sleep 0.2
+
+while true; do
+    _log_msg "starting cage"
+    cage -s -- "/usr/local/libexec/slm-greeter-greetd-launch" >>"$_log" 2>&1
+    _rc=$?
+    _log_msg "cage exited rc=$_rc"
+
+    # Wait for the user session to be fully registered and its compositor to start.
+    # We use a 3-second grace period because QEMU is slow.
+    sleep 3
+    _waited=3
+
+    # Check for active user sessions.
+    while true; do
+        # 1. Check for kwin_wayland process (any user)
+        if pgrep -x kwin_wayland >/dev/null 2>&1; then
+            [ "$_waited" -eq 3 ] && _log_msg "kwin_wayland detected — holding off cage restart"
+        # 2. Check for any active session for user 1000
+        elif loginctl list-sessions --no-pager 2>/dev/null | grep -v -E "SESSION|greeter" | grep -q .; then
+            [ "$_waited" -eq 3 ] && _log_msg "user session detected via loginctl — holding off cage restart"
+        else
+            # No session detected
+            break
+        fi
+        
+        _waited=$(( _waited + 1 ))
+        sleep 1
+    done
+
+    if [ "$_waited" -gt 3 ]; then
+        _log_msg "user session ended after ${_waited}s — restarting cage"
+        sleep 1
+    else
+        _log_msg "no user session detected after grace period — restarting cage immediately"
+        sleep 0.5
+    fi
+done
 EOF
 chmod 0755 "$GREETER_CAGE_LAUNCHER"
 
@@ -187,7 +222,7 @@ echo "[install-greetd-slm] writing /etc/greetd/config.toml..."
 mkdir -p /etc/greetd
 cat >/etc/greetd/config.toml <<'EOF'
 [terminal]
-vt = 1
+vt = 7
 
 [default_session]
 # Run SLM greeter inside cage (required for Qt/QML greeter).

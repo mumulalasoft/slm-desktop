@@ -226,7 +226,7 @@ Platform check failures are non-fatal by default but downgrade to Safe mode when
 **greetd configuration (`/etc/greetd/config.toml`):**
 ```toml
 [terminal]
-vt = 1
+vt = 7
 
 [default_session]
 command = "slm-greeter"

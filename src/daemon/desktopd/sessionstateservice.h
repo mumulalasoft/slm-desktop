@@ -39,6 +39,10 @@ public slots:
     void Reboot();
     void Lock();
     QVariantMap Unlock(const QString &password);
+    // Force the session into Locked state without going through the normal
+    // user-driven Lock() flow. Intended for slm-lockd to invoke when the
+    // shell process disappears unexpectedly. Idempotent.
+    QVariantMap ForceLocked(const QString &reason);
 
 signals:
     void serviceRegisteredChanged();
@@ -47,6 +51,10 @@ signals:
     void LockStateChanged(const QString &state);
     void IdleChanged(bool idle);
     void ActiveAppChanged(const QString &app_id);
+    // Forwarded from SessionStateManager.onPrepareForSleep(false). Shell
+    // listens for this and re-attaches the LayerShell security overlay on
+    // each output after a wake.
+    void Resumed();
 
 private:
     QString throttleKey() const;

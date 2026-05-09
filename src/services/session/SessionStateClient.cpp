@@ -1,5 +1,6 @@
 #include "SessionStateClient.h"
 
+#include <QDebug>
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
 #include <QDBusInterface>
@@ -156,6 +157,12 @@ void SessionStateClient::onLockStateChanged(const QString &state)
     }
 }
 
+void SessionStateClient::onResumed()
+{
+    qInfo().noquote() << "[LOCKSCREEN] [RESUME] desktopd reports system resumed";
+    emit resumed();
+}
+
 void SessionStateClient::onNameOwnerChanged(const QString &name,
                                             const QString &oldOwner,
                                             const QString &newOwner)
@@ -194,6 +201,13 @@ void SessionStateClient::bindSignals()
                 QStringLiteral("LockStateChanged"),
                 this,
                 SLOT(onLockStateChanged(QString)));
+
+    bus.connect(QString::fromLatin1(kService),
+                QString::fromLatin1(kPath),
+                QString::fromLatin1(kIface),
+                QStringLiteral("Resumed"),
+                this,
+                SLOT(onResumed()));
 
     auto *watcher = new QDBusServiceWatcher(QString::fromLatin1(kService),
                                              bus,

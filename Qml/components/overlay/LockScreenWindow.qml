@@ -103,6 +103,24 @@ Window {
         onTriggered: root.syncSecurityLayerSurface()
     }
 
+    // After a system resume the LayerShell surface may need re-attaching per
+    // output, especially when monitors come back in a different order. The
+    // SessionStateClient.resumed signal is forwarded from desktopd's
+    // PrepareForSleep(false) handler.
+    Connections {
+        target: (typeof SessionStateClient !== "undefined") ? SessionStateClient : null
+        ignoreUnknownSignals: true
+        function onResumed() {
+            if (!root.layerShellSupported || typeof SecurityLayerShell === "undefined" || !SecurityLayerShell) {
+                return
+            }
+            console.info("[LOCKSCREEN] [RESUME] re-attaching security overlay screen="
+                         + (root.targetScreen && root.targetScreen.name ? root.targetScreen.name : "default"))
+            SecurityLayerShell.onWindowAboutToShow()
+            root.syncSecurityLayerSurface()
+        }
+    }
+
     Component.onCompleted: {
         if (root.layerShellSupported && typeof SecurityLayerShell !== "undefined" && SecurityLayerShell) {
             SecurityLayerShell.prepareSecurityOverlayWindow(root)

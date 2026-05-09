@@ -7,22 +7,25 @@ REPO_DIR="${SLM_QEMU_GUEST_REPO_DIR:-/mnt/hostshare}"
 BUILD_DIR="${SLM_QEMU_GUEST_BUILD_DIR:-$HOME/.cache/slm-qemu/build/dev}"
 GENERATOR="${SLM_QEMU_GUEST_GENERATOR:-Ninja}"
 BUILD_TYPE="${SLM_QEMU_GUEST_BUILD_TYPE:-Debug}"
-TARGET="${SLM_QEMU_GUEST_TARGET:-appSlm_Desktop}"
 JOBS="${SLM_QEMU_GUEST_JOBS:-$(nproc)}"
+CMAKE_PREFIX_PATH="${SLM_QEMU_GUEST_CMAKE_PREFIX_PATH:-}"
+TARGETS=()
 
 usage() {
     cat <<EOF
 Usage: bash scripts/dev/qemu-guest-build.sh [options]
 
 Options:
-  --repo-dir PATH    Repo path in guest. Default: $REPO_DIR
+  --repo-dir PATH    Repo path. Default: $REPO_DIR
   --build-dir PATH   Build directory. Default: $BUILD_DIR
   --generator NAME   CMake generator. Default: $GENERATOR
   --type NAME        CMAKE_BUILD_TYPE. Default: $BUILD_TYPE
-  --target NAME      Build target. Default: $TARGET
+  --target NAME      Build target (repeatable). Default: appSlm_Desktop
   --jobs N           Parallel build jobs. Default: $JOBS
+  --cmake-prefix P   CMAKE_PREFIX_PATH passed at configure. Default: <unset>
   --configure-only   Only run cmake configure
   --build-only       Skip configure and only build
+  --no-run           Compatibility no-op (this script never runs binaries)
   --help             Show this help
 EOF
 }
@@ -48,11 +51,15 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         --target)
-            TARGET="$2"
+            TARGETS+=("$2")
             shift 2
             ;;
         --jobs)
             JOBS="$2"
+            shift 2
+            ;;
+        --cmake-prefix)
+            CMAKE_PREFIX_PATH="$2"
             shift 2
             ;;
         --configure-only)
@@ -61,6 +68,9 @@ while [[ $# -gt 0 ]]; do
             ;;
         --build-only)
             BUILD_ONLY=1
+            shift
+            ;;
+        --no-run)
             shift
             ;;
         --help|-h)
@@ -74,6 +84,10 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+if [[ ${#TARGETS[@]} -eq 0 ]]; then
+    TARGETS=("${SLM_QEMU_GUEST_TARGET:-appSlm_Desktop}")
+fi
 
 if [[ "$CONFIGURE_ONLY" == "1" && "$BUILD_ONLY" == "1" ]]; then
     echo "[qemu-guest-build] ERROR: --configure-only dan --build-only tidak bisa dipakai bersamaan." >&2
@@ -107,12 +121,21 @@ if [[ "$BUILD_ONLY" != "1" ]]; then
     echo "  build dir : $BUILD_DIR"
     echo "  generator : $GENERATOR"
     echo "  type      : $BUILD_TYPE"
-    cmake -S "$REPO_DIR" -B "$BUILD_DIR" -G "$GENERATOR" -DCMAKE_BUILD_TYPE="$BUILD_TYPE"
+    echo "  prefix    : ${CMAKE_PREFIX_PATH:-<unset>}"
+    CONFIGURE_ARGS=(-S "$REPO_DIR" -B "$BUILD_DIR" -G "$GENERATOR" -DCMAKE_BUILD_TYPE="$BUILD_TYPE")
+    if [[ -n "$CMAKE_PREFIX_PATH" ]]; then
+        CONFIGURE_ARGS+=(-DCMAKE_PREFIX_PATH="$CMAKE_PREFIX_PATH")
+    fi
+    cmake "${CONFIGURE_ARGS[@]}"
 fi
 
 if [[ "$CONFIGURE_ONLY" != "1" ]]; then
     echo "[qemu-guest-build] Building"
-    echo "  target : $TARGET"
-    echo "  jobs   : $JOBS"
-    cmake --build "$BUILD_DIR" --target "$TARGET" -j "$JOBS"
+    echo "  targets : ${TARGETS[*]}"
+    echo "  jobs    : $JOBS"
+    BUILD_ARGS=(--build "$BUILD_DIR" -j "$JOBS")
+    for t in "${TARGETS[@]}"; do
+        BUILD_ARGS+=(--target "$t")
+    done
+    cmake "${BUILD_ARGS[@]}"
 fi

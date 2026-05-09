@@ -25,6 +25,16 @@ SessionStateManager::SessionStateManager(WindowingBackendManager *windowingBacke
                                           QStringLiteral("ActiveChanged"),
                                           this,
                                           SLOT(onScreenSaverActiveChanged(bool)));
+
+    // logind PrepareForSleep is a system-bus signal. Pre-suspend we force a
+    // lock so the screen never wakes back up unlocked; on resume we relay so
+    // the shell can re-sync its LayerShell security overlay per output.
+    QDBusConnection::systemBus().connect(QStringLiteral("org.freedesktop.login1"),
+                                          QStringLiteral("/org/freedesktop/login1"),
+                                          QStringLiteral("org.freedesktop.login1.Manager"),
+                                          QStringLiteral("PrepareForSleep"),
+                                          this,
+                                          SLOT(onPrepareForSleep(bool)));
 }
 
 quint32 SessionStateManager::Inhibit(const QString &reason, uint flags)
@@ -100,6 +110,11 @@ void SessionStateManager::Reboot()
 
 void SessionStateManager::Lock()
 {
+    if (m_idle) {
+        // Already locked/idle. Idempotent so PrepareForSleep can fire repeatedly
+        // (or race with a manual Lock) without re-emitting SessionLocked.
+        return;
+    }
     if (callScreenSaver(QStringLiteral("Lock"))) {
         emit SessionLocked();
         emitIdle(true);
@@ -215,4 +230,15 @@ void SessionStateManager::emitActiveApp(const QString &appId)
 void SessionStateManager::onScreenSaverActiveChanged(bool active)
 {
     emitIdle(active);
+}
+
+void SessionStateManager::onPrepareForSleep(bool sleeping)
+{
+    if (sleeping) {
+        qInfo().noquote() << "[LOCKD] [SUSPEND] entering sleep, locking session";
+        Lock();
+    } else {
+        qInfo().noquote() << "[LOCKD] [RESUME] woke from sleep";
+        emit Resumed();
+    }
 }

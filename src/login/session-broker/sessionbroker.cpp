@@ -12,6 +12,7 @@
 #include <QSaveFile>
 #include <QStandardPaths>
 #include <QThread>
+#include <signal.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -19,6 +20,13 @@
 #include <unistd.h>
 
 namespace Slm::Login {
+
+static volatile sig_atomic_t s_terminationRequested = 0;
+
+void SessionBroker::requestTermination()
+{
+    s_terminationRequested = 1;
+}
 
 namespace {
 
@@ -553,8 +561,23 @@ void SessionBroker::removeStaleSlmSockets()
     for (const QString &entry : entries) {
         if (!entry.startsWith(QStringLiteral("slm-wayland-"))) continue;
         const QString socketPath = runtimeDir + QStringLiteral("/") + entry;
-        if (isUnixSocket(socketPath) && QFile::remove(socketPath))
+        if (isUnixSocket(socketPath) && QFile::remove(socketPath)) {
             qWarning("compositor: removed stale slm socket: %s", qPrintable(socketPath));
+            const QString lockPath = socketPath + QStringLiteral(".lock");
+            if (QFile::remove(lockPath))
+                qWarning("compositor: removed stale slm lock: %s", qPrintable(lockPath));
+            // Kill any orphaned compositor that still holds the DRM master.
+            // We have not launched ours yet, so any kwin_wayland alive is a leftover.
+            QProcess::execute(QStringLiteral("pkill"),
+                              {QStringLiteral("-TERM"), QStringLiteral("-x"),
+                               QStringLiteral("kwin_wayland")});
+            QThread::msleep(400);
+            QProcess::execute(QStringLiteral("pkill"),
+                              {QStringLiteral("-KILL"), QStringLiteral("-x"),
+                               QStringLiteral("kwin_wayland")});
+            QThread::msleep(100);
+            qWarning("compositor: killed orphaned kwin_wayland (if any)");
+        }
     }
 }
 
@@ -852,6 +875,11 @@ QString SessionBroker::monitorSession()
     };
 
     while (m_compositorProcess.state() == QProcess::Running) {
+        if (s_terminationRequested) {
+            qInfo("session: SIGTERM received — graceful shutdown");
+            terminateCompositor(QStringLiteral("external-sigterm"));
+            return {};
+        }
         if (m_compositorProcess.waitForFinished(250)) {
             const bool shellRendered = readLifecycleMarker(QStringLiteral("firstFrame"));
             if (shellRendered) {
@@ -919,7 +947,8 @@ QString SessionBroker::monitorSession()
             return reason;
         }
 
-        if (m_shellLaunchTimeMs > 0
+        if (!m_promotedHealthyFromFirstFrame
+            && m_shellLaunchTimeMs > 0
             && !readLifecycleMarker(QStringLiteral("firstFrame"))
             && !watchdogMarkedHealthy()
             && QDateTime::currentMSecsSinceEpoch() - m_shellLaunchTimeMs
@@ -1062,8 +1091,7 @@ QString SessionBroker::compositorLogHint() const
             || lower.contains(QStringLiteral("could not load the qt platform plugin"))) {
         return QStringLiteral("hint=qt-platform-plugin-load-failed");
     }
-    if (lower.contains(QStringLiteral("failed to create backend"))
-            || lower.contains(QStringLiteral("no backend"))) {
+    if (lower.contains(QStringLiteral("failed to create backend"))) {
         return QStringLiteral("hint=kwin-backend-create-failed");
     }
     return {};

@@ -101,6 +101,16 @@ private:
         bool exposeSeen = false;
         int lastLayer = -1;
         int lastKeyboardInteractivity = -1;
+        // Cache of the last *applied* configure parameters (post-grace).
+        // Used to short-circuit identical re-invocations from QML retry timers
+        // and property change cascades.
+        bool hasAppliedConfigure = false;
+        int appliedAnchors = -1;
+        int appliedExclusiveZone = -1;
+        QString appliedScope;
+        int appliedWidth = -1;
+        int appliedHeight = -1;
+        QRect appliedInputRegion;
     };
 
     SurfaceState &stateFor(QWindow *window);

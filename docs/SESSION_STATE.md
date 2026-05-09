@@ -4,10 +4,10 @@ Last updated: 2026-05-08, Asia/Jakarta
 
 ## Current Git State
 
-Current branch head:
+Current branch head: `wip/next-from-main`, on top of `5110aaa Implement secure LayerShell lockscreen flow`.
 
-- `5110aaa Implement secure LayerShell lockscreen flow`
-- Previous architecture commit: `d608379 Implement deterministic LayerShell shell policy`
+In-flight (uncommitted on this branch) work covers items 5, 6, and 7 from the
+"Important Remaining Work" list. See "Recent Iteration" below.
 
 Known uncommitted local state that is intentionally not part of the last commits:
 
@@ -117,7 +117,98 @@ Notes:
 - `dbus-run-session -- ./build/icu78/sessionstateservice_dbus_test` failed in this sandbox because `dbus-daemon` could not bind `/tmp/dbus-*`.
 - QEMU smoke was not fully validated after lockscreen work because QEMU/SSH availability was inconsistent in this environment.
 
+## Recent Iteration (in-flight, uncommitted)
+
+This iteration tightens the lockscreen security boundary against three leak
+paths: screenshot capture while locked, UI process crash, and suspend/resume.
+
+### Item 5 — Hard block screenshots while locked
+
+- `ShellInputRouter::actionAllowedInLayer` rejects any `screenshot.*` action
+  when the active layer is `LockScreen`.
+- `ScreenshotManager` gained `setLockedProvider(std::function<bool()>)`. All
+  five public capture entry points (`capture`, `captureFullscreen`,
+  `captureWindow`, `captureArea`, `captureAreaRect`) early-return
+  `{ok:false, error:"session-locked"}` when the provider reports true.
+- `main.cpp` wires the provider as `[&sessionStateClient](){ return sessionStateClient.locked(); }`.
+- New unit test `tests/screenshotmanager_lock_test.cpp` (9 tests) and an added
+  `lockScreen_blocksScreenshots` case in `tests/shell_input_router_test.cpp`.
+- Side fix: `tests/shell_input_router_test.cpp` had stale `AppHub` /
+  `setAppHubVisible` / `apphubVisible` references that no longer matched
+  `ShellStateController` (renamed to AppDeck). Renamed in-place; the test
+  suite now compiles and runs (22 tests pass).
+
+### Item 6 — `slm-lockd` supervisor + `ForceLocked`
+
+- New binary `slm-lockd` (target in top-level `CMakeLists.txt`). Sources:
+  `src/daemon/lockd/lockd_main.cpp`, `src/daemon/lockd/shellliveness.{h,cpp}`.
+  Pure `QCoreApplication` daemon — no UI in this iteration.
+- `ShellLiveness` watches `org.slm.Desktop` via `QDBusServiceWatcher`. On
+  loss it emits `shellLost("shell-process-died")`; lockd then calls
+  `org.slm.SessionState.ForceLocked(reason)` so desktopd's authoritative
+  lock state remains `Locked` even though the UI is gone.
+- `SessionStateService` gained a `ForceLocked(QString reason)` DBus method
+  (idempotent; logs `[LOCKD] ForceLocked …`; routed through `setLockState`
+  which dedups when already `Locked`).
+- `slm-desktop` now registers the well-known DBus name `org.slm.Desktop`
+  in `main.cpp` early in startup so the watcher has a stable target.
+- New unit test `tests/lockd_shell_liveness_test.cpp` (6 tests).
+- **Deferred to next iteration:** the in-process emergency LayerShell lock
+  UI (full-screen raster window with password input) — current scope is the
+  state-preservation failsafe. Without the visual emergency UI, the screen
+  may briefly show the previous frame after a shell crash, but unlock
+  always requires a fresh PAM round-trip via `desktopd.Unlock`.
+
+### Item 7 — Logind `PrepareForSleep` integration
+
+- `SessionStateManager` subscribes to
+  `org.freedesktop.login1.Manager.PrepareForSleep` on the **system bus**.
+  - On sleep (`true`): logs `[LOCKD] [SUSPEND] entering sleep, locking session`,
+    calls `Lock()`. `Lock()` is now idempotent (early-returns when `m_idle`
+    is already true) so repeated PrepareForSleep events do not re-emit
+    `SessionLocked`.
+  - On wake (`false`): logs `[LOCKD] [RESUME] woke from sleep`, emits new
+    `Resumed()` signal. Wake never auto-unlocks.
+- `SessionStateService` declares a new `Resumed()` DBus signal and forwards
+  the manager's `Resumed` to it.
+- `SessionStateService::Lock()` is now idempotent: returns early when the
+  current state is `Locking` or `Locked` (logs the no-op).
+- `SessionStateClient` subscribes to the `Resumed` DBus signal and re-emits
+  it as the QML-visible Qt signal `resumed()`.
+- `Qml/components/overlay/LockScreenWindow.qml` listens for
+  `SessionStateClient.resumed()` and re-attaches the SecurityLayer overlay
+  per output (matters when monitor topology changed during suspend).
+- New unit test `tests/sessionstatemanager_suspend_test.cpp` (6 tests
+  covering suspend/resume routing, idempotency, and signal counts).
+
+### Test summary for this iteration
+
+```
+shell_input_router_test                22 passed, 0 failed
+screenshotmanager_lock_test             9 passed, 0 failed
+sessionstatemanager_suspend_test        6 passed, 0 failed
+lockd_shell_liveness_test               6 passed, 0 failed
+appdecksystem_render_contract_test     13 passed, 0 failed
+sessionstateservice_dbus_test           8 passed, 0 failed, 1 skipped
+```
+
+The skipped test in `sessionstateservice_dbus_test` is the PAM-success path,
+which requires `SLM_TEST_UNLOCK_PASSWORD` to be set in the env (unchanged).
+
+Forbidden-pattern scan is clean.
+
 ## Important Remaining Work
+
+### 0. Emergency LayerShell lock UI (was the second half of item 6)
+
+The supervisor (slm-lockd) now ensures daemon state stays `Locked` when the
+shell dies, but no emergency visual UI is shown in that window. Next:
+
+- Add an in-process emergency LayerShell window (raster `QGuiApplication`
+  inside `slm-lockd`, no QML) using LayerShellQt directly: OverlayLayer +
+  Exclusive keyboard + per-output instances. Hard-coded look (black bg,
+  centered password field). Unlock goes through `desktopd.Unlock` only;
+  no local PAM. Hide once the shell's own SecurityLayer surface returns.
 
 ### 1. Runtime QEMU Validation
 
@@ -184,35 +275,26 @@ Expected:
 - Five failures trigger rate limit.
 - PAM unavailable returns a failure state, never unlock.
 
-### 5. Screenshot/Input Policy While Locked
+### 5. Screenshot/Input Policy While Locked  *(landed this iteration)*
 
-Current lockscreen blocks shell shortcuts through `ShellInputRouter`, but screenshot/app preview sanitization needs a dedicated runtime pass.
+Hard-blocked at both `ShellInputRouter` (input gate) and `ScreenshotManager`
+(capture gate). Workspace thumbnail / app preview blur is still pending and
+remains as separable follow-up work.
 
-Next work:
+### 6. UI Crash Failsafe  *(supervisor landed this iteration; emergency UI deferred)*
 
-- Block or sanitize screenshot requests while locked.
-- Hide/blur workspace thumbnails and app previews while locked.
-- Add tests that `ShellInputRouter` blocks screenshot actions during `LockScreen`.
+`slm-lockd` supervisor watches `org.slm.Desktop` and forces `Locked` when
+the shell vanishes. Authoritative state therefore survives a UI crash. The
+in-process emergency LayerShell window (visual fallback while shell respawns)
+is the remaining piece; see "Important Remaining Work — 0" above.
 
-### 6. UI Crash Failsafe
+### 7. logind/Idle/Resume Integration  *(landed this iteration)*
 
-The current implementation prevents QML from unlocking without PAM, but a full `slm-lockd` watchdog/restart path is not fully separated as a standalone daemon.
-
-Next work:
-
-- Split/alias `desktopd` lock authority into explicit `slm-lockd` service or target.
-- Add lockscreen UI crash detection.
-- Restart lockscreen UI while keeping daemon state `Locked`.
-- Add an emergency minimal lock UI path.
-
-### 7. logind/Idle/Resume Integration
-
-Next work:
-
-- Validate suspend/resume flow.
-- Ensure wake shows lockscreen before desktop content flashes.
-- Integrate logind session lock state more explicitly.
-- Add logs for resume and monitor re-map.
+Logind `PrepareForSleep` is wired through `SessionStateManager`. Auto-lock
+fires before suspend; `[SUSPEND]` and `[RESUME]` log tags are emitted; the
+`Resumed` signal propagates through the service → client → QML chain so
+the security overlay re-attaches per output on wake. Wayland idle-protocol
+auto-lock remains deferred.
 
 ## Do Not Regress
 
@@ -231,14 +313,31 @@ Do not reintroduce:
 Build core targets:
 
 ```bash
-cmake --build build/icu78 -j4 --target desktopd slm-desktop appdecksystem_render_contract_test sessionstateservice_dbus_test
+cmake --build build/icu78 -j4 --target \
+    desktopd slm-desktop slm-lockd \
+    appdecksystem_render_contract_test \
+    sessionstateservice_dbus_test \
+    shell_input_router_test \
+    screenshotmanager_lock_test \
+    lockd_shell_liveness_test \
+    sessionstatemanager_suspend_test
 ```
 
-Run contract tests:
+Run contract / unit tests:
 
 ```bash
 ./build/icu78/appdecksystem_render_contract_test
 ./build/icu78/sessionstateservice_dbus_test
+QT_QPA_PLATFORM=offscreen ./build/icu78/shell_input_router_test
+./build/icu78/screenshotmanager_lock_test
+QT_QPA_PLATFORM=offscreen ./build/icu78/sessionstatemanager_suspend_test
+QT_QPA_PLATFORM=offscreen ./build/icu78/lockd_shell_liveness_test
+```
+
+Smoke run slm-lockd (won't lock anything without a real session bus + desktopd):
+
+```bash
+./build/icu78/slm-lockd --shell-name org.slm.Desktop
 ```
 
 Scan forbidden runtime patterns:

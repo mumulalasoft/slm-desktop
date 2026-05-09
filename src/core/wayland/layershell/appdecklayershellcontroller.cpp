@@ -365,6 +365,26 @@ bool AppDeckLayerShellController::configure(QWindow *window,
 
     SurfaceState &state = stateFor(window);
     const bool prevAttached = state.attached;
+    const int safeExclusiveZone = qMax(0, exclusiveZone);
+
+    // Idempotent path: when the surface has already been attached and geometry
+    // applied (post-grace) with identical parameters, skip everything — no log,
+    // no Wayland calls. This kills the [STACKING]/[INPUT_REGION] storm caused
+    // by QML retry timers and property cascades that re-invoke configure with
+    // unchanged values every few hundred ms.
+    if (prevAttached
+        && state.geometrySafe
+        && state.hasAppliedConfigure
+        && state.lastLayer == layer
+        && state.lastKeyboardInteractivity == keyboardInteractivity
+        && state.appliedAnchors == anchors
+        && state.appliedExclusiveZone == safeExclusiveZone
+        && state.appliedScope == scope
+        && state.appliedWidth == width
+        && state.appliedHeight == height
+        && state.appliedInputRegion == inputRegion) {
+        return true;
+    }
 
 #ifdef SLM_HAVE_LAYERSHELLQT
     if (!state.layerWindow || !prevAttached) {
@@ -388,10 +408,12 @@ bool AppDeckLayerShellController::configure(QWindow *window,
             qtAnchors |= LayerShellQt::Window::AnchorRight;
         }
         state.layerWindow->setAnchors(static_cast<LayerShellQt::Window::Anchor>(qtAnchors));
-        state.layerWindow->setExclusiveZone(qMax(0, exclusiveZone));
+        state.layerWindow->setExclusiveZone(safeExclusiveZone);
         state.layerWindow->setScope(scope);
     }
-    state.layerWindow->setExclusiveZone(qMax(0, exclusiveZone));
+    if (state.appliedExclusiveZone != safeExclusiveZone) {
+        state.layerWindow->setExclusiveZone(safeExclusiveZone);
+    }
     if (state.lastLayer != layer) {
         state.layerWindow->setLayer(layer == WlrLayerShell::LayerOverlay
                                 ? LayerShellQt::Window::LayerOverlay
@@ -419,13 +441,15 @@ bool AppDeckLayerShellController::configure(QWindow *window,
         if (!m_fallbackLayerShell->configureAsLayerSurface(window,
                                                            layer,
                                                            anchors,
-                                                           qMax(0, exclusiveZone),
+                                                           safeExclusiveZone,
                                                            scope)) {
             return false;
         }
         state.attached = true;
     }
-    m_fallbackLayerShell->setExclusiveZone(window, qMax(0, exclusiveZone));
+    if (state.appliedExclusiveZone != safeExclusiveZone) {
+        m_fallbackLayerShell->setExclusiveZone(window, safeExclusiveZone);
+    }
     if (state.lastLayer != layer) {
         m_fallbackLayerShell->setLayer(window, layer);
     }
@@ -441,14 +465,28 @@ bool AppDeckLayerShellController::configure(QWindow *window,
         << "scope=" + scope
         << "layer=" + layerName(layer)
         << "anchors=" + anchorName(anchors)
-        << "exclusiveZone=" + QString::number(qMax(0, exclusiveZone))
+        << "exclusiveZone=" + QString::number(safeExclusiveZone)
         << "size=" + QStringLiteral("%1x%2").arg(qMax(1, width)).arg(qMax(1, height))
         << "input=" + QStringLiteral("%1,%2 %3x%4")
                         .arg(qMax(0, inputRegion.x()))
                         .arg(qMax(0, inputRegion.y()))
                         .arg(qMax(1, inputRegion.width()))
                         .arg(qMax(1, inputRegion.height()));
-    return applyGeometry(window, width, height, inputRegion);
+    const bool applyOk = applyGeometry(window, width, height, inputRegion);
+    // Only mark the configure as applied (and arm the idempotency cache) once
+    // the grace period is over and applyGeometry actually pushed the geometry
+    // to the surface. Calls during grace stay non-idempotent so the post-grace
+    // call still performs the resize/setMask.
+    if (applyOk && state.geometrySafe) {
+        state.hasAppliedConfigure = true;
+        state.appliedAnchors = anchors;
+        state.appliedExclusiveZone = safeExclusiveZone;
+        state.appliedScope = scope;
+        state.appliedWidth = width;
+        state.appliedHeight = height;
+        state.appliedInputRegion = inputRegion;
+    }
+    return applyOk;
 }
 
 bool AppDeckLayerShellController::applyGeometry(QWindow *window,
@@ -579,6 +617,13 @@ void AppDeckLayerShellController::watchWindow(QWindow *window)
             state.geometrySafe = false;
             state.lastLayer = -1;
             state.lastKeyboardInteractivity = -1;
+            state.hasAppliedConfigure = false;
+            state.appliedAnchors = -1;
+            state.appliedExclusiveZone = -1;
+            state.appliedScope.clear();
+            state.appliedWidth = -1;
+            state.appliedHeight = -1;
+            state.appliedInputRegion = QRect();
         });
     });
 }

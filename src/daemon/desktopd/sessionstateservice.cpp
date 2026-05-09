@@ -39,6 +39,8 @@ SessionStateService::SessionStateService(SessionStateManager *manager, QObject *
                 this, &SessionStateService::IdleChanged);
         connect(m_manager, &SessionStateManager::ActiveAppChanged,
                 this, &SessionStateService::ActiveAppChanged);
+        connect(m_manager, &SessionStateManager::Resumed,
+                this, &SessionStateService::Resumed);
     }
 }
 
@@ -182,6 +184,22 @@ void SessionStateService::Lock()
     }
     const QString requestId = SlmDbusLog::nextRequestId();
     const QString caller = calledFromDBus() ? message().service() : QString();
+    if (m_lockState == QString::fromLatin1(kStateLocked)
+            || m_lockState == QString::fromLatin1(kStateLocking)) {
+        // Idempotent: PrepareForSleep can race with a manual Lock or fire
+        // repeatedly across redundant suspend signals. Don't re-emit
+        // LockStateChanged or re-run the manager call.
+        SlmDbusLog::logEvent(QString::fromLatin1(kService),
+                         QStringLiteral("Lock"),
+                         requestId,
+                         caller,
+                         QString(),
+                         QStringLiteral("finish"),
+                         {{QStringLiteral("ok"), true},
+                          {QStringLiteral("noop"), true},
+                          {QStringLiteral("lock_state"), lockState()}});
+        return;
+    }
     setLockState(QString::fromLatin1(kStateLocking), QStringLiteral("lock-request"));
     if (m_manager) {
         m_manager->Lock();
@@ -301,6 +319,52 @@ QVariantMap SessionStateService::Unlock(const QString &password)
     return result;
 }
 
+QVariantMap SessionStateService::ForceLocked(const QString &reason)
+{
+    if (!checkPermission(Slm::Permissions::Capability::SessionLock,
+                         QStringLiteral("ForceLocked"))) {
+        return {
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), QStringLiteral("permission-denied")},
+            {QStringLiteral("lock_state"), lockState()},
+        };
+    }
+    const QString requestId = SlmDbusLog::nextRequestId();
+    const QString caller = calledFromDBus() ? message().service() : QString();
+    const QString resolvedReason = reason.trimmed().isEmpty()
+            ? QStringLiteral("force-locked")
+            : reason.trimmed();
+
+    qInfo().noquote() << "[LOCKD] ForceLocked caller="
+                      << (caller.isEmpty() ? QStringLiteral("<local>") : caller)
+                      << "reason=" << resolvedReason
+                      << "current_state=" << m_lockState;
+
+    const bool wasAlreadyLocked = (m_lockState == QString::fromLatin1(kStateLocked));
+
+    // setLockState dedups if already Locked. We always drive to Locked here,
+    // skipping the Locking transition because the trigger is a hard event
+    // (shell crash, suspend race) — there is no in-progress lock to wait on.
+    setLockState(QString::fromLatin1(kStateLocked), resolvedReason);
+
+    SlmDbusLog::logEvent(QString::fromLatin1(kService),
+                     QStringLiteral("ForceLocked"),
+                     requestId,
+                     caller,
+                     QString(),
+                     QStringLiteral("finish"),
+                     {{QStringLiteral("ok"), true},
+                      {QStringLiteral("noop"), wasAlreadyLocked},
+                      {QStringLiteral("reason"), resolvedReason},
+                      {QStringLiteral("lock_state"), lockState()}});
+    return {
+        {QStringLiteral("ok"), true},
+        {QStringLiteral("noop"), wasAlreadyLocked},
+        {QStringLiteral("reason"), resolvedReason},
+        {QStringLiteral("lock_state"), lockState()},
+    };
+}
+
 void SessionStateService::registerDbusService()
 {
     QDBusConnection bus = QDBusConnection::sessionBus();
@@ -363,6 +427,7 @@ void SessionStateService::setupSecurity()
     m_securityGuard.registerMethodCapability(QStringLiteral("org.slm.SessionState"), QStringLiteral("Lock"), Slm::Permissions::Capability::SessionLock);
     m_securityGuard.registerMethodCapability(QStringLiteral("org.slm.SessionState"), QStringLiteral("Unlock"), Slm::Permissions::Capability::SessionUnlock);
     m_securityGuard.registerMethodCapability(QStringLiteral("org.slm.SessionState"), QStringLiteral("Inhibit"), Slm::Permissions::Capability::SessionInhibit);
+    m_securityGuard.registerMethodCapability(QStringLiteral("org.slm.SessionState"), QStringLiteral("ForceLocked"), Slm::Permissions::Capability::SessionLock);
 }
 
 bool SessionStateService::checkPermission(Slm::Permissions::Capability capability, const QString &methodName)

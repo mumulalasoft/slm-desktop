@@ -22,6 +22,25 @@ ScreenshotManager::ScreenshotManager(QObject *parent)
 {
 }
 
+void ScreenshotManager::setLockedProvider(std::function<bool()> provider)
+{
+    m_lockedProvider = std::move(provider);
+}
+
+bool ScreenshotManager::isSessionLocked() const
+{
+    return m_lockedProvider && m_lockedProvider();
+}
+
+QVariantMap ScreenshotManager::lockedResult(const QString &mode)
+{
+    QVariantMap result;
+    result.insert(QStringLiteral("ok"), false);
+    result.insert(QStringLiteral("mode"), mode);
+    result.insert(QStringLiteral("error"), QStringLiteral("session-locked"));
+    return result;
+}
+
 void ScreenshotManager::onPortalResponse(uint response, const QVariantMap &results)
 {
     m_portalGotResponse = true;
@@ -290,6 +309,9 @@ QVariantMap ScreenshotManager::capture(const QString &mode,
                                        const QString &outputPath)
 {
     const QString op = mode.trimmed().toLower();
+    if (isSessionLocked()) {
+        return lockedResult(op);
+    }
     if (op == QStringLiteral("fullscreen")) {
         return captureFullscreen(outputPath);
     }
@@ -312,6 +334,9 @@ QVariantMap ScreenshotManager::capture(const QString &mode,
 
 QVariantMap ScreenshotManager::captureFullscreen(const QString &outputPath)
 {
+    if (isSessionLocked()) {
+        return lockedResult(QStringLiteral("fullscreen"));
+    }
     const QString target = normalizedOutputPath(outputPath);
     const QVariantMap nativeResult = captureViaCompositor(
         QStringLiteral("screenshot fullscreen \"%1\"").arg(target),
@@ -326,6 +351,9 @@ QVariantMap ScreenshotManager::captureFullscreen(const QString &outputPath)
 QVariantMap ScreenshotManager::captureWindow(int x, int y, int width, int height,
                                              const QString &outputPath)
 {
+    if (isSessionLocked()) {
+        return lockedResult(QStringLiteral("window"));
+    }
     QVariantMap result;
     const QString target = normalizedOutputPath(outputPath);
     if (width <= 0 || height <= 0) {
@@ -356,6 +384,9 @@ QVariantMap ScreenshotManager::captureWindow(int x, int y, int width, int height
 
 QVariantMap ScreenshotManager::captureArea(const QString &outputPath)
 {
+    if (isSessionLocked()) {
+        return lockedResult(QStringLiteral("area"));
+    }
     QVariantMap result;
     const QString target = normalizedOutputPath(outputPath);
     result.insert(QStringLiteral("ok"), false);
@@ -368,6 +399,9 @@ QVariantMap ScreenshotManager::captureArea(const QString &outputPath)
 QVariantMap ScreenshotManager::captureAreaRect(int x, int y, int width, int height,
                                                const QString &outputPath)
 {
+    if (isSessionLocked()) {
+        return lockedResult(QStringLiteral("area"));
+    }
     QVariantMap result;
     const QString target = normalizedOutputPath(outputPath);
     if (width <= 0 || height <= 0) {

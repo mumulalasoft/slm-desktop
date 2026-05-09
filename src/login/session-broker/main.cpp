@@ -2,13 +2,17 @@
 #include <QCommandLineParser>
 #include <QCoreApplication>
 #include <QDateTime>
+#include <cerrno>
 #include <cstdio>
+#include <cstring>
+#include <signal.h>
 #include <unistd.h>
 #include "sessionbroker.h"
 
 using namespace Slm::Login;
 
 static FILE *g_logFile = nullptr;
+static int   g_logFd   = -1;   // file descriptor for async-signal-safe writes
 
 static void brokerMessageHandler(QtMsgType type,
                                  const QMessageLogContext &,
@@ -37,10 +41,87 @@ static void brokerMessageHandler(QtMsgType type,
     }
 }
 
+// --- async-signal-safe signal handler ---
+
+static const char *sigName(int sig)
+{
+    switch (sig) {
+    case SIGTERM: return "SIGTERM";
+    case SIGINT:  return "SIGINT";
+    case SIGHUP:  return "SIGHUP";
+    case SIGPIPE: return "SIGPIPE";
+    case SIGABRT: return "SIGABRT";
+    default:      return "SIG?";
+    }
+}
+
+// SA_RESETHAND resets disposition to SIG_DFL before the handler runs,
+// so raise(sig) terminates with the correct signal after we log.
+static void sigHandler(int sig, siginfo_t *info, void *)
+{
+    char buf[128];
+    int len = 0;
+
+    // "[broker] caught signal=SIGTERM(15) sender_pid=1234\n"
+    for (const char *p = "[broker] caught signal="; *p; ++p) buf[len++] = *p;
+    for (const char *p = sigName(sig); *p; ++p)             buf[len++] = *p;
+    buf[len++] = '(';
+    {
+        char tmp[12]; int n = 0, v = sig > 0 ? sig : 0;
+        if (v == 0) { tmp[n++] = '0'; }
+        while (v > 0) { tmp[n++] = '0' + v % 10; v /= 10; }
+        for (int i = n - 1; i >= 0; --i) buf[len++] = tmp[i];
+    }
+    buf[len++] = ')';
+    for (const char *p = " sender_pid="; *p; ++p) buf[len++] = *p;
+    {
+        long long pid = info ? (long long)info->si_pid : -1LL;
+        if (pid < 0) { buf[len++] = '-'; pid = -pid; }
+        char tmp[20]; int n = 0;
+        if (pid == 0) { tmp[n++] = '0'; }
+        while (pid > 0) { tmp[n++] = '0' + (int)(pid % 10); pid /= 10; }
+        for (int i = n - 1; i >= 0; --i) buf[len++] = tmp[i];
+    }
+    buf[len++] = '\n';
+
+    const int fds[2] = { STDERR_FILENO, g_logFd };
+    for (int fd : fds) {
+        if (fd >= 0) write(fd, buf, (size_t)len);
+    }
+
+    if (sig == SIGTERM || sig == SIGINT) {
+        // Request graceful shutdown: monitorSession() will see the flag,
+        // call terminateCompositor(), and let broker exit cleanly.
+        // SA_RESETHAND means a second SIGTERM uses SIG_DFL as a kill-of-last-resort.
+        SessionBroker::requestTermination();
+        return;
+    }
+    raise(sig);
+}
+
 int main(int argc, char *argv[])
 {
     g_logFile = fopen("/tmp/slm-session-broker.log", "a");
+    if (g_logFile) g_logFd = fileno(g_logFile);
     qInstallMessageHandler(brokerMessageHandler);
+
+    // Detach from greetd's POSIX session so that when greetd's worker exits
+    // the kernel does not send SIGHUP to us (session-leader-exit semantics).
+    // logind tracks sessions via cgroup, not POSIX session ID, so this is safe.
+    if (setsid() < 0)
+        qWarning("setsid() failed (already session leader?): %s", strerror(errno));
+
+    // Broker has no app.exec() so Qt's default signal trampolines are inactive.
+    // These raw handlers log the signal + sender PID before re-raising.
+    {
+        const int sigs[] = { SIGTERM, SIGINT, SIGHUP, SIGPIPE, SIGABRT };
+        struct sigaction sa = {};
+        sa.sa_sigaction = sigHandler;
+        sigemptyset(&sa.sa_mask);
+        sa.sa_flags = SA_SIGINFO | SA_RESETHAND;
+        for (int s : sigs)
+            sigaction(s, &sa, nullptr);
+    }
 
     QCoreApplication app(argc, argv);
     app.setOrganizationName(QStringLiteral("SLM"));

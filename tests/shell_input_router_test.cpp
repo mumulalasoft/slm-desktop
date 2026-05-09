@@ -20,8 +20,8 @@ private slots:
     {
         ShellStateController state;
         ShellInputRouter router(&state);
-        state.setAppHubVisible(true);
-        QCOMPARE(router.activeLayer(), ShellInputRouter::ShellLayer::AppHub);
+        state.setAppDeckVisible(true);
+        QCOMPARE(router.activeLayer(), ShellInputRouter::ShellLayer::AppDeck);
     }
 
     void workspaceOverviewLayer_whenWorkspaceVisible()
@@ -44,7 +44,7 @@ private slots:
     {
         ShellStateController state;
         ShellInputRouter router(&state);
-        state.setAppHubVisible(true);
+        state.setAppDeckVisible(true);
         state.setPulseVisible(true);
         state.setLockScreenActive(true);
         QCOMPARE(router.activeLayer(), ShellInputRouter::ShellLayer::LockScreen);
@@ -54,7 +54,7 @@ private slots:
     {
         ShellStateController state;
         ShellInputRouter router(&state);
-        state.setAppHubVisible(true);
+        state.setAppDeckVisible(true);
         state.setPulseVisible(true);
         QCOMPARE(router.activeLayer(), ShellInputRouter::ShellLayer::Pulse);
     }
@@ -77,11 +77,34 @@ private slots:
         QVERIFY(router.canDispatch(QStringLiteral("shell.lock")));
     }
 
+    void lockScreen_blocksScreenshots()
+    {
+        ShellStateController state;
+        ShellInputRouter router(&state);
+        state.setLockScreenActive(true);
+
+        // Hard-block screenshots while locked — defense-in-depth at the input gate.
+        QVERIFY(!router.canDispatch(QStringLiteral("screenshot.area")));
+        QVERIFY(!router.canDispatch(QStringLiteral("screenshot.fullscreen")));
+
+        QSignalSpy spy(&router, &ShellInputRouter::actionDispatched);
+        QCOMPARE(router.dispatch(QStringLiteral("screenshot.area")),
+                 ShellInputRouter::DispatchResult::BlockedByMode);
+        QCOMPARE(router.dispatch(QStringLiteral("screenshot.fullscreen")),
+                 ShellInputRouter::DispatchResult::BlockedByMode);
+        QCOMPARE(spy.count(), 0);
+
+        // Unlocking restores screenshot dispatch.
+        state.setLockScreenActive(false);
+        QVERIFY(router.canDispatch(QStringLiteral("screenshot.area")));
+        QVERIFY(router.canDispatch(QStringLiteral("screenshot.fullscreen")));
+    }
+
     void apphub_blocksWorkspaceNav()
     {
         ShellStateController state;
         ShellInputRouter router(&state);
-        state.setAppHubVisible(true);
+        state.setAppDeckVisible(true);
 
         QVERIFY(!router.canDispatch(QStringLiteral("workspace.prev")));
         QVERIFY(!router.canDispatch(QStringLiteral("workspace.next")));
@@ -180,7 +203,7 @@ private slots:
         ShellInputRouter router(&state);
 
         for (int i = 0; i < 200; ++i) {
-            state.setAppHubVisible(i % 2 == 0);
+            state.setAppDeckVisible(i % 2 == 0);
             state.setWorkspaceOverviewVisible(i % 3 == 0);
             state.setPulseVisible(i % 5 == 0);
             router.dispatch(QStringLiteral("workspace.prev"));
@@ -199,12 +222,12 @@ private slots:
         ShellInputRouter router(&state);
         QSignalSpy spy(&router, &ShellInputRouter::layerChanged);
 
-        state.setAppHubVisible(true);
+        state.setAppDeckVisible(true);
         QCOMPARE(spy.count(), 1);
         QCOMPARE(spy.last().first().value<ShellInputRouter::ShellLayer>(),
-                 ShellInputRouter::ShellLayer::AppHub);
+                 ShellInputRouter::ShellLayer::AppDeck);
 
-        state.setAppHubVisible(false);
+        state.setAppDeckVisible(false);
         QCOMPARE(spy.count(), 2);
         QCOMPARE(spy.last().first().value<ShellInputRouter::ShellLayer>(),
                  ShellInputRouter::ShellLayer::BaseLayer);
@@ -214,10 +237,10 @@ private slots:
     {
         ShellStateController state;
         ShellInputRouter router(&state);
-        state.setAppHubVisible(true);
+        state.setAppDeckVisible(true);
 
         QSignalSpy spy(&router, &ShellInputRouter::layerChanged);
-        state.setAppHubVisible(true); // same value
+        state.setAppDeckVisible(true); // same value
         QCOMPARE(spy.count(), 0);
     }
 
@@ -232,8 +255,8 @@ private slots:
         QSignalSpy timeoutSpy(&router, &ShellInputRouter::overlayDismissTimedOut);
 
         // Overlay already gone before timeout fires
-        state.setAppHubVisible(false);
-        router.scheduleForceDismiss(QStringLiteral("apphub"));
+        state.setAppDeckVisible(false);
+        router.scheduleForceDismiss(QStringLiteral("appdeck"));
         QTest::qWait(40); // let timer fire
 
         QCOMPARE(timeoutSpy.count(), 0);
@@ -247,13 +270,13 @@ private slots:
 
         QSignalSpy timeoutSpy(&router, &ShellInputRouter::overlayDismissTimedOut);
 
-        state.setAppHubVisible(true);
-        router.scheduleForceDismiss(QStringLiteral("apphub"));
+        state.setAppDeckVisible(true);
+        router.scheduleForceDismiss(QStringLiteral("appdeck"));
         QTest::qWait(40); // let timer fire
 
         QCOMPARE(timeoutSpy.count(), 1);
-        QCOMPARE(timeoutSpy.first().first().toString(), QStringLiteral("apphub"));
-        QVERIFY(!state.apphubVisible());
+        QCOMPARE(timeoutSpy.first().first().toString(), QStringLiteral("appdeck"));
+        QVERIFY(!state.appdeckVisible());
     }
 
     void forceDismiss_canBeCancelled()
@@ -264,14 +287,14 @@ private slots:
 
         QSignalSpy timeoutSpy(&router, &ShellInputRouter::overlayDismissTimedOut);
 
-        state.setAppHubVisible(true);
-        router.scheduleForceDismiss(QStringLiteral("apphub"));
-        router.cancelForceDismiss(QStringLiteral("apphub"));
+        state.setAppDeckVisible(true);
+        router.scheduleForceDismiss(QStringLiteral("appdeck"));
+        router.cancelForceDismiss(QStringLiteral("appdeck"));
         QTest::qWait(60); // well past the original timeout
 
         QCOMPARE(timeoutSpy.count(), 0);
         // Overlay is still visible because we cancelled the force-dismiss
-        QVERIFY(state.apphubVisible());
+        QVERIFY(state.appdeckVisible());
     }
 };
 

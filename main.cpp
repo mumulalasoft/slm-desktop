@@ -499,6 +499,30 @@ Window {
     });
     QCoreApplication::setOrganizationName(QStringLiteral("SLM"));
     QCoreApplication::setApplicationName(QStringLiteral("SLM Desktop"));
+
+    // Register a well-known bus name early so slm-lockd's QDBusServiceWatcher
+    // has a stable target. Loss of this name is the primary signal that the
+    // shell process has exited and the lockscreen authority must take over.
+    {
+        QDBusConnection bus = QDBusConnection::sessionBus();
+        if (bus.isConnected()) {
+            const QString shellBusName = QStringLiteral("org.slm.Desktop");
+            QDBusConnectionInterface *iface = bus.interface();
+            const bool already = iface
+                ? iface->isServiceRegistered(shellBusName).value()
+                : false;
+            if (!already) {
+                if (bus.registerService(shellBusName)) {
+                    qInfo().noquote() << "[startup] registered DBus name" << shellBusName;
+                } else {
+                    qWarning().noquote() << "[startup] failed to register DBus name"
+                                         << shellBusName
+                                         << "(supervisor lockd will not detect shell loss)";
+                }
+            }
+        }
+    }
+
     const auto serviceRegistered = [](const QString &service) -> bool {
         QDBusConnectionInterface *iface = QDBusConnection::sessionBus().interface();
         return iface ? iface->isServiceRegistered(service).value() : false;
@@ -661,6 +685,11 @@ Window {
     PulseTextHighlighter pulseTextHighlighter;
     Slm::Clipboard::ClipboardServiceClient clipboardServiceClient;
     Slm::Session::SessionStateClient sessionStateClient;
+    // Defense-in-depth: block all screenshot capture paths while the session is locked.
+    // Pairs with ShellInputRouter's input-gate rejection of screenshot.* actions.
+    screenshotManager.setLockedProvider([&sessionStateClient]() {
+        return sessionStateClient.locked();
+    });
     Slm::Motion::MotionController motionController;
     ShellStateController shellStateController;
     ShellInputRouter shellInputRouter(&shellStateController);
