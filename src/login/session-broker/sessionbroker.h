@@ -55,6 +55,8 @@ private:
     bool                 restartSessionStack(QString *failureReason = nullptr);
 
     QProcessEnvironment  buildShellEnvironment() const;
+    void                 updateUserActivationEnvironment() const;
+    void                 prewarmPortalServices() const;
     bool                 launchShell(QString *failureReason = nullptr);
     bool                 launchWatchdog(QString *failureReason = nullptr);
     QString              monitorSession();

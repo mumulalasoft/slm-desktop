@@ -276,6 +276,77 @@ QString preferredWaylandDisplayForClients(const QString &activeWaylandDisplay)
     return active;
 }
 
+struct CommandExecResult {
+    bool started = false;
+    bool finished = false;
+    int exitCode = -1;
+    QString stdoutText;
+    QString stderrText;
+};
+
+CommandExecResult runCommandWithTimeout(const QString &program,
+                                        const QStringList &arguments,
+                                        int timeoutMs,
+                                        const QProcessEnvironment *environment = nullptr)
+{
+    CommandExecResult result;
+    if (program.trimmed().isEmpty()) {
+        return result;
+    }
+
+    QProcess process;
+    if (environment) {
+        process.setProcessEnvironment(*environment);
+    }
+    process.start(program, arguments);
+    if (!process.waitForStarted(1000)) {
+        return result;
+    }
+
+    result.started = true;
+    if (!process.waitForFinished(timeoutMs)) {
+        process.kill();
+        process.waitForFinished(200);
+        return result;
+    }
+
+    result.finished = true;
+    result.exitCode = process.exitCode();
+    result.stdoutText = QString::fromLocal8Bit(process.readAllStandardOutput()).trimmed();
+    result.stderrText = QString::fromLocal8Bit(process.readAllStandardError()).trimmed();
+    return result;
+}
+
+QStringList desktopActivationVariableNames()
+{
+    return {
+        QStringLiteral("DBUS_SESSION_BUS_ADDRESS"),
+        QStringLiteral("DISPLAY"),
+        QStringLiteral("WAYLAND_DISPLAY"),
+        QStringLiteral("XAUTHORITY"),
+        QStringLiteral("XDG_CURRENT_DESKTOP"),
+        QStringLiteral("XDG_SESSION_DESKTOP"),
+        QStringLiteral("XDG_SESSION_TYPE"),
+        QStringLiteral("XDG_RUNTIME_DIR"),
+        QStringLiteral("QT_QPA_PLATFORM"),
+    };
+}
+
+bool commandOutputMentionsBusName(const QString &text, const QString &busName)
+{
+    if (text.isEmpty() || busName.isEmpty()) {
+        return false;
+    }
+
+    const QStringList lines = text.split(QLatin1Char('\n'), Qt::SkipEmptyParts);
+    for (const QString &line : lines) {
+        if (line.contains(busName)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 } // namespace
 
 SessionBroker::SessionBroker(StartupMode requestedMode, QObject *parent)
@@ -384,6 +455,9 @@ int SessionBroker::run()
         qunsetenv("DISPLAY");
         qunsetenv("XAUTHORITY");
     }
+
+    updateUserActivationEnvironment();
+    prewarmPortalServices();
 
     QString failureReason;
     if (!launchShell(&failureReason)) {
@@ -1041,6 +1115,9 @@ bool SessionBroker::restartSessionStack(QString *failureReason)
         qunsetenv("XAUTHORITY");
     }
 
+    updateUserActivationEnvironment();
+    prewarmPortalServices();
+
     QString reason;
     if (!launchShell(&reason)) {
         terminateCompositor(reason);
@@ -1110,6 +1187,115 @@ QProcessEnvironment SessionBroker::buildShellEnvironment() const
     }
 
     return env;
+}
+
+void SessionBroker::updateUserActivationEnvironment() const
+{
+    const QStringList candidateVars = desktopActivationVariableNames();
+    QStringList activeVars;
+    activeVars.reserve(candidateVars.size());
+    for (const QString &name : candidateVars) {
+        if (!qgetenv(name.toLocal8Bit()).isEmpty()) {
+            activeVars.append(name);
+        }
+    }
+
+    if (activeVars.isEmpty()) {
+        qWarning("session: no activation environment variables available to export");
+        return;
+    }
+
+    const QString systemctl = QStandardPaths::findExecutable(QStringLiteral("systemctl"));
+    if (!systemctl.isEmpty()) {
+        QStringList args{QStringLiteral("--user"), QStringLiteral("import-environment")};
+        args += activeVars;
+        const CommandExecResult result = runCommandWithTimeout(systemctl, args, 2500);
+        if (!result.started) {
+            qWarning("session: failed to run systemctl --user import-environment");
+        } else if (!result.finished) {
+            qWarning("session: systemctl --user import-environment timed out");
+        } else if (result.exitCode != 0) {
+            qWarning("session: systemctl --user import-environment failed (exit=%d stderr=%s)",
+                     result.exitCode,
+                     qPrintable(result.stderrText));
+        } else {
+            qInfo("session: imported activation environment into systemd user manager (%s)",
+                  qPrintable(activeVars.join(QLatin1Char(','))));
+        }
+    }
+
+    const QString dbusUpdate = QStandardPaths::findExecutable(
+        QStringLiteral("dbus-update-activation-environment"));
+    if (!dbusUpdate.isEmpty()) {
+        QStringList args{QStringLiteral("--systemd")};
+        args += activeVars;
+        const CommandExecResult result = runCommandWithTimeout(dbusUpdate, args, 2500);
+        if (!result.started) {
+            qWarning("session: failed to run dbus-update-activation-environment");
+        } else if (!result.finished) {
+            qWarning("session: dbus-update-activation-environment timed out");
+        } else if (result.exitCode != 0) {
+            qWarning("session: dbus-update-activation-environment failed (exit=%d stderr=%s)",
+                     result.exitCode,
+                     qPrintable(result.stderrText));
+        } else {
+            qInfo("session: updated DBus/systemd activation environment");
+        }
+    }
+}
+
+void SessionBroker::prewarmPortalServices() const
+{
+    if (envFlagDisabled("SLM_PORTAL_PREWARM")) {
+        qInfo("session: portal prewarm disabled by SLM_PORTAL_PREWARM=0");
+        return;
+    }
+
+    const QString systemctl = QStandardPaths::findExecutable(QStringLiteral("systemctl"));
+    const QString busctl = QStandardPaths::findExecutable(QStringLiteral("busctl"));
+    if (systemctl.isEmpty() || busctl.isEmpty()) {
+        return;
+    }
+
+    runCommandWithTimeout(systemctl,
+                          {QStringLiteral("--user"), QStringLiteral("reset-failed"),
+                           QStringLiteral("xdg-desktop-portal.service"),
+                           QStringLiteral("xdg-desktop-portal-gtk.service"),
+                           QStringLiteral("xdg-desktop-portal-kde.service"),
+                           QStringLiteral("slm-portald.service")},
+                          2000);
+
+    runCommandWithTimeout(systemctl,
+                          {QStringLiteral("--user"), QStringLiteral("--no-block"),
+                           QStringLiteral("start"), QStringLiteral("slm-portald.service")},
+                          2000);
+    runCommandWithTimeout(systemctl,
+                          {QStringLiteral("--user"), QStringLiteral("--no-block"),
+                           QStringLiteral("start"), QStringLiteral("xdg-desktop-portal.service")},
+                          2000);
+
+    const qint64 deadlineMs = QDateTime::currentMSecsSinceEpoch() + 5000;
+    bool portalAvailable = false;
+    while (QDateTime::currentMSecsSinceEpoch() < deadlineMs) {
+        const CommandExecResult busList =
+            runCommandWithTimeout(busctl,
+                                  {QStringLiteral("--user"), QStringLiteral("list")},
+                                  1000);
+        if (busList.finished
+            && busList.exitCode == 0
+            && commandOutputMentionsBusName(
+                busList.stdoutText, QStringLiteral("org.freedesktop.portal.Desktop"))) {
+            portalAvailable = true;
+            break;
+        }
+        QThread::msleep(200);
+    }
+
+    if (portalAvailable) {
+        qInfo("session: portal prewarm ready (org.freedesktop.portal.Desktop reachable)");
+    } else {
+        qWarning("session: portal prewarm incomplete; portal bus name still unavailable");
+    }
 }
 
 bool SessionBroker::launchShell(QString *failureReason)
