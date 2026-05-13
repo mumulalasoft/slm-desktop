@@ -654,7 +654,7 @@ session    required     pam_env.so readenv=1
 session    required     pam_limits.so
 session    required     pam_unix.so
 session    optional     pam_loginuid.so
-session    required     pam_systemd.so debug
+session    required     pam_systemd.so debug type=wayland class=user desktop=slm
 SLM_PAM
 cat > /etc/pam.d/greetd <<'GREETD_PAM'
 #%PAM-1.0
@@ -666,7 +666,7 @@ session    required     pam_env.so readenv=1
 session    required     pam_limits.so
 session    required     pam_unix.so
 session    optional     pam_loginuid.so
-session    required     pam_systemd.so debug
+session    required     pam_systemd.so debug type=wayland class=user desktop=slm
 GREETD_PAM
 cat > /etc/pam.d/greetd-greeter <<'GREETD_GREETER_PAM'
 #%PAM-1.0
@@ -757,7 +757,7 @@ SLM_GREETER_CAGE
 vt = 7
 
 [initial_session]
-command = \"/usr/local/libexec/slm-session-broker-launch --mode normal\"
+command = \"/usr/bin/env XDG_SESSION_TYPE=wayland XDG_SESSION_CLASS=user XDG_CURRENT_DESKTOP=SLM XDG_SESSION_DESKTOP=SLM DESKTOP_SESSION=slm XDG_SEAT=seat0 /usr/local/libexec/slm-session-broker-launch --mode normal\"
 user = \"\$session_user\"
 
 [default_session]
