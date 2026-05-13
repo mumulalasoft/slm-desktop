@@ -27,6 +27,7 @@ BUILD_ONLY="${SLM_QEMU_SMOKE_BUILD_ONLY:-auto}"
 SKIP_BUILD=0
 STRICT_PROCESS=0
 FAST_MODE="${SLM_QEMU_SMOKE_FAST:-0}"
+ALLOW_PASSWORD_FALLBACK="${SLM_QEMU_ALLOW_PASSWORD_FALLBACK:-0}"
 HOST_ARTIFACT_ROOT="${SLM_QEMU_SESSION_SMOKE_ARTIFACT_ROOT:-$PWD/artifacts/qemu-session-smoke}"
 HOST_REPO_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 HOST_CMAKE_PREFIX_PATH="${SLM_QEMU_HOST_CMAKE_PREFIX_PATH:-/usr}"
@@ -45,6 +46,7 @@ FAST_TARGETS=(
     slm-session-broker
     slm-desktop
     desktopd
+    slm-portald
     slm-lockd
 )
 
@@ -92,6 +94,9 @@ Options:
   --skip-build          Do not build, only sync/install/smoke existing artifacts
   --skip-smoke          Build + install + verify only
   --strict-process      Smoke fails if oracle processes not visible
+  --allow-password-fallback
+                        Allow interactive password fallback if key auth fails.
+                        Default: disabled (strict key auth).
   --help                Show this help
 EOF
 }
@@ -117,6 +122,7 @@ while [[ $# -gt 0 ]]; do
         --skip-build)     SKIP_BUILD=1;            shift   ;;
         --skip-smoke)     RUN_SMOKE=0;             shift   ;;
         --strict-process) STRICT_PROCESS=1;        shift   ;;
+        --allow-password-fallback) ALLOW_PASSWORD_FALLBACK=1; shift ;;
         --help|-h)        usage; exit 0                    ;;
         *) echo "[qemu-smoke] unknown arg: $1" >&2; usage >&2; exit 1 ;;
     esac
@@ -181,8 +187,8 @@ SCP_OPTS=(
     -o "UserKnownHostsFile=$KNOWN_HOSTS"
     -P "$SSH_PORT"
 )
-SSH_CMD=(ssh)
-SCP_CMD=(scp)
+SSH_CMD=(ssh -F /dev/null)
+SCP_CMD=(scp -F /dev/null)
 SSH_BASE_OPTS=("${SSH_OPTS[@]}")
 SCP_BASE_OPTS=("${SCP_OPTS[@]}")
 SSH_PASSWORD_MODE=0
@@ -241,10 +247,10 @@ open_master_connection_interactive() {
 }
 
 if ! open_master_connection; then
-    if interactive_tty_available; then
+    if [[ "$ALLOW_PASSWORD_FALLBACK" == "1" ]] && interactive_tty_available; then
         echo "[qemu-smoke] Public-key auth gagal; mencoba login password interaktif untuk $SSH_HOST..."
-        SSH_CMD=(ssh)
-        SCP_CMD=(scp)
+        SSH_CMD=(ssh -F /dev/null)
+        SCP_CMD=(scp -F /dev/null)
         SSH_OPTS=(
             -o BatchMode=no
             -o PreferredAuthentications=publickey,password,keyboard-interactive
@@ -265,13 +271,9 @@ if ! open_master_connection; then
         fi
     else
         echo "[qemu-smoke] ERROR: SSH login non-interaktif gagal untuk $SSH_HOST port $SSH_PORT." >&2
-        if [[ -n "$SSH_PASSWORD" && "$SSH_PASSWORD_MODE" != "1" ]]; then
-            echo "[qemu-smoke]        SLM_QEMU_SSH_PASSWORD sudah diset, tapi sshpass tidak ditemukan." >&2
-            echo "[qemu-smoke]        Install sshpass di host atau jalankan dari terminal interaktif." >&2
-        else
-            echo "[qemu-smoke]        Tidak ada password/key valid dan /dev/tty tidak tersedia untuk prompt." >&2
-            echo "[qemu-smoke]        Pasang public key ke guest atau set SLM_QEMU_SSH_PASSWORD dengan sshpass tersedia." >&2
-        fi
+        echo "[qemu-smoke]        Script berjalan strict key auth (tanpa prompt password)." >&2
+        echo "[qemu-smoke]        Jalankan sekali: bash scripts/dev/qemu-setup-ssh-key.sh" >&2
+        echo "[qemu-smoke]        Jika ingin fallback password, pakai --allow-password-fallback" >&2
         exit 1
     fi
 fi
@@ -283,6 +285,17 @@ cleanup() {
         -O exit "$SSH_HOST" 2>/dev/null || true
 }
 trap cleanup EXIT
+
+echo "[qemu-smoke] Checking guest sudo non-interactive access..."
+if ! g_ssh "sudo -n true" >/dev/null 2>&1; then
+    echo "[qemu-smoke] ERROR: guest sudo masih meminta password (non-interactive denied)." >&2
+    echo "[qemu-smoke]        Konfigurasikan NOPASSWD untuk user '$SSH_USER' di guest." >&2
+    echo "[qemu-smoke]        Contoh di guest:" >&2
+    echo "[qemu-smoke]        echo '$SSH_USER ALL=(ALL) NOPASSWD:ALL' | sudo tee /etc/sudoers.d/slm-qemu-nopasswd" >&2
+    exit 1
+fi
+echo "[qemu-smoke] Guest sudo non-interactive: OK"
+echo ""
 
 # ── Mount hostshare di guest (hanya perlu untuk pipeline penuh) ───────────────
 if [[ "$FAST_MODE" == "0" ]]; then
@@ -346,6 +359,7 @@ if [[ "$FAST_MODE" == "1" ]]; then
         "$HOST_BUILD_DIR/slm-session-broker" \
         "$HOST_BUILD_DIR/slm-desktop" \
         "$HOST_BUILD_DIR/desktopd" \
+        "$HOST_BUILD_DIR/slm-portald" \
         "$HOST_BUILD_DIR/slm-lockd" \
         "$SSH_HOST:$BUILD_DIR/"
 else
@@ -359,28 +373,47 @@ fi
 # ── Install → Verify ─────────────────────────────────────────────────────────
 echo "[qemu-smoke] Install → verify..."
 if [[ "$FAST_MODE" == "1" ]]; then
-    RCMD="sudo /bin/bash -lc $(printf '%q' "
+    FAST_INSTALL_SCRIPT="$(mktemp)"
+    cat > "$FAST_INSTALL_SCRIPT" <<'SLM_FAST_INSTALL'
+#!/usr/bin/env bash
 set -euo pipefail
-session_user='$(printf "%q" "$SESSION_USER")'
+session_user='__SESSION_USER__'
 session_home=\$(getent passwd \"\$session_user\" | cut -d: -f6)
 if [[ -z \"\$session_home\" ]]; then
     echo '[qemu-smoke][guest] cannot resolve session user home' >&2
     exit 1
 fi
-install -Dm755 '$BUILD_DIR/slm-greeter' /usr/local/bin/slm-greeter
-install -Dm755 '$BUILD_DIR/slm-watchdog' /usr/local/bin/slm-watchdog
-install -Dm755 '$BUILD_DIR/slm-recovery-app' /usr/local/bin/slm-recovery-app
-install -Dm755 '$BUILD_DIR/slm-session-broker' /usr/libexec/slm-session-broker
+
+install_exec_atomic() {
+    local src=\"\$1\"
+    local dst=\"\$2\"
+    local dir base tmp
+    dir=\"\$(dirname \"\$dst\")\"
+    base=\"\$(basename \"\$dst\")\"
+    install -d -m0755 \"\$dir\"
+    tmp=\"\$(mktemp \"\$dir/.\${base}.tmp.XXXXXX\")\"
+    install -m0755 \"\$src\" \"\$tmp\"
+    mv -f \"\$tmp\" \"\$dst\"
+}
+
+install_exec_atomic '__BUILD_DIR__/slm-greeter' /usr/local/bin/slm-greeter
+install_exec_atomic '__BUILD_DIR__/slm-watchdog' /usr/local/bin/slm-watchdog
+install_exec_atomic '__BUILD_DIR__/slm-recovery-app' /usr/local/bin/slm-recovery-app
+install_exec_atomic '__BUILD_DIR__/slm-session-broker' /usr/libexec/slm-session-broker
 ln -sfn /usr/libexec/slm-session-broker /usr/local/bin/slm-session-broker
-install -Dm755 '$BUILD_DIR/slm-desktop' /usr/local/bin/slm-shell.real
-install -Dm755 '$BUILD_DIR/desktopd' /usr/local/bin/desktopd
-install -Dm755 '$BUILD_DIR/slm-lockd' /usr/local/bin/slm-lockd
-cat > /usr/local/bin/slm-shell <<'SLM_SHELL_WRAPPER'
+install_exec_atomic '__BUILD_DIR__/slm-desktop' /usr/local/bin/slm-shell.real
+install_exec_atomic '__BUILD_DIR__/desktopd' /usr/local/bin/desktopd
+install_exec_atomic '__BUILD_DIR__/slm-portald' /usr/local/bin/slm-portald
+install_exec_atomic '__BUILD_DIR__/slm-lockd' /usr/local/bin/slm-lockd
+cat > /tmp/slm-shell.wrapper.\$\$ <<'SLM_SHELL_WRAPPER'
 #!/bin/sh
 unset KWIN_COMPOSE LIBGL_ALWAYS_SOFTWARE QSG_RHI_BACKEND
-exec env QT_QUICK_BACKEND=software SLM_FAST_FIRST_FRAME=1 SLM_STARTUP_LOG=1 SLM_STARTUP_TRACE=1 /usr/local/bin/slm-shell.real "$@"
+exec env QT_QUICK_BACKEND=software SLM_FAST_FIRST_FRAME=1 SLM_STARTUP_LOG=1 SLM_STARTUP_TRACE=1 /usr/local/bin/slm-shell.real \"\$@\"
 SLM_SHELL_WRAPPER
-chmod 755 /usr/local/bin/slm-shell
+/bin/sh -n /tmp/slm-shell.wrapper.\$\$
+install -m0755 /tmp/slm-shell.wrapper.\$\$ /usr/local/bin/.slm-shell.tmp.\$\$
+rm -f /tmp/slm-shell.wrapper.\$\$
+mv -f /usr/local/bin/.slm-shell.tmp.\$\$ /usr/local/bin/slm-shell
 file /usr/local/bin/slm-shell /usr/local/bin/slm-shell.real
 /bin/sh -n /usr/local/bin/slm-shell
 install -d -m0755 /usr/local/libexec
@@ -416,6 +449,7 @@ log=/tmp/slm-session-broker-launch.log
 exec /usr/libexec/slm-session-broker \"\$@\" >>\"\$log\" 2>&1
 SLM_BROKER_LAUNCH
 chmod 0755 /usr/local/libexec/slm-session-broker-launch
+/bin/bash -n /usr/local/libexec/slm-session-broker-launch
 install -d -m0755 /usr/share/wayland-sessions
 cat > /usr/share/wayland-sessions/slm.desktop <<'SLM_DESKTOP_ENTRY'
 [Desktop Entry]
@@ -455,17 +489,137 @@ cat > \"\$session_home/.config/slm-desktop/state.json\" <<'SLM_STATE_JSON'
 }
 SLM_STATE_JSON
 chown \"\$session_user:\$session_user\" \"\$session_home/.config/slm-desktop/config.json\" \"\$session_home/.config/slm-desktop/state.json\"
+session_uid="$(id -u "$session_user")"
+session_group="$(id -gn "$session_user")"
+user_config_home="$session_home/.config"
+user_data_home="$session_home/.local/share"
+portal_config_dir="$user_config_home/xdg-desktop-portal"
+portal_data_dir="$user_data_home/xdg-desktop-portal/portals"
+dbus_service_dir="$user_data_home/dbus-1/services"
+user_unit_dir="$user_config_home/systemd/user"
+install -d -m0755 -o "$session_user" -g "$session_group" \
+    "$portal_config_dir" "$portal_data_dir" "$dbus_service_dir" "$user_unit_dir"
+cat > "$portal_data_dir/slm.portal" <<'SLM_PORTAL_FILE'
+[portal]
+DBusName=org.freedesktop.impl.portal.desktop.slm
+Interfaces=org.freedesktop.impl.portal.FileChooser;org.freedesktop.impl.portal.OpenURI;org.freedesktop.impl.portal.Screenshot;org.freedesktop.impl.portal.ScreenCast;org.freedesktop.impl.portal.Settings;org.freedesktop.impl.portal.Notification;org.freedesktop.impl.portal.Inhibit;org.freedesktop.impl.portal.OpenWith;org.freedesktop.impl.portal.Documents;org.freedesktop.impl.portal.Trash;org.freedesktop.impl.portal.GlobalShortcuts;org.freedesktop.impl.portal.InputCapture;org.freedesktop.impl.portal.Print;
+UseIn=SLM;
+SLM_PORTAL_FILE
+cat > "$portal_config_dir/portals.conf" <<'SLM_PORTALS_CONF'
+[preferred]
+default=gtk
+org.freedesktop.impl.portal.RemoteDesktop=wlr;kde;gtk
+org.freedesktop.impl.portal.Camera=gtk;kde
+org.freedesktop.impl.portal.Location=gtk;kde
+org.freedesktop.impl.portal.InputCapture=wlr;kde;gtk
+SLM_PORTALS_CONF
+cp "$portal_config_dir/portals.conf" "$portal_config_dir/slm-portals.conf"
+cat > "$dbus_service_dir/org.freedesktop.impl.portal.desktop.slm.service" <<'SLM_PORTAL_DBUS_SERVICE'
+[D-BUS Service]
+Name=org.freedesktop.impl.portal.desktop.slm
+Exec=/usr/local/bin/slm-portald
+SLM_PORTAL_DBUS_SERVICE
+cat > "$user_unit_dir/slm-portald.service" <<'SLM_PORTAL_USER_UNIT'
+[Unit]
+Description=SLM Desktop Portal Daemon
+After=default.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/slm-portald
+Restart=on-failure
+RestartSec=1
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target
+SLM_PORTAL_USER_UNIT
+chown -R "$session_user:$session_group" \
+    "$portal_config_dir" "$portal_data_dir" "$dbus_service_dir" "$user_unit_dir" 2>/dev/null || true
+install -d -m0755 /etc/xdg/systemd/user
+cp "$user_unit_dir/slm-portald.service" /etc/xdg/systemd/user/slm-portald.service
+if command -v systemctl >/dev/null 2>&1; then
+    systemctl --global reset-failed slm-portald.service 2>/dev/null || true
+    systemctl --global enable slm-portald.service 2>/dev/null || true
+    if [[ -d "/run/user/$session_uid" ]]; then
+        runuser -u "$session_user" -- env XDG_RUNTIME_DIR="/run/user/$session_uid" \
+            systemctl --user daemon-reload 2>/dev/null || true
+        runuser -u "$session_user" -- env XDG_RUNTIME_DIR="/run/user/$session_uid" \
+            systemctl --user reset-failed slm-portald.service xdg-desktop-portal.service xdg-desktop-portal-gtk.service 2>/dev/null || true
+        runuser -u "$session_user" -- env XDG_RUNTIME_DIR="/run/user/$session_uid" \
+            systemctl --user enable --now slm-portald.service 2>/dev/null || true
+        runuser -u "$session_user" -- env XDG_RUNTIME_DIR="/run/user/$session_uid" \
+            systemctl --user restart xdg-desktop-portal.service 2>/dev/null || true
+    fi
+fi
+echo '[qemu-smoke][guest] installed SLM portal backend with GTK-compatible portal defaults'
 echo '[qemu-smoke][guest] installed fast runtime + KWin software config'
 ldd /usr/local/bin/slm-shell.real /usr/libexec/slm-session-broker | grep -E 'libicu(i18n|uc|data)\\.so|libQt6Core\\.so|not found' || true
-for log in /tmp/slm-greeter.log /tmp/slm-greeter-service.log /tmp/slm-session-broker.log /tmp/slm-session-broker-launch.log /tmp/slm-compositor.log /tmp/slm-shell.log; do
-    : > \"\$log\"
+
+prewarm_desktop_caches() {
+    local cache_log=/tmp/slm-cache-prewarm.log
+    [[ -L "$cache_log" ]] && rm -f "$cache_log"
+    install -m0664 /dev/null "$cache_log"
+    echo "[qemu-smoke][guest] prewarming GTK/font/icon caches" | tee -a "$cache_log"
+    if command -v glib-compile-schemas >/dev/null 2>&1 && [[ -d /usr/share/glib-2.0/schemas ]]; then
+        glib-compile-schemas /usr/share/glib-2.0/schemas >>"$cache_log" 2>&1 || true
+    fi
+    if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+        for theme in hicolor Adwaita Yaru; do
+            [[ -d "/usr/share/icons/$theme" ]] || continue
+            gtk-update-icon-cache -q -t -f "/usr/share/icons/$theme" >>"$cache_log" 2>&1 || true
+        done
+    fi
+    if command -v gdk-pixbuf-query-loaders >/dev/null 2>&1; then
+        gdk-pixbuf-query-loaders --update-cache >>"$cache_log" 2>&1 || true
+    fi
+    if command -v gtk-query-immodules-3.0 >/dev/null 2>&1; then
+        gtk-query-immodules-3.0 --update-cache >>"$cache_log" 2>&1 || true
+    fi
+    if command -v gtk-query-immodules-4.0 >/dev/null 2>&1; then
+        gtk-query-immodules-4.0 --update-cache >>"$cache_log" 2>&1 || true
+    fi
+    if command -v update-mime-database >/dev/null 2>&1 && [[ -d /usr/share/mime ]]; then
+        update-mime-database /usr/share/mime >>"$cache_log" 2>&1 || true
+    fi
+    if command -v update-desktop-database >/dev/null 2>&1 && [[ -d /usr/share/applications ]]; then
+        update-desktop-database /usr/share/applications >>"$cache_log" 2>&1 || true
+    fi
+    if command -v fc-cache >/dev/null 2>&1; then
+        fc-cache -r >>"$cache_log" 2>&1 || true
+        runuser -u "$session_user" -- fc-cache -r >>"$cache_log" 2>&1 || true
+    fi
+    chown "$session_user:$session_user" "$cache_log" 2>/dev/null || true
+}
+prewarm_desktop_caches
+
+# Force a clean graphical stack between smoke runs so session/runtime changes
+# are validated against a fresh login instead of stale compositor leftovers.
+if [[ -d "/run/user/$session_uid" ]]; then
+    for proc_name in slm-session-broker slm-shell slm-shell.real kwin_wayland; do
+        pkill -TERM -u "$session_user" -x "$proc_name" 2>/dev/null || true
+    done
+    sleep 0.5
+    for proc_name in slm-session-broker slm-shell slm-shell.real kwin_wayland; do
+        pkill -KILL -u "$session_user" -x "$proc_name" 2>/dev/null || true
+    done
+    rm -f \
+        "/run/user/$session_uid/wayland-0" \
+        "/run/user/$session_uid/wayland-0.lock" \
+        /run/user/$session_uid/slm-wayland-* \
+        /run/user/$session_uid/slm-wayland-*.lock 2>/dev/null || true
+fi
+
+for log in /tmp/slm-greeter.log /tmp/slm-greeter-service.log /tmp/slm-session-broker.log /tmp/slm-session-broker-launch.log /tmp/slm-compositor.log /tmp/slm-shell.log /tmp/slm-portald.log; do
+    [[ -L \"\$log\" ]] && rm -f \"\$log\"
+    install -m0664 /dev/null \"\$log\"
     chown \"\$session_user:\$session_user\" \"\$log\"
-    chmod 0664 \"\$log\"
 done
-for log in /tmp/slm-desktopd.log /tmp/slm-lockd.log; do
-    : > \"\$log\"
+for log in /tmp/slm-desktopd.log /tmp/slm-lockd.log /tmp/slm-portald.log; do
+    [[ -L \"\$log\" ]] && rm -f \"\$log\"
+    install -m0664 /dev/null \"\$log\"
     chown \"\$session_user:\$session_user\" \"\$log\"
-    chmod 0664 \"\$log\"
 done
 if ! command -v cage >/dev/null 2>&1; then
     echo '[qemu-smoke][guest] cage not found; install cage before greetd greeter mode' >&2
@@ -538,6 +692,7 @@ log=/var/lib/greetd/logs/slm-greeter.log
 exec /usr/local/bin/slm-greeter >>\"\$log\" 2>&1
 SLM_GREETER_LAUNCH
 chmod 0755 /usr/local/libexec/slm-greeter-greetd-launch
+/bin/bash -n /usr/local/libexec/slm-greeter-greetd-launch
     # Install greeter wrapper
     cat > /usr/local/libexec/slm-greeter-cage-launch <<'SLM_GREETER_CAGE'
 #!/usr/bin/env bash
@@ -546,9 +701,9 @@ set -u
 export LIBSEAT_BACKEND=logind
 export WLR_RENDERER=pixman
 log=/var/lib/greetd/logs/slm-greeter-cage.log
-log_msg() { echo "$(date --iso-8601=seconds 2>/dev/null || date) cage-launch [pid=$$]: $*" >>"$log"; }
+log_msg() { echo \"\$(date --iso-8601=seconds 2>/dev/null || date) cage-launch [pid=\$\$]: \$*\" >>\"\$log\"; }
 
-log_msg "===== start pid=$$ GREETD_SOCK=${GREETD_SOCK:-<unset>} XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-<unset>} ====="
+log_msg \"===== start pid=\$\$ GREETD_SOCK=\${GREETD_SOCK:-<unset>} XDG_RUNTIME_DIR=\${XDG_RUNTIME_DIR:-<unset>} =====\"
 
 # Kill any orphaned cage from a previous greetd run before we start.
 pkill -KILL -x cage 2>/dev/null || true
@@ -556,9 +711,9 @@ sleep 0.2
 
 while true; do
     log_msg "starting cage"
-    cage -s -- /usr/local/libexec/slm-greeter-greetd-launch >>"$log" 2>&1
-    rc=$?
-    log_msg "cage exited rc=$rc"
+    cage -s -- /usr/local/libexec/slm-greeter-greetd-launch >>\"\$log\" 2>&1
+    rc=\$?
+    log_msg \"cage exited rc=\$rc\"
 
     # Wait for the user session to be fully registered and its compositor to start.
     # We use a 3-second grace period because QEMU is slow.
@@ -570,21 +725,21 @@ while true; do
     while true; do
         # 1. Check for kwin_wayland process (any user)
         if pgrep -x kwin_wayland >/dev/null 2>&1; then
-            [ "$waited" -eq 3 ] && log_msg "kwin_wayland detected — holding off cage restart"
+            [ \"\$waited\" -eq 3 ] && log_msg \"kwin_wayland detected - holding off cage restart\"
         # 2. Check for any active session for user 1000
         elif loginctl list-sessions --no-pager 2>/dev/null | grep -v -E "SESSION|greeter" | grep -q .; then
-            [ "$waited" -eq 3 ] && log_msg "user session detected via loginctl — holding off cage restart"
+            [ \"\$waited\" -eq 3 ] && log_msg \"user session detected via loginctl - holding off cage restart\"
         else
             # No session detected
             break
         fi
         
-        waited=$(( waited + 1 ))
+        waited=\$(( waited + 1 ))
         sleep 1
     done
 
-    if [ "$waited" -gt 3 ]; then
-        log_msg "user session ended after ${waited}s — restarting cage"
+    if [ \"\$waited\" -gt 3 ]; then
+        log_msg \"user session ended after \${waited}s - restarting cage\"
         sleep 1
     else
         log_msg "no user session detected after grace period — restarting cage immediately"
@@ -593,12 +748,17 @@ while true; do
 done
 SLM_GREETER_CAGE
     chmod 0755 /usr/local/libexec/slm-greeter-cage-launch
+    /bin/bash -n /usr/local/libexec/slm-greeter-cage-launch
 
     # Configure greetd to use VT7 for greeter to avoid conflict with user session on VT1
     install -d -m0755 /etc/greetd
-    cat > /etc/greetd/config.toml <<'GREETD_CONFIG'
+    cat > /etc/greetd/config.toml <<GREETD_CONFIG
 [terminal]
 vt = 7
+
+[initial_session]
+command = \"/usr/local/libexec/slm-session-broker-launch --mode normal\"
+user = \"\$session_user\"
 
 [default_session]
 command = \"/usr/local/libexec/slm-greeter-cage-launch\"
@@ -638,7 +798,23 @@ RestartSec=2
 [Install]
 WantedBy=default.target
 LOCKD_UNIT
-echo '[qemu-smoke][guest] installed slm-desktopd.service and slm-lockd.service unit files'
+cat > /etc/systemd/user/slm-portald.service <<'PORTALD_UNIT'
+[Unit]
+Description=SLM Desktop Portal Daemon
+After=dbus.socket
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/slm-portald
+StandardOutput=journal
+StandardError=journal
+Restart=on-failure
+RestartSec=1
+
+[Install]
+WantedBy=default.target
+PORTALD_UNIT
+echo '[qemu-smoke][guest] installed slm-desktopd.service, slm-lockd.service, and slm-portald.service unit files'
 if command -v systemctl >/dev/null 2>&1; then
     systemctl daemon-reload
     systemctl disable --now slm-greeter.service 2>/dev/null || true
@@ -649,16 +825,33 @@ if command -v systemctl >/dev/null 2>&1; then
     systemctl daemon-reload
     systemctl enable greetd.service
     systemctl reset-failed greetd.service || true
+    rm -f /run/greetd.run 2>/dev/null || true
     systemctl restart greetd.service
     echo '[qemu-smoke][guest] enabled greetd handoff and disabled direct-PAM slm-greeter.service'
-    systemctl --global enable slm-desktopd.service slm-lockd.service 2>/dev/null || true
-    echo '[qemu-smoke][guest] globally enabled slm-desktopd and slm-lockd user services'
+    systemctl --global enable slm-desktopd.service slm-lockd.service slm-portald.service 2>/dev/null || true
+    echo '[qemu-smoke][guest] globally enabled slm-desktopd, slm-lockd, and slm-portald user services'
 fi
-")"
+SLM_FAST_INSTALL
+    sed -i -e 's/\\"/"/g' -e 's/\\\$/\$/g' "$FAST_INSTALL_SCRIPT"
+    escaped_build_dir=${BUILD_DIR//\\/\\\\}
+    escaped_build_dir=${escaped_build_dir//&/\\&}
+    escaped_build_dir=${escaped_build_dir//|/\\|}
+    escaped_session_user=${SESSION_USER//\\/\\\\}
+    escaped_session_user=${escaped_session_user//&/\\&}
+    escaped_session_user=${escaped_session_user//|/\\|}
+    sed -i \
+        -e "s|__BUILD_DIR__|$escaped_build_dir|g" \
+        -e "s|__SESSION_USER__|$escaped_session_user|g" \
+        "$FAST_INSTALL_SCRIPT"
+    bash -n "$FAST_INSTALL_SCRIPT"
+    g_scp "$FAST_INSTALL_SCRIPT" /tmp/slm-qemu-fast-install.sh
+    rm -f "$FAST_INSTALL_SCRIPT"
+    g_ssh "chmod +x /tmp/slm-qemu-fast-install.sh"
+    RCMD="sudo -n /tmp/slm-qemu-fast-install.sh"
 else
-    RCMD="sudo SLM_TARGET_USER=$(printf '%q' "$SESSION_USER") bash $(printf '%q' "$REPO_DIR/scripts/login/install-slm-desktop-runtime.sh") $(printf '%q' "$BUILD_DIR")"
-    RCMD+=" && sudo SLM_TARGET_USER=$(printf '%q' "$SESSION_USER") bash $(printf '%q' "$REPO_DIR/scripts/login/verify-slm-desktop-runtime.sh")"
-    RCMD+=" && sudo bash $(printf '%q' "$REPO_DIR/scripts/login/verify-greetd-slm.sh")"
+    RCMD="sudo -n SLM_TARGET_USER=$(printf '%q' "$SESSION_USER") bash $(printf '%q' "$REPO_DIR/scripts/login/install-slm-desktop-runtime.sh") $(printf '%q' "$BUILD_DIR")"
+    RCMD+=" && sudo -n SLM_TARGET_USER=$(printf '%q' "$SESSION_USER") bash $(printf '%q' "$REPO_DIR/scripts/login/verify-slm-desktop-runtime.sh")"
+    RCMD+=" && sudo -n bash $(printf '%q' "$REPO_DIR/scripts/login/verify-greetd-slm.sh")"
 fi
 g_ssh -tt "$RCMD"
 
@@ -678,7 +871,7 @@ mkdir -p "$HOST_ARTIFACT_DIR"
 g_scp "$SCRIPT_DIR/qemu-guest-session-smoke.sh" /tmp/qemu-guest-session-smoke.sh
 g_ssh "chmod +x /tmp/qemu-guest-session-smoke.sh"
 
-SCMD="sudo /tmp/qemu-guest-session-smoke.sh"
+SCMD="sudo -n /tmp/qemu-guest-session-smoke.sh"
 SCMD+=" --session-user $(printf '%q' "$SESSION_USER")"
 SCMD+=" --timeout   $(printf '%q' "$SMOKE_TIMEOUT")"
 SCMD+=" --artifact-dir $(printf '%q' "$REMOTE_ARTIFACT_DIR")"

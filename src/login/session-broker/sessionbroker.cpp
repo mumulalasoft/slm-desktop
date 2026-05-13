@@ -32,6 +32,7 @@ namespace {
 
 constexpr auto kCompositorLogPath = "/tmp/slm-compositor.log";
 constexpr auto kShellLogPath = "/tmp/slm-shell.log";
+constexpr int kXwaylandSocketTimeoutMs = 2000;
 
 QString backendName(CompositorBackend backend)
 {
@@ -96,6 +97,185 @@ bool envFlagEnabled(const char *name)
     return value == "1" || value == "true" || value == "yes" || value == "on";
 }
 
+bool envFlagDisabled(const char *name)
+{
+    const QByteArray value = qgetenv(name).trimmed().toLower();
+    return value == "0" || value == "false" || value == "no" || value == "off";
+}
+
+QSet<QString> existingX11Sockets()
+{
+    QSet<QString> sockets;
+    const QDir dir(QStringLiteral("/tmp/.X11-unix"));
+    const QStringList entries = dir.entryList(QDir::System | QDir::Files | QDir::NoDotAndDotDot);
+    for (const QString &entry : entries) {
+        if (entry.startsWith(QLatin1Char('X')) && entry.size() > 1) {
+            sockets.insert(entry);
+        }
+    }
+    return sockets;
+}
+
+QString displayNameFromX11Socket(const QString &entry)
+{
+    if (!entry.startsWith(QLatin1Char('X')) || entry.size() < 2) {
+        return {};
+    }
+
+    bool ok = false;
+    const int display = entry.mid(1).toInt(&ok);
+    return ok ? QStringLiteral(":%1").arg(display) : QString{};
+}
+
+QString detectXauthorityFile()
+{
+    const QByteArray current = qgetenv("XAUTHORITY");
+    if (!current.isEmpty()) {
+        const QString path = QString::fromLocal8Bit(current);
+        if (QFileInfo::exists(path)) {
+            return path;
+        }
+    }
+
+    const QString runtimeDir = QString::fromLocal8Bit(qgetenv("XDG_RUNTIME_DIR"));
+    if (!runtimeDir.isEmpty()) {
+        const QStringList patterns{
+            QStringLiteral("xauth_*"),
+            QStringLiteral(".mutter-Xwaylandauth.*"),
+            QStringLiteral(".Xauthority"),
+            QStringLiteral("Xauthority"),
+        };
+        QDir dir(runtimeDir);
+        for (const QString &pattern : patterns) {
+            const QFileInfoList matches =
+                dir.entryInfoList(QStringList{pattern},
+                                  QDir::Files | QDir::Readable | QDir::Hidden | QDir::System,
+                                  QDir::Time);
+            for (const QFileInfo &info : matches) {
+                if (info.exists()) {
+                    return info.absoluteFilePath();
+                }
+            }
+        }
+    }
+
+    const QString home = QDir::homePath();
+    if (!home.isEmpty()) {
+        const QString homeXauthority = home + QStringLiteral("/.Xauthority");
+        if (QFileInfo::exists(homeXauthority)) {
+            return homeXauthority;
+        }
+    }
+
+    return {};
+}
+
+QString waitForXauthorityFile(int timeoutMs)
+{
+    const qint64 start = QDateTime::currentMSecsSinceEpoch();
+    while (QDateTime::currentMSecsSinceEpoch() - start < timeoutMs) {
+        const QString xauthority = detectXauthorityFile();
+        if (!xauthority.isEmpty()) {
+            return xauthority;
+        }
+        QThread::msleep(50);
+    }
+    return detectXauthorityFile();
+}
+
+bool ensureWaylandSocketAlias(const QString &aliasPath, const QString &targetPath)
+{
+    if (aliasPath == targetPath) {
+        return true;
+    }
+
+    const QFileInfo aliasInfo(aliasPath);
+    if (aliasInfo.exists() || aliasInfo.isSymLink()) {
+        if (aliasInfo.isSymLink() && QFileInfo(aliasInfo.symLinkTarget()) == QFileInfo(targetPath)) {
+            return true;
+        }
+        if (!QFile::remove(aliasPath)) {
+            qWarning("compositor: failed to replace existing Wayland alias '%s' (target=%s)",
+                     qPrintable(aliasPath),
+                     qPrintable(aliasInfo.isSymLink() ? aliasInfo.symLinkTarget()
+                                                      : QStringLiteral("<non-symlink>")));
+            return false;
+        }
+    }
+
+    if (QFile::link(targetPath, aliasPath)) {
+        qInfo("compositor: compatibility alias created '%s' -> '%s'",
+              qPrintable(aliasPath), qPrintable(targetPath));
+        return true;
+    }
+
+    qWarning("compositor: failed to create compatibility alias '%s' -> '%s'",
+             qPrintable(aliasPath), qPrintable(targetPath));
+    return false;
+}
+
+void ensureWaylandCompatibilitySocketAlias(const QString &activeWaylandDisplay)
+{
+    const QString active = activeWaylandDisplay.trimmed();
+    if (active.isEmpty()) {
+        return;
+    }
+
+    const QString runtimeDir = QString::fromLocal8Bit(qgetenv("XDG_RUNTIME_DIR"));
+    if (runtimeDir.isEmpty()) {
+        return;
+    }
+
+    const QString activePath = runtimeDir + QStringLiteral("/") + active;
+    const QString wayland0Path = runtimeDir + QStringLiteral("/") + QString::fromLatin1(kDefaultWaylandSocketName);
+    const QString legacyAliasPath =
+            runtimeDir + QStringLiteral("/") + QString::fromLatin1(kLegacySlmWaylandSocketAlias);
+
+    if (active != QString::fromLatin1(kDefaultWaylandSocketName)) {
+        ensureWaylandSocketAlias(wayland0Path, activePath);
+    }
+
+    // Keep legacy alias optional. By default we avoid exposing slm-wayland-0
+    // because strict sandbox helpers (snapd-desktop-integration) may probe it
+    // and trigger AppArmor denials even when wayland-0 is valid.
+    if (envFlagEnabled("SLM_ENABLE_LEGACY_WAYLAND_ALIAS")) {
+        ensureWaylandSocketAlias(legacyAliasPath, activePath);
+    } else {
+        const QFileInfo legacyAliasInfo(legacyAliasPath);
+        if (legacyAliasInfo.isSymLink()) {
+            if (!QFile::remove(legacyAliasPath)) {
+                qWarning("compositor: failed to remove legacy wayland alias '%s'",
+                         qPrintable(legacyAliasPath));
+            } else {
+                qInfo("compositor: removed legacy wayland alias '%s'",
+                      qPrintable(legacyAliasPath));
+            }
+        }
+    }
+}
+
+QString preferredWaylandDisplayForClients(const QString &activeWaylandDisplay)
+{
+    const QString active = activeWaylandDisplay.trimmed();
+    if (active.isEmpty() || active == QString::fromLatin1(kDefaultWaylandSocketName)) {
+        return active;
+    }
+
+    const QString runtimeDir = QString::fromLocal8Bit(qgetenv("XDG_RUNTIME_DIR"));
+    if (runtimeDir.isEmpty()) {
+        return active;
+    }
+
+    const QString compatibilitySocket =
+            runtimeDir + QStringLiteral("/") + QString::fromLatin1(kDefaultWaylandSocketName);
+    const QFileInfo compatibilityInfo(compatibilitySocket);
+    if (compatibilityInfo.exists() || compatibilityInfo.isSymLink()) {
+        return QString::fromLatin1(kDefaultWaylandSocketName);
+    }
+
+    return active;
+}
+
 } // namespace
 
 SessionBroker::SessionBroker(StartupMode requestedMode, QObject *parent)
@@ -127,11 +307,21 @@ int SessionBroker::run()
 
     const PlatformChecker checker;
     const PlatformStatus platform = checker.checkAll(m_config.compositor(), m_config.shell());
+    if (!platform.reportPath.isEmpty()) {
+        qInfo("slm-session-broker: compatibility report: %s", qPrintable(platform.reportPath));
+    }
     if (!platform.ok) {
         qWarning("slm-session-broker: platform integrity issues:");
         for (const QString &issue : platform.issues)
             qWarning("  - %s", qUtf8Printable(issue));
     }
+    if (!platform.warnings.isEmpty()) {
+        qWarning("slm-session-broker: platform compatibility warnings:");
+        for (const QString &warning : platform.warnings)
+            qWarning("  - %s", qUtf8Printable(warning));
+    }
+    qInfo("slm-session-broker: compatibility summary checks=%d failures=%d warnings=%d",
+          platform.checksRun, platform.checksFailed, platform.checksWarn);
 
     m_finalMode = evaluateMode(platform);
     qInfo("slm-session-broker: startup mode = %s (requested = %s, crashes = %d)",
@@ -179,6 +369,21 @@ int SessionBroker::run()
 
     // Expose active socket for watchdog and any other subprocesses we spawn.
     qputenv("WAYLAND_DISPLAY", m_activeWaylandDisplay.toLocal8Bit());
+    ensureWaylandCompatibilitySocketAlias(m_activeWaylandDisplay);
+    m_activeX11Display = detectX11Display();
+    if (!m_activeX11Display.isEmpty()) {
+        qputenv("DISPLAY", m_activeX11Display.toLocal8Bit());
+        const QString xauthorityPath = waitForXauthorityFile(1500);
+        if (!xauthorityPath.isEmpty()) {
+            qputenv("XAUTHORITY", xauthorityPath.toLocal8Bit());
+            qInfo("compositor: XAUTHORITY='%s'", qPrintable(xauthorityPath));
+        } else {
+            qWarning("compositor: XAUTHORITY not found; X11 apps may fail authentication");
+        }
+    } else {
+        qunsetenv("DISPLAY");
+        qunsetenv("XAUTHORITY");
+    }
 
     QString failureReason;
     if (!launchShell(&failureReason)) {
@@ -471,6 +676,19 @@ CompositorLaunchPlan SessionBroker::buildCompositorPlan()
         // kscreenlocker requires KDE Plasma QML modules not present in this shell
         if (!plan.args.contains(QStringLiteral("--no-lockscreen")))
             plan.args << QStringLiteral("--no-lockscreen");
+        const bool xwaylandDisabled = envFlagEnabled("SLM_DISABLE_XWAYLAND")
+                || envFlagDisabled("SLM_ENABLE_XWAYLAND");
+        const bool xwaylandAlreadyConfigured = plan.args.contains(QStringLiteral("--xwayland"))
+                || plan.args.contains(QStringLiteral("--xwayland-fd"));
+        if (!xwaylandDisabled && !xwaylandAlreadyConfigured) {
+            plan.args << QStringLiteral("--xwayland");
+            qInfo("compositor: enabling KWin XWayland bridge for legacy/X11 apps");
+        }
+        plan.xwaylandEnabled = !xwaylandDisabled
+                && (xwaylandAlreadyConfigured || plan.args.contains(QStringLiteral("--xwayland")));
+        if (plan.xwaylandEnabled) {
+            plan.preExistingX11Sockets = existingX11Sockets();
+        }
         if (hasDrmCard && plan.env.value(QStringLiteral("KWIN_DRM_DEVICES")).trimmed().isEmpty()) {
             plan.env.insert(QStringLiteral("KWIN_DRM_DEVICES"), firstDrmCard);
             qInfo("compositor: KWIN_DRM_DEVICES=%s (auto)", qPrintable(firstDrmCard));
@@ -479,11 +697,11 @@ CompositorLaunchPlan SessionBroker::buildCompositorPlan()
                 || plan.args.contains(QStringLiteral("--wayland-display"));
         const QString socketFlag = argsAlreadySetSocket ? QString{} : kwinGetCustomSocketFlag(compositorBin);
         if (!socketFlag.isEmpty()) {
-            plan.args << socketFlag << QString::fromLatin1(kSlmWaylandSocketName);
+            plan.args << socketFlag << QString::fromLatin1(kDefaultWaylandSocketName);
             plan.socketStrategy = SocketStrategy::Fixed;
-            plan.socketName     = QString::fromLatin1(kSlmWaylandSocketName);
+            plan.socketName     = QString::fromLatin1(kDefaultWaylandSocketName);
             qInfo("compositor: kwin socket flag '%s' -> using fixed socket '%s'",
-                  qPrintable(socketFlag), kSlmWaylandSocketName);
+                  qPrintable(socketFlag), kDefaultWaylandSocketName);
         } else if (argsAlreadySetSocket) {
             qWarning("compositor: custom KWin socket argument supplied by config; scanning for socket");
             plan.socketStrategy = SocketStrategy::Scan;
@@ -551,41 +769,76 @@ static bool isWaylandSocketReady(const QString &path)
     return acceptsRegularWaylandSocketForTests() && QFileInfo::exists(path);
 }
 
-void SessionBroker::removeStaleSlmSockets()
+void SessionBroker::removeStaleWaylandSockets()
 {
     const QString runtimeDir = QString::fromLocal8Bit(qgetenv("XDG_RUNTIME_DIR"));
     if (runtimeDir.isEmpty()) return;
     const QDir dir(runtimeDir);
     const QStringList entries = dir.entryList(
         QDir::AllEntries | QDir::System | QDir::NoDotAndDotDot);
+    bool removedAnyStaleSocket = false;
     for (const QString &entry : entries) {
-        if (!entry.startsWith(QStringLiteral("slm-wayland-"))) continue;
+        const bool isDefaultSocket = entry == QString::fromLatin1(kDefaultWaylandSocketName);
+        const bool isLegacySlmSocket = entry.startsWith(QStringLiteral("slm-wayland-"));
+        if (!isDefaultSocket && !isLegacySlmSocket) continue;
         const QString socketPath = runtimeDir + QStringLiteral("/") + entry;
-        if (isUnixSocket(socketPath) && QFile::remove(socketPath)) {
-            qWarning("compositor: removed stale slm socket: %s", qPrintable(socketPath));
+        if (!isUnixSocket(socketPath)) {
+            continue;
+        }
+        const bool socketIsLive = tryConnectUnixSocket(socketPath);
+        if (isDefaultSocket && socketIsLive) {
+            qInfo("compositor: preserving active wayland socket: %s",
+                  qPrintable(socketPath));
+            continue;
+        }
+        if (isLegacySlmSocket && socketIsLive) {
+            qWarning("compositor: reclaiming legacy live socket '%s' to enforce '%s' compatibility",
+                     qPrintable(socketPath), kDefaultWaylandSocketName);
+        }
+
+        if (QFile::remove(socketPath)) {
+            removedAnyStaleSocket = true;
+            qWarning("compositor: removed stale wayland socket: %s", qPrintable(socketPath));
             const QString lockPath = socketPath + QStringLiteral(".lock");
-            if (QFile::remove(lockPath))
-                qWarning("compositor: removed stale slm lock: %s", qPrintable(lockPath));
-            // Kill any orphaned compositor that still holds the DRM master.
-            // We have not launched ours yet, so any kwin_wayland alive is a leftover.
-            QProcess::execute(QStringLiteral("pkill"),
-                              {QStringLiteral("-TERM"), QStringLiteral("-x"),
-                               QStringLiteral("kwin_wayland")});
-            QThread::msleep(400);
-            QProcess::execute(QStringLiteral("pkill"),
-                              {QStringLiteral("-KILL"), QStringLiteral("-x"),
-                               QStringLiteral("kwin_wayland")});
-            QThread::msleep(100);
-            qWarning("compositor: killed orphaned kwin_wayland (if any)");
+            if (QFile::remove(lockPath)) {
+                qWarning("compositor: removed stale wayland lock: %s", qPrintable(lockPath));
+            }
         }
     }
+
+    // Remove a dangling legacy alias from older sessions.
+    const QString legacyAliasPath =
+            runtimeDir + QStringLiteral("/") + QString::fromLatin1(kLegacySlmWaylandSocketAlias);
+    const QFileInfo legacyAliasInfo(legacyAliasPath);
+    if (legacyAliasInfo.isSymLink() && !QFileInfo::exists(legacyAliasInfo.symLinkTarget())) {
+        if (QFile::remove(legacyAliasPath)) {
+            qWarning("compositor: removed dangling legacy wayland alias: %s",
+                     qPrintable(legacyAliasPath));
+        }
+    }
+
+    if (!removedAnyStaleSocket) {
+        return;
+    }
+
+    // Kill any orphaned compositor that still holds the DRM master.
+    // We have not launched ours yet, so any kwin_wayland alive is a leftover.
+    QProcess::execute(QStringLiteral("pkill"),
+                      {QStringLiteral("-TERM"), QStringLiteral("-x"),
+                       QStringLiteral("kwin_wayland")});
+    QThread::msleep(400);
+    QProcess::execute(QStringLiteral("pkill"),
+                      {QStringLiteral("-KILL"), QStringLiteral("-x"),
+                       QStringLiteral("kwin_wayland")});
+    QThread::msleep(100);
+    qWarning("compositor: killed orphaned kwin_wayland (if any)");
 }
 
 // ── Compositor launch & socket detection ──────────────────────────────────────
 
 bool SessionBroker::launchCompositor()
 {
-    removeStaleSlmSockets();
+    removeStaleWaylandSockets();
 
     m_compositorProcess.setProgram(m_plan.binary);
     m_compositorProcess.setArguments(m_plan.args);
@@ -647,6 +900,51 @@ QString SessionBroker::detectWaylandSocket()
     }
 
     return scanNewWaylandSocket(runtimeDir, startMs);
+}
+
+QString SessionBroker::detectX11Display()
+{
+    if (!m_plan.xwaylandEnabled) {
+        qInfo("compositor: XWayland bridge disabled");
+        return {};
+    }
+
+    const qint64 startMs = QDateTime::currentMSecsSinceEpoch();
+    qInfo("compositor: waiting for XWayland display (timeout %dms)...",
+          kXwaylandSocketTimeoutMs);
+    while (QDateTime::currentMSecsSinceEpoch() - startMs < kXwaylandSocketTimeoutMs) {
+        if (m_compositorProcess.waitForFinished(0)
+                || m_compositorProcess.state() != QProcess::Running) {
+            qWarning("compositor: exited before XWayland display became ready");
+            return {};
+        }
+
+        const QSet<QString> sockets = existingX11Sockets();
+        for (const QString &entry : sockets) {
+            if (m_plan.preExistingX11Sockets.contains(entry)) {
+                continue;
+            }
+
+            const QString socketPath = QStringLiteral("/tmp/.X11-unix/") + entry;
+            if (!isUnixSocket(socketPath) || !tryConnectUnixSocket(socketPath)) {
+                continue;
+            }
+
+            const QString display = displayNameFromX11Socket(entry);
+            if (!display.isEmpty()) {
+                const qint64 elapsed = QDateTime::currentMSecsSinceEpoch() - startMs;
+                qInfo("compositor: XWayland display '%s' ready after %lldms",
+                      qPrintable(display), (long long)elapsed);
+                return display;
+            }
+        }
+
+        QThread::msleep(50);
+    }
+
+    qWarning("compositor: XWayland display not detected after %dms; X11 apps may fail",
+             kXwaylandSocketTimeoutMs);
+    return {};
 }
 
 QString SessionBroker::scanNewWaylandSocket(const QString &runtimeDir, qint64 startMs)
@@ -727,6 +1025,21 @@ bool SessionBroker::restartSessionStack(QString *failureReason)
     }
 
     qputenv("WAYLAND_DISPLAY", m_activeWaylandDisplay.toLocal8Bit());
+    ensureWaylandCompatibilitySocketAlias(m_activeWaylandDisplay);
+    m_activeX11Display = detectX11Display();
+    if (!m_activeX11Display.isEmpty()) {
+        qputenv("DISPLAY", m_activeX11Display.toLocal8Bit());
+        const QString xauthorityPath = waitForXauthorityFile(1500);
+        if (!xauthorityPath.isEmpty()) {
+            qputenv("XAUTHORITY", xauthorityPath.toLocal8Bit());
+            qInfo("compositor: XAUTHORITY='%s'", qPrintable(xauthorityPath));
+        } else {
+            qWarning("compositor: XAUTHORITY not found; X11 apps may fail authentication");
+        }
+    } else {
+        qunsetenv("DISPLAY");
+        qunsetenv("XAUTHORITY");
+    }
 
     QString reason;
     if (!launchShell(&reason)) {
@@ -753,7 +1066,19 @@ QProcessEnvironment SessionBroker::buildShellEnvironment() const
 {
     QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
 
-    env.insert(QStringLiteral("WAYLAND_DISPLAY"),      m_activeWaylandDisplay);
+    env.insert(QStringLiteral("WAYLAND_DISPLAY"),
+               preferredWaylandDisplayForClients(m_activeWaylandDisplay));
+    if (!m_activeX11Display.isEmpty()) {
+        env.insert(QStringLiteral("DISPLAY"), m_activeX11Display);
+    } else {
+        env.remove(QStringLiteral("DISPLAY"));
+    }
+    const QString xauthorityPath = QString::fromLocal8Bit(qgetenv("XAUTHORITY"));
+    if (!xauthorityPath.isEmpty()) {
+        env.insert(QStringLiteral("XAUTHORITY"), xauthorityPath);
+    } else {
+        env.remove(QStringLiteral("XAUTHORITY"));
+    }
     env.insert(QStringLiteral("XDG_SESSION_TYPE"),     QStringLiteral("wayland"));
     env.insert(QStringLiteral("XDG_CURRENT_DESKTOP"),  QStringLiteral("SLM"));
     env.insert(QStringLiteral("QT_QPA_PLATFORM"),      QStringLiteral("wayland"));
@@ -795,9 +1120,11 @@ bool SessionBroker::launchShell(QString *failureReason)
     QFile::remove(lifecycleFilePath());
 
     const QProcessEnvironment shellEnv = buildShellEnvironment();
-    qInfo("shell env: WAYLAND_DISPLAY=%s QT_QPA_PLATFORM=%s XDG_SESSION_TYPE=%s "
+    qInfo("shell env: WAYLAND_DISPLAY=%s DISPLAY=%s XAUTHORITY=%s QT_QPA_PLATFORM=%s XDG_SESSION_TYPE=%s "
           "SLM_SESSION_MODE=%s",
           qPrintable(shellEnv.value(QStringLiteral("WAYLAND_DISPLAY"))),
+          qPrintable(shellEnv.value(QStringLiteral("DISPLAY"))),
+          qPrintable(shellEnv.value(QStringLiteral("XAUTHORITY"))),
           qPrintable(shellEnv.value(QStringLiteral("QT_QPA_PLATFORM"))),
           qPrintable(shellEnv.value(QStringLiteral("XDG_SESSION_TYPE"))),
           qPrintable(shellEnv.value(QStringLiteral("SLM_SESSION_MODE"))));

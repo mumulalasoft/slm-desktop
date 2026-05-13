@@ -21,6 +21,8 @@ struct CompositorLaunchPlan {
     SocketStrategy      socketStrategy = SocketStrategy::Scan;
     QString             socketName;               // expected socket name (Fixed strategy)
     QSet<QString>       preExistingSockets;        // snapshot before launch (Scan strategy)
+    bool                xwaylandEnabled = false;
+    QSet<QString>       preExistingX11Sockets;
 };
 
 class SessionBroker : public QObject
@@ -45,9 +47,10 @@ private:
 
     CompositorLaunchPlan buildCompositorPlan();
     static QString       kwinGetCustomSocketFlag(const QString &bin);
-    void                 removeStaleSlmSockets();
+    void                 removeStaleWaylandSockets();
     bool                 launchCompositor();
     QString              detectWaylandSocket();
+    QString              detectX11Display();
     QString              scanNewWaylandSocket(const QString &runtimeDir, qint64 startMs);
     bool                 restartSessionStack(QString *failureReason = nullptr);
 
@@ -88,6 +91,7 @@ private:
     ConfigManager        m_config;
     CompositorLaunchPlan m_plan;
     QString              m_activeWaylandDisplay;
+    QString              m_activeX11Display;
     QProcess             m_compositorProcess;
     QProcess             m_shellProcess;
     QProcess             m_watchdogProcess;

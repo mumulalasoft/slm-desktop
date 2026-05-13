@@ -11,9 +11,13 @@ constexpr int  kShellFirstFrameTimeoutMs     = 10000;  // 10s — shell must ren
 constexpr int  kShellFastExitMs              = 3000;   // < 3s exit = hard crash
 constexpr int  kRecoveryFirstFrameStableMs   = 5000;   // 5s — recovery UI must be visible and stable
 
-// Private Wayland socket name requested from the compositor.
-// Avoids colliding with any pre-existing wayland-0/wayland-1 on the same seat.
-constexpr const char kSlmWaylandSocketName[] = "slm-wayland-0";
+// Compatibility-critical compositor socket name.
+// Keep this at wayland-0 so strict sandboxes (Snap/Flatpak) can connect without
+// path policy violations.
+constexpr const char kDefaultWaylandSocketName[] = "wayland-0";
+
+// Legacy SLM alias kept for internal/backward compatibility.
+constexpr const char kLegacySlmWaylandSocketAlias[] = "slm-wayland-0";
 
 enum class StartupMode {
     Normal,

@@ -76,13 +76,30 @@ STATE_FILE="${SESSION_HOME}/.config/slm-desktop/state.json"
 CRASH_REPORT_FILE="${SESSION_HOME}/.config/slm-desktop/last-crash.json"
 RUNTIME_DIR="/run/user/$(id -u "$SESSION_USER")"
 mkdir -p "$ARTIFACT_DIR"
+SMOKE_STARTED_AT="$(date --iso-8601=seconds)"
 
 fail=0
 warn=0
+COMPAT_LOG="$ARTIFACT_DIR/compatibility-checklist.log"
+COMPAT_JSON="$ARTIFACT_DIR/compatibility-report.json"
 
 ok()   { echo "[OK] $*" | tee -a "$ARTIFACT_DIR/summary.log"; }
 ng()   { echo "[FAIL] $*" | tee -a "$ARTIFACT_DIR/summary.log"; fail=$((fail + 1)); }
 warnf(){ echo "[WARN] $*" | tee -a "$ARTIFACT_DIR/summary.log"; warn=$((warn + 1)); }
+
+: >"$COMPAT_LOG"
+compat_ok() {
+    printf '[OK] %s :: %s\n' "$1" "$2" | tee -a "$COMPAT_LOG"
+    ok "compat[$1] $2"
+}
+compat_fail() {
+    printf '[FAIL] %s :: %s\n' "$1" "$2" | tee -a "$COMPAT_LOG"
+    ng "compat[$1] $2"
+}
+compat_warn() {
+    printf '[WARN] %s :: %s\n' "$1" "$2" | tee -a "$COMPAT_LOG"
+    warnf "compat[$1] $2"
+}
 
 capture_cmd() {
     local name="$1"
@@ -179,7 +196,10 @@ capture_cmd "journal-slm-greeter-service" journalctl -b -u slm-greeter --no-page
 capture_cmd "journal-logind" journalctl -b -u systemd-logind --no-pager || true
 capture_cmd "journal-user" journalctl -b "_UID=$(id -u "$SESSION_USER")" --no-pager || true
 capture_cmd "journal-kwin" journalctl -b _COMM=kwin_wayland --no-pager || true
-capture_cmd "journal-kernel" journalctl -b -k --no-pager || true
+capture_cmd "journal-slm-portald" journalctl -b "_UID=$(id -u "$SESSION_USER")" -u slm-portald --no-pager || true
+capture_cmd "journal-xdg-desktop-portal" journalctl -b "_UID=$(id -u "$SESSION_USER")" -u xdg-desktop-portal --no-pager || true
+capture_cmd "journal-xdg-desktop-portal-gtk" journalctl -b "_UID=$(id -u "$SESSION_USER")" -u xdg-desktop-portal-gtk --no-pager || true
+capture_cmd "journal-kernel" journalctl -b -k --since "$SMOKE_STARTED_AT" --no-pager || true
 capture_cmd "dmesg" dmesg -T --no-pager || true
 capture_cmd "coredumpctl-list" coredumpctl list --no-pager || true
 capture_cmd "coredumpctl-info-kwin" coredumpctl info kwin_wayland --no-pager || true
@@ -192,6 +212,9 @@ capture_cmd "ps-ef" ps -ef || true
 capture_cmd "loginctl" loginctl list-sessions || true
 capture_cmd "state-initial" cat "$STATE_FILE" || true
 capture_cmd "tmp-slm-logs" bash -lc "ls -la /tmp/slm* 2>/dev/null || true" || true
+capture_cmd "portal-user-status" runuser -u "$SESSION_USER" -- env XDG_RUNTIME_DIR="$RUNTIME_DIR" systemctl --user status slm-portald xdg-desktop-portal --no-pager --full || true
+capture_cmd "portal-user-enabled" runuser -u "$SESSION_USER" -- env XDG_RUNTIME_DIR="$RUNTIME_DIR" systemctl --user is-enabled slm-portald xdg-desktop-portal || true
+capture_cmd "portal-config" bash -lc "set -x; cat '$SESSION_HOME/.config/xdg-desktop-portal/portals.conf' 2>/dev/null || true; cat '$SESSION_HOME/.config/xdg-desktop-portal/slm-portals.conf' 2>/dev/null || true; cat '$SESSION_HOME/.local/share/xdg-desktop-portal/portals/slm.portal' 2>/dev/null || true; cat '$SESSION_HOME/.local/share/dbus-1/services/org.freedesktop.impl.portal.desktop.slm.service' 2>/dev/null || true" || true
 if [[ -d "$RUNTIME_DIR" ]]; then
     capture_cmd "runtime-dir" find "$RUNTIME_DIR" -maxdepth 1 -printf "%M %u %g %s %p\n" || true
 fi
@@ -226,6 +249,150 @@ if wait_for_healthy_state; then
     ok "state healthy tercapai"
 else
     ng "state healthy tidak tercapai dalam ${TIMEOUT_SEC}s"
+fi
+
+# Compatibility policy validation (session/env/wayland/x11/portal/dbus)
+pick_best_session_id() {
+    local ids id best="" best_score=-1
+    ids="$(loginctl list-sessions --no-legend 2>/dev/null | awk -v user="$SESSION_USER" '$3 == user {print $1}')"
+    for id in $ids; do
+        local props type active remote class seat score
+        props="$(loginctl show-session "$id" -p Type -p Active -p Remote -p State -p Class -p Seat 2>/dev/null || true)"
+        type="$(awk -F= '$1=="Type"{print $2}' <<<"$props" | head -n1)"
+        active="$(awk -F= '$1=="Active"{print $2}' <<<"$props" | head -n1)"
+        remote="$(awk -F= '$1=="Remote"{print $2}' <<<"$props" | head -n1)"
+        class="$(awk -F= '$1=="Class"{print $2}' <<<"$props" | head -n1)"
+        seat="$(awk -F= '$1=="Seat"{print $2}' <<<"$props" | head -n1)"
+
+        score=0
+        [[ "$active" == "yes" ]] && score=$((score + 2))
+        [[ "$remote" == "no" ]] && score=$((score + 4))
+        [[ "$class" == "user" ]] && score=$((score + 1))
+        [[ "$type" == "wayland" ]] && score=$((score + 8))
+        [[ "$seat" == "seat0" ]] && score=$((score + 2))
+
+        if (( score > best_score )); then
+            best_score=$score
+            best="$id"
+        fi
+    done
+    printf '%s' "$best"
+}
+
+SESSION_ID="$(pick_best_session_id)"
+if [[ -z "$SESSION_ID" ]]; then
+    compat_fail "session.logind.id" "tidak menemukan loginctl session untuk user $SESSION_USER"
+else
+    compat_ok "session.logind.id" "session id terdeteksi: $SESSION_ID"
+    capture_cmd "loginctl-show-session" loginctl show-session "$SESSION_ID" || true
+    capture_cmd "loginctl-show-session-props" \
+        loginctl show-session "$SESSION_ID" \
+            -p Type -p Active -p Remote -p State -p Class -p Seat || true
+
+    SESSION_PROPS_FILE="$ARTIFACT_DIR/loginctl-show-session-props.log"
+    prop() { awk -F= -v k="$1" '$1 == k {print $2}' "$SESSION_PROPS_FILE" 2>/dev/null | head -n 1; }
+    TYPE_VAL="$(prop Type)"
+    ACTIVE_VAL="$(prop Active)"
+    REMOTE_VAL="$(prop Remote)"
+    STATE_VAL="$(prop State)"
+    CLASS_VAL="$(prop Class)"
+    SEAT_VAL="$(prop Seat)"
+
+    [[ "$TYPE_VAL" == "wayland" ]] && compat_ok "session.logind.type" "Type=wayland" \
+        || compat_fail "session.logind.type" "Type=$TYPE_VAL (expected wayland)"
+    [[ "$ACTIVE_VAL" == "yes" ]] && compat_ok "session.logind.active" "Active=yes" \
+        || compat_fail "session.logind.active" "Active=$ACTIVE_VAL (expected yes)"
+    [[ "$REMOTE_VAL" == "no" ]] && compat_ok "session.logind.remote" "Remote=no" \
+        || compat_fail "session.logind.remote" "Remote=$REMOTE_VAL (expected no)"
+    [[ "$STATE_VAL" == "active" ]] && compat_ok "session.logind.state" "State=active" \
+        || compat_fail "session.logind.state" "State=$STATE_VAL (expected active)"
+    [[ "$CLASS_VAL" == "user" ]] && compat_ok "session.logind.class" "Class=user" \
+        || compat_fail "session.logind.class" "Class=$CLASS_VAL (expected user)"
+    [[ "$SEAT_VAL" == "seat0" ]] && compat_ok "session.logind.seat" "Seat=seat0" \
+        || compat_fail "session.logind.seat" "Seat=$SEAT_VAL (expected seat0)"
+fi
+
+if [[ -d "$RUNTIME_DIR" ]]; then
+    perm="$(stat -c '%a' "$RUNTIME_DIR" 2>/dev/null || echo '?')"
+    owner_uid="$(stat -c '%u' "$RUNTIME_DIR" 2>/dev/null || echo '?')"
+    owner_gid="$(stat -c '%g' "$RUNTIME_DIR" 2>/dev/null || echo '?')"
+    expected_uid="$(id -u "$SESSION_USER")"
+    expected_path="/run/user/${expected_uid}"
+    [[ "$RUNTIME_DIR" == "$expected_path" ]] \
+        && compat_ok "env.runtime.path" "XDG_RUNTIME_DIR=$RUNTIME_DIR" \
+        || compat_fail "env.runtime.path" "XDG_RUNTIME_DIR=$RUNTIME_DIR (expected $expected_path)"
+    [[ "$perm" == "700" ]] \
+        && compat_ok "env.runtime.perm" "permission=0700" \
+        || compat_fail "env.runtime.perm" "permission=$perm (expected 700)"
+    [[ "$owner_uid" == "$expected_uid" ]] \
+        && compat_ok "env.runtime.owner" "owner uid=$owner_uid gid=$owner_gid" \
+        || compat_fail "env.runtime.owner" "owner uid=$owner_uid (expected $expected_uid)"
+else
+    compat_fail "env.runtime.exists" "runtime dir tidak ada: $RUNTIME_DIR"
+fi
+
+WAYLAND0="$RUNTIME_DIR/wayland-0"
+if [[ -S "$WAYLAND0" ]]; then
+    compat_ok "wayland.socket" "$WAYLAND0 adalah UNIX socket"
+elif [[ -L "$WAYLAND0" ]]; then
+    target="$(readlink -f "$WAYLAND0" 2>/dev/null || true)"
+    if [[ -n "$target" && -S "$target" ]]; then
+        compat_ok "wayland.socket" "$WAYLAND0 symlink valid -> $target"
+    else
+        compat_fail "wayland.socket" "$WAYLAND0 symlink invalid -> ${target:-<empty>}"
+    fi
+elif [[ -e "$WAYLAND0" ]]; then
+    compat_fail "wayland.socket" "$WAYLAND0 ada tapi bukan socket"
+else
+    compat_fail "wayland.socket" "$WAYLAND0 tidak ditemukan"
+fi
+
+if [[ -S "/tmp/.X11-unix/X0" ]]; then
+    compat_ok "x11.socket" "/tmp/.X11-unix/X0 tersedia"
+else
+    compat_fail "x11.socket" "/tmp/.X11-unix/X0 tidak tersedia"
+fi
+
+XAUTH_FILE="$(find "$RUNTIME_DIR" -maxdepth 1 -type f \( -name '.mutter-Xwaylandauth.*' -o -name 'xauth_*' -o -name '.Xauthority' \) | head -n 1 || true)"
+if [[ -n "$XAUTH_FILE" ]]; then
+    compat_ok "x11.xauthority" "xauth file terdeteksi: $XAUTH_FILE"
+else
+    compat_fail "x11.xauthority" "xauth file tidak ditemukan di $RUNTIME_DIR"
+fi
+
+if [[ -S "$RUNTIME_DIR/bus" ]]; then
+    compat_ok "dbus.user_socket" "user bus socket tersedia: $RUNTIME_DIR/bus"
+else
+    compat_fail "dbus.user_socket" "user bus socket tidak tersedia: $RUNTIME_DIR/bus"
+fi
+
+if runuser -u "$SESSION_USER" -- env XDG_RUNTIME_DIR="$RUNTIME_DIR" systemctl --user is-active xdg-desktop-portal >/dev/null 2>&1; then
+    compat_ok "portal.desktop.active" "xdg-desktop-portal active"
+else
+    compat_fail "portal.desktop.active" "xdg-desktop-portal tidak active"
+fi
+
+PORTAL_BACKEND_ACTIVE=0
+for backend_unit in slm-portald xdg-desktop-portal-gtk xdg-desktop-portal-kde; do
+    if runuser -u "$SESSION_USER" -- env XDG_RUNTIME_DIR="$RUNTIME_DIR" systemctl --user is-active "$backend_unit" >/dev/null 2>&1; then
+        compat_ok "portal.backend.${backend_unit}" "$backend_unit active"
+        PORTAL_BACKEND_ACTIVE=1
+    fi
+done
+if [[ "$PORTAL_BACKEND_ACTIVE" -eq 0 ]]; then
+    compat_fail "portal.backend.any" "tidak ada backend portal yang active (slm-portald/gtk/kde)"
+fi
+
+if runuser -u "$SESSION_USER" -- env XDG_RUNTIME_DIR="$RUNTIME_DIR" busctl --user tree org.freedesktop.portal.Desktop >"$ARTIFACT_DIR/portal-bus-tree.log" 2>&1; then
+    compat_ok "portal.dbus.tree" "org.freedesktop.portal.Desktop terdaftar di user bus"
+else
+    compat_fail "portal.dbus.tree" "org.freedesktop.portal.Desktop tidak tersedia di user bus"
+fi
+
+if grep -E "DENIED|apparmor" "$ARTIFACT_DIR/journal-kernel.log" >"$ARTIFACT_DIR/kernel-denied.log" 2>/dev/null; then
+    compat_warn "security.denied" "ditemukan indikasi DENIED/AppArmor di journal kernel"
+else
+    compat_ok "security.denied" "tidak ada DENIED/AppArmor di journal kernel"
 fi
 
 # Don't stop the watcher early — let it run for its full duration so we capture
@@ -291,9 +458,18 @@ else
     warnf "last-crash.json tidak ditemukan di ${CRASH_REPORT_FILE}"
 fi
 
+COMPAT_REPORT_FILE="${SESSION_HOME}/.config/slm-desktop/compatibility-report.json"
+if [[ -f "$COMPAT_REPORT_FILE" ]]; then
+    cp "$COMPAT_REPORT_FILE" "$ARTIFACT_DIR/slm-compatibility-report.json"
+    ok "compatibility report terkumpul: $COMPAT_REPORT_FILE"
+else
+    warnf "compatibility report tidak ditemukan di ${COMPAT_REPORT_FILE}"
+fi
+
 for log_path in /tmp/slm-compositor.log /tmp/slm-shell.log /tmp/slm-smoke-runtime.log \
                 /tmp/slm-session-broker.log /tmp/slm-session-broker-launch.log \
-                /tmp/slm-greeter.log /tmp/slm-greeter-service.log; do
+                /tmp/slm-greeter.log /tmp/slm-greeter-service.log \
+                /tmp/slm-portald.log /tmp/slm-cache-prewarm.log; do
     if [[ -f "$log_path" ]]; then
         log_name="$(basename "$log_path")"
         cp "$log_path" "$ARTIFACT_DIR/$log_name"
@@ -305,7 +481,7 @@ for log_path in /tmp/slm-compositor.log /tmp/slm-shell.log /tmp/slm-smoke-runtim
 done
 
 PROCESS_MATCHES=0
-for pattern in greetd cage slm-greeter slm-session-broker slm-watchdog slm-desktop slm-shell; do
+for pattern in greetd cage slm-greeter slm-session-broker slm-watchdog slm-desktop slm-shell slm-portald xdg-desktop-portal; do
     if pgrep -af "$pattern" >"$ARTIFACT_DIR/proc-${pattern}.log" 2>&1; then
         ok "process terlihat: $pattern"
         PROCESS_MATCHES=1
@@ -331,6 +507,82 @@ if [[ -n "$WAYLAND_SOCKET" ]]; then
     printf '%s\n' "$WAYLAND_SOCKET" >"$ARTIFACT_DIR/wayland-socket.txt"
 else
     warnf "wayland socket tidak terdeteksi"
+fi
+
+python3 - "$COMPAT_LOG" "$COMPAT_JSON" <<'PY'
+import json
+import sys
+from datetime import datetime, timezone
+
+src, dst = sys.argv[1], sys.argv[2]
+entries = []
+counts = {"ok": 0, "warn": 0, "fail": 0}
+
+with open(src, "r", encoding="utf-8") as fh:
+    for raw in fh:
+        line = raw.strip()
+        if not line:
+            continue
+        # Format: [OK] check.id :: message
+        if not line.startswith("[") or "]" not in line:
+            continue
+        status = line[1:line.index("]")].lower()
+        rest = line[line.index("]") + 1 :].strip()
+        if "::" in rest:
+            check_id, message = [part.strip() for part in rest.split("::", 1)]
+        else:
+            check_id, message = rest, ""
+        if status in counts:
+            counts[status] += 1
+        entries.append(
+            {
+                "status": status,
+                "checkId": check_id,
+                "message": message,
+            }
+        )
+
+matrix = [
+    {"category": "GTK3 app", "example": "gedit", "status": "manual-test-required"},
+    {"category": "GTK4 app", "example": "gnome-text-editor", "status": "manual-test-required"},
+    {"category": "Qt6 app", "example": "qt6ct", "status": "manual-test-required"},
+    {"category": "Electron app", "example": "Slack/Discord", "status": "manual-test-required"},
+    {"category": "Chromium", "example": "chromium", "status": "manual-test-required"},
+    {"category": "VSCode", "example": "code", "status": "manual-test-required"},
+    {"category": "Steam", "example": "steam", "status": "manual-test-required"},
+    {"category": "Snap Firefox", "example": "firefox", "status": "manual-test-required"},
+    {"category": "Flatpak app", "example": "org.onlyoffice.desktopeditors", "status": "manual-test-required"},
+    {"category": "X11 legacy app", "example": "xterm/xeyes", "status": "manual-test-required"},
+]
+
+payload = {
+    "policy": "SLM Desktop Compatibility Policy",
+    "timestampUtc": datetime.now(timezone.utc).isoformat(),
+    "summary": {
+        "ok": counts["ok"],
+        "warn": counts["warn"],
+        "fail": counts["fail"],
+    },
+    "checks": entries,
+    "matrix": matrix,
+    "requiredManualChecks": [
+        "launch",
+        "render",
+        "input",
+        "clipboard",
+        "file-picker",
+        "drag-drop",
+        "notifications",
+    ],
+}
+
+with open(dst, "w", encoding="utf-8") as out:
+    json.dump(payload, out, indent=2)
+PY
+if [[ -f "$COMPAT_JSON" ]]; then
+    ok "compatibility JSON report generated: $COMPAT_JSON"
+else
+    warnf "gagal generate compatibility JSON report"
 fi
 
 echo "[qemu-guest-session-smoke] summary fail=${fail} warn=${warn}" | tee -a "$ARTIFACT_DIR/summary.log"
