@@ -23,6 +23,8 @@ BIN_DIR="/usr/local/bin"
 LIBEXEC_DIR="/usr/libexec"
 SLM_LIBEXEC_DIR="/usr/local/libexec/slm/recovery"
 SESSION_DIR="/usr/share/wayland-sessions"
+SETTINGS_MODULES_DIR="/usr/lib/settings/modules"
+SETTINGS_COMPONENTS_DIR="/usr/lib/settings/components"
 
 echo "[install-slm-runtime] root=$ROOT_DIR"
 echo "[install-slm-runtime] build=$BUILD_DIR"
@@ -67,7 +69,29 @@ install_if_exists "$BUILD_DIR/slm-devicesd" "$BIN_DIR/slm-devicesd"
 install_if_exists "$BUILD_DIR/slm-clipboardd" "$BIN_DIR/slm-clipboardd"
 install_if_exists "$BUILD_DIR/slm-polkit-agent" "$BIN_DIR/slm-polkit-agent"
 install_if_exists "$BUILD_DIR/slm-envd" "$BIN_DIR/slm-envd"
+install_if_exists "$BUILD_DIR/slm-envd-helper" "$BIN_DIR/slm-envd-helper"
 install_if_exists "$BUILD_DIR/slm-recoveryd" "$BIN_DIR/slm-recoveryd"
+install_if_exists "$BUILD_DIR/slm-settings" "$BIN_DIR/slm-settings"
+install_if_exists "$BUILD_DIR/slm-settingsd" "$BIN_DIR/slm-settingsd"
+install_if_exists "$BUILD_DIR/desktop-contextd" "$BIN_DIR/desktop-contextd"
+
+if [[ -d "$ROOT_DIR/src/apps/settings/modules" ]]; then
+  install -d -m0755 "$SETTINGS_MODULES_DIR"
+  rm -rf "$SETTINGS_MODULES_DIR"/*
+  cp -a "$ROOT_DIR/src/apps/settings/modules/." "$SETTINGS_MODULES_DIR/"
+  echo "[install-slm-runtime][OK] settings modules installed: $SETTINGS_MODULES_DIR"
+else
+  echo "[install-slm-runtime][WARN] settings modules source not found: $ROOT_DIR/src/apps/settings/modules"
+fi
+
+if [[ -d "$ROOT_DIR/Qml/apps/settings/components" ]]; then
+  install -d -m0755 "$SETTINGS_COMPONENTS_DIR"
+  rm -rf "$SETTINGS_COMPONENTS_DIR"/*
+  cp -a "$ROOT_DIR/Qml/apps/settings/components/." "$SETTINGS_COMPONENTS_DIR/"
+  echo "[install-slm-runtime][OK] settings components installed: $SETTINGS_COMPONENTS_DIR"
+else
+  echo "[install-slm-runtime][WARN] settings components source not found: $ROOT_DIR/Qml/apps/settings/components"
+fi
 
 install -Dm644 "$ROOT_DIR/sessions/slm.desktop" "$SESSION_DIR/slm.desktop"
 echo "[install-slm-runtime][OK] $SESSION_DIR/slm.desktop"
@@ -115,17 +139,18 @@ if [[ -n "$TARGET_USER" ]]; then
   install_user_unit "$ROOT_DIR/scripts/systemd/slm-polkit-agent.service" "slm-polkit-agent.service" "$BIN_DIR/slm-polkit-agent"
   install_user_unit "$ROOT_DIR/scripts/systemd/slm-envd.service" "slm-envd.service" "$BIN_DIR/slm-envd"
   install_user_unit "$ROOT_DIR/scripts/systemd/slm-recoveryd.service" "slm-recoveryd.service" "$BIN_DIR/slm-recoveryd"
+  install_user_unit "$ROOT_DIR/scripts/systemd/slm-settingsd.service" "slm-settingsd.service" "$BIN_DIR/slm-settingsd"
 
   if [[ "$ENABLE_USER_UNITS" == "1" ]]; then
     if runuser -u "$TARGET_USER" -- systemctl --user daemon-reload >/dev/null 2>&1; then
       runuser -u "$TARGET_USER" -- systemctl --user enable --now \
         slm-desktopd.service slm-portald.service slm-fileopsd.service \
         slm-devicesd.service slm-clipboardd.service slm-polkit-agent.service slm-envd.service \
-        slm-recoveryd.service || true
+        slm-recoveryd.service slm-settingsd.service || true
       echo "[install-slm-runtime][OK] attempted to enable user units"
     else
       echo "[install-slm-runtime][WARN] cannot access user systemd manager now; units installed but not started"
-      echo "[install-slm-runtime][HINT] login as ${TARGET_USER} and run: systemctl --user daemon-reload && systemctl --user enable --now slm-desktopd.service slm-portald.service slm-fileopsd.service slm-devicesd.service slm-clipboardd.service slm-polkit-agent.service slm-envd.service slm-recoveryd.service"
+      echo "[install-slm-runtime][HINT] login as ${TARGET_USER} and run: systemctl --user daemon-reload && systemctl --user enable --now slm-desktopd.service slm-portald.service slm-fileopsd.service slm-devicesd.service slm-clipboardd.service slm-polkit-agent.service slm-envd.service slm-recoveryd.service slm-settingsd.service"
     fi
   fi
 else

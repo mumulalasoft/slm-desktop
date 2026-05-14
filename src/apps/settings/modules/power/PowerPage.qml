@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import "../../../../../Qml/apps/settings/components"
+import "file:/usr/lib/settings/components"
 
 Flickable {
     id: root

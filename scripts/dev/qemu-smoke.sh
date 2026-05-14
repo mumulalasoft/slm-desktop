@@ -42,14 +42,17 @@ else
 fi
 
 FAST_TARGETS=(
-    slm-greeter
-    slm-watchdog
-    slm-recovery-app
-    slm-session-broker
-    slm-desktop
-    desktopd
-    slm-portald
-    slm-lockd
+    # greeter → broker pipeline (wajib ada, must_install_bin)
+    slm-greeter slm-watchdog slm-recovery-app slm-session-broker
+    # desktop shell & compositor daemons
+    slm-desktop desktopd slm-svcmgrd slm-loggerd slm-lockd
+    # portals & system daemons
+    slm-portald slm-fileopsd slm-devicesd slm-clipboardd
+    slm-envd slm-envd-helper slm-recoveryd slm-polkit-agent
+    # settings & context
+    slm-settingsd desktop-contextd slm-settings
+    # control utilities
+    indicatorctl windowingctl workspacectl fileopctl devicectl globalmenuctl
 )
 
 FULL_TARGETS=(
@@ -361,17 +364,22 @@ ldd "$HOST_BUILD_DIR/slm-desktop" "$HOST_BUILD_DIR/slm-session-broker" "$HOST_BU
 if [[ "$FAST_MODE" == "1" ]]; then
     echo "[qemu-smoke] Syncing minimal artifacts ke guest ($BUILD_DIR)..."
     g_ssh "mkdir -p $(printf '%q' "$BUILD_DIR")"
+    RSYNC_FAST_TARGETS=()
+    for t in "${RUNTIME_TARGETS[@]}"; do
+        RSYNC_FAST_TARGETS+=("$HOST_BUILD_DIR/$t")
+    done
     rsync -az \
         -e "$(printf '%q ' "${SSH_CMD[@]}" "${SSH_OPTS[@]}")" \
-        "$HOST_BUILD_DIR/slm-greeter" \
-        "$HOST_BUILD_DIR/slm-watchdog" \
-        "$HOST_BUILD_DIR/slm-recovery-app" \
-        "$HOST_BUILD_DIR/slm-session-broker" \
-        "$HOST_BUILD_DIR/slm-desktop" \
-        "$HOST_BUILD_DIR/desktopd" \
-        "$HOST_BUILD_DIR/slm-portald" \
-        "$HOST_BUILD_DIR/slm-lockd" \
+        "${RSYNC_FAST_TARGETS[@]}" \
         "$SSH_HOST:$BUILD_DIR/"
+    rsync -az \
+        -e "$(printf '%q ' "${SSH_CMD[@]}" "${SSH_OPTS[@]}")" \
+        "$HOST_REPO_DIR/src/apps/settings/modules/" \
+        "$SSH_HOST:$BUILD_DIR/settings-modules/"
+    rsync -az \
+        -e "$(printf '%q ' "${SSH_CMD[@]}" "${SSH_OPTS[@]}")" \
+        "$HOST_REPO_DIR/Qml/apps/settings/components/" \
+        "$SSH_HOST:$BUILD_DIR/settings-components/"
 else
     echo "[qemu-smoke] Syncing full build tree ke guest ($BUILD_DIR)..."
     rsync -az --delete \
@@ -413,8 +421,32 @@ install_exec_atomic '__BUILD_DIR__/slm-session-broker' /usr/libexec/slm-session-
 ln -sfn /usr/libexec/slm-session-broker /usr/local/bin/slm-session-broker
 install_exec_atomic '__BUILD_DIR__/slm-desktop' /usr/local/bin/slm-shell.real
 install_exec_atomic '__BUILD_DIR__/desktopd' /usr/local/bin/desktopd
+install_exec_atomic '__BUILD_DIR__/slm-svcmgrd' /usr/local/bin/slm-svcmgrd
+install_exec_atomic '__BUILD_DIR__/slm-loggerd' /usr/local/bin/slm-loggerd
 install_exec_atomic '__BUILD_DIR__/slm-portald' /usr/local/bin/slm-portald
 install_exec_atomic '__BUILD_DIR__/slm-lockd' /usr/local/bin/slm-lockd
+install_exec_atomic '__BUILD_DIR__/slm-fileopsd' /usr/local/bin/slm-fileopsd
+install_exec_atomic '__BUILD_DIR__/slm-devicesd' /usr/local/bin/slm-devicesd
+install_exec_atomic '__BUILD_DIR__/slm-clipboardd' /usr/local/bin/slm-clipboardd
+install_exec_atomic '__BUILD_DIR__/slm-envd' /usr/local/bin/slm-envd
+install_exec_atomic '__BUILD_DIR__/slm-envd-helper' /usr/local/bin/slm-envd-helper
+install_exec_atomic '__BUILD_DIR__/slm-recoveryd' /usr/local/bin/slm-recoveryd
+install_exec_atomic '__BUILD_DIR__/slm-polkit-agent' /usr/local/bin/slm-polkit-agent
+install_exec_atomic '__BUILD_DIR__/slm-settings' /usr/local/bin/slm-settings
+install_exec_atomic '__BUILD_DIR__/slm-settingsd' /usr/local/bin/slm-settingsd
+install_exec_atomic '__BUILD_DIR__/desktop-contextd' /usr/local/bin/desktop-contextd
+install -d -m0755 /usr/lib/settings/modules
+rm -rf /usr/lib/settings/modules/*
+cp -a '__BUILD_DIR__/settings-modules/.' /usr/lib/settings/modules/
+install -d -m0755 /usr/lib/settings/components
+rm -rf /usr/lib/settings/components/*
+cp -a '__BUILD_DIR__/settings-components/.' /usr/lib/settings/components/
+install_exec_atomic '__BUILD_DIR__/indicatorctl' /usr/local/bin/indicatorctl
+install_exec_atomic '__BUILD_DIR__/windowingctl' /usr/local/bin/windowingctl
+install_exec_atomic '__BUILD_DIR__/workspacectl' /usr/local/bin/workspacectl
+install_exec_atomic '__BUILD_DIR__/fileopctl' /usr/local/bin/fileopctl
+install_exec_atomic '__BUILD_DIR__/devicectl' /usr/local/bin/devicectl
+install_exec_atomic '__BUILD_DIR__/globalmenuctl' /usr/local/bin/globalmenuctl
 cat > /tmp/slm-shell.wrapper.\$\$ <<'SLM_SHELL_WRAPPER'
 #!/bin/sh
 unset KWIN_COMPOSE LIBGL_ALWAYS_SOFTWARE QSG_RHI_BACKEND

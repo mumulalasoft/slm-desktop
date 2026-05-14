@@ -2,7 +2,7 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import Slm_Desktop
-import "../../../../../Qml/apps/settings/components"
+import "file:/usr/lib/settings/components"
 
 Flickable {
     id: root
@@ -243,7 +243,7 @@ Flickable {
                 label: qsTr("System Settings")
                 description: qsTr("Open the System Settings app.")
                 Layout.fillWidth: true
-                ShortcutKey { prefKey: "shortcuts.openSettings"; defaultVal: "Meta+Shift+I" }
+                ShortcutKey { prefKey: "shortcuts.openSettings"; defaultVal: "Meta+," }
             }
             SettingCard {
                 label: qsTr("File Manager")
