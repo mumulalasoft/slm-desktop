@@ -12,7 +12,7 @@ Item {
                                ? ScreencastPrivacyModel : null
     readonly property bool active: !!privacyModel && !!privacyModel.active
     readonly property int activeCount: privacyModel ? Number(privacyModel.activeCount) : 0
-    readonly property int iconSize: 22
+    readonly property int iconSize: 20
     readonly property bool popupOpen: menu.opened
 
     visible: active

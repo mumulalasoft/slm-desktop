@@ -22,6 +22,9 @@ public:
     bool configureShare(const QString &path, const QVariantMap &options);
     bool removeShare(const QString &path);
     QVariantList listShares() const;
+    QVariantMap applyShare(const QString &shareName, const QString &path,
+                           const QString &acl, bool guestOk);
+    QVariantMap deleteShare(const QString &shareName);
 
 private:
     bool runUsershareCommand(const QStringList &args) const;

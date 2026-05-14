@@ -864,6 +864,13 @@ Item {
         }
 
         DSStyle.MenuItem {
+            text: "Send to Nearby Device..."
+            icon.name: "network-wireless-symbolic"
+            enabled: root.hostRoot.contextEntryIndex >= 0
+            onTriggered: root.hostRoot.openNearbySendSheet([root.hostRoot.contextEntryPath])
+        }
+
+        DSStyle.MenuItem {
             text: "Print..."
             icon.name: "document-print-symbolic"
             shortcutText: "Ctrl+P"
@@ -1156,6 +1163,13 @@ Item {
             onTriggered: root.hostRoot.openFolderShareDialog(root.hostRoot.contextEntryPath)
         }
 
+        DSStyle.MenuItem {
+            text: "Send to Nearby Device..."
+            icon.name: "network-wireless-symbolic"
+            enabled: String(root.hostRoot.contextEntryPath || "").length > 0
+            onTriggered: root.hostRoot.openNearbySendSheet([root.hostRoot.contextEntryPath])
+        }
+
         MenuSeparator {}
 
 
@@ -1314,6 +1328,12 @@ Item {
                     root.hostRoot.shareSheetRef.open()
                 }
             }
+        }
+
+        DSStyle.MenuItem {
+            text: "Send to Nearby Device..."
+            icon.name: "network-wireless-symbolic"
+            onTriggered: root.hostRoot.openNearbySendSheet(null)
         }
 
         MenuSeparator {}

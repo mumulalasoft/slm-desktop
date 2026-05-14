@@ -1032,6 +1032,7 @@ set(DESKTOP_SHELL_QML_FILES
     Qml/apps/filemanager/FileManagerOpenWithDialog.qml
     Qml/apps/filemanager/FileManagerStorageVolumeSelectorDialog.qml
     Qml/apps/filemanager/FileManagerFolderShareDialog.qml
+    Qml/apps/filemanager/FileManagerNearbySendSheet.qml
     Qml/apps/filemanager/FileManagerRenameSheet.qml
     Qml/apps/filemanager/FileManagerDragGhost.qml
     Qml/apps/filemanager/FileManagerKeys.js

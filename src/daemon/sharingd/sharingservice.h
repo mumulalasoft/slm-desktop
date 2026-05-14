@@ -49,6 +49,15 @@ public slots:
     QVariantMap CheckEnvironment() const;
     QVariantMap TryAutoFix(const QString &issue);
 
+    // Folder sharing compat API (replaces org.slm.Desktop.FolderSharing)
+    QVariantMap ConfigureShare(const QString &path, const QVariantMap &options);
+    QVariantMap DisableShare(const QString &path);
+    QVariantMap ShareInfo(const QString &path) const;
+    QVariantMap ListShares() const;
+    QVariantMap CheckFileSharingEnvironment() const;
+    QVariantMap TryAutoFixFileSharing();
+    QVariantMap SetupSharingPrerequisites();
+
 signals:
     void serviceRegisteredChanged();
     void SharedFolderAdded(const QString &path, const QVariantMap &info);
@@ -58,6 +67,7 @@ signals:
     void TransferCompleted(const QString &transferId, bool success, const QString &error);
     void TransferIncomingRequest(const QString &transferId, const QString &fromDeviceId, const QVariantMap &info);
     void FeatureStateChanged(const QString &feature, bool enabled);
+    void ShareStateChanged(const QString &path, const QVariantMap &shareInfo);
 
 private:
     void connectManagerSignals();

@@ -16,7 +16,7 @@ Item {
     property double lastMenuCloseMs: 0
     property bool bluetoothEnabledPreference: false
     property bool bluetoothPreferenceKnown: false
-    readonly property int iconSize: 22
+    readonly property int iconSize: 20
     readonly property int popupGap: Theme.metric("spacingSm")
     readonly property int rowGap: Theme.metric("spacingMd")
     readonly property int dialogGap: Theme.metric("spacingMd")

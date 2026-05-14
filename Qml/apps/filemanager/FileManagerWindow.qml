@@ -226,6 +226,7 @@ Rectangle {
     readonly property var folderShareDialogRef: dialogsRef ? dialogsRef.folderShareDialogRef : null
     readonly property var storageVolumeSelectorDialogRef: dialogsRef ? dialogsRef.storageVolumeSelectorDialogRef : null
     readonly property var shareSheetRef: dialogsRef ? dialogsRef.shareSheetRef : null
+    readonly property var nearbySendSheetRef: dialogsRef ? dialogsRef.nearbySendSheetRef : null
 
     function isRecentPath(pathValue) {
         return String(pathValue || "").trim() === "__recent__"
@@ -945,6 +946,19 @@ Rectangle {
             return
         }
         folderShareDialogRef.openForPath(p)
+    }
+    function openNearbySendSheet(pathsValue) {
+        var paths = pathsValue
+        if (!paths || paths.length <= 0) {
+            paths = root.selectedPaths ? root.selectedPaths() : []
+            if (!paths || paths.length <= 0) {
+                var cp = String(contextEntryPath || "")
+                if (cp.length > 0) paths = [cp]
+            }
+        }
+        if (!paths || paths.length <= 0) return
+        if (!nearbySendSheetRef || !nearbySendSheetRef.openForPaths) return
+        nearbySendSheetRef.openForPaths(paths)
     }
     function applyFolderShareConfig(pathValue, options) {
         if (!fileManagerApiRef || !fileManagerApiRef.configureFolderShare) {

@@ -150,6 +150,7 @@ void SharingService::connectManagerSignals()
     connect(m_manager, &SharingManager::transferProgress, this, &SharingService::TransferProgress);
     connect(m_manager, &SharingManager::transferCompleted, this, &SharingService::TransferCompleted);
     connect(m_manager, &SharingManager::featureStateChanged, this, &SharingService::FeatureStateChanged);
+    connect(m_manager, &SharingManager::shareStateChanged, this, &SharingService::ShareStateChanged);
 }
 
 bool SharingService::checkPermission(Slm::Permissions::Capability capability,
@@ -171,4 +172,53 @@ QVariantMap SharingService::makeResult(bool ok, const QString &error, const QVar
     for (auto it = extra.begin(); it != extra.end(); ++it)
         result.insert(it.key(), it.value());
     return result;
+}
+
+QVariantMap SharingService::ConfigureShare(const QString &path, const QVariantMap &options)
+{
+    if (!checkPermission(Slm::Permissions::Capability::ShareInvoke, QStringLiteral("ConfigureShare")))
+        return makeResult(false, QStringLiteral("permission-denied"));
+    return m_manager->configureShare(path, options);
+}
+
+QVariantMap SharingService::DisableShare(const QString &path)
+{
+    if (!checkPermission(Slm::Permissions::Capability::ShareInvoke, QStringLiteral("DisableShare")))
+        return makeResult(false, QStringLiteral("permission-denied"));
+    return m_manager->disableShare(path);
+}
+
+QVariantMap SharingService::ShareInfo(const QString &path) const
+{
+    if (!const_cast<SharingService *>(this)->checkPermission(
+            Slm::Permissions::Capability::ShareInvoke, QStringLiteral("ShareInfo")))
+        return makeResult(false, QStringLiteral("permission-denied"));
+    return m_manager->shareInfo(path);
+}
+
+QVariantMap SharingService::ListShares() const
+{
+    if (!const_cast<SharingService *>(this)->checkPermission(
+            Slm::Permissions::Capability::ShareInvoke, QStringLiteral("ListShares")))
+        return makeResult(false, QStringLiteral("permission-denied"));
+    return m_manager->listSharesCompat();
+}
+
+QVariantMap SharingService::CheckFileSharingEnvironment() const
+{
+    return m_manager->checkFileSharingEnvironment();
+}
+
+QVariantMap SharingService::TryAutoFixFileSharing()
+{
+    if (!checkPermission(Slm::Permissions::Capability::ShareInvoke, QStringLiteral("TryAutoFixFileSharing")))
+        return makeResult(false, QStringLiteral("permission-denied"));
+    return m_manager->tryAutoFixFileSharing();
+}
+
+QVariantMap SharingService::SetupSharingPrerequisites()
+{
+    if (!checkPermission(Slm::Permissions::Capability::ShareInvoke, QStringLiteral("SetupSharingPrerequisites")))
+        return makeResult(false, QStringLiteral("permission-denied"));
+    return m_manager->setupSharingPrerequisites();
 }

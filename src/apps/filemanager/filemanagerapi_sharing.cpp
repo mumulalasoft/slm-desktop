@@ -19,9 +19,11 @@
 
 namespace {
 
-constexpr const char kFolderSharingService[] = "org.slm.Desktop.FolderSharing";
-constexpr const char kFolderSharingPath[] = "/org/slm/Desktop/FolderSharing";
-constexpr const char kFolderSharingIface[] = "org.slm.Desktop.FolderSharing";
+constexpr const char kSharingService[]     = "org.slm.Sharing";
+constexpr const char kSharingPath[]        = "/org/slm/Sharing";
+constexpr const char kSharingIface[]       = "org.slm.Sharing";
+constexpr const char kSharingNearbyPath[]  = "/org/slm/Sharing/Nearby";
+constexpr const char kSharingNearbyIface[] = "org.slm.Sharing.Nearby";
 constexpr const char kErrDaemonUnavailable[] = "daemon-unavailable";
 constexpr const char kErrDaemonTimeout[] = "daemon-timeout";
 constexpr const char kErrDaemonDbusError[] = "daemon-dbus-error";
@@ -71,23 +73,25 @@ QString dbusFailureCode(DbusFailure failure)
     }
 }
 
-bool callFolderSharingService(const QString &method,
-                              const QVariantList &args,
-                              QVariantMap *resultOut = nullptr,
-                              QString *failureCodeOut = nullptr)
+bool callSharingService(const QString &path,
+                        const QString &iface,
+                        const QString &method,
+                        const QVariantList &args,
+                        QVariantMap *resultOut = nullptr,
+                        QString *failureCodeOut = nullptr)
 {
-    QDBusInterface iface(QString::fromLatin1(kFolderSharingService),
-                         QString::fromLatin1(kFolderSharingPath),
-                         QString::fromLatin1(kFolderSharingIface),
-                         QDBusConnection::sessionBus());
-    if (!iface.isValid()) {
+    QDBusInterface dbusIface(QString::fromLatin1(kSharingService),
+                             path,
+                             iface,
+                             QDBusConnection::sessionBus());
+    if (!dbusIface.isValid()) {
         if (failureCodeOut) {
             *failureCodeOut = QString::fromLatin1(kErrDaemonUnavailable);
         }
         return false;
     }
-    iface.setTimeout(kDbusTimeoutMs);
-    QDBusReply<QVariantMap> reply = iface.callWithArgumentList(QDBus::Block, method, args);
+    dbusIface.setTimeout(kDbusTimeoutMs);
+    QDBusReply<QVariantMap> reply = dbusIface.callWithArgumentList(QDBus::Block, method, args);
     if (!reply.isValid()) {
         if (failureCodeOut) {
             *failureCodeOut = dbusFailureCode(classifyDbusReplyError(reply));
@@ -98,6 +102,17 @@ bool callFolderSharingService(const QString &method,
         *resultOut = reply.value();
     }
     return true;
+}
+
+// Convenience wrapper targeting the root /org/slm/Sharing object.
+bool callFolderSharingService(const QString &method,
+                              const QVariantList &args,
+                              QVariantMap *resultOut = nullptr,
+                              QString *failureCodeOut = nullptr)
+{
+    return callSharingService(QString::fromLatin1(kSharingPath),
+                              QString::fromLatin1(kSharingIface),
+                              method, args, resultOut, failureCodeOut);
 }
 
 QString sanitizeShareName(QString name, const QString &fallback)
@@ -470,7 +485,7 @@ QVariantMap FileManagerApi::folderSharingEnvironment() const
 {
     QVariantMap daemonResult;
     QString daemonFailure;
-    if (callFolderSharingService(QStringLiteral("CheckEnvironment"),
+    if (callFolderSharingService(QStringLiteral("CheckFileSharingEnvironment"),
                                  {},
                                  &daemonResult,
                                  &daemonFailure)) {
@@ -576,7 +591,7 @@ QVariantMap FileManagerApi::folderSharingEnvironment() const
 QVariantMap FileManagerApi::repairFolderSharingEnvironment()
 {
     QVariantMap daemonResult;
-    if (callFolderSharingService(QStringLiteral("TryAutoFix"),
+    if (callFolderSharingService(QStringLiteral("TryAutoFixFileSharing"),
                                  {},
                                  &daemonResult,
                                  nullptr)) {
@@ -622,6 +637,86 @@ QVariantList FileManagerApi::missingComponentsForDomain(const QString &domain) c
         return QVariantList{};
     }
     return Slm::System::ComponentRegistry::missingForDomain(d);
+}
+
+QVariantList FileManagerApi::nearbyDevices() const
+{
+    QDBusInterface iface(QString::fromLatin1(kSharingService),
+                         QString::fromLatin1(kSharingNearbyPath),
+                         QString::fromLatin1(kSharingNearbyIface),
+                         QDBusConnection::sessionBus());
+    if (!iface.isValid()) {
+        return QVariantList{};
+    }
+    iface.setTimeout(kDbusTimeoutMs);
+    QDBusReply<QVariantMap> reply = iface.call(QDBus::Block, QStringLiteral("GetDevices"));
+    if (!reply.isValid()) {
+        return QVariantList{};
+    }
+    return reply.value().value(QStringLiteral("devices")).toList();
+}
+
+QVariantMap FileManagerApi::sendFileToNearbyDevice(const QString &deviceId,
+                                                    const QString &path)
+{
+    const QString p = expandPath(path);
+    if (p.isEmpty() || deviceId.trimmed().isEmpty()) {
+        return makeResult(false, QStringLiteral("invalid-arguments"));
+    }
+    QVariantMap result;
+    QString failureCode;
+    if (!callSharingService(QString::fromLatin1(kSharingNearbyPath),
+                            QString::fromLatin1(kSharingNearbyIface),
+                            QStringLiteral("SendFileTo"),
+                            {deviceId.trimmed(), QVariant::fromValue(p)},
+                            &result,
+                            &failureCode)) {
+        return makeResult(false,
+                          failureCode.isEmpty() ? QStringLiteral("send-failed") : failureCode);
+    }
+    if (!result.value(QStringLiteral("ok")).toBool()) {
+        return result;
+    }
+    const QString transferId = result.value(QStringLiteral("transferId")).toString();
+    const QString deviceName = result.value(QStringLiteral("deviceName")).toString();
+    emit nearbyTransferStarted(transferId, deviceName, result);
+    return makeResult(true, QString(), result);
+}
+
+QVariantMap FileManagerApi::startNearbyDiscovery()
+{
+    QVariantMap result;
+    QString failureCode;
+    if (!callSharingService(QString::fromLatin1(kSharingNearbyPath),
+                            QString::fromLatin1(kSharingNearbyIface),
+                            QStringLiteral("StartDiscovery"),
+                            {},
+                            &result,
+                            &failureCode)) {
+        return makeResult(false,
+                          failureCode.isEmpty() ? QStringLiteral("discovery-failed") : failureCode);
+    }
+    return result.value(QStringLiteral("ok")).toBool()
+               ? makeResult(true, QString(), result)
+               : result;
+}
+
+QVariantMap FileManagerApi::stopNearbyDiscovery()
+{
+    QVariantMap result;
+    QString failureCode;
+    if (!callSharingService(QString::fromLatin1(kSharingNearbyPath),
+                            QString::fromLatin1(kSharingNearbyIface),
+                            QStringLiteral("StopDiscovery"),
+                            {},
+                            &result,
+                            &failureCode)) {
+        return makeResult(false,
+                          failureCode.isEmpty() ? QStringLiteral("stop-failed") : failureCode);
+    }
+    return result.value(QStringLiteral("ok")).toBool()
+               ? makeResult(true, QString(), result)
+               : result;
 }
 
 QVariantMap FileManagerApi::installMissingComponentForDomain(const QString &domain,

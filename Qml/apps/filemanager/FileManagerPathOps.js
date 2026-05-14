@@ -36,6 +36,10 @@ function openPath(root, fileManagerApi, pathValue) {
     if (p === "__network__") {
         p = "~"
     }
+    if (p === "__nearby__") {
+        root.openNearbySendSheet(null)
+        return
+    }
     if (p === "__trash__") {
         p = root.trashFilesPath
     }

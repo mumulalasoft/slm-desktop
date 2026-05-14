@@ -18,7 +18,7 @@ Item {
     property string pendingSsid: ""
     property int pendingSignalStrength: 0
     property bool pendingSecure: false
-    readonly property int iconSize: 22
+    readonly property int iconSize: 20
     readonly property int popupGap: Theme.metric("spacingSm")
     readonly property int rowGap: Theme.metric("spacingMd")
     readonly property int maxVisibleNetworks: 5

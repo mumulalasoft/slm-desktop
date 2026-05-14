@@ -20,7 +20,6 @@
 #include "screencastservice.h"
 #include "inputcaptureservice.h"
 #include "capturestreamingestor.h"
-#include "foldersharingservice.h"
 #include "../../core/workspace/workspacecompatservice.h"
 #include "../../core/workspace/workspacemanager.h"
 #include "../../core/actions/slmactionregistry.h"
@@ -77,7 +76,6 @@ int main(int argc, char *argv[])
     CaptureService captureService;
     ScreencastService screencastService;
     InputCaptureService inputCaptureService;
-    FolderSharingService folderSharingService;
     CaptureStreamIngestor captureStreamIngestor(&captureService);
     Slm::Actions::ActionRegistry actionRegistry;
     AppExecutionGate appExecutionGate(nullptr, nullptr, nullptr);
@@ -103,7 +101,6 @@ int main(int argc, char *argv[])
                       << "captureRegistered=" << captureService.serviceRegistered()
                       << "screencastRegistered=" << screencastService.serviceRegistered()
                       << "inputCaptureRegistered=" << inputCaptureService.serviceRegistered()
-                      << "folderSharingRegistered=" << folderSharingService.serviceRegistered()
                       << "slmCapabilitiesRegistered=" << capabilityService.serviceRegistered()
                       << "fileOperationsEmbedded=" << embedFileOps
                       << "fileOperationsRegistered="

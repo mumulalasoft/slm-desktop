@@ -159,8 +159,8 @@ Item {
 
     Rectangle {
         id: button
-        implicitWidth: Theme.metric("controlHeightRegular")
-        implicitHeight: Theme.metric("controlHeightRegular")
+        implicitWidth: Theme.metric("controlHeightCompact")
+        implicitHeight: Theme.metric("controlHeightCompact")
         anchors.centerIn: parent
         radius: Theme.radiusControl
         color: trayMouse.pressed ? Theme.color("controlBgPressed") : (trayMouse.containsMouse ? Theme.color("controlBgHover") : "transparent")
@@ -172,8 +172,8 @@ Item {
         Image {
             id: icon
             anchors.centerIn: parent
-            width: 18
-            height: 18
+            width: 16
+            height: 16
             fillMode: Image.PreserveAspectFit
             source: root.iconSource.length > 0
                     ? root.iconSource

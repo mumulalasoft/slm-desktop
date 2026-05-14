@@ -23,6 +23,7 @@ Rectangle {
     signal storageContextRequested(string path, string device, bool mounted, bool browsable, bool isRoot)
     signal openLibraryPathRequested(string path)
     signal libraryFilterRequested(string filterMode)
+    signal nearbySendRequested()
 
     color: Theme.color("fileManagerSidebarBg")
     border.width: Theme.borderWidthThin
@@ -251,6 +252,13 @@ Rectangle {
                             "label": "Entire Network",
                             "icon": "network-workgroup-symbolic"
                         })
+
+        flatRows.append({ "rowType": "section", "label": "Nearby" })
+        flatRows.append({
+                            "rowType": "nearby",
+                            "label": "Send to Nearby Device",
+                            "icon": "network-wireless-symbolic"
+                        })
     }
 
     Timer {
@@ -304,6 +312,7 @@ Rectangle {
             readonly property bool isSection: String(row.rowType || "") === "section"
             readonly property bool isStorage: String(row.rowType || "") === "storage"
             readonly property bool isNetwork: String(row.rowType || "") === "network"
+            readonly property bool isNearby: String(row.rowType || "") === "nearby"
             readonly property bool active: String(row.path || "").length > 0
                                          && root.selectedSidebarPath === String(row.path || "")
             readonly property bool dropTarget: !isSection
@@ -462,6 +471,10 @@ Rectangle {
                     acceptedButtons: Qt.LeftButton | Qt.RightButton
                     cursorShape: Qt.PointingHandCursor
                     onClicked: function(mouse) {
+                        if (isNearby) {
+                            root.nearbySendRequested()
+                            return
+                        }
                         if (isNetwork) {
                             return
                         }

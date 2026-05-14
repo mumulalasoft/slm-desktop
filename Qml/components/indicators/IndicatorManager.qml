@@ -15,7 +15,7 @@ RowLayout {
     property string timeText: ""
     property date nowDate: new Date()
     property bool includeDefaultIndicators: true
-    property int indicatorSlotHeight: Theme.metric("controlHeightRegular")
+    property int indicatorSlotHeight: Theme.metric("controlHeightCompact")
     readonly property var monthNames: [
         "January", "February", "March", "April", "May", "June",
         "July", "August", "September", "October", "November", "December"
@@ -37,7 +37,7 @@ RowLayout {
     }
     readonly property bool anyPopupOpen: itemPopupOpen
 
-    spacing: Theme.metric("spacingXs")
+    spacing: Theme.metric("spacingXxs")
 
     Timer {
         id: nowDateTimer

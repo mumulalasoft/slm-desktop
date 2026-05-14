@@ -19,6 +19,7 @@ Item {
     property alias folderShareDialogRef: folderShareDialog
     property alias storageVolumeSelectorDialogRef: storageVolumeSelectorDialog
     property var shareSheetRef: shareSheet
+    property alias nearbySendSheetRef: nearbySendSheet
 
 
     FileManagerConnectServerDialog {
@@ -95,4 +96,9 @@ Item {
     }
 
     readonly property var shareSheet: shareSheetLoader.item
+
+    FileManagerNearbySendSheet {
+        id: nearbySendSheet
+        hostRoot: root.hostRoot
+    }
 }

@@ -472,4 +472,7 @@ function rebuildSidebarItems(root, sidebarModel, fileManagerApi, rowsOverride) {
     appendSidebarSection(sidebarModel, "Network")
     appendSidebarItem(sidebarModel, "Entire Network", "__network__",
                       "network-workgroup-symbolic")
+    appendSidebarSection(sidebarModel, "Nearby")
+    appendSidebarItem(sidebarModel, "Send to Nearby Device", "__nearby__",
+                      "network-wireless-symbolic")
 }

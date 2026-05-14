@@ -5,6 +5,8 @@
 #include <QVariantMap>
 
 #include "trustdatabase.h"
+#include <QVariantList>
+#include <pwd.h>
 
 class ISharingAdapter;
 class SambaAdapter;
@@ -38,6 +40,15 @@ public:
     QVariantMap updateSharedFolder(const QString &path, const QVariantMap &options);
     QVariantMap listSharedFolders() const;
 
+    // Folder sharing compat (replaces org.slm.Desktop.FolderSharing)
+    QVariantMap configureShare(const QString &path, const QVariantMap &options);
+    QVariantMap disableShare(const QString &path);
+    QVariantMap shareInfo(const QString &path) const;
+    QVariantMap listSharesCompat() const;
+    QVariantMap checkFileSharingEnvironment() const;
+    QVariantMap tryAutoFixFileSharing();
+    QVariantMap setupSharingPrerequisites();
+
     // Transfers
     TransferSession *startOutgoingTransfer(const QString &deviceId, const QString &filePath);
     bool cancelTransfer(const QString &transferId);
@@ -63,12 +74,29 @@ signals:
     void transferProgress(const QString &transferId, qint64 transferred, qint64 total);
     void transferCompleted(const QString &transferId, bool success, const QString &error);
     void featureStateChanged(const QString &feature, bool enabled);
+    void shareStateChanged(const QString &path, const QVariantMap &shareInfo);
 
 private:
     void onAdapterStatusChanged();
     void loadPersistedShares();
     void savePersistedShares() const;
     QString stateFilePath() const;
+
+    static QString sanitizeShareName(const QString &name, const QString &fallback);
+    static QString normalizeAccessMode(const QString &value);
+    static QVariantList normalizeUserList(const QVariant &value);
+    static QString buildUsershareAcl(const QVariantMap &record);
+    static QVariantMap buildAddressPayload(const QString &shareName);
+    QString folderSharesStatePath() const;
+    QVariantMap loadFolderSharesState() const;
+    bool saveFolderSharesState(const QVariantMap &state, QString *error = nullptr) const;
+    QString canonicalSharePath(const QString &path) const;
+    QVariantMap folderShareRecord(const QString &path) const;
+    bool callerPidUid(uint *outPid, uint *outUid) const;
+    bool authorizeSetupAction(uint callerPid) const;
+    QVariantMap runPrivilegedSetup(uint callerUid) const;
+    static QVariantMap makeFsResult(bool ok, const QString &error = {},
+                                    const QVariantMap &extra = {});
 
     SambaAdapter *m_sambaAdapter = nullptr;
     AvahiAdapter *m_avahiAdapter = nullptr;

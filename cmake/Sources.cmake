@@ -442,8 +442,6 @@ set(DESKTOPD_SOURCES
     src/daemon/desktopd/screencaststreambackend.h
     src/daemon/desktopd/capturestreamingestor.cpp
     src/daemon/desktopd/capturestreamingestor.h
-    src/daemon/desktopd/foldersharingservice.cpp
-    src/daemon/desktopd/foldersharingservice.h
     src/core/workspace/workspacecompatservice.cpp
     src/core/workspace/workspacecompatservice.h
     src/core/workspace/workspacemanager.cpp

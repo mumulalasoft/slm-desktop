@@ -26,7 +26,7 @@ Item {
     property bool popupHint: false
     property double lastMenuCloseMs: 0
 
-    readonly property int iconSize: 22
+    readonly property int iconSize: 20
     readonly property int popupGap: Theme.metric("spacingSm")
 
     // ── Job tracking ──────────────────────────────────────────────────────

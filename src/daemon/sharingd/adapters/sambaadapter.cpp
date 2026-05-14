@@ -109,6 +109,82 @@ QVariantList SambaAdapter::listShares() const
     return result;
 }
 
+QVariantMap SambaAdapter::applyShare(const QString &shareName, const QString &path,
+                                      const QString &acl, bool guestOk)
+{
+    const QString netExec = QStandardPaths::findExecutable(QStringLiteral("net"));
+    if (netExec.isEmpty()) {
+        return {{QStringLiteral("applied"), false},
+                {QStringLiteral("error"), QStringLiteral("samba-net-not-found")},
+                {QStringLiteral("message"), QStringLiteral("Samba tools are not installed")}};
+    }
+    QProcess removeProc;
+    removeProc.start(netExec, {QStringLiteral("usershare"), QStringLiteral("delete"), shareName});
+    removeProc.waitForFinished(3000);
+
+    QProcess proc;
+    proc.start(netExec, {QStringLiteral("usershare"), QStringLiteral("add"),
+                          shareName, path,
+                          QStringLiteral("SLM shared folder"),
+                          acl,
+                          guestOk ? QStringLiteral("guest_ok=y") : QStringLiteral("guest_ok=n")});
+    if (!proc.waitForFinished(10000)) {
+        proc.kill();
+        proc.waitForFinished();
+        return {{QStringLiteral("applied"), false},
+                {QStringLiteral("error"), QStringLiteral("usershare-timeout")},
+                {QStringLiteral("message"), QStringLiteral("Timed out while creating network share")}};
+    }
+    if (proc.exitCode() != 0) {
+        const QString err = QString::fromUtf8(proc.readAllStandardError()).trimmed();
+        const QString e = err.toLower();
+        QString code = QStringLiteral("usershare-add-failed");
+        if (e.contains(QStringLiteral("permission denied")) || e.contains(QStringLiteral("denied")))
+            code = QStringLiteral("usershare-permission-denied");
+        else if (e.contains(QStringLiteral("usershare")) && e.contains(QStringLiteral("not allowed")))
+            code = QStringLiteral("usershare-not-enabled");
+        else if (e.contains(QStringLiteral("invalid usershare")))
+            code = QStringLiteral("usershare-invalid-config");
+        return {{QStringLiteral("applied"), false},
+                {QStringLiteral("error"), code},
+                {QStringLiteral("message"), err.isEmpty() ? QStringLiteral("Unable to create network share") : err}};
+    }
+    return {{QStringLiteral("applied"), true}, {QStringLiteral("message"), QStringLiteral("share-configured")}};
+}
+
+QVariantMap SambaAdapter::deleteShare(const QString &shareName)
+{
+    const QString netExec = QStandardPaths::findExecutable(QStringLiteral("net"));
+    if (netExec.isEmpty()) {
+        return {{QStringLiteral("applied"), false},
+                {QStringLiteral("error"), QStringLiteral("samba-net-not-found")},
+                {QStringLiteral("message"), QStringLiteral("Samba tools are not installed")}};
+    }
+    if (shareName.trimmed().isEmpty()) {
+        return {{QStringLiteral("applied"), false},
+                {QStringLiteral("error"), QStringLiteral("missing-share-name")}};
+    }
+    QProcess proc;
+    proc.start(netExec, {QStringLiteral("usershare"), QStringLiteral("delete"), shareName});
+    if (!proc.waitForFinished(10000)) {
+        proc.kill();
+        proc.waitForFinished();
+        return {{QStringLiteral("applied"), false},
+                {QStringLiteral("error"), QStringLiteral("usershare-timeout")},
+                {QStringLiteral("message"), QStringLiteral("Timed out while disabling network share")}};
+    }
+    if (proc.exitCode() != 0) {
+        const QString err = QString::fromUtf8(proc.readAllStandardError()).trimmed();
+        const QString e = err.toLower();
+        if (e.contains(QStringLiteral("does not exist")) || e.contains(QStringLiteral("not found")))
+            return {{QStringLiteral("applied"), true}, {QStringLiteral("message"), QStringLiteral("share-already-disabled")}};
+        return {{QStringLiteral("applied"), false},
+                {QStringLiteral("error"), QStringLiteral("usershare-delete-failed")},
+                {QStringLiteral("message"), err.isEmpty() ? QStringLiteral("Unable to disable network share") : err}};
+    }
+    return {{QStringLiteral("applied"), true}, {QStringLiteral("message"), QStringLiteral("share-disabled")}};
+}
+
 bool SambaAdapter::runUsershareCommand(const QStringList &args) const
 {
     QProcess p;

@@ -166,6 +166,11 @@ public:
     Q_INVOKABLE QVariantMap copyFolderShareAddress(const QString &path) const;
     Q_INVOKABLE QVariantMap folderSharingEnvironment() const;
     Q_INVOKABLE QVariantMap repairFolderSharingEnvironment();
+    Q_INVOKABLE QVariantList nearbyDevices() const;
+    Q_INVOKABLE QVariantMap sendFileToNearbyDevice(const QString &deviceId,
+                                                   const QString &path);
+    Q_INVOKABLE QVariantMap startNearbyDiscovery();
+    Q_INVOKABLE QVariantMap stopNearbyDiscovery();
     Q_INVOKABLE QVariantMap installMissingComponent(const QString &componentId);
     Q_INVOKABLE QVariantList missingComponentsForDomain(const QString &domain) const;
     Q_INVOKABLE QVariantMap installMissingComponentForDomain(const QString &domain,
@@ -291,6 +296,13 @@ signals:
                         bool ok,
                         const QString &error);
     void folderShareStateChanged(const QString &path, const QVariantMap &shareInfo);
+    void nearbyTransferStarted(const QString &transferId,
+                               const QString &deviceName,
+                               const QVariantMap &info);
+    void nearbyTransferCompleted(const QString &transferId,
+                                 bool success,
+                                 const QString &error);
+    void nearbyDevicesChanged(const QVariantList &devices);
 
 private:
     struct ThumbnailDbusRequest {
