@@ -5,6 +5,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QProcess>
+#include <QProcessEnvironment>
 #include <QStandardPaths>
 #include <QtConcurrent/QtConcurrentRun>
 #include <QUrl>
@@ -13,6 +14,8 @@
 #include <QTextStream>
 #include <QtCore/qobjectdefs.h>
 #include <QRegularExpression>
+
+#include "../launcher/applauncher.h"
 
 #ifdef signals
 #undef signals
@@ -675,23 +678,16 @@ bool AppDeckModel::launchDesktopEntry(const QString &desktopFilePath, const QStr
     if (!desktopFilePath.trimmed().isEmpty()) {
         const QFileInfo desktopInfo(desktopFilePath);
         if (desktopInfo.exists() && desktopInfo.isFile()) {
-            GDesktopAppInfo *info =
-                g_desktop_app_info_new_from_filename(desktopInfo.absoluteFilePath().toUtf8().constData());
-            if (info) {
-                GError *error = nullptr;
-                const gboolean launched = g_app_info_launch(G_APP_INFO(info), nullptr, nullptr, &error);
-                if (error) {
-                    g_error_free(error);
+            const AppLaunchResult launched =
+                AppLauncher::launchDesktopFile(desktopInfo.absoluteFilePath(),
+                                               QProcessEnvironment::systemEnvironment());
+            if (launched.ok) {
+                if (m_verboseLogging) {
+                    qInfo().noquote() << "DockLaunch: via desktop file success name="
+                                      << QFileInfo(desktopFilePath).fileName()
+                                      << "exec=" << executable;
                 }
-                g_object_unref(info);
-                if (launched) {
-                    if (m_verboseLogging) {
-                        qInfo().noquote() << "DockLaunch: via desktop file success name="
-                                          << QFileInfo(desktopFilePath).fileName()
-                                          << "exec=" << executable;
-                    }
-                    return true;
-                }
+                return true;
             }
         }
     }
@@ -1190,7 +1186,9 @@ void AppDeckModel::refreshRunningStates()
         const bool userLaunched = m_runtimeRegistry.hasActiveUserLaunch(launchHintTokens(runtimeTokens));
         const bool desktopHint = !entryDesktopPath.isEmpty() &&
                                  m_desktopPathLaunchHints.contains(entryDesktopPath);
-        entry.isRunning = windowRunning || userLaunched || desktopHint || (processRunning && userLaunched);
+        // Runtime status must be stable while process/window is still observable.
+        // Do not require launch-hint TTL once we already detect a real process.
+        entry.isRunning = windowRunning || processRunning || userLaunched || desktopHint;
         if (!entryDesktopPath.isEmpty() && (windowRunning || processRunning)) {
             // Startup bridge no longer needed once app is actually observed running.
             m_desktopPathLaunchHints.remove(entryDesktopPath);
@@ -1267,8 +1265,8 @@ void AppDeckModel::refreshRunningStates()
         const bool userLaunched = m_runtimeRegistry.hasActiveUserLaunch(launchHintTokens(probeTokens));
         const bool desktopHint = !probeDesktopPath.isEmpty() &&
                                  m_desktopPathLaunchHints.contains(probeDesktopPath);
-        const bool runningNow = appWindowRunning || userLaunched || desktopHint ||
-                                (appProcessRunning && userLaunched);
+        // Keep transient running state based on concrete observations too.
+        const bool runningNow = appWindowRunning || appProcessRunning || userLaunched || desktopHint;
         if (!probeDesktopPath.isEmpty() && (appWindowRunning || appProcessRunning)) {
             m_desktopPathLaunchHints.remove(probeDesktopPath);
             m_pendingTransientByDesktop.remove(probeDesktopPath);

@@ -22,7 +22,17 @@ AppDeckItem {
     readonly property bool hasActiveWorkspaceWindows: compositorState && compositorState.hasActiveWorkspaceWindows === true
     readonly property bool hasOtherWorkspaceWindows: compositorState && compositorState.hasOtherWorkspaceWindows === true
     readonly property bool hasWindowsInMultipleWorkspaces: compositorState && compositorState.hasWindowsInMultipleWorkspaces === true
-    readonly property bool effectiveRunning: compositorRunning || isRunning
+    readonly property bool serviceRunning: {
+        if (typeof AppStateClient === "undefined" || !AppStateClient || !AppStateClient.matchesRunning) {
+            return false
+        }
+        // Keep binding reactive to AppStateClient updates.
+        var _appStateRev = Number(AppStateClient._rev || 0)
+        return AppStateClient.matchesRunning(String(desktopFile || ""),
+                                             String(executable || ""),
+                                             String(name || ""))
+    }
+    readonly property bool effectiveRunning: compositorRunning || isRunning || serviceRunning
     readonly property bool pinnedEntry: (typeof isPinned !== "undefined")
                                         ? (isPinned === true)
                                         : ((typeof pinned !== "undefined") ? (pinned === true) : false)
@@ -126,6 +136,9 @@ AppDeckItem {
 
     onClicked: {
         var itemId = String(desktopFile || name || "")
+        console.log("[appdeck-launch] dock item clicked name=" + String(name || "")
+                    + " desktopFile=" + String(desktopFile || "")
+                    + " executable=" + String(executable || ""))
         AppDeckController.onActivate(itemId, dockRoot ? dockRoot.hostName : "")
         if (typeof CursorController !== "undefined" && CursorController && CursorController.startBusy) {
             CursorController.startBusy(1300)
