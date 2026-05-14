@@ -23,6 +23,8 @@ BUILD_DIR="${SLM_QEMU_GUEST_BUILD_DIR:-/home/${SSH_USER}/.cache/slm-qemu/build/d
 JOBS="${SLM_QEMU_GUEST_JOBS:-$(nproc)}"
 RUN_SMOKE=1
 SMOKE_TIMEOUT="${SLM_QEMU_SESSION_SMOKE_TIMEOUT_SEC:-90}"
+SESSION_RESET_TIMEOUT="${SLM_QEMU_SESSION_RESET_TIMEOUT_SEC:-45}"
+SESSION_RESET_MODE="${SLM_QEMU_SESSION_RESET_MODE:-auto}"
 BUILD_ONLY="${SLM_QEMU_SMOKE_BUILD_ONLY:-auto}"
 SKIP_BUILD=0
 STRICT_PROCESS=0
@@ -85,6 +87,10 @@ Options:
   --cmake-prefix PATH   Host CMAKE_PREFIX_PATH. Default: $HOST_CMAKE_PREFIX_PATH
   --jobs N              Parallel build jobs. Default: $JOBS
   --timeout SEC         Smoke wait timeout. Default: $SMOKE_TIMEOUT
+  --session-reset-timeout SEC
+                        Session reset timeout before smoke. Default: $SESSION_RESET_TIMEOUT
+  --session-reset MODE  Session reset policy before smoke: auto|always|off.
+                        Default: $SESSION_RESET_MODE (auto=only in --fast mode)
   --artifact-root PATH  Host artifact dir. Default: $HOST_ARTIFACT_ROOT
   --fast                Fast path: target minimum + install sempit.
   --full                Pipeline penuh: mount + install/verify script. Default.
@@ -114,6 +120,8 @@ while [[ $# -gt 0 ]]; do
         --cmake-prefix)   HOST_CMAKE_PREFIX_PATH="$2"; shift 2 ;;
         --jobs)           JOBS="$2";               shift 2 ;;
         --timeout)        SMOKE_TIMEOUT="$2";      shift 2 ;;
+        --session-reset-timeout) SESSION_RESET_TIMEOUT="$2"; shift 2 ;;
+        --session-reset)  SESSION_RESET_MODE="$2"; shift 2 ;;
         --artifact-root)  HOST_ARTIFACT_ROOT="$2"; shift 2 ;;
         --fast)           FAST_MODE=1;             shift   ;;
         --full)           FAST_MODE=0;             shift   ;;
@@ -151,6 +159,8 @@ printf '  %-16s: %s\n' \
     "cmake-prefix"   "$HOST_CMAKE_PREFIX_PATH" \
     "jobs"           "$JOBS" \
     "fast-mode"      "$FAST_MODE" \
+    "session-reset-timeout" "$SESSION_RESET_TIMEOUT" \
+    "session-reset-mode" "$SESSION_RESET_MODE" \
     "build-only"     "$BUILD_ONLY" \
     "skip-build"     "$SKIP_BUILD" \
     "run-smoke"      "$RUN_SMOKE"
@@ -859,6 +869,45 @@ g_ssh -tt "$RCMD"
 if [[ "$RUN_SMOKE" -eq 0 ]]; then
     echo "[qemu-smoke] install+verify selesai (--skip-smoke)."
     exit 0
+fi
+
+DO_SESSION_RESET=0
+case "$SESSION_RESET_MODE" in
+    always) DO_SESSION_RESET=1 ;;
+    off)    DO_SESSION_RESET=0 ;;
+    auto)   DO_SESSION_RESET=0 ;;
+    *)
+        echo "[qemu-smoke] ERROR: invalid --session-reset value '$SESSION_RESET_MODE' (expected auto|always|off)." >&2
+        exit 1
+        ;;
+esac
+
+if [[ "$SESSION_RESET_MODE" == "auto" || "$SESSION_RESET_MODE" == "always" ]]; then
+    g_scp "$SCRIPT_DIR/qemu-guest-session-reset.sh" /tmp/qemu-guest-session-reset.sh
+    g_ssh "chmod +x /tmp/qemu-guest-session-reset.sh"
+fi
+
+if [[ "$SESSION_RESET_MODE" == "auto" ]]; then
+    CHECK_CMD="sudo -n /tmp/qemu-guest-session-reset.sh"
+    CHECK_CMD+=" --check-only"
+    CHECK_CMD+=" --session-user $(printf '%q' "$SESSION_USER")"
+    if g_ssh "$CHECK_CMD" >/dev/null 2>&1; then
+        echo "[qemu-smoke] Session reset skipped (auto): policy session already ready"
+        DO_SESSION_RESET=0
+    else
+        echo "[qemu-smoke] Session reset required (auto): policy session belum ready"
+        DO_SESSION_RESET=1
+    fi
+fi
+
+if [[ "$DO_SESSION_RESET" -eq 1 ]]; then
+    echo "[qemu-smoke] Resetting guest graphical session before smoke..."
+    RESET_CMD="sudo -n /tmp/qemu-guest-session-reset.sh"
+    RESET_CMD+=" --session-user $(printf '%q' "$SESSION_USER")"
+    RESET_CMD+=" --timeout $(printf '%q' "$SESSION_RESET_TIMEOUT")"
+    g_ssh -tt "$RESET_CMD"
+else
+    echo "[qemu-smoke] Session reset skipped (mode=$SESSION_RESET_MODE fast-mode=$FAST_MODE)"
 fi
 
 echo "[qemu-smoke] Running smoke test..."

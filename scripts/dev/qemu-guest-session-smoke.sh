@@ -266,13 +266,15 @@ pick_best_session_id() {
         seat="$(awk -F= '$1=="Seat"{print $2}' <<<"$props" | head -n1)"
 
         score=0
-        # Prefer the currently active session first, then evaluate compliance.
-        [[ "$active" == "yes" ]] && score=$((score + 10))
-        [[ "$state" == "active" ]] && score=$((score + 10))
-        [[ "$remote" == "no" ]] && score=$((score + 4))
-        [[ "$class" == "user" ]] && score=$((score + 1))
-        [[ "$type" == "wayland" ]] && score=$((score + 8))
-        [[ "$seat" == "seat0" ]] && score=$((score + 2))
+        # Prefer real graphical user sessions over manager sessions, even when
+        # they are in transition state (e.g. Active=no/State=closing).
+        [[ "$class" == "user" ]] && score=$((score + 30))
+        [[ "$type" == "wayland" ]] && score=$((score + 30))
+        [[ "$seat" == "seat0" ]] && score=$((score + 20))
+        [[ "$remote" == "no" ]] && score=$((score + 5))
+        [[ "$active" == "yes" ]] && score=$((score + 5))
+        [[ "$state" == "active" ]] && score=$((score + 5))
+        [[ "$id" == c* ]] && score=$((score + 2))
 
         if (( score > best_score )); then
             best_score=$score
@@ -282,7 +284,46 @@ pick_best_session_id() {
     printf '%s' "$best"
 }
 
-SESSION_ID="$(pick_best_session_id)"
+pick_policy_compliant_session_id() {
+    local ids id
+    ids="$(loginctl list-sessions --no-legend 2>/dev/null | awk -v user="$SESSION_USER" '$3 == user {print $1}')"
+    for id in $ids; do
+        local props type active remote state class seat
+        props="$(loginctl show-session "$id" -p Type -p Active -p Remote -p State -p Class -p Seat 2>/dev/null || true)"
+        type="$(awk -F= '$1=="Type"{print $2}' <<<"$props" | head -n1)"
+        active="$(awk -F= '$1=="Active"{print $2}' <<<"$props" | head -n1)"
+        remote="$(awk -F= '$1=="Remote"{print $2}' <<<"$props" | head -n1)"
+        state="$(awk -F= '$1=="State"{print $2}' <<<"$props" | head -n1)"
+        class="$(awk -F= '$1=="Class"{print $2}' <<<"$props" | head -n1)"
+        seat="$(awk -F= '$1=="Seat"{print $2}' <<<"$props" | head -n1)"
+        if [[ "$type" == "wayland" && "$active" == "yes" && "$remote" == "no" \
+           && "$state" == "active" && "$class" == "user" && "$seat" == "seat0" ]]; then
+            printf '%s' "$id"
+            return 0
+        fi
+    done
+    return 1
+}
+
+wait_for_policy_session_id() {
+    local timeout_sec=20
+    local elapsed=0
+    local id=""
+    while (( elapsed < timeout_sec )); do
+        if id="$(pick_policy_compliant_session_id)"; then
+            printf '%s' "$id"
+            return 0
+        fi
+        sleep 1
+        elapsed=$((elapsed + 1))
+    done
+    return 1
+}
+
+SESSION_ID="$(wait_for_policy_session_id || true)"
+if [[ -z "$SESSION_ID" ]]; then
+    SESSION_ID="$(pick_best_session_id)"
+fi
 if [[ -z "$SESSION_ID" ]]; then
     compat_fail "session.logind.id" "tidak menemukan loginctl session untuk user $SESSION_USER"
 else
@@ -356,9 +397,9 @@ else
     compat_fail "x11.socket" "/tmp/.X11-unix/X0 tidak tersedia"
 fi
 
-XAUTH_FILE="$(find "$RUNTIME_DIR" -maxdepth 1 -type f \( -name '.mutter-Xwaylandauth.*' -o -name 'xauth_*' -o -name '.Xauthority' \) | head -n 1 || true)"
+XAUTH_FILE="$(find "$RUNTIME_DIR" -maxdepth 1 -type f \( -name '.mutter-Xwaylandauth.*' -o -name 'xauth_*' -o -name '.Xauthority' \) 2>/dev/null | head -n 1 || true)"
 if [[ -z "$XAUTH_FILE" ]]; then
-    XAUTH_FILE="$(find /tmp -maxdepth 1 -type f -user "$SESSION_USER" \( -name '.mutter-Xwaylandauth.*' -o -name 'xauth_*' -o -name '.Xauthority' \) | head -n 1 || true)"
+    XAUTH_FILE="$(find /tmp -maxdepth 1 -type f -user "$SESSION_USER" \( -name '.mutter-Xwaylandauth.*' -o -name 'xauth_*' -o -name '.Xauthority' \) 2>/dev/null | head -n 1 || true)"
 fi
 if [[ -z "$XAUTH_FILE" && -f "$SESSION_HOME/.Xauthority" ]]; then
     XAUTH_FILE="$SESSION_HOME/.Xauthority"
@@ -366,11 +407,38 @@ fi
 if [[ -n "$XAUTH_FILE" ]]; then
     compat_ok "x11.xauthority" "xauth file terdeteksi: $XAUTH_FILE"
 else
-    if runuser -u "$SESSION_USER" -- env DISPLAY=:0 XDG_RUNTIME_DIR="$RUNTIME_DIR" \
-            bash -lc "xset q >/dev/null 2>&1"; then
-        compat_warn "x11.xauthority" "xauth file tidak ditemukan, tetapi probe X11 auth berhasil"
+    declare -a x11_displays=(":0")
+    broker_display="$(grep -Eo 'DISPLAY=:[0-9]+' /tmp/slm-session-broker.log 2>/dev/null | tail -n 1 | cut -d= -f2 || true)"
+    if [[ -n "$broker_display" ]]; then
+        x11_displays=("$broker_display" "${x11_displays[@]}")
+    fi
+    while read -r sock_path; do
+        sock_name="$(basename "$sock_path")"
+        disp=":${sock_name#X}"
+        exists=0
+        for known in "${x11_displays[@]}"; do
+            if [[ "$known" == "$disp" ]]; then
+                exists=1
+                break
+            fi
+        done
+        if [[ "$exists" -eq 0 ]]; then
+            x11_displays+=("$disp")
+        fi
+    done < <(find /tmp/.X11-unix -maxdepth 1 -type s -name 'X*' 2>/dev/null | sort)
+
+    X11_PROBE_DISPLAY=""
+    for disp in "${x11_displays[@]}"; do
+        if runuser -u "$SESSION_USER" -- env DISPLAY="$disp" XDG_RUNTIME_DIR="$RUNTIME_DIR" \
+                bash -lc "xset q >/dev/null 2>&1"; then
+            X11_PROBE_DISPLAY="$disp"
+            break
+        fi
+    done
+    if [[ -n "$X11_PROBE_DISPLAY" ]]; then
+        compat_warn "x11.xauthority" "xauth file tidak ditemukan, tetapi probe X11 auth berhasil pada DISPLAY=$X11_PROBE_DISPLAY"
     else
-        compat_fail "x11.xauthority" "xauth file tidak ditemukan dan probe X11 auth gagal"
+        compat_fail "x11.xauthority" "xauth file tidak ditemukan dan probe X11 auth gagal (candidates=${x11_displays[*]})"
     fi
 fi
 
@@ -513,7 +581,7 @@ fi
 
 WAYLAND_SOCKET=""
 if [[ -d "$RUNTIME_DIR" ]]; then
-    WAYLAND_SOCKET="$(find "$RUNTIME_DIR" -maxdepth 1 -type s -name 'wayland-*' | head -n 1 || true)"
+    WAYLAND_SOCKET="$(find "$RUNTIME_DIR" -maxdepth 1 -type s -name 'wayland-*' 2>/dev/null | head -n 1 || true)"
 fi
 if [[ -n "$WAYLAND_SOCKET" ]]; then
     ok "wayland socket terdeteksi: $WAYLAND_SOCKET"

@@ -75,8 +75,9 @@ session    required     pam_env.so readenv=1
 session    required     pam_limits.so
 session    required     pam_unix.so
 # pam_systemd.so MUST be required (not optional) so that logind creates a
-# local graphical session with seat0.  Without it kwin_wayland cannot open DRM.
-session    required     pam_systemd.so
+# local graphical wayland session with seat0. Without this, runtimes (snap,
+# flatpak, portals) often see a non-graphical/tty session and break.
+session    required     pam_systemd.so debug type=wayland class=user desktop=slm
 EOF
 
 # Also write /etc/pam.d/slm for the direct-PAM (no-greetd) path.
@@ -91,7 +92,7 @@ session    required     pam_env.so readenv=1
 session    required     pam_limits.so
 session    required     pam_unix.so
 session    optional     pam_loginuid.so
-session    required     pam_systemd.so
+session    required     pam_systemd.so debug type=wayland class=user desktop=slm
 EOF
 
 cat >/etc/pam.d/greetd-greeter <<'EOF'

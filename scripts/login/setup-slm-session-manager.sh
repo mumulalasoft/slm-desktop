@@ -95,7 +95,7 @@ session    required     pam_env.so readenv=1
 session    required     pam_limits.so
 session    required     pam_unix.so
 session    optional     pam_loginuid.so
-session    required     pam_systemd.so
+session    required     pam_systemd.so debug type=wayland class=user desktop=slm
 EOF
 echo "[setup-slm][OK] /etc/pam.d/slm"
 
@@ -111,7 +111,7 @@ password   include      common-password
 session    required     pam_env.so readenv=1
 session    required     pam_limits.so
 session    required     pam_unix.so
-session    required     pam_systemd.so
+session    required     pam_systemd.so debug type=wayland class=user desktop=slm
 EOF
   echo "[setup-slm][OK] /etc/pam.d/greetd (pam_systemd.so is now required)"
   systemctl reset-failed greetd.service 2>/dev/null || true
