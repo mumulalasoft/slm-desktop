@@ -309,10 +309,10 @@ start_hostshare_auto_mount() {
         -p "$SSH_PORT"
         "$SSH_USER@127.0.0.1"
     )
-    local -a ssh_cmd=(ssh)
+    local -a ssh_cmd=(ssh -F /dev/null)
     if [[ -n "$SSH_PASSWORD" ]]; then
         if command -v sshpass >/dev/null 2>&1; then
-            ssh_cmd=(sshpass -p "$SSH_PASSWORD" ssh)
+            ssh_cmd=(sshpass -p "$SSH_PASSWORD" ssh -F /dev/null)
             remote_cmd="sudo -S mkdir -p $hostshare_path_q && if findmnt -rn $hostshare_path_q >/dev/null 2>&1; then echo hostshare already mounted at $hostshare_path_q; else sudo -S mount -t 9p -o trans=virtio,version=9p2000.L,access=any hostshare $hostshare_path_q; fi"
             ssh_base=(
                 -o ConnectTimeout=2

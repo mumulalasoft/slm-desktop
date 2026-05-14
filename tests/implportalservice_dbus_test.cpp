@@ -1514,13 +1514,25 @@ void ImplPortalServiceDbusTest::settings_read_contract()
                                  bus);
     QVERIFY(settingsIface.isValid());
 
-    QDBusReply<QVariantMap> allReply =
+    QDBusMessage introspect = QDBusMessage::createMethodCall(QString::fromLatin1(kService),
+                                                             QString::fromLatin1(kPath),
+                                                             QStringLiteral("org.freedesktop.DBus.Introspectable"),
+                                                             QStringLiteral("Introspect"));
+    QDBusMessage introspectReply = bus.call(introspect);
+    QCOMPARE(introspectReply.type(), QDBusMessage::ReplyMessage);
+    const QString xml = introspectReply.arguments().value(0).toString();
+    QVERIFY2(xml.contains(QStringLiteral("org.freedesktop.impl.portal.Settings")),
+             qPrintable(xml));
+    QVERIFY2(xml.contains(QStringLiteral("type=\"a{sa{sv}}\"")),
+             qPrintable(xml));
+
+    QDBusReply<PortalSettingsMap> allReply =
         settingsIface.call(QStringLiteral("ReadAll"),
                            QStringList{QStringLiteral("org.freedesktop.appearance")});
     QVERIFY(allReply.isValid());
-    const QVariantMap all = allReply.value();
+    const PortalSettingsMap all = allReply.value();
     QVERIFY(all.contains(QStringLiteral("org.freedesktop.appearance")));
-    const QVariantMap appearance = unmarshal(all.value(QStringLiteral("org.freedesktop.appearance")));
+    const QVariantMap appearance = all.value(QStringLiteral("org.freedesktop.appearance"));
     QVERIFY(appearance.contains(QStringLiteral("color-scheme")));
 
     QDBusReply<QDBusVariant> oneReply =
@@ -1529,6 +1541,16 @@ void ImplPortalServiceDbusTest::settings_read_contract()
                            QStringLiteral("color-scheme"));
     QVERIFY(oneReply.isValid());
     QVERIFY(oneReply.value().variant().isValid());
+
+    QDBusMessage missingRead = QDBusMessage::createMethodCall(QString::fromLatin1(kService),
+                                                              QString::fromLatin1(kPath),
+                                                              QString::fromLatin1(kIfaceSettings),
+                                                              QStringLiteral("Read"));
+    missingRead << QStringLiteral("org.freedesktop.appearance")
+                << QStringLiteral("unsupported-test-key");
+    QDBusMessage missingReply = bus.call(missingRead);
+    QCOMPARE(missingReply.type(), QDBusMessage::ErrorMessage);
+    QCOMPARE(missingReply.errorName(), QStringLiteral("org.freedesktop.portal.Error.NotFound"));
 }
 
 void ImplPortalServiceDbusTest::notification_invalidInput_contract()

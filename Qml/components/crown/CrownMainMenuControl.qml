@@ -76,23 +76,48 @@ Item {
     function _openSettings(moduleId) {
         mainMenu.close()
         var mod = String(moduleId || "").trim()
-        if (mod.length > 0
-                && typeof AppExecutionGate !== "undefined" && AppExecutionGate
-                && AppExecutionGate.launchCommand) {
-            var deepLink = "settings://" + mod
-            var opened = AppExecutionGate.launchCommand("slm-settings --deep-link " + deepLink, "", "main-menu")
-            if (opened) {
-                return
+        var deepLink = (mod.length > 0) ? ("settings://" + mod) : ""
+        var directOpened = false
+        if (typeof AppExecutionGate !== "undefined" && AppExecutionGate && AppExecutionGate.launchCommand) {
+            if (typeof AppBinaryDir !== "undefined" && String(AppBinaryDir || "").length > 0) {
+                var localCmd = String(AppBinaryDir) + "/slm-settings"
+                if (deepLink.length > 0) {
+                    localCmd += " --deep-link " + deepLink
+                }
+                directOpened = !!AppExecutionGate.launchCommand(localCmd, "", "main-menu-local")
+            }
+            if (!directOpened) {
+                var cmd = "slm-settings"
+                if (deepLink.length > 0) {
+                    cmd += " --deep-link " + deepLink
+                }
+                directOpened = !!AppExecutionGate.launchCommand(cmd, "", "main-menu")
             }
         }
-        if (typeof AppCommandRouter !== "undefined" && AppCommandRouter
-                && AppCommandRouter.route) {
-            AppCommandRouter.route("app.desktopid",
-                                   {desktopId: "slm-settings.desktop"},
-                                   "main-menu")
-        } else if (typeof AppExecutionGate !== "undefined" && AppExecutionGate
-                   && AppExecutionGate.launchDesktopId) {
-            AppExecutionGate.launchDesktopId("slm-settings.desktop", "main-menu")
+        if (directOpened) {
+            return
+        }
+        var routed = false
+        if (typeof AppCommandRouter !== "undefined" && AppCommandRouter) {
+            if (AppCommandRouter.routeWithResult) {
+                var res = AppCommandRouter.routeWithResult("app.desktopid",
+                                                           {desktopId: "slm-settings.desktop"},
+                                                           "main-menu")
+                routed = !!(res && res.ok)
+            } else if (AppCommandRouter.route) {
+                routed = !!AppCommandRouter.route("app.desktopid",
+                                                  {desktopId: "slm-settings.desktop"},
+                                                  "main-menu")
+            }
+        }
+        if (routed) {
+            return
+        }
+        if (typeof AppExecutionGate !== "undefined" && AppExecutionGate) {
+            if (AppExecutionGate.launchDesktopId
+                    && AppExecutionGate.launchDesktopId("slm-settings.desktop", "main-menu")) {
+                return
+            }
         }
     }
 

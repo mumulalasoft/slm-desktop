@@ -348,10 +348,9 @@ qint64 SlmPamSession::launchSession(const QStringList &cmdOverride)
     if (m_sessionVT > 0)
         childQEnv.insert(QStringLiteral("XDG_VTNR"), QString::number(m_sessionVT));
 
-    // Default command: dbus-run-session -- slm-session-broker --mode normal
+    // Default command: slm-session-broker --mode normal
     const QStringList fullCmd = cmdOverride.isEmpty()
-        ? QStringList{QStringLiteral("dbus-run-session"), QStringLiteral("--"),
-                      QStringLiteral("slm-session-broker"), QStringLiteral("--mode"),
+        ? QStringList{QStringLiteral("slm-session-broker"), QStringLiteral("--mode"),
                       QStringLiteral("normal")}
         : cmdOverride;
 

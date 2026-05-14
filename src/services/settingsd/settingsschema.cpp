@@ -223,7 +223,7 @@ SettingsSchema::SettingsSchema()
     reg(strKey(QStringLiteral("shortcuts.workspaceNext"),     QStringLiteral("Meta+Right")));
     reg(strKey(QStringLiteral("shortcuts.moveWindowPrev"),    QStringLiteral("Meta+Shift+Left")));
     reg(strKey(QStringLiteral("shortcuts.moveWindowNext"),    QStringLiteral("Meta+Shift+Right")));
-    reg(strKey(QStringLiteral("shortcuts.openSettings"),      QStringLiteral("Meta+Shift+I")));
+    reg(strKey(QStringLiteral("shortcuts.openSettings"),      QStringLiteral("Meta+,")));
     reg(strKey(QStringLiteral("shortcuts.openFiles"),         QStringLiteral("Meta+Shift+E")));
 
     // ── fonts ─────────────────────────────────────────────────────────────────

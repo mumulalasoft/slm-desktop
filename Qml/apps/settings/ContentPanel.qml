@@ -37,6 +37,14 @@ Rectangle {
         onLoaded: {
             if (SettingsApp) root.applySettingFocus(SettingsApp.currentSettingId)
         }
+        onStatusChanged: {
+            if (status === Loader.Error) {
+                console.warn("[settings] failed to load module page:",
+                             SettingsApp ? SettingsApp.currentModuleId : "",
+                             source,
+                             modulePageLoader.item ? "" : "item-null")
+            }
+        }
     }
 
     Connections {
@@ -52,5 +60,27 @@ Rectangle {
         anchors.centerIn: parent
         running: modulePageLoader.status === Loader.Loading
         visible: running
+    }
+
+    Column {
+        anchors.centerIn: parent
+        spacing: Theme.metric("spacingSm")
+        visible: modulePageLoader.status === Loader.Error
+
+        Text {
+            text: qsTr("Failed to load settings page")
+            color: Theme.color("textPrimary")
+            font.pixelSize: Theme.fontSize("body")
+            font.weight: Theme.fontWeight("semibold")
+        }
+
+        Text {
+            text: modulePageLoader.source
+            color: Theme.color("textMuted")
+            font.pixelSize: Theme.fontSize("caption")
+            width: Math.min(root.width * 0.8, 720)
+            wrapMode: Text.WrapAnywhere
+            horizontalAlignment: Text.AlignHCenter
+        }
     }
 }

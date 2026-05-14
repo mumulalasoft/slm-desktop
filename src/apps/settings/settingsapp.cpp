@@ -92,8 +92,10 @@ SettingsApp::SettingsApp(QQmlApplicationEngine *engine, QObject *parent)
     const QString appData = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
     const QString userModules = QDir::homePath() + "/.local/lib/settings/modules";
     const QString systemModules = "/usr/lib/settings/modules";
+    const QString localSystemModules = "/usr/local/lib/settings/modules";
     const QString bundledModules = appDir + "/../src/apps/settings/modules";
     const QString cwdModules = QDir::currentPath() + "/src/apps/settings/modules";
+    const QString appLibModules = QDir(appDir).absoluteFilePath("../lib/settings/modules");
     // Dev-first lookup order:
     // 1) source tree / cwd (workspace module edits),
     // 2) bundled next to binary,
@@ -108,6 +110,8 @@ SettingsApp::SettingsApp(QQmlApplicationEngine *engine, QObject *parent)
           << bundledModules
           << userModules
           << appData + "/modules"
+          << appLibModules
+          << localSystemModules
           << systemModules;
     m_moduleLoader->scanModules(paths);
 

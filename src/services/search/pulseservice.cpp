@@ -21,6 +21,7 @@
 #include <QProcess>
 
 #include "../../core/actions/slmactionregistry.h"
+#include "../../core/launcher/applauncher.h"
 #include "../../core/actions/framework/slmactionframework.h"
 
 #ifdef signals
@@ -37,6 +38,11 @@ extern "C" {
 #endif
 
 namespace {
+QString fromUtf8(const char *value)
+{
+    return value ? QString::fromUtf8(value) : QString();
+}
+
 constexpr const char kSearchService[] = "org.slm.Desktop.Search.v1";
 constexpr const char kSearchPath[] = "/org/slm/Desktop/Search";
 constexpr const char kSearchIface[] = "org.slm.Desktop.Search.v1";
@@ -180,23 +186,10 @@ bool launchDesktopIdBestEffort(const QString &desktopId)
         return false;
     }
 
-    GAppLaunchContext *ctx = g_app_launch_context_new();
-    const QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
-    const QStringList keys = env.keys();
-    for (const QString &key : keys) {
-        const QByteArray k = key.toUtf8();
-        const QByteArray v = env.value(key).toUtf8();
-        g_app_launch_context_setenv(ctx, k.constData(), v.constData());
-    }
-
-    GError *error = nullptr;
-    const bool ok = g_app_info_launch(G_APP_INFO(info), nullptr, ctx, &error);
-    if (error) {
-        qWarning() << "[slm-search] launch desktop id failed:" << normalized << error->message;
-        g_error_free(error);
-    }
-
-    g_object_unref(ctx);
+    const QString desktopFilePath = fromUtf8(g_desktop_app_info_get_filename(info));
+    const bool ok = !desktopFilePath.isEmpty()
+            && AppLauncher::launchDesktopFile(desktopFilePath,
+                                              QProcessEnvironment::systemEnvironment()).ok;
     g_object_unref(info);
     return ok;
 }
@@ -501,8 +494,11 @@ bool PulseService::activateResult(const QString &id, const QVariantMap &activate
         }
         const QString exec = activateData.value(QStringLiteral("executable")).toString().trimmed();
         if (!exec.isEmpty()) {
-            return QProcess::startDetached(QStringLiteral("/bin/bash"),
-                                           {QStringLiteral("-lc"), exec});
+            const QStringList parts = QProcess::splitCommand(exec);
+            if (parts.isEmpty()) {
+                return false;
+            }
+            return QProcess::startDetached(parts.first(), parts.mid(1));
         }
     }
     

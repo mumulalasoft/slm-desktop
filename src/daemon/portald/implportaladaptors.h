@@ -1,6 +1,9 @@
 #pragma once
 
+#include "portalsettingstypes.h"
+
 #include <QDBusAbstractAdaptor>
+#include <QDBusContext>
 #include <QDBusUnixFileDescriptor>
 #include <QDBusVariant>
 #include <QVariantMap>
@@ -175,7 +178,7 @@ private:
     ImplPortalService *m_service = nullptr;
 };
 
-class ImplPortalSettingsAdaptor : public QDBusAbstractAdaptor
+class ImplPortalSettingsAdaptor : public QDBusAbstractAdaptor, protected QDBusContext
 {
     Q_OBJECT
     Q_CLASSINFO("D-Bus Interface", "org.freedesktop.impl.portal.Settings")
@@ -184,7 +187,7 @@ public:
     explicit ImplPortalSettingsAdaptor(ImplPortalService *service);
 
 public slots:
-    QVariantMap ReadAll(const QStringList &namespaces);
+    PortalSettingsMap ReadAll(const QStringList &namespaces);
     QDBusVariant Read(const QString &settingNamespace, const QString &key);
 
 private:

@@ -70,6 +70,77 @@ QString quoteDesktopField(const QString &value)
     return QStringLiteral("\"%1\"").arg(quoted);
 }
 
+bool isFlatpakToken(const QString &token)
+{
+    return QFileInfo(token).fileName() == QStringLiteral("flatpak");
+}
+
+QString sanitizeFlatpakForwardingCommand(const QString &command, bool removedFilePlaceholders)
+{
+    if (!removedFilePlaceholders) {
+        return command.simplified();
+    }
+
+    QStringList parts = QProcess::splitCommand(command.simplified());
+    if (parts.isEmpty()) {
+        return command.simplified();
+    }
+
+    int flatpakPos = -1;
+    for (int i = 0; i < parts.size(); ++i) {
+        if (isFlatpakToken(parts.at(i))) {
+            flatpakPos = i;
+            break;
+        }
+    }
+    if (flatpakPos < 0) {
+        return command.simplified();
+    }
+
+    bool hasRunSubcommand = false;
+    for (int i = flatpakPos + 1; i < parts.size(); ++i) {
+        const QString token = parts.at(i);
+        if (token.startsWith(QLatin1Char('-'))) {
+            continue;
+        }
+        hasRunSubcommand = token == QStringLiteral("run");
+        break;
+    }
+    if (!hasRunSubcommand) {
+        return command.simplified();
+    }
+
+    QStringList cleaned;
+    cleaned.reserve(parts.size());
+    for (int i = 0; i < parts.size(); ++i) {
+        const QString token = parts.at(i);
+        if (i > flatpakPos) {
+            if (token == QStringLiteral("--file-forwarding")
+                || token == QStringLiteral("@@")
+                || token == QStringLiteral("@@u")) {
+                continue;
+            }
+        }
+        cleaned.append(token);
+    }
+    while (!cleaned.isEmpty() && cleaned.last() == QStringLiteral("--")) {
+        cleaned.removeLast();
+    }
+
+    if (cleaned.isEmpty()) {
+        return command.simplified();
+    }
+
+    QStringList rendered;
+    rendered.reserve(cleaned.size());
+    for (const QString &part : cleaned) {
+        rendered.append(part.contains(QRegularExpression(QStringLiteral("\\s"))) || part.isEmpty()
+                            ? quoteDesktopField(part)
+                            : part);
+    }
+    return rendered.join(QLatin1Char(' '));
+}
+
 QString expandDesktopExecTemplate(QString execTemplate,
                                   const QString &desktopFilePath,
                                   const QString &displayName = QString(),
@@ -81,6 +152,11 @@ QString expandDesktopExecTemplate(QString execTemplate,
 
     const QString desktopPath = QFileInfo(desktopFilePath).absoluteFilePath();
     const QString percentToken = QString::fromLatin1("\x01");
+    const bool hasFilePlaceholder =
+        execTemplate.contains(QStringLiteral("%F"))
+        || execTemplate.contains(QStringLiteral("%f"))
+        || execTemplate.contains(QStringLiteral("%U"))
+        || execTemplate.contains(QStringLiteral("%u"));
 
     execTemplate.replace(QStringLiteral("%%"), percentToken);
     execTemplate.replace(QStringLiteral("%F"), QString());
@@ -98,7 +174,7 @@ QString expandDesktopExecTemplate(QString execTemplate,
     execTemplate.replace(QStringLiteral("%k"), quoteDesktopField(desktopPath));
     execTemplate.replace(QRegularExpression(QStringLiteral("%[dDnNvVmM]")), QString());
     execTemplate.replace(percentToken, QStringLiteral("%"));
-    return execTemplate.simplified();
+    return sanitizeFlatpakForwardingCommand(execTemplate.simplified(), hasFilePlaceholder);
 }
 
 bool executableExists(const QString &program)
@@ -331,6 +407,7 @@ bool tryLaunchDesktopFileDirect(const QString &desktopFilePath,
     const QString displayName = takeKeyFileString(keyFile, "Desktop Entry", "Name");
     const QString iconName = takeKeyFileString(keyFile, "Desktop Entry", "Icon");
     const QString tryExec = takeKeyFileString(keyFile, "Desktop Entry", "TryExec");
+    const QString xFlatpak = takeKeyFileString(keyFile, "Desktop Entry", "X-Flatpak");
     const bool terminal = keyFileBool(keyFile, "Desktop Entry", "Terminal", false);
     const bool dbusActivatable = keyFileBool(keyFile, "Desktop Entry", "DBusActivatable", false);
     g_key_file_free(keyFile);
@@ -349,7 +426,9 @@ bool tryLaunchDesktopFileDirect(const QString &desktopFilePath,
     }
 
     const QString tryExecError = tryExecFailure(tryExec);
-    if (!tryExecError.isEmpty()) {
+    const bool isFlatpakDesktop = !xFlatpak.trimmed().isEmpty()
+        || execTemplate.contains(QRegularExpression(QStringLiteral("(^|\\s)flatpak\\s+run(\\s|$)")));
+    if (!tryExecError.isEmpty() && !isFlatpakDesktop) {
         if (result) {
             result->error = tryExecError;
         }

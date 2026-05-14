@@ -1,19 +1,35 @@
 .pragma library
 
-function handleAppChosen(appData) {
+function handleAppChosen(appData, commandRouter, executionGate) {
     if (!appData) {
+        console.warn("[appdeck-launch] ignored: empty appData")
         return
     }
+    console.log("[appdeck-launch] chosen name=" + String(appData.name || appData.display || "")
+                + " desktopId=" + String(appData.desktopId || "")
+                + " desktopFile=" + String(appData.desktopFile || "")
+                + " executable=" + String(appData.executable || ""))
     if (typeof CursorController !== "undefined" && CursorController && CursorController.startBusy) {
         CursorController.startBusy(1300)
     }
-    if (typeof AppCommandRouter !== "undefined" && AppCommandRouter && AppCommandRouter.route) {
-        AppCommandRouter.route("app.entry", appData, "appdeck")
+    if (commandRouter && commandRouter.routeWithResult) {
+        var routed = commandRouter.routeWithResult("app.entry", appData, "appdeck")
+        console.log("[appdeck-launch] route result ok=" + String(routed && routed.ok)
+                    + " error=" + String(routed && routed.error || "")
+                    + " durationMs=" + String(routed && routed.durationMs || 0))
         return
     }
-    if (typeof AppExecutionGate !== "undefined" && AppExecutionGate && AppExecutionGate.launchEntryMap) {
-        AppExecutionGate.launchEntryMap(appData, "appdeck")
+    if (commandRouter && commandRouter.route) {
+        var ok = commandRouter.route("app.entry", appData, "appdeck")
+        console.log("[appdeck-launch] route result ok=" + String(ok))
+        return
     }
+    if (executionGate && executionGate.launchEntryMap) {
+        var launched = executionGate.launchEntryMap(appData, "appdeck")
+        console.log("[appdeck-launch] gate result ok=" + String(launched))
+        return
+    }
+    console.warn("[appdeck-launch] ignored: no router/gate available")
 }
 
 function handleAddToDock(appData, appDeckModelRef) {

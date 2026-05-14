@@ -2,6 +2,7 @@
 
 #include <QDBusUnixFileDescriptor>
 
+#include "portalsettingstypes.h"
 #include "../../core/permissions/DBusSecurityGuard.h"
 #include "../../core/permissions/PermissionBroker.h"
 #include "../../core/permissions/TrustResolver.h"
@@ -145,7 +146,7 @@ public slots:
                                           const QString &parentWindow,
                                           const QString &sessionPath,
                                           const QVariantMap &options);
-    QVariantMap BridgeSettingsReadAll(const QStringList &namespaces) const;
+    PortalSettingsMap BridgeSettingsReadAll(const QStringList &namespaces) const;
     QVariant BridgeSettingsRead(const QString &settingNamespace, const QString &key) const;
     QVariantMap BridgeAddNotification(const QString &appId,
                                       const QString &id,

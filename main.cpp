@@ -527,11 +527,57 @@ Window {
         QDBusConnectionInterface *iface = QDBusConnection::sessionBus().interface();
         return iface ? iface->isServiceRegistered(service).value() : false;
     };
+    const QString runtimeAppDir = QFileInfo(QCoreApplication::applicationFilePath()).absolutePath();
+    const auto resolveLocalBinaryPath = [runtimeAppDir](const QString &binaryName) -> QString {
+        const QString name = binaryName.trimmed();
+        if (name.isEmpty()) {
+            return QString();
+        }
+        const QStringList candidates{
+            QDir(runtimeAppDir).filePath(name),
+            QDir(QDir::currentPath()).filePath(name),
+            QDir(QDir::currentPath()).filePath(QStringLiteral("build/") + name),
+            QDir(QDir::currentPath()).filePath(QStringLiteral("build/qemu-smoke/") + name),
+            QDir(QDir::currentPath()).filePath(QStringLiteral("build/ci/") + name)
+        };
+        for (const QString &path : candidates) {
+            QFileInfo fi(path);
+            if (fi.exists() && fi.isFile() && fi.isExecutable()) {
+                return fi.absoluteFilePath();
+            }
+        }
+        return QString();
+    };
+    const QString resolvedSettingsPath = resolveLocalBinaryPath(QStringLiteral("slm-settings"));
+    const QString resolvedBinaryDir = resolvedSettingsPath.isEmpty()
+                                          ? runtimeAppDir
+                                          : QFileInfo(resolvedSettingsPath).absolutePath();
     const auto startDaemonBinary = [](const QString &localBinary, const QString &fallbackBinary) -> bool {
         const QString appDir = QFileInfo(QCoreApplication::applicationFilePath()).absolutePath();
-        const QString localPath = QDir(appDir).filePath(localBinary);
+        const QString cwd = QDir::currentPath();
+        auto resolveDaemon = [&](const QString &name) -> QString {
+            const QString trimmed = name.trimmed();
+            if (trimmed.isEmpty()) {
+                return QString();
+            }
+            const QStringList candidates{
+                QDir(appDir).filePath(trimmed),
+                QDir(cwd).filePath(trimmed),
+                QDir(cwd).filePath(QStringLiteral("build/") + trimmed),
+                QDir(cwd).filePath(QStringLiteral("build/qemu-smoke/") + trimmed),
+                QDir(cwd).filePath(QStringLiteral("build/ci/") + trimmed)
+            };
+            for (const QString &path : candidates) {
+                QFileInfo fi(path);
+                if (fi.exists() && fi.isFile() && fi.isExecutable()) {
+                    return fi.absoluteFilePath();
+                }
+            }
+            return QString();
+        };
+        const QString localPath = resolveDaemon(localBinary);
         bool started = false;
-        if (QFileInfo::exists(localPath)) {
+        if (!localPath.isEmpty()) {
             started = QProcess::startDetached(localPath, {});
         }
         if (!started) {
@@ -947,7 +993,7 @@ Window {
     engine.rootContext()->setContextProperty(QStringLiteral("PrintPreviewModel"), &printPreviewModel);
     engine.rootContext()->setContextProperty(QStringLiteral("PrintJobSubmitter"), &printJobSubmitter);
     engine.rootContext()->setContextProperty(QStringLiteral("AppBinaryDir"),
-                                             QCoreApplication::applicationDirPath());
+                                             resolvedBinaryDir);
     engine.rootContext()->setContextProperty(QStringLiteral("SessionStartupMode"), sessionMode);
     engine.rootContext()->setContextProperty(QStringLiteral("SafeModeActive"), safeModeActive);
     engine.rootContext()->setContextProperty(QStringLiteral("AnimationsEnabled"), runtimeAnimationsEnabled);

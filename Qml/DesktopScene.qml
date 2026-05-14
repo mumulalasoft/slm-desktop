@@ -1217,4 +1217,31 @@ Item {
             }
         }
     }
+
+    Shortcut {
+        sequence: "Meta+,"
+        context: Qt.ApplicationShortcut
+        onActivated: {
+            var opened = false
+            if (typeof AppExecutionGate !== "undefined" && AppExecutionGate && AppExecutionGate.launchCommand) {
+                if (typeof AppBinaryDir !== "undefined" && String(AppBinaryDir || "").length > 0) {
+                    opened = !!AppExecutionGate.launchCommand(String(AppBinaryDir) + "/slm-settings",
+                                                              "",
+                                                              "shortcut-settings-local")
+                }
+                if (!opened) {
+                    opened = !!AppExecutionGate.launchCommand("slm-settings", "", "shortcut-settings")
+                }
+            }
+            if (!opened && typeof AppCommandRouter !== "undefined" && AppCommandRouter && AppCommandRouter.route) {
+                opened = !!AppCommandRouter.route("app.desktopid",
+                                                  {desktopId: "slm-settings.desktop"},
+                                                  "shortcut-settings")
+            }
+            if (!opened && typeof AppExecutionGate !== "undefined" && AppExecutionGate
+                    && AppExecutionGate.launchDesktopId) {
+                AppExecutionGate.launchDesktopId("slm-settings.desktop", "shortcut-settings")
+            }
+        }
+    }
 }

@@ -254,14 +254,14 @@ void ImplPortalPayloadSnapshotTest::snapshot_requiredFieldsAcrossMethods()
                              QString::fromLatin1(kIfaceSettings),
                              m_bus);
         QVERIFY(iface.isValid());
-        QDBusReply<QVariantMap> allReply =
+        QDBusReply<PortalSettingsMap> allReply =
             iface.call(QStringLiteral("ReadAll"),
                       QStringList{
                           QStringLiteral("org.freedesktop.appearance"),
                           QStringLiteral("org.freedesktop.desktop.interface"),
                       });
         QVERIFY(allReply.isValid());
-        const QVariantMap all = allReply.value();
+        const PortalSettingsMap all = allReply.value();
         QVERIFY(all.contains(QStringLiteral("org.freedesktop.appearance")));
         QVERIFY(all.contains(QStringLiteral("org.freedesktop.desktop.interface")));
     }

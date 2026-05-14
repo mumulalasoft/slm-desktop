@@ -212,8 +212,6 @@ void GreeterApp::loginViaPam(const QString &username, const QString &password,
 
     const QString sessionMode = mode.isEmpty() ? QStringLiteral("normal") : mode;
     const qint64 pid = m_pamSession->launchSession({
-        QStringLiteral("dbus-run-session"),
-        QStringLiteral("--"),
         broker,
         QStringLiteral("--mode"),
         sessionMode,

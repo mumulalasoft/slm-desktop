@@ -1,5 +1,6 @@
 #include "shortcutmodel.h"
 #include "utils/urlutils.h"
+#include "launcher/applauncher.h"
 
 #include <QDesktopServices>
 #include <QDir>
@@ -979,18 +980,11 @@ bool ShortcutModel::launchDesktop(const ShortcutEntry &entry) const
     if (!entry.desktopFile.trimmed().isEmpty()) {
         const QFileInfo info(entry.desktopFile);
         if (info.exists() && info.isFile()) {
-            GDesktopAppInfo *appInfo =
-                g_desktop_app_info_new_from_filename(info.absoluteFilePath().toUtf8().constData());
-            if (appInfo) {
-                GError *error = nullptr;
-                const gboolean launched = g_app_info_launch(G_APP_INFO(appInfo), nullptr, nullptr, &error);
-                if (error) {
-                    g_error_free(error);
-                }
-                g_object_unref(appInfo);
-                if (launched) {
-                    return true;
-                }
+            const AppLaunchResult launched =
+                AppLauncher::launchDesktopFile(info.absoluteFilePath(),
+                                               QProcessEnvironment::systemEnvironment());
+            if (launched.ok) {
+                return true;
             }
         }
     }

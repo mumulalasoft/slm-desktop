@@ -664,8 +664,16 @@ Window {
                 root.requestCollapse()
             }
             onAppChosen: function(appData) {
+                console.log("[appdeck-launch] window app chosen name="
+                            + String(appData && (appData.name || appData.display) || "")
+                            + " desktopFile=" + String(appData && appData.desktopFile || "")
+                            + " executable=" + String(appData && appData.executable || ""))
                 root.requestOpenApp(String(appData && (appData.desktopId || appData.desktopFile || appData.name) || ""))
-                AppDeckActions.handleAppChosen(appData)
+                AppDeckActions.handleAppChosen(appData,
+                                               (typeof AppCommandRouter !== "undefined" && AppCommandRouter)
+                                                   ? AppCommandRouter : null,
+                                               (typeof AppExecutionGate !== "undefined" && AppExecutionGate)
+                                                   ? AppExecutionGate : null)
                 root.enterDock()
             }
             onAddToDockRequested: function(appData) {

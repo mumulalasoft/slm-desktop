@@ -283,14 +283,27 @@ ImplPortalSettingsAdaptor::ImplPortalSettingsAdaptor(ImplPortalService *service)
 {
 }
 
-QVariantMap ImplPortalSettingsAdaptor::ReadAll(const QStringList &namespaces)
+PortalSettingsMap ImplPortalSettingsAdaptor::ReadAll(const QStringList &namespaces)
 {
-    return m_service ? m_service->BridgeSettingsReadAll(namespaces) : QVariantMap{};
+    return m_service ? m_service->BridgeSettingsReadAll(namespaces) : PortalSettingsMap{};
 }
 
 QDBusVariant ImplPortalSettingsAdaptor::Read(const QString &settingNamespace, const QString &key)
 {
-    return QDBusVariant(m_service ? m_service->BridgeSettingsRead(settingNamespace, key) : QVariant{});
+    if (!m_service) {
+        sendErrorReply(QStringLiteral("org.freedesktop.portal.Error.Failed"),
+                       QStringLiteral("SLM portal backend unavailable"));
+        return QDBusVariant(QString());
+    }
+
+    const QVariant value = m_service->BridgeSettingsRead(settingNamespace, key);
+    if (!value.isValid()) {
+        sendErrorReply(QStringLiteral("org.freedesktop.portal.Error.NotFound"),
+                       QStringLiteral("Setting not found"));
+        return QDBusVariant(QString());
+    }
+
+    return QDBusVariant(value);
 }
 
 ImplPortalNotificationAdaptor::ImplPortalNotificationAdaptor(ImplPortalService *service)

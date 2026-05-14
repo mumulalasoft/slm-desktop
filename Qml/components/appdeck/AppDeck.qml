@@ -528,13 +528,25 @@ Rectangle {
         }
         if (typeof AppCommandRouter !== "undefined" && AppCommandRouter &&
                 AppCommandRouter.route) {
-            AppCommandRouter.route("app.desktopEntry", {
-                                       desktopFile: String(entry.desktopFile || ""),
-                                       executable: String(entry.executable || ""),
-                                       name: String(entry.name || ""),
-                                       iconName: String(entry.iconName || ""),
-                                       iconSource: String(entry.iconSource || "")
-                                   }, "appdeck")
+            var payload = {
+                desktopFile: String(entry.desktopFile || ""),
+                executable: String(entry.executable || ""),
+                name: String(entry.name || ""),
+                iconName: String(entry.iconName || ""),
+                iconSource: String(entry.iconSource || "")
+            }
+            console.log("[appdeck-launch] dock request name=" + payload.name
+                        + " desktopFile=" + payload.desktopFile
+                        + " executable=" + payload.executable)
+            if (AppCommandRouter.routeWithResult) {
+                var routeRes = AppCommandRouter.routeWithResult("app.desktopEntry", payload, "appdeck")
+                console.log("[appdeck-launch] dock route result ok=" + String(routeRes && routeRes.ok)
+                            + " error=" + String(routeRes && routeRes.error || "")
+                            + " durationMs=" + String(routeRes && routeRes.durationMs || 0))
+            } else {
+                var routeOk = AppCommandRouter.route("app.desktopEntry", payload, "appdeck")
+                console.log("[appdeck-launch] dock route result ok=" + String(routeOk))
+            }
             return "launch"
         }
         if (typeof AppExecutionGate !== "undefined" && AppExecutionGate &&

@@ -208,10 +208,20 @@ QString SessionStackHeadlessSmokeTest::installFakeCompositor()
 {
     const QString path = tempBinaryPath(QStringLiteral("kwin_wayland"));
     requireExecutable(path,
-                      QStringLiteral(
+                          QStringLiteral(
                           "#!/bin/sh\n"
                           "if [ \"$1\" = \"--help\" ]; then exit 0; fi\n"
-                          "touch \"$XDG_RUNTIME_DIR/wayland-0\"\n"
+                          "socket_name=wayland-0\n"
+                          "while [ \"$#\" -gt 0 ]; do\n"
+                          "  case \"$1\" in\n"
+                          "    --socket|--wayland-display)\n"
+                          "      shift\n"
+                          "      [ \"$#\" -gt 0 ] && socket_name=\"$1\"\n"
+                          "      ;;\n"
+                          "  esac\n"
+                          "  shift\n"
+                          "done\n"
+                          "touch \"$XDG_RUNTIME_DIR/$socket_name\"\n"
                           "state_file=\"$XDG_CONFIG_HOME/slm-desktop/state.json\"\n"
                           "i=0\n"
                           "while [ \"$i\" -lt 200 ]; do\n"

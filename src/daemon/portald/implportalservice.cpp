@@ -11,6 +11,7 @@
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
 #include <QDBusInterface>
+#include <QDBusMetaType>
 #include <QDBusReply>
 #include <QDBusArgument>
 #include <QDateTime>
@@ -33,6 +34,34 @@
 #include <gio/gdesktopappinfo.h>
 #include <gio/gio.h>
 #pragma pop_macro("signals")
+
+QDBusArgument &operator<<(QDBusArgument &argument, const PortalSettingsMap &settings)
+{
+    argument.beginMap(QMetaType::fromType<QString>(), QMetaType::fromType<QVariantMap>());
+    for (auto it = settings.cbegin(); it != settings.cend(); ++it) {
+        argument.beginMapEntry();
+        argument << it.key() << it.value();
+        argument.endMapEntry();
+    }
+    argument.endMap();
+    return argument;
+}
+
+const QDBusArgument &operator>>(const QDBusArgument &argument, PortalSettingsMap &settings)
+{
+    settings.clear();
+    argument.beginMap();
+    while (!argument.atEnd()) {
+        QString key;
+        QVariantMap value;
+        argument.beginMapEntry();
+        argument >> key >> value;
+        argument.endMapEntry();
+        settings.insert(key, value);
+    }
+    argument.endMap();
+    return argument;
+}
 
 namespace {
 constexpr const char kService[] = "org.freedesktop.impl.portal.desktop.slm";
@@ -871,6 +900,8 @@ ImplPortalService::ImplPortalService(PortalManager *manager,
     , m_manager(manager)
     , m_backend(backend)
 {
+    qDBusRegisterMetaType<PortalSettingsMap>();
+
     using namespace Slm::Permissions;
     m_store.open();
     m_audit.setStore(&m_store);
@@ -2623,21 +2654,26 @@ QVariantMap ImplPortalService::BridgeInputCaptureRelease(const QString &handle,
     return normalized;
 }
 
-QVariantMap ImplPortalService::BridgeSettingsReadAll(const QStringList &namespaces) const
+PortalSettingsMap ImplPortalService::BridgeSettingsReadAll(const QStringList &namespaces) const
 {
     const QVariantMap snapshot = buildSettingsSnapshot();
-    if (namespaces.isEmpty()) {
-        return snapshot;
+    PortalSettingsMap typedSnapshot;
+    for (auto it = snapshot.cbegin(); it != snapshot.cend(); ++it) {
+        typedSnapshot.insert(it.key(), unmarshalVariantMap(it.value()));
     }
 
-    QVariantMap out;
+    if (namespaces.isEmpty()) {
+        return typedSnapshot;
+    }
+
+    PortalSettingsMap out;
     for (const QString &ns : namespaces) {
         const QString key = ns.trimmed();
         if (key.isEmpty()) {
             continue;
         }
-        if (snapshot.contains(key)) {
-            out.insert(key, snapshot.value(key));
+        if (typedSnapshot.contains(key)) {
+            out.insert(key, typedSnapshot.value(key));
         }
     }
     return out;

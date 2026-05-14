@@ -29,7 +29,7 @@ public:
     bool openSession();
 
     // Phase 3 — Fork+exec the user session with privilege drop.
-    // cmd is the full command list; if empty defaults to dbus-run-session slm-session-broker.
+    // cmd is the full command list; if empty defaults to slm-session-broker --mode normal.
     // Returns the process PID, or -1 on failure.
     qint64 launchSession(const QStringList &cmd = {});
 

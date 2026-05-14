@@ -281,12 +281,19 @@ Item {
 
     function activateIndex(indexValue) {
         if (indexValue < 0 || indexValue >= filteredApps.length) {
+            console.warn("[appdeck-launch] grid activate ignored: index out of range", indexValue,
+                         "count", filteredApps.length)
             return
         }
+        var appData = filteredApps[indexValue] || {}
+        console.log("[appdeck-launch] grid item activated index=" + String(indexValue)
+                    + " name=" + String(appData.name || appData.display || "")
+                    + " desktopFile=" + String(appData.desktopFile || "")
+                    + " executable=" + String(appData.executable || ""))
         selectedIndex = indexValue
         switchToPage(_pageForGlobalIndex(indexValue), false, 0)
         grid.currentIndex = indexValue - (currentPage * Math.max(1, pageSize))
-        appActivated(filteredApps[indexValue])
+        appActivated(appData)
     }
 
     onPageSizeChanged: _syncPaginationToSelection()
