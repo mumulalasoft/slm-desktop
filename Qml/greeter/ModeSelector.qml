@@ -3,7 +3,7 @@ import QtQuick.Controls 2.15
 import Slm_Desktop
 
 // Mode selector button — looks like the SDDM "Other..." session button.
-// Opens a popup listing Normal / Safe Mode / Recovery.
+// Opens a popup listing Safe Mode / Recovery.
 Column {
     id: root
     spacing: Math.round(8 * uiScale)
@@ -16,7 +16,6 @@ Column {
     readonly property bool isAltMode: root.currentMode !== "normal"
 
     readonly property var modes: [
-        { label: "Normal",    value: "normal",   desc: "Sesi biasa" },
         { label: "Safe Mode", value: "safe",      desc: "Konfigurasi default" },
         { label: "Recovery",  value: "recovery",  desc: "Pemulihan" },
     ]

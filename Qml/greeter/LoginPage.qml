@@ -348,7 +348,7 @@ Rectangle {
         // Password + submit (integrated pill)
         Item {
             anchors.horizontalCenter: parent.horizontalCenter
-            width: Math.min(centerContent.width * 0.78, Math.round(380 * root.uiScale))
+            width: Math.min(centerContent.width * 0.64, Math.round(320 * root.uiScale))
             height: Math.round(44 * root.uiScale)
 
             TextField {
@@ -357,10 +357,11 @@ Rectangle {
                 echoMode: TextInput.Password
                 placeholderText: "Password"
                 enabled: !root.loginBusy
-                leftPadding: Math.round(18 * root.uiScale)
+                leftPadding: Math.round(54 * root.uiScale)
                 rightPadding: Math.round(54 * root.uiScale)
                 font.pixelSize: Math.round(17 * root.uiScale)
                 color: Qt.rgba(0.059, 0.110, 0.176, 1.0)
+                horizontalAlignment: TextInput.AlignHCenter
                 background: Rectangle {
                     radius: parent.height / 2
                     color: Qt.rgba(0.949, 0.965, 0.988, 0.850)
@@ -607,7 +608,7 @@ Rectangle {
         PowerRow {
             icon: "⏾"
             label: "Sleep"
-            enabled: GreeterApp ? (GreeterApp.canSuspend && !root.loginBusy && !root.installBusy && !root.powerActionBusy) : false
+            enabled: GreeterApp ? (!root.loginBusy && !root.installBusy && !root.powerActionBusy) : false
             busy: root.pendingPowerAction === "sleep"
             onActionTriggered: root.requestPowerAction("sleep")
             uiScale: root.uiScale
@@ -616,7 +617,7 @@ Rectangle {
         PowerRow {
             icon: "↻"
             label: "Restart"
-            enabled: GreeterApp ? (GreeterApp.canReboot && !root.loginBusy && !root.installBusy && !root.powerActionBusy) : false
+            enabled: GreeterApp ? (!root.loginBusy && !root.installBusy && !root.powerActionBusy) : false
             busy: root.pendingPowerAction === "restart"
             onActionTriggered: root.requestPowerAction("restart")
             uiScale: root.uiScale
@@ -625,7 +626,7 @@ Rectangle {
         PowerRow {
             icon: "⏻"
             label: "Shut Down"
-            enabled: GreeterApp ? (GreeterApp.canPowerOff && !root.loginBusy && !root.installBusy && !root.powerActionBusy) : false
+            enabled: GreeterApp ? (!root.loginBusy && !root.installBusy && !root.powerActionBusy) : false
             busy: root.pendingPowerAction === "shutdown"
             onActionTriggered: root.requestPowerAction("shutdown")
             uiScale: root.uiScale

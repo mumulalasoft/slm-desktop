@@ -21,6 +21,8 @@ Column {
         enabled: parent.enabled
         onClicked: root.actionTriggered()
         hoverEnabled: true
+        scale: actionButton.hovered && actionButton.enabled ? 1.08 : 1.0
+        Behavior on scale { NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingStandard } }
         background: Rectangle {
             radius: width / 2
             color: !actionButton.enabled ? Qt.rgba(1, 1, 1, 0.055)
@@ -30,6 +32,16 @@ Column {
             border.color: actionButton.enabled
                           ? (actionButton.hovered ? Qt.rgba(1, 1, 1, 0.933) : Qt.rgba(1, 1, 1, 0.627))
                           : Qt.rgba(1, 1, 1, 0.188)
+            Rectangle {
+                anchors.fill: parent
+                radius: parent.radius
+                color: "transparent"
+                border.width: Theme.borderWidthThin
+                border.color: actionButton.hovered && actionButton.enabled
+                              ? Qt.rgba(1, 1, 1, 0.420)
+                              : "transparent"
+                anchors.margins: -Math.round(2 * root.uiScale)
+            }
             Behavior on color { ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingStandard } }
         }
         contentItem: Text {

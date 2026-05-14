@@ -159,7 +159,11 @@ Window {
 
     Rectangle {
         anchors.fill: parent
-        color: Theme.color("workspaceBackdrop")
+        gradient: Gradient {
+            GradientStop { position: 0.00; color: Qt.rgba(0, 0, 0, 0.365) }
+            GradientStop { position: 0.46; color: Qt.rgba(0, 0, 0, 0.165) }
+            GradientStop { position: 1.00; color: Qt.rgba(0, 0, 0, 0.510) }
+        }
     }
 
     // ── Clock + Date ─────────────────────────────────────────────────────────
@@ -172,16 +176,16 @@ Window {
         Label {
             anchors.horizontalCenter: parent.horizontalCenter
             text: Qt.formatDateTime(root.now, "hh:mm")
-            color: Theme.color("textOnGlass")
-            font.pixelSize: Math.round(Theme.fontPxDisplay * 3.2)
+            color: Qt.rgba(1, 1, 1, 0.961)
+            font.pixelSize: Math.round(86 * root.uiScale)
             font.weight: Theme.fontWeight("light")
         }
 
         Label {
             anchors.horizontalCenter: parent.horizontalCenter
             text: Qt.formatDateTime(root.now, "dddd, d MMMM")
-            color: Theme.color("textOnGlass")
-            font.pixelSize: Theme.fontSize("body")
+            color: Qt.rgba(1, 1, 1, 0.867)
+            font.pixelSize: Math.round(17 * root.uiScale)
             font.weight: Theme.fontWeight("medium")
         }
 
@@ -209,35 +213,36 @@ Window {
         anchors.centerIn: centerContent
         width: centerContent.width + Math.round(48 * root.uiScale)
         height: centerContent.height + Math.round(56 * root.uiScale)
-        radius: Theme.radiusHuge
-        color: Theme.darkMode ? Qt.rgba(1, 1, 1, 0.07) : Qt.rgba(1, 1, 1, 0.28)
+        radius: Math.round(20 * root.uiScale)
+        color: Qt.rgba(0.965, 0.975, 1.000, 0.120)
         border.width: Theme.borderWidthThin
-        border.color: Theme.darkMode ? Qt.rgba(1, 1, 1, 0.13) : Qt.rgba(1, 1, 1, 0.48)
+        border.color: Qt.rgba(1, 1, 1, 0.267)
     }
 
     // ── Center content ────────────────────────────────────────────────────────
     Column {
         id: centerContent
         anchors.centerIn: parent
-        anchors.verticalCenterOffset: Math.round(root.height * 0.05)
-        spacing: Theme.metric("spacingMd")
+        anchors.verticalCenterOffset: Math.round(root.height * 0.065)
+        width: Math.min(root.width * 0.62, Math.round(560 * root.uiScale))
+        spacing: Math.round(12 * root.uiScale)
 
         // Avatar
         Rectangle {
             anchors.horizontalCenter: parent.horizontalCenter
-            width: Math.round(96 * root.uiScale)
+            width: Math.round(100 * root.uiScale)
             height: width
             radius: width / 2
-            color: Theme.darkMode ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(1, 1, 1, 0.38)
-            border.color: Theme.darkMode ? Qt.rgba(1, 1, 1, 0.24) : Qt.rgba(1, 1, 1, 0.56)
+            color: Qt.rgba(0.960, 0.975, 1.000, 0.180)
+            border.color: Qt.rgba(1, 1, 1, 0.314)
             border.width: Theme.borderWidthThin
 
             Label {
                 anchors.centerIn: parent
                 text: String(root.userName || "User").length > 0
                       ? String(root.userName).charAt(0).toUpperCase() : "U"
-                color: Theme.color("textPrimary")
-                font.pixelSize: Math.round(Theme.fontPxDisplay * 1.57)
+                color: "white"
+                font.pixelSize: Math.round(44 * root.uiScale)
                 font.weight: Theme.fontWeight("semibold")
             }
         }
@@ -246,16 +251,16 @@ Window {
         Label {
             anchors.horizontalCenter: parent.horizontalCenter
             text: root.userName || "User"
-            color: Theme.color("textPrimary")
-            font.pixelSize: Theme.fontSize("hero")
+            color: Qt.rgba(1, 1, 1, 0.949)
+            font.pixelSize: Math.round(23 * root.uiScale)
             font.weight: Theme.fontWeight("medium")
         }
 
         // Password + submit (integrated pill)
         Item {
             anchors.horizontalCenter: parent.horizontalCenter
-            width: Math.min(root.width * 0.28, 340)
-            height: Theme.controlHeightRegular
+            width: Math.min(centerContent.width * 0.64, Math.round(320 * root.uiScale))
+            height: Math.round(44 * root.uiScale)
 
             TextField {
                 id: passwordField
@@ -263,14 +268,15 @@ Window {
                 placeholderText: "Password"
                 echoMode: TextInput.Password
                 enabled: !root.lockoutActive && !root.unlockBusy
-                leftPadding: Theme.metric("spacingMd")
-                rightPadding: submitBtn.width + Theme.metric("spacingMd")
-                font.pixelSize: Theme.fontSize("titleLarge")
-                color: Theme.color("textPrimary")
+                leftPadding: Math.round(54 * root.uiScale)
+                rightPadding: Math.round(54 * root.uiScale)
+                font.pixelSize: Math.round(17 * root.uiScale)
+                color: Qt.rgba(0.059, 0.110, 0.176, 1.0)
+                horizontalAlignment: TextInput.AlignHCenter
                 background: Rectangle {
                     radius: parent.height / 2
-                    color: Theme.color("surface")
-                    border.color: passwordField.activeFocus ? Theme.color("focusRing") : Theme.color("panelBorder")
+                    color: Qt.rgba(0.949, 0.965, 0.988, 0.850)
+                    border.color: passwordField.activeFocus ? Qt.rgba(1, 1, 1, 0.784) : Qt.rgba(1, 1, 1, 0.502)
                     border.width: Theme.borderWidthThin
                 }
                 onAccepted: root.unlockRequested(text)
@@ -282,10 +288,10 @@ Window {
                 height: Math.round(32 * root.uiScale)
                 radius: height / 2
                 anchors.right: parent.right
-                anchors.rightMargin: Theme.metric("spacingXs")
+                anchors.rightMargin: Math.round(6 * root.uiScale)
                 anchors.verticalCenter: parent.verticalCenter
                 color: (root.lockoutActive || root.unlockBusy) ? Qt.rgba(0.039, 0.518, 1.0, 0.55)
-                       : (submitBtnArea.containsMouse ? Theme.color("accentHover") : Theme.color("accent"))
+                       : (submitBtnArea.containsMouse ? Qt.rgba(0, 0.439, 0.875, 1.0) : Qt.rgba(0.039, 0.518, 1.0, 1.0))
                 Behavior on color {
                     ColorAnimation { duration: Theme.durationMicro; easing.type: Theme.easingStandard }
                 }
@@ -323,8 +329,8 @@ Window {
                     anchors.centerIn: parent
                     visible: !root.unlockBusy
                     text: "❯"
-                    color: Theme.color("accentText")
-                    font.pixelSize: Theme.fontSize("body")
+                    color: "white"
+                    font.pixelSize: Math.round(15 * root.uiScale)
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                 }
@@ -347,8 +353,8 @@ Window {
             text: root.lockoutActive
                   ? ("Too many attempts. Try again in " + root.lockoutRemainingSec + "s")
                   : root.errorTextForCode(root.unlockErrorCode)
-            color: Theme.color("error")
-            font.pixelSize: Theme.fontSize("body")
+            color: Qt.rgba(0.945, 0.624, 0.624, 1.0)
+            font.pixelSize: Math.round(13 * root.uiScale)
             horizontalAlignment: Text.AlignHCenter
         }
     }
