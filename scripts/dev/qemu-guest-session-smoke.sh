@@ -547,30 +547,62 @@ else
     warnf "compatibility report tidak ditemukan di ${COMPAT_REPORT_FILE}"
 fi
 
-for log_path in /tmp/slm-compositor.log /tmp/slm-shell.log /tmp/slm-smoke-runtime.log \
-                /tmp/slm-session-broker.log /tmp/slm-session-broker-launch.log \
-                /tmp/slm-greeter.log /tmp/slm-greeter-service.log \
-                /tmp/slm-portald.log /tmp/slm-cache-prewarm.log; do
+REQUIRED_LOGS=(
+    /tmp/slm-compositor.log
+    /tmp/slm-shell.log
+    /tmp/slm-session-broker.log
+    /tmp/slm-session-broker-launch.log
+)
+OPTIONAL_LOGS=(
+    /tmp/slm-smoke-runtime.log
+    /tmp/slm-greeter.log
+    /tmp/slm-greeter-service.log
+    /tmp/slm-portald.log
+    /tmp/slm-cache-prewarm.log
+)
+for log_path in "${REQUIRED_LOGS[@]}" "${OPTIONAL_LOGS[@]}"; do
     if [[ -f "$log_path" ]]; then
         log_name="$(basename "$log_path")"
         cp "$log_path" "$ARTIFACT_DIR/$log_name"
         tail -n 200 "$log_path" >"$ARTIFACT_DIR/${log_name%.log}-tail.log" || true
         ok "log terkumpul: $log_path"
     else
-        warnf "log tidak ditemukan: $log_path"
+        is_required_log=0
+        for required_log in "${REQUIRED_LOGS[@]}"; do
+            if [[ "$required_log" == "$log_path" ]]; then
+                is_required_log=1
+                break
+            fi
+        done
+        if [[ "$is_required_log" -eq 1 ]]; then
+            warnf "log wajib tidak ditemukan: $log_path"
+        else
+            ok "log opsional tidak ditemukan: $log_path"
+        fi
     fi
 done
 
 PROCESS_MATCHES=0
-for pattern in greetd cage slm-greeter slm-session-broker slm-watchdog slm-desktop slm-shell slm-portald xdg-desktop-portal; do
+REQUIRED_PROCESSES=(greetd slm-session-broker slm-watchdog slm-shell slm-portald xdg-desktop-portal)
+OPTIONAL_PROCESSES=(cage slm-greeter slm-desktop)
+for pattern in "${REQUIRED_PROCESSES[@]}" "${OPTIONAL_PROCESSES[@]}"; do
     if pgrep -af "$pattern" >"$ARTIFACT_DIR/proc-${pattern}.log" 2>&1; then
         ok "process terlihat: $pattern"
         PROCESS_MATCHES=1
     else
-        if [[ "$STRICT_PROCESS" -eq 1 ]]; then
-            ng "process tidak terlihat: $pattern"
+        is_required_process=0
+        for required_process in "${REQUIRED_PROCESSES[@]}"; do
+            if [[ "$required_process" == "$pattern" ]]; then
+                is_required_process=1
+                break
+            fi
+        done
+        if [[ "$STRICT_PROCESS" -eq 1 && "$is_required_process" -eq 1 ]]; then
+            ng "process wajib tidak terlihat: $pattern"
+        elif [[ "$is_required_process" -eq 1 ]]; then
+            warnf "process wajib tidak terlihat: $pattern"
         else
-            warnf "process tidak terlihat: $pattern"
+            ok "process opsional tidak terlihat: $pattern"
         fi
     fi
 done
