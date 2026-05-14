@@ -19,6 +19,8 @@ FocusScope {
     property string appdeckSearchSeed: ""
     property string filterText: ""
     property real revealProgress: 1.0
+    property int lazyRefreshCooldownMs: 15000
+    property double lastLazyRefreshAtMs: 0
 
     readonly property var allAppsModel: (typeof AppModel !== "undefined" && AppModel)
                                          ? AppModel : appsModel
@@ -70,6 +72,33 @@ FocusScope {
                 && py <= (contentFrame.y + contentFrame.height)
     }
 
+    function maybeRefreshAllAppsLazy(forceRefresh) {
+        var model = root.allAppsModel
+        if (!model) {
+            return
+        }
+        if (!model.refreshAsync && !model.refresh) {
+            return
+        }
+        var now = Date.now()
+        var shouldRefresh = !!forceRefresh
+        if (!shouldRefresh) {
+            var ageMs = now - Number(root.lastLazyRefreshAtMs || 0)
+            var staleEnough = ageMs >= Math.max(1000, Number(root.lazyRefreshCooldownMs || 15000))
+            var hasNoApps = Number(root.totalAppCount || 0) <= 0
+            shouldRefresh = staleEnough || hasNoApps
+        }
+        if (!shouldRefresh) {
+            return
+        }
+        root.lastLazyRefreshAtMs = now
+        if (model.refreshAsync) {
+            model.refreshAsync()
+        } else {
+            model.refresh()
+        }
+    }
+
     onAppdeckSearchSeedChanged: {
         if (String(appdeckSearchSeed || "").trim().length > 0) {
             filterText = String(appdeckSearchSeed || "")
@@ -78,6 +107,7 @@ FocusScope {
 
     onVisibleChanged: {
         if (visible) {
+            maybeRefreshAllAppsLazy(false)
             revealProgress = 0.0
             if (String(appdeckSearchSeed || "").trim().length > 0) {
                 filterText = String(appdeckSearchSeed || "")
@@ -87,6 +117,12 @@ FocusScope {
             revealAnim.stop()
             revealProgress = 0.0
             filterText = ""
+        }
+    }
+
+    onAllAppsModelChanged: {
+        if (visible) {
+            maybeRefreshAllAppsLazy(true)
         }
     }
 
