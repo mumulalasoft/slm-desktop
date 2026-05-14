@@ -13,6 +13,15 @@ Rectangle {
     property alias sidebarPaneRef: sidebarPane
     property alias headerBarRef: headerBar
     property alias mainPaneRef: mainPane
+    readonly property real hostWindowWidth: (hostRoot && hostRoot.hostWindow)
+                                           ? Number(hostRoot.hostWindow.width || 0)
+                                           : Number(width || 0)
+    readonly property real adaptiveSidebarWidth: Math.max(
+                                                     188,
+                                                     Math.min(
+                                                         248,
+                                                         Math.round(
+                                                             hostWindowWidth * 0.21)))
 
     anchors.fill: parent
     anchors.margins: 0
@@ -32,7 +41,7 @@ Rectangle {
 
             FileManagerSidebarPane {
                 id: sidebarPane
-                Layout.preferredWidth: 228
+                Layout.preferredWidth: root.adaptiveSidebarWidth
                 Layout.fillHeight: true
                 Layout.leftMargin: Theme.metric("spacingLg")
                 Layout.topMargin: Theme.metric("spacingLg")
