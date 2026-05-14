@@ -784,11 +784,13 @@ Window {
             id: dockView
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottom: parent.bottom
-            anchors.bottomMargin: root.dockActive ? root.dockBottomMargin : 0
+            // Keep dock geometry stable across dock/grid states so pinned icons
+            // do not visually shift when surface mode changes.
+            anchors.bottomMargin: root.dockBottomMargin
             visible: !root.appDeckHidden && (root.dockActive || root.gridAppsMode || root.pulseMode || opacity > 0.01)
             opacity: 1.0
-            scale: root.dockActive ? 1.0 : (1.0 - (0.03 * root.surfaceTransition))
-            transform: Translate { y: root.dockActive ? 0 : root.surfaceTransition * 10 }
+            scale: 1.0
+            transform: Translate { y: 0 }
             z: 3
             hostName: "appdeck"
             hideBorder: root.immersiveMode
