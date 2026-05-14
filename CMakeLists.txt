@@ -3411,16 +3411,15 @@ target_link_libraries(themepolicyengine_test
 
 add_test(NAME themepolicyengine_test COMMAND themepolicyengine_test)
 
-qt_add_executable(foldersharingservice_dbus_test
-    src/daemon/desktopd/foldersharingservice.cpp
-    src/daemon/desktopd/foldersharingservice.h
+qt_add_executable(sharingservice_compat_dbus_test
+    ${SLM_SHARINGD_SOURCES}
     ${SLM_PERMISSION_TEST_SOURCES}
     tests/foldersharingservice_dbus_test.cpp
 )
 
-target_include_directories(foldersharingservice_dbus_test PRIVATE ${CMAKE_SOURCE_DIR})
+target_include_directories(sharingservice_compat_dbus_test PRIVATE ${CMAKE_SOURCE_DIR})
 
-target_link_libraries(foldersharingservice_dbus_test
+target_link_libraries(sharingservice_compat_dbus_test
     PRIVATE
         Qt6::Core
         Qt6::DBus
@@ -3428,7 +3427,7 @@ target_link_libraries(foldersharingservice_dbus_test
         Qt6::Test
 )
 
-add_test(NAME foldersharingservice_dbus_test COMMAND foldersharingservice_dbus_test)
+add_test(NAME sharingservice_compat_dbus_test COMMAND sharingservice_compat_dbus_test)
 
 qt_add_executable(captureservice_dbus_test
     src/daemon/desktopd/captureservice.cpp

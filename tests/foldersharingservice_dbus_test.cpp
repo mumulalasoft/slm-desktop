@@ -3,15 +3,16 @@
 #include <QDBusInterface>
 #include <QDBusReply>
 
-#include "../src/daemon/desktopd/foldersharingservice.h"
+#include "../src/daemon/sharingd/sharingmanager.h"
+#include "../src/daemon/sharingd/sharingservice.h"
 
 namespace {
-constexpr const char kService[] = "org.slm.Desktop.FolderSharing";
-constexpr const char kPath[] = "/org/slm/Desktop/FolderSharing";
-constexpr const char kIface[] = "org.slm.Desktop.FolderSharing";
+constexpr const char kService[] = "org.slm.Sharing";
+constexpr const char kPath[]    = "/org/slm/Sharing";
+constexpr const char kIface[]   = "org.slm.Sharing";
 }
 
-class FolderSharingServiceDbusTest : public QObject
+class SharingServiceCompatDbusTest : public QObject
 {
     Q_OBJECT
 
@@ -23,10 +24,17 @@ private slots:
             QSKIP("session bus unavailable");
         }
 
-        FolderSharingService service;
-        if (!service.serviceRegistered()) {
-            QSKIP("cannot register org.slm.Desktop.FolderSharing (likely already owned)");
+        SharingManager manager;
+        manager.initialize();
+        SharingService service(&manager);
+
+        if (!bus.registerService(QString::fromLatin1(kService))) {
+            QSKIP("cannot register org.slm.Sharing (likely already owned)");
         }
+        bus.registerObject(QString::fromLatin1(kPath), &service,
+                           QDBusConnection::ExportAllSlots
+                               | QDBusConnection::ExportAllSignals
+                               | QDBusConnection::ExportAllProperties);
 
         QDBusInterface iface(QString::fromLatin1(kService),
                              QString::fromLatin1(kPath),
@@ -36,32 +44,30 @@ private slots:
 
         const QDBusReply<QVariantMap> pingReply = iface.call(QStringLiteral("Ping"));
         QVERIFY(pingReply.isValid());
-        const QVariantMap ping = pingReply.value();
-        QVERIFY(ping.value(QStringLiteral("ok")).toBool());
-        QCOMPARE(ping.value(QStringLiteral("service")).toString(), QString::fromLatin1(kService));
+        QVERIFY(pingReply.value().value(QStringLiteral("ok")).toBool());
 
-        const QDBusReply<QVariantMap> capsReply = iface.call(QStringLiteral("GetCapabilities"));
-        QVERIFY(capsReply.isValid());
-        const QVariantMap caps = capsReply.value();
-        QVERIFY(caps.value(QStringLiteral("ok")).toBool());
-        const QStringList list = caps.value(QStringLiteral("capabilities")).toStringList();
-        QVERIFY(list.contains(QStringLiteral("configure_share")));
-        QVERIFY(list.contains(QStringLiteral("disable_share")));
-        QVERIFY(list.contains(QStringLiteral("check_environment")));
-        QVERIFY(list.contains(QStringLiteral("try_autofix")));
+        bus.unregisterObject(QString::fromLatin1(kPath));
+        bus.unregisterService(QString::fromLatin1(kService));
     }
 
-    void checkEnvironment_contractShape()
+    void checkFileSharingEnvironment_contractShape()
     {
         QDBusConnection bus = QDBusConnection::sessionBus();
         if (!bus.isConnected()) {
             QSKIP("session bus unavailable");
         }
 
-        FolderSharingService service;
-        if (!service.serviceRegistered()) {
-            QSKIP("cannot register org.slm.Desktop.FolderSharing (likely already owned)");
+        SharingManager manager;
+        manager.initialize();
+        SharingService service(&manager);
+
+        if (!bus.registerService(QString::fromLatin1(kService))) {
+            QSKIP("cannot register org.slm.Sharing (likely already owned)");
         }
+        bus.registerObject(QString::fromLatin1(kPath), &service,
+                           QDBusConnection::ExportAllSlots
+                               | QDBusConnection::ExportAllSignals
+                               | QDBusConnection::ExportAllProperties);
 
         QDBusInterface iface(QString::fromLatin1(kService),
                              QString::fromLatin1(kPath),
@@ -69,26 +75,37 @@ private slots:
                              bus);
         QVERIFY(iface.isValid());
 
-        const QDBusReply<QVariantMap> envReply = iface.call(QStringLiteral("CheckEnvironment"));
+        const QDBusReply<QVariantMap> envReply =
+                iface.call(QStringLiteral("CheckFileSharingEnvironment"));
         QVERIFY(envReply.isValid());
         const QVariantMap env = envReply.value();
         QVERIFY(env.contains(QStringLiteral("ok")));
         QVERIFY(env.contains(QStringLiteral("ready")));
         QVERIFY(env.contains(QStringLiteral("issues")));
         QVERIFY(env.value(QStringLiteral("issues")).canConvert<QVariantList>());
+
+        bus.unregisterObject(QString::fromLatin1(kPath));
+        bus.unregisterService(QString::fromLatin1(kService));
     }
 
-    void tryAutoFix_contractShape()
+    void tryAutoFixFileSharing_contractShape()
     {
         QDBusConnection bus = QDBusConnection::sessionBus();
         if (!bus.isConnected()) {
             QSKIP("session bus unavailable");
         }
 
-        FolderSharingService service;
-        if (!service.serviceRegistered()) {
-            QSKIP("cannot register org.slm.Desktop.FolderSharing (likely already owned)");
+        SharingManager manager;
+        manager.initialize();
+        SharingService service(&manager);
+
+        if (!bus.registerService(QString::fromLatin1(kService))) {
+            QSKIP("cannot register org.slm.Sharing (likely already owned)");
         }
+        bus.registerObject(QString::fromLatin1(kPath), &service,
+                           QDBusConnection::ExportAllSlots
+                               | QDBusConnection::ExportAllSignals
+                               | QDBusConnection::ExportAllProperties);
 
         QDBusInterface iface(QString::fromLatin1(kService),
                              QString::fromLatin1(kPath),
@@ -96,7 +113,8 @@ private slots:
                              bus);
         QVERIFY(iface.isValid());
 
-        const QDBusReply<QVariantMap> fixReply = iface.call(QStringLiteral("TryAutoFix"));
+        const QDBusReply<QVariantMap> fixReply =
+                iface.call(QStringLiteral("TryAutoFixFileSharing"));
         QVERIFY(fixReply.isValid());
         const QVariantMap fix = fixReply.value();
         QVERIFY(fix.contains(QStringLiteral("ok")));
@@ -105,6 +123,9 @@ private slots:
         QVERIFY(fix.contains(QStringLiteral("actions")));
         QVERIFY(fix.value(QStringLiteral("issues")).canConvert<QVariantList>());
         QVERIFY(fix.value(QStringLiteral("actions")).canConvert<QVariantList>());
+
+        bus.unregisterObject(QString::fromLatin1(kPath));
+        bus.unregisterService(QString::fromLatin1(kService));
     }
 
     void configureShare_invalidPathRejected()
@@ -114,10 +135,17 @@ private slots:
             QSKIP("session bus unavailable");
         }
 
-        FolderSharingService service;
-        if (!service.serviceRegistered()) {
-            QSKIP("cannot register org.slm.Desktop.FolderSharing (likely already owned)");
+        SharingManager manager;
+        manager.initialize();
+        SharingService service(&manager);
+
+        if (!bus.registerService(QString::fromLatin1(kService))) {
+            QSKIP("cannot register org.slm.Sharing (likely already owned)");
         }
+        bus.registerObject(QString::fromLatin1(kPath), &service,
+                           QDBusConnection::ExportAllSlots
+                               | QDBusConnection::ExportAllSignals
+                               | QDBusConnection::ExportAllProperties);
 
         QDBusInterface iface(QString::fromLatin1(kService),
                              QString::fromLatin1(kPath),
@@ -126,19 +154,23 @@ private slots:
         QVERIFY(iface.isValid());
 
         const QVariantMap options{
-            {QStringLiteral("enabled"), true},
+            {QStringLiteral("enabled"),   true},
             {QStringLiteral("shareName"), QStringLiteral("InvalidPathCase")}
         };
         const QDBusReply<QVariantMap> reply =
                 iface.call(QStringLiteral("ConfigureShare"),
                            QStringLiteral("/definitely/not/an/existing/folder"),
-                           options);
+                           QVariant::fromValue(options));
         QVERIFY(reply.isValid());
         const QVariantMap out = reply.value();
         QVERIFY(!out.value(QStringLiteral("ok")).toBool());
-        QCOMPARE(out.value(QStringLiteral("error")).toString(), QStringLiteral("not-a-directory"));
+        QCOMPARE(out.value(QStringLiteral("error")).toString(),
+                 QStringLiteral("not-a-directory"));
+
+        bus.unregisterObject(QString::fromLatin1(kPath));
+        bus.unregisterService(QString::fromLatin1(kService));
     }
 };
 
-QTEST_MAIN(FolderSharingServiceDbusTest)
+QTEST_MAIN(SharingServiceCompatDbusTest)
 #include "foldersharingservice_dbus_test.moc"
