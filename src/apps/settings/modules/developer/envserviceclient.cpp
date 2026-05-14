@@ -2,11 +2,13 @@
 
 #include <QDBusConnection>
 #include <QDBusInterface>
+#include <QDBusMessage>
 #include <QDBusReply>
 
 static constexpr char kService[]    = "org.slm.Environment1";
 static constexpr char kPath[]       = "/org/slm/Environment";
 static constexpr char kInterface[]  = "org.slm.Environment1";
+static constexpr int kResolveCallTimeoutMs = 1200;
 
 EnvServiceClient::EnvServiceClient(QObject *parent)
     : QObject(parent)
@@ -229,15 +231,33 @@ QVariantList EnvServiceClient::getSystemVars()
 QVariantMap EnvServiceClient::resolveEnv(const QString &appId)
 {
     if (!ensureIface()) return {};
-    QDBusReply<QVariantMap> r = m_iface->call(QStringLiteral("ResolveEnv"), appId);
-    return r.isValid() ? r.value() : QVariantMap{};
+    QDBusMessage msg = QDBusMessage::createMethodCall(QLatin1String(kService),
+                                                      QLatin1String(kPath),
+                                                      QLatin1String(kInterface),
+                                                      QStringLiteral("ResolveEnv"));
+    msg << appId;
+    const QDBusMessage reply = QDBusConnection::sessionBus().call(
+        msg, QDBus::BlockWithGui, kResolveCallTimeoutMs);
+    if (reply.type() == QDBusMessage::ErrorMessage || reply.arguments().isEmpty()) {
+        return {};
+    }
+    return qdbus_cast<QVariantMap>(reply.arguments().constFirst());
 }
 
 QStringList EnvServiceClient::resolveEnvList(const QString &appId)
 {
     if (!ensureIface()) return {};
-    QDBusReply<QStringList> r = m_iface->call(QStringLiteral("ResolveEnvList"), appId);
-    return r.isValid() ? r.value() : QStringList{};
+    QDBusMessage msg = QDBusMessage::createMethodCall(QLatin1String(kService),
+                                                      QLatin1String(kPath),
+                                                      QLatin1String(kInterface),
+                                                      QStringLiteral("ResolveEnvList"));
+    msg << appId;
+    const QDBusMessage reply = QDBusConnection::sessionBus().call(
+        msg, QDBus::BlockWithGui, kResolveCallTimeoutMs);
+    if (reply.type() == QDBusMessage::ErrorMessage || reply.arguments().isEmpty()) {
+        return {};
+    }
+    return qdbus_cast<QStringList>(reply.arguments().constFirst());
 }
 
 QString EnvServiceClient::lastError() const

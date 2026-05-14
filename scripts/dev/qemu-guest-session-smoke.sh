@@ -471,10 +471,22 @@ else
     compat_fail "portal.dbus.tree" "org.freedesktop.portal.Desktop tidak tersedia di user bus"
 fi
 
-if grep -E "DENIED|apparmor" "$ARTIFACT_DIR/journal-kernel.log" >"$ARTIFACT_DIR/kernel-denied.log" 2>/dev/null; then
-    compat_warn "security.denied" "ditemukan indikasi DENIED/AppArmor di journal kernel"
+if grep -E 'apparmor="DENIED"|audit\([^)]*\):.*\bDENIED\b' "$ARTIFACT_DIR/journal-kernel.log" >"$ARTIFACT_DIR/kernel-denied.log" 2>/dev/null; then
+    # Split known ambient denials vs compatibility-critical denials so smoke
+    # output stays actionable and does not drown in baseline kernel noise.
+    grep -E 'profile="(fusermount3|unprivileged_userns)"' "$ARTIFACT_DIR/kernel-denied.log" \
+        >"$ARTIFACT_DIR/kernel-denied-known-noise.log" 2>/dev/null || true
+    grep -Ev 'profile="(fusermount3|unprivileged_userns)"' "$ARTIFACT_DIR/kernel-denied.log" \
+        >"$ARTIFACT_DIR/kernel-denied-critical.log" 2>/dev/null || true
+
+    if [[ -s "$ARTIFACT_DIR/kernel-denied-critical.log" ]]; then
+        denied_profile=$(sed -n 's/.*profile="\([^"]*\)".*/\1/p' "$ARTIFACT_DIR/kernel-denied-critical.log" | head -n1)
+        compat_warn "security.denied" "ditemukan DENIED compatibility-critical (profile=${denied_profile:-unknown}, cek kernel-denied-critical.log)"
+    else
+        compat_ok "security.denied" "hanya DENIED known-noise (fusermount3/unprivileged_userns)"
+    fi
 else
-    compat_ok "security.denied" "tidak ada DENIED/AppArmor di journal kernel"
+    compat_ok "security.denied" "tidak ada AppArmor/audit DENIED di journal kernel"
 fi
 
 # Don't stop the watcher early — let it run for its full duration so we capture
