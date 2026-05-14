@@ -436,7 +436,7 @@ else
         fi
     done
     if [[ -n "$X11_PROBE_DISPLAY" ]]; then
-        compat_warn "x11.xauthority" "xauth file tidak ditemukan, tetapi probe X11 auth berhasil pada DISPLAY=$X11_PROBE_DISPLAY"
+        compat_ok "x11.xauthority" "xauth file tidak ditemukan, tetapi probe X11 auth berhasil pada DISPLAY=$X11_PROBE_DISPLAY"
     else
         compat_fail "x11.xauthority" "xauth file tidak ditemukan dan probe X11 auth gagal (candidates=${x11_displays[*]})"
     fi
