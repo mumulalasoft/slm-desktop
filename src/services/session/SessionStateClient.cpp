@@ -29,6 +29,7 @@ SessionStateClient::SessionStateClient(QObject *parent)
     }
     bindSignals();
     refreshServiceAvailability();
+    refreshLockStateSnapshot();
 }
 
 SessionStateClient::~SessionStateClient() = default;
@@ -176,6 +177,9 @@ void SessionStateClient::onNameOwnerChanged(const QString &name,
         m_serviceAvailable = nowAvailable;
         emit serviceAvailableChanged();
     }
+    if (nowAvailable) {
+        refreshLockStateSnapshot();
+    }
 }
 
 void SessionStateClient::bindSignals()
@@ -227,6 +231,21 @@ void SessionStateClient::refreshServiceAvailability()
         m_serviceAvailable = available;
         emit serviceAvailableChanged();
     }
+}
+
+void SessionStateClient::refreshLockStateSnapshot()
+{
+    if (!m_iface || !m_iface->isValid()) {
+        return;
+    }
+
+    const QVariant rawState = m_iface->property("lockState");
+    const QString state = rawState.toString().trimmed();
+    if (state.isEmpty()) {
+        return;
+    }
+
+    onLockStateChanged(state);
 }
 
 } // namespace Slm::Session

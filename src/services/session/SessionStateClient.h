@@ -50,6 +50,7 @@ private slots:
 private:
     void bindSignals();
     void refreshServiceAvailability();
+    void refreshLockStateSnapshot();
     void setLocked(bool locked);
     void setLockState(const QString &state);
 
