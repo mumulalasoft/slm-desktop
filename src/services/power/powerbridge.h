@@ -25,6 +25,8 @@ public:
     Q_INVOKABLE bool reboot();
     Q_INVOKABLE bool powerOff();
     Q_INVOKABLE bool shutdown();
+    Q_INVOKABLE bool scheduleShutdownAt(const QString &timeText);
+    Q_INVOKABLE bool scheduleShutdownAfterMinutes(int minutes);
     Q_INVOKABLE bool logout();
 
 private:

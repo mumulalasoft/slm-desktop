@@ -33,6 +33,36 @@ bool PowerBridge::shutdown()
     return powerOff();
 }
 
+bool PowerBridge::scheduleShutdownAt(const QString &timeText)
+{
+    const QString value = timeText.trimmed();
+    if (value.isEmpty()) {
+        return false;
+    }
+    qInfo().noquote() << "[PowerBridge] requesting shutdown -h" << value;
+    const bool started = QProcess::startDetached(QStringLiteral("shutdown"),
+                                                 {QStringLiteral("-h"), value});
+    if (!started) {
+        qWarning().noquote() << "[PowerBridge] failed to start shutdown -h" << value;
+    }
+    return started;
+}
+
+bool PowerBridge::scheduleShutdownAfterMinutes(int minutes)
+{
+    if (minutes <= 0) {
+        return false;
+    }
+    const QString value = QStringLiteral("+%1").arg(minutes);
+    qInfo().noquote() << "[PowerBridge] requesting shutdown -h" << value;
+    const bool started = QProcess::startDetached(QStringLiteral("shutdown"),
+                                                 {QStringLiteral("-h"), value});
+    if (!started) {
+        qWarning().noquote() << "[PowerBridge] failed to start shutdown -h" << value;
+    }
+    return started;
+}
+
 bool PowerBridge::logout()
 {
     // Terminate the current login session via loginctl.
