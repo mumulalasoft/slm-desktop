@@ -434,6 +434,29 @@ QString AppCommandRouter::appIdFromPayload(const QVariantMap &payload)
     return {};
 }
 
+QString AppCommandRouter::runtimeFromPayload(const QVariantMap &payload)
+{
+    const QString desktopFile = payload.value(QStringLiteral("desktopFile")).toString().trimmed().toLower();
+    const QString executable = payload.value(QStringLiteral("executable")).toString().trimmed().toLower();
+    const QString desktopId = payload.value(QStringLiteral("desktopId")).toString().trimmed().toLower();
+    const QString appId = appIdFromPayload(payload);
+
+    if (executable.contains(QStringLiteral("flatpak"))
+        || desktopFile.contains(QStringLiteral("flatpak"))
+        || desktopId.contains(QStringLiteral("flatpak"))
+        || appId.startsWith(QStringLiteral("org.flatpak."))) {
+        return QStringLiteral("flatpak");
+    }
+    if (executable.contains(QStringLiteral("/snap/"))
+        || executable.endsWith(QStringLiteral("/snap"))
+        || desktopFile.contains(QStringLiteral("/snap/"))
+        || desktopId.startsWith(QStringLiteral("snap."))
+        || appId.startsWith(QStringLiteral("snap."))) {
+        return QStringLiteral("snap");
+    }
+    return QStringLiteral("native");
+}
+
 QSet<QString> AppCommandRouter::collectMappedAppIds() const
 {
     QSet<QString> out;
@@ -497,11 +520,13 @@ void AppCommandRouter::noteLaunchRequested(const QString &action,
     pending.requestedAtMs = nowMs;
     pending.source = source;
     pending.action = action;
+    pending.runtime = runtimeFromPayload(payload);
     pending.appAlreadyMapped = alreadyMapped;
     m_pendingLaunchByAppId.insert(appId, pending);
 
     qInfo().noquote() << "[launch-sla] requested"
                       << "appId=" << appId
+                      << "runtime=" << pending.runtime
                       << "action=" << action
                       << "source=" << source
                       << "alreadyMapped=" << (alreadyMapped ? QStringLiteral("true") : QStringLiteral("false"))
@@ -523,6 +548,7 @@ void AppCommandRouter::completeLaunchIfMapped(const QString &appId,
     const qint64 latencyMs = nowMs - it->requestedAtMs;
     qInfo().noquote() << "[launch-sla] first_window_mapped"
                       << "appId=" << appId
+                      << "runtime=" << it->runtime
                       << "latencyMs=" << latencyMs
                       << "reason=" << reason
                       << "action=" << it->action

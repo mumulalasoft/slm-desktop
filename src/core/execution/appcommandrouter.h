@@ -64,11 +64,13 @@ private:
         qint64 requestedAtMs = 0;
         QString source;
         QString action;
+        QString runtime;
         bool appAlreadyMapped = false;
     };
 
     static QString normalizeAppIdToken(const QString &value);
     static QString appIdFromPayload(const QVariantMap &payload);
+    static QString runtimeFromPayload(const QVariantMap &payload);
     QSet<QString> collectMappedAppIds() const;
     void pruneStalePendingLaunches(qint64 nowMs);
     void noteLaunchRequested(const QString &action, const QString &source, const QVariantMap &payload);
