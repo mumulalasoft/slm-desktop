@@ -801,8 +801,9 @@ Window {
             transform: Translate { y: 0 }
             z: 3
             hostName: "appdeck"
-            hideBorder: root.immersiveMode
-            transparentBackground: root.immersiveMode
+            hideBorder: false
+            transparentBackground: false
+            backgroundMorphProgress: root.surfaceTransition
             acceptsInput: root.dockAcceptsInput && root.dockActive
             rendererActive: root.visible && root.dockLayerReady && root.dockHostVisible
                             && !root.appDeckHidden

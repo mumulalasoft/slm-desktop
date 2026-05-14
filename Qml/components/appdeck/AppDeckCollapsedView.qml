@@ -11,6 +11,7 @@ Item {
     property bool renderEffectsEnabled: true
     property bool hideBorder: false
     property bool transparentBackground: false
+    property real backgroundMorphProgress: 0.0
     property string hostName: "appdeck"
 
     readonly property alias dockItem: dockSurface
@@ -44,6 +45,7 @@ Item {
         rendererActive: root.rendererActive
         renderEffectsEnabled: root.renderEffectsEnabled
         forceTransparentBackground: root.transparentBackground
+        backgroundMorphProgress: root.backgroundMorphProgress
         appsModel: root.appsModel
         Component.onCompleted: root.syncHideBorder()
         onAppActivated: function(appName) { root.appActivated(appName) }

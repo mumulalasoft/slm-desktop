@@ -18,6 +18,7 @@ Rectangle {
     property bool renderEffectsEnabled: true
     property bool hideBackgroundBorder: false
     property bool forceTransparentBackground: false
+    property real backgroundMorphProgress: 0.0
     property real layoutIconSlotWidth: -1
     property real layoutItemSpacing: -1
     property real layoutEdgePadding: -1
@@ -135,6 +136,7 @@ Rectangle {
                                                   && DesktopSettings
                                                   && DesktopSettings.dockTransparent !== undefined)
                                                  ? !!DesktopSettings.dockTransparent : false)
+    readonly property real backgroundMorph: Math.max(0.0, Math.min(1.0, Number(backgroundMorphProgress || 0)))
 
     AppDeckReorderController {
         id: reorderState
@@ -712,9 +714,9 @@ Rectangle {
         id: dockBackground
         anchors.bottom: parent.bottom
         anchors.horizontalCenter: parent.horizontalCenter
-        width: dockRow.width + (root.edgePadding * 2)
-        height: root.baseHeight
-        radius: Theme.radiusWindow
+        width: dockRow.width + (root.edgePadding * 2) + Math.round(18 * root.backgroundMorph)
+        height: root.baseHeight + Math.round(6 * root.backgroundMorph)
+        radius: Theme.radiusWindow + Math.round(Math.min(10, Theme.radiusWindow) * root.backgroundMorph)
         visible: !root.dockTransparent
         color: root.dockTransparent ? "transparent" : Theme.color("dockBg")
         border.color: (root.dockTransparent || root.hideBackgroundBorder)
@@ -728,7 +730,7 @@ Rectangle {
             shadowEnabled: true
             shadowColor: Qt.rgba(0, 0, 0, Theme.darkMode ? 0.34 : 0.18)
             shadowBlur: 0.42
-            shadowVerticalOffset: 6
+            shadowVerticalOffset: 6 + Math.round(4 * root.backgroundMorph)
             shadowHorizontalOffset: 0
         }
 
@@ -757,6 +759,18 @@ Rectangle {
         Behavior on border.color {
             enabled: root.microAnimationAllowed()
             ColorAnimation { duration: Theme.transitionDuration; easing.type: Theme.easingStandard }
+        }
+        Behavior on width {
+            enabled: root.microAnimationAllowed()
+            NumberAnimation { duration: Theme.durationMd; easing.type: Theme.easingDecelerate }
+        }
+        Behavior on height {
+            enabled: root.microAnimationAllowed()
+            NumberAnimation { duration: Theme.durationMd; easing.type: Theme.easingDecelerate }
+        }
+        Behavior on radius {
+            enabled: root.microAnimationAllowed()
+            NumberAnimation { duration: Theme.durationMd; easing.type: Theme.easingDecelerate }
         }
     }
 
