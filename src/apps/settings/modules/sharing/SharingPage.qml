@@ -9,91 +9,7 @@ Flickable {
     contentHeight: contentColumn.height
     clip: true
 
-    // ── DBus connections ──────────────────────────────────────────────────────
-
-    property var sharingIface: null
-    property var nearbyIface: null
-    property var trustIface: null
-
-    // Feature states – populated from GetStatus()
-    property bool fileSharingEnabled: false
-    property bool nearbySharingEnabled: false
-    property bool screenSharingEnabled: false
-    property bool printerSharingEnabled: false
-    property bool remoteAccessEnabled: false
-    property bool mediaSharingEnabled: false
-    property bool clipboardSharingEnabled: false
-
-    // Nearby devices list
-    property var nearbyDevices: []
-    property bool nearbyDiscovering: false
-
-    // Trusted devices list
-    property var trustedDevices: []
-
-    // Shared folders list
-    property var sharedFolders: []
-
-    // Environment state
-    property var envStatus: ({})
-    property bool serviceAvailable: false
-
     // ── Helpers ───────────────────────────────────────────────────────────────
-
-    function refreshStatus() {
-        if (!root.sharingIface) return
-        const r = root.sharingIface.GetStatus()
-        if (r && r.ok) {
-            const f = r.features || {}
-            root.fileSharingEnabled      = !!f["file-sharing"]
-            root.nearbySharingEnabled    = !!f["nearby-sharing"]
-            root.screenSharingEnabled    = !!f["screen-sharing"]
-            root.printerSharingEnabled   = !!f["printer-sharing"]
-            root.remoteAccessEnabled     = !!f["remote-access"]
-            root.mediaSharingEnabled     = !!f["media-sharing"]
-            root.clipboardSharingEnabled = !!f["clipboard-sharing"]
-        }
-    }
-
-    function refreshFolders() {
-        if (!root.sharingIface) return
-        const r = root.sharingIface.ListSharedFolders()
-        if (r && r.ok) {
-            const folders = r.folders || {}
-            root.sharedFolders = Object.keys(folders).map(function(p) {
-                return Object.assign({ path: p }, folders[p])
-            })
-        }
-    }
-
-    function refreshNearby() {
-        if (!root.nearbyIface) return
-        const r = root.nearbyIface.GetDevices()
-        if (r && r.ok) root.nearbyDevices = r.devices || []
-    }
-
-    function refreshTrusted() {
-        if (!root.trustIface) return
-        const r = root.trustIface.GetTrustedDevices()
-        if (r && r.ok) root.trustedDevices = r.devices || []
-    }
-
-    function setFeature(feature, enabled) {
-        if (!root.sharingIface) return
-        root.sharingIface.SetFeatureEnabled(feature, enabled)
-        refreshStatus()
-    }
-
-    function deviceTypeIcon(type) {
-        switch (String(type)) {
-        case "phone":   return "phone"
-        case "tablet":  return "tablet"
-        case "tv":      return "tv"
-        case "printer": return "printer"
-        case "laptop":  return "computer-laptop"
-        default:        return "computer"
-        }
-    }
 
     function trustLevelLabel(level) {
         switch (String(level)) {
@@ -130,6 +46,14 @@ Flickable {
             Layout.fillWidth: true
         }
 
+        // Service unavailable notice
+        SettingCard {
+            visible: !SharingServiceClient.available
+            Layout.fillWidth: true
+            label: qsTr("Sharing service unavailable")
+            description: qsTr("The sharing daemon is not running. Some features may be unavailable.")
+        }
+
         // ── 1. File Sharing ──────────────────────────────────────────────────
         SettingGroup {
             title: qsTr("File Sharing")
@@ -140,18 +64,17 @@ Flickable {
                 description: qsTr("Other devices on this network can browse your shared folders")
 
                 SettingToggle {
-                    checked: root.fileSharingEnabled
-                    onToggled: root.setFeature("file-sharing", checked)
+                    checked: SharingServiceClient.fileSharingEnabled
+                    onToggled: SharingServiceClient.setFeatureEnabled("file-sharing", checked)
                 }
             }
 
-            // Shared folders list
             Repeater {
-                model: root.sharedFolders
+                model: SharingServiceClient.sharedFolders
                 delegate: SettingCard {
                     required property var modelData
-                    label: modelData.path.split("/").pop() || modelData.path
-                    description: modelData.path
+                    label: modelData.path ? modelData.path.split("/").pop() || modelData.path : ""
+                    description: modelData.path || ""
 
                     Row {
                         spacing: 8
@@ -167,10 +90,7 @@ Flickable {
                             text: qsTr("Remove")
                             flat: true
                             onClicked: {
-                                if (root.sharingIface) {
-                                    root.sharingIface.RemoveSharedFolder(modelData.path)
-                                    root.refreshFolders()
-                                }
+                                SharingServiceClient.removeSharedFolder(modelData.path)
                             }
                         }
                     }
@@ -184,7 +104,7 @@ Flickable {
                 Button {
                     text: qsTr("Add")
                     flat: true
-                    enabled: root.fileSharingEnabled
+                    enabled: SharingServiceClient.fileSharingEnabled
                     onClicked: addFolderDialog.open()
                 }
             }
@@ -200,40 +120,35 @@ Flickable {
                 description: qsTr("Discover and send files to devices around you")
 
                 SettingToggle {
-                    checked: root.nearbySharingEnabled
-                    onToggled: root.setFeature("nearby-sharing", checked)
+                    checked: SharingServiceClient.nearbySharingEnabled
+                    onToggled: SharingServiceClient.setFeatureEnabled("nearby-sharing", checked)
                 }
             }
 
             SettingCard {
                 label: qsTr("Visible devices")
-                description: root.nearbyDevices.length === 0
+                description: SharingServiceClient.nearbyDevices.length === 0
                     ? qsTr("No devices found nearby")
-                    : qsTr("%1 device(s) visible").arg(root.nearbyDevices.length)
+                    : qsTr("%1 device(s) visible").arg(SharingServiceClient.nearbyDevices.length)
 
                 Button {
-                    text: root.nearbyDiscovering ? qsTr("Stop") : qsTr("Scan")
+                    text: SharingServiceClient.nearbyDiscovering ? qsTr("Stop") : qsTr("Scan")
                     flat: true
-                    enabled: root.nearbySharingEnabled
+                    enabled: SharingServiceClient.nearbySharingEnabled
                     onClicked: {
-                        if (!root.nearbyIface) return
-                        if (root.nearbyDiscovering) {
-                            root.nearbyIface.StopDiscovery()
-                            root.nearbyDiscovering = false
-                        } else {
-                            root.nearbyIface.StartDiscovery()
-                            root.nearbyDiscovering = true
-                            Qt.callLater(root.refreshNearby)
-                        }
+                        if (SharingServiceClient.nearbyDiscovering)
+                            SharingServiceClient.stopDiscovery()
+                        else
+                            SharingServiceClient.startDiscovery()
                     }
                 }
             }
 
             Repeater {
-                model: root.nearbyDevices
+                model: SharingServiceClient.nearbyDevices
                 delegate: SettingCard {
                     required property var modelData
-                    label: modelData.name || modelData.deviceId
+                    label: modelData.name || modelData.deviceId || ""
                     description: root.trustLevelLabel(modelData.trustLevel)
 
                     Row {
@@ -243,22 +158,25 @@ Flickable {
                             text: qsTr("Send File")
                             flat: true
                             enabled: String(modelData.trustLevel) !== "blocked"
-                            onClicked: sendFileDialog.targetDeviceId = modelData.deviceId
+                            onClicked: {
+                                // Opens file picker portal; result passed to sendFileTo
+                                pendingSendDeviceId = modelData.deviceId
+                            }
                         }
 
                         Button {
                             text: String(modelData.trustLevel) === "blocked"
                                   ? qsTr("Unblock")
-                                  : (String(modelData.trustLevel) === "untrusted" ? qsTr("Trust") : qsTr("Manage"))
+                                  : (String(modelData.trustLevel) === "untrusted"
+                                     ? qsTr("Trust")
+                                     : qsTr("Manage"))
                             flat: true
                             onClicked: {
-                                if (!root.trustIface) return
-                                if (String(modelData.trustLevel) === "blocked") {
-                                    root.trustIface.UnblockDevice(modelData.deviceId)
-                                } else if (String(modelData.trustLevel) === "untrusted") {
-                                    root.trustIface.PairDevice(modelData.deviceId)
-                                }
-                                root.refreshNearby()
+                                const id = modelData.deviceId
+                                if (String(modelData.trustLevel) === "blocked")
+                                    SharingServiceClient.unblockDevice(id)
+                                else if (String(modelData.trustLevel) === "untrusted")
+                                    SharingServiceClient.pairDevice(id)
                             }
                         }
                     }
@@ -276,8 +194,8 @@ Flickable {
                 description: qsTr("Trusted devices can request to view or control this screen")
 
                 SettingToggle {
-                    checked: root.screenSharingEnabled
-                    onToggled: root.setFeature("screen-sharing", checked)
+                    checked: SharingServiceClient.screenSharingEnabled
+                    onToggled: SharingServiceClient.setFeatureEnabled("screen-sharing", checked)
                 }
             }
 
@@ -287,7 +205,7 @@ Flickable {
 
                 SettingToggle {
                     checked: true
-                    enabled: root.screenSharingEnabled
+                    enabled: SharingServiceClient.screenSharingEnabled
                 }
             }
 
@@ -297,7 +215,7 @@ Flickable {
 
                 SettingToggle {
                     checked: false
-                    enabled: root.screenSharingEnabled
+                    enabled: SharingServiceClient.screenSharingEnabled
                 }
             }
         }
@@ -312,14 +230,14 @@ Flickable {
                 description: qsTr("Printers on this device become available to other devices on the network")
 
                 SettingToggle {
-                    checked: root.printerSharingEnabled
-                    onToggled: root.setFeature("printer-sharing", checked)
+                    checked: SharingServiceClient.printerSharingEnabled
+                    onToggled: SharingServiceClient.setFeatureEnabled("printer-sharing", checked)
                 }
             }
 
             SettingCard {
                 label: qsTr("Network-discoverable printers")
-                description: root.printerSharingEnabled
+                description: SharingServiceClient.printerSharingEnabled
                     ? qsTr("Printers are visible on this network")
                     : qsTr("Enable printer sharing to share printers")
                 Layout.fillWidth: true
@@ -336,8 +254,8 @@ Flickable {
                 description: qsTr("Trusted devices can open a secure terminal session on this device")
 
                 SettingToggle {
-                    checked: root.remoteAccessEnabled
-                    onToggled: root.setFeature("remote-access", checked)
+                    checked: SharingServiceClient.remoteAccessEnabled
+                    onToggled: SharingServiceClient.setFeatureEnabled("remote-access", checked)
                 }
             }
 
@@ -358,8 +276,8 @@ Flickable {
                 description: qsTr("Allow nearby devices to browse and play your media")
 
                 SettingToggle {
-                    checked: root.mediaSharingEnabled
-                    onToggled: root.setFeature("media-sharing", checked)
+                    checked: SharingServiceClient.mediaSharingEnabled
+                    onToggled: SharingServiceClient.setFeatureEnabled("media-sharing", checked)
                 }
             }
 
@@ -369,7 +287,7 @@ Flickable {
 
                 SettingToggle {
                     checked: false
-                    enabled: root.mediaSharingEnabled
+                    enabled: SharingServiceClient.mediaSharingEnabled
                 }
             }
         }
@@ -384,8 +302,8 @@ Flickable {
                 description: qsTr("Copy on one device, paste on another")
 
                 SettingToggle {
-                    checked: root.clipboardSharingEnabled
-                    onToggled: root.setFeature("clipboard-sharing", checked)
+                    checked: SharingServiceClient.clipboardSharingEnabled
+                    onToggled: SharingServiceClient.setFeatureEnabled("clipboard-sharing", checked)
                 }
             }
 
@@ -409,17 +327,17 @@ Flickable {
 
             SettingCard {
                 label: qsTr("Trusted devices")
-                description: root.trustedDevices.length === 0
+                description: SharingServiceClient.trustedDevices.length === 0
                     ? qsTr("No trusted devices")
-                    : qsTr("%1 trusted device(s)").arg(root.trustedDevices.length)
+                    : qsTr("%1 trusted device(s)").arg(SharingServiceClient.trustedDevices.length)
                 Layout.fillWidth: true
             }
 
             Repeater {
-                model: root.trustedDevices
+                model: SharingServiceClient.trustedDevices
                 delegate: SettingCard {
                     required property var modelData
-                    label: modelData.name || modelData.deviceId
+                    label: modelData.name || modelData.deviceId || ""
                     description: root.trustLevelLabel(modelData.trustLevel)
                         + " · " + qsTr("Last seen %1").arg(modelData.lastSeenAt || qsTr("never"))
 
@@ -429,23 +347,13 @@ Flickable {
                         Button {
                             text: qsTr("Revoke")
                             flat: true
-                            onClicked: {
-                                if (root.trustIface) {
-                                    root.trustIface.UnpairDevice(modelData.deviceId)
-                                    root.refreshTrusted()
-                                }
-                            }
+                            onClicked: SharingServiceClient.unpairDevice(modelData.deviceId)
                         }
 
                         Button {
                             text: qsTr("Block")
                             flat: true
-                            onClicked: {
-                                if (root.trustIface) {
-                                    root.trustIface.BlockDevice(modelData.deviceId)
-                                    root.refreshTrusted()
-                                }
-                            }
+                            onClicked: SharingServiceClient.blockDevice(modelData.deviceId)
                         }
                     }
                 }
@@ -526,6 +434,7 @@ Flickable {
 
         ColumnLayout {
             spacing: 12
+            anchors.fill: parent
 
             Text {
                 text: qsTr("Enter the path of the folder you want to share:")
@@ -555,34 +464,61 @@ Flickable {
         }
 
         onAccepted: {
-            if (!folderPathField.text || !root.sharingIface) return
-            root.sharingIface.AddSharedFolder(folderPathField.text, {
+            const path = folderPathField.text.trim()
+            if (!path)
+                return
+            SharingServiceClient.addSharedFolder(path, {
                 "access": accessMode.currentIndex === 0 ? "ro" : "rw",
                 "guestAccess": guestAccessCheck.checked
             })
-            root.refreshFolders()
             folderPathField.text = ""
         }
     }
 
-    QtObject {
-        id: sendFileDialog
-        property string targetDeviceId: ""
-        onTargetDeviceIdChanged: {
-            if (targetDeviceId) {
-                // In a full implementation this opens a file picker portal,
-                // then calls root.nearbyIface.SendFileTo(targetDeviceId, pickedPath)
-                targetDeviceId = ""
-            }
+    // ── Pairing confirmation dialog ───────────────────────────────────────────
+
+    Dialog {
+        id: pairingDialog
+        title: qsTr("Pair Device")
+        modal: true
+        standardButtons: Dialog.Yes | Dialog.No
+
+        property string pairingId: ""
+        property var deviceInfo: ({})
+
+        Text {
+            text: pairingDialog.deviceInfo.name
+                  ? qsTr("Allow \"%1\" to connect to this device?").arg(pairingDialog.deviceInfo.name)
+                  : qsTr("Allow a new device to connect?")
+            color: Theme.color("textPrimary")
+            wrapMode: Text.WordWrap
+            width: parent.width
+        }
+
+        onAccepted: SharingServiceClient.acceptPairingRequest(pairingId)
+        onRejected: SharingServiceClient.rejectPairingRequest(pairingId)
+    }
+
+    // ── State ─────────────────────────────────────────────────────────────────
+
+    property string pendingSendDeviceId: ""
+    onPendingSendDeviceIdChanged: {
+        if (pendingSendDeviceId) {
+            // Real implementation opens a file-chooser portal here
+            pendingSendDeviceId = ""
         }
     }
 
-    // ── Initialisation ────────────────────────────────────────────────────────
+    Connections {
+        target: SharingServiceClient
+        function onPairingRequested(pairingId, deviceInfo) {
+            pairingDialog.pairingId = pairingId
+            pairingDialog.deviceInfo = deviceInfo
+            pairingDialog.open()
+        }
+    }
 
     Component.onCompleted: {
-        root.serviceAvailable = true
-        refreshStatus()
-        refreshFolders()
-        refreshTrusted()
+        SharingServiceClient.refresh()
     }
 }

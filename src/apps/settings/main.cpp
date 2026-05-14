@@ -48,6 +48,7 @@ using namespace Qt::StringLiterals;
 #include "modules/developer/daemonhealthclient.h"
 #include "modules/network/firewallserviceclient.h"
 #include "modules/storage/cleanerserviceclient.h"
+#include "modules/sharing/sharingserviceclient.h"
 
 int main(int argc, char *argv[])
 {
@@ -115,6 +116,26 @@ int main(int argc, char *argv[])
         }
     };
     ensureCleanerdAvailable();
+    const auto ensureSharingdAvailable = []() {
+        QDBusConnectionInterface *busIface = QDBusConnection::sessionBus().interface();
+        if (!busIface) {
+            return;
+        }
+        if (busIface->isServiceRegistered(QStringLiteral("org.slm.Sharing")).value()) {
+            return;
+        }
+
+        const QString appDir = QFileInfo(QCoreApplication::applicationFilePath()).absolutePath();
+        const QString localPath = QDir(appDir).filePath(QStringLiteral("slm-sharingd"));
+        bool started = false;
+        if (QFileInfo::exists(localPath)) {
+            started = QProcess::startDetached(localPath, {});
+        }
+        if (!started) {
+            QProcess::startDetached(QStringLiteral("slm-sharingd"), {});
+        }
+    };
+    ensureSharingdAvailable();
 
     QString initialModuleId = parser.value(moduleOption);
     const QString initialDeepLink = parser.value(deepLinkOption).trimmed();
@@ -162,6 +183,7 @@ int main(int argc, char *argv[])
     DaemonHealthClient daemonHealthClient;
     FirewallServiceClient firewallServiceClient;
     CleanerServiceClient cleanerServiceClient;
+    SharingServiceClient sharingServiceClient;
     Slm::System::MissingComponentController missingComponents;
     WallpaperManager wallpaperManager(&desktopSettings);
     MimeAppsManager mimeAppsManager;
@@ -225,6 +247,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("DaemonHealthClient"), &daemonHealthClient);
     engine.rootContext()->setContextProperty(QStringLiteral("FirewallServiceClient"), &firewallServiceClient);
     engine.rootContext()->setContextProperty(QStringLiteral("CleanerServiceClient"), &cleanerServiceClient);
+    engine.rootContext()->setContextProperty(QStringLiteral("SharingServiceClient"), &sharingServiceClient);
     engine.rootContext()->setContextProperty(QStringLiteral("MissingComponents"), &missingComponents);
     engine.rootContext()->setContextProperty(QStringLiteral("SessionStartupMode"), sessionMode);
     engine.rootContext()->setContextProperty(QStringLiteral("SafeModeActive"), safeModeActive);

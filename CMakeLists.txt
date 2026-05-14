@@ -372,6 +372,8 @@ qt_add_executable(slm-settings
     src/apps/settings/modules/developer/xdgportalscontroller.h
     src/apps/settings/modules/network/firewallserviceclient.cpp
     src/apps/settings/modules/network/firewallserviceclient.h
+    src/apps/settings/modules/sharing/sharingserviceclient.cpp
+    src/apps/settings/modules/sharing/sharingserviceclient.h
     src/apps/settings/modules/developer/pathmanagercontroller.cpp
     src/apps/settings/modules/developer/pathmanagercontroller.h
     src/services/context/contextclient.cpp
