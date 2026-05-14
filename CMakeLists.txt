@@ -572,6 +572,10 @@ qt_add_executable(slm-secretd
     src/services/secret/secretservice.h
 )
 
+qt_add_executable(slm-sharingd
+    ${SLM_SHARINGD_SOURCES}
+)
+
 if(LIBARCHIVE_FOUND)
 qt_add_executable(slm-archived
     src/daemon/archived/archived_main.cpp
@@ -739,6 +743,15 @@ target_link_libraries(slm-secretd
         Qt6::DBus
 )
 target_include_directories(slm-secretd PRIVATE ${CMAKE_SOURCE_DIR})
+
+target_link_libraries(slm-sharingd
+    PRIVATE
+        Qt6::Core
+        Qt6::DBus
+        Qt6::Network
+        Qt6::Sql
+)
+target_include_directories(slm-sharingd PRIVATE ${CMAKE_SOURCE_DIR})
 
 target_link_libraries(slm-loggerd
     PRIVATE
@@ -1241,6 +1254,10 @@ install(TARGETS indicatorctl
 install(TARGETS slm-settings
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
+install(FILES src/apps/settings/slm-settings.desktop
+              src/apps/settings/settings.desktop
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/applications
+)
 
 install(DIRECTORY src/apps/settings/modules/
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/settings/modules
@@ -1308,6 +1325,10 @@ install(TARGETS slm-cleanerd
 )
 
 install(TARGETS slm-secretd
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
+install(TARGETS slm-sharingd
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
@@ -3524,6 +3545,7 @@ qt_add_executable(implportalservice_dbus_test
     src/daemon/portald/implportalservice.h
     src/daemon/portald/implportaladaptors.cpp
     src/daemon/portald/implportaladaptors.h
+    src/daemon/portald/portalsettingstypes.h
     src/daemon/portald/portal-adapter/PortalAppContextResolver.cpp
     src/daemon/portald/portal-adapter/PortalAppContextResolver.h
     src/daemon/portald/portal-adapter/PortalBackendService.cpp
@@ -3621,6 +3643,7 @@ qt_add_executable(screencast_revoke_e2e_test
     src/daemon/portald/implportalservice.h
     src/daemon/portald/implportaladaptors.cpp
     src/daemon/portald/implportaladaptors.h
+    src/daemon/portald/portalsettingstypes.h
     src/daemon/portald/portal-adapter/PortalAppContextResolver.cpp
     src/daemon/portald/portal-adapter/PortalAppContextResolver.h
     src/core/permissions/CallerIdentity.cpp
@@ -3674,6 +3697,7 @@ qt_add_executable(implportal_payload_snapshot_test
     src/daemon/portald/implportalservice.h
     src/daemon/portald/implportaladaptors.cpp
     src/daemon/portald/implportaladaptors.h
+    src/daemon/portald/portalsettingstypes.h
     src/daemon/portald/portal-adapter/PortalAppContextResolver.cpp
     src/daemon/portald/portal-adapter/PortalAppContextResolver.h
     src/core/permissions/CallerIdentity.cpp
@@ -3783,6 +3807,14 @@ qt_add_executable(launchenvresolver_test
 )
 target_link_libraries(launchenvresolver_test PRIVATE Qt6::Core Qt6::DBus Qt6::Test)
 add_test(NAME launchenvresolver_test COMMAND $<TARGET_FILE:launchenvresolver_test>)
+
+qt_add_executable(applauncher_test
+    src/core/launcher/applauncher.cpp
+    src/core/launcher/applauncher.h
+    tests/applauncher_test.cpp
+)
+target_link_libraries(applauncher_test PRIVATE Qt6::Core Qt6::Test PkgConfig::GIO)
+add_test(NAME applauncher_test COMMAND $<TARGET_FILE:applauncher_test>)
 
 qt_add_executable(printermanager_test
     src/printing/core/PrintTypes.h
@@ -5245,6 +5277,18 @@ target_link_libraries(slmconfigmanager_validation_test
         Qt6::Test
 )
 add_test(NAME slmconfigmanager_validation_test COMMAND slmconfigmanager_validation_test)
+
+qt_add_executable(slmplatformcheck_compat_test
+    tests/slmplatformcheck_compat_test.cpp
+    src/login/libslmlogin/slmplatformcheck.cpp
+)
+target_include_directories(slmplatformcheck_compat_test PRIVATE ${CMAKE_SOURCE_DIR})
+target_link_libraries(slmplatformcheck_compat_test
+    PRIVATE
+        Qt6::Core
+        Qt6::Test
+)
+add_test(NAME slmplatformcheck_compat_test COMMAND slmplatformcheck_compat_test)
 
 qt_add_executable(slmsessionstate_io_test
     tests/slmsessionstate_io_test.cpp

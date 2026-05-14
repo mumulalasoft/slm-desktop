@@ -357,6 +357,34 @@ set(WINDOWINGCTL_SOURCES
     src/core/workspace/kwinsupportinfoparser.h
 )
 
+set(SLM_SHARINGD_SOURCES
+    src/daemon/sharingd/sharingd_main.cpp
+    src/daemon/sharingd/sharingservice.h
+    src/daemon/sharingd/sharingservice.cpp
+    src/daemon/sharingd/nearbyservice.h
+    src/daemon/sharingd/nearbyservice.cpp
+    src/daemon/sharingd/trustservice.h
+    src/daemon/sharingd/trustservice.cpp
+    src/daemon/sharingd/sharingmanager.h
+    src/daemon/sharingd/sharingmanager.cpp
+    src/daemon/sharingd/nearbyengine.h
+    src/daemon/sharingd/nearbyengine.cpp
+    src/daemon/sharingd/trustdatabase.h
+    src/daemon/sharingd/trustdatabase.cpp
+    src/daemon/sharingd/transfersession.h
+    src/daemon/sharingd/transfersession.cpp
+    src/daemon/sharingd/adapters/isharingadapter.h
+    src/daemon/sharingd/adapters/sambaadapter.h
+    src/daemon/sharingd/adapters/sambaadapter.cpp
+    src/daemon/sharingd/adapters/avahiadapter.h
+    src/daemon/sharingd/adapters/avahiadapter.cpp
+    src/daemon/sharingd/adapters/cupsadapter.h
+    src/daemon/sharingd/adapters/cupsadapter.cpp
+    src/daemon/sharingd/adapters/sshadapter.h
+    src/daemon/sharingd/adapters/sshadapter.cpp
+    ${SLM_PERMISSIONS_SOURCES}
+)
+
 set(DESKTOPD_SOURCES
     src/daemon/desktopd/desktopd_main.cpp
     src/core/appmodel.cpp
@@ -490,6 +518,7 @@ set(SLM_PORTALD_SOURCES
     src/daemon/portald/implportalservice.h
     src/daemon/portald/implportaladaptors.cpp
     src/daemon/portald/implportaladaptors.h
+    src/daemon/portald/portalsettingstypes.h
     src/daemon/portald/portalservice.cpp
     src/daemon/portald/portalservice.h
     src/daemon/portald/portal-adapter/PortalRequestObject.cpp
