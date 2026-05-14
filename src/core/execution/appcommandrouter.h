@@ -1,7 +1,9 @@
 #pragma once
 
 #include <QDateTime>
+#include <QHash>
 #include <QObject>
+#include <QSet>
 #include <QStringList>
 #include <QVector>
 #include <QVariantMap>
@@ -54,7 +56,25 @@ signals:
     void routedDetailed(QVariantMap result);
     void recentEventsChanged();
 
+private slots:
+    void onCompositorStateLastEventChanged();
+
 private:
+    struct PendingLaunch {
+        qint64 requestedAtMs = 0;
+        QString source;
+        QString action;
+        bool appAlreadyMapped = false;
+    };
+
+    static QString normalizeAppIdToken(const QString &value);
+    static QString appIdFromPayload(const QVariantMap &payload);
+    QSet<QString> collectMappedAppIds() const;
+    void pruneStalePendingLaunches(qint64 nowMs);
+    void noteLaunchRequested(const QString &action, const QString &source, const QVariantMap &payload);
+    void completeLaunchIfMapped(const QString &appId, qint64 nowMs, const QString &reason);
+    void onWindowingEvent(const QString &event, const QVariantMap &payload);
+
     void recordEvent(const QString &action, const QString &source, bool success,
                      const QString &detail = QString(),
                      qint64 durationMs = 0,
@@ -79,4 +99,5 @@ private:
     WorkspaceManager *m_workspaceManager = nullptr;
     WindowingBackendManager *m_windowingBackend = nullptr;
     QVector<RouterEvent> m_recentEvents;
+    QHash<QString, PendingLaunch> m_pendingLaunchByAppId;
 };
