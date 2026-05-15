@@ -333,6 +333,54 @@ private slots:
         QCOMPARE(all->data(newestIdx, NotificationListModel::AppIdRole).toString(), QStringLiteral("org.test.burst"));
         QCOMPARE(all->data(newestIdx, NotificationListModel::BannerRole).toBool(), false);
     }
+
+    void groupExpandCollapse_updatesLifecycleStateRole()
+    {
+        NotificationManager manager;
+        auto *all = qobject_cast<NotificationListModel *>(manager.notifications());
+        QVERIFY(all);
+
+        const uint firstId = manager.NotifyModern(QStringLiteral("org.test.grouped"),
+                                                  QStringLiteral("Grouped 1"),
+                                                  QStringLiteral("Body"),
+                                                  QString(),
+                                                  {},
+                                                  QStringLiteral("normal"));
+        const uint secondId = manager.NotifyModern(QStringLiteral("org.test.grouped"),
+                                                   QStringLiteral("Grouped 2"),
+                                                   QStringLiteral("Body"),
+                                                   QString(),
+                                                   {},
+                                                   QStringLiteral("normal"));
+        QVERIFY(firstId > 0);
+        QVERIFY(secondId > 0);
+        QCOMPARE(all->rowCount(), 2);
+
+        auto lifecycleForId = [&](uint id) -> QString {
+            for (int row = 0; row < all->rowCount(); ++row) {
+                const QModelIndex idx = all->index(row, 0);
+                if (!idx.isValid()) {
+                    continue;
+                }
+                if (static_cast<uint>(all->data(idx, NotificationListModel::IdRole).toUInt()) != id) {
+                    continue;
+                }
+                return all->data(idx, NotificationListModel::LifecycleStateRole).toString();
+            }
+            return QString();
+        };
+
+        QCOMPARE(lifecycleForId(firstId), QStringLiteral("Grouped"));
+        QCOMPARE(lifecycleForId(secondId), QStringLiteral("Grouped"));
+
+        manager.setGroupExpanded(QStringLiteral("org.test.grouped"), true);
+        QCOMPARE(lifecycleForId(firstId), QStringLiteral("Expanded"));
+        QCOMPARE(lifecycleForId(secondId), QStringLiteral("Expanded"));
+
+        manager.setGroupExpanded(QStringLiteral("org.test.grouped"), false);
+        QCOMPARE(lifecycleForId(firstId), QStringLiteral("Collapsing"));
+        QCOMPARE(lifecycleForId(secondId), QStringLiteral("Collapsing"));
+    }
 };
 
 QTEST_MAIN(NotificationManagerPriorityRoutingTest)

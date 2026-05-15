@@ -12,6 +12,11 @@ Item {
     signal dismissRequested(int notificationId)
     signal notificationClicked(int notificationId)
 
+    function lifecycleName(value) {
+        var name = String(value || "")
+        return name.length > 0 ? name : "Archived"
+    }
+
     function microAnimationAllowed() {
         if (!Theme.animationsEnabled) {
             return false
@@ -84,17 +89,24 @@ Item {
             required property string body
             required property string priority
             required property bool banner
+            required property string lifecycleState
 
             property bool hovered: false
             property bool pendingDismiss: false
             readonly property bool sticky: String(priority || "").toLowerCase() === "high"
+            readonly property string lifecycle: root.lifecycleName(lifecycleState)
+            readonly property bool lifecycleGrouped: lifecycle === "Grouped"
+            readonly property bool lifecycleCollapsing: lifecycle === "Collapsing"
+            readonly property bool lifecycleArchived: lifecycle === "Archived"
 
             width: listView.width
             height: visible ? card.implicitHeight : 0
-            visible: index < root.maxVisible && !!banner && !pendingDismiss
+            visible: index < root.maxVisible && !!banner && !pendingDismiss && !lifecycleArchived
                      && (!root.doNotDisturb || sticky)
-            opacity: pendingDismiss ? 0 : 1
-            scale: pendingDismiss ? Theme.notificationBannerExitScale : 1.0
+            opacity: (pendingDismiss || lifecycleCollapsing || lifecycleArchived) ? 0 : 1
+            scale: (pendingDismiss || lifecycleCollapsing || lifecycleArchived)
+                   ? Theme.notificationBannerExitScale
+                   : (lifecycleGrouped ? 0.985 : 1.0)
 
             Behavior on opacity {
                 enabled: root.microAnimationAllowed()
@@ -120,6 +132,19 @@ Item {
                 pendingDismiss = true
                 dismissFinalize.restart()
             }
+
+            function syncFromLifecycleState() {
+                if (lifecycleCollapsing) {
+                    startDismiss()
+                    return
+                }
+                if (lifecycleArchived) {
+                    pendingDismiss = true
+                }
+            }
+
+            Component.onCompleted: syncFromLifecycleState()
+            onLifecycleStateChanged: syncFromLifecycleState()
 
             Timer {
                 id: dismissFinalize

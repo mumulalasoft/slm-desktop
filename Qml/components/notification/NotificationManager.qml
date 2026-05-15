@@ -50,7 +50,7 @@ Item {
         notificationManager: root.notificationManager
         autoDismissMs: {
             var v = root.notificationManager ? Number(root.notificationManager.bubbleDurationMs || 0) : 0
-            var base = v > 0 ? v : 6200
+            var base = (function() { return v > 0 ? v : 6200 })()
             return root.compactMode ? Math.min(base, 4200) : base
         }
         anchors.top: parent.top

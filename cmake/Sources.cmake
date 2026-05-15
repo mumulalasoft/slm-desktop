@@ -201,6 +201,17 @@ set(DESKTOP_SHELL_SERVICES
     src/services/bluetooth/bluetoothmanager.h
     src/services/notifications/notificationmanager.cpp
     src/services/notifications/notificationmanager.h
+    src/services/notifications/notificationtypes.h
+    src/services/notifications/notificationrepository.cpp
+    src/services/notifications/notificationrepository.h
+    src/services/notifications/notificationlifecycleengine.cpp
+    src/services/notifications/notificationlifecycleengine.h
+    src/services/notifications/notificationpolicyengine.cpp
+    src/services/notifications/notificationpolicyengine.h
+    src/services/notifications/notificationgroupingengine.cpp
+    src/services/notifications/notificationgroupingengine.h
+    src/services/notifications/notificationstore.cpp
+    src/services/notifications/notificationstore.h
     src/services/notifications/desktopnotificationadaptor.cpp
     src/services/notifications/desktopnotificationadaptor.h
     src/services/storage/storageattachnotifier.cpp

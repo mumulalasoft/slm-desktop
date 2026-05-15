@@ -376,6 +376,8 @@ qt_add_executable(slm-settings
     src/apps/settings/modules/sharing/sharingserviceclient.h
     src/apps/settings/modules/timedate/timedatecontroller.cpp
     src/apps/settings/modules/timedate/timedatecontroller.h
+    src/apps/settings/modules/notifications/notificationsettingscontroller.cpp
+    src/apps/settings/modules/notifications/notificationsettingscontroller.h
     src/apps/settings/modules/developer/pathmanagercontroller.cpp
     src/apps/settings/modules/developer/pathmanagercontroller.h
     src/services/context/contextclient.cpp
@@ -2003,9 +2005,58 @@ target_link_libraries(notification_visual_contract_test
 
 add_test(NAME notification_visual_contract_test COMMAND notification_visual_contract_test)
 
+qt_add_executable(notification_policy_engine_test
+    src/services/notifications/notificationpolicyengine.cpp
+    src/services/notifications/notificationpolicyengine.h
+    src/services/notifications/notificationtypes.h
+    tests/notification_policy_engine_test.cpp
+)
+
+target_include_directories(notification_policy_engine_test PRIVATE
+    ${CMAKE_SOURCE_DIR}
+)
+
+target_link_libraries(notification_policy_engine_test
+    PRIVATE
+        Qt6::Core
+        Qt6::Test
+)
+
+add_test(NAME notification_policy_engine_test COMMAND notification_policy_engine_test)
+
+qt_add_executable(notification_store_test
+    src/services/notifications/notificationstore.cpp
+    src/services/notifications/notificationstore.h
+    src/services/notifications/notificationtypes.h
+    tests/notification_store_test.cpp
+)
+
+target_include_directories(notification_store_test PRIVATE
+    ${CMAKE_SOURCE_DIR}
+)
+
+target_link_libraries(notification_store_test
+    PRIVATE
+        Qt6::Core
+        Qt6::Test
+)
+
+add_test(NAME notification_store_test COMMAND notification_store_test)
+
 qt_add_executable(notificationmanager_priority_routing_test
     src/services/notifications/notificationmanager.cpp
     src/services/notifications/notificationmanager.h
+    src/services/notifications/notificationtypes.h
+    src/services/notifications/notificationrepository.cpp
+    src/services/notifications/notificationrepository.h
+    src/services/notifications/notificationlifecycleengine.cpp
+    src/services/notifications/notificationlifecycleengine.h
+    src/services/notifications/notificationpolicyengine.cpp
+    src/services/notifications/notificationpolicyengine.h
+    src/services/notifications/notificationgroupingengine.cpp
+    src/services/notifications/notificationgroupingengine.h
+    src/services/notifications/notificationstore.cpp
+    src/services/notifications/notificationstore.h
     src/services/notifications/desktopnotificationadaptor.cpp
     src/services/notifications/desktopnotificationadaptor.h
     tests/notificationmanager_priority_routing_test.cpp

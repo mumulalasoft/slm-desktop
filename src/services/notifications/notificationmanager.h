@@ -8,65 +8,13 @@
 #include <QStringList>
 #include <QTimer>
 #include <QVariantMap>
-#include <QVector>
 
-struct NotificationEntry {
-    uint id = 0;
-    QString appId;
-    QString appName;
-    QString appIcon;
-    QString summary;
-    QString body;
-    QStringList actions;
-    QString priority = QStringLiteral("normal");
-    QString groupId;
-    bool read = false;
-    bool banner = true;
-    int urgency = 1;
-    int expireTimeoutMs = -1;
-    QDateTime timestamp;
-};
+#include "notificationrepository.h"
+#include "notificationtypes.h"
 
-class NotificationListModel : public QAbstractListModel {
-    Q_OBJECT
-public:
-    enum Roles {
-        IdRole = Qt::UserRole + 1,
-        AppNameRole,
-        AppIdRole,
-        AppIconRole,
-        SummaryRole,
-        BodyRole,
-        ActionsRole,
-        PriorityRole,
-        GroupIdRole,
-        ReadRole,
-        BannerRole,
-        UrgencyRole,
-        TimestampRole
-    };
-
-    explicit NotificationListModel(QObject *parent = nullptr);
-
-    int rowCount(const QModelIndex &parent = QModelIndex()) const override;
-    QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
-    QHash<int, QByteArray> roleNames() const override;
-
-    void upsert(const NotificationEntry &entry);
-    bool removeById(uint id);
-    bool markReadById(uint id, bool read = true);
-    int markAllRead(bool read = true);
-    void clear();
-    int count() const;
-    int unreadCount() const;
-    int unreadCountForAppId(const QString &appId) const;
-    int unreadCountForGroup(const QString &groupId) const;
-    QString displayNameForGroup(const QString &groupId) const;
-    int countForAppId(const QString &appId, uint excludeId = 0) const;
-
-private:
-    QVector<NotificationEntry> m_items;
-};
+class NotificationPolicyEngine;
+class NotificationRepository;
+class NotificationLifecycleEngine;
 
 class NotificationManager : public QObject {
     Q_OBJECT
@@ -117,6 +65,8 @@ public:
     Q_INVOKABLE int unreadCountForAppId(const QString &appId) const;
     Q_INVOKABLE int unreadCountForGroup(const QString &groupId) const;
     Q_INVOKABLE QString groupDisplayName(const QString &groupId) const;
+    Q_INVOKABLE void setGroupExpanded(const QString &groupId, bool expanded);
+    Q_INVOKABLE void setRuntimeContext(bool fullscreen, bool screenShare, bool focusMode);
 
 public slots:
     QStringList GetCapabilities() const;
@@ -165,6 +115,9 @@ private:
     QVariantMap toVariantMap(const NotificationEntry &entry) const;
     void updateLatestNotification(const NotificationEntry &entry);
     bool shouldSuppressBannerForSpam(const NotificationEntry &entry);
+    void reloadPolicySnapshot();
+    bool shouldDropNotification(const NotificationEntry &entry) const;
+    bool shouldShowBanner(const NotificationEntry &entry) const;
 
     // History persistence: save/load notification history to disk so the
     // notification center survives daemon restarts.
@@ -184,8 +137,15 @@ private:
     int m_bannerRateLimitWindowMs = 10000;
     int m_maxBannerAttemptsPerWindow = 6;
     QHash<QString, QVector<qint64>> m_bannerAttemptHistoryByApp;
-    NotificationListModel *m_model = nullptr;
-    NotificationListModel *m_bannerModel = nullptr;
+    NotificationRuntimeContext m_runtimeContext;
+    bool m_notificationsEnabled = true;
+    bool m_policyAllowCriticalAlerts = true;
+    bool m_policySilenceFullscreen = true;
+    bool m_policySilenceScreenShare = true;
+    bool m_policyFocusModeIntegration = true;
+    bool m_policyDeliverQuietly = false;
+    NotificationRepository *m_repository = nullptr;
+    NotificationLifecycleEngine *m_lifecycle = nullptr;
     QString m_historyFilePath;
     QTimer m_saveTimer;
 };
