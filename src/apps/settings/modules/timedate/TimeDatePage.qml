@@ -9,6 +9,9 @@ Flickable {
     contentHeight: mainLayout.implicitHeight + 48
     clip: true
     property string highlightSettingId: ""
+    property bool settingsUnlocked: false
+    property bool unlockBusy: false
+    property string unlockRequestId: ""
 
     property var autoTimeBinding:      SettingsApp.createBindingFor("timedate", "auto-time",        true)
     property var ntpServerBinding:     SettingsApp.createBindingFor("timedate", "ntp-server",       "time.google.com")
@@ -18,6 +21,56 @@ Flickable {
     property var showSecondsBinding:   SettingsApp.createBindingFor("timedate", "show-seconds",     false)
     property var showDayOfWeekBinding: SettingsApp.createBindingFor("timedate", "show-day-of-week", true)
     property var showDateBinding:      SettingsApp.createBindingFor("timedate", "show-date",        true)
+
+    property string pendingDialogMode: "time"
+    property bool applyBusy: false
+    property string applyError: ""
+
+    function relockSettings() {
+        settingsUnlocked = false
+        unlockBusy = false
+        unlockRequestId = ""
+    }
+
+    onVisibleChanged: {
+        if (!visible) {
+            relockSettings()
+        }
+    }
+
+    function applyDateTimeNow() {
+        if (applyBusy) {
+            return
+        }
+        applyBusy = true
+        applyError = ""
+        var result = TimeDateController.setDateTime(
+                    yearSpin.value,
+                    monthSpin.value,
+                    daySpin.value,
+                    hourSpin.value,
+                    minuteSpin.value,
+                    0)
+        applyBusy = false
+        if (result && result.ok === true) {
+            clockState.now = new Date()
+            dateTimeDialog.close()
+            return
+        }
+        applyError = String(result && result.message ? result.message : "Failed to apply date/time.")
+    }
+
+    function submitDateTimeFromDialog() {
+        if (applyBusy) {
+            return
+        }
+        if (!settingsUnlocked) {
+            applyError = qsTr("Unlock settings first to make changes.")
+            return
+        }
+        applyError = ""
+        applyDateTimeNow()
+    }
 
     // ── Live clock state ─────────────────────────────────────────────────────
     QtObject {
@@ -204,6 +257,24 @@ Flickable {
             Layout.fillWidth: true
 
             SettingCard {
+                objectName: "datetime-lock"
+                label: settingsUnlocked ? qsTr("Settings Unlocked") : qsTr("Settings Locked")
+                description: settingsUnlocked
+                    ? qsTr("You can now change date and time.")
+                    : qsTr("Unlock to make changes.")
+                Layout.fillWidth: true
+
+                Button {
+                    text: unlockBusy ? qsTr("Unlocking…") : (settingsUnlocked ? qsTr("Unlocked") : qsTr("Unlock"))
+                    enabled: !unlockBusy && !settingsUnlocked
+                    onClicked: {
+                        unlockBusy = true
+                        unlockRequestId = SettingsApp.requestSettingAuthorization("timedate", "time")
+                    }
+                }
+            }
+
+            SettingCard {
                 objectName: "auto-time"
                 highlighted: root.highlightSettingId === "auto-time"
                 label: qsTr("Set Automatically")
@@ -227,7 +298,21 @@ Flickable {
                 description: clockState.formattedDate
                 Layout.fillWidth: true
 
-                Button { text: qsTr("Change…") }
+                Button {
+                    text: qsTr("Change…")
+                    enabled: root.settingsUnlocked
+                    onClicked: {
+                        var now = new Date()
+                        yearSpin.value = now.getFullYear()
+                        monthSpin.value = now.getMonth() + 1
+                        daySpin.value = now.getDate()
+                        hourSpin.value = now.getHours()
+                        minuteSpin.value = now.getMinutes()
+                        pendingDialogMode = "date"
+                        applyError = ""
+                        dateTimeDialog.open()
+                    }
+                }
             }
 
             SettingCard {
@@ -238,7 +323,21 @@ Flickable {
                 description: clockState.formattedTime
                 Layout.fillWidth: true
 
-                Button { text: qsTr("Change…") }
+                Button {
+                    text: qsTr("Change…")
+                    enabled: root.settingsUnlocked
+                    onClicked: {
+                        var now = new Date()
+                        yearSpin.value = now.getFullYear()
+                        monthSpin.value = now.getMonth() + 1
+                        daySpin.value = now.getDate()
+                        hourSpin.value = now.getHours()
+                        minuteSpin.value = now.getMinutes()
+                        pendingDialogMode = "time"
+                        applyError = ""
+                        dateTimeDialog.open()
+                    }
+                }
             }
         }
 
@@ -372,4 +471,79 @@ Flickable {
             timezoneCombo.currentIndex = Math.max(0, timezoneCombo.model.indexOf(String(root.timezoneBinding.value)))
         }
     }
+
+    Connections {
+        target: SettingsApp
+        function onSettingAuthorizationFinished(requestId, moduleId, settingId, allowed, reason) {
+            if (String(requestId) !== root.unlockRequestId) {
+                return
+            }
+            root.unlockBusy = false
+            root.unlockRequestId = ""
+            if (!allowed) {
+                root.applyError = String(reason || "Authorization denied")
+                return
+            }
+            root.settingsUnlocked = true
+            root.applyError = ""
+        }
+    }
+
+    Dialog {
+        id: dateTimeDialog
+        modal: true
+        title: root.pendingDialogMode === "date" ? qsTr("Set Date") : qsTr("Set Time")
+        standardButtons: Dialog.Cancel
+        anchors.centerIn: Overlay.overlay
+
+        contentItem: ColumnLayout {
+            spacing: 12
+
+            RowLayout {
+                visible: root.pendingDialogMode === "date"
+                spacing: 8
+                Label { text: qsTr("Date") }
+                SpinBox { id: yearSpin; from: 1970; to: 2099; value: new Date().getFullYear(); editable: true }
+                SpinBox { id: monthSpin; from: 1; to: 12; value: new Date().getMonth() + 1; editable: true }
+                SpinBox { id: daySpin; from: 1; to: 31; value: new Date().getDate(); editable: true }
+            }
+            Label {
+                visible: root.pendingDialogMode === "date"
+                text: qsTr("Format: YYYY-MM-DD")
+                color: Theme.color("textSecondary")
+            }
+
+            RowLayout {
+                visible: root.pendingDialogMode === "time"
+                spacing: 8
+                Label { text: qsTr("Time") }
+                SpinBox { id: hourSpin; from: 0; to: 23; value: new Date().getHours(); editable: true }
+                SpinBox { id: minuteSpin; from: 0; to: 59; value: new Date().getMinutes(); editable: true }
+            }
+            Label {
+                visible: root.pendingDialogMode === "time"
+                text: qsTr("Format: HH:MM (24-hour)")
+                color: Theme.color("textSecondary")
+            }
+
+            Label {
+                visible: root.applyError.length > 0
+                text: root.applyError
+                color: Theme.color("error")
+                wrapMode: Text.Wrap
+                Layout.preferredWidth: 420
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                Item { Layout.fillWidth: true }
+                Button {
+                    text: root.applyBusy ? qsTr("Applying…") : qsTr("Apply")
+                    enabled: !root.applyBusy
+                    onClicked: root.submitDateTimeFromDialog()
+                }
+            }
+        }
+    }
+
 }

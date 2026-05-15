@@ -49,6 +49,7 @@ using namespace Qt::StringLiterals;
 #include "modules/network/firewallserviceclient.h"
 #include "modules/storage/cleanerserviceclient.h"
 #include "modules/sharing/sharingserviceclient.h"
+#include "modules/timedate/timedatecontroller.h"
 
 int main(int argc, char *argv[])
 {
@@ -184,6 +185,7 @@ int main(int argc, char *argv[])
     FirewallServiceClient firewallServiceClient;
     CleanerServiceClient cleanerServiceClient;
     SharingServiceClient sharingServiceClient;
+    TimeDateController timeDateController;
     Slm::System::MissingComponentController missingComponents;
     WallpaperManager wallpaperManager(&desktopSettings);
     MimeAppsManager mimeAppsManager;
@@ -248,6 +250,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("FirewallServiceClient"), &firewallServiceClient);
     engine.rootContext()->setContextProperty(QStringLiteral("CleanerServiceClient"), &cleanerServiceClient);
     engine.rootContext()->setContextProperty(QStringLiteral("SharingServiceClient"), &sharingServiceClient);
+    engine.rootContext()->setContextProperty(QStringLiteral("TimeDateController"), &timeDateController);
     engine.rootContext()->setContextProperty(QStringLiteral("MissingComponents"), &missingComponents);
     engine.rootContext()->setContextProperty(QStringLiteral("SessionStartupMode"), sessionMode);
     engine.rootContext()->setContextProperty(QStringLiteral("SafeModeActive"), safeModeActive);

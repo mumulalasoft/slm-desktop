@@ -33,6 +33,22 @@
             "backend_binding": "gsettings:org.gnome.desktop.datetime/automatic-timezone"
         },
         {
+            "id": "date",
+            "label": "Date",
+            "description": "Set system date manually",
+            "keywords": ["date", "calendar", "manual"],
+            "type": "action",
+            "privileged_action": "org.freedesktop.timedate1.set-time"
+        },
+        {
+            "id": "time",
+            "label": "Time",
+            "description": "Set system time manually",
+            "keywords": ["time", "clock", "manual"],
+            "type": "action",
+            "privileged_action": "org.freedesktop.timedate1.set-time"
+        },
+        {
             "id": "timezone",
             "label": "Time Zone",
             "description": "Select your time zone manually",

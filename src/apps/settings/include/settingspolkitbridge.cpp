@@ -2,10 +2,31 @@
 
 #include <QProcess>
 #include <QMetaObject>
+#include <QCoreApplication>
+#include <QFileInfo>
+#include <QDir>
+#include <QThread>
 
 SettingsPolkitBridge::SettingsPolkitBridge(QObject *parent)
     : QObject(parent)
 {
+}
+
+static void ensureSlmPolkitAgentRunning()
+{
+    const QString appDir = QFileInfo(QCoreApplication::applicationFilePath()).absolutePath();
+    const QString localAgent = QDir(appDir).filePath(QStringLiteral("slm-polkit-agent"));
+
+    bool started = false;
+    if (QFileInfo::exists(localAgent)) {
+        started = QProcess::startDetached(localAgent, {});
+    }
+    if (!started) {
+        QProcess::startDetached(QStringLiteral("slm-polkit-agent"), {});
+    }
+
+    // Give agent a brief moment to register polkit listener before pkcheck.
+    QThread::msleep(180);
 }
 
 QString SettingsPolkitBridge::requestAuthorization(const QString &actionId,
@@ -52,8 +73,10 @@ QString SettingsPolkitBridge::requestAuthorization(const QString &actionId,
     const QString program = QStringLiteral("pkcheck");
     const QStringList args{
         QStringLiteral("--action-id"), trimmedAction,
+        QStringLiteral("--process"), QString::number(static_cast<qlonglong>(QCoreApplication::applicationPid())),
         QStringLiteral("--allow-user-interaction"),
     };
+    ensureSlmPolkitAgentRunning();
     proc->start(program, args);
     if (!proc->waitForStarted(1500)) {
         emitLater(false, QStringLiteral("pkcheck-unavailable"));
