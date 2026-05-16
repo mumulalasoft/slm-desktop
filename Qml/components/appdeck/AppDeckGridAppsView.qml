@@ -108,14 +108,10 @@ FocusScope {
     onVisibleChanged: {
         if (visible) {
             maybeRefreshAllAppsLazy(false)
-            revealAnim.stop()
-            revealProgress = 1.0
             if (String(appdeckSearchSeed || "").trim().length > 0) {
                 filterText = String(appdeckSearchSeed || "")
             }
         } else {
-            revealAnim.stop()
-            revealProgress = 0.0
             filterText = ""
         }
     }
@@ -124,16 +120,6 @@ FocusScope {
         if (visible) {
             maybeRefreshAllAppsLazy(true)
         }
-    }
-
-    NumberAnimation {
-        id: revealAnim
-        target: root
-        property: "revealProgress"
-        from: 0.0
-        to: 1.0
-        duration: Theme.durationNormal
-        easing.type: Theme.easingDefault
     }
 
     Keys.onPressed: function(event) {

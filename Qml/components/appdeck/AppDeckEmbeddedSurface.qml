@@ -326,6 +326,7 @@ Item {
         visible: root.gridAppsMode || opacity > 0.01
         opacity: root.appsTransition
         transform: Translate { y: (1.0 - root.appsTransition) * 14 }
+        revealProgress: root.morphProgress
         z: 1
         appsModel: root.appsModel
         desktopScene: root.desktopScene
