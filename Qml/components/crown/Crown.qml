@@ -66,7 +66,7 @@ Rectangle {
 
     property bool crownTransparent: false
 
-    color: root.crownTransparent ? "transparent" : Theme.color("panelBg")
+    color: root.crownTransparent ? "transparent" : Theme.color("surface")
     border.color: root.crownTransparent ? "transparent" : Theme.color("panelBorder")
     border.width: root.crownTransparent ? Theme.borderWidthNone : Theme.borderWidthThin
 
