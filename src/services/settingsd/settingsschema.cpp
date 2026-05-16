@@ -271,7 +271,23 @@ SettingsSchema::SettingsSchema()
     reg(boolKey(QStringLiteral("crown.clock_24h"), false));
 
     // ── notifications ─────────────────────────────────────────────────────────
+    reg(boolKey(QStringLiteral("notifications.enabled"), true));
     reg(boolKey(QStringLiteral("notifications.do_not_disturb"), false));
+    reg(boolKey(QStringLiteral("notifications.show_on_lockscreen"), true));
+    reg(boolKey(QStringLiteral("notifications.sound_enabled"), true));
+    reg(boolKey(QStringLiteral("notifications.badge_count_enabled"), true));
+    reg(enumKey(QStringLiteral("notifications.popup_position"),
+                QStringLiteral("top-right"),
+                {QStringLiteral("top-right"), QStringLiteral("top-left"),
+                 QStringLiteral("bottom-right"), QStringLiteral("bottom-left")}));
+    reg(boolKey(QStringLiteral("notifications.group_notifications"), true));
+    reg(boolKey(QStringLiteral("notifications.adaptive_quiet_mode"), true));
+    reg(intKey(QStringLiteral("notifications.bubbleDurationMs"), 5000, 1000, 60000));
+    reg(boolKey(QStringLiteral("notifications.allow_critical_alerts"), true));
+    reg(boolKey(QStringLiteral("notifications.silence_fullscreen"), true));
+    reg(boolKey(QStringLiteral("notifications.silence_screen_share"), true));
+    reg(boolKey(QStringLiteral("notifications.focus_mode_integration"), true));
+    reg(boolKey(QStringLiteral("notifications.deliver_quietly"), false));
 
     // ── dynamic namespaces (arbitrary sub-keys allowed) ───────────────────────
     regDynamic(QStringLiteral("perAppOverride."));

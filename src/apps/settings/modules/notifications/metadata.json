@@ -1,0 +1,115 @@
+{
+    "id": "notifications",
+    "name": "Notifications",
+    "icon": "preferences-system-notifications",
+    "group": "System",
+    "description": "Global notification behavior, focus-aware delivery, and app-level controls.",
+    "keywords": ["notification", "notifications", "focus", "dnd", "quiet", "pulse", "history", "alerts"],
+    "main": "NotificationsPage.qml",
+    "settings": [
+        {
+            "id": "enabled",
+            "label": "Enable Notifications",
+            "description": "Allow apps to deliver notifications",
+            "keywords": ["enable", "notifications", "global"],
+            "type": "toggle",
+            "backend_binding": "settings:notifications/enabled"
+        },
+        {
+            "id": "show-on-lockscreen",
+            "label": "Show on Lockscreen",
+            "description": "Display notification previews on lockscreen",
+            "keywords": ["lockscreen", "preview"],
+            "type": "toggle",
+            "backend_binding": "settings:notifications/show_on_lockscreen"
+        },
+        {
+            "id": "notification-sound",
+            "label": "Notification Sound",
+            "description": "Play sound when notifications arrive",
+            "keywords": ["sound", "audio", "alert"],
+            "type": "toggle",
+            "backend_binding": "settings:notifications/sound_enabled"
+        },
+        {
+            "id": "badge-count",
+            "label": "Badge Count",
+            "description": "Show unread badges in app surfaces",
+            "keywords": ["badge", "unread", "count"],
+            "type": "toggle",
+            "backend_binding": "settings:notifications/badge_count_enabled"
+        },
+        {
+            "id": "popup-position",
+            "label": "Popup Position",
+            "description": "Choose where notification banners appear",
+            "keywords": ["position", "popup", "banner"],
+            "type": "choice",
+            "backend_binding": "settings:notifications/popup_position"
+        },
+        {
+            "id": "group-notifications",
+            "label": "Group Notifications",
+            "description": "Stack related notifications by app",
+            "keywords": ["group", "stack", "app"],
+            "type": "toggle",
+            "backend_binding": "settings:notifications/group_notifications"
+        },
+        {
+            "id": "adaptive-quiet-mode",
+            "label": "Adaptive Quiet Mode",
+            "description": "Reduce interruptions during intense activity",
+            "keywords": ["quiet", "adaptive", "interruption"],
+            "type": "toggle",
+            "backend_binding": "settings:notifications/adaptive_quiet_mode"
+        },
+        {
+            "id": "banner-duration",
+            "label": "Banner Duration",
+            "description": "How long banners remain visible",
+            "keywords": ["duration", "timeout", "banner"],
+            "type": "slider",
+            "backend_binding": "settings:notifications/bubbleDurationMs"
+        },
+        {
+            "id": "allow-critical-alerts",
+            "label": "Allow Critical Alerts",
+            "description": "Always deliver critical alerts",
+            "keywords": ["critical", "priority"],
+            "type": "toggle",
+            "backend_binding": "settings:notifications/allow_critical_alerts"
+        },
+        {
+            "id": "silence-fullscreen",
+            "label": "Silence During Fullscreen",
+            "description": "Suppress normal notifications while fullscreen",
+            "keywords": ["fullscreen", "suppress", "silence"],
+            "type": "toggle",
+            "backend_binding": "settings:notifications/silence_fullscreen"
+        },
+        {
+            "id": "silence-screen-share",
+            "label": "Silence During Screen Share",
+            "description": "Hide interruptive alerts while sharing",
+            "keywords": ["screen share", "privacy", "silence"],
+            "type": "toggle",
+            "backend_binding": "settings:notifications/silence_screen_share"
+        },
+        {
+            "id": "focus-mode-integration",
+            "label": "Focus Mode Integration",
+            "description": "Use focus state to modulate delivery",
+            "keywords": ["focus", "integration", "policy"],
+            "type": "toggle",
+            "backend_binding": "settings:notifications/focus_mode_integration"
+        },
+        {
+            "id": "deliver-quietly",
+            "label": "Deliver Quietly",
+            "description": "Notifications appear silently in Pulse Feed without interrupting your workflow.",
+            "keywords": ["quiet", "pulse", "silent"],
+            "type": "toggle",
+            "backend_binding": "settings:notifications/deliver_quietly"
+        }
+    ]
+}

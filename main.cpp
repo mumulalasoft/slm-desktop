@@ -792,6 +792,21 @@ Window {
                     && app.palette().color(QPalette::Window).lightness() < 128);
         themeIconController.applyForDarkMode(darkMode);
     };
+    const auto syncNotificationRuntimeContext = [&]() {
+        notificationManager.setRuntimeContext(shellPolicyController.fullscreenActive(),
+                                              screencastPrivacyModel.active(),
+                                              shellStateController.focusMode());
+    };
+    syncNotificationRuntimeContext();
+    QObject::connect(&shellPolicyController, &ShellPolicyController::policyStateChanged, &app, [&]() {
+        syncNotificationRuntimeContext();
+    });
+    QObject::connect(&screencastPrivacyModel, &ScreencastPrivacyModel::activeChanged, &app, [&]() {
+        syncNotificationRuntimeContext();
+    });
+    QObject::connect(&shellStateController, &ShellStateController::focusModeChanged, &app, [&]() {
+        syncNotificationRuntimeContext();
+    });
     applyIconThemePref();
     globalMenuSuspendBridge.setMenuManager(&globalMenuManager);
     const auto applyGlobalMenuModePref = [&]() {
