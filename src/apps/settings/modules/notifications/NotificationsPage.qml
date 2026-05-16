@@ -25,6 +25,7 @@ Item {
     property var screenShareBinding: SettingsApp.createBindingFor("notifications", "silence-screen-share", true)
     property var focusBinding: SettingsApp.createBindingFor("notifications", "focus-mode-integration", true)
     property var quietBinding: SettingsApp.createBindingFor("notifications", "deliver-quietly", false)
+    readonly property var sectionKeys: ["notifications", "focus", "apps", "history", "advanced"]
 
     readonly property var navItems: [
         { key: "notifications", label: qsTr("Notifications") },
@@ -37,6 +38,90 @@ Item {
     function durationLabel(ms) {
         var sec = Math.max(1, Math.round(Number(ms || 0) / 1000))
         return sec + " s"
+    }
+
+    function sectionIndexForKey(key) {
+        var normalized = String(key || "").toLowerCase()
+        var idx = sectionKeys.indexOf(normalized)
+        return idx >= 0 ? idx : 0
+    }
+
+    function sectionIndexForSetting(settingId) {
+        var sid = String(settingId || "").trim().toLowerCase()
+        if (sid.length === 0) {
+            return root.navIndex
+        }
+        if (sid === "enabled"
+                || sid === "show-on-lockscreen"
+                || sid === "notification-sound"
+                || sid === "badge-count"
+                || sid === "popup-position"
+                || sid === "group-notifications"
+                || sid === "adaptive-quiet-mode") {
+            return sectionIndexForKey("notifications")
+        }
+        if (sid === "focus"
+                || sid === "allow-critical-alerts"
+                || sid === "silence-fullscreen"
+                || sid === "silence-screen-share"
+                || sid === "focus-mode-integration"
+                || sid === "deliver-quietly") {
+            return sectionIndexForKey("focus")
+        }
+        if (sid === "apps") {
+            return sectionIndexForKey("apps")
+        }
+        if (sid === "history") {
+            return sectionIndexForKey("history")
+        }
+        if (sid === "advanced" || sid === "banner-duration") {
+            return sectionIndexForKey("advanced")
+        }
+        return root.navIndex
+    }
+
+    function sectionItemForIndex(index) {
+        switch (index) {
+        case 0: return notificationsSection
+        case 1: return focusSection
+        case 2: return appsSection
+        case 3: return historySection
+        case 4: return advancedSection
+        default: return notificationsSection
+        }
+    }
+
+    function scrollToSection(index) {
+        var target = sectionItemForIndex(index)
+        if (!target) {
+            return
+        }
+        Qt.callLater(function() {
+            if (!panelFlick || !target) {
+                return
+            }
+            var margin = Theme.metric("spacingSm")
+            var maxY = Math.max(0, panelFlick.contentHeight - panelFlick.height)
+            panelFlick.contentY = Math.max(0, Math.min(target.y - margin, maxY))
+        })
+    }
+
+    function isHighlighted(settingId) {
+        return String(root.highlightSettingId || "") === String(settingId || "")
+    }
+
+    function focusSetting(settingId) {
+        var sid = String(settingId || "")
+        root.highlightSettingId = sid
+        root.navIndex = sectionIndexForSetting(sid)
+        scrollToSection(root.navIndex)
+    }
+
+    onHighlightSettingIdChanged: {
+        if (highlightSettingId.length > 0) {
+            root.navIndex = sectionIndexForSetting(highlightSettingId)
+            scrollToSection(root.navIndex)
+        }
     }
 
     function openAppDetail(appId) {
@@ -92,7 +177,10 @@ Item {
                 spacing: 6
                 keyNavigationWraps: true
                 currentIndex: root.navIndex
-                onCurrentIndexChanged: root.navIndex = currentIndex
+                onCurrentIndexChanged: {
+                    root.navIndex = currentIndex
+                    root.scrollToSection(currentIndex)
+                }
 
                 delegate: ItemDelegate {
                     width: navList.width
@@ -116,6 +204,7 @@ Item {
                     onClicked: {
                         navList.currentIndex = index
                         root.navIndex = index
+                        root.scrollToSection(index)
                     }
                 }
             }
@@ -137,133 +226,199 @@ Item {
                 anchors.top: parent.top
                 anchors.margins: 20
 
-                SettingGroup {
-                    title: qsTr("Global Control")
+                Item {
+                    id: notificationsSection
                     Layout.fillWidth: true
+                    implicitHeight: notificationsColumn.implicitHeight
 
-                    GridLayout {
-                        columns: width > 920 ? 2 : 1
-                        columnSpacing: 14
-                        rowSpacing: 14
-                        Layout.fillWidth: true
+                    ColumnLayout {
+                        id: notificationsColumn
+                        width: contentCol.width
+                        spacing: 18
 
-                        SettingCard {
+                        SettingGroup {
+                            title: qsTr("Notifications")
                             Layout.fillWidth: true
-                            label: qsTr("Enable Notifications")
-                            description: qsTr("Allow notifications across Crown, Pulse, and AppDeck surfaces.")
-                            Switch { checked: !!root.enabledBinding.value; onToggled: root.enabledBinding.value = checked }
-                        }
 
-                        SettingCard {
-                            Layout.fillWidth: true
-                            label: qsTr("Show on Lockscreen")
-                            description: qsTr("Show notification previews while device is locked.")
-                            Switch { checked: !!root.lockscreenBinding.value; enabled: !!root.enabledBinding.value; onToggled: root.lockscreenBinding.value = checked }
-                        }
+                            GridLayout {
+                                columns: width > 920 ? 2 : 1
+                                columnSpacing: 14
+                                rowSpacing: 14
+                                Layout.fillWidth: true
 
-                        SettingCard {
-                            Layout.fillWidth: true
-                            label: qsTr("Notification Sound")
-                            description: qsTr("Play subtle sounds for incoming notifications.")
-                            Switch { checked: !!root.soundBinding.value; enabled: !!root.enabledBinding.value; onToggled: root.soundBinding.value = checked }
-                        }
+                                SettingCard {
+                                    Layout.fillWidth: true
+                                    label: qsTr("Enable Notifications")
+                                    description: qsTr("Allow notifications across Crown, Pulse, and AppDeck surfaces.")
+                                    highlighted: root.isHighlighted("enabled")
+                                    Switch { checked: !!root.enabledBinding.value; onToggled: root.enabledBinding.value = checked }
+                                }
 
-                        SettingCard {
-                            Layout.fillWidth: true
-                            label: qsTr("Badge Count")
-                            description: qsTr("Display unread counters on compatible surfaces.")
-                            Switch { checked: !!root.badgeBinding.value; enabled: !!root.enabledBinding.value; onToggled: root.badgeBinding.value = checked }
-                        }
-                    }
+                                SettingCard {
+                                    Layout.fillWidth: true
+                                    label: qsTr("Show on Lockscreen")
+                                    description: qsTr("Show notification previews while device is locked.")
+                                    highlighted: root.isHighlighted("show-on-lockscreen")
+                                    Switch { checked: !!root.lockscreenBinding.value; enabled: !!root.enabledBinding.value; onToggled: root.lockscreenBinding.value = checked }
+                                }
 
-                    SettingCard {
-                        Layout.fillWidth: true
-                        label: qsTr("Popup Position")
-                        description: qsTr("Choose where banners appear on screen.")
-                        RowLayout {
-                            spacing: 8
-                            Repeater {
-                                model: ["top-right", "top-left", "bottom-right", "bottom-left"]
-                                delegate: Button {
-                                    text: modelData
-                                    checkable: true
-                                    checked: String(root.popupPositionBinding.value) === modelData
-                                    onClicked: root.popupPositionBinding.value = modelData
+                                SettingCard {
+                                    Layout.fillWidth: true
+                                    label: qsTr("Notification Sound")
+                                    description: qsTr("Play subtle sounds for incoming notifications.")
+                                    highlighted: root.isHighlighted("notification-sound")
+                                    Switch { checked: !!root.soundBinding.value; enabled: !!root.enabledBinding.value; onToggled: root.soundBinding.value = checked }
+                                }
+
+                                SettingCard {
+                                    Layout.fillWidth: true
+                                    label: qsTr("Badge Count")
+                                    description: qsTr("Display unread counters on compatible surfaces.")
+                                    highlighted: root.isHighlighted("badge-count")
+                                    Switch { checked: !!root.badgeBinding.value; enabled: !!root.enabledBinding.value; onToggled: root.badgeBinding.value = checked }
                                 }
                             }
-                        }
-                    }
 
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: 14
+                            SettingCard {
+                                Layout.fillWidth: true
+                                label: qsTr("Popup Position")
+                                description: qsTr("Choose where banners appear on screen.")
+                                highlighted: root.isHighlighted("popup-position")
+                                RowLayout {
+                                    spacing: 8
+                                    Repeater {
+                                        model: ["top-right", "top-left", "bottom-right", "bottom-left"]
+                                        delegate: Button {
+                                            text: modelData
+                                            checkable: true
+                                            checked: String(root.popupPositionBinding.value) === modelData
+                                            onClicked: root.popupPositionBinding.value = modelData
+                                        }
+                                    }
+                                }
+                            }
 
-                        SettingCard {
-                            Layout.fillWidth: true
-                            label: qsTr("Group Notifications")
-                            description: qsTr("Stack by app, collapse intelligently, and keep the feed tidy.")
-                            Switch { checked: !!root.groupBinding.value; enabled: !!root.enabledBinding.value; onToggled: root.groupBinding.value = checked }
-                        }
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 14
 
-                        SettingCard {
-                            Layout.fillWidth: true
-                            label: qsTr("Adaptive Quiet Mode")
-                            description: qsTr("Reduce interruptions when activity intensity is high.")
-                            Switch { checked: !!root.adaptiveQuietBinding.value; enabled: !!root.enabledBinding.value; onToggled: root.adaptiveQuietBinding.value = checked }
+                                SettingCard {
+                                    Layout.fillWidth: true
+                                    label: qsTr("Group Notifications")
+                                    description: qsTr("Stack by app, collapse intelligently, and keep the feed tidy.")
+                                    highlighted: root.isHighlighted("group-notifications")
+                                    Switch { checked: !!root.groupBinding.value; enabled: !!root.enabledBinding.value; onToggled: root.groupBinding.value = checked }
+                                }
+
+                                SettingCard {
+                                    Layout.fillWidth: true
+                                    label: qsTr("Adaptive Quiet Mode")
+                                    description: qsTr("Reduce interruptions when activity intensity is high.")
+                                    highlighted: root.isHighlighted("adaptive-quiet-mode")
+                                    Switch { checked: !!root.adaptiveQuietBinding.value; enabled: !!root.enabledBinding.value; onToggled: root.adaptiveQuietBinding.value = checked }
+                                }
+                            }
                         }
                     }
                 }
 
-                SettingGroup {
-                    title: qsTr("Live Preview")
+                Item {
+                    id: focusSection
                     Layout.fillWidth: true
+                    implicitHeight: focusColumn.implicitHeight
 
-                    SettingCard {
-                        Layout.fillWidth: true
-                        label: qsTr("Interactive Preview")
-                        description: qsTr("Send live test notifications and observe stack/group behavior.")
+                    ColumnLayout {
+                        id: focusColumn
+                        width: contentCol.width
+                        spacing: 18
 
-                        ColumnLayout {
-                            spacing: 10
+                        SettingGroup {
+                            title: qsTr("Focus")
+                            Layout.fillWidth: true
 
                             RowLayout {
-                                spacing: 8
-                                Button {
-                                    text: qsTr("Preview Normal")
-                                    onClicked: NotificationSettingsController.sendPreviewNotification("slm.preview", "Daily Brief", "Your workspace is ready.", "normal", true)
+                                Layout.fillWidth: true
+                                spacing: 12
+
+                                SettingCard {
+                                    Layout.fillWidth: true
+                                    label: qsTr("Allow Critical Alerts")
+                                    description: qsTr("Critical alerts always surface even in quiet states.")
+                                    highlighted: root.isHighlighted("allow-critical-alerts")
+                                    Switch { checked: !!root.criticalBinding.value; enabled: !!root.enabledBinding.value; onToggled: root.criticalBinding.value = checked }
                                 }
-                                Button {
-                                    text: qsTr("Preview Group Burst")
-                                    onClicked: {
-                                        NotificationSettingsController.sendPreviewNotification("slm.preview", "Build Complete", "Desktop shell build succeeded.", "normal", true)
-                                        NotificationSettingsController.sendPreviewNotification("slm.preview", "Sync Finished", "Files synced to Pulse feed.", "normal", true)
-                                    }
-                                }
-                                Button {
-                                    text: qsTr("Preview Critical")
-                                    onClicked: NotificationSettingsController.sendPreviewNotification("slm.system", "Battery Critical", "Connect power to avoid shutdown.", "high", true)
+
+                                SettingCard {
+                                    Layout.fillWidth: true
+                                    label: qsTr("Silence During Fullscreen")
+                                    description: qsTr("Suppress normal notifications while fullscreen.")
+                                    highlighted: root.isHighlighted("silence-fullscreen")
+                                    Switch { checked: !!root.fullscreenBinding.value; enabled: !!root.enabledBinding.value; onToggled: root.fullscreenBinding.value = checked }
                                 }
                             }
 
-                            Rectangle {
+                            RowLayout {
                                 Layout.fillWidth: true
-                                radius: Theme.radiusLg
-                                color: Theme.color("controlBg")
-                                border.width: Theme.borderWidthThin
-                                border.color: Theme.color("panelBorder")
-                                implicitHeight: 220
+                                spacing: 12
+
+                                SettingCard {
+                                    Layout.fillWidth: true
+                                    label: qsTr("Silence During Screen Share")
+                                    description: qsTr("Hide interruptive alerts while sharing your screen.")
+                                    highlighted: root.isHighlighted("silence-screen-share")
+                                    Switch { checked: !!root.screenShareBinding.value; enabled: !!root.enabledBinding.value; onToggled: root.screenShareBinding.value = checked }
+                                }
+
+                                SettingCard {
+                                    Layout.fillWidth: true
+                                    label: qsTr("Focus Mode Integration")
+                                    description: qsTr("Use active focus profile to tune delivery policy.")
+                                    highlighted: root.isHighlighted("focus-mode-integration")
+                                    Switch { checked: !!root.focusBinding.value; enabled: !!root.enabledBinding.value; onToggled: root.focusBinding.value = checked }
+                                }
+                            }
+
+                            SettingCard {
+                                Layout.fillWidth: true
+                                label: qsTr("Deliver Quietly")
+                                description: qsTr("Notifications appear silently in Pulse Feed without interrupting your workflow.")
+                                highlighted: root.isHighlighted("deliver-quietly")
+                                Switch { checked: !!root.quietBinding.value; enabled: !!root.enabledBinding.value; onToggled: root.quietBinding.value = checked }
+                            }
+                        }
+                    }
+                }
+
+                Item {
+                    id: appsSection
+                    Layout.fillWidth: true
+                    implicitHeight: appsColumn.implicitHeight
+
+                    ColumnLayout {
+                        id: appsColumn
+                        width: contentCol.width
+                        spacing: 18
+
+                        SettingGroup {
+                            title: qsTr("App Notifications")
+                            Layout.fillWidth: true
+
+                            SettingCard {
+                                Layout.fillWidth: true
+                                label: qsTr("Per-App Controls")
+                                description: qsTr("Fine-tune popups, Pulse feed visibility, and priority per app.")
 
                                 ListView {
-                                    id: previewList
-                                    anchors.fill: parent
-                                    anchors.margins: 10
-                                    spacing: 8
+                                    id: appList
+                                    Layout.fillWidth: true
+                                    implicitHeight: Math.min(320, contentHeight)
                                     clip: true
+                                    spacing: 8
                                     model: NotificationSettingsController ? NotificationSettingsController.appRows : []
 
                                     delegate: Rectangle {
-                                        width: previewList.width
-                                        height: 64
+                                        width: appList.width
+                                        height: 68
                                         radius: Theme.radiusMd
                                         color: Theme.color("surface")
                                         border.width: Theme.borderWidthThin
@@ -274,34 +429,36 @@ Item {
                                             anchors.margins: 10
                                             spacing: 10
 
-                                            Rectangle {
-                                                Layout.preferredWidth: 30
-                                                Layout.preferredHeight: 30
-                                                radius: Theme.radiusWindowAlt
-                                                color: Theme.color("controlBg")
-                                                Image { anchors.centerIn: parent; source: "image://icon/" + (modelData.appIcon || "preferences-system-notifications"); width: 18; height: 18 }
+                                            Image {
+                                                source: "image://icon/" + (modelData.appIcon || "applications-system")
+                                                width: 22
+                                                height: 22
                                             }
 
                                             ColumnLayout {
                                                 Layout.fillWidth: true
-                                                spacing: 2
                                                 Label {
                                                     Layout.fillWidth: true
-                                                    text: (modelData.appName || "App") + " (" + String(modelData.count || 0) + ")"
-                                                    font.weight: Theme.fontWeight("semibold")
+                                                    text: modelData.appName || modelData.appId || qsTr("Unknown app")
                                                     elide: Text.ElideRight
+                                                    font.weight: Theme.fontWeight("semibold")
                                                 }
                                                 Label {
                                                     Layout.fillWidth: true
-                                                    text: modelData.lastSummary || qsTr("No recent notification")
+                                                    text: modelData.lastSummary || qsTr("No recent message")
                                                     color: Theme.color("textSecondary")
                                                     elide: Text.ElideRight
                                                 }
                                             }
 
-                                            Label {
-                                                text: Number(modelData.unreadCount || 0) > 0 ? String(modelData.unreadCount) : ""
-                                                color: Theme.color("accent")
+                                            Switch {
+                                                checked: !!root.readAppPrefFor(modelData.appId || "", "allow_notifications", true)
+                                                onToggled: root.writeAppPrefFor(modelData.appId || "", "allow_notifications", checked)
+                                            }
+
+                                            Button {
+                                                text: qsTr("Details")
+                                                onClicked: root.openAppDetail(modelData.appId || "")
                                             }
                                         }
                                     }
@@ -311,116 +468,108 @@ Item {
                     }
                 }
 
-                SettingGroup {
-                    title: qsTr("Interruption Policy")
+                Item {
+                    id: historySection
                     Layout.fillWidth: true
+                    implicitHeight: historyColumn.implicitHeight
 
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: 12
+                    ColumnLayout {
+                        id: historyColumn
+                        width: contentCol.width
+                        spacing: 18
 
-                        SettingCard {
+                        SettingGroup {
+                            title: qsTr("History")
                             Layout.fillWidth: true
-                            label: qsTr("Allow Critical Alerts")
-                            description: qsTr("Critical alerts always surface even in quiet states.")
-                            Switch { checked: !!root.criticalBinding.value; enabled: !!root.enabledBinding.value; onToggled: root.criticalBinding.value = checked }
-                        }
 
-                        SettingCard {
-                            Layout.fillWidth: true
-                            label: qsTr("Silence During Fullscreen")
-                            description: qsTr("Suppress normal notifications while fullscreen.")
-                            Switch { checked: !!root.fullscreenBinding.value; enabled: !!root.enabledBinding.value; onToggled: root.fullscreenBinding.value = checked }
-                        }
-                    }
+                            SettingCard {
+                                Layout.fillWidth: true
+                                label: qsTr("Interactive Preview")
+                                description: qsTr("Send live test notifications and observe stack/group behavior.")
 
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: 12
-
-                        SettingCard {
-                            Layout.fillWidth: true
-                            label: qsTr("Silence During Screen Share")
-                            description: qsTr("Hide interruptive alerts while sharing your screen.")
-                            Switch { checked: !!root.screenShareBinding.value; enabled: !!root.enabledBinding.value; onToggled: root.screenShareBinding.value = checked }
-                        }
-
-                        SettingCard {
-                            Layout.fillWidth: true
-                            label: qsTr("Focus Mode Integration")
-                            description: qsTr("Use active focus profile to tune delivery policy.")
-                            Switch { checked: !!root.focusBinding.value; enabled: !!root.enabledBinding.value; onToggled: root.focusBinding.value = checked }
-                        }
-                    }
-
-                    SettingCard {
-                        Layout.fillWidth: true
-                        label: qsTr("Deliver Quietly")
-                        description: qsTr("Notifications appear silently in Pulse Feed without interrupting your workflow.")
-                        Switch { checked: !!root.quietBinding.value; enabled: !!root.enabledBinding.value; onToggled: root.quietBinding.value = checked }
-                    }
-                }
-
-                SettingGroup {
-                    title: qsTr("App Notifications")
-                    Layout.fillWidth: true
-
-                    SettingCard {
-                        Layout.fillWidth: true
-                        label: qsTr("Per-App Controls")
-                        description: qsTr("Fine-tune popups, Pulse feed visibility, and priority per app.")
-
-                        ListView {
-                            id: appList
-                            Layout.fillWidth: true
-                            implicitHeight: Math.min(320, contentHeight)
-                            clip: true
-                            spacing: 8
-                            model: NotificationSettingsController ? NotificationSettingsController.appRows : []
-
-                            delegate: Rectangle {
-                                width: appList.width
-                                height: 68
-                                radius: Theme.radiusMd
-                                color: Theme.color("surface")
-                                border.width: Theme.borderWidthThin
-                                border.color: Theme.color("panelBorder")
-
-                                RowLayout {
-                                    anchors.fill: parent
-                                    anchors.margins: 10
+                                ColumnLayout {
                                     spacing: 10
 
-                                    Image {
-                                        source: "image://icon/" + (modelData.appIcon || "applications-system")
-                                        width: 22
-                                        height: 22
+                                    RowLayout {
+                                        spacing: 8
+                                        Button {
+                                            text: qsTr("Preview Normal")
+                                            onClicked: NotificationSettingsController.sendPreviewNotification("slm.preview", "Daily Brief", "Your workspace is ready.", "normal", true)
+                                        }
+                                        Button {
+                                            text: qsTr("Preview Group Burst")
+                                            onClicked: {
+                                                NotificationSettingsController.sendPreviewNotification("slm.preview", "Build Complete", "Desktop shell build succeeded.", "normal", true)
+                                                NotificationSettingsController.sendPreviewNotification("slm.preview", "Sync Finished", "Files synced to Pulse feed.", "normal", true)
+                                            }
+                                        }
+                                        Button {
+                                            text: qsTr("Preview Critical")
+                                            onClicked: NotificationSettingsController.sendPreviewNotification("slm.system", "Battery Critical", "Connect power to avoid shutdown.", "high", true)
+                                        }
                                     }
 
-                                    ColumnLayout {
+                                    Rectangle {
                                         Layout.fillWidth: true
-                                        Label {
-                                            Layout.fillWidth: true
-                                            text: modelData.appName || modelData.appId || qsTr("Unknown app")
-                                            elide: Text.ElideRight
-                                            font.weight: Theme.fontWeight("semibold")
-                                        }
-                                        Label {
-                                            Layout.fillWidth: true
-                                            text: modelData.lastSummary || qsTr("No recent message")
-                                            color: Theme.color("textSecondary")
-                                            elide: Text.ElideRight
-                                        }
-                                    }
+                                        radius: Theme.radiusLg
+                                        color: Theme.color("controlBg")
+                                        border.width: Theme.borderWidthThin
+                                        border.color: Theme.color("panelBorder")
+                                        implicitHeight: 220
 
-                                    Switch {
-                                        checked: !!root.readAppPrefFor(modelData.appId || "", "allow_notifications", true)
-                                        onToggled: root.writeAppPrefFor(modelData.appId || "", "allow_notifications", checked)
-                                    }
+                                        ListView {
+                                            id: previewList
+                                            anchors.fill: parent
+                                            anchors.margins: 10
+                                            spacing: 8
+                                            clip: true
+                                            model: NotificationSettingsController ? NotificationSettingsController.appRows : []
 
-                                    Button {
-                                        text: qsTr("Details")
-                                        onClicked: root.openAppDetail(modelData.appId || "")
+                                            delegate: Rectangle {
+                                                width: previewList.width
+                                                height: 64
+                                                radius: Theme.radiusMd
+                                                color: Theme.color("surface")
+                                                border.width: Theme.borderWidthThin
+                                                border.color: Theme.color("panelBorder")
+
+                                                RowLayout {
+                                                    anchors.fill: parent
+                                                    anchors.margins: 10
+                                                    spacing: 10
+
+                                                    Rectangle {
+                                                        Layout.preferredWidth: 30
+                                                        Layout.preferredHeight: 30
+                                                        radius: Theme.radiusWindowAlt
+                                                        color: Theme.color("controlBg")
+                                                        Image { anchors.centerIn: parent; source: "image://icon/" + (modelData.appIcon || "preferences-system-notifications"); width: 18; height: 18 }
+                                                    }
+
+                                                    ColumnLayout {
+                                                        Layout.fillWidth: true
+                                                        spacing: 2
+                                                        Label {
+                                                            Layout.fillWidth: true
+                                                            text: (modelData.appName || "App") + " (" + String(modelData.count || 0) + ")"
+                                                            font.weight: Theme.fontWeight("semibold")
+                                                            elide: Text.ElideRight
+                                                        }
+                                                        Label {
+                                                            Layout.fillWidth: true
+                                                            text: modelData.lastSummary || qsTr("No recent notification")
+                                                            color: Theme.color("textSecondary")
+                                                            elide: Text.ElideRight
+                                                        }
+                                                    }
+
+                                                    Label {
+                                                        text: Number(modelData.unreadCount || 0) > 0 ? String(modelData.unreadCount) : ""
+                                                        color: Theme.color("accent")
+                                                    }
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -428,42 +577,55 @@ Item {
                     }
                 }
 
-                SettingGroup {
-                    title: qsTr("Advanced")
+                Item {
+                    id: advancedSection
                     Layout.fillWidth: true
+                    implicitHeight: advancedColumn.implicitHeight
 
-                    SettingCard {
-                        Layout.fillWidth: true
-                        label: qsTr("Banner Duration")
-                        description: qsTr("Balance visibility and interruption window.")
-                        RowLayout {
-                            spacing: 12
-                            Slider {
-                                id: durationSlider
-                                Layout.preferredWidth: 240
-                                from: 1000
-                                to: 15000
-                                stepSize: 500
-                                value: Number(root.bannerDurationBinding.value)
-                                onMoved: root.bannerDurationBinding.value = Math.round(value)
-                            }
-                            Label {
-                                text: root.durationLabel(durationSlider.value)
-                                color: Theme.color("textSecondary")
-                            }
-                        }
-                    }
+                    ColumnLayout {
+                        id: advancedColumn
+                        width: contentCol.width
+                        spacing: 18
 
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: 10
-                        Button {
-                            text: qsTr("Refresh History")
-                            onClicked: NotificationSettingsController.refresh()
-                        }
-                        Button {
-                            text: qsTr("Clear Notification History")
-                            onClicked: NotificationSettingsController.clearHistory()
+                        SettingGroup {
+                            title: qsTr("Advanced")
+                            Layout.fillWidth: true
+
+                            SettingCard {
+                                Layout.fillWidth: true
+                                label: qsTr("Banner Duration")
+                                description: qsTr("Balance visibility and interruption window.")
+                                highlighted: root.isHighlighted("banner-duration")
+                                RowLayout {
+                                    spacing: 12
+                                    Slider {
+                                        id: durationSlider
+                                        Layout.preferredWidth: 240
+                                        from: 1000
+                                        to: 15000
+                                        stepSize: 500
+                                        value: Number(root.bannerDurationBinding.value)
+                                        onMoved: root.bannerDurationBinding.value = Math.round(value)
+                                    }
+                                    Label {
+                                        text: root.durationLabel(durationSlider.value)
+                                        color: Theme.color("textSecondary")
+                                    }
+                                }
+                            }
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 10
+                                Button {
+                                    text: qsTr("Refresh History")
+                                    onClicked: NotificationSettingsController.refresh()
+                                }
+                                Button {
+                                    text: qsTr("Clear Notification History")
+                                    onClicked: NotificationSettingsController.clearHistory()
+                                }
+                            }
                         }
                     }
                 }
@@ -596,6 +758,11 @@ Item {
     Component.onCompleted: {
         if (NotificationSettingsController) {
             NotificationSettingsController.refresh()
+        }
+        if (root.highlightSettingId.length > 0) {
+            root.focusSetting(root.highlightSettingId)
+        } else {
+            root.scrollToSection(root.navIndex)
         }
     }
 }
