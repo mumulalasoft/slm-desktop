@@ -18,6 +18,7 @@ Rectangle {
     property bool renderEffectsEnabled: true
     property bool hideBackgroundBorder: false
     property bool forceTransparentBackground: false
+    property bool ignoreDesktopTransparentSetting: false
     property real backgroundMorphProgress: 0.0
     property real layoutIconSlotWidth: -1
     property real layoutItemSpacing: -1
@@ -132,11 +133,19 @@ Rectangle {
     clip: false
 
     readonly property bool dockTransparent: forceTransparentBackground
-                                             || ((typeof DesktopSettings !== "undefined"
-                                                  && DesktopSettings
-                                                  && DesktopSettings.dockTransparent !== undefined)
+                                             || (!ignoreDesktopTransparentSetting
+                                                 && (typeof DesktopSettings !== "undefined"
+                                                     && DesktopSettings
+                                                     && DesktopSettings.dockTransparent !== undefined)
                                                  ? !!DesktopSettings.dockTransparent : false)
     readonly property real backgroundMorph: Math.max(0.0, Math.min(1.0, Number(backgroundMorphProgress || 0)))
+    readonly property color dockGridBaseColor: Theme.color("windowCard")
+    readonly property color dockSolidBackgroundColor: Qt.rgba(
+                                                          dockGridBaseColor.r,
+                                                          dockGridBaseColor.g,
+                                                          dockGridBaseColor.b,
+                                                          Math.max(0.94, dockGridBaseColor.a)
+                                                      )
 
     AppDeckReorderController {
         id: reorderState
@@ -718,7 +727,7 @@ Rectangle {
         height: root.baseHeight + Math.round(6 * root.backgroundMorph)
         radius: Theme.radiusWindow + Math.round(Math.min(10, Theme.radiusWindow) * root.backgroundMorph)
         visible: !root.dockTransparent
-        color: root.dockTransparent ? "transparent" : Theme.color("dockBg")
+        color: root.dockTransparent ? "transparent" : root.dockSolidBackgroundColor
         border.color: (root.dockTransparent || root.hideBackgroundBorder)
                       ? "transparent"
                       : Theme.color("panelBorder")
@@ -734,11 +743,6 @@ Rectangle {
             shadowHorizontalOffset: 0
         }
 
-        gradient: Gradient {
-            GradientStop { position: 0.0; color: Theme.color("dockGlassTop") }
-            GradientStop { position: 1.0; color: Theme.color("dockGlassBottom") }
-        }
-
         Rectangle {
             anchors.left: parent.left
             anchors.right: parent.right
@@ -749,7 +753,7 @@ Rectangle {
             height: 1
             radius: Theme.radiusHairline
             color: Theme.color("dockSpecLine")
-            opacity: root.hideBackgroundBorder ? 0.0 : 0.68
+            opacity: root.hideBackgroundBorder ? 0.0 : 0.42
         }
 
         Behavior on color {

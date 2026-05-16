@@ -159,6 +159,14 @@ Item {
         }
     }
 
+    property real morphProgress: root.immersiveMode ? 1.0 : 0.0
+    Behavior on morphProgress {
+        NumberAnimation {
+            duration: root.motionSurfaceDuration
+            easing.type: Theme.easingDefault
+        }
+    }
+
     function setAppDeckVisibility(visible) {
         var v = !!visible
         if (typeof ShellStateController !== "undefined"
@@ -250,32 +258,35 @@ Item {
 
     Rectangle {
         anchors.fill: parent
-        visible: root.immersiveMode && root.surfaceTransition > 0.001
+        visible: root.morphProgress > 0.001
         color: Theme.color("screenshotScrim")
-        opacity: root.surfaceTransition
+        opacity: root.morphProgress
         z: 0
-
-        Behavior on opacity {
-            NumberAnimation {
-                duration: root.motionCrossfadeDuration
-                easing.type: Theme.easingDecelerate
-            }
-        }
     }
 
     Rectangle {
-        id: steadyImmersiveSurface
+        id: morphPanel
         z: 0.5
-        visible: root.immersiveMode
-        x: root.pulseMode ? root.contextSurfaceX : root.gridSurfaceX
-        y: root.pulseMode ? root.contextSurfaceY : root.gridSurfaceY
-        width: root.pulseMode ? root.contextSurfaceW : root.gridSurfaceW
-        height: root.pulseMode ? root.contextSurfaceH : root.gridSurfaceH
-        radius: Theme.radiusWindow + Math.min(8, Theme.radiusWindow)
+        visible: true
+
+        readonly property real t: root.morphProgress
+        readonly property real dockH: dockView.dockItem ? Number(dockView.dockItem.baseHeight || 72) : 72
+        readonly property real dockW: root.dockInputWidth
+        readonly property real dockX: Math.round((root.width - dockW) / 2)
+        readonly property real dockY: root.height - root.dockBottomMargin - dockH
+        readonly property real panelX: root.pulseMode ? root.contextSurfaceX : root.gridSurfaceX
+        readonly property real panelY: root.pulseMode ? root.contextSurfaceY : root.gridSurfaceY
+        readonly property real panelW: root.pulseMode ? root.contextSurfaceW : root.gridSurfaceW
+        readonly property real panelH: root.pulseMode ? root.contextSurfaceH : root.gridSurfaceH
+
+        x: Math.round(dockX + (panelX - dockX) * t)
+        y: Math.round(dockY + (panelY - dockY) * t)
+        width: Math.round(dockW + (panelW - dockW) * t)
+        height: Math.round(dockH + (panelH - dockH) * t)
+        radius: Math.round(Theme.radiusWindow + Math.min(8, Theme.radiusWindow) * t)
         color: Theme.color("windowCard")
         border.width: Theme.borderWidthThin
         border.color: Theme.color("panelBorder")
-        opacity: root.immersiveMode ? 1.0 : 0.0
         layer.enabled: visible && !root.safeRendering
         layer.effect: MultiEffect {
             shadowEnabled: true
@@ -283,6 +294,16 @@ Item {
             shadowBlur: 0.54
             shadowVerticalOffset: 10
             shadowHorizontalOffset: 0
+        }
+
+        Rectangle {
+            anchors.fill: parent
+            radius: parent.radius
+            opacity: 1.0 - morphPanel.t
+            gradient: Gradient {
+                GradientStop { position: 0.0; color: Theme.color("dockGlassTop") }
+                GradientStop { position: 1.0; color: Theme.color("dockGlassBottom") }
+            }
         }
 
         Rectangle {
@@ -295,6 +316,7 @@ Item {
             height: 1
             radius: Theme.radiusHairline
             color: Qt.rgba(1, 1, 1, Theme.darkMode ? 0.16 : 0.58)
+            opacity: morphPanel.t
         }
     }
 
@@ -427,16 +449,16 @@ Item {
         id: dockView
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: root.dockActive ? root.dockBottomMargin : 0
+        anchors.bottomMargin: root.dockBottomMargin
         visible: !root.appDeckHidden
-                 && (root.dockActive || root.gridAppsMode || root.pulseMode || opacity > 0.01)
         opacity: 1.0
-        scale: root.dockActive ? 1.0 : (1.0 - (0.03 * root.surfaceTransition))
-        transform: Translate { y: root.dockActive ? 0 : root.surfaceTransition * 10 }
+        scale: 1.0 - (0.03 * root.morphProgress)
+        transform: Translate { y: root.morphProgress * 10 }
         z: 3
         hostName: "appdeck-embedded"
-        hideBorder: root.immersiveMode
-        transparentBackground: root.immersiveMode
+        hideBorder: true
+        transparentBackground: true
+        ignoreDesktopTransparentSetting: true
         acceptsInput: root.dockAcceptsInput && root.dockActive
         rendererActive: root.visible && !root.appDeckHidden
         renderEffectsEnabled: !root.safeRendering

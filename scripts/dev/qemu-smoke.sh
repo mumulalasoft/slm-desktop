@@ -449,8 +449,8 @@ install_exec_atomic '__BUILD_DIR__/devicectl' /usr/local/bin/devicectl
 install_exec_atomic '__BUILD_DIR__/globalmenuctl' /usr/local/bin/globalmenuctl
 cat > /tmp/slm-shell.wrapper.\$\$ <<'SLM_SHELL_WRAPPER'
 #!/bin/sh
-unset KWIN_COMPOSE LIBGL_ALWAYS_SOFTWARE QSG_RHI_BACKEND
-exec env QT_QUICK_BACKEND=software SLM_FAST_FIRST_FRAME=1 SLM_STARTUP_LOG=1 SLM_STARTUP_TRACE=1 /usr/local/bin/slm-shell.real \"\$@\"
+unset KWIN_COMPOSE QT_QUICK_BACKEND
+exec env LIBGL_ALWAYS_SOFTWARE=1 QSG_RHI_BACKEND=opengl SLM_FAST_FIRST_FRAME=1 SLM_STARTUP_LOG=1 SLM_STARTUP_TRACE=1 /usr/local/bin/slm-shell.real \"\$@\"
 SLM_SHELL_WRAPPER
 /bin/sh -n /tmp/slm-shell.wrapper.\$\$
 install -m0755 /tmp/slm-shell.wrapper.\$\$ /usr/local/bin/.slm-shell.tmp.\$\$

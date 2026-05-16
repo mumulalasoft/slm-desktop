@@ -136,9 +136,7 @@ ApplicationWindow {
         if (!desktopMenuProviderRef || !desktopMenuProviderRef.syncGlobalMenuOverride) {
             return
         }
-        var activeApp = (typeof GlobalMenuManager !== "undefined" && GlobalMenuManager)
-                ? String(GlobalMenuManager.activeAppId || "") : ""
-        desktopMenuProviderRef.syncGlobalMenuOverride(activeApp.length <= 0)
+        desktopMenuProviderRef.syncGlobalMenuOverride()
     }
     onDetachedFileManagerVisibleChanged: {
         if (!detachedFileManagerVisible) {
@@ -625,17 +623,6 @@ ApplicationWindow {
         function onAnimationModeChanged() {
             // Re-sync motion controller scale when animation mode changes at runtime.
             ShellUtils.applyMotionTimeScale(root)
-        }
-    }
-
-    Connections {
-        target: (typeof GlobalMenuManager !== "undefined") ? GlobalMenuManager : null
-        ignoreUnknownSignals: true
-        function onAppSwitched() {
-            root._syncDesktopMenuOverride()
-        }
-        function onChanged() {
-            root._syncDesktopMenuOverride()
         }
     }
 

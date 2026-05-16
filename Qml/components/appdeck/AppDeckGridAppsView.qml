@@ -108,11 +108,11 @@ FocusScope {
     onVisibleChanged: {
         if (visible) {
             maybeRefreshAllAppsLazy(false)
-            revealProgress = 0.0
+            revealAnim.stop()
+            revealProgress = 1.0
             if (String(appdeckSearchSeed || "").trim().length > 0) {
                 filterText = String(appdeckSearchSeed || "")
             }
-            revealAnim.restart()
         } else {
             revealAnim.stop()
             revealProgress = 0.0

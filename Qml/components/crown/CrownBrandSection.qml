@@ -24,41 +24,31 @@ Row {
                                              && GlobalMenuAdaptiveController
                                              && GlobalMenuAdaptiveController.mode)
                                             ? String(GlobalMenuAdaptiveController.mode) : "full"
-    readonly property string _activeAppId: (typeof GlobalMenuManager !== "undefined"
-                                            && GlobalMenuManager
-                                            && GlobalMenuManager.activeAppId)
-                                           ? String(GlobalMenuManager.activeAppId) : ""
+    readonly property string _activeAppId: {
+        if (typeof AppStateClient !== "undefined" && AppStateClient && AppStateClient.focusedAppId) {
+            var focused = String(AppStateClient.focusedAppId || "")
+            if (focused.length > 0) {
+                return focused
+            }
+        }
+        if (typeof GlobalMenuManager !== "undefined"
+                && GlobalMenuManager
+                && GlobalMenuManager.activeAppId) {
+            return String(GlobalMenuManager.activeAppId || "")
+        }
+        return ""
+    }
     readonly property bool _hasActiveApp: _activeAppId.length > 0
+    readonly property bool _hasRunningApps: (typeof AppStateClient !== "undefined"
+                                             && AppStateClient
+                                             && AppStateClient.runningAppIds)
+                                            ? !!(AppStateClient.runningAppIds.length > 0) : false
     readonly property string _effectiveAdaptiveMode: (_adaptiveMode === "focus" && !_hasActiveApp)
                                                      ? "full" : _adaptiveMode
     readonly property bool _resumePending: (typeof GlobalMenuSuspendBridge !== "undefined"
                                             && GlobalMenuSuspendBridge
                                             && GlobalMenuSuspendBridge.resumePending)
                                            ? true : false
-
-    // ── fallback menu definitions ─────────────────────────────────────────────
-
-    function _desktopFallbackMenus() {
-        return [
-            { "id": 9201, "label": "File",      "enabled": true, "source": "fallback-desktop" },
-            { "id": 9202, "label": "Edit",      "enabled": true, "source": "fallback-desktop" },
-            { "id": 9203, "label": "Go",        "enabled": true, "source": "fallback-desktop" },
-            { "id": 9204, "label": "Workspace", "enabled": true, "source": "fallback-desktop" },
-            { "id": 9205, "label": "Tools",     "enabled": true, "source": "fallback-desktop" },
-            { "id": 9206, "label": "Help",      "enabled": true, "source": "fallback-desktop" }
-        ]
-    }
-
-    function _appFallbackMenus() {
-        return [
-            { "id": 9101, "label": "File",      "enabled": true, "source": "fallback-app" },
-            { "id": 9102, "label": "Edit",      "enabled": true, "source": "fallback-app" },
-            { "id": 9103, "label": "View",      "enabled": true, "source": "fallback-app" },
-            { "id": 9104, "label": "Tools",     "enabled": true, "source": "fallback-app" },
-            { "id": 9105, "label": "Workspace", "enabled": true, "source": "fallback-app" },
-            { "id": 9106, "label": "Help",      "enabled": true, "source": "fallback-app" }
-        ]
-    }
 
     function _sanitizeTopLevelMenus(rows) {
         var out = []
@@ -86,13 +76,6 @@ Row {
     }
 
     function _rawMenus() {
-        if (!_hasActiveApp && desktopMenuProvider && desktopMenuProvider.enabled
-                && desktopMenuProvider.topLevelMenus) {
-            var providerMenus = _sanitizeTopLevelMenus(desktopMenuProvider.topLevelMenus())
-            if (providerMenus.length > 0) {
-                return providerMenus
-            }
-        }
         if (typeof GlobalMenuManager !== "undefined" && GlobalMenuManager
                 && GlobalMenuManager.topLevelMenus) {
             var sanitized = _sanitizeTopLevelMenus(GlobalMenuManager.topLevelMenus)
@@ -100,7 +83,15 @@ Row {
                 return sanitized
             }
         }
-        return _hasActiveApp ? _appFallbackMenus() : _desktopFallbackMenus()
+        if (!_hasActiveApp && !_hasRunningApps
+                && desktopMenuProvider && desktopMenuProvider.enabled
+                && desktopMenuProvider.topLevelMenus) {
+            var providerMenus = _sanitizeTopLevelMenus(desktopMenuProvider.topLevelMenus())
+            if (providerMenus.length > 0) {
+                return providerMenus
+            }
+        }
+        return []
     }
 
     function _moreCompactRows(menus) {
@@ -144,83 +135,6 @@ Row {
         return menus
     }
 
-    // ── fallback item lists ───────────────────────────────────────────────────
-
-    function _fallbackMenuItems(menuId) {
-        var id = Number(menuId || -1)
-        if (id === 9001 || id === 9201) {
-            return [
-                { "id": 1, "label": "Open…", "enabled": true },
-                { "id": -1, "separator": true },
-                { "id": 2, "label": "New Window", "enabled": true }
-            ]
-        }
-        if (id === 9002 || id === 9202) {
-            return [
-                { "id": 1, "label": "Copy", "enabled": true },
-                { "id": 2, "label": "Paste", "enabled": true },
-                { "id": -1, "separator": true },
-                { "id": 3, "label": "Select All", "enabled": true }
-            ]
-        }
-        if (id === 9003 || id === 9203) {
-            return [
-                { "id": 1, "label": "Home", "enabled": true },
-                { "id": 2, "label": "Documents", "enabled": true }
-            ]
-        }
-        if (id === 9204) {
-            return [
-                { "id": 1, "label": "Workspace Overview", "enabled": true },
-                { "id": 2, "label": "Move to New Workspace", "enabled": true }
-            ]
-        }
-        if (id === 9205) {
-            return [
-                { "id": 1, "label": "Open Settings", "enabled": true }
-            ]
-        }
-        if (id === 9206) {
-            return [
-                { "id": 1, "label": "Help Center", "enabled": true }
-            ]
-        }
-        if (id === 9101) {
-            return [
-                { "id": 1, "label": "Open…",       "enabled": true },
-                { "id": 2, "label": "New Window",  "enabled": true }
-            ]
-        }
-        if (id === 9102) {
-            return [
-                { "id": 1, "label": "Copy",       "enabled": true },
-                { "id": 2, "label": "Paste",      "enabled": true },
-                { "id": -1, "separator": true },
-                { "id": 3, "label": "Select All", "enabled": true }
-            ]
-        }
-        if (id === 9103) {
-            return [
-                { "id": 1, "label": "Workspace Overview", "enabled": true }
-            ]
-        }
-        if (id === 9104) {
-            return []   // placeholder — populated by real app via D-Bus
-        }
-        if (id === 9105) {
-            return [
-                { "id": 1, "label": "Workspace Overview",     "enabled": true },
-                { "id": 2, "label": "Move to New Workspace",  "enabled": true }
-            ]
-        }
-        if (id === 9106) {
-            return [
-                { "id": 1, "label": "Help Center", "enabled": true }
-            ]
-        }
-        return []
-    }
-
     function _menuItemsFor(menuRow) {
         if (!menuRow) return []
         var menuId = Number(menuRow.id || -1)
@@ -230,7 +144,6 @@ Row {
                 && source === "desktop-provider") {
             return desktopMenuProvider.menuItemsFor(menuId)
         }
-        if (source.indexOf("fallback-") === 0) return _fallbackMenuItems(menuId)
         if (typeof GlobalMenuManager !== "undefined" && GlobalMenuManager
                 && GlobalMenuManager.menuItemsFor) {
             return GlobalMenuManager.menuItemsFor(menuId)
@@ -264,54 +177,6 @@ Row {
         return 0
     }
 
-    // ── fallback activation ───────────────────────────────────────────────────
-
-    function _activateFallback(menuId, itemId) {
-        var m = Number(menuId || -1)
-        var i = Number(itemId || -1)
-        var router = (typeof AppCommandRouter !== "undefined") ? AppCommandRouter : null
-        var session = (typeof SessionStateClient !== "undefined") ? SessionStateClient : null
-        var shell   = (typeof ShellStateController !== "undefined") ? ShellStateController : null
-
-        if (m === 9001) {
-            if (i === 1 && router) { router.route("workspace.toggle", {}, "global-menu-fallback"); return }
-            if (i === 2 && session) { session.lock(); return }
-        }
-        if (m === 9002) {
-            if (i === 1 && shell)  { shell.setAppDeckVisible(true); return }
-            if (i === 2 && router) { router.route("filemanager.open", { "target": "~" }, "global-menu-fallback"); return }
-            if (i === 3 && router) { router.route("app.desktopid", { "desktopId": "slm-settings.desktop" }, "global-menu-fallback"); return }
-        }
-        if (m === 9003 && router)  { router.route("app.desktopid", { "desktopId": "slm-settings.desktop" }, "global-menu-fallback"); return }
-        if (m === 9101) {
-            if (i === 1 && shell)  { shell.setPulseVisible(true); return }
-            if (i === 2 && router) { router.route("filemanager.open", { "target": "~" }, "global-menu-fallback"); return }
-        }
-        if ((m === 9103 || m === 9105) && i === 1 && router) {
-            router.route("workspace.toggle", {}, "global-menu-fallback")
-        }
-        if (m === 9201) {
-            if (i === 1 && shell)  { shell.setPulseVisible(true); return }
-            if (i === 2 && router) { router.route("filemanager.open", { "target": "~" }, "global-menu-fallback"); return }
-        }
-        if (m === 9203 && i === 1 && router) {
-            router.route("filemanager.open", { "target": "~" }, "global-menu-fallback")
-            return
-        }
-        if (m === 9204 && i === 1 && router) {
-            router.route("workspace.toggle", {}, "global-menu-fallback")
-            return
-        }
-        if (m === 9205 && i === 1 && router) {
-            router.route("app.desktopid", { "desktopId": "slm-settings.desktop" }, "global-menu-fallback")
-            return
-        }
-        if (m === 9206 && i === 1 && router) {
-            router.route("app.desktopid", { "desktopId": "slm-settings.desktop" }, "global-menu-fallback")
-            return
-        }
-    }
-
     function _onCategoryActivated(menuRow, itemId) {
         if (!menuRow) return
         var menuId = Number(menuRow.id || -1)
@@ -330,19 +195,9 @@ Row {
             desktopMenuProvider.activateMenuItem(menuId, itemId)
             return
         }
-        if (String(menuRow.source || "").indexOf("fallback-") === 0) {
-            _activateFallback(menuId, itemId)
-            return
-        }
         if (typeof GlobalMenuManager !== "undefined" && GlobalMenuManager
                 && GlobalMenuManager.activateMenuItem) {
             GlobalMenuManager.activateMenuItem(menuId, itemId)
-        }
-    }
-
-    function _openSettings() {
-        if (typeof AppCommandRouter !== "undefined" && AppCommandRouter && AppCommandRouter.route) {
-            AppCommandRouter.route("app.desktopid", { "desktopId": "slm-settings.desktop" }, "global-menu")
         }
     }
 

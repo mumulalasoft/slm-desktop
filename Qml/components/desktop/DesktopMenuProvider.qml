@@ -286,21 +286,12 @@ QtObject {
         }
     }
 
-    function syncGlobalMenuOverride(noActiveWindow) {
+    function syncGlobalMenuOverride() {
         if (typeof GlobalMenuManager === "undefined" || !GlobalMenuManager) {
             return
         }
-        if (!enabled || !noActiveWindow) {
-            if (GlobalMenuManager.diagnosticSnapshot && GlobalMenuManager.clearOverrideMenus) {
-                var diag = GlobalMenuManager.diagnosticSnapshot()
-                if (diag && diag.overrideEnabled && String(diag.overrideContext || "") === overrideContext) {
-                    GlobalMenuManager.clearOverrideMenus()
-                }
-            }
-            return
-        }
-        if (GlobalMenuManager.setOverrideMenus) {
-            GlobalMenuManager.setOverrideMenus(topLevelMenus(), overrideContext)
+        if (GlobalMenuManager.clearOverrideMenus) {
+            GlobalMenuManager.clearOverrideMenus()
         }
     }
 }

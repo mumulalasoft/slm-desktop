@@ -1,6 +1,5 @@
 import QtQuick 2.15
 import QtQuick.Window 2.15
-import QtQuick.Effects
 import Slm_Desktop
 import "../appdeck" as AppDeckComp
 import "./AppDeckActions.js" as AppDeckActions
@@ -145,7 +144,7 @@ Window {
     readonly property real surfaceTransition: immersiveMode
                                                ? Math.max(engineSurfaceTransition, fallbackSurfaceTransition)
                                                : fallbackSurfaceTransition
-    property real appsTransition: gridAppsMode ? 1.0 : 0.0
+    readonly property real appsTransition: (root.gridAppsMode || root.dockActive) ? root.surfaceTransition : 0.0
     property real pulseTransition: (pulseMode || contextMode) ? 1.0 : 0.0
     property bool appdeckLifecycleActive: false
     property bool appdeckProfilePinned: false
@@ -381,13 +380,6 @@ Window {
         }
     }
 
-    Behavior on appsTransition {
-        NumberAnimation {
-            duration: root.motionSurfaceDuration
-            easing.type: Theme.easingDefault
-        }
-    }
-
     Behavior on pulseTransition {
         NumberAnimation {
             duration: root.motionSurfaceDuration
@@ -445,6 +437,11 @@ Window {
                                                         : 1
                                                     )
                                                 )
+    readonly property real dockLiftMax: dockView.dockItem
+                                        ? Number(dockView.dockItem.liftMax || 0)
+                                        : 0
+    readonly property int dockVisualY: Math.max(0, dockInputY + Math.round(dockLiftMax))
+    readonly property int dockVisualHeight: Math.max(1, dockInputHeight - Math.round(dockLiftMax))
 
     function syncLayerSurfaceSize() {
         if (typeof AppDeckLayerShell === "undefined" || !AppDeckLayerShell) {
@@ -536,12 +533,12 @@ Window {
 
         Rectangle {
             id: surfaceMorph
-            z: 0
-            visible: !root.appDeckHidden && root.immersiveMode && root.surfaceTransition > 0.001
+            z: -1
+            visible: !root.appDeckHidden && root.policyContentVisible
             readonly property real sourceX: Number(root.dockInputX || 0)
-            readonly property real sourceY: Number(root.dockInputY || 0)
+            readonly property real sourceY: Number(root.dockVisualY || 0)
             readonly property real sourceW: Number(root.dockInputWidth || 1)
-            readonly property real sourceH: Number(root.dockInputHeight || 1)
+            readonly property real sourceH: Number(root.dockVisualHeight || 1)
             readonly property real targetX: pulseMode ? root.contextSurfaceX : root.gridSurfaceX
             readonly property real targetY: pulseMode ? root.contextSurfaceY : root.gridSurfaceY
             readonly property real targetW: pulseMode ? root.contextSurfaceW : root.gridSurfaceW
@@ -552,17 +549,23 @@ Window {
             width: sourceW + (targetW - sourceW) * root.surfaceTransition
             height: sourceH + (targetH - sourceH) * root.surfaceTransition
             radius: Theme.radiusWindow + (Math.min(8, Theme.radiusWindow) * root.surfaceTransition)
-            color: root.immersiveMode ? Theme.color("windowCard") : Theme.color("dockBg")
+            color: Theme.color("windowCard")
             border.width: Theme.borderWidthThin
             border.color: Theme.color("panelBorder")
-            opacity: root.immersiveMode ? 1.0 : 0.0
-            layer.enabled: visible
-            layer.effect: MultiEffect {
-                shadowEnabled: true
-                shadowColor: Qt.rgba(0, 0, 0, Theme.darkMode ? 0.42 : 0.24)
-                shadowBlur: 0.54
-                shadowVerticalOffset: 10 + (6 * root.surfaceTransition)
-                shadowHorizontalOffset: 0
+            opacity: (!root.appDeckHidden && root.policyContentVisible) ? 1.0 : 0.0
+
+            Rectangle {
+                anchors.fill: parent
+                radius: parent.radius
+                opacity: 1.0 - root.surfaceTransition
+                gradient: Gradient {
+                    GradientStop { position: 0.0; color: Theme.color("dockGlassTop") }
+                    GradientStop { position: 1.0; color: Theme.color("dockGlassBottom") }
+                }
+                Behavior on opacity {
+                    enabled: !root.motionEngineReady
+                    NumberAnimation { duration: root.motionCrossfadeDuration; easing.type: Theme.easingDecelerate }
+                }
             }
 
             Rectangle {
@@ -604,33 +607,6 @@ Window {
             }
             Behavior on color {
                 ColorAnimation { duration: root.motionCrossfadeDuration; easing.type: Theme.easingStandard }
-            }
-        }
-
-        Rectangle {
-            id: steadyImmersiveSurface
-            z: 0.5
-            visible: root.immersiveMode
-            x: root.pulseMode ? root.contextSurfaceX : root.gridSurfaceX
-            y: root.pulseMode ? root.contextSurfaceY : root.gridSurfaceY
-            width: root.pulseMode ? root.contextSurfaceW : root.gridSurfaceW
-            height: root.pulseMode ? root.contextSurfaceH : root.gridSurfaceH
-            radius: Theme.radiusWindow + Math.min(8, Theme.radiusWindow)
-            color: Theme.color("windowCard")
-            border.width: Theme.borderWidthThin
-            border.color: Theme.color("panelBorder")
-            opacity: root.immersiveMode ? 1.0 : 0.0
-
-            Rectangle {
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.top: parent.top
-                anchors.leftMargin: 14
-                anchors.rightMargin: 14
-                anchors.topMargin: 1
-                height: 1
-                radius: Theme.radiusHairline
-                color: Qt.rgba(1, 1, 1, Theme.darkMode ? 0.16 : 0.58)
             }
         }
 
@@ -681,13 +657,6 @@ Window {
             }
             onAddToDesktopRequested: function(appData) {
                 AppDeckActions.handleAddToDesktop(appData, root.desktopScene)
-            }
-
-            Behavior on opacity {
-                NumberAnimation {
-                    duration: root.motionCrossfadeDuration
-                    easing.type: Theme.easingDecelerate
-                }
             }
         }
 
@@ -801,8 +770,9 @@ Window {
             transform: Translate { y: 0 }
             z: 3
             hostName: "appdeck"
-            hideBorder: false
-            transparentBackground: false
+            hideBorder: true
+            transparentBackground: true
+            ignoreDesktopTransparentSetting: true
             backgroundMorphProgress: root.surfaceTransition
             acceptsInput: root.dockAcceptsInput && root.dockActive
             rendererActive: root.visible && root.dockLayerReady && root.dockHostVisible
