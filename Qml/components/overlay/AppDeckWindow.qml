@@ -28,6 +28,7 @@ Window {
     readonly property bool policyEdgeRevealEnabled: !!root.shellPolicy
                                                     && root.shellPolicy.edgeRevealEnabled
     readonly property bool policyAllowsExpandedModes: !root.shellPolicy
+                                                      || !root.shellPolicy.visibilityPolicyName
                                                       || root.shellPolicy.visibilityPolicyName === "Normal"
     readonly property int revealActivationHeight: root.shellPolicy
                                                  ? Math.max(1, Math.round(root.shellPolicy.edgeRevealSize || 6))
@@ -99,7 +100,8 @@ Window {
     readonly property int motionCrossfadeDuration: Theme.durationFast
     readonly property int motionQuickDuration: Theme.durationSm
     readonly property real sharedPanelMarginX: Math.max(28, root.width * 0.07)
-    readonly property real sharedPanelTopInset: Math.max(18, Number(root.desktopScene ? root.desktopScene.panelHeight : 0) + 14)
+    readonly property int safeCrownHeight: Math.max(36, Number(root.desktopScene ? root.desktopScene.panelHeight : 0))
+    readonly property real sharedPanelTopInset: safeCrownHeight + 16
     readonly property real sharedPanelBottomInset: Math.max(
                                                         24,
                                                         Math.round(
@@ -487,9 +489,18 @@ Window {
     // into a cheap no-op (Q_INVOKABLE call + arg compare + bail).
     Timer {
         id: layerShellRetryTimer
-        interval: 300
+        interval: 160
         repeat: true
         running: root.visible && root.layerShellSupported
+        onTriggered: root.syncLayerSurfaceSize()
+    }
+
+    // Fire once after the C++ 50ms geometry-grace period so the input mask
+    // is applied before the user can plausibly click the dock.
+    Timer {
+        id: postGraceSyncTimer
+        interval: 60
+        repeat: false
         onTriggered: root.syncLayerSurfaceSize()
     }
 
@@ -501,6 +512,7 @@ Window {
     onDockLayerReadyChanged: {
         if (root.dockLayerReady) {
             root.syncLayerSurfaceSize()
+            postGraceSyncTimer.restart()
         }
     }
 
@@ -779,7 +791,16 @@ Window {
                             && !root.appDeckHidden
             appsModel: root.appsModel
             onAppActivated: function(appName) {
-                root.requestOpenApp(String(appName || ""))
+                var name = String(appName || "")
+                if (name.length > 0
+                        && typeof AppStateClient !== "undefined" && AppStateClient
+                        && AppStateClient.isRunning && AppStateClient.activateApp
+                        && AppStateClient.isRunning(name)) {
+                    AppStateClient.activateApp(name)
+                    root.enterDock()
+                    return
+                }
+                root.requestOpenApp(name)
                 root.enterDock()
             }
             onAppdeckRequested: {
@@ -915,6 +936,21 @@ Window {
         ignoreUnknownSignals: true
         function onAppDeckVisibleChanged() {
             Qt.callLater(function() { root.syncLayerSurfaceSize() })
+        }
+    }
+
+    property int _lastRunningCount: 0
+    Connections {
+        target: (typeof AppStateClient !== "undefined") ? AppStateClient : null
+        ignoreUnknownSignals: true
+        function onRunningAppsChanged() {
+            var newCount = (typeof AppStateClient !== "undefined" && AppStateClient)
+                           ? Number(AppStateClient.runningAppIds.length || 0) : 0
+            if (root.gridActive && newCount > root._lastRunningCount) {
+                root.enterDock()
+                root.requestCollapse()
+            }
+            root._lastRunningCount = newCount
         }
     }
 

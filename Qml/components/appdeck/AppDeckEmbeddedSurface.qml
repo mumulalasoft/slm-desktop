@@ -73,9 +73,8 @@ Item {
     readonly property int motionSurfaceDuration: Theme.durationNormal
     readonly property int motionCrossfadeDuration: Theme.durationFast
     readonly property real sharedPanelMarginX: Math.max(28, root.width * 0.07)
-    readonly property real sharedPanelTopInset: Math.max(
-                                                    18,
-                                                    Number(root.desktopScene ? root.desktopScene.panelHeight : 0) + 14)
+    readonly property int safeCrownHeight: Math.max(36, Number(root.desktopScene ? root.desktopScene.panelHeight : 0))
+    readonly property real sharedPanelTopInset: safeCrownHeight + 16
     readonly property real dockBottomMargin: Math.max(
                                                          8,
                                                          Number(root.desktopScene ? root.desktopScene.dockBottomMargin : 0))
