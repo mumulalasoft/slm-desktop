@@ -464,7 +464,7 @@ Item {
         renderEffectsEnabled: !root.safeRendering
         appsModel: root.appsModel
         onAppActivated: function(appName) {
-            root.requestOpenApp(String(appName || ""))
+            // AppDeck._focusOrLaunchEntry already handled focus-or-launch.
             root.enterDock()
         }
         onAppdeckRequested: {

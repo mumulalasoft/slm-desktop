@@ -150,6 +150,10 @@ Window {
     property real pulseTransition: (pulseMode || contextMode) ? 1.0 : 0.0
     property bool appdeckLifecycleActive: false
     property bool appdeckProfilePinned: false
+    // Set to true in enterDock() so syncLayerSurfaceSize() applies the dock
+    // input mask immediately, without waiting for the async DBus round-trip
+    // that propagates dockActive = true.
+    property bool _eagerDockMask: false
     property string appdeckPrevChannel: ""
     property string appdeckPrevPreset: ""
 
@@ -194,10 +198,12 @@ Window {
     }
 
     function enterDock() {
+        root._eagerDockMask = true
         setAppDeckVisibility(false)
         if (rootWindow && rootWindow.setSearchVisible) {
             rootWindow.setSearchVisible(false)
         }
+        root.syncLayerSurfaceSize()
     }
 
     function enterGrid() {
@@ -451,21 +457,24 @@ Window {
         }
         var w = Math.max(1, Math.round(root.width))
         var h = Math.max(1, Math.round(root.appDeckHidden ? 1 : root.height))
-        var surfaceX = root.dockActive ? root.dockInputX
-                                          : (root.pulseMode ? root.contextSurfaceX : root.gridSurfaceX)
-        var surfaceY = root.dockActive ? root.dockInputY
-                                          : (root.pulseMode ? root.contextSurfaceY : root.gridSurfaceY)
-        var surfaceW = root.dockActive ? root.dockInputWidth
-                                          : (root.pulseMode ? root.contextSurfaceW : root.gridSurfaceW)
-        var surfaceH = root.dockActive ? root.dockInputHeight
-                                          : (root.pulseMode ? root.contextSurfaceH : root.gridSurfaceH)
+        // _eagerDockMask is set by enterDock() so we immediately restrict input
+        // to the dock footprint while the async DBus state catches up.
+        var applyDockMask = root.dockActive || root._eagerDockMask
+        var surfaceX = applyDockMask ? root.dockInputX
+                                     : (root.pulseMode ? root.contextSurfaceX : root.gridSurfaceX)
+        var surfaceY = applyDockMask ? root.dockInputY
+                                     : (root.pulseMode ? root.contextSurfaceY : root.gridSurfaceY)
+        var surfaceW = applyDockMask ? root.dockInputWidth
+                                     : (root.pulseMode ? root.contextSurfaceW : root.gridSurfaceW)
+        var surfaceH = applyDockMask ? root.dockInputHeight
+                                     : (root.pulseMode ? root.contextSurfaceH : root.gridSurfaceH)
         if (root.policySensorOnly) {
             surfaceX = 0
             surfaceY = Math.max(0, h - root.revealActivationHeight)
             surfaceW = w
             surfaceH = root.revealActivationHeight
         }
-        if (root.immersiveMode) {
+        if (root.immersiveMode && !applyDockMask) {
             AppDeckLayerShell.setGrid(root, w, h,
                                           Math.max(0, Math.round(surfaceX)),
                                           Math.max(0, Math.round(surfaceY)),
@@ -508,7 +517,12 @@ Window {
     onAppDeckHiddenChanged: root.syncLayerSurfaceSize()
     onImmersiveModeChanged: root.syncLayerSurfaceSize()
     onPulseModeChanged: root.syncLayerSurfaceSize()
-    onDockActiveChanged: root.syncLayerSurfaceSize()
+    onDockActiveChanged: {
+        if (root.dockActive) {
+            root._eagerDockMask = false
+        }
+        root.syncLayerSurfaceSize()
+    }
     onDockLayerReadyChanged: {
         if (root.dockLayerReady) {
             root.syncLayerSurfaceSize()
@@ -791,16 +805,9 @@ Window {
                             && !root.appDeckHidden
             appsModel: root.appsModel
             onAppActivated: function(appName) {
-                var name = String(appName || "")
-                if (name.length > 0
-                        && typeof AppStateClient !== "undefined" && AppStateClient
-                        && AppStateClient.isRunning && AppStateClient.activateApp
-                        && AppStateClient.isRunning(name)) {
-                    AppStateClient.activateApp(name)
-                    root.enterDock()
-                    return
-                }
-                root.requestOpenApp(name)
+                // AppDeck._focusOrLaunchEntry already handled focus-or-launch
+                // via compositorState.preferredViewId / AppCommandRouter.
+                // This signal is only for collapsing the deck.
                 root.enterDock()
             }
             onAppdeckRequested: {
