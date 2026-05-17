@@ -630,108 +630,177 @@ Item {
         id: powerConfirmDialog
         parent: root.rootWindow ? root.rootWindow.contentItem : root
         anchors.fill: parent
-        visible: opened
+        visible: _progress > 0
         z: 9999
-        property bool opened: false
-        property int dialogWidth: 548
 
-        function open() { opened = true }
+        property bool opened: false
+        property real _progress: 0
+        property int  countdown: 60
+        readonly property int dialogWidth: 420
+
+        Behavior on _progress {
+            NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingDecelerate }
+        }
+
+        onOpenedChanged: {
+            _progress = opened ? 1.0 : 0.0
+            if (opened) {
+                countdown = 60
+                forceActiveFocus()
+            }
+        }
+
+        function open()  { opened = true }
         function close() { opened = false }
 
+        // Auto-shutdown countdown \u2014 only fires when action is "shutdown" + mode "now"
+        Timer {
+            id: countdownTimer
+            interval: 1000
+            repeat: true
+            running: powerConfirmDialog.opened
+                     && root.powerConfirmAction === "shutdown"
+                     && root.shutdownScheduleMode === "now"
+            onTriggered: {
+                powerConfirmDialog.countdown = Math.max(0, powerConfirmDialog.countdown - 1)
+                if (powerConfirmDialog.countdown <= 0) root._confirmPowerAction()
+            }
+        }
+
+        Keys.onEscapePressed: powerConfirmDialog.close()
+        Keys.onReturnPressed: root._confirmPowerAction()
+        focus: opened
+
+        // \u2500\u2500 Backdrop \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
         Rectangle {
             anchors.fill: parent
-            color: Qt.rgba(0, 0, 0, 0.34)
+            color: Qt.rgba(0, 0, 0, 0.46 * powerConfirmDialog._progress)
             MouseArea {
                 anchors.fill: parent
                 onClicked: powerConfirmDialog.close()
             }
         }
 
+        // \u2500\u2500 Dialog card \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
         Rectangle {
             id: dialogCard
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.verticalCenter: parent.verticalCenter
-            width: Math.min(powerConfirmDialog.dialogWidth, parent.width - Theme.metric("spacingXxl") * 2)
-            height: Math.min(parent.height - Theme.metric("spacingXxl") * 2,
-                             bodyColumn.implicitHeight
-                             + footerContainer.height
-                             + Theme.metric("spacingXxl") * 2
-                             + Theme.metric("spacingLg"))
+            anchors.verticalCenterOffset: -36
+            width: Math.min(powerConfirmDialog.dialogWidth,
+                            parent.width - Theme.metric("spacingXxl") * 2)
+            height: dialogInner.implicitHeight
             radius: Theme.radiusWindowAlt
             color: Theme.color("surface")
             border.color: Theme.color("panelBorder")
             border.width: Theme.borderWidthThin
             clip: true
 
+            opacity: powerConfirmDialog._progress
+            scale: 0.92 + (0.08 * powerConfirmDialog._progress)
+            transformOrigin: Item.Center
+
             ColumnLayout {
-                id: bodyColumn
+                id: dialogInner
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.top: parent.top
-                anchors.bottom: footerDivider.top
-                anchors.margins: Theme.metric("spacingXxl")
-                anchors.bottomMargin: Theme.metric("spacingLg")
-                spacing: Theme.metric("spacingLg")
+                spacing: 0
 
-                Rectangle {
+                // \u2500\u2500 Icon \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+                Item {
                     Layout.fillWidth: true
-                    radius: Theme.radiusCard
-                    color: Theme.color("panelBg")
-                    border.color: Theme.color("panelBorder")
-                    implicitHeight: heroRow.implicitHeight + Theme.metric("spacingMd") * 2
+                    Layout.preferredHeight: 80
+                    Layout.topMargin: 24
 
-                    RowLayout {
-                        id: heroRow
-                        anchors.fill: parent
-                        anchors.margins: Theme.metric("spacingLg")
-                        spacing: Theme.metric("spacingMd")
+                    Rectangle {
+                        anchors.centerIn: parent
+                        width: 52; height: 52
+                        radius: width / 2
+                        color: root.powerConfirmAction === "shutdown"
+                               ? Qt.rgba(0.84, 0.20, 0.18, 0.12)
+                               : Qt.rgba(0.91, 0.57, 0.12, 0.12)
 
-                        Rectangle {
-                            Layout.preferredWidth: 36
-                            Layout.preferredHeight: 36
-                            radius: Theme.radiusXxl
-                            color: root.powerConfirmAction === "shutdown" ? Qt.rgba(0.88, 0.24, 0.21, 0.18)
-                                                                          : Qt.rgba(0.91, 0.57, 0.12, 0.18)
+                        Item {
+                            anchors.centerIn: parent
+                            width: 26; height: 26
+
+                            Image {
+                                id: powerIcon
+                                anchors.fill: parent
+                                fillMode: Image.PreserveAspectFit
+                                smooth: true
+                                source: root._themeIconSource(
+                                    root.powerConfirmAction === "shutdown"
+                                        ? "system-shutdown"
+                                        : "system-reboot"
+                                )
+                            }
+
                             DSStyle.Label {
                                 anchors.centerIn: parent
-                                text: "!"
+                                visible: powerIcon.status !== Image.Ready
+                                text: root.powerConfirmAction === "shutdown" ? "\u23fb" : "\u21ba"
                                 font.pixelSize: Theme.fontSize("subtitle")
-                                font.weight: Theme.fontWeight("bold")
-                                color: root.powerConfirmAction === "shutdown" ? Qt.rgba(0.86, 0.2, 0.18, 1)
-                                                                              : Qt.rgba(0.85, 0.5, 0.1, 1)
-                            }
-                        }
-
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            spacing: 2
-                            DSStyle.Label {
-                                Layout.fillWidth: true
-                                text: root.powerConfirmAction === "restart"
-                                      ? qsTr("Restart Computer?")
-                                      : qsTr("Shut Down Computer?")
-                                font.pixelSize: Theme.fontSize("subtitle")
-                                font.weight: Theme.fontWeight("semibold")
-                            }
-                            DSStyle.Label {
-                                Layout.fillWidth: true
-                                wrapMode: Text.WordWrap
-                                color: Theme.color("textSecondary")
-                                text: root.runningAppsForPowerAction.length > 0
-                                      ? qsTr("Aplikasi yang masih terbuka dapat kehilangan data yang belum disimpan.")
-                                      : qsTr("No active app was detected.")
+                                color: root.powerConfirmAction === "shutdown"
+                                       ? Qt.rgba(0.84, 0.20, 0.18, 1)
+                                       : Qt.rgba(0.85, 0.52, 0.11, 1)
                             }
                         }
                     }
                 }
 
+                // \u2500\u2500 Title \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+                DSStyle.Label {
+                    Layout.fillWidth: true
+                    Layout.leftMargin: 28
+                    Layout.rightMargin: 28
+                    horizontalAlignment: Text.AlignHCenter
+                    wrapMode: Text.WordWrap
+                    text: root.powerConfirmAction === "restart"
+                          ? qsTr("Restart Computer?")
+                          : qsTr("Shut Down Computer?")
+                    font.pixelSize: Theme.fontSize("subtitle")
+                    font.weight: Theme.fontWeight("semibold")
+                }
+
+                // \u2500\u2500 Subtitle / countdown \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+                DSStyle.Label {
+                    Layout.fillWidth: true
+                    Layout.leftMargin: 28
+                    Layout.rightMargin: 28
+                    Layout.topMargin: 6
+                    horizontalAlignment: Text.AlignHCenter
+                    wrapMode: Text.WordWrap
+                    color: Theme.color("textSecondary")
+                    text: {
+                        if (root.powerConfirmAction === "shutdown"
+                                && root.shutdownScheduleMode === "now"
+                                && powerConfirmDialog.countdown > 0) {
+                            return qsTr("If you do nothing, your computer will shut down automatically in %1 seconds.")
+                                       .arg(powerConfirmDialog.countdown)
+                        }
+                        if (root.runningAppsForPowerAction.length > 0) {
+                            return qsTr("Open apps may have unsaved changes that will be lost.")
+                        }
+                        return root.powerConfirmAction === "restart"
+                               ? qsTr("Your computer will restart immediately.")
+                               : qsTr("Your computer will shut down immediately.")
+                    }
+                }
+
+                // \u2500\u2500 Running apps \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
                 Rectangle {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: Math.min(176, runningAppsColumn.implicitHeight + (Theme.metric("spacingSm") * 2))
+                    Layout.leftMargin: 20
+                    Layout.rightMargin: 20
+                    Layout.topMargin: 14
+                    visible: root.runningAppsForPowerAction.length > 0
+                    implicitHeight: Math.min(136,
+                        runningAppsColumn.implicitHeight + Theme.metric("spacingSm") * 2)
                     radius: Theme.radiusCard
                     color: Theme.color("menuBg")
                     border.color: Theme.color("panelBorder")
-                    visible: root.runningAppsForPowerAction.length > 0
                     clip: true
 
                     ScrollView {
@@ -743,43 +812,33 @@ Item {
                         Column {
                             id: runningAppsColumn
                             width: parent.width
-                            spacing: Theme.metric("spacingXs")
+                            spacing: 3
 
                             Repeater {
                                 model: root.runningAppsForPowerAction
-                                delegate: Rectangle {
+                                delegate: RowLayout {
                                     width: runningAppsColumn.width
-                                    implicitHeight: appRow.implicitHeight + Theme.metric("spacingSm")
-                                    radius: Theme.radiusControl
-                                    color: Theme.color("panelBg")
-                                    border.color: Theme.color("panelBorder")
+                                    height: 28
+                                    spacing: 8
 
-                                    RowLayout {
-                                        id: appRow
-                                        anchors.fill: parent
-                                        anchors.leftMargin: Theme.metric("spacingSm")
-                                        anchors.rightMargin: Theme.metric("spacingSm")
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        spacing: Theme.metric("spacingSm")
+                                    Rectangle {
+                                        width: 5; height: 5; radius: width / 2
+                                        color: Theme.color("accent")
+                                        Layout.leftMargin: 2
+                                    }
 
-                                        Rectangle {
-                                            Layout.preferredWidth: 6
-                                            Layout.preferredHeight: 6
-                                            radius: Theme.radiusXs
-                                            color: Theme.color("accent")
-                                        }
+                                    DSStyle.Label {
+                                        Layout.fillWidth: true
+                                        elide: Text.ElideRight
+                                        text: String((modelData && modelData.label) ? modelData.label : "")
+                                    }
 
-                                        DSStyle.Label {
-                                            Layout.fillWidth: true
-                                            elide: Text.ElideRight
-                                            text: String((modelData && modelData.label) ? modelData.label : "")
-                                        }
-
-                                        DSStyle.Label {
-                                            visible: Number((modelData && modelData.windowCount) || 0) > 0
-                                            color: Theme.color("textSecondary")
-                                            text: qsTr("%1 windows").arg(String((modelData && modelData.windowCount) || 0))
-                                        }
+                                    DSStyle.Label {
+                                        visible: Number((modelData && modelData.windowCount) || 0) > 0
+                                        color: Theme.color("textSecondary")
+                                        font.pixelSize: Theme.fontSize("caption")
+                                        text: qsTr("%1 windows").arg(String((modelData && modelData.windowCount) || 0))
+                                        Layout.rightMargin: 2
                                     }
                                 }
                             }
@@ -787,234 +846,186 @@ Item {
                     }
                 }
 
-                Item {
+                // \u2500\u2500 Schedule (shutdown only, always visible) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+                ColumnLayout {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: root.powerConfirmAction === "shutdown" ? implicitHeight : 0
+                    Layout.leftMargin: 20
+                    Layout.rightMargin: 20
+                    Layout.topMargin: 14
                     visible: root.powerConfirmAction === "shutdown"
-                    implicitHeight: advancedColumn.implicitHeight
+                    spacing: 8
 
-                    ColumnLayout {
-                        id: advancedColumn
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        spacing: Theme.metric("spacingSm")
+                    // Segmented control: Now / At Time / After
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 5
 
-                        RowLayout {
-                            Layout.fillWidth: true
-                            spacing: Theme.metric("spacingXs")
-
-                            DSStyle.Label {
-                                text: qsTr("Schedule shutdown")
-                                color: Theme.color("textSecondary")
-                                font.weight: Theme.fontWeight("medium")
-                            }
-
-                            Item { Layout.fillWidth: true }
-
-                            DSStyle.Button {
-                                implicitWidth: 42
+                        Repeater {
+                            model: [
+                                { key: "now",   label: qsTr("Now") },
+                                { key: "at",    label: qsTr("At Time") },
+                                { key: "after", label: qsTr("After") }
+                            ]
+                            delegate: Rectangle {
+                                readonly property bool active: root.shutdownScheduleMode === String(modelData.key || "")
+                                Layout.fillWidth: true
                                 implicitHeight: 30
-                                text: root.shutdownAdvancedExpanded ? "\u2715" : "\u22ef"
-                                font.pixelSize: Theme.fontSize("body")
-                                onClicked: root.shutdownAdvancedExpanded = !root.shutdownAdvancedExpanded
-                            }
-                        }
+                                radius: Theme.radiusControl
+                                color: active ? Theme.color("accentSoft") : Theme.color("panelBg")
+                                border.color: active ? Theme.color("accent") : Theme.color("panelBorder")
 
-                        Rectangle {
-                            id: schedulePanel
-                            Layout.fillWidth: true
-                            radius: Theme.radiusCard
-                            color: Theme.color("menuBg")
-                            border.color: Theme.color("panelBorder")
-                            visible: true
-                            opacity: root.shutdownAdvancedExpanded ? 1 : 0
-                            implicitHeight: root.shutdownAdvancedExpanded
-                                            ? (schedulerBody.implicitHeight + Theme.metric("spacingSm") * 2)
-                                            : 0
-                            clip: true
-
-                            Behavior on implicitHeight {
-                                NumberAnimation {
-                                    duration: Theme.durationSm
-                                    easing.type: Theme.easingEmphasized
-                                }
-                            }
-                            Behavior on opacity {
-                                NumberAnimation {
-                                    duration: Theme.durationSm
-                                    easing.type: Theme.easingDefault
-                                }
-                            }
-
-                            ColumnLayout {
-                                id: schedulerBody
-                                anchors.fill: parent
-                                anchors.margins: Theme.metric("spacingSm")
-                                spacing: Theme.metric("spacingXs")
-
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: Theme.metric("spacingXs")
-
-                                    Repeater {
-                                        model: [
-                                            { key: "now", label: qsTr("Now") },
-                                            { key: "at", label: qsTr("At Time") },
-                                            { key: "after", label: qsTr("After") }
-                                        ]
-                                        delegate: Rectangle {
-                                            readonly property bool active: root.shutdownScheduleMode === String(modelData.key || "")
-                                            Layout.fillWidth: true
-                                            implicitHeight: 32
-                                            radius: Theme.radiusControl
-                                            color: active ? Theme.color("accentSoft") : Theme.color("panelBg")
-                                            border.color: active ? Theme.color("accent") : Theme.color("panelBorder")
-
-                                            DSStyle.Label {
-                                                anchors.centerIn: parent
-                                                text: String(modelData.label || "")
-                                                font.weight: active ? Theme.fontWeight("semibold") : Theme.fontWeight("medium")
-                                            }
-
-                                            MouseArea {
-                                                anchors.fill: parent
-                                                cursorShape: Qt.PointingHandCursor
-                                                onClicked: root.shutdownScheduleMode = String(modelData.key || "now")
-                                            }
-                                        }
-                                    }
-                                }
-
-                                DSStyle.TimePicker {
-                                    Layout.leftMargin: Theme.metric("spacingMd")
-                                    visible: root.shutdownScheduleMode === "at"
-                                    use24Hour: true
-                                    minuteStep: 5
-                                    value: root.shutdownAtValue
-                                    onValueEdited: function(v) { root.shutdownAtValue = v }
-                                }
-
-                                RowLayout {
-                                    Layout.leftMargin: Theme.metric("spacingMd")
-                                    visible: root.shutdownScheduleMode === "after"
-                                    spacing: Theme.metric("spacingXs")
-                                    Layout.fillWidth: true
-
-                                    DSStyle.Slider {
-                                        id: durationSlider
-                                        from: 5
-                                        to: 24 * 60
-                                        stepSize: 5
-                                        value: root.shutdownAfterTotalMinutes
-                                        Layout.fillWidth: true
-                                        onMoved: root.shutdownAfterTotalMinutes = Math.round(value / 5) * 5
-                                    }
-                                    DSStyle.Label {
-                                        color: Theme.color("textSecondary")
-                                        text: root._formatShutdownAfterLabel()
-                                    }
+                                Behavior on color {
+                                    ColorAnimation { duration: Theme.durationXs; easing.type: Theme.easingDefault }
                                 }
 
                                 DSStyle.Label {
-                                    Layout.fillWidth: true
-                                    Layout.topMargin: Theme.metric("spacingXxs")
-                                    color: Theme.color("textSecondary")
-                                    text: root.shutdownScheduleMode === "at"
-                                          ? qsTr("Will shut down at %1").arg(root._formatShutdownAtLabel())
-                                          : (root.shutdownScheduleMode === "after"
-                                             ? qsTr("Will shut down after %1").arg(root._formatShutdownAfterLabel())
-                                             : qsTr("Will shut down immediately after confirmation"))
+                                    anchors.centerIn: parent
+                                    text: String(modelData.label || "")
+                                    font.weight: active ? Theme.fontWeight("semibold") : Theme.fontWeight("regular")
+                                    font.pixelSize: Theme.fontSize("caption")
+                                    color: active ? Theme.color("accent") : Theme.color("textSecondary")
+                                }
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: root.shutdownScheduleMode = String(modelData.key || "now")
                                 }
                             }
                         }
                     }
-                }
-            }
-        }
 
-        Rectangle {
-            id: footerDivider
-            parent: dialogCard
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.bottom: footerContainer.top
-            anchors.leftMargin: Theme.metric("spacingXxl")
-            anchors.rightMargin: Theme.metric("spacingXxl")
-            height: 1
-            color: Theme.color("panelBorder")
-            opacity: Theme.opacityMuted
-        }
+                    DSStyle.TimePicker {
+                        Layout.fillWidth: true
+                        visible: root.shutdownScheduleMode === "at"
+                        use24Hour: true
+                        minuteStep: 5
+                        value: root.shutdownAtValue
+                        onValueEdited: function(v) { root.shutdownAtValue = v }
+                    }
 
-        Item {
-            id: footerContainer
-            parent: dialogCard
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.bottom: parent.bottom
-            anchors.leftMargin: Theme.metric("spacingXxl")
-            anchors.rightMargin: Theme.metric("spacingXxl")
-            anchors.bottomMargin: Theme.metric("spacingXxl")
-            height: 36
+                    RowLayout {
+                        Layout.fillWidth: true
+                        visible: root.shutdownScheduleMode === "after"
+                        spacing: Theme.metric("spacingXs")
 
-            RowLayout {
-                anchors.fill: parent
-                spacing: Theme.metric("spacingSm")
+                        DSStyle.Slider {
+                            id: durationSlider
+                            from: 5; to: 24 * 60; stepSize: 5
+                            value: root.shutdownAfterTotalMinutes
+                            Layout.fillWidth: true
+                            onMoved: root.shutdownAfterTotalMinutes = Math.round(value / 5) * 5
+                        }
 
-                Item { Layout.fillWidth: true }
-
-                DSStyle.Button {
-                    text: qsTr("Cancel")
-                    implicitWidth: 118
-                    implicitHeight: 36
-                    onClicked: powerConfirmDialog.close()
-                }
-
-                DSStyle.Button {
-                    id: confirmActionButton
-                    text: root.powerConfirmAction === "restart" ? qsTr("Restart") : qsTr("Shut Down")
-                    defaultAction: true
-                    hoverEnabled: true
-                    implicitWidth: 154
-                    implicitHeight: 36
-                    scale: !enabled ? 1.0 : (down ? 0.975 : 1.0)
-                    transformOrigin: Item.Center
-                    Behavior on scale {
-                        NumberAnimation {
-                            duration: Theme.durationXs
-                            easing.type: Theme.easingDefault
+                        DSStyle.Label {
+                            color: Theme.color("textSecondary")
+                            text: root._formatShutdownAfterLabel()
                         }
                     }
-                    background: Rectangle {
-                        readonly property bool destructive: root.powerConfirmAction === "shutdown"
-                        readonly property color baseColor: destructive ? Qt.rgba(0.84, 0.2, 0.18, 1.0)
-                                                                       : Theme.color("accent")
-                        readonly property color hoverColor: destructive ? Qt.rgba(0.78, 0.17, 0.16, 1.0)
-                                                                        : Theme.color("accentHover")
-                        readonly property color pressColor: destructive ? Qt.rgba(0.70, 0.14, 0.14, 1.0)
-                                                                        : Theme.color("accentActive")
-                        radius: Theme.radiusControl
-                        color: !confirmActionButton.enabled ? Qt.rgba(baseColor.r, baseColor.g, baseColor.b, 0.45)
-                              : (confirmActionButton.down ? pressColor
-                                 : (confirmActionButton.hovered ? hoverColor : baseColor))
-                        border.color: destructive ? Qt.rgba(0.55, 0.1, 0.1, 1.0) : Theme.color("accent")
-                        border.width: Theme.borderWidthThin
 
-                        Behavior on color {
-                            ColorAnimation {
-                                duration: Theme.durationXs
-                                easing.type: Theme.easingDefault
+                    DSStyle.Label {
+                        Layout.fillWidth: true
+                        visible: root.shutdownScheduleMode !== "now"
+                        color: Theme.color("textSecondary")
+                        font.pixelSize: Theme.fontSize("caption")
+                        horizontalAlignment: Text.AlignHCenter
+                        text: root.shutdownScheduleMode === "at"
+                              ? qsTr("Will shut down at %1").arg(root._formatShutdownAtLabel())
+                              : qsTr("Will shut down after %1").arg(root._formatShutdownAfterLabel())
+                    }
+                }
+
+                // \u2500\u2500 Spacer \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+                Item { Layout.preferredHeight: 20 }
+
+                // \u2500\u2500 Horizontal divider \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+                Rectangle {
+                    Layout.fillWidth: true
+                    height: 1
+                    color: Theme.color("panelBorder")
+                    opacity: Theme.opacityMuted
+                }
+
+                // \u2500\u2500 iOS-style split button bar \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 0
+
+                    // Cancel button
+                    Item {
+                        Layout.fillWidth: true
+                        implicitHeight: 44
+
+                        Rectangle {
+                            anchors.fill: parent
+                            color: cancelMouse.containsMouse
+                                   ? Theme.color("accentSoft")
+                                   : "transparent"
+                            Behavior on color {
+                                ColorAnimation { duration: Theme.durationXs }
                             }
                         }
+
+                        DSStyle.Label {
+                            anchors.centerIn: parent
+                            text: qsTr("Cancel")
+                            font.weight: Theme.fontWeight("regular")
+                            color: Theme.color("textPrimary")
+                        }
+
+                        MouseArea {
+                            id: cancelMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: powerConfirmDialog.close()
+                        }
                     }
-                    contentItem: DSStyle.Label {
-                        text: parent.text
-                        color: Theme.color("textOnAccent")
-                        font.pixelSize: Theme.fontSize("body")
-                        font.weight: Theme.fontWeight("semibold")
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
+
+                    // Vertical divider between buttons
+                    Rectangle {
+                        width: 1; height: 44
+                        color: Theme.color("panelBorder")
+                        opacity: Theme.opacityMuted
                     }
-                    onClicked: root._confirmPowerAction()
+
+                    // Confirm action button
+                    Item {
+                        id: confirmActionItem
+                        Layout.fillWidth: true
+                        implicitHeight: 44
+
+                        readonly property color actionColor: root.powerConfirmAction === "shutdown"
+                                                            ? Qt.rgba(0.84, 0.20, 0.18, 1)
+                                                            : Theme.color("accent")
+
+                        Rectangle {
+                            anchors.fill: parent
+                            color: confirmMouse.containsMouse
+                                   ? Qt.rgba(confirmActionItem.actionColor.r,
+                                             confirmActionItem.actionColor.g,
+                                             confirmActionItem.actionColor.b, 0.08)
+                                   : "transparent"
+                            Behavior on color {
+                                ColorAnimation { duration: Theme.durationXs }
+                            }
+                        }
+
+                        DSStyle.Label {
+                            anchors.centerIn: parent
+                            text: root.powerConfirmAction === "restart" ? qsTr("Restart") : qsTr("Shut Down")
+                            font.weight: Theme.fontWeight("semibold")
+                            color: confirmActionItem.actionColor
+                        }
+
+                        MouseArea {
+                            id: confirmMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root._confirmPowerAction()
+                        }
+                    }
                 }
             }
         }
