@@ -146,10 +146,72 @@ Window {
     readonly property real surfaceTransition: immersiveMode
                                                ? Math.max(engineSurfaceTransition, fallbackSurfaceTransition)
                                                : fallbackSurfaceTransition
-    readonly property real appsTransition: (root.gridAppsMode || root.dockActive) ? root.surfaceTransition : 0.0
+    // §28 APPDECK.md – Content Reveal Timeline stagger
+    // dock→grid: 0.00–0.40 morph only, 0.40–0.70 content reveal, 0.70–1.00 settle
+    // grid→dock: 0.00–0.30 content fade out, 0.30–1.00 collapse morph
+    property bool _deckGoingToGrid: false
+    readonly property real contentRevealOpacity: {
+        var t = root.surfaceTransition
+        if (root._deckGoingToGrid) {
+            if (t <= 0.40) return 0.0
+            if (t >= 0.70) return 1.0
+            return (t - 0.40) / 0.30
+        }
+        if (t >= 0.70) return (t - 0.70) / 0.30
+        return 0.0
+    }
+    readonly property real appsTransition: (root.gridAppsMode || root.dockActive) ? root.contentRevealOpacity : 0.0
     property real pulseTransition: (pulseMode || contextMode) ? 1.0 : 0.0
     property bool appdeckLifecycleActive: false
     property bool appdeckProfilePinned: false
+
+    // §2 APPDECK.md – Internal Runtime State (animation locking, race-condition prevention)
+    property bool transitioning: false
+
+    // §4 APPDECK.md – Intent System
+    readonly property string intent: {
+        switch (root.mode) {
+        case "pulse":   return "search"
+        case "context": return "contextual"
+        default:        return "browse"
+        }
+    }
+
+    // §11 APPDECK.md – Appearance Mode
+    property string appearanceMode: "always_show"
+
+    // §25 APPDECK.md – Motion Tokens
+    readonly property int morphDuration: 380
+    readonly property int modeDuration: 240
+    readonly property int collapseDuration: 280
+    readonly property int autoHideDelay: 2200
+    readonly property int autoShowDuration: 220
+    readonly property int autoHideDuration: 340
+    readonly property real restingAmplitude: 0.012
+    readonly property real restingFrequency: 0.48
+
+    // §22 APPDECK.md – Spatial Memory
+    property int spatialLastGridPage: 0
+    property string spatialLastFocusedIconId: ""
+    property string spatialLastPulseCursor: ""
+    property real spatialLastGridScrollY: 0.0
+    property real spatialGravityCenterX: -1.0
+
+    // §13–15 APPDECK.md – Auto Hide Presence
+    // 1.0 = fully revealed, autoHideMinPresence = low-presence (edge glow only)
+    readonly property real autoHideMinPresence: 0.08
+    property real autoHidePresence: 1.0
+
+    // §27 APPDECK.md – morphProgress + dockVisible (official API surface)
+    readonly property real morphProgress: root.surfaceTransition
+    readonly property bool dockVisible: root.dockActive || root.surfaceTransition > 0.01
+
+    // Derived auto-hide slide: pixels to translate dockView downward (low-presence state)
+    readonly property real autoHideSlideY: {
+        if (root.appearanceMode !== "auto_hide" || !root.dockActive) return 0
+        var h = (dockView && dockView.dockItem) ? Number(dockView.dockItem.height || 60) : 60
+        return Math.round((1.0 - root.autoHidePresence) * h * 0.88)
+    }
     // Set to true in enterDock() so syncLayerSurfaceSize() applies the dock
     // input mask immediately, without waiting for the async DBus round-trip
     // that propagates dockActive = true.
@@ -225,6 +287,23 @@ Window {
             rootWindow.setSearchVisible(false)
         }
         setAppDeckVisibility(false)
+    }
+
+    // §2 APPDECK.md – Transition safety lock
+    function _startTransition() {
+        root.transitioning = true
+        transitionLockTimer.restart()
+    }
+
+    // §13–15 APPDECK.md – Auto Hide control
+    function _revealDock() {
+        autoHideIdleTimer.stop()
+        root.autoHidePresence = 1.0
+    }
+
+    function _scheduleDockAutoHide() {
+        if (root.appearanceMode !== "auto_hide") return
+        autoHideIdleTimer.restart()
     }
 
     function focusSearchField() {
@@ -395,6 +474,10 @@ Window {
         }
     }
 
+    Behavior on autoHidePresence {
+        NumberAnimation { duration: root.autoShowDuration; easing.type: Theme.easingDecelerate }
+    }
+
     // No Behavior on width/height/x/y for the layer-shell Window root.
     // Animating those triggers QWindow::setGeometry every frame, which Qt's
     // Wayland plugin translates into per-tick wl_surface_set_size + commit on
@@ -475,11 +558,9 @@ Window {
             surfaceH = root.revealActivationHeight
         }
         if (root.immersiveMode && !applyDockMask) {
-            AppDeckLayerShell.setGrid(root, w, h,
-                                          Math.max(0, Math.round(surfaceX)),
-                                          Math.max(0, Math.round(surfaceY)),
-                                          Math.max(1, Math.round(surfaceW)),
-                                          Math.max(1, Math.round(surfaceH)))
+            // §10 APPDECK.md – Outside click collapse: full-screen input so clicks on
+            // wallpaper/desktop/other windows reach the background MouseArea and collapse.
+            AppDeckLayerShell.setGrid(root, w, h, 0, 0, w, h)
         } else {
             AppDeckLayerShell.setDock(root, w, h,
                                            Math.max(0, Math.round(root.appDeckHidden ? 0 : surfaceX)),
@@ -554,6 +635,20 @@ Window {
                     duration: root.motionCrossfadeDuration
                     easing.type: Theme.easingDecelerate
                 }
+            }
+        }
+
+        // §10 APPDECK.md – Catches outside-panel clicks in pulse/context mode.
+        // In gridAppsMode the gridAppsView background MouseArea (z=1) handles this;
+        // here we cover the pulse/context case where contextView has no background handler.
+        MouseArea {
+            anchors.fill: parent
+            z: 0.1
+            enabled: root.immersiveMode
+            acceptedButtons: Qt.LeftButton | Qt.RightButton
+            onClicked: {
+                root.enterDock()
+                root.requestCollapse()
             }
         }
 
@@ -793,7 +888,7 @@ Window {
             visible: !root.appDeckHidden && (root.dockActive || root.gridAppsMode || root.pulseMode || opacity > 0.01)
             opacity: 1.0
             scale: 1.0
-            transform: Translate { y: 0 }
+            transform: Translate { y: root.autoHideSlideY }
             z: 3
             hostName: "appdeck"
             hideBorder: true
@@ -862,6 +957,9 @@ Window {
             if (root.shellPolicy && root.shellPolicy.requestBottomEdgeReveal) {
                 root.shellPolicy.requestBottomEdgeReveal("bottom-edge")
             }
+            if (root.appearanceMode === "auto_hide" && root.autoHidePresence < 1.0) {
+                root._revealDock()
+            }
         }
         onPositionChanged: {
             if (root.shellPolicy && root.shellPolicy.requestBottomEdgeReveal) {
@@ -875,6 +973,29 @@ Window {
         interval: Math.max(1, Number(root.motionSurfaceDuration || Theme.durationNormal))
         repeat: false
         onTriggered: root.endAppDeckLifecycle()
+    }
+
+    // §2 APPDECK.md – Clears `transitioning` after morph animation settles
+    Timer {
+        id: transitionLockTimer
+        interval: root.morphDuration + 120
+        repeat: false
+        onTriggered: root.transitioning = false
+    }
+
+    // §13–15 APPDECK.md – Auto hide idle timer
+    Timer {
+        id: autoHideIdleTimer
+        interval: root.autoHideDelay
+        repeat: false
+        onTriggered: {
+            if (root.appearanceMode === "auto_hide"
+                    && root.dockActive
+                    && !(typeof AppDeckController !== "undefined"
+                         && AppDeckController && AppDeckController.dockHovered)) {
+                root.autoHidePresence = root.autoHideMinPresence
+            }
+        }
     }
 
     Timer {
@@ -905,6 +1026,7 @@ Window {
     }
 
     function syncAppDeckStateMode() {
+        root._startTransition()
         root.beginAppDeckLifecycle(root.state + ":" + root.mode)
         root.driveSurfaceTransition(root.surfaceTarget, false)
         root.syncLayerSurfaceSize()
@@ -915,8 +1037,28 @@ Window {
         }
     }
 
-    onStateChanged: root.syncAppDeckStateMode()
+    onStateChanged: {
+        root._deckGoingToGrid = (root.state === "grid")
+        if (root.state === "dock") {
+            root._revealDock()
+            root._scheduleDockAutoHide()
+        }
+        root.syncAppDeckStateMode()
+    }
     onModeChanged: root.syncAppDeckStateMode()
+
+    // §8 APPDECK.md – Focus loss collapse: when the compositor deactivates this
+    // layer-shell surface (e.g., user clicks an app window), collapse to dock.
+    onActiveChanged: {
+        if (!root.active && root.gridActive && !root.transitioning) {
+            Qt.callLater(function() {
+                if (!root.active && root.gridActive) {
+                    root.enterDock()
+                    root.requestCollapse()
+                }
+            })
+        }
+    }
 
     onVisibleChanged: {
         if (bootstrap && bootstrap.setVisibleToUser) {
@@ -946,6 +1088,21 @@ Window {
         }
     }
 
+    // §13–15 APPDECK.md – Reveal dock when hovered, schedule hide when hover leaves
+    Connections {
+        target: (typeof AppDeckController !== "undefined") ? AppDeckController : null
+        ignoreUnknownSignals: true
+        function onDockHoveredChanged() {
+            if (AppDeckController.dockHovered) {
+                if (root.appearanceMode === "auto_hide") {
+                    root._revealDock()
+                }
+            } else if (root.dockActive) {
+                root._scheduleDockAutoHide()
+            }
+        }
+    }
+
     property int _lastRunningCount: 0
     Connections {
         target: (typeof AppStateClient !== "undefined") ? AppStateClient : null
@@ -958,6 +1115,19 @@ Window {
                 root.requestCollapse()
             }
             root._lastRunningCount = newCount
+        }
+    }
+
+    // §8/§9 APPDECK.md – collapse on app activation from any source:
+    // window click, dock icon, crown, keyboard shortcut.
+    Connections {
+        target: (typeof GlobalMenuManager !== "undefined") ? GlobalMenuManager : null
+        ignoreUnknownSignals: true
+        function onAppSwitched() {
+            if (root.gridActive && !root.transitioning) {
+                root.enterDock()
+                root.requestCollapse()
+            }
         }
     }
 

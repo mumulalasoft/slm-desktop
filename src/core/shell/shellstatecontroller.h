@@ -26,6 +26,7 @@ class ShellStateController : public QObject
     Q_PROPERTY(bool notificationsVisible READ notificationsVisible WRITE setNotificationsVisible NOTIFY notificationsVisibleChanged)
     Q_PROPERTY(bool focusMode READ focusMode WRITE setFocusMode NOTIFY focusModeChanged)
     Q_PROPERTY(QString dockHoveredItem READ dockHoveredItem WRITE setDockHoveredItem NOTIFY dockHoveredItemChanged)
+    Q_PROPERTY(QString dockExpandedItem READ dockExpandedItem WRITE setDockExpandedItem NOTIFY dockExpandedItemChanged)
     Q_PROPERTY(QString dockActiveItem READ dockActiveItem WRITE setDockActiveItem NOTIFY dockActiveItemChanged)
     Q_PROPERTY(QVariantMap dragSession READ dragSession WRITE setDragSession NOTIFY dragSessionChanged)
 
@@ -51,6 +52,7 @@ public:
     bool notificationsVisible() const;
     bool focusMode() const;
     QString dockHoveredItem() const;
+    QString dockExpandedItem() const;
     QString dockActiveItem() const;
     QVariantMap dragSession() const;
 
@@ -72,6 +74,7 @@ public:
     Q_INVOKABLE void setNotificationsVisible(bool visible);
     Q_INVOKABLE void setFocusMode(bool active);
     Q_INVOKABLE void setDockHoveredItem(const QString &itemId);
+    Q_INVOKABLE void setDockExpandedItem(const QString &itemId);
     Q_INVOKABLE void setDockActiveItem(const QString &itemId);
     Q_INVOKABLE void setDragSession(const QVariantMap &session);
     Q_INVOKABLE void clearDragSession();
@@ -94,6 +97,7 @@ signals:
     void notificationsVisibleChanged(bool visible);
     void focusModeChanged(bool active);
     void dockHoveredItemChanged(const QString &itemId);
+    void dockExpandedItemChanged(const QString &itemId);
     void dockActiveItemChanged(const QString &itemId);
     void dragSessionChanged(const QVariantMap &session);
 
@@ -118,6 +122,7 @@ private:
     bool m_notificationsVisible = false;
     bool m_focusMode = false;
     QString m_dockHoveredItem;
+    QString m_dockExpandedItem;
     QString m_dockActiveItem;
     QVariantMap m_dragSession;
 

@@ -206,6 +206,7 @@ private slots:
         QVERIFY2(!cmakeText.isEmpty(), qPrintable(QStringLiteral("failed to read %1").arg(cmakePath)));
         QVERIFY(!cmakeText.contains(QStringLiteral("Qml/components/overlay/CrownInlineLayer.qml")));
         QVERIFY(!cmakeText.contains(QStringLiteral("Qml/components/appdeck/AppDeckEmbeddedSurface.qml")));
+        QVERIFY(!QFile::exists(base + QStringLiteral("/Qml/components/appdeck/AppDeckEmbeddedSurface.qml")));
     }
 
     void crownTopbarControlsUseStableHeights()

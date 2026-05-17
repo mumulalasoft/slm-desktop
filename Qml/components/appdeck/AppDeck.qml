@@ -34,6 +34,7 @@ Rectangle {
     // hoverX and dockHovered live in AppDeckController — renderer is state-free.
     readonly property real hoverX: AppDeckController.hoverX
     readonly property bool hovered: AppDeckController.dockHovered
+    readonly property real transparentOpacity: Theme.opacityFaint - Theme.opacityFaint
     // Icon slot width driven by DesktopSettings.dockIconSize: small=48, medium=58, large=72
     readonly property real iconSlotWidth: {
         if (layoutIconSlotWidth > 0) {
@@ -754,6 +755,28 @@ Rectangle {
             radius: Theme.radiusHairline
             color: Theme.color("dockSpecLine")
             opacity: root.hideBackgroundBorder ? 0.0 : 0.42
+        }
+
+        // §23 APPDECK.md – Resting Animation (breathing luminance, very subtle)
+        Rectangle {
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            height: Math.ceil(parent.height * 0.45)
+            radius: parent.radius
+            visible: !root.dockTransparent
+            gradient: Gradient {
+                GradientStop { position: 0.0; color: Qt.rgba(1, 1, 1, 0.07) }
+                GradientStop { position: 1.0; color: Qt.rgba(1, 1, 1, 0.0) }
+            }
+            opacity: root.transparentOpacity
+
+            SequentialAnimation on opacity {
+                loops: Animation.Infinite
+                paused: root.hovered || !root.microAnimationAllowed()
+                NumberAnimation { to: 1.0; duration: Theme.durationXl; easing.type: Theme.easingStandard }
+                NumberAnimation { to: 0.0; duration: Theme.durationXl; easing.type: Theme.easingStandard }
+            }
         }
 
         Behavior on color {

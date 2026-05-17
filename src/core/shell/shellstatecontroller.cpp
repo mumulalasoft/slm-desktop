@@ -17,6 +17,7 @@ bool ShellStateController::lockScreenActive() const        { return m_lockScreen
 bool ShellStateController::notificationsVisible() const    { return m_notificationsVisible; }
 bool ShellStateController::focusMode() const               { return m_focusMode; }
 QString ShellStateController::dockHoveredItem() const      { return m_dockHoveredItem; }
+QString ShellStateController::dockExpandedItem() const     { return m_dockExpandedItem; }
 QString ShellStateController::dockActiveItem() const     { return m_dockActiveItem; }
 QVariantMap ShellStateController::dragSession() const       { return m_dragSession; }
 
@@ -113,6 +114,14 @@ void ShellStateController::setDockHoveredItem(const QString &itemId)
     if (m_dockHoveredItem == normalized) return;
     m_dockHoveredItem = normalized;
     emit dockHoveredItemChanged(m_dockHoveredItem);
+}
+
+void ShellStateController::setDockExpandedItem(const QString &itemId)
+{
+    const QString normalized = itemId;
+    if (m_dockExpandedItem == normalized) return;
+    m_dockExpandedItem = normalized;
+    emit dockExpandedItemChanged(m_dockExpandedItem);
 }
 
 void ShellStateController::setDockActiveItem(const QString &itemId)

@@ -9,7 +9,7 @@ private slots:
     void defaultState_allOverlaysHidden()
     {
         ShellStateController ctrl;
-        QVERIFY(!ctrl.apphubVisible());
+        QVERIFY(!ctrl.appdeckVisible());
         QVERIFY(!ctrl.workspaceOverviewVisible());
         QVERIFY(!ctrl.toTheSpotVisible());
         QVERIFY(!ctrl.styleGalleryVisible());
@@ -27,7 +27,7 @@ private slots:
         QVERIFY(!ctrl.workspaceInteractionBlocked());
     }
 
-    void setAppHubVisible_updatesDerivedState()
+    void setAppDeckVisible_updatesDerivedState()
     {
         ShellStateController ctrl;
         QSignalSpy topBarSpy(&ctrl, &ShellStateController::topBarOpacityChanged);
@@ -36,9 +36,9 @@ private slots:
         QSignalSpy blockSpy(&ctrl, &ShellStateController::workspaceInteractionBlockedChanged);
         QSignalSpy overlaySpy(&ctrl, &ShellStateController::anyOverlayVisibleChanged);
 
-        ctrl.setAppHubVisible(true);
+        ctrl.setAppDeckVisible(true);
 
-        QVERIFY(ctrl.apphubVisible());
+        QVERIFY(ctrl.appdeckVisible());
         QVERIFY(ctrl.anyOverlayVisible());
         QCOMPARE(ctrl.topBarOpacity(), 1.0);
         QCOMPARE(ctrl.dockOpacity(), 1.0);
@@ -53,13 +53,13 @@ private slots:
         QCOMPARE(overlaySpy.count(), 1);
     }
 
-    void setAppHubVisible_false_restoresDerivedState()
+    void setAppDeckVisible_false_restoresDerivedState()
     {
         ShellStateController ctrl;
-        ctrl.setAppHubVisible(true);
-        ctrl.setAppHubVisible(false);
+        ctrl.setAppDeckVisible(true);
+        ctrl.setAppDeckVisible(false);
 
-        QVERIFY(!ctrl.apphubVisible());
+        QVERIFY(!ctrl.appdeckVisible());
         QCOMPARE(ctrl.topBarOpacity(), 1.0);
         QCOMPARE(ctrl.dockOpacity(), 1.0);
         QVERIFY(!ctrl.workspaceBlurred());
@@ -78,43 +78,43 @@ private slots:
         QCOMPARE(ctrl.workspaceBlurAlpha(), 0.40);
         // Crown is unaffected by show-desktop
         QCOMPARE(ctrl.topBarOpacity(), 1.0);
-        // Workspace interaction is not blocked in show-desktop (only in apphub)
+        // Workspace interaction is not blocked in show-desktop (only in appdeck)
         QVERIFY(!ctrl.workspaceInteractionBlocked());
         // show-desktop is not an overlay
         QVERIFY(!ctrl.anyOverlayVisible());
     }
 
-    void setAppHub_noSignalOnNoop()
+    void setAppDeck_noSignalOnNoop()
     {
         ShellStateController ctrl;
-        ctrl.setAppHubVisible(true);
+        ctrl.setAppDeckVisible(true);
 
-        QSignalSpy spy(&ctrl, &ShellStateController::apphubVisibleChanged);
-        ctrl.setAppHubVisible(true); // same value — no signal
+        QSignalSpy spy(&ctrl, &ShellStateController::appdeckVisibleChanged);
+        ctrl.setAppDeckVisible(true); // same value — no signal
         QCOMPARE(spy.count(), 0);
     }
 
-    void toggleAppHub_flipsState()
+    void toggleAppDeck_flipsState()
     {
         ShellStateController ctrl;
-        QVERIFY(!ctrl.apphubVisible());
-        ctrl.toggleAppHub();
-        QVERIFY(ctrl.apphubVisible());
-        ctrl.toggleAppHub();
-        QVERIFY(!ctrl.apphubVisible());
+        QVERIFY(!ctrl.appdeckVisible());
+        ctrl.toggleAppDeck();
+        QVERIFY(ctrl.appdeckVisible());
+        ctrl.toggleAppDeck();
+        QVERIFY(!ctrl.appdeckVisible());
     }
 
     void dismissAllOverlays_clearsEverything()
     {
         ShellStateController ctrl;
-        ctrl.setAppHubVisible(true);
+        ctrl.setAppDeckVisible(true);
         ctrl.setWorkspaceOverviewVisible(true);
         ctrl.setPulseVisible(true);
         ctrl.setStyleGalleryVisible(true);
 
         ctrl.dismissAllOverlays();
 
-        QVERIFY(!ctrl.apphubVisible());
+        QVERIFY(!ctrl.appdeckVisible());
         QVERIFY(!ctrl.workspaceOverviewVisible());
         QVERIFY(!ctrl.toTheSpotVisible());
         QVERIFY(!ctrl.styleGalleryVisible());
@@ -140,21 +140,21 @@ private slots:
         }
     }
 
-    void apphub_overridesShowDesktop_forDockOpacity()
+    void appdeck_overridesShowDesktop_forDockOpacity()
     {
-        // Both showDesktop and apphub active — appdeck stays hidden
+        // Both showDesktop and appdeck active — dock stays hidden
         ShellStateController ctrl;
         ctrl.setShowDesktop(true);
-        ctrl.setAppHubVisible(true);
+        ctrl.setAppDeckVisible(true);
         QCOMPARE(ctrl.dockOpacity(), 0.0);
     }
 
-    void apphubBlurAlpha_precedesShowDesktop()
+    void appdeckBlurAlpha_precedesShowDesktop()
     {
         ShellStateController ctrl;
         ctrl.setShowDesktop(true);
-        ctrl.setAppHubVisible(true);
-        // AppHub has higher blur intensity than show-desktop
+        ctrl.setAppDeckVisible(true);
+        // AppDeck has higher blur intensity than show-desktop
         QCOMPARE(ctrl.workspaceBlurAlpha(), 0.50);
     }
 
@@ -192,20 +192,20 @@ private slots:
         QCOMPARE(spy.count(), 2);
     }
 
-    void appHubSearchSeed_roundTrips()
+    void appDeckSearchSeed_roundTrips()
     {
         ShellStateController ctrl;
-        QSignalSpy spy(&ctrl, &ShellStateController::appHubSearchSeedChanged);
+        QSignalSpy spy(&ctrl, &ShellStateController::appDeckSearchSeedChanged);
 
-        ctrl.setAppHubSearchSeed(QStringLiteral("utilities"));
-        QCOMPARE(ctrl.appHubSearchSeed(), QStringLiteral("utilities"));
+        ctrl.setAppDeckSearchSeed(QStringLiteral("utilities"));
+        QCOMPARE(ctrl.appDeckSearchSeed(), QStringLiteral("utilities"));
         QCOMPARE(spy.count(), 1);
 
-        ctrl.setAppHubSearchSeed(QStringLiteral("utilities"));
+        ctrl.setAppDeckSearchSeed(QStringLiteral("utilities"));
         QCOMPARE(spy.count(), 1);
 
-        ctrl.setAppHubSearchSeed(QStringLiteral(""));
-        QCOMPARE(ctrl.appHubSearchSeed(), QStringLiteral(""));
+        ctrl.setAppDeckSearchSeed(QStringLiteral(""));
+        QCOMPARE(ctrl.appDeckSearchSeed(), QStringLiteral(""));
         QCOMPARE(spy.count(), 2);
     }
 
@@ -214,11 +214,11 @@ private slots:
         ShellStateController ctrl;
         QSignalSpy spy(&ctrl, &ShellStateController::dockHoveredItemChanged);
 
-        ctrl.setDockHoveredItem(QStringLiteral("apphub"));
-        QCOMPARE(ctrl.dockHoveredItem(), QStringLiteral("apphub"));
+        ctrl.setDockHoveredItem(QStringLiteral("appdeck"));
+        QCOMPARE(ctrl.dockHoveredItem(), QStringLiteral("appdeck"));
         QCOMPARE(spy.count(), 1);
 
-        ctrl.setDockHoveredItem(QStringLiteral("apphub"));
+        ctrl.setDockHoveredItem(QStringLiteral("appdeck"));
         QCOMPARE(spy.count(), 1);
 
         ctrl.setDockHoveredItem(QStringLiteral(""));
