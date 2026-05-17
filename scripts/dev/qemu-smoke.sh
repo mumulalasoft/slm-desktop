@@ -50,7 +50,7 @@ FAST_TARGETS=(
     slm-portald slm-fileopsd slm-devicesd slm-clipboardd
     slm-envd slm-envd-helper slm-recoveryd slm-polkit-agent
     # settings & context
-    slm-settingsd desktop-contextd slm-settings
+    slm-settingsd desktop-contextd slm-settings slm-cleanerd
     # control utilities
     indicatorctl windowingctl workspacectl fileopctl devicectl globalmenuctl
 )
@@ -64,7 +64,7 @@ FULL_TARGETS=(
     slm-portald slm-fileopsd slm-devicesd slm-clipboardd
     slm-envd slm-envd-helper slm-recoveryd slm-polkit-agent
     # settings & context
-    slm-settingsd desktop-contextd slm-settings
+    slm-settingsd desktop-contextd slm-settings slm-cleanerd
     # control utilities
     indicatorctl windowingctl workspacectl fileopctl devicectl globalmenuctl
 )
@@ -434,6 +434,7 @@ install_exec_atomic '__BUILD_DIR__/slm-recoveryd' /usr/local/bin/slm-recoveryd
 install_exec_atomic '__BUILD_DIR__/slm-polkit-agent' /usr/local/bin/slm-polkit-agent
 install_exec_atomic '__BUILD_DIR__/slm-settings' /usr/local/bin/slm-settings
 install_exec_atomic '__BUILD_DIR__/slm-settingsd' /usr/local/bin/slm-settingsd
+install_exec_atomic '__BUILD_DIR__/slm-cleanerd' /usr/local/bin/slm-cleanerd
 install_exec_atomic '__BUILD_DIR__/desktop-contextd' /usr/local/bin/desktop-contextd
 install -d -m0755 /usr/lib/settings/modules
 rm -rf /usr/lib/settings/modules/*
