@@ -2,6 +2,7 @@
 #include "cleanerscanner.h"
 
 #include <QDateTime>
+#include <QTimeZone>
 
 namespace Slm::Cleaner {
 
@@ -45,7 +46,7 @@ QVariantMap CleanerAnalyzer::analyze(const QVector<CacheNodeStat> &nodes) const
         app.insert(QStringLiteral("lastAccessEpoch"), QVariant::fromValue<qlonglong>(node.lastAccessEpoch));
         app.insert(QStringLiteral("lastAccessIso"),
                    node.lastAccessEpoch > 0
-                   ? QDateTime::fromSecsSinceEpoch(node.lastAccessEpoch, Qt::UTC).toString(Qt::ISODate)
+                   ? QDateTime::fromSecsSinceEpoch(node.lastAccessEpoch, QTimeZone::UTC).toString(Qt::ISODate)
                    : QString());
         appList.push_back(app);
     }
