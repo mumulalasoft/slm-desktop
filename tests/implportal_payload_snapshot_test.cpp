@@ -1,4 +1,5 @@
 #include <QtTest/QtTest>
+#include <QDBusArgument>
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
 #include <QDBusInterface>
@@ -50,6 +51,43 @@ private slots:
     void snapshot_requiredFieldsAcrossMethods();
 
 private:
+    QVariant unmarshalAny(const QVariant &v) const
+    {
+        if (v.canConvert<QDBusArgument>()) {
+            const QDBusArgument arg = v.value<QDBusArgument>();
+            if (arg.currentType() == QDBusArgument::MapType) {
+                QVariantMap map;
+                arg >> map;
+                for (auto it = map.begin(); it != map.end(); ++it)
+                    *it = unmarshalAny(*it);
+                return map;
+            } else if (arg.currentType() == QDBusArgument::ArrayType) {
+                QVariantList list;
+                arg >> list;
+                for (int i = 0; i < list.size(); ++i)
+                    list[i] = unmarshalAny(list[i]);
+                return list;
+            }
+        } else if (v.userType() == QMetaType::QVariantMap) {
+            QVariantMap map = v.toMap();
+            for (auto it = map.begin(); it != map.end(); ++it)
+                *it = unmarshalAny(*it);
+            return map;
+        } else if (v.userType() == QMetaType::QVariantList) {
+            QVariantList list = v.toList();
+            for (int i = 0; i < list.size(); ++i)
+                list[i] = unmarshalAny(list[i]);
+            return list;
+        }
+        return v;
+    }
+
+    QVariantMap unmarshal(const QVariant &v) const
+    {
+        const QVariant u = unmarshalAny(v);
+        return u.userType() == QMetaType::QVariantMap ? u.toMap() : v.toMap();
+    }
+
     QDBusConnection m_bus = QDBusConnection::sessionBus();
 
     bool registerFakeUi(FakePortalUiServiceSnapshot &fake)
@@ -128,7 +166,7 @@ void ImplPortalPayloadSnapshotTest::snapshot_requiredFieldsAcrossMethods()
         QVERIFY(reply.isValid());
         const QVariantMap out = reply.value();
         assertCommon(out);
-        const QVariantMap results = out.value(QStringLiteral("results")).toMap();
+        const QVariantMap results = unmarshal(out.value(QStringLiteral("results")));
         QVERIFY(results.contains(QStringLiteral("uri")));
         QVERIFY(results.contains(QStringLiteral("handled")));
     }
@@ -149,7 +187,7 @@ void ImplPortalPayloadSnapshotTest::snapshot_requiredFieldsAcrossMethods()
         QVERIFY(reply.isValid());
         const QVariantMap out = reply.value();
         assertCommon(out);
-        const QVariantMap results = out.value(QStringLiteral("results")).toMap();
+        const QVariantMap results = unmarshal(out.value(QStringLiteral("results")));
         QVERIFY(results.contains(QStringLiteral("uris")));
         QVERIFY(results.contains(QStringLiteral("choices")));
         QVERIFY(results.contains(QStringLiteral("current_filter")));
@@ -171,7 +209,7 @@ void ImplPortalPayloadSnapshotTest::snapshot_requiredFieldsAcrossMethods()
         QVERIFY(reply.isValid());
         const QVariantMap out = reply.value();
         assertCommon(out);
-        const QVariantMap results = out.value(QStringLiteral("results")).toMap();
+        const QVariantMap results = unmarshal(out.value(QStringLiteral("results")));
         QVERIFY(results.contains(QStringLiteral("uri")));
     }
 
@@ -192,7 +230,7 @@ void ImplPortalPayloadSnapshotTest::snapshot_requiredFieldsAcrossMethods()
         const QVariantMap createOut = createReply.value();
         assertCommon(createOut);
         QVERIFY(createOut.contains(QStringLiteral("session_handle")));
-        const QVariantMap createResults = createOut.value(QStringLiteral("results")).toMap();
+        const QVariantMap createResults = unmarshal(createOut.value(QStringLiteral("results")));
         QVERIFY(createResults.contains(QStringLiteral("session_handle")));
         QVERIFY(createResults.contains(QStringLiteral("streams")));
 
@@ -205,7 +243,7 @@ void ImplPortalPayloadSnapshotTest::snapshot_requiredFieldsAcrossMethods()
                       session,
                       QVariantMap{});
         QVERIFY(selectReply.isValid());
-        const QVariantMap selectResults = selectReply.value().value(QStringLiteral("results")).toMap();
+        const QVariantMap selectResults = unmarshal(selectReply.value().value(QStringLiteral("results")));
         QVERIFY(selectResults.contains(QStringLiteral("session_handle")));
         QVERIFY(selectResults.contains(QStringLiteral("sources_selected")));
         QVERIFY(selectResults.contains(QStringLiteral("selected_sources")));
@@ -221,13 +259,13 @@ void ImplPortalPayloadSnapshotTest::snapshot_requiredFieldsAcrossMethods()
                       session,
                       QVariantMap{});
         QVERIFY(startReply.isValid());
-        const QVariantMap startResults = startReply.value().value(QStringLiteral("results")).toMap();
+        const QVariantMap startResults = unmarshal(startReply.value().value(QStringLiteral("results")));
         QVERIFY(startResults.contains(QStringLiteral("session_handle")));
         QVERIFY(startResults.contains(QStringLiteral("streams")));
-        const QVariantList streams = startResults.value(QStringLiteral("streams")).toList();
+        const QVariantList streams = unmarshalAny(startResults.value(QStringLiteral("streams"))).toList();
         if (startReply.value().value(QStringLiteral("ok")).toBool()) {
             QVERIFY(!streams.isEmpty());
-            const QVariantMap firstStream = streams.constFirst().toMap();
+            const QVariantMap firstStream = unmarshal(streams.constFirst());
             QVERIFY(firstStream.contains(QStringLiteral("node_id")));
             QVERIFY(firstStream.contains(QStringLiteral("stream_id")));
             QVERIFY(firstStream.contains(QStringLiteral("source_type")));
@@ -241,7 +279,7 @@ void ImplPortalPayloadSnapshotTest::snapshot_requiredFieldsAcrossMethods()
                       session,
                       QVariantMap{});
         QVERIFY(stopReply.isValid());
-        const QVariantMap stopResults = stopReply.value().value(QStringLiteral("results")).toMap();
+        const QVariantMap stopResults = unmarshal(stopReply.value().value(QStringLiteral("results")));
         QVERIFY(stopResults.contains(QStringLiteral("session_handle")));
         QVERIFY(stopResults.contains(QStringLiteral("stopped")));
         QVERIFY(stopResults.contains(QStringLiteral("session_closed")));
@@ -325,7 +363,7 @@ void ImplPortalPayloadSnapshotTest::snapshot_requiredFieldsAcrossMethods()
         const QVariantMap handlersOut = handlersReply.value();
         QVERIFY(handlersOut.contains(QStringLiteral("ok")));
         QVERIFY(handlersOut.contains(QStringLiteral("response")));
-        const QVariantMap handlersResults = handlersOut.value(QStringLiteral("results")).toMap();
+        const QVariantMap handlersResults = unmarshal(handlersOut.value(QStringLiteral("results")));
         QVERIFY(handlersResults.contains(QStringLiteral("handlers")));
 
         QDBusReply<QVariantMap> openReply =
@@ -340,7 +378,7 @@ void ImplPortalPayloadSnapshotTest::snapshot_requiredFieldsAcrossMethods()
         const QVariantMap openOut = openReply.value();
         QVERIFY(openOut.contains(QStringLiteral("ok")));
         QVERIFY(openOut.contains(QStringLiteral("response")));
-        QVERIFY(openOut.value(QStringLiteral("results")).toMap().contains(QStringLiteral("handler")));
+        QVERIFY(unmarshal(openOut.value(QStringLiteral("results"))).contains(QStringLiteral("handler")));
     }
 
     // Documents

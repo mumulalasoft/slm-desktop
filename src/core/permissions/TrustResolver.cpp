@@ -1,5 +1,7 @@
 #include "TrustResolver.h"
 
+#include <QFileInfo>
+
 namespace Slm::Permissions {
 namespace {
 
@@ -64,10 +66,11 @@ CallerIdentity TrustResolver::resolveTrust(const CallerIdentity &baseIdentity) c
     const QString bus = out.busName.trimmed().toLower();
     const QString exe = out.executablePath.trimmed().toLower();
 
+    const QString exeBaseName = QFileInfo(exe).baseName().toLower();
     const bool officialComponent = m_officialAppIds.contains(appId)
                                    || m_officialDesktopFileIds.contains(desktopId)
-                                   || exe.contains(QStringLiteral("desktop_shell"), Qt::CaseInsensitive)
-                                   || exe.contains(QStringLiteral("slm-shell"), Qt::CaseInsensitive);
+                                   || exeBaseName.contains(QStringLiteral("desktop_shell"), Qt::CaseInsensitive)
+                                   || exeBaseName.contains(QStringLiteral("slm-shell"), Qt::CaseInsensitive);
     const bool privilegedService = m_privilegedServiceNames.contains(bus)
                                    || bus.startsWith(QStringLiteral("org.slm.desktop."));
 

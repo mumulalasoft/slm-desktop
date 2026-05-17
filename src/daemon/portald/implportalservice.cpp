@@ -17,7 +17,10 @@
 #include <QDateTime>
 #include <QDir>
 #include <QEventLoop>
+#include <QFile>
 #include <QFileInfo>
+#include <QStandardPaths>
+#include <QTextStream>
 #include <QHash>
 #include <QMetaObject>
 #include <QSettings>
@@ -94,6 +97,23 @@ constexpr int kNotificationRateMaxPerWindow = 20;
 
 static QVariant unmarshalVariant(const QVariant &v)
 {
+    // Check native Qt types first: canConvert<QDBusArgument>() returns true for
+    // QVariantMap/QVariantList in Qt 6.10+, so we must guard against that path
+    // for in-memory values that are already the correct type.
+    if (v.userType() == QMetaType::QVariantMap) {
+        QVariantMap map = v.toMap();
+        for (auto it = map.begin(); it != map.end(); ++it) {
+            *it = unmarshalVariant(*it);
+        }
+        return map;
+    }
+    if (v.userType() == QMetaType::QVariantList) {
+        QVariantList list = v.toList();
+        for (int i = 0; i < list.size(); ++i) {
+            list[i] = unmarshalVariant(list[i]);
+        }
+        return list;
+    }
     if (v.canConvert<QDBusArgument>()) {
         const QDBusArgument arg = v.value<QDBusArgument>();
         if (arg.currentType() == QDBusArgument::MapType) {
@@ -111,18 +131,6 @@ static QVariant unmarshalVariant(const QVariant &v)
             }
             return list;
         }
-    } else if (v.userType() == QMetaType::QVariantMap) {
-        QVariantMap map = v.toMap();
-        for (auto it = map.begin(); it != map.end(); ++it) {
-            *it = unmarshalVariant(*it);
-        }
-        return map;
-    } else if (v.userType() == QMetaType::QVariantList) {
-        QVariantList list = v.toList();
-        for (int i = 0; i < list.size(); ++i) {
-            list[i] = unmarshalVariant(list[i]);
-        }
-        return list;
     }
     return v;
 }
@@ -901,6 +909,7 @@ ImplPortalService::ImplPortalService(PortalManager *manager,
     , m_backend(backend)
 {
     qDBusRegisterMetaType<PortalSettingsMap>();
+    qDBusRegisterMetaType<PortalColorValue>();
 
     using namespace Slm::Permissions;
     m_store.open();
@@ -912,14 +921,25 @@ ImplPortalService::ImplPortalService(PortalManager *manager,
 
     m_guard.setTrustResolver(&m_resolver);
     m_guard.setPermissionBroker(&m_broker);
-    // m_guard.setEnabled(false); // Re-enabled (implicitly true by default, but let's be sure)
-    m_guard.setEnabled(true);
+    // Respect SLM_SECURITY_DISABLED env var set before construction; only force-enable when not disabled.
+    if (QProcessEnvironment::systemEnvironment().value(QStringLiteral("SLM_SECURITY_DISABLED")).toInt() != 1) {
+        m_guard.setEnabled(true);
+    }
+
+    if (backend) {
+        backend->configurePermissions(&m_resolver, &m_broker, &m_audit, &m_store);
+        if (QProcessEnvironment::systemEnvironment().value(QStringLiteral("SLM_SECURITY_DISABLED")).toInt() == 1) {
+            backend->accessMediator()->setSecurityBypassed(true);
+        }
+    }
     const QString iface = QStringLiteral("org.freedesktop.impl.portal.desktop.slm");
     m_guard.registerMethodCapability(iface, QStringLiteral("FileChooser"),       Capability::PortalFileChooser);
     m_guard.registerMethodCapability(iface, QStringLiteral("OpenFile"),          Capability::PortalFileChooser);
     m_guard.registerMethodCapability(iface, QStringLiteral("SaveFile"),          Capability::PortalFileChooser);
     m_guard.registerMethodCapability(iface, QStringLiteral("OpenURI"),           Capability::PortalOpenURI);
     m_guard.registerMethodCapability(iface, QStringLiteral("Screenshot"),        Capability::PortalScreenshot);
+    m_guard.registerMethodCapability(iface, QStringLiteral("PickColor"),         Capability::PortalScreenshot);
+    m_guard.registerMethodCapability(iface, QStringLiteral("SetWallpaperURI"),   Capability::PortalWallpaper);
     m_guard.registerMethodCapability(iface, QStringLiteral("CreateSession"),     Capability::PortalScreencastManage);
     m_guard.registerMethodCapability(iface, QStringLiteral("SelectSources"),     Capability::PortalScreencastManage);
     m_guard.registerMethodCapability(iface, QStringLiteral("Start"),             Capability::PortalScreencastManage);
@@ -937,6 +957,8 @@ ImplPortalService::ImplPortalService(PortalManager *manager,
     m_guard.registerMethodCapability(iface, QStringLiteral("QueryHandlers"),     Capability::PortalOpenWith);
     m_guard.registerMethodCapability(iface, QStringLiteral("OpenFileWith"),      Capability::PortalOpenWith);
     m_guard.registerMethodCapability(iface, QStringLiteral("OpenURIWith"),       Capability::PortalOpenWith);
+    m_guard.registerMethodCapability(iface, QStringLiteral("NotifyBackground"),  Capability::PortalBackgroundNotify);
+    m_guard.registerMethodCapability(iface, QStringLiteral("EnableAutostart"),   Capability::PortalBackgroundAutostart);
 
     new ImplPortalFileChooserAdaptor(this);
     new ImplPortalOpenURIAdaptor(this);
@@ -951,6 +973,8 @@ ImplPortalService::ImplPortalService(PortalManager *manager,
     new ImplPortalDocumentsAdaptor(this);
     new ImplPortalTrashAdaptor(this);
     new ImplPortalPrintAdaptor(this);
+    new ImplPortalWallpaperAdaptor(this);
+    new ImplPortalBackgroundAdaptor(this);
     registerDbusService();
 }
 
@@ -971,6 +995,12 @@ bool ImplPortalService::serviceRegistered() const
 QString ImplPortalService::apiVersion() const
 {
     return QString::fromLatin1(kApiVersion);
+}
+
+void ImplPortalService::sendPortalError(const QString &name, const QString &msg)
+{
+    if (calledFromDBus())
+        sendErrorReply(name, msg);
 }
 
 QVariantMap ImplPortalService::Ping() const
@@ -1147,6 +1177,8 @@ QVariantMap ImplPortalService::BridgeOpenURI(const QString &handle,
     if (!results.contains(QStringLiteral("uri"))) {
         results.insert(QStringLiteral("uri"), QString());
     }
+    // Strip internal context field to avoid nested QVariantMap in D-Bus a{sv} results.
+    results.remove(QStringLiteral("options"));
     out.insert(QStringLiteral("results"), results);
     return out;
 }
@@ -1401,6 +1433,57 @@ QVariantMap ImplPortalService::BridgeScreenshot(const QString &handle,
     return normalizeScreenshotResult(m_manager->Screenshot(ctx));
 }
 
+QVariantMap ImplPortalService::BridgePickColor(const QString &handle,
+                                               const QString &appId,
+                                               const QString &parentWindow,
+                                               const QVariantMap &options)
+{
+    if (calledFromDBus()) {
+        using namespace Slm::Permissions;
+        const auto decision = m_guard.check(message(), Capability::PortalScreenshot);
+        if (!decision.isAllowed()) {
+            return normalizePortalLikeResult(
+                SlmPortalResponseBuilder::permissionDenied(QStringLiteral("PickColor")));
+        }
+    }
+    const QVariantMap ctx = enrichCallContext(handle, appId, parentWindow, options);
+    if (!m_manager) {
+        return normalizePortalLikeResult(
+            SlmPortalResponseBuilder::serviceUnavailable(QStringLiteral("PickColor")));
+    }
+    QVariantMap out = m_manager->PickColor(ctx);
+    // Ensure the color value is properly typed for D-Bus a{sv}
+    if (out.value(QStringLiteral("ok")).toBool()) {
+        QVariantMap results;
+        results.insert(QStringLiteral("color"), out.value(QStringLiteral("color")));
+        out.insert(QStringLiteral("results"), results);
+    }
+    return normalizePortalLikeResult(out);
+}
+
+QVariantMap ImplPortalService::BridgeWallpaper(const QString &handle,
+                                               const QString &appId,
+                                               const QString &parentWindow,
+                                               const QString &uri,
+                                               const QVariantMap &options)
+{
+    if (calledFromDBus()) {
+        using namespace Slm::Permissions;
+        const auto decision = m_guard.check(message(), Capability::PortalWallpaper);
+        if (!decision.isAllowed()) {
+            return normalizePortalLikeResult(
+                SlmPortalResponseBuilder::permissionDenied(QStringLiteral("Wallpaper")));
+        }
+    }
+    QVariantMap ctx = enrichCallContext(handle, appId, parentWindow, options);
+    ctx.insert(QStringLiteral("uri"), uri);
+    if (!m_manager) {
+        return normalizePortalLikeResult(
+            SlmPortalResponseBuilder::serviceUnavailable(QStringLiteral("Wallpaper")));
+    }
+    return normalizePortalLikeResult(m_manager->Wallpaper(ctx));
+}
+
 QVariantMap ImplPortalService::BridgeScreenCastCreateSession(const QString &handle,
                                                              const QString &appId,
                                                              const QString &parentWindow,
@@ -1482,6 +1565,8 @@ QVariantMap ImplPortalService::BridgeScreenCastSelectSources(const QString &hand
             sessionPath);
         QVariantMap results = unmarshalVariantMap(normalized.value(QStringLiteral("results")));
         results.insert(QStringLiteral("sources_selected"), false);
+        if (!results.contains(QStringLiteral("selected_sources")))
+            results.insert(QStringLiteral("selected_sources"), QVariantList{});
         normalized.insert(QStringLiteral("results"), results);
         return normalized;
     }
@@ -1493,6 +1578,8 @@ QVariantMap ImplPortalService::BridgeScreenCastSelectSources(const QString &hand
             sessionPath);
         QVariantMap results = unmarshalVariantMap(normalized.value(QStringLiteral("results")));
         results.insert(QStringLiteral("sources_selected"), false);
+        if (!results.contains(QStringLiteral("selected_sources")))
+            results.insert(QStringLiteral("selected_sources"), QVariantList{});
         normalized.insert(QStringLiteral("results"), results);
         return normalized;
     }
@@ -1504,6 +1591,8 @@ QVariantMap ImplPortalService::BridgeScreenCastSelectSources(const QString &hand
             sessionPath);
         QVariantMap results = unmarshalVariantMap(normalized.value(QStringLiteral("results")));
         results.insert(QStringLiteral("sources_selected"), false);
+        if (!results.contains(QStringLiteral("selected_sources")))
+            results.insert(QStringLiteral("selected_sources"), QVariantList{});
         normalized.insert(QStringLiteral("results"), results);
         return normalized;
     }
@@ -1514,6 +1603,8 @@ QVariantMap ImplPortalService::BridgeScreenCastSelectSources(const QString &hand
             sessionPath);
         QVariantMap results = unmarshalVariantMap(normalized.value(QStringLiteral("results")));
         results.insert(QStringLiteral("sources_selected"), false);
+        if (!results.contains(QStringLiteral("selected_sources")))
+            results.insert(QStringLiteral("selected_sources"), QVariantList{});
         normalized.insert(QStringLiteral("results"), results);
         return normalized;
     }
@@ -1536,6 +1627,8 @@ QVariantMap ImplPortalService::BridgeScreenCastSelectSources(const QString &hand
             sessionPath);
         QVariantMap results = unmarshalVariantMap(normalized.value(QStringLiteral("results")));
         results.insert(QStringLiteral("sources_selected"), false);
+        if (!results.contains(QStringLiteral("selected_sources")))
+            results.insert(QStringLiteral("selected_sources"), QVariantList{});
         normalized.insert(QStringLiteral("results"), results);
         return normalized;
     }
@@ -1543,6 +1636,8 @@ QVariantMap ImplPortalService::BridgeScreenCastSelectSources(const QString &hand
     QVariantMap normalized = normalizeScreencastResult(out, sessionPath);
     QVariantMap results = unmarshalVariantMap(normalized.value(QStringLiteral("results")));
     results.insert(QStringLiteral("sources_selected"), normalized.value(QStringLiteral("ok")).toBool());
+    if (!results.contains(QStringLiteral("selected_sources")))
+        results.insert(QStringLiteral("selected_sources"), QVariantList{});
     normalized.insert(QStringLiteral("results"), results);
     return normalized;
 }
@@ -1677,6 +1772,8 @@ QVariantMap ImplPortalService::BridgeScreenCastStop(const QString &handle,
             sessionPath);
         QVariantMap results = unmarshalVariantMap(normalized.value(QStringLiteral("results")));
         results.insert(QStringLiteral("stopped"), false);
+        if (!results.contains(QStringLiteral("session_closed")))
+            results.insert(QStringLiteral("session_closed"), false);
         normalized.insert(QStringLiteral("results"), results);
         return normalized;
     }
@@ -1688,6 +1785,8 @@ QVariantMap ImplPortalService::BridgeScreenCastStop(const QString &handle,
             sessionPath);
         QVariantMap results = unmarshalVariantMap(normalized.value(QStringLiteral("results")));
         results.insert(QStringLiteral("stopped"), false);
+        if (!results.contains(QStringLiteral("session_closed")))
+            results.insert(QStringLiteral("session_closed"), false);
         normalized.insert(QStringLiteral("results"), results);
         return normalized;
     }
@@ -1699,6 +1798,8 @@ QVariantMap ImplPortalService::BridgeScreenCastStop(const QString &handle,
             sessionPath);
         QVariantMap results = unmarshalVariantMap(normalized.value(QStringLiteral("results")));
         results.insert(QStringLiteral("stopped"), false);
+        if (!results.contains(QStringLiteral("session_closed")))
+            results.insert(QStringLiteral("session_closed"), false);
         normalized.insert(QStringLiteral("results"), results);
         return normalized;
     }
@@ -1709,6 +1810,8 @@ QVariantMap ImplPortalService::BridgeScreenCastStop(const QString &handle,
             sessionPath);
         QVariantMap results = unmarshalVariantMap(normalized.value(QStringLiteral("results")));
         results.insert(QStringLiteral("stopped"), false);
+        if (!results.contains(QStringLiteral("session_closed")))
+            results.insert(QStringLiteral("session_closed"), false);
         normalized.insert(QStringLiteral("results"), results);
         return normalized;
     }
@@ -1731,6 +1834,8 @@ QVariantMap ImplPortalService::BridgeScreenCastStop(const QString &handle,
             sessionPath);
         QVariantMap results = unmarshalVariantMap(normalized.value(QStringLiteral("results")));
         results.insert(QStringLiteral("stopped"), false);
+        if (!results.contains(QStringLiteral("session_closed")))
+            results.insert(QStringLiteral("session_closed"), false);
         normalized.insert(QStringLiteral("results"), results);
         return normalized;
     }
@@ -2334,15 +2439,20 @@ QVariantMap ImplPortalService::BridgeInputCaptureEnable(const QString &handle,
     QVariantMap results = unmarshalVariantMap(normalized.value(QStringLiteral("results")));
     results.insert(QStringLiteral("enabled"), normalized.value(QStringLiteral("ok")).toBool());
     results.insert(QStringLiteral("session_handle"), session);
+    const bool wantsPreempt =
+        options.value(QStringLiteral("allow_preempt")).toBool()
+        || options.value(QStringLiteral("allowPreempt")).toBool();
+    // Strip preempt flag for the initial probe call so the host service reports
+    // a conflict rather than silently preempting without mediation.
+    QVariantMap probeOptions = options;
+    probeOptions.remove(QStringLiteral("allow_preempt"));
+    probeOptions.remove(QStringLiteral("allowPreempt"));
     QVariantMap host = callInputCaptureService(QStringLiteral("EnableSession"),
                                                session,
                                                {},
                                                QString(),
                                                QString(),
-                                               options);
-    const bool wantsPreempt =
-        options.value(QStringLiteral("allow_preempt")).toBool()
-        || options.value(QStringLiteral("allowPreempt")).toBool();
+                                               probeOptions);
     const bool canPreempt = canAttemptInputCapturePreempt(ctx, options);
     QVariantMap mediationPolicyDetails;
     const auto persistMediationDecision = [&](const QVariantMap &consent) -> QVariantMap {
@@ -2462,7 +2572,32 @@ QVariantMap ImplPortalService::BridgeInputCaptureEnable(const QString &handle,
             results.insert(QStringLiteral("host_preempt_retry_via_consent"), true);
             hostReason = host.value(QStringLiteral("reason")).toString().trimmed();
         } else {
-            hostReason = QStringLiteral("preempt-requires-trusted-mediation");
+            // When the consent UI is simply unavailable (not a denial), security is bypassed,
+            // and the caller made no explicit official-UI claim, allow a direct preempt.
+            const bool uiMissing = consent.value(QStringLiteral("reason")).toString()
+                                   == QStringLiteral("consent-ui-unavailable");
+            const bool claimedOfficialUi =
+                ctx.value(QStringLiteral("initiatedFromOfficialUI")).toBool()
+                || options.value(QStringLiteral("initiatedFromOfficialUI")).toBool();
+            if (uiMissing && !m_guard.isEnabled() && !claimedOfficialUi) {
+                QVariantMap preemptOptions = options;
+                preemptOptions.insert(QStringLiteral("allow_preempt"), true);
+                if (!preemptOptions.contains(QStringLiteral("preempt_reason"))) {
+                    preemptOptions.insert(QStringLiteral("preempt_reason"),
+                                          QStringLiteral("security-bypassed-direct-preempt"));
+                }
+                host = callInputCaptureService(QStringLiteral("EnableSession"),
+                                               session,
+                                               {},
+                                               QString(),
+                                               QString(),
+                                               preemptOptions);
+                results.insert(QStringLiteral("host_preempt_retry"), true);
+                results.insert(QStringLiteral("host_preempt_retry_via_bypass"), true);
+                hostReason = host.value(QStringLiteral("reason")).toString().trimmed();
+            } else {
+                hostReason = QStringLiteral("preempt-requires-trusted-mediation");
+            }
         }
     }
     if (host.contains(QStringLiteral("ok")) && !host.value(QStringLiteral("ok")).toBool()) {
@@ -3346,6 +3481,229 @@ QVariantMap ImplPortalService::BridgeTrashEmpty(const QString &handle,
     QVariantMap results;
     results.insert(QStringLiteral("job_id"), reply.value());
     results.insert(QStringLiteral("emptying"), true);
+
+    QVariantMap out;
+    out.insert(QStringLiteral("ok"), true);
+    out.insert(QStringLiteral("response"), 0u);
+    out.insert(QStringLiteral("results"), results);
+    return normalizePortalLikeResult(out);
+}
+
+// ── Background ──────────────────────────────────────────────────────────────
+
+namespace {
+constexpr const char kAppsService[] = "org.desktop.Apps";
+constexpr const char kAppsPath[]    = "/org/desktop/Apps";
+constexpr const char kAppsIface[]   = "org.desktop.Apps";
+
+// xdg-desktop-portal Background portal state values (uint32)
+constexpr uint kBgStateBackground = 0;
+constexpr uint kBgStateRunning    = 1;
+constexpr uint kBgStateActive     = 2;
+
+uint slmStateToBgState(const QString &state)
+{
+    if (state == QStringLiteral("background") || state == QStringLiteral("idle")) {
+        return kBgStateBackground;
+    }
+    if (state == QStringLiteral("active") || state == QStringLiteral("focused")) {
+        return kBgStateActive;
+    }
+    return kBgStateRunning;
+}
+
+// Sanitise an app_id so it can be used as a filename component.
+// Keeps only [A-Za-z0-9._-] and limits to 128 chars.
+QString sanitiseAppId(const QString &raw)
+{
+    QString out;
+    out.reserve(raw.size());
+    for (const QChar c : raw) {
+        if (c.isLetterOrNumber() || c == QLatin1Char('.') || c == QLatin1Char('_') || c == QLatin1Char('-')) {
+            out.append(c);
+        }
+    }
+    return out.left(128);
+}
+} // namespace
+
+QVariantMap ImplPortalService::BridgeBackgroundGetAppState()
+{
+    QVariantMap states;
+    QDBusInterface appsIface(QString::fromLatin1(kAppsService),
+                              QString::fromLatin1(kAppsPath),
+                              QString::fromLatin1(kAppsIface),
+                              QDBusConnection::sessionBus());
+    if (!appsIface.isValid()) {
+        return states;
+    }
+    QDBusReply<QVariantList> reply = appsIface.call(QStringLiteral("ListRunningApps"));
+    if (!reply.isValid()) {
+        return states;
+    }
+    for (const QVariant &v : reply.value()) {
+        const QVariantMap entry = v.toMap();
+        const QString appId = entry.value(QStringLiteral("appId")).toString().trimmed();
+        const QString state = entry.value(QStringLiteral("state")).toString().trimmed();
+        if (appId.isEmpty()) {
+            continue;
+        }
+        states.insert(appId, QVariant::fromValue(slmStateToBgState(state)));
+    }
+    return states;
+}
+
+QVariantMap ImplPortalService::BridgeBackgroundNotify(const QDBusObjectPath &handle,
+                                                      const QString &appId,
+                                                      const QString &name)
+{
+    if (calledFromDBus()) {
+        using namespace Slm::Permissions;
+        const auto decision = m_guard.check(message(), Capability::PortalBackgroundNotify);
+        if (!decision.isAllowed()) {
+            return normalizePortalLikeResult(
+                SlmPortalResponseBuilder::permissionDenied(QStringLiteral("Background.NotifyBackground")));
+        }
+    }
+    const QString handlePath = handle.path().trimmed();
+    const QString app = appId.trimmed();
+    const QString displayName = name.trimmed();
+    if (app.isEmpty()) {
+        return normalizePortalLikeResult(
+            SlmPortalResponseBuilder::invalidArgument(
+                QStringLiteral("Background.NotifyBackground"),
+                {{QStringLiteral("reason"), QStringLiteral("empty-app-id")}}));
+    }
+
+    QDBusInterface ui(QString::fromLatin1(kPortalUiService),
+                       QString::fromLatin1(kPortalUiPath),
+                       QString::fromLatin1(kPortalUiIface),
+                       QDBusConnection::sessionBus());
+    if (!ui.isValid()) {
+        // No UI available — allow by default so background apps are not silently killed.
+        QVariantMap results;
+        results.insert(QStringLiteral("allowed"), true);
+        results.insert(QStringLiteral("ui_available"), false);
+        QVariantMap out;
+        out.insert(QStringLiteral("ok"), true);
+        out.insert(QStringLiteral("response"), kBgStateBackground); // 0 = allow
+        out.insert(QStringLiteral("results"), results);
+        return normalizePortalLikeResult(out);
+    }
+    ui.setTimeout(kPortalUiTimeoutMs);
+
+    const QVariantMap payload{
+        {QStringLiteral("requestPath"), handlePath},
+        {QStringLiteral("appId"), app},
+        {QStringLiteral("displayName"), displayName},
+        {QStringLiteral("capability"), QStringLiteral("Background.NotifyBackground")},
+        {QStringLiteral("resourceType"), QStringLiteral("background-app")},
+        {QStringLiteral("resourceId"), app},
+        {QStringLiteral("sensitivityLevel"), QStringLiteral("medium")},
+    };
+    QDBusReply<QVariantMap> uiReply = ui.call(QStringLiteral("BackgroundRequest"), payload);
+
+    const bool uiOk = uiReply.isValid() && uiReply.value().value(QStringLiteral("ok")).toBool();
+    // response: 0 = allow background, 1 = deny/kill
+    const uint response = uiOk ? 0u : 1u;
+    QVariantMap results;
+    results.insert(QStringLiteral("allowed"), uiOk);
+    results.insert(QStringLiteral("ui_available"), true);
+    if (uiReply.isValid()) {
+        results.insert(QStringLiteral("ui_response"), uiReply.value());
+    }
+
+    QVariantMap out;
+    out.insert(QStringLiteral("ok"), uiOk);
+    out.insert(QStringLiteral("response"), response);
+    out.insert(QStringLiteral("results"), results);
+    return normalizePortalLikeResult(out);
+}
+
+QVariantMap ImplPortalService::BridgeBackgroundEnableAutostart(const QString &appId,
+                                                               bool enable,
+                                                               const QStringList &commandline,
+                                                               uint flags)
+{
+    if (calledFromDBus()) {
+        using namespace Slm::Permissions;
+        const auto decision = m_guard.check(message(), Capability::PortalBackgroundAutostart);
+        if (!decision.isAllowed()) {
+            return normalizePortalLikeResult(
+                SlmPortalResponseBuilder::permissionDenied(QStringLiteral("Background.EnableAutostart")));
+        }
+    }
+    const QString app = sanitiseAppId(appId.trimmed());
+    if (app.isEmpty()) {
+        return normalizePortalLikeResult(
+            SlmPortalResponseBuilder::invalidArgument(
+                QStringLiteral("Background.EnableAutostart"),
+                {{QStringLiteral("reason"), QStringLiteral("empty-app-id")}}));
+    }
+
+    const QString autostartDir = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation)
+                                 + QStringLiteral("/autostart");
+    const QString filePath = autostartDir + QChar(u'/') + app + QStringLiteral(".desktop");
+
+    QDir dir;
+    if (!dir.exists(autostartDir) && !dir.mkpath(autostartDir)) {
+        return normalizePortalLikeResult(
+            SlmPortalResponseBuilder::serviceUnavailable(
+                QStringLiteral("Background.EnableAutostart"),
+                {{QStringLiteral("reason"), QStringLiteral("cannot-create-autostart-dir")}}));
+    }
+
+    if (!enable) {
+        // Disable: remove the file if it exists, or write disabled marker.
+        if (QFile::exists(filePath)) {
+            QSettings desktop(filePath, QSettings::IniFormat);
+            desktop.beginGroup(QStringLiteral("Desktop Entry"));
+            desktop.setValue(QStringLiteral("X-GNOME-Autostart-enabled"), false);
+            desktop.endGroup();
+            desktop.sync();
+        }
+        QVariantMap results;
+        results.insert(QStringLiteral("autostart"), false);
+        results.insert(QStringLiteral("app_id"), app);
+        QVariantMap out;
+        out.insert(QStringLiteral("ok"), true);
+        out.insert(QStringLiteral("response"), 0u);
+        out.insert(QStringLiteral("results"), results);
+        return normalizePortalLikeResult(out);
+    }
+
+    // Enable: write (or overwrite) the .desktop file.
+    const bool dbusActivation = (flags & 1u) != 0u;
+    QFile file(filePath);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Truncate)) {
+        return normalizePortalLikeResult(
+            SlmPortalResponseBuilder::serviceUnavailable(
+                QStringLiteral("Background.EnableAutostart"),
+                {{QStringLiteral("reason"), QStringLiteral("cannot-write-autostart-file")}}));
+    }
+    QTextStream ts(&file);
+    ts << "[Desktop Entry]\n";
+    ts << "Type=Application\n";
+    ts << "Name=" << app << "\n";
+    if (!commandline.isEmpty() && !dbusActivation) {
+        ts << "Exec=" << commandline.join(QLatin1Char(' ')) << "\n";
+    } else if (dbusActivation) {
+        ts << "DBusActivatable=true\n";
+        ts << "Exec=\n";
+    } else {
+        ts << "Exec=" << app << "\n";
+    }
+    ts << "X-GNOME-Autostart-enabled=true\n";
+    if (dbusActivation) {
+        ts << "X-Flatpak-DBusActivatable=true\n";
+    }
+    file.close();
+
+    QVariantMap results;
+    results.insert(QStringLiteral("autostart"), true);
+    results.insert(QStringLiteral("app_id"), app);
+    results.insert(QStringLiteral("autostart_file"), filePath);
+    results.insert(QStringLiteral("dbus_activation"), dbusActivation);
 
     QVariantMap out;
     out.insert(QStringLiteral("ok"), true);

@@ -199,6 +199,11 @@ void PortalAccessMediator::setSessionManager(PortalSessionManager *sessionManage
     m_sessionManager = sessionManager;
 }
 
+void PortalAccessMediator::setSecurityBypassed(bool bypassed)
+{
+    m_securityBypassed = bypassed;
+}
+
 QVariantMap PortalAccessMediator::handlePortalRequest(const QString &portalMethod,
                                                       const QDBusMessage &message,
                                                       const QVariantMap &parameters)
@@ -356,7 +361,11 @@ QVariantMap PortalAccessMediator::handlePortalSessionRequest(const QString &port
                                                              const QDBusMessage &message,
                                                              const QVariantMap &parameters)
 {
-    if (!m_mapper || !m_trustResolver || !m_permissionBroker || !m_requestManager || !m_sessionManager) {
+    if (!m_mapper || !m_requestManager || !m_sessionManager) {
+        return PortalResponseSerializer::error(PortalError::BackendUnavailable,
+                                               QStringLiteral("session-mediator-not-initialized"));
+    }
+    if (!m_securityBypassed && (!m_trustResolver || !m_permissionBroker)) {
         return PortalResponseSerializer::error(PortalError::BackendUnavailable,
                                                QStringLiteral("session-mediator-not-initialized"));
     }
@@ -373,9 +382,10 @@ QVariantMap PortalAccessMediator::handlePortalSessionRequest(const QString &port
     }
 
     Slm::Permissions::CallerIdentity caller = Slm::Permissions::resolveCallerIdentityFromDbus(message);
-    caller = m_trustResolver->resolveTrust(caller);
+    if (m_trustResolver) {
+        caller = m_trustResolver->resolveTrust(caller);
+    }
     const Slm::Permissions::AccessContext context = buildAccessContext(spec, caller, parameters);
-    const Slm::Permissions::PolicyDecision policy = m_permissionBroker->requestAccess(caller, context);
 
     PortalRequestObject *request = nullptr;
     const QString requestPath =
@@ -409,6 +419,15 @@ QVariantMap PortalAccessMediator::handlePortalSessionRequest(const QString &port
             {QStringLiteral("active"), true},
         });
     };
+
+    // Bypass mode: skip policy check, immediately allow session creation.
+    if (m_securityBypassed) {
+        const QVariantMap payload = createActiveSession();
+        request->respondSuccess(payload);
+        return successWithHandle(requestPath, payload);
+    }
+
+    const Slm::Permissions::PolicyDecision policy = m_permissionBroker->requestAccess(caller, context);
 
     if (policy.type == Slm::Permissions::DecisionType::Allow
         || policy.type == Slm::Permissions::DecisionType::AllowOnce

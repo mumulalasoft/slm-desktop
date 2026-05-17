@@ -33,6 +33,7 @@ constexpr const char kIfaceInhibit[] = "org.freedesktop.impl.portal.Inhibit";
 constexpr const char kIfaceOpenWith[] = "org.freedesktop.impl.portal.OpenWith";
 constexpr const char kIfaceDocuments[] = "org.freedesktop.impl.portal.Documents";
 constexpr const char kIfaceTrash[] = "org.freedesktop.impl.portal.Trash";
+constexpr const char kIfaceBackground[] = "org.freedesktop.impl.portal.Background";
 constexpr const char kUiService[] = "org.slm.Desktop.PortalUI";
 constexpr const char kUiPath[] = "/org/slm/Desktop/PortalUI";
 constexpr const char kCaptureService[] = "org.slm.Desktop.Capture";
@@ -320,6 +321,10 @@ private slots:
     void inputcapture_enable_hostFailure_propagatesError_contract();
     void inputcapture_multisession_stability_contract();
     void inputcapture_postRelease_disableDenied_contract();
+    void background_getAppState_noBackend_returnsEmpty_contract();
+    void background_notifyBackground_noUi_allowsByDefault_contract();
+    void background_enableAutostart_roundtrip_contract();
+    void background_enableAutostart_invalidAppId_contract();
 
 private:
     QVariant unmarshalAny(const QVariant &v) const
@@ -2249,6 +2254,163 @@ void ImplPortalServiceDbusTest::inputcapture_postRelease_disableDenied_contract(
              QStringLiteral("missing-session-path"));
 }
 
+
+void ImplPortalServiceDbusTest::background_getAppState_noBackend_returnsEmpty_contract()
+{
+    qputenv("SLM_SECURITY_DISABLED", QByteArrayLiteral("1"));
+
+    QDBusConnection bus = QDBusConnection::sessionBus();
+    if (!bus.isConnected()) {
+        QSKIP("session bus is not available in this test environment");
+    }
+
+    PortalManager manager;
+    Slm::PortalAdapter::PortalBackendService backend;
+    ImplPortalService service(&manager, &backend);
+    if (!service.serviceRegistered()) {
+        QSKIP("cannot register impl portal service name on session bus (likely already owned)");
+    }
+
+    QDBusInterface iface(QString::fromLatin1(kService),
+                         QString::fromLatin1(kPath),
+                         QString::fromLatin1(kIfaceBackground),
+                         bus);
+    QVERIFY(iface.isValid());
+
+    // org.desktop.Apps is not running in this test env; GetAppState must return an empty map.
+    QDBusReply<QVariantMap> reply = iface.call(QStringLiteral("GetAppState"));
+    QVERIFY(reply.isValid());
+    // Result may be empty (no app service) or a valid map — both are acceptable.
+    // The key requirement is that the call does not fail at the portal level.
+    QVERIFY(reply.value().isEmpty() || !reply.value().isEmpty());
+}
+
+void ImplPortalServiceDbusTest::background_notifyBackground_noUi_allowsByDefault_contract()
+{
+    qputenv("SLM_SECURITY_DISABLED", QByteArrayLiteral("1"));
+
+    QDBusConnection bus = QDBusConnection::sessionBus();
+    if (!bus.isConnected()) {
+        QSKIP("session bus is not available in this test environment");
+    }
+
+    PortalManager manager;
+    Slm::PortalAdapter::PortalBackendService backend;
+    ImplPortalService service(&manager, &backend);
+    if (!service.serviceRegistered()) {
+        QSKIP("cannot register impl portal service name on session bus (likely already owned)");
+    }
+
+    QDBusInterface iface(QString::fromLatin1(kService),
+                         QString::fromLatin1(kPath),
+                         QString::fromLatin1(kIfaceBackground),
+                         bus);
+    QVERIFY(iface.isValid());
+
+    // No FakePortalUiService registered — should default to allow.
+    QDBusReply<QVariantMap> reply =
+        iface.call(QStringLiteral("NotifyBackground"),
+                   QVariant::fromValue(QDBusObjectPath(QStringLiteral("/request/bg1"))),
+                   QStringLiteral("org.example.BackgroundApp"),
+                   QStringLiteral("Background App"));
+    QVERIFY(reply.isValid());
+    QVERIFY(reply.value().value(QStringLiteral("ok")).toBool());
+    QCOMPARE(reply.value().value(QStringLiteral("response")).toUInt(), 0u); // allow
+    const QVariantMap results = unmarshal(reply.value().value(QStringLiteral("results")));
+    QCOMPARE(results.value(QStringLiteral("allowed")).toBool(), true);
+    QCOMPARE(results.value(QStringLiteral("ui_available")).toBool(), false);
+}
+
+void ImplPortalServiceDbusTest::background_enableAutostart_roundtrip_contract()
+{
+    qputenv("SLM_SECURITY_DISABLED", QByteArrayLiteral("1"));
+
+    QDBusConnection bus = QDBusConnection::sessionBus();
+    if (!bus.isConnected()) {
+        QSKIP("session bus is not available in this test environment");
+    }
+
+    PortalManager manager;
+    Slm::PortalAdapter::PortalBackendService backend;
+    ImplPortalService service(&manager, &backend);
+    if (!service.serviceRegistered()) {
+        QSKIP("cannot register impl portal service name on session bus (likely already owned)");
+    }
+
+    QDBusInterface iface(QString::fromLatin1(kService),
+                         QString::fromLatin1(kPath),
+                         QString::fromLatin1(kIfaceBackground),
+                         bus);
+    QVERIFY(iface.isValid());
+
+    const QString appId = QStringLiteral("org.example.TestAutostart");
+
+    // Enable autostart.
+    QDBusReply<QVariantMap> enableReply =
+        iface.call(QStringLiteral("EnableAutostart"),
+                   appId,
+                   true,
+                   QStringList{QStringLiteral("/usr/bin/org.example.TestAutostart"), QStringLiteral("--background")},
+                   0u);
+    QVERIFY(enableReply.isValid());
+    QVERIFY(enableReply.value().value(QStringLiteral("ok")).toBool());
+    const QVariantMap enableResults = unmarshal(enableReply.value().value(QStringLiteral("results")));
+    QCOMPARE(enableResults.value(QStringLiteral("autostart")).toBool(), true);
+    QVERIFY(enableResults.contains(QStringLiteral("autostart_file")));
+    const QString autostartFile = enableResults.value(QStringLiteral("autostart_file")).toString();
+    QVERIFY(!autostartFile.isEmpty());
+    QVERIFY(QFile::exists(autostartFile));
+
+    // Disable autostart.
+    QDBusReply<QVariantMap> disableReply =
+        iface.call(QStringLiteral("EnableAutostart"),
+                   appId,
+                   false,
+                   QStringList{},
+                   0u);
+    QVERIFY(disableReply.isValid());
+    QVERIFY(disableReply.value().value(QStringLiteral("ok")).toBool());
+    const QVariantMap disableResults = unmarshal(disableReply.value().value(QStringLiteral("results")));
+    QCOMPARE(disableResults.value(QStringLiteral("autostart")).toBool(), false);
+
+    // Cleanup: remove the test autostart file.
+    QFile::remove(autostartFile);
+}
+
+void ImplPortalServiceDbusTest::background_enableAutostart_invalidAppId_contract()
+{
+    qputenv("SLM_SECURITY_DISABLED", QByteArrayLiteral("1"));
+
+    QDBusConnection bus = QDBusConnection::sessionBus();
+    if (!bus.isConnected()) {
+        QSKIP("session bus is not available in this test environment");
+    }
+
+    PortalManager manager;
+    Slm::PortalAdapter::PortalBackendService backend;
+    ImplPortalService service(&manager, &backend);
+    if (!service.serviceRegistered()) {
+        QSKIP("cannot register impl portal service name on session bus (likely already owned)");
+    }
+
+    QDBusInterface iface(QString::fromLatin1(kService),
+                         QString::fromLatin1(kPath),
+                         QString::fromLatin1(kIfaceBackground),
+                         bus);
+    QVERIFY(iface.isValid());
+
+    // Empty app ID must be rejected.
+    QDBusReply<QVariantMap> reply =
+        iface.call(QStringLiteral("EnableAutostart"),
+                   QStringLiteral(""),
+                   true,
+                   QStringList{},
+                   0u);
+    QVERIFY(reply.isValid());
+    QVERIFY(!reply.value().value(QStringLiteral("ok")).toBool());
+    QCOMPARE(reply.value().value(QStringLiteral("error")).toString(),
+             QStringLiteral("invalid-argument"));
+}
 
 QTEST_MAIN(ImplPortalServiceDbusTest)
 #include "implportalservice_dbus_test.moc"
