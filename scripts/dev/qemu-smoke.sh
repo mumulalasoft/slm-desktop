@@ -380,6 +380,10 @@ if [[ "$FAST_MODE" == "1" ]]; then
         -e "$(printf '%q ' "${SSH_CMD[@]}" "${SSH_OPTS[@]}")" \
         "$HOST_REPO_DIR/Qml/apps/settings/components/" \
         "$SSH_HOST:$BUILD_DIR/settings-components/"
+    rsync -az \
+        -e "$(printf '%q ' "${SSH_CMD[@]}" "${SSH_OPTS[@]}")" \
+        "$HOST_REPO_DIR/scripts/polkit/" \
+        "$SSH_HOST:$BUILD_DIR/polkit-actions/"
 else
     echo "[qemu-smoke] Syncing full build tree ke guest ($BUILD_DIR)..."
     rsync -az --delete \
@@ -442,6 +446,14 @@ cp -a '__BUILD_DIR__/settings-modules/.' /usr/lib/settings/modules/
 install -d -m0755 /usr/lib/settings/components
 rm -rf /usr/lib/settings/components/*
 cp -a '__BUILD_DIR__/settings-components/.' /usr/lib/settings/components/
+install -d -m0755 /usr/share/polkit-1/actions
+for policy in org.slm.desktop.devices.policy \
+              org.slm.desktop.foldersharing.policy \
+              org.slm.settings.policy; do
+    if [[ -f \"__BUILD_DIR__/polkit-actions/\$policy\" ]]; then
+        install -Dm644 \"__BUILD_DIR__/polkit-actions/\$policy\" \"/usr/share/polkit-1/actions/\$policy\"
+    fi
+done
 install_exec_atomic '__BUILD_DIR__/indicatorctl' /usr/local/bin/indicatorctl
 install_exec_atomic '__BUILD_DIR__/windowingctl' /usr/local/bin/windowingctl
 install_exec_atomic '__BUILD_DIR__/workspacectl' /usr/local/bin/workspacectl

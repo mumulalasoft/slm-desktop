@@ -25,6 +25,7 @@ SLM_LIBEXEC_DIR="/usr/local/libexec/slm/recovery"
 SESSION_DIR="/usr/share/wayland-sessions"
 SETTINGS_MODULES_DIR="/usr/lib/settings/modules"
 SETTINGS_COMPONENTS_DIR="/usr/lib/settings/components"
+POLKIT_ACTIONS_DIR="/usr/share/polkit-1/actions"
 
 echo "[install-slm-runtime] root=$ROOT_DIR"
 echo "[install-slm-runtime] build=$BUILD_DIR"
@@ -95,6 +96,19 @@ fi
 
 install -Dm644 "$ROOT_DIR/sessions/slm.desktop" "$SESSION_DIR/slm.desktop"
 echo "[install-slm-runtime][OK] $SESSION_DIR/slm.desktop"
+
+install -d -m0755 "$POLKIT_ACTIONS_DIR"
+for policy in org.slm.desktop.devices.policy \
+              org.slm.desktop.foldersharing.policy \
+              org.slm.settings.policy; do
+  src="$ROOT_DIR/scripts/polkit/$policy"
+  if [[ -f "$src" ]]; then
+    install -Dm644 "$src" "$POLKIT_ACTIONS_DIR/$policy"
+    echo "[install-slm-runtime][OK] $POLKIT_ACTIONS_DIR/$policy"
+  else
+    echo "[install-slm-runtime][WARN] polkit policy missing: $src"
+  fi
+done
 
 install -d "$SLM_LIBEXEC_DIR"
 install -m755 "$ROOT_DIR/scripts/recovery/request-bootloader-recovery.sh" \
