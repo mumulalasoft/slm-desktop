@@ -897,6 +897,11 @@ void SessionBroker::removeStaleWaylandSockets()
 
     // Kill any orphaned compositor that still holds the DRM master.
     // We have not launched ours yet, so any kwin_wayland alive is a leftover.
+    // Skip the 500ms wait entirely when no kwin_wayland is actually running.
+    if (QProcess::execute(QStringLiteral("pgrep"),
+                          {QStringLiteral("-x"), QStringLiteral("kwin_wayland")}) != 0) {
+        return;
+    }
     QProcess::execute(QStringLiteral("pkill"),
                       {QStringLiteral("-TERM"), QStringLiteral("-x"),
                        QStringLiteral("kwin_wayland")});
@@ -905,7 +910,7 @@ void SessionBroker::removeStaleWaylandSockets()
                       {QStringLiteral("-KILL"), QStringLiteral("-x"),
                        QStringLiteral("kwin_wayland")});
     QThread::msleep(100);
-    qWarning("compositor: killed orphaned kwin_wayland (if any)");
+    qWarning("compositor: killed orphaned kwin_wayland");
 }
 
 // ── Compositor launch & socket detection ──────────────────────────────────────

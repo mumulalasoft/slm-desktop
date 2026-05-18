@@ -1045,7 +1045,10 @@ Window {
         Qt::QueuedConnection);
     // Prefer direct qrc loading for startup reliability. Support both resource
     // prefixes used by different Qt/CMake generator configurations.
-    const bool fastFirstFrame = envFlagEnabled("SLM_FAST_FIRST_FRAME");
+    // FastMain path is the default: render wallpaper+tint as first frame, then
+    // load Main.qml asynchronously. Opt-out via SLM_DISABLE_FAST_FIRST_FRAME=1.
+    // SLM_FAST_FIRST_FRAME=1 is still honored as a no-op (kept for legacy callers).
+    const bool fastFirstFrame = !envFlagEnabled("SLM_DISABLE_FAST_FIRST_FRAME");
     const QString mainQmlQtPrefix = fastFirstFrame
             ? ResourcePaths::Qml::fastMainQtPrefix()
             : ResourcePaths::Qml::mainQtPrefix();

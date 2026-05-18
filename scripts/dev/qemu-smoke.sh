@@ -758,36 +758,46 @@ while true; do
     rc=\$?
     log_msg \"cage exited rc=\$rc\"
 
-    # Wait for the user session to be fully registered and its compositor to start.
-    # We use a 3-second grace period because QEMU is slow.
-    sleep 3
-    waited=3
-
-    # Check for active user sessions. We use sudo to ensure we can see all sessions
-    # and processes, and check for BOTH kwin_wayland AND any session by UID 1000.
-    while true; do
-        # 1. Check for kwin_wayland process (any user)
+    # Adaptive grace: poll every 200ms for up to 6s for the user-session
+    # compositor to appear. Replaces a blind 3s sleep.
+    ticks=0
+    grace_max=30
+    session_up=0
+    while [ \"\$ticks\" -lt \"\$grace_max\" ]; do
         if pgrep -x kwin_wayland >/dev/null 2>&1; then
-            [ \"\$waited\" -eq 3 ] && log_msg \"kwin_wayland detected - holding off cage restart\"
-        # 2. Check for any active session for user 1000
-        elif loginctl list-sessions --no-pager 2>/dev/null | grep -v -E "SESSION|greeter" | grep -q .; then
-            [ \"\$waited\" -eq 3 ] && log_msg \"user session detected via loginctl - holding off cage restart\"
-        else
-            # No session detected
+            log_msg \"kwin_wayland detected after \$(( ticks * 200 ))ms - holding off cage restart\"
+            session_up=1
             break
         fi
-        
-        waited=\$(( waited + 1 ))
-        sleep 1
+        if loginctl list-sessions --no-pager 2>/dev/null | grep -v -E "SESSION|greeter" | grep -q .; then
+            log_msg \"user session detected via loginctl after \$(( ticks * 200 ))ms - holding off cage restart\"
+            session_up=1
+            break
+        fi
+        ticks=\$(( ticks + 1 ))
+        sleep 0.2
     done
 
-    if [ \"\$waited\" -gt 3 ]; then
-        log_msg \"user session ended after \${waited}s - restarting cage\"
-        sleep 1
-    else
-        log_msg "no user session detected after grace period — restarting cage immediately"
+    if [ \"\$session_up\" -eq 0 ]; then
+        log_msg \"no user session detected after \$(( grace_max * 200 ))ms - restarting cage immediately\"
         sleep 0.5
+        continue
     fi
+
+    # Compositor is up — wait until it ends before restarting cage.
+    while true; do
+        if pgrep -x kwin_wayland >/dev/null 2>&1; then
+            sleep 1
+            continue
+        fi
+        if loginctl list-sessions --no-pager 2>/dev/null | grep -v -E "SESSION|greeter" | grep -q .; then
+            sleep 1
+            continue
+        fi
+        break
+    done
+    log_msg \"user session ended - restarting cage\"
+    sleep 1
 done
 SLM_GREETER_CAGE
     chmod 0755 /usr/local/libexec/slm-greeter-cage-launch

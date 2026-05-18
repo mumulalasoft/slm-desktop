@@ -178,35 +178,40 @@ while true; do
     _rc=$?
     _log_msg "cage exited rc=$_rc"
 
-    # Wait for the user session to be fully registered and its compositor to start.
-    # We use a 3-second grace period because QEMU is slow.
-    sleep 3
-    _waited=3
-
-    # Check for active user sessions.
-    while true; do
-        # 1. Check for kwin_wayland process (any user)
+    # Adaptive grace: poll every 200ms for up to 6s for the user-session
+    # compositor to appear. This replaces a blind 3s sleep so the happy path
+    # exits the grace window as soon as the session is detected.
+    _ticks=0
+    _grace_max=30
+    _session_up=0
+    while [ "$_ticks" -lt "$_grace_max" ]; do
         if pgrep -x kwin_wayland >/dev/null 2>&1; then
-            [ "$_waited" -eq 3 ] && _log_msg "kwin_wayland detected — holding off cage restart"
-        # 2. Check for any active session for user 1000
-        elif loginctl list-sessions --no-pager 2>/dev/null | grep -v -E "SESSION|greeter" | grep -q .; then
-            [ "$_waited" -eq 3 ] && _log_msg "user session detected via loginctl — holding off cage restart"
-        else
-            # No session detected
+            _log_msg "kwin_wayland detected after $(( _ticks * 200 ))ms — holding off cage restart"
+            _session_up=1
             break
         fi
-        
-        _waited=$(( _waited + 1 ))
-        sleep 1
+        if loginctl list-sessions --no-pager 2>/dev/null | grep -v -E "SESSION|greeter" | grep -q .; then
+            _log_msg "user session detected via loginctl after $(( _ticks * 200 ))ms — holding off cage restart"
+            _session_up=1
+            break
+        fi
+        _ticks=$(( _ticks + 1 ))
+        sleep 0.2
     done
 
-    if [ "$_waited" -gt 3 ]; then
-        _log_msg "user session ended after ${_waited}s — restarting cage"
-        sleep 1
-    else
-        _log_msg "no user session detected after grace period — restarting cage immediately"
+    if [ "$_session_up" -eq 0 ]; then
+        _log_msg "no user session detected after $(( _grace_max * 200 ))ms — restarting cage immediately"
         sleep 0.5
+        continue
     fi
+
+    # Compositor is up — wait until it ends before restarting cage.
+    while pgrep -x kwin_wayland >/dev/null 2>&1 \
+          || loginctl list-sessions --no-pager 2>/dev/null | grep -v -E "SESSION|greeter" | grep -q .; do
+        sleep 1
+    done
+    _log_msg "user session ended — restarting cage"
+    sleep 1
 done
 EOF
 chmod 0755 "$GREETER_CAGE_LAUNCHER"

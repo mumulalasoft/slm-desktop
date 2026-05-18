@@ -62,10 +62,5 @@ Window {
         color: DSStyle.Theme.color("wallpaperTint")
     }
 
-    Timer {
-        interval: 120
-        running: true
-        repeat: false
-        onTriggered: root.startFullShellLoad()
-    }
+    Component.onCompleted: Qt.callLater(root.startFullShellLoad)
 }
