@@ -27,11 +27,19 @@ static QVariant normalizeDbusVariant(const QVariant &v)
         return normalizeDbusVariant(qvariant_cast<QDBusVariant>(v).variant());
     if (v.userType() == qMetaTypeId<QDBusArgument>()) {
         const QDBusArgument arg = qvariant_cast<QDBusArgument>(v);
-        const QVariantMap asMap = qdbus_cast<QVariantMap>(arg);
-        if (!asMap.isEmpty()) return normalizeDbusMap(asMap);
-        const QVariantList asList = qdbus_cast<QVariantList>(arg);
-        if (!asList.isEmpty()) return normalizeDbusList(asList);
-        return {};
+        // QDBusArgument's read cursor is consumed by qdbus_cast, so we must
+        // pick the right cast based on the signature instead of trying both —
+        // the second cast would read past the end and libdbus aborts with
+        // "You can't recurse into an empty array or off the end of a message
+        // body" (which crashes slm-settings before any window appears).
+        const QString sig = arg.currentSignature();
+        if (sig.startsWith(QLatin1String("a{"))) {
+            return normalizeDbusMap(qdbus_cast<QVariantMap>(arg));
+        }
+        if (sig.startsWith(QLatin1Char('a'))) {
+            return normalizeDbusList(qdbus_cast<QVariantList>(arg));
+        }
+        return v;
     }
     if (v.userType() == QMetaType::QVariantMap)
         return normalizeDbusMap(v.toMap());
