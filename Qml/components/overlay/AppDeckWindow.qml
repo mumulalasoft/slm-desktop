@@ -2,6 +2,7 @@ import QtQuick 2.15
 import QtQuick.Window 2.15
 import Slm_Desktop
 import "../appdeck" as AppDeckComp
+import "../appdeck/v2" as AppDeckV2
 import "./AppDeckActions.js" as AppDeckActions
 import "../shell/PulseController.js" as PulseController
 
@@ -96,7 +97,7 @@ Window {
     readonly property bool pulseMode: root.gridActive && root.mode === "pulse"
     readonly property bool contextMode: root.gridActive && root.mode === "context"
     readonly property bool immersiveMode: root.gridActive
-    readonly property int motionSurfaceDuration: Theme.durationNormal
+    readonly property int motionSurfaceDuration: root.morphDuration
     readonly property int motionCrossfadeDuration: Theme.durationFast
     readonly property int motionQuickDuration: Theme.durationSm
     readonly property real sharedPanelMarginX: Math.max(28, root.width * 0.07)
@@ -131,20 +132,37 @@ Window {
                                                       8,
                                                       Number(root.desktopScene ? root.desktopScene.dockBottomMargin : 0)
                                                   )
+    readonly property color dockMorphSourceColor: {
+        var c = Theme.color("windowCard")
+        return Qt.rgba(c.r, c.g, c.b, Math.max(0.94, c.a))
+    }
+
+    function mixColor(a, b, t) {
+        var p = Math.max(0.0, Math.min(1.0, Number(t || 0)))
+        return Qt.rgba(a.r + ((b.r - a.r) * p),
+                       a.g + ((b.g - a.g) * p),
+                       a.b + ((b.b - a.b) * p),
+                       a.a + ((b.a - a.a) * p))
+    }
 
     readonly property bool motionEngineReady: typeof MotionController !== "undefined"
                                                 && MotionController
                                                 && typeof MotionController.startFromCurrent === "function"
                                                 && typeof MotionController.retarget === "function"
                                                 && typeof MotionController.cancelAndSettle === "function"
-    readonly property real surfaceTarget: immersiveMode ? 1.0 : 0.0
+    readonly property real surfaceTarget: root.state === "grid" ? 1.0 : 0.0
     property real fallbackSurfaceTransition: surfaceTarget
+    property real _surfaceAnimFrom: surfaceTarget
+    property real _surfaceAnimTo: surfaceTarget
+    property double _surfaceAnimStartMs: 0
+    property int _surfaceAnimDuration: root.motionSurfaceDuration
     // Shared transition progress: 0 = dock surface, 1 = grid/pulse surface.
     readonly property real engineSurfaceTransition: motionEngineReady
                                                ? Math.max(0.0, Math.min(1.0, Number(MotionController.value || 0)))
                                                : fallbackSurfaceTransition
     readonly property real surfaceTransition: immersiveMode
-                                               ? Math.max(engineSurfaceTransition, fallbackSurfaceTransition)
+                                               ? Math.max(engineSurfaceTransition,
+                                                          fallbackSurfaceTransition)
                                                : fallbackSurfaceTransition
     // §28 APPDECK.md – Content Reveal Timeline stagger
     // dock→grid: 0.00–0.40 morph only, 0.40–0.70 content reveal, 0.70–1.00 settle
@@ -160,7 +178,10 @@ Window {
         if (t >= 0.70) return (t - 0.70) / 0.30
         return 0.0
     }
-    readonly property real appsTransition: (root.gridAppsMode || root.dockActive) ? root.contentRevealOpacity : 0.0
+    readonly property real appsTransition: root.gridAppsMode
+                                           ? Math.max(root.contentRevealOpacity,
+                                                      root._gridContentSettled ? 1.0 : 0.0)
+                                           : (root.dockActive ? root.contentRevealOpacity : 0.0)
     property real pulseTransition: (pulseMode || contextMode) ? 1.0 : 0.0
     property bool appdeckLifecycleActive: false
     property bool appdeckProfilePinned: false
@@ -183,7 +204,11 @@ Window {
     // §25 APPDECK.md – Motion Tokens
     readonly property int morphDuration: 380
     readonly property int modeDuration: 240
-    readonly property int collapseDuration: 280
+    // Collapse needs to feel substantive — the previous 280 ms snapped the
+    // panel down too quickly. 420 ms gives the user-perceived "settle" that
+    // matches the spec §11 single-source-of-motion intent (morph + collapse
+    // sharing the same curve family).
+    readonly property int collapseDuration: 420
     readonly property int autoHideDelay: 2200
     readonly property int autoShowDuration: 220
     readonly property int autoHideDuration: 340
@@ -216,6 +241,20 @@ Window {
     // input mask immediately, without waiting for the async DBus round-trip
     // that propagates dockActive = true.
     property bool _eagerDockMask: false
+    // Grid input must not depend on the async ShellStateController binding.
+    // Keep it explicit so the layer-shell mask expands before the first grid click.
+    property bool _forceGridInputRegion: false
+    // Activation/focus signals often fire as a side effect of opening the grid
+    // layer itself. Arm collapse handling only after the grid has settled.
+    property bool _gridCollapseGuardsArmed: false
+    // Pointer dismiss must ignore the click/release that opened the grid.
+    property bool _gridPointerDismissArmed: false
+    // Layer-shell surfaces may never become the active window. Treat focus loss
+    // as meaningful only after this surface was active while grid was open.
+    property bool _gridHadActiveFocus: false
+    // Safety net: the grid must become visible even if the shared motion driver
+    // stalls or is temporarily owned by another shell transition.
+    property bool _gridContentSettled: false
     property string appdeckPrevChannel: ""
     property string appdeckPrevPreset: ""
 
@@ -261,6 +300,13 @@ Window {
 
     function enterDock() {
         root._eagerDockMask = true
+        root._forceGridInputRegion = false
+        root._gridCollapseGuardsArmed = false
+        root._gridPointerDismissArmed = false
+        root._gridHadActiveFocus = false
+        root._gridContentSettled = false
+        gridPointerDismissTimer.stop()
+        gridContentSettleTimer.stop()
         setAppDeckVisibility(false)
         if (rootWindow && rootWindow.setSearchVisible) {
             rootWindow.setSearchVisible(false)
@@ -269,17 +315,74 @@ Window {
     }
 
     function enterGrid() {
+        root._eagerDockMask = false
+        root._forceGridInputRegion = true
+        root._gridCollapseGuardsArmed = false
+        root._gridPointerDismissArmed = false
+        root._gridHadActiveFocus = !!root.active
+        root._gridContentSettled = false
         if (rootWindow && rootWindow.setSearchVisible) {
             rootWindow.setSearchVisible(false)
         }
         setAppDeckVisibility(true)
+        root.syncLayerSurfaceSize()
+        Qt.callLater(function() { root.syncLayerSurfaceSize() })
+        gridCollapseGuardTimer.restart()
+        gridPointerDismissTimer.restart()
+        gridContentSettleTimer.restart()
     }
 
     function enterPulse() {
+        root._eagerDockMask = false
+        root._forceGridInputRegion = true
+        root._gridCollapseGuardsArmed = false
+        root._gridPointerDismissArmed = false
+        root._gridHadActiveFocus = !!root.active
+        root._gridContentSettled = false
         setAppDeckVisibility(false)
         if (rootWindow && rootWindow.setSearchVisible) {
             rootWindow.setSearchVisible(true)
         }
+        root.syncLayerSurfaceSize()
+        Qt.callLater(function() { root.syncLayerSurfaceSize() })
+        gridCollapseGuardTimer.restart()
+        gridPointerDismissTimer.restart()
+        gridContentSettleTimer.restart()
+    }
+
+    function shouldCollapseForActivation() {
+        return root.gridActive && root._gridCollapseGuardsArmed && !root.transitioning
+    }
+
+    function canDismissGridByPointer() {
+        return root.gridActive && root._gridPointerDismissArmed
+    }
+
+    function dismissGridByPointer(reason) {
+        if (root.canDismissGridByPointer()) {
+            root.collapseToDock(reason)
+            return
+        }
+        console.info("[APPDECK] ignore pointer-dismiss reason=" + String(reason || "unknown")
+                     + " gridActive=" + root.gridActive
+                     + " pointerArmed=" + root._gridPointerDismissArmed
+                     + " guards=" + root._gridCollapseGuardsArmed
+                     + " transition=" + root.transitioning)
+    }
+
+    function collapseToDock(reason) {
+        console.info("[APPDECK] collapseToDock reason=" + String(reason || "unknown")
+                     + " active=" + root.active
+                     + " gridActive=" + root.gridActive
+                     + " transition=" + root.transitioning
+                     + " guards=" + root._gridCollapseGuardsArmed
+                     + " hadFocus=" + root._gridHadActiveFocus)
+        root.enterDock()
+        root.requestCollapse()
+        root.syncLayerSurfaceSize()
+        Qt.callLater(function() {
+            root.syncLayerSurfaceSize()
+        })
     }
 
     function hideAppDeck() {
@@ -328,9 +431,29 @@ Window {
         return true
     }
 
+    function easeOutCubic(t) {
+        var p = Math.max(0.0, Math.min(1.0, Number(t || 0)))
+        var inv = 1.0 - p
+        return 1.0 - (inv * inv * inv)
+    }
+
+    function startFallbackSurfaceTransition(target, immediate) {
+        var t = Math.max(0.0, Math.min(1.0, Number(target || 0)))
+        surfaceFallbackTimer.stop()
+        root._surfaceAnimFrom = root.fallbackSurfaceTransition
+        root._surfaceAnimTo = t
+        root._surfaceAnimDuration = Math.max(1, Number(immediate ? 1 : root.motionSurfaceDuration))
+        root._surfaceAnimStartMs = Date.now()
+        if (immediate || Math.abs(root._surfaceAnimFrom - root._surfaceAnimTo) < 0.001) {
+            root.fallbackSurfaceTransition = t
+            return
+        }
+        surfaceFallbackTimer.start()
+    }
+
     function driveSurfaceTransition(target, immediate) {
         var t = Math.max(0.0, Math.min(1.0, Number(target || 0)))
-        fallbackSurfaceTransition = t
+        root.startFallbackSurfaceTransition(t, immediate)
         if (!root.syncAppDeckMotionChannel()) {
             return
         }
@@ -435,7 +558,10 @@ Window {
                                                      + 8
                                                  )
                                              )
-    readonly property bool compactDockSurface: false
+    readonly property bool compactDockSurface: !root.appDeckHidden
+                                               && !root._forceGridInputRegion
+                                               && !root.appDeckGridRequested
+                                               && !root.appDeckContextRequested
     readonly property int dockSurfaceWidth: Math.max(
                                                      1,
                                                      Math.ceil(
@@ -445,28 +571,38 @@ Window {
                                                                   || (rootWindow ? rootWindow.width : Screen.width))
                                                      )
                                                  )
+    readonly property real dockTooltipHeadroom: dockView.dockItem
+                                                ? Number(dockView.dockItem.tooltipHeadroom || 0)
+                                                : 0
     readonly property int dockSurfaceHeight: Math.max(
                                                       1,
                                                       Math.ceil(
                                                           compactDockSurface
-                                                          ? (dockInputHeight + 10)
+                                                          ? (dockInputHeight + 10 + dockTooltipHeadroom)
                                                           : root.dockContentHeight
                                                       )
                                                   )
 
-    width: Number(root.targetScreenGeometry.width || (rootWindow ? rootWindow.width : Screen.width))
-    x: Number(root.targetScreenGeometry.x || 0)
-    y: Number(root.targetScreenGeometry.y || 0)
+    width: root.compactDockSurface
+           ? root.dockSurfaceWidth
+           : Number(root.targetScreenGeometry.width || (rootWindow ? rootWindow.width : Screen.width))
+    x: root.compactDockSurface
+       ? Number(root.targetScreenGeometry.x || 0)
+         + Math.round((Number(root.targetScreenGeometry.width || (rootWindow ? rootWindow.width : Screen.width))
+                       - root.dockSurfaceWidth) * 0.5)
+       : Number(root.targetScreenGeometry.x || 0)
+    y: root.compactDockSurface
+       ? Number(root.targetScreenGeometry.y || 0)
+         + Math.max(0,
+                    Number(root.targetScreenGeometry.height || (rootWindow ? rootWindow.height : Screen.height))
+                    - root.dockSurfaceHeight
+                    - root.dockBottomMargin)
+       : Number(root.targetScreenGeometry.y || 0)
     height: appDeckHidden
             ? 1
-            : Number(root.targetScreenGeometry.height || (rootWindow ? rootWindow.height : Screen.height))
-    Behavior on fallbackSurfaceTransition {
-        NumberAnimation {
-            duration: root.motionSurfaceDuration
-            easing.type: Theme.easingDefault
-        }
-    }
-
+            : (root.compactDockSurface
+               ? root.dockSurfaceHeight
+               : Number(root.targetScreenGeometry.height || (rootWindow ? rootWindow.height : Screen.height)))
     Behavior on pulseTransition {
         NumberAnimation {
             duration: root.motionSurfaceDuration
@@ -489,7 +625,7 @@ Window {
     // dockView scale+transform) — those are pure client-side render and are
     // unaffected.
 
-    readonly property int exclusiveZone: dockActive && root.policyContentVisible
+    readonly property int exclusiveZone: root.state === "dock" && root.policyContentVisible
                                          ? Math.max(0, Math.ceil(dockView.dockItem ? dockView.dockItem.height : 0))
                                          : 0
     readonly property int dockInputX: Math.max(
@@ -538,11 +674,12 @@ Window {
         if (typeof AppDeckLayerShell === "undefined" || !AppDeckLayerShell) {
             return
         }
-        var w = Math.max(1, Math.round(root.width))
-        var h = Math.max(1, Math.round(root.appDeckHidden ? 1 : root.height))
         // _eagerDockMask is set by enterDock() so we immediately restrict input
         // to the dock footprint while the async DBus state catches up.
-        var applyDockMask = root.dockActive || root._eagerDockMask
+        var applyDockMask = root.compactDockSurface
+                || (!root._forceGridInputRegion && (root.state === "dock" || root._eagerDockMask))
+        var w = Math.max(1, Math.round(root.width))
+        var h = Math.max(1, Math.round(root.appDeckHidden ? 1 : root.height))
         var surfaceX = applyDockMask ? root.dockInputX
                                      : (root.pulseMode ? root.contextSurfaceX : root.gridSurfaceX)
         var surfaceY = applyDockMask ? root.dockInputY
@@ -551,6 +688,25 @@ Window {
                                      : (root.pulseMode ? root.contextSurfaceW : root.gridSurfaceW)
         var surfaceH = applyDockMask ? root.dockInputHeight
                                      : (root.pulseMode ? root.contextSurfaceH : root.gridSurfaceH)
+        var dockMarginLeft = 0
+        var dockMarginBottom = 0
+        if (applyDockMask) {
+            w = Math.max(1, Math.round(root.appDeckHidden ? 1 : root.dockSurfaceWidth))
+            h = Math.max(1, Math.round(root.appDeckHidden ? 1 : root.dockSurfaceHeight))
+            surfaceX = Math.max(0, Math.round((w - surfaceW) * 0.5))
+            // Input region must hug the BOTTOM of the surface buffer because
+            // dockBackground is anchors.bottom; the dockSurfaceHeight padding
+            // (tooltipHeadroom + 10) sits ABOVE the dock pill, not below it.
+            // The previous Math.min(2, ...) clamp pinned the region to the top
+            // of the surface, so mouse/hover events never reached the dock
+            // icons — that was Issue 2 (hover dead) in the pre-existing bug
+            // list. Also fixes Issue 3 by ensuring the enlarged buffer keeps
+            // input alignment with the dock pill.
+            surfaceY = Math.max(0, h - surfaceH)
+            var screenW = Number(root.targetScreenGeometry.width || (rootWindow ? rootWindow.width : Screen.width))
+            dockMarginLeft = Math.max(0, Math.round((screenW - w) * 0.5))
+            dockMarginBottom = Math.max(0, Math.round(root.dockBottomMargin))
+        }
         if (root.policySensorOnly) {
             surfaceX = 0
             surfaceY = Math.max(0, h - root.revealActivationHeight)
@@ -561,6 +717,14 @@ Window {
             // §10 APPDECK.md – Outside click collapse: full-screen input so clicks on
             // wallpaper/desktop/other windows reach the background MouseArea and collapse.
             AppDeckLayerShell.setGrid(root, w, h, 0, 0, w, h)
+        } else if (applyDockMask && AppDeckLayerShell.setDockAt) {
+            AppDeckLayerShell.setDockAt(root, w, h,
+                                        dockMarginLeft,
+                                        dockMarginBottom,
+                                        Math.max(0, Math.round(root.appDeckHidden ? 0 : surfaceX)),
+                                        Math.max(0, Math.round(root.appDeckHidden ? 0 : surfaceY)),
+                                        Math.max(1, Math.round(root.appDeckHidden ? 1 : surfaceW)),
+                                        Math.max(1, Math.round(root.appDeckHidden ? 1 : surfaceH)))
         } else {
             AppDeckLayerShell.setDock(root, w, h,
                                            Math.max(0, Math.round(root.appDeckHidden ? 0 : surfaceX)),
@@ -594,6 +758,24 @@ Window {
         onTriggered: root.syncLayerSurfaceSize()
     }
 
+    Timer {
+        id: surfaceFallbackTimer
+        interval: 16
+        repeat: true
+        onTriggered: {
+            var elapsed = Date.now() - root._surfaceAnimStartMs
+            var progress = Math.max(0.0, Math.min(1.0, elapsed / Math.max(1, root._surfaceAnimDuration)))
+            var eased = root.easeOutCubic(progress)
+            root.fallbackSurfaceTransition = root._surfaceAnimFrom
+                    + ((root._surfaceAnimTo - root._surfaceAnimFrom) * eased)
+            if (progress >= 1.0) {
+                root.fallbackSurfaceTransition = root._surfaceAnimTo
+                root.logRuntimeState("surface-fallback-complete")
+                stop()
+            }
+        }
+    }
+
     onSceneGraphInitialized: root.syncLayerSurfaceSize()
     onAppDeckHiddenChanged: root.syncLayerSurfaceSize()
     onImmersiveModeChanged: root.syncLayerSurfaceSize()
@@ -622,6 +804,86 @@ Window {
             }
         }
 
+        // AppDeck v2 root (docs/APPDECK.md §4, §16). Tahap 1: present as the
+        // SSOT for deckState / deckMode / morphProgress / transitioning, but
+        // for now mirrored from the legacy inline state so behavior is
+        // unchanged. Later Tahap will invert the dependency so children read
+        // from appDeckRoot directly.
+        AppDeckV2.AppDeckRoot {
+            id: appDeckRoot
+            deckState:      root.state
+            deckMode:       root.mode
+            appearanceMode: root.appearanceMode
+            transitioning:  root.transitioning
+            morphProgress:  root.surfaceTransition
+            dockPresence:   root.autoHidePresence
+            geometry:       appDeckGeometry
+        }
+
+        AppDeckV2.AppDeckController {
+            id: appDeckController
+            root:         appDeckRoot
+            rootWindow:   root.rootWindow
+            desktopScene: root.desktopScene
+        }
+
+        // docs/APPDECK.md §10 — Motion API. Legacy collapseToDock() / enterGrid()
+        // on AppDeckWindow remain the active drivers for now; AppDeckMotion is
+        // available for future call sites that want the spec API.
+        AppDeckV2.AppDeckMotion {
+            id: appDeckMotion
+            root:     appDeckRoot
+            geometry: appDeckGeometry
+        }
+
+        // docs/APPDECK.md §17 — Ctrl+Alt+D debug HUD. Default hidden; opt-in
+        // toggle keeps prod surfaces clean while giving agents/humans a quick
+        // visual readout that morphProgress is genuinely ticking 0→1.
+        AppDeckV2.AppDeckDebugOverlay {
+            id: appDeckDebugOverlay
+            appDeckRoot: appDeckRoot
+            geometry:    appDeckGeometry
+            inputX:      root.dockInputX
+            inputY:      root.dockInputY
+            inputW:      root.dockInputWidth
+            inputH:      root.dockInputHeight
+        }
+
+        // docs/APPDECK.md §5 — geometry model (dock/grid rects + per-icon
+        // anchors). Wired in Tahap 2; consumed by IconMorphLayer in Tahap 4.
+        // dockHostRef / gridHostRef are forward-referenced to siblings below.
+        AppDeckV2.AppDeckGeometry {
+            id: appDeckGeometry
+            dockHostRef:    dockView.dockItem
+            gridHostRef:    gridAppsView
+            rootSurfaceRef: appDeckRoot
+        }
+
+        Connections {
+            // Re-emit dock-icon-rect events into the geometry model. AppDeck.qml
+            // already debounces, so this just forwards.
+            target: dockView && dockView.dockItem ? dockView.dockItem : null
+            ignoreUnknownSignals: true
+            function onIconRectsChanged(rects) {
+                appDeckGeometry.applyDockIconRects(rects)
+            }
+        }
+
+        Connections {
+            target: gridAppsView
+            ignoreUnknownSignals: true
+            function onGridLayoutSettled() {
+                appDeckGeometry.recompute()
+            }
+        }
+
+        // Recompute dock/grid rects when the surface resizes.
+        Connections {
+            target: root
+            function onWidthChanged()  { appDeckGeometry.recompute() }
+            function onHeightChanged() { appDeckGeometry.recompute() }
+        }
+
         Rectangle {
             anchors.fill: parent
             visible: false
@@ -647,45 +909,45 @@ Window {
             enabled: root.immersiveMode
             acceptedButtons: Qt.LeftButton | Qt.RightButton
             onClicked: {
-                root.enterDock()
-                root.requestCollapse()
+                root.dismissGridByPointer("outside-click")
             }
         }
 
-        Rectangle {
+        // docs/APPDECK.md §6, §11 — MorphContainer drives x/y/w/h/radius/color
+        // from a single morphProgress, with NO per-property Behavior blocks.
+        // Children (gradient highlight + top seam) ride along declaratively.
+        AppDeckV2.MorphContainer {
             id: surfaceMorph
-            z: -1
+            z: 0
             visible: !root.appDeckHidden && root.policyContentVisible
-            readonly property real sourceX: Number(root.dockInputX || 0)
-            readonly property real sourceY: Number(root.dockVisualY || 0)
-            readonly property real sourceW: Number(root.dockInputWidth || 1)
-            readonly property real sourceH: Number(root.dockVisualHeight || 1)
-            readonly property real targetX: pulseMode ? root.contextSurfaceX : root.gridSurfaceX
-            readonly property real targetY: pulseMode ? root.contextSurfaceY : root.gridSurfaceY
-            readonly property real targetW: pulseMode ? root.contextSurfaceW : root.gridSurfaceW
-            readonly property real targetH: pulseMode ? root.contextSurfaceH : root.gridSurfaceH
-
-            x: sourceX + (targetX - sourceX) * root.surfaceTransition
-            y: sourceY + (targetY - sourceY) * root.surfaceTransition
-            width: sourceW + (targetW - sourceW) * root.surfaceTransition
-            height: sourceH + (targetH - sourceH) * root.surfaceTransition
-            radius: Theme.radiusWindow + (Math.min(8, Theme.radiusWindow) * root.surfaceTransition)
-            color: Theme.color("windowCard")
+            opacity: (!root.appDeckHidden && root.policyContentVisible) ? 1.0 : 0.0
             border.width: Theme.borderWidthThin
             border.color: Theme.color("panelBorder")
-            opacity: (!root.appDeckHidden && root.policyContentVisible) ? 1.0 : 0.0
+
+            // pulse/context vs grid choose different target geometry; dock is
+            // always the source. morphProgress is the SSOT for blending.
+            sourceRect: Qt.rect(Number(root.dockInputX || 0),
+                                Number(root.dockVisualY || 0),
+                                Number(root.dockInputWidth || 1),
+                                Number(root.dockVisualHeight || 1))
+            targetRect: pulseMode
+                        ? Qt.rect(root.contextSurfaceX, root.contextSurfaceY,
+                                  root.contextSurfaceW, root.contextSurfaceH)
+                        : Qt.rect(root.gridSurfaceX, root.gridSurfaceY,
+                                  root.gridSurfaceW, root.gridSurfaceH)
+            sourceRadius: Theme.radiusWindow
+            targetRadius: Theme.radiusWindow + Math.min(8, Theme.radiusWindow)
+            sourceColor: root.dockMorphSourceColor
+            targetColor: Theme.color("windowCard")
+            morphProgress: root.surfaceTransition
 
             Rectangle {
                 anchors.fill: parent
                 radius: parent.radius
-                opacity: 1.0 - root.surfaceTransition
+                opacity: (1.0 - root.surfaceTransition) * 0.14
                 gradient: Gradient {
-                    GradientStop { position: 0.0; color: Theme.color("dockGlassTop") }
-                    GradientStop { position: 1.0; color: Theme.color("dockGlassBottom") }
-                }
-                Behavior on opacity {
-                    enabled: !root.motionEngineReady
-                    NumberAnimation { duration: root.motionCrossfadeDuration; easing.type: Theme.easingDecelerate }
+                    GradientStop { position: 0.0; color: Qt.rgba(1, 1, 1, Theme.darkMode ? 0.16 : 0.22) }
+                    GradientStop { position: 1.0; color: Qt.rgba(1, 1, 1, 0.0) }
                 }
             }
 
@@ -701,33 +963,26 @@ Window {
                 color: Qt.rgba(1, 1, 1, Theme.darkMode ? 0.16 : 0.58)
                 opacity: root.surfaceTransition
             }
+        }
 
-            Behavior on opacity {
-                enabled: !root.motionEngineReady
-                NumberAnimation { duration: root.motionCrossfadeDuration; easing.type: Theme.easingDecelerate }
-            }
-            Behavior on x {
-                enabled: !root.motionEngineReady
-                NumberAnimation { duration: root.motionSurfaceDuration; easing.type: Theme.easingDefault }
-            }
-            Behavior on y {
-                enabled: !root.motionEngineReady
-                NumberAnimation { duration: root.motionSurfaceDuration; easing.type: Theme.easingDefault }
-            }
-            Behavior on width {
-                enabled: !root.motionEngineReady
-                NumberAnimation { duration: root.motionSurfaceDuration; easing.type: Theme.easingDefault }
-            }
-            Behavior on height {
-                enabled: !root.motionEngineReady
-                NumberAnimation { duration: root.motionSurfaceDuration; easing.type: Theme.easingDefault }
-            }
-            Behavior on radius {
-                enabled: !root.motionEngineReady
-                NumberAnimation { duration: root.motionSurfaceDuration; easing.type: Theme.easingDefault }
-            }
-            Behavior on color {
-                ColorAnimation { duration: root.motionCrossfadeDuration; easing.type: Theme.easingStandard }
+        // docs/APPDECK.md §7 — IconMorphLayer paints icons in surface space,
+        // one delegate per app, flying dockAnchor → gridAnchor under
+        // morphProgress. Gated by AppDeckTokens.iconMorphEnabled (default OFF
+        // until QEMU validation completes); legacy dock+grid icons keep
+        // rendering when the flag is off.
+        AppDeckV2.IconMorphLayer {
+            id: iconMorphLayer
+            z: 0.5
+            appsModel:     root.appsModel
+            geometry:      appDeckGeometry
+            tokens:        appDeckRoot.tokens
+            morphProgress: appDeckRoot.morphProgress
+            enabledLayer:  appDeckRoot.tokens.iconMorphEnabled
+            onAppActivated: function(d) {
+                if (d && d.executable) {
+                    root.requestOpenApp(String(d.executable))
+                }
+                root.collapseToDock("icon-morph-launch")
             }
         }
 
@@ -740,6 +995,8 @@ Window {
             z: 1
             appsModel: root.appsModel
             desktopScene: root.desktopScene
+            iconsRenderedExternally: appDeckRoot.tokens.iconMorphEnabled
+            morphProgress: appDeckRoot.morphProgress
             panelHeight: root.desktopScene ? root.desktopScene.panelHeight : 0
             preferredPanelX: root.gridContentX
             preferredPanelY: root.gridContentY
@@ -757,21 +1014,23 @@ Window {
                 )
             )
             onDismissRequested: {
-                root.enterDock()
-                root.requestCollapse()
+                root.collapseToDock("grid-dismiss")
+            }
+            onPointerDismissRequested: {
+                root.dismissGridByPointer("grid-pointer-dismiss")
             }
             onAppChosen: function(appData) {
                 console.log("[appdeck-launch] window app chosen name="
                             + String(appData && (appData.name || appData.display) || "")
                             + " desktopFile=" + String(appData && appData.desktopFile || "")
                             + " executable=" + String(appData && appData.executable || ""))
+                root.collapseToDock("grid-app-chosen")
                 root.requestOpenApp(String(appData && (appData.desktopId || appData.desktopFile || appData.name) || ""))
                 AppDeckActions.handleAppChosen(appData,
                                                (typeof AppCommandRouter !== "undefined" && AppCommandRouter)
                                                    ? AppCommandRouter : null,
                                                (typeof AppExecutionGate !== "undefined" && AppExecutionGate)
                                                    ? AppExecutionGate : null)
-                root.enterDock()
             }
             onAddToDockRequested: function(appData) {
                 AppDeckActions.handleAddToDock(appData, root.appsModel)
@@ -811,12 +1070,10 @@ Window {
             providerStats: root.rootWindow ? root.rootWindow.pulseProviderStats : ({})
             previewData: root.rootWindow ? root.rootWindow.pulsePreviewData : ({})
             onCollapseRequested: {
-                root.enterDock()
-                root.requestCollapse()
+                root.collapseToDock("context-collapse")
             }
             onDismissRequested: {
-                root.enterDock()
-                root.requestCollapse()
+                root.collapseToDock("context-dismiss")
             }
             onQueryChanged: function(text) {
                 root.applyPulseQuery(text)
@@ -884,17 +1141,37 @@ Window {
             anchors.bottom: parent.bottom
             // Keep dock geometry stable across dock/grid states so pinned icons
             // do not visually shift when surface mode changes.
-            anchors.bottomMargin: root.dockBottomMargin
+            // In compactDockSurface (dock-only mode), the Wayland layer-shell
+            // already positions the surface dockBottomMargin pixels above the
+            // screen edge via setDockAt margins. Repeating the same value as
+            // Qt anchor margin would double-inset the dock — causing it to
+            // shift UP relative to its grid-state position. Use 0 here when
+            // the wayland-side margin is applied, dockBottomMargin otherwise
+            // (grid/full-screen, where Window sits at screen.bottom).
+            anchors.bottomMargin: root.compactDockSurface ? 0 : root.dockBottomMargin
             visible: !root.appDeckHidden && (root.dockActive || root.gridAppsMode || root.pulseMode || opacity > 0.01)
             opacity: 1.0
             scale: 1.0
             transform: Translate { y: root.autoHideSlideY }
             z: 3
             hostName: "appdeck"
-            hideBorder: true
-            transparentBackground: true
+            // Hide dock pill border when AppDeck is in grid/pulse/context mode
+            // so the dock visually merges into the morph panel instead of
+            // showing a hard outline against the expanded surface.
+            hideBorder: !root.dockActive
+            transparentBackground: false
             ignoreDesktopTransparentSetting: true
             backgroundMorphProgress: root.surfaceTransition
+            iconsRenderedExternally: appDeckRoot.tokens.iconMorphEnabled
+            // Software OpenGL (QEMU smoke) cannot reliably render layer +
+            // MultiEffect on the dock pill — DockEffectsEnabled is wired in
+            // main.cpp and flipped off automatically under LIBGL_ALWAYS_SOFTWARE
+            // so the dock background stays visible.
+            renderEffectsEnabled: (typeof DockEffectsEnabled !== "undefined")
+                                  ? DockEffectsEnabled : true
+            // Tahap 5 hook — passes morphProgress down so future GridContent
+            // consumers can stagger reveal off it. Dock chrome itself ignores
+            // this; the dock has no spec'd reveal staging.
             acceptsInput: root.dockAcceptsInput && root.dockActive
             rendererActive: root.visible && root.dockLayerReady && root.dockHostVisible
                             && !root.appDeckHidden
@@ -903,9 +1180,14 @@ Window {
                 // AppDeck._focusOrLaunchEntry already handled focus-or-launch
                 // via compositorState.preferredViewId / AppCommandRouter.
                 // This signal is only for collapsing the deck.
-                root.enterDock()
+                root.collapseToDock("dock-app-activated")
             }
             onAppdeckRequested: {
+                console.info("[APPDECK-LAUNCHER-SIGNAL] reached AppDeckWindow"
+                             + " gridAppsMode=" + root.gridAppsMode
+                             + " state=" + root.state
+                             + " transitioning=" + root.transitioning
+                             + " active=" + root.active)
                 root.requestOpenAppDeck()
                 if (root.gridAppsMode) {
                     root.enterDock()
@@ -1025,11 +1307,81 @@ Window {
         }
     }
 
+    Timer {
+        id: gridCollapseGuardTimer
+        interval: Math.max(root.motionSurfaceDuration, 220)
+        repeat: false
+        onTriggered: {
+            if (root.gridActive) {
+                root._gridCollapseGuardsArmed = true
+            }
+        }
+    }
+
+    Timer {
+        id: gridPointerDismissTimer
+        interval: Math.max(root.motionSurfaceDuration + 1200, 1800)
+        repeat: false
+        onTriggered: {
+            if (root.gridActive) {
+                root._gridPointerDismissArmed = true
+            }
+        }
+    }
+
+    Timer {
+        id: gridContentSettleTimer
+        interval: Math.max(root.morphDuration + 180, 560)
+        repeat: false
+        onTriggered: {
+            if (!root.gridActive) {
+                return
+            }
+            if (root.gridAppsMode) {
+                root._gridContentSettled = true
+            }
+            if (root.motionEngineReady) {
+                root.syncAppDeckMotionChannel()
+                MotionController.cancelAndSettle(1.0)
+            }
+            if (root.fallbackSurfaceTransition < 0.98) {
+                root.startFallbackSurfaceTransition(1.0, false)
+            }
+            root.logRuntimeState("settle")
+        }
+    }
+
+    function logRuntimeState(reason) {
+        console.info("[APPDECK] [RUNTIME_STATE]"
+                     + " reason=" + String(reason || "unknown")
+                     + " state=" + root.state
+                     + " mode=" + root.mode
+                     + " gridActive=" + root.gridActive
+                     + " gridRequested=" + root.appDeckGridRequested
+                     + " policy=" + (root.shellPolicy ? root.shellPolicy.visibilityPolicyName : "Normal")
+                     + " policyContent=" + root.policyContentVisible
+                     + " hidden=" + root.appDeckHidden
+                     + " contentOpacity=" + Number(root.contentOpacity).toFixed(2)
+                     + " surfaceTarget=" + Number(root._surfaceAnimTo).toFixed(2)
+                     + " surfaceTransition=" + Number(root.surfaceTransition).toFixed(2)
+                     + " appsTransition=" + Number(root.appsTransition).toFixed(2)
+                     + " forceGridInput=" + root._forceGridInputRegion
+                     + " dockInput=" + root.dockInputX + "," + root.dockInputY
+                     + " " + root.dockInputWidth + "x" + root.dockInputHeight
+                     + " guards=" + root._gridCollapseGuardsArmed
+                     + " pointerArmed=" + root._gridPointerDismissArmed)
+    }
+
     function syncAppDeckStateMode() {
+        var target = root.state === "grid" ? 1.0 : 0.0
         root._startTransition()
         root.beginAppDeckLifecycle(root.state + ":" + root.mode)
-        root.driveSurfaceTransition(root.surfaceTarget, false)
+        root.driveSurfaceTransition(target, false)
         root.syncLayerSurfaceSize()
+        root.logRuntimeState("sync")
+        Qt.callLater(function() {
+            root.logRuntimeState("post-sync")
+        })
         if (pulseMode || contextMode) {
             Qt.callLater(function() {
                 root.focusSearchField()
@@ -1039,22 +1391,51 @@ Window {
 
     onStateChanged: {
         root._deckGoingToGrid = (root.state === "grid")
-        if (root.state === "dock") {
+        if (root.state === "grid") {
+            root.startFallbackSurfaceTransition(1.0, false)
+            root._eagerDockMask = false
+            root._forceGridInputRegion = true
+            root._gridCollapseGuardsArmed = false
+            root._gridPointerDismissArmed = false
+            root._gridHadActiveFocus = !!root.active
+            root._gridContentSettled = false
+            gridCollapseGuardTimer.restart()
+            gridPointerDismissTimer.restart()
+            gridContentSettleTimer.restart()
+        } else if (root.state === "dock") {
+            root.startFallbackSurfaceTransition(0.0, false)
+            root._forceGridInputRegion = false
+            root._gridCollapseGuardsArmed = false
+            root._gridPointerDismissArmed = false
+            root._gridHadActiveFocus = false
+            root._gridContentSettled = false
+            gridCollapseGuardTimer.stop()
+            gridPointerDismissTimer.stop()
+            gridContentSettleTimer.stop()
             root._revealDock()
             root._scheduleDockAutoHide()
         }
         root.syncAppDeckStateMode()
     }
     onModeChanged: root.syncAppDeckStateMode()
+    onAppDeckGridRequestedChanged: {
+        root._forceGridInputRegion = root.appDeckGridRequested
+        if (root.appDeckGridRequested) {
+            root._eagerDockMask = false
+        }
+        root.syncLayerSurfaceSize()
+    }
 
     // §8 APPDECK.md – Focus loss collapse: when the compositor deactivates this
     // layer-shell surface (e.g., user clicks an app window), collapse to dock.
     onActiveChanged: {
-        if (!root.active && root.gridActive && !root.transitioning) {
+        if (root.active && root.gridActive) {
+            root._gridHadActiveFocus = true
+        }
+        if (!root.active && root._gridHadActiveFocus && root.shouldCollapseForActivation()) {
             Qt.callLater(function() {
-                if (!root.active && root.gridActive) {
-                    root.enterDock()
-                    root.requestCollapse()
+                if (!root.active && root._gridHadActiveFocus && root.shouldCollapseForActivation()) {
+                    root.collapseToDock("focus-lost")
                 }
             })
         }
@@ -1088,6 +1469,26 @@ Window {
         }
     }
 
+    Connections {
+        target: (typeof WindowingBackend !== "undefined") ? WindowingBackend : null
+        ignoreUnknownSignals: true
+        function onEventReceived(event, payload) {
+            var eventName = String(event || (payload && payload.event) || "")
+            eventName = eventName.toLowerCase().replace(/_/g, "-")
+            if (eventName === "window-focused"
+                    || eventName === "window-activated"
+                    || eventName === "active-window-changed"
+                    || eventName === "focus-changed"
+                    || eventName === "window-created"
+                    || eventName === "window-opened"
+                    || eventName === "window-shown") {
+                if (root.shouldCollapseForActivation()) {
+                    root.collapseToDock("window-event")
+                }
+            }
+        }
+    }
+
     // §13–15 APPDECK.md – Reveal dock when hovered, schedule hide when hover leaves
     Connections {
         target: (typeof AppDeckController !== "undefined") ? AppDeckController : null
@@ -1107,12 +1508,25 @@ Window {
     Connections {
         target: (typeof AppStateClient !== "undefined") ? AppStateClient : null
         ignoreUnknownSignals: true
+        function onFocusedAppIdChanged() {
+            // Diagnostic for Issue 4 (dock doesn't collapse when Settings is
+            // launched from crown menu). When the user reports this, the QEMU
+            // log answers whether the path fires at all and what guards block.
+            console.info("[APPDECK] focusedAppId="
+                         + (AppStateClient ? String(AppStateClient.focusedAppId || "") : "n/a")
+                         + " gridActive=" + root.gridActive
+                         + " guards=" + root._gridCollapseGuardsArmed
+                         + " transitioning=" + root.transitioning
+                         + " shouldCollapse=" + root.shouldCollapseForActivation())
+            if (root.shouldCollapseForActivation()) {
+                root.collapseToDock("focused-app")
+            }
+        }
         function onRunningAppsChanged() {
             var newCount = (typeof AppStateClient !== "undefined" && AppStateClient)
                            ? Number(AppStateClient.runningAppIds.length || 0) : 0
-            if (root.gridActive && newCount > root._lastRunningCount) {
-                root.enterDock()
-                root.requestCollapse()
+            if (root.shouldCollapseForActivation() && newCount > root._lastRunningCount) {
+                root.collapseToDock("running-app-added")
             }
             root._lastRunningCount = newCount
         }
@@ -1124,9 +1538,8 @@ Window {
         target: (typeof GlobalMenuManager !== "undefined") ? GlobalMenuManager : null
         ignoreUnknownSignals: true
         function onAppSwitched() {
-            if (root.gridActive && !root.transitioning) {
-                root.enterDock()
-                root.requestCollapse()
+            if (root.shouldCollapseForActivation()) {
+                root.collapseToDock("global-menu-app-switched")
             }
         }
     }

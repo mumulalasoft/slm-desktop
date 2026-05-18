@@ -96,6 +96,7 @@
 #include "src/core/shell/shelllayerwatchdog.h"
 #ifdef SLM_HAVE_WAYLANDCLIENT
 #include "src/core/wayland/layershell/appdeckbootstrapstate.h"
+#include "src/core/wayland/layershell/appdeckcompositorevents.h"
 #include "src/core/wayland/layershell/appdecklayershellcontroller.h"
 #include "src/core/wayland/layershell/wlrlayershell.h"
 #endif
@@ -283,6 +284,25 @@ int main(int argc, char *argv[])
     const bool startupTrace = qEnvironmentVariableIntValue("SLM_STARTUP_TRACE") > 0;
     const bool disableAppDeck = envFlagEnabled("SLM_DISABLE_APPDECK");
     const bool disableEmbeddedAppDeck = envFlagEnabled("SLM_DISABLE_EMBEDDED_APPDECK");
+    // docs/APPDECK.md §19 Tahap 4 rollback hatch — flip with
+    //   SLM_APPDECK_V2_ICON_MORPH=1 ./slm-desktop
+    const bool appDeckV2IconMorphEnabled = envFlagEnabled("SLM_APPDECK_V2_ICON_MORPH");
+    // Heavy QML effects (layer.enabled + MultiEffect shadow on the dock pill)
+    // are unreliable under software OpenGL — texture/shader paths in swrast
+    // can render the layered item black or empty, which manifests visually as
+    // a missing dock background. The QEMU smoke wrapper forces
+    // LIBGL_ALWAYS_SOFTWARE=1, but session daemons (greeter / session-broker)
+    // may exec slm-shell.real directly and lose the env. To keep the dock
+    // visible everywhere, dock effects are **opt-in only** —
+    //   SLM_ENABLE_DOCK_EFFECTS=1 ./slm-desktop
+    // re-enables the layer+shadow pipeline when a hardware GL backend is
+    // known to be available. SLM_DISABLE_DOCK_EFFECTS=1 stays as the explicit
+    // off switch for back-compat with existing tooling.
+    const bool dockEffectsEnabled = envFlagEnabled("SLM_ENABLE_DOCK_EFFECTS")
+                                    && !envFlagEnabled("SLM_DISABLE_DOCK_EFFECTS");
+    qInfo().noquote() << "[STARTUP] dockEffectsEnabled=" << dockEffectsEnabled
+                      << "SLM_ENABLE_DOCK_EFFECTS=" << qgetenv("SLM_ENABLE_DOCK_EFFECTS")
+                      << "SLM_DISABLE_DOCK_EFFECTS=" << qgetenv("SLM_DISABLE_DOCK_EFFECTS");
     const bool startupDiag = startupLogs || startupTrace;
     QString startupTracePath;
     QFile startupTraceFile;
@@ -738,6 +758,26 @@ Window {
     });
     Slm::Motion::MotionController motionController;
     ShellStateController shellStateController;
+    {
+        QDBusConnection bus = QDBusConnection::sessionBus();
+        if (bus.isConnected()) {
+            const bool canonicalConnected = bus.connect(QStringLiteral("org.slm.WorkspaceManager"),
+                                                        QStringLiteral("/org/slm/WorkspaceManager"),
+                                                        QStringLiteral("org.slm.WorkspaceManager1"),
+                                                        QStringLiteral("AppGridRequested"),
+                                                        &shellStateController,
+                                                        SLOT(openAppDeck()));
+            const bool legacyConnected = bus.connect(QStringLiteral("org.desktop_shell.WorkspaceManager"),
+                                                     QStringLiteral("/org/desktop_shell/WorkspaceManager"),
+                                                     QStringLiteral("org.desktop_shell.WorkspaceManager1"),
+                                                     QStringLiteral("AppGridRequested"),
+                                                     &shellStateController,
+                                                     SLOT(openAppDeck()));
+            qInfo().noquote() << "[appdeck] dbus bridge connected"
+                              << "canonical=" << canonicalConnected
+                              << "legacy=" << legacyConnected;
+        }
+    }
     ShellInputRouter shellInputRouter(&shellStateController);
     ShellLayerWatchdog shellLayerWatchdog(&shellStateController);
     PowerBridge powerBridge;
@@ -765,12 +805,14 @@ Window {
     Slm::Print::JobSubmitter printJobSubmitter;
     WindowingBackendManager windowingBackendManager;
     ShellPolicyController shellPolicyController(&shellStateController, &windowingBackendManager);
+    AppDeckCompositorEvents appDeckCompositorEvents(&shellPolicyController, &shellStateController);
     CompositorInputCaptureBackendService compositorInputCaptureBackendService(&windowingBackendManager);
     CompositorInputCapturePrimitiveService compositorInputCapturePrimitiveService(&windowingBackendManager);
     WorkspacePreviewManager workspacePreviewManager;
     WorkspaceManager workspaceManager(&windowingBackendManager,
                                       &spacesManager,
-                                      windowingBackendManager.compositorStateObject());
+                                      windowingBackendManager.compositorStateObject(),
+                                      &shellStateController);
     WorkspaceStripModel workspaceStripModel(&spacesManager, &workspaceManager);
     MultitaskingController multitaskingController(&workspaceManager, &spacesManager);
     WindowThumbnailLayoutEngine windowThumbnailLayoutEngine;
@@ -1001,6 +1043,7 @@ Window {
     engine.rootContext()->setContextProperty(QStringLiteral("SessionStateClient"), &sessionStateClient);
     engine.rootContext()->setContextProperty(QStringLiteral("ShellPolicyController"), &shellPolicyController);
     engine.rootContext()->setContextProperty(QStringLiteral("ShellVisibilityPolicy"), &shellPolicyController);
+    engine.rootContext()->setContextProperty(QStringLiteral("AppDeckCompositorEvents"), &appDeckCompositorEvents);
     engine.rootContext()->setContextProperty(QStringLiteral("FirewallServiceClient"), &firewallServiceClient);
     engine.rootContext()->setContextProperty(QStringLiteral("MissingComponents"), &missingComponentController);
     engine.rootContext()->setContextProperty(QStringLiteral("PrintManager"), &printerManager);
@@ -1016,6 +1059,10 @@ Window {
     engine.rootContext()->setContextProperty(QStringLiteral("DisableAppDeck"), disableAppDeck);
     engine.rootContext()->setContextProperty(QStringLiteral("DisableEmbeddedAppDeck"),
                                              disableEmbeddedAppDeck);
+    engine.rootContext()->setContextProperty(QStringLiteral("AppDeckV2IconMorphEnabled"),
+                                             appDeckV2IconMorphEnabled);
+    engine.rootContext()->setContextProperty(QStringLiteral("DockEffectsEnabled"),
+                                             dockEffectsEnabled);
     AppStartupBridge::wireGlobalBatchProgress(&app,
                                               &fileManagerApi,
                                               &windowingBackendManager,

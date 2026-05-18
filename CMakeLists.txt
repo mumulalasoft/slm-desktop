@@ -1008,6 +1008,20 @@ set(DESKTOP_SHELL_QML_FILES
     Qml/components/appdeck/AppDeckDropPulse.qml
     Qml/components/appdeck/zones/SuggestedZone.qml
     Qml/components/appdeck/zones/ContextZone.qml
+    # AppDeck v2 (docs/APPDECK.md §16) — single-surface morph rewrite. Built up
+    # in nine Tahap; only the skeleton (Tahap 1) is wired right now.
+    Qml/components/appdeck/v2/AppDeckRoot.qml
+    Qml/components/appdeck/v2/AppDeckController.qml
+    Qml/components/appdeck/v2/AppDeckTokens.qml
+    Qml/components/appdeck/v2/AppDeckGeometry.qml
+    Qml/components/appdeck/v2/MorphContainer.qml
+    Qml/components/appdeck/v2/IconMorphLayer.qml
+    Qml/components/appdeck/v2/AppDeckIconDelegate.qml
+    Qml/components/appdeck/v2/GridContentLayer.qml
+    Qml/components/appdeck/v2/PulseLayer.qml
+    Qml/components/appdeck/v2/ContextLayer.qml
+    Qml/components/appdeck/v2/AppDeckMotion.qml
+    Qml/components/appdeck/v2/AppDeckDebugOverlay.qml
     Qml/components/shell/ShellShortcutTile.qml
     Qml/components/shell/ShellSelectionRect.qml
     Qml/components/shell/ShellDragGhost.qml
@@ -1171,6 +1185,8 @@ if(TARGET Qt6::WaylandClient)
         src/core/wayland/layershell/appdeckbootstrapstate.h
         src/core/wayland/layershell/appdecklayershellcontroller.cpp
         src/core/wayland/layershell/appdecklayershellcontroller.h
+        src/core/wayland/layershell/appdeckcompositorevents.cpp
+        src/core/wayland/layershell/appdeckcompositorevents.h
         src/core/wayland/layershell/wlrlayershell.cpp
         src/core/wayland/layershell/wlrlayershell.h
         src/core/wayland/layershell/appdecklayerwindow.cpp
@@ -1826,6 +1842,8 @@ target_include_directories(spacesmanager_invariants_test PRIVATE
 add_test(NAME spacesmanager_invariants_test COMMAND spacesmanager_invariants_test)
 
 qt_add_executable(workspacemanager_rebranding_test
+    src/core/shell/shellstatecontroller.cpp
+    src/core/shell/shellstatecontroller.h
     src/core/workspace/workspacemanager.cpp
     src/core/workspace/workspacemanager.h
     src/core/workspace/spacesmanager.cpp
@@ -1857,6 +1875,8 @@ target_include_directories(workspacemanager_rebranding_test PRIVATE
 add_test(NAME workspacemanager_rebranding_test COMMAND workspacemanager_rebranding_test)
 
 qt_add_executable(workspacemanager_workspace_ops_test
+    src/core/shell/shellstatecontroller.cpp
+    src/core/shell/shellstatecontroller.h
     src/core/workspace/spacesmanager.cpp
     src/core/workspace/spacesmanager.h
     src/core/workspace/workspacemanager.cpp
@@ -2091,6 +2111,23 @@ target_link_libraries(appdecksystem_render_contract_test
 )
 
 add_test(NAME appdecksystem_render_contract_test COMMAND appdecksystem_render_contract_test)
+
+qt_add_executable(appdeckv2_acceptance_contract_test
+    tests/appdeckv2_acceptance_contract_test.cpp
+)
+
+target_compile_definitions(appdeckv2_acceptance_contract_test
+    PRIVATE
+        DESKTOP_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\"
+)
+
+target_link_libraries(appdeckv2_acceptance_contract_test
+    PRIVATE
+        Qt6::Core
+        Qt6::Test
+)
+
+add_test(NAME appdeckv2_acceptance_contract_test COMMAND appdeckv2_acceptance_contract_test)
 
 qt_add_executable(desktopscene_appdeck_ssot_contract_test
     tests/desktopscene_appdeck_ssot_contract_test.cpp
@@ -2358,6 +2395,45 @@ target_link_libraries(shell_policy_controller_test
 target_include_directories(shell_policy_controller_test PRIVATE ${CMAKE_SOURCE_DIR})
 
 add_test(NAME shell_policy_controller_test COMMAND shell_policy_controller_test)
+set_tests_properties(shell_policy_controller_test PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
+qt_add_executable(appdeckcompositorevents_test
+    src/core/shell/shellstatecontroller.cpp
+    src/core/shell/shellstatecontroller.h
+    src/core/shell/shellpolicycontroller.cpp
+    src/core/shell/shellpolicycontroller.h
+    src/core/workspace/windowingbackendmanager.cpp
+    src/core/workspace/windowingbackendmanager.h
+    src/core/workspace/kwinwaylandipcclient.cpp
+    src/core/workspace/kwinwaylandipcclient.h
+    src/core/workspace/kwinwaylandstatemodel.cpp
+    src/core/workspace/kwinwaylandstatemodel.h
+    src/core/workspace/kwinsupportinfoparser.cpp
+    src/core/workspace/kwinsupportinfoparser.h
+    src/core/wayland/layershell/appdeckcompositorevents.cpp
+    src/core/wayland/layershell/appdeckcompositorevents.h
+    tests/appdeckcompositorevents_test.cpp
+)
+
+target_link_libraries(appdeckcompositorevents_test
+    PRIVATE
+        Qt6::Core
+        Qt6::DBus
+        Qt6::Concurrent
+        Qt6::Gui
+        Qt6::Network
+        Qt6::Test
+        PkgConfig::GIO
+)
+
+target_include_directories(appdeckcompositorevents_test PRIVATE ${CMAKE_SOURCE_DIR})
+
+add_test(NAME appdeckcompositorevents_test COMMAND appdeckcompositorevents_test)
+set_tests_properties(appdeckcompositorevents_test PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
 
 qt_add_executable(shell_input_router_test
     src/core/shell/shellstatecontroller.cpp
@@ -3464,8 +3540,11 @@ target_link_libraries(themepolicyengine_test
 
 add_test(NAME themepolicyengine_test COMMAND themepolicyengine_test)
 
+set(SLM_SHARINGD_TEST_SOURCES ${SLM_SHARINGD_SOURCES})
+list(REMOVE_ITEM SLM_SHARINGD_TEST_SOURCES src/daemon/sharingd/sharingd_main.cpp)
+
 qt_add_executable(sharingservice_compat_dbus_test
-    ${SLM_SHARINGD_SOURCES}
+    ${SLM_SHARINGD_TEST_SOURCES}
     ${SLM_PERMISSION_TEST_SOURCES}
     tests/foldersharingservice_dbus_test.cpp
 )

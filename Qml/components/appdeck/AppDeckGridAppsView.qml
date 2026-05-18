@@ -3,6 +3,7 @@ import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import Slm_Desktop
 import "." as AppDeckComp
+import "./v2" as AppDeckV2
 
 FocusScope {
     id: root
@@ -21,6 +22,13 @@ FocusScope {
     property real revealProgress: 1.0
     property int lazyRefreshCooldownMs: 15000
     property double lastLazyRefreshAtMs: 0
+    // docs/APPDECK.md §7 — forwarded to inner AppDeckGridView.
+    property bool iconsRenderedExternally: false
+    // docs/APPDECK.md §8 — morph progress 0..1 (dock→grid). When set, the
+    // header / search row stagger their reveal via GridContentLayer's curve
+    // (visible >0.05, opacity 0→1 across 0.45→0.80). Defaults to 1.0 so the
+    // legacy revealProgress path stays in effect when this isn't wired.
+    property real morphProgress: 1.0
 
     readonly property var allAppsModel: (typeof AppModel !== "undefined" && AppModel)
                                          ? AppModel : appsModel
@@ -58,9 +66,26 @@ FocusScope {
     }
 
     signal dismissRequested()
+    signal pointerDismissRequested()
     signal appChosen(var appData)
     signal addToDockRequested(var appData)
     signal addToDesktopRequested(var appData)
+    // docs/APPDECK.md §5 — re-emit grid cell-layout settle from inner GridView
+    // so AppDeckGeometry can recompute grid anchors.
+    signal gridLayoutSettled()
+
+    // Forward to the grid view's own helper (returns Qt.point in
+    // AppDeckGridView coordinates; caller mapToItem-s into surface space).
+    function gridIconCenterFor(globalIndex) {
+        if (!appsGrid) {
+            return Qt.point(-1, -1)
+        }
+        var local = appsGrid.gridIconCenterFor(globalIndex)
+        if (local.x < 0) {
+            return local
+        }
+        return appsGrid.mapToItem(root, local.x, local.y)
+    }
 
     anchors.fill: parent
     focus: visible
@@ -135,7 +160,7 @@ FocusScope {
         acceptedButtons: Qt.LeftButton
         onClicked: function(mouse) {
             if (!root._insideContentArea(mouse.x, mouse.y)) {
-                root.dismissRequested()
+                root.pointerDismissRequested()
             }
         }
     }
@@ -158,15 +183,20 @@ FocusScope {
             anchors.margins: 18
             spacing: 14
 
-            Item {
+            // docs/APPDECK.md §8 — header staggers in over morphProgress
+            // 0.45→0.80 via GridContentLayer's reveal curve. Defaults
+            // (morphProgress=1.0) keep the header fully visible when the
+            // outer panel is up, which matches legacy behavior.
+            AppDeckV2.GridContentLayer {
                 id: headerHitLayer
                 Layout.fillWidth: true
                 Layout.preferredHeight: header.implicitHeight
+                morphProgress: root.morphProgress
 
                 MouseArea {
                     anchors.fill: parent
                     acceptedButtons: Qt.LeftButton
-                    onClicked: root.dismissRequested()
+                    onClicked: root.pointerDismissRequested()
                 }
 
                 AppDeckComp.AppDeckGridHeader {
@@ -184,17 +214,20 @@ FocusScope {
                 }
             }
 
-            Item {
+            // docs/APPDECK.md §8 — favorites row joins the staged reveal.
+            // gateVisible carries the existing logic (hide when filtering or
+            // no favorites); morphProgress drives the stagger curve on top.
+            AppDeckV2.GridContentLayer {
                 id: favoritesHitLayer
                 Layout.fillWidth: true
-                Layout.preferredHeight: visible ? favoritesRow.implicitHeight : 0
-                visible: root.filterText.trim().length === 0 && favoriteApps.length > 0
-                opacity: visible ? 1.0 : 0.0
+                Layout.preferredHeight: gateVisible ? favoritesRow.implicitHeight : 0
+                morphProgress: root.morphProgress
+                gateVisible: root.filterText.trim().length === 0 && favoriteApps.length > 0
 
                 MouseArea {
                     anchors.fill: parent
                     acceptedButtons: Qt.LeftButton
-                    onClicked: root.dismissRequested()
+                    onClicked: root.pointerDismissRequested()
                 }
 
                 AppDeckComp.AppDeckFavoritesRow {
@@ -214,7 +247,7 @@ FocusScope {
                 MouseArea {
                     anchors.fill: parent
                     acceptedButtons: Qt.LeftButton
-                    onClicked: root.dismissRequested()
+                    onClicked: root.pointerDismissRequested()
                 }
 
                 AppDeckComp.AppDeckGridView {
@@ -222,6 +255,7 @@ FocusScope {
                     anchors.fill: parent
                     appModel: root.allAppsModel
                     filterText: root.filterText
+                    iconsRenderedExternally: root.iconsRenderedExternally
                     onAppActivated: function(appData) {
                         root.appChosen(appData)
                     }
@@ -232,6 +266,7 @@ FocusScope {
                     onAddToDesktopRequested: function(appData) {
                         root.addToDesktopRequested(appData)
                     }
+                    onGridLayoutSettled: root.gridLayoutSettled()
                 }
 
                 Column {

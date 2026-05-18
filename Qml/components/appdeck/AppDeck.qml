@@ -97,6 +97,13 @@ Rectangle {
                                           ? DesktopSettings.dockDragThresholdTouchpad : 3
     property var separatorAfterDesktopFiles: []
     property var iconRectsCache: []
+    // docs/APPDECK.md §7 — when true, IconMorphLayer (v2) paints the icons
+    // for this dock from a sibling layer in surface coordinates; the dock
+    // chrome (background, hover halo, drop pulse, drag gap) keeps rendering
+    // its layout but the per-slot AppDeckAppDelegate hides its icon visual.
+    // Tahap 4 wires the hook only — current behavior is unchanged until the
+    // feature flag is enabled and the per-slot opacity swap is finished.
+    property bool iconsRenderedExternally: false
     readonly property bool livelyMotion: motionPreset === "macos-lively" || motionPreset === "expressive"
     readonly property real gapWidthExtra: livelyMotion ? 32 : 24
     readonly property real gapSpring: livelyMotion ? 3.6 : 4.8
@@ -125,8 +132,16 @@ Rectangle {
         return MotionController.allowMotionPriority(MotionController.LowPriority)
     }
 
+    // Vertical clearance reserved ABOVE the dock pill so the per-icon hover
+    // tooltip Label (anchored above iconPlate.top with bottomMargin=8) is not
+    // clipped by the Wayland layer-shell buffer edge. This is purely visual
+    // headroom — the input region (inputRegionY/Height below) stays restricted
+    // to the dock pill + liftMax so clicks above the dock pass through to
+    // workspace windows.
+    property real tooltipHeadroom: 44
+
     width: Math.max(baseWidth, dockRow.width + (edgePadding * 2))
-    height: baseHeight + Math.max(0, Number(liftMax || 10)) + 8
+    height: baseHeight + Math.max(0, Number(liftMax || 10)) + tooltipHeadroom + 8
     radius: Theme.radiusWindow
     color: "transparent"
     border.width: Theme.borderWidthNone
@@ -375,10 +390,38 @@ Rectangle {
         if (AppDeckController.inputOwnerHost !== root.hostName) {
             return
         }
-        if (String(AppDeckController.hoveredItemId || "").length > 0) {
+        var existingId = String(AppDeckController.hoveredItemId || "")
+        // R4 — if the HoverHandler still reports the pointer over the dock,
+        // restore the hover state even if hoveredItemId was cleared while
+        // acceptsInput was briefly false (state=grid). Otherwise the dock
+        // looks dead until the user wiggles the mouse.
+        if (existingId.length === 0 && dockHoverHandler.hovered) {
+            AppDeckController.dockHovered = true
+            var rectsRestore = root.iconRectsCache || []
+            var hx = Number(AppDeckController.hoverX || (width * 0.5))
+            var nearestId = ""
+            var bestDist = Number.MAX_VALUE
+            for (var k = 0; k < rectsRestore.length; ++k) {
+                var rr = rectsRestore[k]
+                if (!rr) continue
+                var ridStr = String(rr.id || "")
+                if (!ridStr.length) continue
+                var cxR = Number(rr.x || 0) + (Number(rr.width || 0) * 0.5)
+                var distR = Math.abs(cxR - hx)
+                if (distR < bestDist) {
+                    bestDist = distR
+                    nearestId = ridStr
+                }
+            }
+            if (nearestId.length > 0) {
+                AppDeckController.onHover(nearestId, hx, root.hostName)
+            }
+            return
+        }
+        if (existingId.length > 0) {
             AppDeckController.dockHovered = true
             var nextX = -1
-            var targetId = String(AppDeckController.hoveredItemId || "")
+            var targetId = existingId
             var rects = root.iconRectsCache || []
             for (var i = 0; i < rects.length; ++i) {
                 var r = rects[i]
@@ -724,11 +767,26 @@ Rectangle {
         id: dockBackground
         anchors.bottom: parent.bottom
         anchors.horizontalCenter: parent.horizontalCenter
-        width: dockRow.width + (root.edgePadding * 2) + Math.round(18 * root.backgroundMorph)
+        // Floor at baseWidth so the Wayland surface buffer cannot keep
+        // shrinking during the startup feedback loop (each shrink retriggers
+        // a wl_surface configure, which Qt eats input events for). With the
+        // floor in place the surface settles immediately and clicks land on
+        // the first try — see the size=337→312 churn in earlier QEMU logs.
+        width: Math.max(root.baseWidth,
+                        dockRow.width + (root.edgePadding * 2)
+                        + Math.round(18 * root.backgroundMorph))
         height: root.baseHeight + Math.round(6 * root.backgroundMorph)
         radius: Theme.radiusWindow + Math.round(Math.min(10, Theme.radiusWindow) * root.backgroundMorph)
         visible: !root.dockTransparent
         color: root.dockTransparent ? "transparent" : root.dockSolidBackgroundColor
+        Component.onCompleted: console.info(
+            "[APPDECK-DOCK-BG] dockTransparent=" + root.dockTransparent
+            + " visible=" + visible
+            + " color=" + color
+            + " size=" + width + "x" + height
+            + " renderEffectsEnabled=" + root.renderEffectsEnabled
+            + " forceTransparentBackground=" + root.forceTransparentBackground
+            + " ignoreDesktopTransparentSetting=" + root.ignoreDesktopTransparentSetting)
         border.color: (root.dockTransparent || root.hideBackgroundBorder)
                       ? "transparent"
                       : Theme.color("panelBorder")
@@ -757,7 +815,12 @@ Rectangle {
             opacity: root.hideBackgroundBorder ? 0.0 : 0.42
         }
 
-        // §23 APPDECK.md – Resting Animation (breathing luminance, very subtle)
+        // §23 APPDECK.md – Resting Animation (breathing luminance, very subtle).
+        // The spec word is "subtle" — but the prior implementation animated
+        // opacity 0→1→0 every ~760 ms, which the user perceived as the dock
+        // background flickering on/off. Locked to a constant tint; opacity
+        // also fades to 0 as we morph into grid so the dock pill blends into
+        // the surrounding panel (no visible "lighter top half" mismatch).
         Rectangle {
             anchors.left: parent.left
             anchors.right: parent.right
@@ -769,14 +832,7 @@ Rectangle {
                 GradientStop { position: 0.0; color: Qt.rgba(1, 1, 1, 0.07) }
                 GradientStop { position: 1.0; color: Qt.rgba(1, 1, 1, 0.0) }
             }
-            opacity: root.transparentOpacity
-
-            SequentialAnimation on opacity {
-                loops: Animation.Infinite
-                paused: root.hovered || !root.microAnimationAllowed()
-                NumberAnimation { to: 1.0; duration: Theme.durationXl; easing.type: Theme.easingStandard }
-                NumberAnimation { to: 0.0; duration: Theme.durationXl; easing.type: Theme.easingStandard }
-            }
+            opacity: (1.0 - root.backgroundMorph) * Theme.opacitySeparator * 0.73
         }
 
         Behavior on color {
@@ -826,6 +882,10 @@ Rectangle {
             animationDuration: root.animationDuration
             itemScale: 1.0
             onClicked: {
+                console.info("[APPDECK-LAUNCHER-CLICK] firing appdeckRequested"
+                             + " rendererActive=" + root.rendererActive
+                             + " acceptsInput=" + root.acceptsInput
+                             + " dockTransparent=" + root.dockTransparent)
                 AppDeckController.onActivate("appdeck", root.hostName)
                 appdeckItem.playBounce("focus")
                 root.appdeckRequested()
@@ -940,34 +1000,61 @@ Rectangle {
         }
     }
 
+    // R4 — when an app launches, Wayland may briefly send pointer-leave to the
+    // dock surface during the focus shuffle / surface re-configure, even if
+    // the pointer never physically left the dock area. The old path cleared
+    // dockHovered + hoveredItemId on every leave, and Qt's HoverHandler does
+    // NOT auto-re-fire on pointer-enter without motion — so the hover stayed
+    // dead until the user wiggled. Debounce the leave: if the pointer comes
+    // back within 250 ms, drop the pending clear and keep the hover live.
+    Timer {
+        id: hoverLeaveDebounce
+        interval: 250
+        repeat: false
+        onTriggered: {
+            AppDeckController.dockHovered = false
+            if (AppDeckController.inputOwnerHost === root.hostName) {
+                AppDeckController.onHover("", AppDeckController.hoverX, root.hostName)
+            }
+        }
+    }
     HoverHandler {
         id: dockHoverHandler
         acceptedDevices: PointerDevice.Mouse
-        enabled: root.acceptsInput
+        // R4 — keep the handler always live regardless of acceptsInput.
+        // When state=grid (acceptsInput=false because dockActive=false), the
+        // dock is still visible and user expects hover to fire. The previous
+        // `enabled: root.acceptsInput` reset the handler's internal hovered
+        // tracker every time acceptsInput flipped, and Qt does not re-poll
+        // pointer position on re-enable — hover stayed dead. The gate inside
+        // the callback used to short-circuit too eagerly; drop it now so the
+        // hoveredItemId reflects pointer reality across dock/grid morph.
+        enabled: true
         onHoveredChanged: {
-            AppDeckController.dockHovered = hovered
+            if (!hovered) {
+                hoverLeaveDebounce.restart()
+                return
+            }
+            hoverLeaveDebounce.stop()
+            AppDeckController.dockHovered = true
             if (AppDeckController.inputOwnerHost === root.hostName) {
-                if (!hovered) {
-                    AppDeckController.onHover("", AppDeckController.hoverX, root.hostName)
-                } else {
-                    var nearestId = ""
-                    var bestDist = Number.MAX_VALUE
-                    var rects = root.iconRectsCache || []
-                    var x = Number(AppDeckController.hoverX || 0)
-                    for (var i = 0; i < rects.length; ++i) {
-                        var r = rects[i]
-                        if (!r) continue
-                        var id = String(r.id || "")
-                        if (!id.length) continue
-                        var cx = Number(r.x || 0) + (Number(r.width || 0) * 0.5)
-                        var dist = Math.abs(cx - x)
-                        if (dist < bestDist) {
-                            bestDist = dist
-                            nearestId = id
-                        }
+                var nearestId = ""
+                var bestDist = Number.MAX_VALUE
+                var rects = root.iconRectsCache || []
+                var x = Number(AppDeckController.hoverX || 0)
+                for (var i = 0; i < rects.length; ++i) {
+                    var r = rects[i]
+                    if (!r) continue
+                    var id = String(r.id || "")
+                    if (!id.length) continue
+                    var cx = Number(r.x || 0) + (Number(r.width || 0) * 0.5)
+                    var dist = Math.abs(cx - x)
+                    if (dist < bestDist) {
+                        bestDist = dist
+                        nearestId = id
                     }
-                    AppDeckController.onHover(nearestId, AppDeckController.hoverX, root.hostName)
                 }
+                AppDeckController.onHover(nearestId, AppDeckController.hoverX, root.hostName)
             }
         }
         onPointChanged: {
@@ -1001,23 +1088,42 @@ Rectangle {
         scheduleIconRectsEmit()
     }
     onRendererActiveChanged: {
+        console.info("[APPDECK-HOVER] rendererActive=" + rendererActive
+                     + " acceptsInput=" + acceptsInput)
+        // R4 — do NOT clearOwnedHover on rendererActive=false. The cascade
+        // wipes hoveredItemId every time the renderer-active gate flickers
+        // (which can happen during surface re-configure on app launch), and
+        // syncHoverFromController on the next true edge has no id to restore.
+        // Keep the cached id; the HoverHandler is now always live so the next
+        // pointer event corrects any stale state.
         if (rendererActive) {
             syncHoverFromController()
-        } else {
-            clearOwnedHover()
         }
         scheduleIconRectsEmit()
     }
     onAcceptsInputChanged: {
+        console.info("[APPDECK-HOVER] acceptsInput=" + acceptsInput
+                     + " rendererActive=" + rendererActive)
+        // Same as above — don't clear on acceptsInput=false. State=grid sets
+        // dockActive=false → acceptsInput=false, and we want the hover state
+        // to survive that transition so users see the halo immediately when
+        // they collapse back to dock.
         if (acceptsInput) {
             syncHoverFromController()
-        } else {
-            clearOwnedHover()
         }
     }
     Connections {
         target: AppDeckController
         function onDockHoveredChanged() {
+            // Diagnostic for R4 (hover dies after launching app from dock).
+            // Captures whether the cascade clears local state because the
+            // HoverHandler at line 967 lost pointer focus mid-launch.
+            console.info("[APPDECK-HOVER] controller.dockHovered="
+                         + AppDeckController.dockHovered
+                         + " hoverHandler.hovered=" + dockHoverHandler.hovered
+                         + " rendererActive=" + root.rendererActive
+                         + " acceptsInput=" + root.acceptsInput
+                         + " hoveredItemId=" + String(AppDeckController.hoveredItemId || ""))
             if (!AppDeckController.dockHovered) {
                 root.clearOwnedHover()
             }

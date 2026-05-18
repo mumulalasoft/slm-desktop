@@ -27,6 +27,12 @@ Item {
     property real pinFlightOpacity: 0
     property real pinBeaconScale: 0
     property real pinBeaconOpacity: 0
+    // docs/APPDECK.md §7 — when true, IconMorphLayer renders the grid icons
+    // from a sibling surface-space layer; this view keeps cell layout for
+    // pagination + keyboard navigation but skips the icon paint inside each
+    // cell. Tahap 4 wires the property — visual swap completes when the
+    // feature flag (AppDeckTokens.iconMorphEnabled) is enabled.
+    property bool iconsRenderedExternally: false
 
     readonly property int filteredCount: filteredApps.length
     readonly property bool hasResults: filteredApps.length > 0
@@ -68,6 +74,36 @@ Item {
     signal collapseRequested()
     signal addToDockRequested(var appData)
     signal addToDesktopRequested(var appData)
+
+    // docs/APPDECK.md §5 — emitted when the grid's cell layout (columnCount,
+    // rowCount, cellWidth, currentPage) is stable enough that AppDeckGeometry
+    // can sample positions. Consumers (AppDeckGeometry, IconMorphLayer) should
+    // call gridIconCenterFor() after this fires.
+    signal gridLayoutSettled()
+
+    // docs/APPDECK.md §7 — return the center of the icon at globalIndex in
+    // GridView-root coordinates, or Qt.point(-1, -1) if the icon is not on the
+    // current page (only icons on the current page have a stable on-screen
+    // position to morph to/from). Caller is responsible for mapToItem() into
+    // surface space.
+    function gridIconCenterFor(globalIndex) {
+        if (globalIndex < 0 || columnCount <= 0 || pageSize <= 0) {
+            return Qt.point(-1, -1)
+        }
+        var pageStart = currentPage * pageSize
+        if (globalIndex < pageStart || globalIndex >= pageStart + pageSize) {
+            return Qt.point(-1, -1)
+        }
+        var local = globalIndex - pageStart
+        var col = local % columnCount
+        var row = Math.floor(local / columnCount)
+        var cx = grid.x + grid.leftMargin + col * grid.cellWidth + grid.cellWidth / 2
+        var cy = grid.y + row * grid.cellHeight + grid.cellHeight / 2
+        return Qt.point(cx, cy)
+    }
+
+    onColumnCountChanged: gridLayoutSettled()
+    onCurrentPageChanged: gridLayoutSettled()
 
     function _iconFrom(entry) {
         var iconName = String(entry && entry.iconName ? entry.iconName : "")
@@ -296,7 +332,7 @@ Item {
         appActivated(appData)
     }
 
-    onPageSizeChanged: _syncPaginationToSelection()
+    onPageSizeChanged: { _syncPaginationToSelection(); gridLayoutSettled() }
     onPageCountChanged: {
         if (filteredApps.length <= 0) {
             return
@@ -829,5 +865,5 @@ Item {
         }
     }
 
-    Component.onCompleted: _rebuildModel()
+    Component.onCompleted: { _rebuildModel(); gridLayoutSettled() }
 }
