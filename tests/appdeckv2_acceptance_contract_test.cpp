@@ -190,14 +190,19 @@ private slots:
     }
 
     // §18.7 — outside click collapses (via compositor event bus)
+    // §22 — Two-stage dismiss: outside click routes through
+    // dismissCurrentLayer which peels pulse → grid first, then grid → dock
+    // on a subsequent click. The legacy dismissGridByPointer is still the
+    // second-stage collapser, just no longer the first-touch entry point.
     void outsideClickCollapses()
     {
         const QString base = QStringLiteral(DESKTOP_SOURCE_DIR);
         const QString h = readTextFile(base + QStringLiteral("/src/core/wayland/layershell/appdeckcompositorevents.h"));
         QVERIFY(h.contains(QStringLiteral("void outsidePointerPressed(")));
         const QString win = readTextFile(base + QStringLiteral("/Qml/components/overlay/AppDeckWindow.qml"));
-        // existing handler still wired
-        QVERIFY(win.contains(QStringLiteral("dismissGridByPointer(\"outside-click\")")));
+        QVERIFY(win.contains(QStringLiteral("dismissCurrentLayer(\"outside-click\")")));
+        QVERIFY(win.contains(QStringLiteral("function dismissCurrentLayer(reason)")));
+        QVERIFY(win.contains(QStringLiteral("function dismissGridByPointer(reason)")));
     }
 
     // §18.8 — launching an app collapses without waiting for the window

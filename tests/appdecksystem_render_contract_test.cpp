@@ -82,8 +82,11 @@ private slots:
         QVERIFY(text.contains(QStringLiteral("function shouldCollapseForActivation()")));
         QVERIFY(text.contains(QStringLiteral("function canDismissGridByPointer()")));
         QVERIFY(text.contains(QStringLiteral("function dismissGridByPointer(reason)")));
+        // §22 — two-stage dismiss: dismissCurrentLayer peels pulse back to
+        // grid first; dismissGridByPointer is the second-stage collapser.
+        QVERIFY(text.contains(QStringLiteral("function dismissCurrentLayer(reason)")));
         QVERIFY(text.contains(QStringLiteral("onPointerDismissRequested:")));
-        QVERIFY(text.contains(QStringLiteral("root.dismissGridByPointer(\"grid-pointer-dismiss\")")));
+        QVERIFY(text.contains(QStringLiteral("root.dismissCurrentLayer(\"grid-pointer-dismiss\")")));
         QVERIFY(text.contains(QStringLiteral("id: gridCollapseGuardTimer")));
         // P0 (appdeck interaction responsiveness fix) — the legacy
         // `gridPointerDismissTimer` (max(motionSurfaceDuration+1200, 1800) ms)
@@ -134,7 +137,9 @@ private slots:
         QVERIFY(text.contains(QStringLiteral("root.collapseToDock(\"window-event\")")));
         QVERIFY(text.contains(QStringLiteral("root.collapseToDock(\"focused-app\")")));
         QVERIFY(text.contains(QStringLiteral("root.collapseToDock(\"dock-app-activated\")")));
-        QVERIFY(text.contains(QStringLiteral("root.dismissGridByPointer(\"outside-click\")")));
+        // §22 — outside click routes through dismissCurrentLayer for the
+        // two-stage peel (pulse → grid → dock).
+        QVERIFY(text.contains(QStringLiteral("root.dismissCurrentLayer(\"outside-click\")")));
 
         const QString layerPath = QStringLiteral(DESKTOP_SOURCE_DIR)
             + QStringLiteral("/src/core/wayland/layershell/appdecklayershellcontroller.cpp");

@@ -37,18 +37,25 @@ Item {
 
         // Glass pill background. Translucent fill + subtle hairline border
         // gives a soft "frosted" feel that reads on both light and dark
-        // backgrounds without competing with the icons below.
+        // backgrounds without competing with the icons below. §9 APPDECK.md
+        // requires the pill to read as a spatial anchor in pulse mode — the
+        // active tier amps fill/border so the field stays the visual origin
+        // even as the grid backdrop dims behind it.
         Rectangle {
             id: pill
             anchors.fill: parent
             radius: height / 2
-            color: searchField.activeFocus
-                   ? Qt.rgba(1, 1, 1, Theme.darkMode ? 0.12 : 0.55)
-                   : Qt.rgba(1, 1, 1, Theme.darkMode ? 0.07 : 0.40)
+            color: root.searchActive
+                   ? Qt.rgba(1, 1, 1, Theme.darkMode ? 0.16 : 0.66)
+                   : (searchField.activeFocus
+                      ? Qt.rgba(1, 1, 1, Theme.darkMode ? 0.12 : 0.55)
+                      : Qt.rgba(1, 1, 1, Theme.darkMode ? 0.07 : 0.40))
             border.width: Theme.borderWidthThin
-            border.color: searchField.activeFocus
-                          ? Qt.rgba(1, 1, 1, Theme.darkMode ? 0.22 : 0.65)
-                          : Qt.rgba(1, 1, 1, Theme.darkMode ? 0.10 : 0.45)
+            border.color: root.searchActive
+                          ? Qt.rgba(1, 1, 1, Theme.darkMode ? 0.32 : 0.78)
+                          : (searchField.activeFocus
+                             ? Qt.rgba(1, 1, 1, Theme.darkMode ? 0.22 : 0.65)
+                             : Qt.rgba(1, 1, 1, Theme.darkMode ? 0.10 : 0.45))
             antialiasing: true
 
             Behavior on color {
@@ -68,8 +75,9 @@ Item {
             anchors.left: parent.left
             anchors.leftMargin: 14
             anchors.verticalCenter: parent.verticalCenter
-            opacity: searchField.activeFocus || root.searchText.length > 0
-                     ? 0.85 : 0.55
+            opacity: root.searchActive
+                     ? 1.0
+                     : (searchField.activeFocus ? 0.85 : 0.55)
 
             Behavior on opacity {
                 NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingLight }

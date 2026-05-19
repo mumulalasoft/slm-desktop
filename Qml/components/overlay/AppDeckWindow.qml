@@ -410,6 +410,23 @@ Window {
                      + " transition=" + root.transitioning)
     }
 
+    // docs/APPDECK.md §22 — Two-stage outside click / Esc:
+    //   pulseMode  → exit pulse back to grid (clear query, deckMode=apps)
+    //   gridMode   → collapse grid to dock
+    // Routed by all pointer-dismiss and Esc paths so the user gets the
+    // "premium spatial" reverse-step rather than an abrupt jump to dock.
+    function dismissCurrentLayer(reason) {
+        if (root.pulseMode) {
+            console.info("[APPDECK] dismiss stage=pulse→grid reason=" + String(reason || "unknown"))
+            if (root.rootWindow && root.rootWindow.setSearchVisible) {
+                root.rootWindow.setSearchVisible(false)
+            }
+            root.applyPulseQuery("")
+            return
+        }
+        root.dismissGridByPointer(reason)
+    }
+
     function collapseToDock(reason) {
         console.info("[APPDECK] collapseToDock reason=" + String(reason || "unknown")
                      + " active=" + root.active
@@ -998,15 +1015,17 @@ Window {
         }
 
         // §10 APPDECK.md – Catches outside-panel clicks in pulse/context mode.
-        // In gridAppsMode the gridAppsView background MouseArea (z=1) handles this;
-        // here we cover the pulse/context case where contextView has no background handler.
+        // §22 APPDECK.md – Two-stage dismiss: pulse first peels back to grid,
+        // a subsequent outside click collapses grid to dock. In gridAppsMode
+        // the gridAppsView background MouseArea (z=1) handles this; here we
+        // cover the pulse/context case where contextView has no background.
         MouseArea {
             anchors.fill: parent
             z: 0.1
             enabled: root.immersiveMode
             acceptedButtons: Qt.LeftButton | Qt.RightButton
             onClicked: {
-                root.dismissGridByPointer("outside-click")
+                root.dismissCurrentLayer("outside-click")
             }
         }
 
@@ -1120,10 +1139,12 @@ Window {
                 )
             )
             onDismissRequested: {
-                root.collapseToDock("grid-dismiss")
+                // §22 — Esc / explicit dismiss is also two-stage so pulse
+                // exits to grid first instead of jumping to dock.
+                root.dismissCurrentLayer("grid-dismiss")
             }
             onPointerDismissRequested: {
-                root.dismissGridByPointer("grid-pointer-dismiss")
+                root.dismissCurrentLayer("grid-pointer-dismiss")
             }
             onAppChosen: function(appData) {
                 console.log("[appdeck-launch] window app chosen name="
@@ -1197,10 +1218,12 @@ Window {
             providerStats: root.rootWindow ? root.rootWindow.pulseProviderStats : ({})
             previewData: root.rootWindow ? root.rootWindow.pulsePreviewData : ({})
             onCollapseRequested: {
-                root.collapseToDock("context-collapse")
+                // §22 — Esc inside pulse peels back to grid, then a second
+                // Esc/outside click collapses to dock.
+                root.dismissCurrentLayer("context-collapse")
             }
             onDismissRequested: {
-                root.collapseToDock("context-dismiss")
+                root.dismissCurrentLayer("context-dismiss")
             }
             onQueryChanged: function(text) {
                 root.applyPulseQuery(text)
@@ -1277,11 +1300,29 @@ Window {
             // (grid/full-screen, where Window sits at screen.bottom).
             anchors.bottomMargin: root.compactDockSurface ? 0 : root.dockBottomMargin
             visible: !root.appDeckHidden && (root.dockActive || root.gridAppsMode || root.pulseMode || opacity > 0.01)
-            opacity: 1.0
-            scale: 1.0
+            // docs/APPDECK.md §12 — Dock softens to an ambient layer while
+            // Pulse owns the spatial focus. Slight scale-down (0.96) + opacity
+            // dim (0.72) reads as "still part of the surface, no longer the
+            // active control". Animated via Behavior so the transition matches
+            // the grid backdrop curve.
+            opacity: root.pulseMode ? 0.72 : 1.0
+            scale: root.pulseMode ? 0.96 : 1.0
             transform: Translate { y: root.autoHideSlideY }
             z: 3
             hostName: "appdeck"
+
+            Behavior on opacity {
+                NumberAnimation {
+                    duration: Theme.durationFast
+                    easing.type: Theme.easingDecelerate
+                }
+            }
+            Behavior on scale {
+                NumberAnimation {
+                    duration: Theme.durationFast
+                    easing.type: Theme.easingDecelerate
+                }
+            }
             // Hide dock pill border when AppDeck is in grid/pulse/context mode
             // so the dock visually merges into the morph panel instead of
             // showing a hard outline against the expanded surface.
