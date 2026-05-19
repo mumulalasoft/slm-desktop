@@ -64,6 +64,111 @@ private slots:
         const QString m = readTextFile(base + QStringLiteral("/Qml/components/appdeck/v2/AppDeckMotion.qml"));
         QVERIFY(m.contains(QStringLiteral("anim.to = 0.0")));
         QVERIFY(m.contains(QStringLiteral("anim.to = 1.0")));
+        // P0 — Motion exposes toggle + interrupt entry points and the inner
+        // morphAnim retargets cleanly mid-flight (no transitioning early-return).
+        QVERIFY(m.contains(QStringLiteral("function toggleAppDeck(")));
+        QVERIFY(m.contains(QStringLiteral("function interruptOrReverseTransition()")));
+        QVERIFY(m.contains(QStringLiteral("signal toggleRequested(")));
+        QVERIFY(m.contains(QStringLiteral("signal reverseRequested(")));
+        QVERIFY(m.contains(QStringLiteral("anim.stop()")));
+    }
+
+    // P0 — interrupting during a morph reverses direction instead of being
+    // dropped. AppDeckWindow's onAppdeckRequested checks `root.transitioning`
+    // and picks enterGrid / enterDock based on `root.surfaceTransition`.
+    void transitionInterruptIsHandled()
+    {
+        const QString base = QStringLiteral(DESKTOP_SOURCE_DIR);
+        const QString win = readTextFile(base + QStringLiteral("/Qml/components/overlay/AppDeckWindow.qml"));
+        QVERIFY2(!win.isEmpty(), "AppDeckWindow.qml unreadable");
+        QVERIFY(win.contains(QStringLiteral("if (root.transitioning)")));
+        QVERIFY(win.contains(QStringLiteral("var reverseTarget = root.surfaceTransition >= 0.5")));
+        QVERIFY(win.contains(QStringLiteral("[APPDECK-LAUNCHER-SIGNAL] interrupt reverse target=")));
+        // AppDeckMotion's spec-API signals are dispatched into the legacy
+        // enterGrid / enterDock entry points.
+        QVERIFY(win.contains(QStringLiteral("target: appDeckMotion")));
+        QVERIFY(win.contains(QStringLiteral("function onToggleRequested(")));
+        QVERIFY(win.contains(QStringLiteral("function onReverseRequested(")));
+    }
+
+    // P0 — watchdog prevents `transitioning` from latching true if the morph
+    // ends without onStopped firing. Two layers: AppDeckRoot.transitionWatchdog
+    // (v2 SSOT) and AppDeckWindow.transitionLockTimer (legacy safety net,
+    // restarted on every transitioning rising edge via onTransitioningChanged).
+    void transitionWatchdogPreventsLatch()
+    {
+        const QString base = QStringLiteral(DESKTOP_SOURCE_DIR);
+        const QString r = readTextFile(base + QStringLiteral("/Qml/components/appdeck/v2/AppDeckRoot.qml"));
+        QVERIFY(r.contains(QStringLiteral("id: transitionWatchdog")));
+        QVERIFY(r.contains(QStringLiteral("signal watchdogReset()")));
+        QVERIFY(r.contains(QStringLiteral("signal hoverRecomputeRequested()")));
+        QVERIFY(r.contains(QStringLiteral("onTransitioningChanged:")));
+        QVERIFY(r.contains(QStringLiteral("transitionWatchdog.restart()")));
+        QVERIFY(r.contains(QStringLiteral("transitionWatchdog.stop()")));
+
+        const QString win = readTextFile(base + QStringLiteral("/Qml/components/overlay/AppDeckWindow.qml"));
+        QVERIFY(win.contains(QStringLiteral("id: transitionLockTimer")));
+        QVERIFY(win.contains(QStringLiteral("interval: root.morphDuration + 250")));
+        QVERIFY(win.contains(QStringLiteral("onTransitioningChanged:")));
+        QVERIFY(win.contains(QStringLiteral("transitionLockTimer.restart()")));
+        // The v2 watchdogReset signal is wired up so a stuck `transitioning`
+        // gets cleared even if the legacy timer paths fail.
+        QVERIFY(win.contains(QStringLiteral("function onWatchdogReset()")));
+    }
+
+    // P0 — overlay layers (pulse / context / staged grid content) must not
+    // accept input while they're below ~5% opacity, otherwise their child
+    // MouseAreas silently dismiss the grid mid-fade.
+    void overlayLayersGateInputOnOpacity()
+    {
+        const QString base = QStringLiteral(DESKTOP_SOURCE_DIR);
+        const QString pulse = readTextFile(base + QStringLiteral("/Qml/components/appdeck/v2/PulseLayer.qml"));
+        QVERIFY(pulse.contains(QStringLiteral("enabled: visible && opacity > 0.05")));
+        const QString ctx = readTextFile(base + QStringLiteral("/Qml/components/appdeck/v2/ContextLayer.qml"));
+        QVERIFY(ctx.contains(QStringLiteral("enabled: visible && opacity > 0.05")));
+        const QString grid = readTextFile(base + QStringLiteral("/Qml/components/appdeck/v2/GridContentLayer.qml"));
+        QVERIFY(grid.contains(QStringLiteral("enabled: visible && opacity > 0.05")));
+        // Outside-dismiss MouseArea in AppDeckGridAppsView must wait until the
+        // grid is fully settled so mid-morph events don't trip dismissal.
+        const QString gridView = readTextFile(base + QStringLiteral("/Qml/components/appdeck/AppDeckGridAppsView.qml"));
+        QVERIFY(gridView.contains(QStringLiteral("enabled: root.morphProgress >= 0.95")));
+    }
+
+    // P0 — hover state is recomputed after every morph end so a stationary
+    // pointer still resolves to the correct icon. AppDeckRoot.hoverRecompute-
+    // Requested fires from onTransitioningChanged; the v2 controller (wired
+    // via AppDeckWindow.qml's Connections block) re-hit-tests the cached
+    // pointer X and pushes the resolved id into the global singleton.
+    void hoverIsRecomputedAfterMorph()
+    {
+        const QString base = QStringLiteral(DESKTOP_SOURCE_DIR);
+        const QString c = readTextFile(base + QStringLiteral("/Qml/components/appdeck/v2/AppDeckController.qml"));
+        QVERIFY(c.contains(QStringLiteral("property int hoveredIconIndex")));
+        QVERIFY(c.contains(QStringLiteral("function recomputeHover()")));
+        // Hit-test consults both anchor maps depending on deckState.
+        QVERIFY(c.contains(QStringLiteral("gridAnchorsByIndex")));
+        QVERIFY(c.contains(QStringLiteral("dockAnchorsById")));
+        // Resolved id flows back into the global hover singleton.
+        QVERIFY(c.contains(QStringLiteral("AppDeckController.onHover(")));
+
+        const QString win = readTextFile(base + QStringLiteral("/Qml/components/overlay/AppDeckWindow.qml"));
+        QVERIFY(win.contains(QStringLiteral("target: appDeckRoot")));
+        QVERIFY(win.contains(QStringLiteral("function onHoverRecomputeRequested()")));
+        QVERIFY(win.contains(QStringLiteral("appDeckController.recomputeHover()")));
+    }
+
+    // P0 — debug overlay surfaces the live hover state so QA can confirm a
+    // stationary pointer resolves to the right icon after a morph.
+    void debugOverlayShowsHoverState()
+    {
+        const QString base = QStringLiteral(DESKTOP_SOURCE_DIR);
+        const QString d = readTextFile(base + QStringLiteral("/Qml/components/appdeck/v2/AppDeckDebugOverlay.qml"));
+        QVERIFY(d.contains(QStringLiteral("hoveredIdx:")));
+        QVERIFY(d.contains(QStringLiteral("hoveredItemId:")));
+        QVERIFY(d.contains(QStringLiteral("hoverX:")));
+        QVERIFY(d.contains(QStringLiteral("property var controller")));
+        const QString win = readTextFile(base + QStringLiteral("/Qml/components/overlay/AppDeckWindow.qml"));
+        QVERIFY(win.contains(QStringLiteral("controller:  appDeckController")));
     }
 
     // §18.5 — pulse is a mode, not a Window

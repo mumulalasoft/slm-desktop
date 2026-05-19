@@ -85,7 +85,14 @@ private slots:
         QVERIFY(text.contains(QStringLiteral("onPointerDismissRequested:")));
         QVERIFY(text.contains(QStringLiteral("root.dismissGridByPointer(\"grid-pointer-dismiss\")")));
         QVERIFY(text.contains(QStringLiteral("id: gridCollapseGuardTimer")));
-        QVERIFY(text.contains(QStringLiteral("id: gridPointerDismissTimer")));
+        // P0 (appdeck interaction responsiveness fix) — the legacy
+        // `gridPointerDismissTimer` (max(motionSurfaceDuration+1200, 1800) ms)
+        // was the visible cause of the "responsive only on fast click" symptom
+        // and is replaced by a one-frame Qt.callLater arm inside enterGrid /
+        // enterPulse. The arm flag `_gridPointerDismissArmed` is kept.
+        QVERIFY(!text.contains(QStringLiteral("id: gridPointerDismissTimer")));
+        QVERIFY(text.contains(QStringLiteral("function _armPointerDismissOnNextTick()")));
+        QVERIFY(text.contains(QStringLiteral("root._armPointerDismissOnNextTick()")));
         QVERIFY(text.contains(QStringLiteral("[APPDECK] ignore pointer-dismiss reason=")));
         QVERIFY(text.contains(QStringLiteral("[APPDECK] collapseToDock reason=")));
         QVERIFY(text.contains(QStringLiteral("root._forceGridInputRegion = true")));
