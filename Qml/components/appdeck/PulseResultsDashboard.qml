@@ -39,13 +39,23 @@ Item {
                                                  ? "Recent" : "Suggestions"
 
     implicitHeight: content.implicitHeight
+    // docs/APPDECK.md §15 — Intent emergence: pulse dashboard scales up from
+    // its top edge (search field anchor direction) and slides down a few
+    // pixels so it reads as "Pulse emerging from Grid" rather than a popup
+    // appearing in mid-air. Transform origin is top-center so the scale
+    // grows downward from the search pill above.
     opacity: active ? 1.0 : 0.0
-    y: active ? 0 : 8
+    y: active ? 0 : -6
+    scale: active ? 1.0 : 0.97
+    transformOrigin: Item.Top
 
     Behavior on opacity {
         NumberAnimation { duration: root.motionDuration; easing.type: Theme.easingDecelerate }
     }
     Behavior on y {
+        NumberAnimation { duration: root.motionDuration; easing.type: Theme.easingDecelerate }
+    }
+    Behavior on scale {
         NumberAnimation { duration: root.motionDuration; easing.type: Theme.easingDecelerate }
     }
 

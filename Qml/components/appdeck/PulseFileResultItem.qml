@@ -73,9 +73,12 @@ Item {
     signal contextActionRequested(string resultId, string action)
 
     implicitHeight: 56
-    property real liftOffset: root.selected ? -1 : (hover.containsMouse ? -1 : 0)
+    // docs/APPDECK.md §20 — Result UX. Hover lifts -3 + hoverScale 1.04
+    // (composed with pressScale so press-while-hovered still shrinks).
+    property real liftOffset: root.selected ? -1 : (hover.containsMouse ? -3 : 0)
+    property real hoverScale: hover.containsMouse ? 1.04 : 1.0
     transform: Translate { y: root.liftOffset }
-    scale: root.pressScale
+    scale: root.pressScale * root.hoverScale
 
     Behavior on liftOffset {
         NumberAnimation { duration: root.motionFastDuration; easing.type: Theme.easingDecelerate }

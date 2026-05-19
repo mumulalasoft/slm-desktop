@@ -115,9 +115,13 @@ Item {
     signal contextActionRequested(string resultId, string action)
 
     implicitHeight: root.prominent ? 68 : 54
-    property real liftOffset: root.selected ? -1 : (hover.containsMouse ? -1 : 0)
+    // docs/APPDECK.md §20 — Result UX. Hover lifts -3 (selected stays -1)
+    // and applies hoverScale 1.04 for the soft Launchpad-style bloom. Scale
+    // composes with pressScale so a press-while-hovered shrinks correctly.
+    property real liftOffset: root.selected ? -1 : (hover.containsMouse ? -3 : 0)
+    property real hoverScale: hover.containsMouse ? 1.04 : 1.0
     transform: Translate { y: root.liftOffset }
-    scale: root.pressScale
+    scale: root.pressScale * root.hoverScale
 
     Behavior on liftOffset {
         NumberAnimation { duration: root.motionFastDuration; easing.type: Theme.easingDecelerate }
