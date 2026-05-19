@@ -10,6 +10,10 @@ Item {
     property var actionsResults: []
     property var recentResults: []
     property var suggestedResults: []
+    // docs/APPDECK.md §18 — Workflows is part of the canonical grouped
+    // sections. Empty by default; pulse providers can populate via the same
+    // dashboard wiring used for actions/suggestions.
+    property var workflowsResults: []
     property string selectedResultId: ""
     property int twoColumnThreshold: 980
     property real layoutWidth: 0
@@ -195,11 +199,26 @@ Item {
 
             PulseResultsSection {
                 Layout.fillWidth: true
+                titleText: "Workflows"
+                items: root.workflowsResults
+                sectionType: "workflow"
+                active: root.active
+                revealDelayMs: 90
+                selectedResultId: root.selectedResultId
+                onItemHovered: function(resultId) { root.itemHovered(resultId) }
+                onItemActivated: function(resultId) { root.itemActivated(resultId) }
+                onItemContextAction: function(resultId, action) {
+                    root.itemContextAction(resultId, action)
+                }
+            }
+
+            PulseResultsSection {
+                Layout.fillWidth: true
                 titleText: "Suggestions"
                 items: root.suggestedResults
                 sectionType: "suggestion"
                 active: root.active
-                revealDelayMs: 100
+                revealDelayMs: 110
                 selectedResultId: root.selectedResultId
                 onItemHovered: function(resultId) { root.itemHovered(resultId) }
                 onItemActivated: function(resultId) { root.itemActivated(resultId) }

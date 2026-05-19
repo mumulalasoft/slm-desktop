@@ -46,6 +46,10 @@ Item {
     property var actionsResults: []
     property var recentResults: []
     property var suggestedResults: []
+    // docs/APPDECK.md §18 — Workflows section in the canonical grouped
+    // dashboard. Empty by default; providers populate via the same routing
+    // pipeline as actions/suggestions.
+    property var workflowsResults: []
     property var navigationResults: []
     property string selectedResultId: ""
     property real revealProgress: active ? 1.0 : 0.0
@@ -1291,6 +1295,7 @@ Item {
                         actionsResults: root.actionsResults
                         recentResults: root.recentResults
                         suggestedResults: root.suggestedResults
+                        workflowsResults: root.workflowsResults
                         selectedResultId: root.selectedResultId
                         twoColumnThreshold: 620
                         onItemHovered: function(resultId) { root.selectResult(resultId) }
