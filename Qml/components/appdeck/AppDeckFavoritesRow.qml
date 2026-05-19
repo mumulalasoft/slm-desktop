@@ -19,9 +19,9 @@ Item {
         spacing: 8
 
         Label {
-            text: "Quick Access"
-            font.pixelSize: Theme.fontSize("body")
-            font.weight: Theme.fontWeight("bold")
+            text: qsTr("Recent")
+            font.pixelSize: Theme.fontSize("small")
+            font.weight: Theme.fontWeight("semibold")
             color: Theme.color("textPrimary")
             opacity: Theme.opacityMuted
             visible: root.favoritesModel.length > 0

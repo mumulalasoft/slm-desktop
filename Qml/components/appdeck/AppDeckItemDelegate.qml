@@ -1,6 +1,5 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
-import QtQuick.Effects
 import Slm_Desktop
 
 Item {
@@ -14,10 +13,10 @@ Item {
     property bool selected: false
     property bool compact: false
     readonly property bool hoverActive: mouse.containsMouse
-    readonly property real cornerRadius: (typeof Theme !== "undefined"
-                                          && Theme
-                                          && Theme.radiusCard !== undefined)
-                                         ? Math.min(8, Number(Theme.radiusCard)) : 8
+    // Apple HIG-style hover/selected affordance lives as a soft-fill rounded
+    // rect over the whole tile. Radius is wider (14px) than the legacy
+    // card-token to read as a Launchpad-style highlight rather than a card.
+    readonly property real cornerRadius: 14
 
     signal activated(var appData)
     signal hovered()
@@ -30,15 +29,21 @@ Item {
         id: hoverPlate
         anchors.fill: parent
         radius: root.cornerRadius
+        // Translucent white fill — no border, just the soft rect. Selected
+        // state is brighter than hover so keyboard focus reads clearly.
+        // Alpha tuned so the plate sits at ~Launchpad-style visibility on
+        // both light and dark backgrounds.
         color: root.selected
-               ? Theme.color("accentSoft")
-               : (root.hoverActive ? Theme.color("hoverItem") : "transparent")
-        border.width: root.selected ? Theme.borderWidthThin : Theme.borderWidthNone
-        border.color: root.selected ? Theme.color("accent") : "transparent"
+               ? Qt.rgba(1, 1, 1, Theme.darkMode ? 0.20 : 0.34)
+               : Qt.rgba(1, 1, 1, Theme.darkMode ? 0.12 : 0.22)
+        border.width: Theme.borderWidthNone
         opacity: root.selected || root.hoverActive ? 1.0 : 0.0
 
         Behavior on opacity {
             NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingDecelerate }
+        }
+        Behavior on color {
+            ColorAnimation { duration: Theme.durationFast; easing.type: Theme.easingLight }
         }
     }
 
@@ -49,39 +54,13 @@ Item {
         anchors.top: parent.top
         anchors.topMargin: root.compact ? 9 : 13
         anchors.horizontalCenter: parent.horizontalCenter
-        scale: root.hoverActive ? 1.045 : 1.0
-        layer.enabled: root.hoverActive || root.selected
-        layer.effect: MultiEffect {
-            shadowEnabled: true
-            shadowColor: Qt.rgba(0, 0, 0, Theme.darkMode ? 0.28 : 0.16)
-            shadowBlur: 0.34
-            shadowVerticalOffset: 3
-            shadowHorizontalOffset: 0
-        }
+        // Subtle scale up on hover — gives a tactile, Launchpad-style lift
+        // without needing a custom shadow layer. The app icons already
+        // ship with baked shadows, so we don't add another one here.
+        scale: root.hoverActive ? 1.05 : 1.0
 
         Behavior on scale {
             NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingDecelerate }
-        }
-
-        Rectangle {
-            anchors.fill: parent
-            radius: root.cornerRadius
-            color: root.hoverActive || root.selected ? Theme.color("surface") : "transparent"
-            border.width: root.selected ? Theme.borderWidthThin : Theme.borderWidthNone
-            border.color: root.selected ? Theme.color("accent") : "transparent"
-
-            Rectangle {
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.top: parent.top
-                anchors.leftMargin: 5
-                anchors.rightMargin: 5
-                anchors.topMargin: 1
-                height: 1
-                radius: Theme.radiusHairline
-                color: Qt.rgba(1, 1, 1, Theme.darkMode ? 0.18 : 0.55)
-                opacity: root.hoverActive || root.selected ? 1.0 : 0.0
-            }
         }
 
         Image {

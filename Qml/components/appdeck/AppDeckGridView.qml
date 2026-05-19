@@ -56,19 +56,17 @@ Item {
     readonly property int pageCount: Math.max(1, Math.ceil(filteredApps.length / Math.max(1, pageSize)))
     readonly property bool hasPreviousPage: currentPage > 0
     readonly property bool hasNextPage: currentPage + 1 < pageCount
-    readonly property int pageButtonSize: 34
-    readonly property string pageRangeText: {
-        if (!showPagination || filteredApps.length <= 0) {
-            return ""
-        }
-        return String(pageStart(currentPage) + 1)
-                + "-"
-                + String(pageEnd(currentPage))
-                + " of "
-                + String(filteredApps.length)
-    }
+    // HIG-style chevron hit-target: 36px circle, borderless. The visual
+    // chevron glyph is the system "go-previous/next-symbolic" icon at 16px,
+    // the rest is padding so the touch/click area stays comfortable.
+    readonly property int pageButtonSize: 36
+    readonly property string iconRev: (typeof ThemeIconController !== "undefined"
+                                       && ThemeIconController)
+                                      ? ("?v=" + ThemeIconController.revision) : ""
     readonly property real pageSwitchOffset: Math.max(28, Math.round(grid.width * 0.16))
-    readonly property real swipeThreshold: Math.max(36, grid.width * 0.14)
+    // Lowered threshold (was 14% of width / 36px floor) so the swipe gesture
+    // commits with a shorter flick, matching iOS-style page turn responsiveness.
+    readonly property real swipeThreshold: Math.max(28, grid.width * 0.10)
 
     signal appActivated(var appData)
     signal collapseRequested()
@@ -401,26 +399,16 @@ Item {
 
         Item {
             Layout.fillWidth: true
-            implicitHeight: Math.max(headerLabel.implicitHeight, countLabel.implicitHeight)
+            implicitHeight: headerLabel.implicitHeight
 
             Label {
                 id: headerLabel
                 text: "Applications"
-                font.pixelSize: Theme.fontSize("body")
+                font.pixelSize: Theme.fontSize("small")
                 font.weight: Theme.fontWeight("semibold")
                 color: Theme.color("textPrimary")
-                opacity: Theme.opacityHint
-                anchors.left: parent.left
-                anchors.verticalCenter: parent.verticalCenter
-            }
-
-            Label {
-                id: countLabel
-                text: String(root.filteredCount) + (root.filteredCount === 1 ? " app" : " apps")
-                font.pixelSize: Theme.fontSize("small")
-                color: Theme.color("textSecondary")
                 opacity: Theme.opacityMuted
-                anchors.right: parent.right
+                anchors.left: parent.left
                 anchors.verticalCenter: parent.verticalCenter
             }
 
@@ -535,11 +523,27 @@ Item {
                 }
             }
 
+            // Touch + mouse swipe to flip pages. The drag follows the pointer
+            // (slightly damped) up to pageSwitchOffset, then commits on
+            // release if either (a) translation exceeds swipeThreshold or
+            // (b) the gesture is a flick — short duration with non-trivial
+            // horizontal velocity. Vertical-dominant gestures are ignored so
+            // future vertical scrolling can coexist.
             DragHandler {
                 id: pageSwipe
                 target: null
                 enabled: root.pageCount > 1 && !pageSwitchAnim.running
+                acceptedDevices: PointerDevice.AllDevices
+                // Aggressive grab so a horizontal drag wins over the icon
+                // delegate's MouseArea and the empty-area dismiss MouseArea
+                // once the user moves past the drag threshold.
+                grabPermissions: PointerHandler.CanTakeOverFromAnything
+                                 | PointerHandler.ApprovesTakeOverByAnything
+                dragThreshold: 10
                 xAxis.enabled: true
+                yAxis.enabled: false
+                readonly property real flickVelocityThreshold: 280
+                readonly property real flickDistanceFloor: 12
                 onTranslationChanged: {
                     if (!active) {
                         return
@@ -548,9 +552,9 @@ Item {
                         root.pageShiftX = 0
                         return
                     }
-                    var damped = translation.x * 0.35
+                    var damped = translation.x * 0.6
                     if ((damped > 0 && !root.hasPreviousPage) || (damped < 0 && !root.hasNextPage)) {
-                        damped = damped * 0.4
+                        damped = damped * 0.35
                     }
                     root.pageShiftX = Math.max(-root.pageSwitchOffset, Math.min(root.pageSwitchOffset, damped))
                 }
@@ -559,11 +563,19 @@ Item {
                         return
                     }
                     var deltaX = translation.x
+                    var vx = (centroid && centroid.velocity) ? centroid.velocity.x : 0
                     root.pageShiftX = 0
-                    if (Math.abs(deltaX) < root.swipeThreshold) {
+                    var isFlick = Math.abs(vx) > flickVelocityThreshold
+                                  && Math.abs(deltaX) > flickDistanceFloor
+                                  && Math.abs(deltaX) > Math.abs(translation.y)
+                    var distOk = Math.abs(deltaX) >= root.swipeThreshold
+                    if (!distOk && !isFlick) {
                         return
                     }
-                    if (deltaX < 0) {
+                    var direction = (isFlick && Math.abs(vx) > Math.abs(deltaX) * 4)
+                                    ? (vx < 0 ? -1 : 1)
+                                    : (deltaX < 0 ? -1 : 1)
+                    if (direction < 0) {
                         root.switchToPage(root.currentPage + 1, true, 1)
                     } else {
                         root.switchToPage(root.currentPage - 1, true, -1)
@@ -576,7 +588,8 @@ Item {
                 anchors.fill: parent
                 acceptedButtons: Qt.LeftButton
                 z: 99
-                preventStealing: true
+                // No preventStealing — the page-swipe DragHandler must be
+                // able to take over the pointer grab after threshold.
                 propagateComposedEvents: true
                 onPressed: function(mouse) {
                     var idx = grid.indexAt(mouse.x + grid.contentX, mouse.y + grid.contentY)
@@ -589,6 +602,10 @@ Item {
             }
         }
 
+        // HIG-style pagination strip — chevron icon buttons (borderless,
+        // secondary tint, 30% opacity when disabled) flanking an iOS-style
+        // expanding-dot indicator. No counter text; the indicator is the
+        // single source of truth for "where am I".
         Item {
             id: paginationRow
             Layout.fillWidth: true
@@ -601,26 +618,56 @@ Item {
                 NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingDecelerate }
             }
 
-            Rectangle {
+            // Previous — circular ghost button with system symbolic chevron.
+            Item {
                 id: previousButton
                 width: root.pageButtonSize
                 height: root.pageButtonSize
-                radius: Math.min(8, Theme.radiusControl)
                 anchors.left: parent.left
                 anchors.verticalCenter: parent.verticalCenter
-                color: previousHover.containsMouse && root.hasPreviousPage
-                       ? Theme.color("controlBgHover")
-                       : Theme.color("controlBg")
-                border.width: Theme.borderWidthThin
-                border.color: root.hasPreviousPage ? Theme.color("panelBorder") : Theme.color("controlDisabledBorder")
-                opacity: root.hasPreviousPage ? 1.0 : 0.45
+                opacity: root.hasPreviousPage ? 1.0 : 0.30
 
-                Label {
+                Behavior on opacity {
+                    NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingLight }
+                }
+
+                Rectangle {
+                    anchors.fill: parent
+                    radius: root.pageButtonSize / 2
+                    color: Qt.rgba(1, 1, 1, Theme.darkMode ? 0.10 : 0.22)
+                    opacity: (previousHover.containsMouse && root.hasPreviousPage) ? 1.0 : 0.0
+                    antialiasing: true
+                    Behavior on opacity {
+                        NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingLight }
+                    }
+                }
+
+                Image {
+                    id: previousChevron
                     anchors.centerIn: parent
-                    text: "<"
-                    font.pixelSize: Theme.fontSize("body")
-                    font.weight: Theme.fontWeight("bold")
-                    color: root.hasPreviousPage ? Theme.color("textPrimary") : Theme.color("textDisabled")
+                    width: 16
+                    height: 16
+                    source: "image://themeicon/go-previous-symbolic" + root.iconRev
+                    sourceSize.width: 32
+                    sourceSize.height: 32
+                    smooth: true
+                    mipmap: true
+                    fillMode: Image.PreserveAspectFit
+                    opacity: previousChevronFallback.visible ? 0.0 : 0.85
+                }
+
+                // Fallback glyph if symbolic icon missing from theme.
+                Label {
+                    id: previousChevronFallback
+                    anchors.centerIn: parent
+                    visible: previousChevron.status === Image.Error
+                             || previousChevron.status === Image.Null
+                             || String(previousChevron.source).length === 0
+                    text: "‹"
+                    font.pixelSize: Theme.fontSize("hero")
+                    font.weight: Theme.fontWeight("regular")
+                    color: Theme.color("textPrimary")
+                    opacity: Theme.opacityMuted
                 }
 
                 MouseArea {
@@ -629,31 +676,45 @@ Item {
                     hoverEnabled: true
                     enabled: root.hasPreviousPage
                     acceptedButtons: Qt.LeftButton
+                    cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
                     onClicked: root.switchToPage(root.currentPage - 1, true, -1)
                 }
             }
 
+            // Expanding-dot indicator: each dot is a capsule pill whose width
+            // smoothly interpolates between dotInactiveWidth and dotActiveWidth
+            // as the page selection changes. Animated via Behavior so swipes
+            // and clicks both feel continuous.
             Row {
+                id: dotRow
                 anchors.centerIn: parent
-                spacing: 7
+                spacing: 6
+
+                readonly property int dotHeight: 6
+                readonly property int dotInactiveWidth: 6
+                readonly property int dotActiveWidth: 18
 
                 Repeater {
                     model: root.pageCount
                     delegate: Item {
-                        width: index === root.currentPage ? 20 : 12
+                        width: dotRow.dotActiveWidth
                         height: root.footerHeight
 
                         Rectangle {
+                            id: dot
                             anchors.centerIn: parent
-                            width: index === root.currentPage ? 18 : 6
-                            height: 6
+                            height: dotRow.dotHeight
+                            width: index === root.currentPage
+                                   ? dotRow.dotActiveWidth
+                                   : dotRow.dotInactiveWidth
                             radius: height * 0.5
-                            color: index === root.currentPage ? Theme.color("accent") : Theme.color("textSecondary")
-                            opacity: index === root.currentPage ? Theme.opacityHint : Theme.opacityFaint
+                            color: Theme.color("textPrimary")
+                            opacity: index === root.currentPage ? 0.88 : 0.30
+                            antialiasing: true
 
                             Behavior on width {
                                 NumberAnimation {
-                                    duration: Theme.durationFast
+                                    duration: Theme.durationNormal
                                     easing.type: Theme.easingDecelerate
                                 }
                             }
@@ -669,6 +730,7 @@ Item {
                             anchors.fill: parent
                             hoverEnabled: true
                             acceptedButtons: Qt.LeftButton
+                            cursorShape: Qt.PointingHandCursor
                             onClicked: {
                                 if (index !== root.currentPage) {
                                     root.switchToPage(index, true, index > root.currentPage ? 1 : -1)
@@ -679,26 +741,55 @@ Item {
                 }
             }
 
-            Rectangle {
+            // Next — mirror of previous.
+            Item {
                 id: nextButton
                 width: root.pageButtonSize
                 height: root.pageButtonSize
-                radius: Math.min(8, Theme.radiusControl)
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
-                color: nextHover.containsMouse && root.hasNextPage
-                       ? Theme.color("controlBgHover")
-                       : Theme.color("controlBg")
-                border.width: Theme.borderWidthThin
-                border.color: root.hasNextPage ? Theme.color("panelBorder") : Theme.color("controlDisabledBorder")
-                opacity: root.hasNextPage ? 1.0 : 0.45
+                opacity: root.hasNextPage ? 1.0 : 0.30
+
+                Behavior on opacity {
+                    NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingLight }
+                }
+
+                Rectangle {
+                    anchors.fill: parent
+                    radius: root.pageButtonSize / 2
+                    color: Qt.rgba(1, 1, 1, Theme.darkMode ? 0.10 : 0.22)
+                    opacity: (nextHover.containsMouse && root.hasNextPage) ? 1.0 : 0.0
+                    antialiasing: true
+                    Behavior on opacity {
+                        NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingLight }
+                    }
+                }
+
+                Image {
+                    id: nextChevron
+                    anchors.centerIn: parent
+                    width: 16
+                    height: 16
+                    source: "image://themeicon/go-next-symbolic" + root.iconRev
+                    sourceSize.width: 32
+                    sourceSize.height: 32
+                    smooth: true
+                    mipmap: true
+                    fillMode: Image.PreserveAspectFit
+                    opacity: nextChevronFallback.visible ? 0.0 : 0.85
+                }
 
                 Label {
+                    id: nextChevronFallback
                     anchors.centerIn: parent
-                    text: ">"
-                    font.pixelSize: Theme.fontSize("body")
-                    font.weight: Theme.fontWeight("bold")
-                    color: root.hasNextPage ? Theme.color("textPrimary") : Theme.color("textDisabled")
+                    visible: nextChevron.status === Image.Error
+                             || nextChevron.status === Image.Null
+                             || String(nextChevron.source).length === 0
+                    text: "›"
+                    font.pixelSize: Theme.fontSize("hero")
+                    font.weight: Theme.fontWeight("regular")
+                    color: Theme.color("textPrimary")
+                    opacity: Theme.opacityMuted
                 }
 
                 MouseArea {
@@ -707,18 +798,9 @@ Item {
                     hoverEnabled: true
                     enabled: root.hasNextPage
                     acceptedButtons: Qt.LeftButton
+                    cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
                     onClicked: root.switchToPage(root.currentPage + 1, true, 1)
                 }
-            }
-
-            Label {
-                anchors.right: nextButton.left
-                anchors.rightMargin: 10
-                anchors.verticalCenter: parent.verticalCenter
-                text: root.pageRangeText
-                font.pixelSize: Theme.fontSize("small")
-                color: Theme.color("textSecondary")
-                opacity: Theme.opacityMuted
             }
         }
     }

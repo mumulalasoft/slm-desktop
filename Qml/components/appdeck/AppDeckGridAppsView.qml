@@ -36,14 +36,35 @@ FocusScope {
     readonly property int contentBottomInset: Math.max(24, root.bottomSafeInset)
     readonly property int totalAppCount: allAppsModel && typeof allAppsModel.count !== "undefined"
                                          ? Number(allAppsModel.count || 0) : 0
+    // Recent apps — sorted by lastLaunch (ISO timestamp) descending. We
+    // pull a generous window from topApps() then re-sort client-side,
+    // because topApps() blends launch frequency with recency in its score;
+    // for a "Recent" row we want strict last-used order.
     readonly property var favoriteApps: {
         if (!allAppsModel || !allAppsModel.topApps) {
             return []
         }
-        var rows = allAppsModel.topApps(8) || []
-        var mapped = []
+        var rows = allAppsModel.topApps(48) || []
+        var withTs = []
         for (var i = 0; i < rows.length; ++i) {
-            var row = rows[i] || {}
+            var r = rows[i] || {}
+            var ts = String(r.lastLaunch || "")
+            if (ts.length === 0) {
+                continue
+            }
+            withTs.push(r)
+        }
+        // ISO 8601 strings compare chronologically.
+        withTs.sort(function(a, b) {
+            var aTs = String(a.lastLaunch || "")
+            var bTs = String(b.lastLaunch || "")
+            if (aTs === bTs) return 0
+            return aTs < bTs ? 1 : -1
+        })
+        var picked = withTs.slice(0, 8)
+        var mapped = []
+        for (var j = 0; j < picked.length; ++j) {
+            var row = picked[j] || {}
             var iconName = String(row.iconName || "")
             var iconValue = String(row.icon || row.iconSource || "")
             if (iconName.length > 0) {
