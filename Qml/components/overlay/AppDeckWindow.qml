@@ -1223,15 +1223,21 @@ Window {
             opacity: root.pulseTransition
             transform: Translate { y: (1.0 - root.pulseTransition) * 12 }
             panelHeight: root.desktopScene ? root.desktopScene.panelHeight : 0
-            // §12/§17 — In pulse mode the dashboard occupies the SAME rect
-            // as the grid panel so the dimmed grid sits cleanly behind it,
-            // not peeking out around a smaller pulse frame. Context mode
-            // (the legacy narrower workflow surface) still uses its own
-            // smaller geometry.
+            // §9/§12/§17 — Pulse occupies the grid panel rect BELOW the
+            // header strip so the persistent search field (which lives in
+            // the grid header at z=1) stays visible above the z=2 pulse
+            // panel. The 88px Y inset accounts for the ColumnLayout
+            // anchors.margins (18) + header implicitHeight (56) + Layout
+            // spacing (14) inside AppDeckGridAppsView's contentFrame.
+            readonly property real _pulseHeaderInset: 88
             preferredSurfaceX: root.pulseMode ? root.gridContentX : root.contextContentX
-            preferredSurfaceY: root.pulseMode ? root.gridContentY : root.contextContentY
+            preferredSurfaceY: root.pulseMode
+                               ? root.gridContentY + _pulseHeaderInset
+                               : root.contextContentY
             preferredSurfaceWidth: root.pulseMode ? root.gridContentW : root.contextContentW
-            preferredSurfaceHeight: root.pulseMode ? root.gridContentH : root.contextContentH
+            preferredSurfaceHeight: root.pulseMode
+                                    ? root.gridContentH - _pulseHeaderInset
+                                    : root.contextContentH
             currentQuery: root.rootWindow ? String(root.rootWindow.pulseQuery || "") : ""
             pulseResultsModel: root.pulseResultsModel
             // Keep icon lookup source aligned with AppDeck: prefer global AppModel context.

@@ -32,7 +32,14 @@ Item {
         }
         return w > 0 ? w : lw
     }
+    // §18 — Two-column ONLY when the right column would actually have
+    // content. Without this, empty Files+Recent leaves a wide blank pocket
+    // alongside Apps+Actions in the left column.
+    readonly property bool _rightHasContent: (filesResults && filesResults.length > 0)
+                                             || (recentResults && recentResults.length > 0)
+                                             || (suggestedResults && suggestedResults.length > 0)
     readonly property bool twoColumnMode: effectiveWidth >= twoColumnThreshold
+                                          && _rightHasContent
     readonly property var rightSecondaryItems: (recentResults && recentResults.length > 0)
                                                ? recentResults : suggestedResults
     readonly property string rightSecondaryTitle: (recentResults && recentResults.length > 0)
