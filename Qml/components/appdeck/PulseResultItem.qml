@@ -126,8 +126,15 @@ Item {
     Behavior on liftOffset {
         NumberAnimation { duration: root.motionFastDuration; easing.type: Theme.easingDecelerate }
     }
+    // docs/APPDECK.md §19/§20 — Spring easing on hover/press scale gives
+    // the soft bloom pop. Subtle overshoot 1.15 reads as a "lift and settle"
+    // without feeling bouncy.
     Behavior on scale {
-        NumberAnimation { duration: root.motionSnapDuration; easing.type: Theme.easingLight }
+        NumberAnimation {
+            duration: root.motionSnapDuration
+            easing.type: Theme.easingSpring
+            easing.overshoot: 1.15
+        }
     }
 
     Rectangle {

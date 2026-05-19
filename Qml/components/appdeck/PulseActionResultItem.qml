@@ -84,8 +84,13 @@ Item {
     Behavior on liftOffset {
         NumberAnimation { duration: root.motionFastDuration; easing.type: Theme.easingDecelerate }
     }
+    // docs/APPDECK.md §19/§20 — Spring easing for the hover bloom pop.
     Behavior on scale {
-        NumberAnimation { duration: root.motionSnapDuration; easing.type: Theme.easingLight }
+        NumberAnimation {
+            duration: root.motionSnapDuration
+            easing.type: Theme.easingSpring
+            easing.overshoot: 1.15
+        }
     }
 
     Rectangle {

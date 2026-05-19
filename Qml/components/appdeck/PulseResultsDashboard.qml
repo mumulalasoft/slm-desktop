@@ -52,11 +52,23 @@ Item {
     Behavior on opacity {
         NumberAnimation { duration: root.motionDuration; easing.type: Theme.easingDecelerate }
     }
+    // docs/APPDECK.md §15/§19 — Spring easing on the geometric emergence
+    // (y + scale) so the dashboard settles with a gentle overshoot per the
+    // "intent emergence" feel. Opacity stays linear-decelerate (overshoot
+    // on alpha is not visually meaningful).
     Behavior on y {
-        NumberAnimation { duration: root.motionDuration; easing.type: Theme.easingDecelerate }
+        NumberAnimation {
+            duration: root.motionDuration
+            easing.type: Theme.easingSpring
+            easing.overshoot: 1.2
+        }
     }
     Behavior on scale {
-        NumberAnimation { duration: root.motionDuration; easing.type: Theme.easingDecelerate }
+        NumberAnimation {
+            duration: root.motionDuration
+            easing.type: Theme.easingSpring
+            easing.overshoot: 1.2
+        }
     }
 
     ColumnLayout {

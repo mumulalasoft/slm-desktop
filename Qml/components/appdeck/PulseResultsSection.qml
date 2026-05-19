@@ -39,8 +39,15 @@ Item {
     Behavior on opacity {
         NumberAnimation { duration: Theme.durationNormal; easing.type: Theme.easingDecelerate }
     }
+    // docs/APPDECK.md §19 — Spring easing on the y-axis emergence. Subtle
+    // overshoot (1.2) reads as a gentle settle rather than a hard stop,
+    // matching the "spring easing, layered emergence" requirement.
     Behavior on _revealOffset {
-        NumberAnimation { duration: Theme.durationNormal; easing.type: Theme.easingDecelerate }
+        NumberAnimation {
+            duration: Theme.durationNormal
+            easing.type: Theme.easingSpring
+            easing.overshoot: 1.2
+        }
     }
 
     Timer {

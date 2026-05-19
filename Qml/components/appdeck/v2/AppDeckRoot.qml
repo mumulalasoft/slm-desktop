@@ -139,6 +139,20 @@ Item {
         }
     }
 
+    // §16 hover continuity — when deckMode flips (apps ↔ pulse ↔ context)
+    // there is no morph (mode swap is opacity-only) so onTransitioningChanged
+    // does not fire. A stationary pointer would otherwise keep stale hover.
+    // Re-evaluate the hover target one event-loop pass after the layer
+    // visibility / input region settles.
+    onDeckModeChanged: {
+        if (debugLogsEnabled) {
+            console.log("[AppDeckRoot] deckMode → " + deckMode)
+        }
+        Qt.callLater(function() {
+            appDeckRoot.hoverRecomputeRequested()
+        })
+    }
+
     // Exposed so AppDeckMotion (Tahap 7) can retarget the driver without
     // reaching across scopes.
     readonly property var morphAnimation: morphAnim
