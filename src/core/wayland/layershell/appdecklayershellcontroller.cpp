@@ -5,7 +5,9 @@
 
 #include <QDebug>
 #include <QLoggingCategory>
+#include <QMargins>
 #include <QRegion>
+#include <QScreen>
 #include <QSize>
 #include <QStringList>
 #include <QTimer>
@@ -42,6 +44,18 @@ QString anchorName(int anchors)
     if (anchors & WlrLayerShell::AnchorLeft) parts << QStringLiteral("left");
     if (anchors & WlrLayerShell::AnchorRight) parts << QStringLiteral("right");
     return parts.join(QLatin1Char('|'));
+}
+
+QRect boundedInputRegion(const QRect &inputRegion, int width, int height)
+{
+    const int safeWidth = qMax(1, width);
+    const int safeHeight = qMax(1, height);
+    const int x = qBound(0, inputRegion.x(), safeWidth - 1);
+    const int y = qBound(0, inputRegion.y(), safeHeight - 1);
+    return QRect(x,
+                 y,
+                 qBound(1, inputRegion.width(), qMax(1, safeWidth - x)),
+                 qBound(1, inputRegion.height(), qMax(1, safeHeight - y)));
 }
 }
 
@@ -94,12 +108,12 @@ void AppDeckLayerShellController::prepareWindow(QWindow *window)
     }
     state.layerWindow->setAnchors(static_cast<LayerShellQt::Window::Anchor>(
         LayerShellQt::Window::AnchorBottom
-        | LayerShellQt::Window::AnchorLeft
-        | LayerShellQt::Window::AnchorRight));
+        | LayerShellQt::Window::AnchorLeft));
     state.layerWindow->setExclusiveZone(0);
     state.layerWindow->setScope(QStringLiteral("slm-appdeck"));
     state.layerWindow->setLayer(LayerShellQt::Window::LayerTop);
     state.layerWindow->setKeyboardInteractivity(LayerShellQt::Window::KeyboardInteractivityNone);
+    state.layerWindow->setDesiredSize(QSize(1, 1));
     watchWindow(window);
     state.attached = true;
     startGeometryGrace(window);
@@ -109,7 +123,7 @@ void AppDeckLayerShellController::prepareWindow(QWindow *window)
         m_bootstrapState->setLayerRoleBound(true);
     }
     qCInfo(slmSurfaceStacking).noquote()
-        << "[APPDECK] [LAYERSHELL] [SURFACE_READY] prepared layer=TopLayer anchors=bottom|left|right exclusiveZone=0 scope=slm-appdeck";
+        << "[APPDECK] [LAYERSHELL] [SURFACE_READY] prepared layer=TopLayer anchors=bottom|left exclusiveZone=0 scope=slm-appdeck";
 #else
     Q_UNUSED(window)
 #endif
@@ -250,13 +264,36 @@ bool AppDeckLayerShellController::setDock(QWindow *window,
                      WlrLayerShell::LayerTop,
                      WlrLayerShell::KeyboardInteractivityNone,
                      WlrLayerShell::AnchorBottom
-                         | WlrLayerShell::AnchorLeft
-                         | WlrLayerShell::AnchorRight,
+                         | WlrLayerShell::AnchorLeft,
                      0,
                      QStringLiteral("slm-appdeck"),
                      width,
                      height,
                      QRect(inputX, inputY, inputWidth, inputHeight));
+}
+
+bool AppDeckLayerShellController::setDockAt(QWindow *window,
+                                            int width,
+                                            int height,
+                                            int marginLeft,
+                                            int marginBottom,
+                                            int inputX,
+                                            int inputY,
+                                            int inputWidth,
+                                            int inputHeight)
+{
+    return configure(window,
+                     WlrLayerShell::LayerTop,
+                     WlrLayerShell::KeyboardInteractivityNone,
+                     WlrLayerShell::AnchorBottom
+                         | WlrLayerShell::AnchorLeft,
+                     0,
+                     QStringLiteral("slm-appdeck"),
+                     width,
+                     height,
+                     QRect(inputX, inputY, inputWidth, inputHeight),
+                     QMargins(qMax(0, marginLeft), 0, 0, qMax(0, marginBottom)),
+                     true);
 }
 
 bool AppDeckLayerShellController::setGrid(QWindow *window,
@@ -267,9 +304,15 @@ bool AppDeckLayerShellController::setGrid(QWindow *window,
                                               int inputWidth,
                                               int inputHeight)
 {
+    // §9 APPDECK.md — Grid mode hosts the spatial-anchor search field. The
+    // surface MUST be keyboard-capable so the TextField can receive keystrokes
+    // once the user clicks/focuses it. OnDemand requests keyboard routing
+    // from the compositor when this surface gains input focus (click), and
+    // releases it back when focus moves elsewhere — politer than Exclusive
+    // while still letting the search field work.
     return configure(window,
                      WlrLayerShell::LayerTop,
-                     WlrLayerShell::KeyboardInteractivityNone,
+                     WlrLayerShell::KeyboardInteractivityOnDemand,
                      WlrLayerShell::AnchorBottom
                          | WlrLayerShell::AnchorLeft
                          | WlrLayerShell::AnchorRight,
@@ -352,7 +395,9 @@ bool AppDeckLayerShellController::configure(QWindow *window,
                                             const QString &scope,
                                             int width,
                                             int height,
-                                            const QRect &inputRegion)
+                                            const QRect &inputRegion,
+                                            const QMargins &explicitMargins,
+                                            bool useExplicitMargins)
 {
     if (!window || !window->isExposed()) {
         return false;
@@ -366,6 +411,21 @@ bool AppDeckLayerShellController::configure(QWindow *window,
     SurfaceState &state = stateFor(window);
     const bool prevAttached = state.attached;
     const int safeExclusiveZone = qMax(0, exclusiveZone);
+    const int safeWidth = qMax(1, width);
+    const int safeHeight = qMax(1, height);
+    const QRect safeInputRegion = boundedInputRegion(inputRegion, safeWidth, safeHeight);
+    QMargins layerMargins = useExplicitMargins ? explicitMargins : QMargins();
+    if (!useExplicitMargins
+            && scope == QStringLiteral("slm-appdeck")
+            && anchors == (WlrLayerShell::AnchorBottom | WlrLayerShell::AnchorLeft)) {
+        const QRect screenGeometry = window->screen()
+            ? window->screen()->geometry()
+            : QRect(0, 0, qMax(1, width), qMax(1, height));
+        layerMargins = QMargins(qMax(0, window->x() - screenGeometry.x()),
+                                0,
+                                0,
+                                qMax(0, screenGeometry.bottom() - window->y() - qMax(1, height) + 1));
+    }
 
     // Idempotent path: when the surface has already been attached and geometry
     // applied (post-grace) with identical parameters, skip everything — no log,
@@ -380,9 +440,10 @@ bool AppDeckLayerShellController::configure(QWindow *window,
         && state.appliedAnchors == anchors
         && state.appliedExclusiveZone == safeExclusiveZone
         && state.appliedScope == scope
-        && state.appliedWidth == width
-        && state.appliedHeight == height
-        && state.appliedInputRegion == inputRegion) {
+        && state.appliedWidth == safeWidth
+        && state.appliedHeight == safeHeight
+        && state.appliedInputRegion == safeInputRegion
+        && state.appliedMargins == layerMargins) {
         return true;
     }
 
@@ -393,26 +454,34 @@ bool AppDeckLayerShellController::configure(QWindow *window,
     if (!state.layerWindow) {
         return false;
     }
-    if (!prevAttached) {
-        int qtAnchors = 0;
-        if (anchors & WlrLayerShell::AnchorTop) {
-            qtAnchors |= LayerShellQt::Window::AnchorTop;
-        }
-        if (anchors & WlrLayerShell::AnchorBottom) {
-            qtAnchors |= LayerShellQt::Window::AnchorBottom;
-        }
-        if (anchors & WlrLayerShell::AnchorLeft) {
-            qtAnchors |= LayerShellQt::Window::AnchorLeft;
-        }
-        if (anchors & WlrLayerShell::AnchorRight) {
-            qtAnchors |= LayerShellQt::Window::AnchorRight;
-        }
+    int qtAnchors = 0;
+    if (anchors & WlrLayerShell::AnchorTop) {
+        qtAnchors |= LayerShellQt::Window::AnchorTop;
+    }
+    if (anchors & WlrLayerShell::AnchorBottom) {
+        qtAnchors |= LayerShellQt::Window::AnchorBottom;
+    }
+    if (anchors & WlrLayerShell::AnchorLeft) {
+        qtAnchors |= LayerShellQt::Window::AnchorLeft;
+    }
+    if (anchors & WlrLayerShell::AnchorRight) {
+        qtAnchors |= LayerShellQt::Window::AnchorRight;
+    }
+    if (!prevAttached || state.appliedAnchors != anchors) {
         state.layerWindow->setAnchors(static_cast<LayerShellQt::Window::Anchor>(qtAnchors));
+    }
+    if (!prevAttached) {
         state.layerWindow->setExclusiveZone(safeExclusiveZone);
         state.layerWindow->setScope(scope);
     }
     if (state.appliedExclusiveZone != safeExclusiveZone) {
         state.layerWindow->setExclusiveZone(safeExclusiveZone);
+    }
+    if (state.appliedWidth != safeWidth || state.appliedHeight != safeHeight) {
+        state.layerWindow->setDesiredSize(QSize(safeWidth, safeHeight));
+    }
+    if (state.appliedMargins != layerMargins) {
+        state.layerWindow->setMargins(layerMargins);
     }
     if (state.lastLayer != layer) {
         state.layerWindow->setLayer(layer == WlrLayerShell::LayerOverlay
@@ -420,10 +489,20 @@ bool AppDeckLayerShellController::configure(QWindow *window,
                                 : LayerShellQt::Window::LayerTop);
     }
     if (state.lastKeyboardInteractivity != keyboardInteractivity) {
-        state.layerWindow->setKeyboardInteractivity(
-            keyboardInteractivity == WlrLayerShell::KeyboardInteractivityExclusive
-                ? LayerShellQt::Window::KeyboardInteractivityExclusive
-                : LayerShellQt::Window::KeyboardInteractivityNone);
+        LayerShellQt::Window::KeyboardInteractivity layerKi;
+        switch (keyboardInteractivity) {
+        case WlrLayerShell::KeyboardInteractivityExclusive:
+            layerKi = LayerShellQt::Window::KeyboardInteractivityExclusive;
+            break;
+        case WlrLayerShell::KeyboardInteractivityOnDemand:
+            layerKi = LayerShellQt::Window::KeyboardInteractivityOnDemand;
+            break;
+        case WlrLayerShell::KeyboardInteractivityNone:
+        default:
+            layerKi = LayerShellQt::Window::KeyboardInteractivityNone;
+            break;
+        }
+        state.layerWindow->setKeyboardInteractivity(layerKi);
     }
     state.attached = true;
     if (!prevAttached) {
@@ -466,13 +545,18 @@ bool AppDeckLayerShellController::configure(QWindow *window,
         << "layer=" + layerName(layer)
         << "anchors=" + anchorName(anchors)
         << "exclusiveZone=" + QString::number(safeExclusiveZone)
-        << "size=" + QStringLiteral("%1x%2").arg(qMax(1, width)).arg(qMax(1, height))
+        << "size=" + QStringLiteral("%1x%2").arg(safeWidth).arg(safeHeight)
+        << "margins=" + QStringLiteral("%1,%2,%3,%4")
+                        .arg(layerMargins.left())
+                        .arg(layerMargins.top())
+                        .arg(layerMargins.right())
+                        .arg(layerMargins.bottom())
         << "input=" + QStringLiteral("%1,%2 %3x%4")
-                        .arg(qMax(0, inputRegion.x()))
-                        .arg(qMax(0, inputRegion.y()))
-                        .arg(qMax(1, inputRegion.width()))
-                        .arg(qMax(1, inputRegion.height()));
-    const bool applyOk = applyGeometry(window, width, height, inputRegion);
+                        .arg(safeInputRegion.x())
+                        .arg(safeInputRegion.y())
+                        .arg(safeInputRegion.width())
+                        .arg(safeInputRegion.height());
+    const bool applyOk = applyGeometry(window, safeWidth, safeHeight, safeInputRegion);
     // Only mark the configure as applied (and arm the idempotency cache) once
     // the grace period is over and applyGeometry actually pushed the geometry
     // to the surface. Calls during grace stay non-idempotent so the post-grace
@@ -482,9 +566,10 @@ bool AppDeckLayerShellController::configure(QWindow *window,
         state.appliedAnchors = anchors;
         state.appliedExclusiveZone = safeExclusiveZone;
         state.appliedScope = scope;
-        state.appliedWidth = width;
-        state.appliedHeight = height;
-        state.appliedInputRegion = inputRegion;
+        state.appliedWidth = safeWidth;
+        state.appliedHeight = safeHeight;
+        state.appliedInputRegion = safeInputRegion;
+        state.appliedMargins = layerMargins;
     }
     return applyOk;
 }
