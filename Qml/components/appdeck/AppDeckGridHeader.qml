@@ -24,6 +24,13 @@ Item {
     signal queryChanged(string text)
     signal collapseRequested()
     signal focusGridRequested()
+    // §9 — Keyboard forwarding for pulse selection. Pulse no longer has its
+    // own header field, so Up/Down/Enter/Tab pressed while the grid search
+    // is focused get forwarded upward for the parent to route into pulse
+    // selection actions (move selection, activate result, switch section).
+    signal pulseNavigateRequested(int delta)
+    signal pulseNavigateSectionRequested(int delta)
+    signal pulseActivateRequested()
 
     // Spotlight-style glass pill search — a single, centered, translucent
     // capsule. No title bar, no close button. The pill is the only chrome
@@ -140,10 +147,45 @@ Item {
             }
 
             Keys.onPressed: function(event) {
+                // §9 — When pulse is active (text typed), keyboard nav is
+                // routed to the pulse selection. When idle/empty, Down
+                // moves focus to the grid below as before.
                 if (event.key === Qt.Key_Down) {
-                    root.focusGridRequested()
+                    if (root.searchActive) {
+                        root.pulseNavigateRequested(1)
+                    } else {
+                        root.focusGridRequested()
+                    }
                     event.accepted = true
                     return
+                }
+                if (event.key === Qt.Key_Up) {
+                    if (root.searchActive) {
+                        root.pulseNavigateRequested(-1)
+                        event.accepted = true
+                        return
+                    }
+                }
+                if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+                    if (root.searchActive) {
+                        root.pulseActivateRequested()
+                        event.accepted = true
+                        return
+                    }
+                }
+                if (event.key === Qt.Key_Tab) {
+                    if (root.searchActive) {
+                        root.pulseNavigateSectionRequested(1)
+                        event.accepted = true
+                        return
+                    }
+                }
+                if (event.key === Qt.Key_Backtab) {
+                    if (root.searchActive) {
+                        root.pulseNavigateSectionRequested(-1)
+                        event.accepted = true
+                        return
+                    }
                 }
                 if (event.key === Qt.Key_Escape) {
                     if (root.searchText.length > 0) {

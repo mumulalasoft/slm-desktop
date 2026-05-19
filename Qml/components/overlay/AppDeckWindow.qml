@@ -1173,6 +1173,24 @@ Window {
             onAddToDesktopRequested: function(appData) {
                 AppDeckActions.handleAddToDesktop(appData, root.desktopScene)
             }
+            // §9 — Keyboard nav from grid header routed into pulse selection
+            // actions on the contextView. Pulse no longer has its own header
+            // field, so Up/Down/Enter/Tab from the grid TextField come here.
+            onPulseNavigateRequested: function(delta) {
+                if (contextView && contextView.moveSelection) {
+                    contextView.moveSelection(delta)
+                }
+            }
+            onPulseNavigateSectionRequested: function(delta) {
+                if (contextView && contextView.moveSelectionAcross) {
+                    contextView.moveSelectionAcross(delta)
+                }
+            }
+            onPulseActivateRequested: {
+                if (contextView && contextView.activateSelected) {
+                    contextView.activateSelected()
+                }
+            }
             // docs/APPDECK.md §17 — inline grid search drives Pulse activation.
             // Non-empty text flips deckMode to pulse and seeds the pulse
             // query; empty text returns to apps mode (still in grid state,

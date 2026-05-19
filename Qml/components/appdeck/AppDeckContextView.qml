@@ -93,9 +93,11 @@ Item {
     readonly property int motionNormalDuration: Theme.durationNormal
 
     function focusSearchField() {
-        if (queryHeader && queryHeader.focusInput) {
-            queryHeader.focusInput()
-        }
+        // §9 — Search field is owned by the grid header (the persistent
+        // spatial anchor). Pulse no longer hosts its own input; callers
+        // that used to focus the inner pulse field are now no-ops here
+        // because focus must stay on the grid header TextField so user
+        // input keeps flowing into the unified pipeline.
     }
 
     function _countModel(model) {
@@ -906,35 +908,18 @@ Item {
             anchors.margins: 18
             spacing: 12
 
+            // §9 — Pulse used to render its own PulseQueryHeader pill here,
+            // which duplicated the grid header's search field and visually
+            // stacked with it. The grid header is now the single persistent
+            // spatial anchor for search input; pulse content slides in
+            // beneath it. The legacy header is no longer instantiated —
+            // its keyboard shortcuts (Up/Down/Enter/Tab/Esc) need to be
+            // routed through the grid header in a later step.
             Item {
                 id: queryHeaderContainer
                 Layout.fillWidth: true
-                implicitHeight: queryHeader.implicitHeight
-                opacity: root.headerPhase
-
-                Behavior on opacity {
-                    NumberAnimation { duration: root.motionFastDuration; easing.type: Theme.easingDecelerate }
-                }
-
-                PulseQueryHeader {
-                    id: queryHeader
-                    anchors.fill: parent
-                    active: root.active
-                    queryText: root.currentQuery
-                    onQueryEdited: function(text) {
-                        root.queryChanged(text)
-                        root.queryTextChangedRequest(text)
-                    }
-                    onClearRequested: {
-                        root.queryChanged("")
-                        root.queryTextChangedRequest("")
-                    }
-                    onCloseRequested: root.requestCollapse()
-                    onNavigate: function(delta) { root.moveSelection(delta) }
-                    onNavigateSection: function(delta) { root.moveSelectionAcross(delta) }
-                    onActivateCurrent: root.activateSelected()
-                    onEscapePressed: root.requestCollapse()
-                }
+                Layout.preferredHeight: 0
+                visible: false
             }
 
             Rectangle {

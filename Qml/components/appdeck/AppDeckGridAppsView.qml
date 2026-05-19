@@ -100,6 +100,12 @@ FocusScope {
     // entirely by the [[searchFocused]] readonly property below — no signal
     // needed since the backdrop dim/scale lives inside this component.
     signal pulseQueryChanged(string query)
+    // §9 — Keyboard nav forwarded from the grid header search field when
+    // pulse is active. Parent (AppDeckWindow) routes these to the pulse
+    // context view's selection actions.
+    signal pulseNavigateRequested(int delta)
+    signal pulseNavigateSectionRequested(int delta)
+    signal pulseActivateRequested()
 
     // docs/APPDECK.md §17 — exposed for parent backdrop reasoning. The grid
     // surface dims+scales internally when either flag flips on; the parent
@@ -266,6 +272,13 @@ FocusScope {
                     }
                     onCollapseRequested: root.dismissRequested()
                     onFocusGridRequested: appsGrid.forceActiveFocus()
+                    onPulseNavigateRequested: function(delta) {
+                        root.pulseNavigateRequested(delta)
+                    }
+                    onPulseNavigateSectionRequested: function(delta) {
+                        root.pulseNavigateSectionRequested(delta)
+                    }
+                    onPulseActivateRequested: root.pulseActivateRequested()
                 }
             }
 
