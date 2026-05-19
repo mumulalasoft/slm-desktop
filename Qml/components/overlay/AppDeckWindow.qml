@@ -1229,14 +1229,13 @@ Window {
             // panel. The 88px Y inset accounts for the ColumnLayout
             // anchors.margins (18) + header implicitHeight (56) + Layout
             // spacing (14) inside AppDeckGridAppsView's contentFrame.
-            readonly property real _pulseHeaderInset: 88
             preferredSurfaceX: root.pulseMode ? root.gridContentX : root.contextContentX
             preferredSurfaceY: root.pulseMode
-                               ? root.gridContentY + _pulseHeaderInset
+                               ? root.gridContentY + 88
                                : root.contextContentY
             preferredSurfaceWidth: root.pulseMode ? root.gridContentW : root.contextContentW
             preferredSurfaceHeight: root.pulseMode
-                                    ? root.gridContentH - _pulseHeaderInset
+                                    ? root.gridContentH - 88
                                     : root.contextContentH
             currentQuery: root.rootWindow ? String(root.rootWindow.pulseQuery || "") : ""
             pulseResultsModel: root.pulseResultsModel
