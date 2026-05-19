@@ -2,6 +2,7 @@
 
 #include <QObject>
 #include <QHash>
+#include <QMargins>
 #include <QPointer>
 #include <QRect>
 
@@ -55,6 +56,15 @@ public:
                              int inputY,
                              int inputWidth,
                              int inputHeight);
+    Q_INVOKABLE bool setDockAt(QWindow *window,
+                               int width,
+                               int height,
+                               int marginLeft,
+                               int marginBottom,
+                               int inputX,
+                               int inputY,
+                               int inputWidth,
+                               int inputHeight);
     Q_INVOKABLE bool setGrid(QWindow *window,
                              int width,
                              int height,
@@ -111,6 +121,7 @@ private:
         int appliedWidth = -1;
         int appliedHeight = -1;
         QRect appliedInputRegion;
+        QMargins appliedMargins;
     };
 
     SurfaceState &stateFor(QWindow *window);
@@ -122,7 +133,9 @@ private:
                    const QString &scope,
                    int width,
                    int height,
-                   const QRect &inputRegion);
+                   const QRect &inputRegion,
+                   const QMargins &explicitMargins = QMargins(),
+                   bool useExplicitMargins = false);
     bool applyGeometry(QWindow *window, int width, int height, const QRect &inputRegion);
     bool eventFilter(QObject *obj, QEvent *event) override;
     void startGeometryGrace(QWindow *window);
