@@ -94,6 +94,25 @@ FocusScope {
     // docs/APPDECK.md §5 — re-emit grid cell-layout settle from inner GridView
     // so AppDeckGeometry can recompute grid anchors.
     signal gridLayoutSettled()
+    // docs/APPDECK.md §17 — Grid→Pulse unified context. Emit when the inline
+    // search field's content changes so the parent can switch deckMode to
+    // pulse (text present) or apps (empty). State 2 (focus-only) is driven
+    // entirely by the [[searchFocused]] readonly property below — no signal
+    // needed since the backdrop dim/scale lives inside this component.
+    signal pulseQueryChanged(string query)
+
+    // docs/APPDECK.md §17 — exposed for parent backdrop reasoning. The grid
+    // surface dims+scales internally when either flag flips on; the parent
+    // additionally uses [[searchActive]] to drive deckMode pulse mount.
+    readonly property bool searchFocused: header.searchFocused
+    readonly property bool searchActive: String(filterText || "").trim().length > 0
+    // Backdrop level — used to drive the unified opacity/scale step. Kept as
+    // a readonly so the parent can mirror these levels onto sibling surfaces
+    // (dock softening) without forking the curve.
+    readonly property real backdropOpacity: searchActive ? 0.88
+                                            : (searchFocused ? 0.92 : 1.0)
+    readonly property real backdropScale: searchActive ? 0.98
+                                          : (searchFocused ? 0.985 : 1.0)
 
     // Forward to the grid view's own helper (returns Qt.point in
     // AppDeckGridView coordinates; caller mapToItem-s into surface space).
@@ -150,6 +169,12 @@ FocusScope {
             filterText = String(appdeckSearchSeed || "")
         }
     }
+
+    // docs/APPDECK.md §17 — text changes propagate to parent as pulse intent.
+    // Parent (AppDeckWindow) flips deckMode and seeds pulseQuery. We no longer
+    // filter the in-grid model on filterText — the grid stays full as a
+    // backdrop while Pulse owns the result surface.
+    onFilterTextChanged: pulseQueryChanged(filterText)
 
     onVisibleChanged: {
         if (visible) {
@@ -243,78 +268,114 @@ FocusScope {
                 }
             }
 
-            // docs/APPDECK.md §8 — favorites row joins the staged reveal.
-            // gateVisible carries the existing logic (hide when filtering or
-            // no favorites); morphProgress drives the stagger curve on top.
-            AppDeckV2.GridContentLayer {
-                id: favoritesHitLayer
-                Layout.fillWidth: true
-                Layout.preferredHeight: gateVisible ? favoritesRow.implicitHeight : 0
-                morphProgress: root.morphProgress
-                gateVisible: root.filterText.trim().length === 0 && favoriteApps.length > 0
-
-                MouseArea {
-                    anchors.fill: parent
-                    acceptedButtons: Qt.LeftButton
-                    onClicked: root.pointerDismissRequested()
-                }
-
-                AppDeckComp.AppDeckFavoritesRow {
-                    id: favoritesRow
-                    anchors.fill: parent
-                    favoritesModel: root.favoriteApps
-                    onAppActivated: function(appData) {
-                        root.appChosen(appData)
-                    }
-                }
-            }
-
+            // docs/APPDECK.md §17 — Grid→Pulse unified context. Backdrop
+            // wrapper applies the State 2/3 dim+scale curve to favorites +
+            // grid as a single visual unit, while the header above stays at
+            // full opacity so the search field remains the spatial anchor.
             Item {
+                id: backdropWrapper
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-
-                MouseArea {
-                    anchors.fill: parent
-                    acceptedButtons: Qt.LeftButton
-                    onClicked: root.pointerDismissRequested()
+                opacity: root.backdropOpacity
+                transform: Scale {
+                    origin.x: backdropWrapper.width / 2
+                    origin.y: backdropWrapper.height / 2
+                    xScale: root.backdropScale
+                    yScale: root.backdropScale
+                }
+                Behavior on opacity {
+                    NumberAnimation {
+                        duration: Theme.durationFast
+                        easing.type: Theme.easingDecelerate
+                    }
                 }
 
-                AppDeckComp.AppDeckGridView {
-                    id: appsGrid
+                ColumnLayout {
                     anchors.fill: parent
-                    appModel: root.allAppsModel
-                    filterText: root.filterText
-                    iconsRenderedExternally: root.iconsRenderedExternally
-                    onAppActivated: function(appData) {
-                        root.appChosen(appData)
-                    }
-                    onCollapseRequested: root.dismissRequested()
-                    onAddToDockRequested: function(appData) {
-                        root.addToDockRequested(appData)
-                    }
-                    onAddToDesktopRequested: function(appData) {
-                        root.addToDesktopRequested(appData)
-                    }
-                    onGridLayoutSettled: root.gridLayoutSettled()
-                }
+                    spacing: 14
 
-                Column {
-                    anchors.centerIn: parent
-                    spacing: 6
-                    visible: appsGrid.noResultState || appsGrid.emptyState
+                    // docs/APPDECK.md §8 — favorites row joins the staged
+                    // reveal. gateVisible hides the row whenever the search
+                    // field is engaged (focus or text) so the Pulse layer
+                    // owns that area cleanly; morphProgress drives the
+                    // stagger curve on top.
+                    AppDeckV2.GridContentLayer {
+                        id: favoritesHitLayer
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: gateVisible ? favoritesRow.implicitHeight : 0
+                        morphProgress: root.morphProgress
+                        gateVisible: !root.searchFocused
+                                     && !root.searchActive
+                                     && favoriteApps.length > 0
 
-                    Label {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        text: appsGrid.noResultState ? "Tidak ada aplikasi yang cocok" : "Belum ada aplikasi"
-                        font.pixelSize: Theme.fontSize("title")
-                        color: Theme.color("textPrimary")
+                        MouseArea {
+                            anchors.fill: parent
+                            acceptedButtons: Qt.LeftButton
+                            onClicked: root.pointerDismissRequested()
+                        }
+
+                        AppDeckComp.AppDeckFavoritesRow {
+                            id: favoritesRow
+                            anchors.fill: parent
+                            favoritesModel: root.favoriteApps
+                            onAppActivated: function(appData) {
+                                root.appChosen(appData)
+                            }
+                        }
                     }
-                    Label {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        text: appsGrid.noResultState ? "Coba kata kunci lain" : "Aplikasi akan tampil di sini"
-                        font.pixelSize: Theme.fontSize("small")
-                        color: Theme.color("textSecondary")
-                        opacity: Theme.opacityMuted
+
+                    Item {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+
+                        MouseArea {
+                            anchors.fill: parent
+                            acceptedButtons: Qt.LeftButton
+                            onClicked: root.pointerDismissRequested()
+                        }
+
+                        AppDeckComp.AppDeckGridView {
+                            id: appsGrid
+                            anchors.fill: parent
+                            appModel: root.allAppsModel
+                            // docs/APPDECK.md §17 — grid never filters in-
+                            // place anymore; Pulse owns the search surface.
+                            // The grid stays full so it can sit as backdrop
+                            // behind the Pulse overlay.
+                            filterText: ""
+                            iconsRenderedExternally: root.iconsRenderedExternally
+                            onAppActivated: function(appData) {
+                                root.appChosen(appData)
+                            }
+                            onCollapseRequested: root.dismissRequested()
+                            onAddToDockRequested: function(appData) {
+                                root.addToDockRequested(appData)
+                            }
+                            onAddToDesktopRequested: function(appData) {
+                                root.addToDesktopRequested(appData)
+                            }
+                            onGridLayoutSettled: root.gridLayoutSettled()
+                        }
+
+                        Column {
+                            anchors.centerIn: parent
+                            spacing: 6
+                            visible: appsGrid.emptyState && !root.searchActive
+
+                            Label {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                text: "Belum ada aplikasi"
+                                font.pixelSize: Theme.fontSize("title")
+                                color: Theme.color("textPrimary")
+                            }
+                            Label {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                text: "Aplikasi akan tampil di sini"
+                                font.pixelSize: Theme.fontSize("small")
+                                color: Theme.color("textSecondary")
+                                opacity: Theme.opacityMuted
+                            }
+                        }
                     }
                 }
             }

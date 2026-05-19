@@ -1,148 +1,108 @@
-# AppDeck Unified Spatial Surface System
+# SLM AppDeck — Unified Spatial Operating Surface Guidelines
 
-> **STATUS IMPLEMENTASI (2026-05-17)**
-> - ✅ §2 `transitioning` internal state + Timer lock
-> - ✅ §4 `intent` property (browse / search / command / contextual)
-> - ✅ §11 `appearanceMode` (always_show / auto_hide)
-> - ✅ §13–15 Auto hide: `autoHidePresence`, idle timer, edge-reveal, spatial motion (no teleport)
-> - ✅ §22 Spatial Memory properties (spatialLastGridPage, spatialLastFocusedIconId, etc.)
-> - ✅ §23 Resting Animation: breathing luminance on dockBackground
-> - ✅ §25 Motion Tokens: morphDuration, modeDuration, collapseDuration, autoHide*, resting*
-> - ✅ §27 `morphProgress`, `dockVisible` API surface properties
-> - ✅ §28 Content Reveal Timeline: staggered opacity via `contentRevealOpacity` (dock→grid 0.40–0.70 reveal, grid→dock 0.70–1.00 fade)
-> - ✅ §30 Validation: outside click collapse, app activation collapse, ESC collapse, single surface
-> - ⏳ §19 Icon continuity (dockAnchor/gridAnchor) — requires per-icon positional tracking
-> - ⏳ §20 Focus Gravity System — morph origin from clicked icon center
+## MASTER DESIGN & IMPLEMENTATION GUIDE FOR AGENTS
 
-## 🎯 TUJUAN
+---
 
-Bangun AppDeck sebagai:
+# 1. CORE PHILOSOPHY
 
-```plaintext id="tb4a56"
-Spatial Interaction Surface
+AppDeck bukan:
+
+* dock biasa
+* launcher biasa
+* search popup
+* overview clone
+* launchpad clone
+* spotlight clone
+
+AppDeck adalah:
+
+```text id="zy7m5w"
+Unified Spatial Operating Surface
 ```
 
-Bukan sekadar:
-
-* dock
-* launchpad
-* search popup
-* app launcher
+Tujuan:
+menjadikan AppDeck sebagai pusat interaksi utama SLM Desktop.
 
 AppDeck harus terasa:
 
 * hidup
 * spatial
-* konsisten
 * premium
-* responsif
-* predictable
+* motion-driven
+* contextual
+* intelligent
+* continuous
 
-Dengan:
+Target experience:
 
-* satu surface utama
-* sistem state + mode konsisten
-* morph animation kontinu
-* motion architecture unified
-* continuity visual & interaction
+* bukan meniru macOS
+* bukan GNOME Overview
+* bukan Windows Start Menu
 
----
+Tetapi:
 
-# 1. SINGLE SURFACE RULE
-
-Hanya ada satu surface utama:
-
-```plaintext id="4ft2xk"
-AppDeck
-```
-
-DILARANG membuat:
-
-* AppHub
-* Launchpad
-* Pulse window
-* Grid window
-* Dock window
-
-Semua adalah representasi state/mode dari AppDeck.
-
----
-
-# 2. STATE SYSTEM
-
-## Public State
-
-```plaintext id="m9qj4n"
-dock
-grid
-```
-
-## Internal Runtime State
-
-```plaintext id="b2gjv0"
-transitioning
-```
-
-Runtime flow:
-
-```plaintext id="7v8a8g"
-dock → transitioning → grid
-grid → transitioning → dock
-```
-
-### RULE
-
-* `transitioning` hanya internal runtime state
-* tidak boleh dipakai sebagai terminology UI publik
-* digunakan untuk:
-
-  * animation locking
-  * gesture interruption
-  * transition safety
-  * race-condition prevention
-
----
-
-# 3. MODE SYSTEM
-
-```plaintext id="t99c6w"
-apps
-pulse
-context
+```text id="c5hwdz"
+desktop interaction layer generasi baru
 ```
 
 ---
 
-# 4. INTENT SYSTEM
+# 2. APPDECK MENTAL MODEL
 
-Tambahkan interaction intent layer:
+User tidak boleh merasa:
 
-```qml id="fq6mq5"
-property string intent
+```text id="yljnh0"
+“launcher dibuka”
 ```
 
-Valid intent:
+User harus merasa:
 
-```plaintext id="bmn8k9"
-browse
-search
-command
-contextual
+```text id="4o0mfx"
+“workspace berubah mode interaksi”
 ```
 
-Mapping:
+Artinya:
 
-| Mode    | Intent           |
-| ------- | ---------------- |
-| apps    | browse           |
-| pulse   | search / command |
-| context | contextual       |
+* Dock
+* Grid
+* Pulse
+* Context
+
+adalah satu sistem spatial yang sama.
 
 ---
 
-# 5. VALID COMBINATIONS
+# 3. ARCHITECTURE HIERARCHY (WAJIB)
 
-```plaintext id="3j3s5o"
+JANGAN campur semua menjadi “state”.
+
+Gunakan hierarchy resmi:
+
+```text id="sx9r3f"
+SpatialState
+ ├── dock
+ └── grid
+
+ModeState
+ ├── apps
+ ├── pulse
+ └── context
+
+ContextDomain
+ ├── workspace
+ ├── activity
+ ├── system
+ └── semantic
+```
+
+---
+
+# 4. OFFICIAL APPDECK STATES
+
+## VALID COMBINATIONS
+
+```text id="w0y4ud"
 AppDeck[state=dock, mode=apps]
 
 AppDeck[state=grid, mode=apps]
@@ -150,513 +110,675 @@ AppDeck[state=grid, mode=pulse]
 AppDeck[state=grid, mode=context]
 ```
 
-Forbidden:
+INVALID:
 
-```plaintext id="2q1fl7"
+```text id="f5q3tg"
 AppDeck[state=dock, mode=pulse]
 AppDeck[state=dock, mode=context]
 ```
 
 ---
 
-# 6. OFFICIAL ALIAS
-
-```plaintext id="b4f0ow"
-dock    = AppDeck[state=dock, mode=apps]
-grid    = AppDeck[state=grid, mode=apps]
-pulse   = AppDeck[state=grid, mode=pulse]
-context = AppDeck[state=grid, mode=context]
-```
-
----
-
-# 7. TRANSITION GRAPH
-
-```plaintext id="kp8mp5"
-dock ↔ grid
-
-grid ↔ pulse
-grid ↔ context
-
-pulse ↔ context
-```
-
----
-
-# 8. AUTO COLLAPSE POLICY
-
-AppDeck WAJIB collapse kembali ke:
-
-```plaintext id="6xq1ct"
-AppDeck[state=dock, mode=apps]
-```
-
-Pada:
-
-* app activation
-* app launching
-* outside click
-* ESC pressed
-* workspace interaction
-* focus loss
-
----
-
-# 9. APP ACTIVATION FLOW
-
-Saat app launch:
-
-```plaintext id="c1d3cl"
-1. activation accepted
-2. launch animation start
-3. AppDeck collapse start
-4. focus transfer
-5. app active
-```
-
-DILARANG:
-
-* menunggu app load selesai
-* freeze AppDeck
-* blocking transition
-
----
-
-# 10. OUTSIDE CLICK POLICY
-
-Click pada:
-
-* wallpaper
-* workspace
-* desktop
-* app window
-* shell surface lain
+# 5. APPDECK IS ONE SURFACE
 
 WAJIB:
 
-```plaintext id="mjmnl4"
-collapse → dock
-```
-
----
-
-# 11. APPEARANCE POLICY
-
-Tambahkan appearance mode:
-
-```plaintext id="tdb4bq"
-always_show
-auto_hide
-```
-
----
-
-# 12. ALWAYS SHOW
-
-```plaintext id="7s44o3"
-appearance = always_show
-```
-
-Dock:
-
-* selalu visible
-* persistent anchor
-* tetap morphable ke grid
-
----
-
-# 13. AUTO HIDE
-
-```plaintext id="t0v7i2"
-appearance = auto_hide
-```
-
-Dock:
-
-* hide otomatis saat idle
-* reveal saat interaction
-
-Dock TIDAK BOLEH:
-
-```plaintext id="1d0p0l"
-visible = false
-destroy()
-opacity = 0 permanent
-```
-
-Sebaliknya:
-
-```plaintext id="2zx3v5"
-low-presence state
-```
-
-Dock tetap meninggalkan:
-
-* subtle edge glow
-* reveal hint
-* luminance edge
-* tiny presence
-
-Tujuan:
-
-```plaintext id="icg30h"
-workspace still has anchor memory
-```
-
----
-
-# 14. AUTO HIDE TRIGGER
-
-Reveal saat:
-
-* edge hover
-* gesture
-* keyboard shortcut
-* focus request
-* workspace interaction
-
-Hide saat:
-
-* idle timeout
-* fullscreen focus
-* inactivity
-
----
-
-# 15. AUTO HIDE MOTION
+* satu AppDeck surface
+* satu render tree
+* satu MotionController
+* satu geometry coordinator
+* satu animation clock
 
 DILARANG:
 
-* teleport
-* instant disappear
-* fade-only
+* Pulse window
+* Grid window
+* Dock window
+* separate Wayland surface
+* fake overlay replacement
 
-WAJIB:
+PulseLayer HARUS tetap berada dalam:
 
-* spatial offset
-* opacity transition
-* continuity movement
-
-Dock harus terasa:
-
-```plaintext id="0y3mbj"
-alive and attached to workspace
+```text id="c4n0fr"
+same AppDeck render tree
 ```
 
 ---
 
-# 16. MORPH TRANSITION PRINCIPLE
+# 6. SPATIAL STATES
 
-Dock ↔ Grid WAJIB:
+## dock
 
-```plaintext id="mv5o1n"
-continuous spatial morph
+Compact persistent anchor.
+
+## grid
+
+Expanded spatial browsing state.
+
+Grid adalah:
+
+```text id="0kc1gb"
+evolution of dock
+```
+
+Bukan surface baru.
+
+---
+
+# 7. MODE STATES
+
+## apps
+
+Browsing mode.
+
+## pulse
+
+Intent/search/action mode.
+
+## context
+
+Contextual interaction mode.
+
+---
+
+# 8. PULSE PHILOSOPHY
+
+Pulse bukan search popup.
+
+Pulse adalah:
+
+```text id="1w2mjv"
+intent layer emerging from AppDeck
+```
+
+User harus merasa:
+
+```text id="xt10gg"
+Pulse emerges from Grid
 ```
 
 Bukan:
 
-```plaintext id="6k87rf"
-surface replacement
-fade swap
-fullscreen popup
+```text id="phc7eg"
+another search window opened
 ```
 
 ---
 
-# 17. MORPH ELEMENTS
+# 9. SEARCH FIELD AS SPATIAL ANCHOR
 
-WAJIB dimorph:
+SearchField adalah:
 
-* container size
-* radius
-* blur/material
-* icon position
-* icon scale
-* spacing
-* shadow
-* elevation
-* density
-* clip shape
-* padding
-
----
-
-# 18. SPATIAL CONTINUITY RULE
-
-Dock TIDAK BOLEH:
-
-```plaintext id="9j4v0z"
-hilang → grid muncul
+```text id="n7qj9v"
+spatial origin point
 ```
 
 WAJIB:
 
-```plaintext id="ny7g5s"
-dock evolves into grid
-```
-
----
-
-# 19. ICON CONTINUITY RULE
-
-Setiap icon WAJIB punya:
-
-```plaintext id="zk2qpk"
-dockAnchor
-gridAnchor
-```
-
-Animasi:
-
-```plaintext id="cgys5r"
-icon.position = interpolate(dockAnchor, gridAnchor, morphProgress)
-icon.scale    = interpolate(dockScale, gridScale, morphProgress)
-```
+* Pulse muncul dari SearchField
+* transisi berpusat pada geometry SearchField
+* result layer expand dari search region
 
 DILARANG:
 
-* teleport
-* destroy/recreate
-* layout jump
+* Pulse muncul dari center screen random
+* hard popup animation
 
 ---
 
-# 20. FOCUS GRAVITY SYSTEM
+# 10. SEARCH TRANSITION MODEL
 
-Setiap transisi WAJIB memiliki:
+## GRID BROWSING
 
-```plaintext id="sbyf86"
-gravity center
-```
+Saat AppDeck dibuka:
 
-Contoh:
-
-* clicked icon
-* pointer location
-* focused app
-* search invocation point
-
-Morph harus terasa berasal dari titik tersebut.
-
----
-
-# 21. PULSE DESIGN RULE
-
-Pulse BUKAN:
-
-* popup search
-* window terpisah
-* launcher lain
-
-Pulse adalah:
-
-```plaintext id="8vuy09"
-attention state of AppDeck
-```
-
-Yang berubah:
-
-* focus
-* density
-* blur
-* content
-* interaction intent
-
-Spatial continuity harus tetap terjaga.
-
----
-
-# 22. SPATIAL MEMORY SYSTEM
-
-AppDeck WAJIB mempertahankan:
-
-* last scroll position
-* last focused icon
-* last pulse cursor
-* last grid position
-* interaction history ringan
+* app grid visible
+* categories visible
+* recent apps visible
+* search idle
 
 Tujuan:
 
-```plaintext id="om17t0"
-persistent workspace feeling
+```text id="v7ov2w"
+visual exploration
 ```
 
 ---
 
-# 23. RESTING ANIMATION RULE
+## SEARCH FOCUS
 
-AppDeck boleh memiliki:
+Saat field focus:
 
-* breathing luminance
-* micro parallax
-* ambient hover field
+* grid sedikit redup
+* grid sedikit mengecil
+* ambience meningkat
+* search elevation naik
 
-Tetapi:
+TETAPI:
 
-* sangat subtle
-* low frequency
-* tidak distracting
-
----
-
-# 24. MOTIONCONTROLLER CONTRACT
-
-Semua animasi WAJIB lewat MotionController.
-
-Pisahkan:
-
-* state transition
-* mode transition
-* appearance transition
-* micro interaction
+* belum masuk Pulse
+* belum rebuild layout
+* belum hide grid
 
 ---
 
-# 25. MOTION TOKEN
+## PULSE ACTIVE
 
-WAJIB ada:
+Pulse aktif jika:
 
-```plaintext id="d4h44i"
-appdeck.morph.duration
-appdeck.morph.spring
-appdeck.morph.easing
+```text id="6j1b8h"
+query.length > 0
+OR command intent detected
+OR semantic action detected
+```
 
-appdeck.mode.duration
-appdeck.mode.easing
+Saat aktif:
 
-appdeck.collapse.duration
-appdeck.collapse.easing
+* Grid tetap ada di belakang
+* Pulse emerge progressive
+* SearchField tetap visible
+* continuity wajib terjaga
 
-appdeck.appearance.hideDelay
-appdeck.appearance.showDuration
-appdeck.appearance.hideDuration
+---
 
-appdeck.resting.amplitude
-appdeck.resting.frequency
+# 11. EMPTY QUERY POLICY
+
+Jika query kosong:
+
+```text id="xwqey9"
+Pulse → Grid
+```
+
+WAJIB:
+
+* reverse morph
+* restore grid prominence
+* preserve continuity
+
+DILARANG:
+
+* abrupt reset
+* popup close feeling
+
+---
+
+# 12. GRID BEHAVIOR DURING PULSE
+
+Grid TIDAK BOLEH hilang.
+
+WAJIB:
+
+* opacity turun ringan
+* blur subtle
+* scale sedikit turun
+* tetap spatially visible
+
+Rekomendasi:
+
+```text id="sop36o"
+opacity: 0.88–0.92
+scale: 0.98–0.985
+blur: minimal
 ```
 
 ---
 
-# 26. PERFORMANCE RULE
+# 13. BLUR POLICY
 
 DILARANG:
 
 * blur radius animasi besar
-* multi heavy blur surface
-* recreate layer
-* expensive shader stacking
+* heavy realtime blur
+* layered blur stacking
 
 WAJIB:
 
-* stable blur
-* lightweight opacity
-* shadow/elevation based depth
-* GPU safe animation
+* blur stabil
+* opacity/material lebih dominan
+* gunakan elevation/depth
 
----
+Karena:
 
-# 27. IMPLEMENTASI QML
-
-```qml id="e75a6n"
-property string deckState: "dock"
-property string deckMode: "apps"
-property string intent: "browse"
-
-property string appearanceMode: "always_show"
-
-property bool transitioning: false
-
-property real morphProgress: 0.0
-property bool dockVisible: true
+```text id="e9t4kk"
+KWin + QtQuick blur animation mahal
 ```
 
 ---
 
-# 28. CONTENT REVEAL TIMELINE
+# 14. MOTION PRINCIPLES
 
-## dock → grid
+ABSOLUTELY AVOID:
 
-```plaintext id="4djlwm"
-0.00–0.40 spatial morph
-0.40–0.70 content reveal
-0.70–1.00 settle
+* abrupt page switch
+* hard replace
+* opacity-only transition
+* popup feeling
+* modal dialog behavior
+
+WAJIB:
+
+* morph animation
+* shared element transition
+* layered motion
+* spatial continuity
+* anchor-based expansion
+
+---
+
+# 15. MORPH PRINCIPLE
+
+Dock → Grid harus terasa:
+
+```text id="sj94xk"
+surface evolution
 ```
 
-## grid → dock
+Bukan:
 
-```plaintext id="ic9mv2"
-0.00–0.30 content fade out
-0.30–1.00 collapse morph
+```text id="g7q4mw"
+surface replacement
+```
+
+Grid → Pulse harus terasa:
+
+```text id="5z8mnu"
+intent emergence
+```
+
+Bukan:
+
+```text id="3g3h4j"
+new overlay
 ```
 
 ---
 
-# 29. LAYERING RULE
+# 16. HOVER CONTINUITY
 
-AppDeck tetap SATU surface.
+Hover HARUS tetap hidup saat:
 
-Boleh:
+* Grid → Pulse
+* Pulse → Grid
+* query update
+* result refresh
+* morph transition
 
-* ghost layer
-* morph proxy
-* clip helper
-* shadow helper
+Pointer diam tetap wajib:
 
-Tidak boleh:
-
-* separate dock window
-* separate grid window
-* fake overlay replacement
+```text id="u9v0du"
+recompute hover target
+```
 
 ---
 
-# 30. VALIDATION CHECKLIST
+# 17. RESULT MODEL POLICY
 
-Agent WAJIB memastikan:
+DILARANG:
 
-* hanya satu AppDeck
-* terminology konsisten
-* state/mode valid
-* dock ↔ grid memakai morph
-* outside click collapse
-* app activation collapse
-* ESC collapse
-* auto hide smooth
-* no teleport
-* no recreate icon
-* no fade-only transition
-* no surface replacement
-* MotionController menjadi pusat semua animasi
+* rebuild seluruh model tiap keystroke
+* destroy/recreate sections
+* reset scene graph
+
+WAJIB:
+
+* incremental update
+* diff update
+* async search pipeline
+* progressive reveal
 
 ---
 
-# 31. DESIGN PHILOSOPHY
+# 18. PULSE RESULT STRUCTURE
 
-AppDeck harus terasa sebagai:
+Gunakan grouped sections:
 
-```plaintext id="t84v4w"
-Living Spatial Surface
+```text id="jlwmwq"
+PulseResults
+ ├── Apps
+ ├── Files
+ ├── Actions
+ ├── Settings
+ ├── Workflows
+ └── Suggestions
 ```
 
-Dock adalah:
+---
 
-```plaintext id="g2ypfe"
-living anchor
+# 19. RESULT ANIMATION POLICY
+
+WAJIB:
+
+* subtle stagger
+* progressive reveal
+* spring easing
+* layered emergence
+
+DILARANG:
+
+* waterfall animation besar
+* motion chaos
+* flashy transitions
+
+---
+
+# 20. RESULT UX
+
+Hover:
+
+```text id="mjlwm9"
+scale: 1.0 → 1.04
+soft lift
+subtle bloom
 ```
 
-Grid adalah:
+Selection:
 
-```plaintext id="pfrv25"
-expanded evolution of dock
+```text id="qmx2hm"
+magnetic motion
+active glow
+context preview optional
 ```
 
-Pulse adalah:
+Durasi:
 
-```plaintext id="s5skwd"
-focused attention state
+```text id="h7e8uv"
+120–160ms
 ```
 
-Bukan sekadar launcher atau popup.
+---
 
-END PROMPT
+# 21. AUTO COLLAPSE POLICY
+
+AppDeck collapse ke dock saat:
+
+* app activation
+* outside click
+* ESC
+* workspace interaction
+
+---
+
+# 22. OUTSIDE CLICK BEHAVIOR
+
+Saat Pulse aktif:
+
+FIRST outside click:
+
+```text id="otkwlc"
+Pulse → Grid
+```
+
+SECOND outside click:
+
+```text id="d4jv8j"
+Grid → Dock
+```
+
+Tujuan:
+lebih premium dan spatial.
+
+---
+
+# 23. AUTO HIDE POLICY
+
+Appearance modes:
+
+```text id="8p1hsv"
+always_show
+auto_hide
+```
+
+Dock tidak boleh hilang total.
+
+Gunakan:
+
+```text id="yl0sz9"
+low presence state
+```
+
+Tetap sisakan:
+
+* reveal zone
+* subtle edge glow
+* spatial anchor memory
+
+---
+
+# 24. INPUT REGION POLICY
+
+Dock:
+
+```text id="t3euj7"
+dockRect + revealZone
+```
+
+Grid:
+
+```text id="s0iv04"
+gridRect
+```
+
+Opacity 0 layer:
+
+```text id="fy7j3s"
+MUST NOT capture input
+```
+
+---
+
+# 25. PERFORMANCE POLICY
+
+WAJIB:
+
+* persistent scene graph
+* shared render lifecycle
+* lightweight animations
+* stable geometry caching
+
+DILARANG:
+
+* recreate heavy views
+* aggressive Loader switching
+* blur-heavy animation
+* multi-surface composition
+
+---
+
+# 26. RENDERING OWNERSHIP
+
+All layers MUST share:
+
+```text id="a3zk3z"
+one render root
+one motion clock
+one geometry coordinator
+one lifecycle
+```
+
+Layers:
+
+```text id="8ob0wl"
+DockLayer
+GridLayer
+PulseLayer
+ContextLayer
+```
+
+Bukan renderer terpisah.
+
+---
+
+# 27. MOTIONCONTROLLER RESPONSIBILITY
+
+MotionController bertanggung jawab untuk:
+
+* morph transitions
+* hover physics
+* spring configs
+* shared transitions
+* depth motion
+* interruptible animation
+* animation continuity
+
+---
+
+# 28. SEARCHCONTROLLER RESPONSIBILITY
+
+SearchController:
+
+* query handling
+* semantic intent detection
+* result grouping
+* async search pipeline
+* Pulse activation
+
+---
+
+# 29. CONTEXTCONTROLLER RESPONSIBILITY
+
+ContextController:
+
+* mode switching
+* contextual actions
+* workspace context
+* activity context
+* semantic context
+
+---
+
+# 30. SLM DESIGN LANGUAGE (IMPORTANT)
+
+SLM harus punya identitas sendiri.
+
+JANGAN:
+
+* copy Apple blur
+* copy GNOME Overview
+* copy Windows Start
+* copy visionOS glassmorphism berlebihan
+
+SLM harus:
+
+```text id="9s40f8"
+clean
+spatial
+alive
+minimal
+motion-driven
+focused
+```
+
+---
+
+# 31. BEST RECOMMENDATION FOR SLM
+
+## A. PRIORITASKAN CONTINUITY
+
+Continuity lebih penting daripada fitur banyak.
+
+User lebih merasakan:
+
+* continuity
+* responsiveness
+* motion consistency
+
+daripada:
+
+* 100 fitur tambahan
+
+---
+
+## B. APPDECK HARUS JADI IDENTITAS SLM
+
+Jangan jadikan AppDeck:
+
+```text id="1b8jpv"
+dock + launcher
+```
+
+Tetapi:
+
+```text id="s4n7u4"
+operating surface
+```
+
+Ini pembeda terbesar SLM.
+
+---
+
+## C. FOKUS KE SPATIAL UX
+
+SLM punya peluang besar membuat:
+
+```text id="aefhkm"
+Linux desktop pertama dengan spatial continuity yang benar
+```
+
+Banyak desktop Linux gagal karena:
+
+* terlalu modular
+* terlalu banyak popup
+* terlalu banyak surface berbeda
+
+SLM harus:
+
+```text id="smv2it"
+one spatial environment
+```
+
+---
+
+## D. MOTION ADALAH FITUR UTAMA
+
+Animasi bukan kosmetik.
+
+Motion adalah:
+
+* orientasi user
+* continuity
+* focus guidance
+* interaction language
+
+---
+
+## E. JANGAN TERLALU CEPAT MENAMBAH FITUR
+
+Saat ini fokus:
+
+* AppDeck
+* Crown
+* Workspace continuity
+* MotionController
+* Input consistency
+
+Jangan dulu:
+
+* widget chaos
+* AI overlay berlebihan
+* floating utilities random
+
+---
+
+# 32. TARGET EXPERIENCE
+
+Saat user memakai SLM:
+
+mereka harus merasa:
+
+```text id="d6i9x9"
+desktop terasa hidup
+```
+
+Bukan:
+
+```text id="8svw53"
+kumpulan window dan popup
+```
+
+AppDeck harus menjadi:
+
+```text id="w6u6sn"
+the central living interaction surface of SLM Desktop
+```
+
+END GUIDELINE

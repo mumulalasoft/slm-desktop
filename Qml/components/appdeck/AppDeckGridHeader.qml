@@ -13,6 +13,14 @@ Item {
     property int totalCount: 0
     property int filteredCount: 0
 
+    // docs/APPDECK.md §17 — Grid→Pulse unified context. Header exposes its
+    // focus/typing state so the parent can drive the State 1/2/3 backdrop:
+    //   idle    (no focus, no text): full grid
+    //   focused (focus, no text):    dim+scale grid (State 2 ambience)
+    //   active  (text present):      Pulse mode (State 3)
+    readonly property bool searchFocused: searchField.activeFocus
+    readonly property bool searchActive: String(searchText || "").length > 0
+
     signal queryChanged(string text)
     signal collapseRequested()
     signal focusGridRequested()
@@ -96,7 +104,13 @@ Item {
             anchors.fill: parent
             anchors.leftMargin: 38
             anchors.rightMargin: clearButton.visible ? 38 : 16
-            placeholderText: qsTr("Search apps")
+            // docs/APPDECK.md §17 — placeholder shifts per state so the user
+            // reads "browse" → "intent" → "search" as they engage the field.
+            placeholderText: root.searchActive
+                             ? qsTr("Search apps, files, actions…")
+                             : (root.searchFocused
+                                ? qsTr("Type a command or search")
+                                : qsTr("Search apps"))
             placeholderTextColor: Qt.rgba(
                 Theme.color("textSecondary").r,
                 Theme.color("textSecondary").g,

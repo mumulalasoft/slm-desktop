@@ -36,6 +36,9 @@ Window {
                                                  : 6
     readonly property bool appDeckSuppressed: !rootWindow
                                               || rootWindow.lockScreenVisible
+                                              || (typeof ShellStateController !== "undefined"
+                                                  && ShellStateController
+                                                  && ShellStateController.topOverlayActive)
                                               || !root.policySurfaceVisible
     readonly property bool policySensorOnly: !root.appDeckSuppressed
                                              && root.policyEdgeRevealEnabled
@@ -44,6 +47,12 @@ Window {
     property bool dockHostVisible: Number(ShellState.dockOpacity || 1.0) > 0.01
                                    && root.policyContentVisible
     property bool dockAcceptsInput: root.policyContentVisible
+                                    && !(typeof ShellStateController !== "undefined"
+                                         && ShellStateController
+                                         && ShellStateController.topOverlayActive)
+    readonly property bool powerOverlayActive: typeof ShellStateController !== "undefined"
+                                               && ShellStateController
+                                               && ShellStateController.topOverlayActive
     property bool bottomRevealHeld: false
 
     readonly property var dockItem: dockView.dockItem
@@ -635,6 +644,7 @@ Window {
                ? root.dockSurfaceHeight
                : Number(root.targetScreenGeometry.height || (rootWindow ? rootWindow.height : Screen.height)))
     Behavior on pulseTransition {
+        enabled: !root.powerOverlayActive
         NumberAnimation {
             duration: root.motionSurfaceDuration
             easing.type: Theme.easingDefault
@@ -642,6 +652,7 @@ Window {
     }
 
     Behavior on autoHidePresence {
+        enabled: !root.powerOverlayActive
         NumberAnimation { duration: root.autoShowDuration; easing.type: Theme.easingDecelerate }
     }
 
@@ -1075,9 +1086,18 @@ Window {
         AppDeckComp.AppDeckGridAppsView {
             id: gridAppsView
             anchors.fill: parent
-            visible: root.gridAppsMode || opacity > 0.01
-            opacity: root.appsTransition
-            transform: Translate { y: (1.0 - root.appsTransition) * 14 }
+            // docs/APPDECK.md §17 — Grid stays mounted as a backdrop while
+            // Pulse mode is active. The inline backdrop dim/scale lives
+            // inside this component (driven by its searchFocused/searchActive
+            // state), so the outer opacity stays at 1.0 during pulse and only
+            // the inner backdropOpacity contributes the 0.88–0.92 dim.
+            visible: root.gridAppsMode || root.pulseMode || opacity > 0.01
+            opacity: root.gridAppsMode
+                     ? root.appsTransition
+                     : (root.pulseMode ? 1.0 : 0.0)
+            transform: Translate {
+                y: root.gridAppsMode ? (1.0 - root.appsTransition) * 14 : 0
+            }
             z: 1
             appsModel: root.appsModel
             desktopScene: root.desktopScene
@@ -1123,6 +1143,27 @@ Window {
             }
             onAddToDesktopRequested: function(appData) {
                 AppDeckActions.handleAddToDesktop(appData, root.desktopScene)
+            }
+            // docs/APPDECK.md §17 — inline grid search drives Pulse activation.
+            // Non-empty text flips deckMode to pulse and seeds the pulse
+            // query; empty text returns to apps mode (still in grid state,
+            // not dock — focus stays on the inline search field).
+            onPulseQueryChanged: function(query) {
+                var trimmed = String(query || "").trim()
+                if (!root.rootWindow) {
+                    return
+                }
+                if (trimmed.length > 0) {
+                    if (root.rootWindow.setSearchVisible) {
+                        root.rootWindow.setSearchVisible(true)
+                    }
+                    root.applyPulseQuery(query)
+                } else {
+                    if (root.rootWindow.setSearchVisible) {
+                        root.rootWindow.setSearchVisible(false)
+                    }
+                    root.applyPulseQuery("")
+                }
             }
         }
 
@@ -1316,7 +1357,10 @@ Window {
         HoverHandler {
             id: bottomRevealHoldHandler
             target: dockView
-            enabled: root.policyEdgeRevealEnabled && root.policyContentVisible && root.dockActive
+            enabled: !root.powerOverlayActive
+                     && root.policyEdgeRevealEnabled
+                     && root.policyContentVisible
+                     && root.dockActive
             onHoveredChanged: {
                 root.bottomRevealHeld = hovered
                 if (hovered && root.shellPolicy && root.shellPolicy.requestBottomEdgeReveal) {
@@ -1335,7 +1379,7 @@ Window {
         z: 50
         hoverEnabled: true
         acceptedButtons: Qt.NoButton
-        enabled: root.policySensorOnly
+        enabled: !root.powerOverlayActive && root.policySensorOnly
         onEntered: {
             if (root.shellPolicy && root.shellPolicy.requestBottomEdgeReveal) {
                 root.shellPolicy.requestBottomEdgeReveal("bottom-edge")
@@ -1421,6 +1465,7 @@ Window {
         interval: 800
         repeat: true
         running: root.bottomRevealHeld
+                 && !root.powerOverlayActive
                  && root.policyEdgeRevealEnabled
                  && root.policyContentVisible
                  && root.dockActive
