@@ -241,17 +241,18 @@ FocusScope {
             // 0.45→0.80 via GridContentLayer's reveal curve. Defaults
             // (morphProgress=1.0) keep the header fully visible when the
             // outer panel is up, which matches legacy behavior.
+            // §9 — Header carries the spatial-anchor search field. A
+            // sibling fullfill MouseArea here used to dismiss on chrome
+            // clicks, but it ate the press before TextField could focus.
+            // Removed: header chrome is content, not background — clicks
+            // there do nothing. Outside-content dismissal is still wired
+            // via the root-level MouseArea (_insideContentArea check) and
+            // the immersive overlay MouseArea in AppDeckWindow.
             AppDeckV2.GridContentLayer {
                 id: headerHitLayer
                 Layout.fillWidth: true
                 Layout.preferredHeight: header.implicitHeight
                 morphProgress: root.morphProgress
-
-                MouseArea {
-                    anchors.fill: parent
-                    acceptedButtons: Qt.LeftButton
-                    onClicked: root.pointerDismissRequested()
-                }
 
                 AppDeckComp.AppDeckGridHeader {
                     id: header
