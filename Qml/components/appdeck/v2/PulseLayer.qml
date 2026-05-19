@@ -31,6 +31,10 @@ Item {
     // Spec §9: opacity-only mode transition; no morph involvement.
     opacity: active ? 1.0 : 0.0
     visible: opacity > 0.01
+    // P0 (§12 of fix prompt) — a layer fading below 5% must NOT eat clicks
+    // intended for the layer underneath. `enabled:false` on an Item blocks
+    // event delivery to its descendant MouseAreas / TapHandlers.
+    enabled: visible && opacity > 0.05
 
     Behavior on opacity {
         NumberAnimation { duration: Theme.durationNormal; easing.type: Theme.easingLight }

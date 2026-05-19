@@ -158,6 +158,14 @@ FocusScope {
         anchors.fill: parent
         hoverEnabled: false
         acceptedButtons: Qt.LeftButton
+        // P0 (§12 of fix prompt) — gate the outside-click dismiss on the
+        // grid being fully settled. Without this, clicks landing during the
+        // morph (when this surface is animating into place) trip
+        // `pointerDismissRequested` and the downstream
+        // `canDismissGridByPointer` flag may briefly contradict itself. Once
+        // morphProgress is past 0.95 the morph is visually complete and the
+        // MouseArea behaves normally.
+        enabled: root.morphProgress >= 0.95
         onClicked: function(mouse) {
             if (!root._insideContentArea(mouse.x, mouse.y)) {
                 root.pointerDismissRequested()

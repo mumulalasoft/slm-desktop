@@ -189,6 +189,24 @@ Window {
     // §2 APPDECK.md – Internal Runtime State (animation locking, race-condition prevention)
     property bool transitioning: false
 
+    // P0 — opt-in debug logs (per fix prompt §19). Forwarded into
+    // AppDeckRoot.debugLogsEnabled so the v2 components share the same gate.
+    // Sources: (a) `--appdeck-debug` command-line flag, (b) optional context
+    // property `AppDeckDebugLogsEnabled` set by C++ from SLM_APPDECK_DEBUG
+    // env var. Neither is required; both fall through cleanly to false.
+    readonly property bool appDeckDebugLogsEnabled: {
+        if (typeof Qt !== "undefined" && Qt.application && Qt.application.arguments) {
+            var argv = Qt.application.arguments
+            for (var i = 0; i < argv.length; ++i) {
+                if (String(argv[i]) === "--appdeck-debug") return true
+            }
+        }
+        if (typeof AppDeckDebugLogsEnabled !== "undefined") {
+            return !!AppDeckDebugLogsEnabled
+        }
+        return false
+    }
+
     // §4 APPDECK.md – Intent System
     readonly property string intent: {
         switch (root.mode) {
@@ -305,13 +323,26 @@ Window {
         root._gridPointerDismissArmed = false
         root._gridHadActiveFocus = false
         root._gridContentSettled = false
-        gridPointerDismissTimer.stop()
         gridContentSettleTimer.stop()
         setAppDeckVisibility(false)
         if (rootWindow && rootWindow.setSearchVisible) {
             rootWindow.setSearchVisible(false)
         }
         root.syncLayerSurfaceSize()
+    }
+
+    // P0 — pointer-release one-shot: replaces the legacy ~1.8–2s
+    // gridPointerDismissTimer. The click that opens the grid happens on the
+    // dock button (different sub-tree from the grid's outer MouseArea), so the
+    // first onClicked on the grid surface is by definition a NEW user
+    // interaction. We arm on the next event-loop pass to absorb any stale
+    // touch-event tail without an artificial 2-second wait.
+    function _armPointerDismissOnNextTick() {
+        Qt.callLater(function() {
+            if (root.gridActive) {
+                root._gridPointerDismissArmed = true
+            }
+        })
     }
 
     function enterGrid() {
@@ -328,7 +359,7 @@ Window {
         root.syncLayerSurfaceSize()
         Qt.callLater(function() { root.syncLayerSurfaceSize() })
         gridCollapseGuardTimer.restart()
-        gridPointerDismissTimer.restart()
+        root._armPointerDismissOnNextTick()
         gridContentSettleTimer.restart()
     }
 
@@ -346,7 +377,7 @@ Window {
         root.syncLayerSurfaceSize()
         Qt.callLater(function() { root.syncLayerSurfaceSize() })
         gridCollapseGuardTimer.restart()
-        gridPointerDismissTimer.restart()
+        root._armPointerDismissOnNextTick()
         gridContentSettleTimer.restart()
     }
 
@@ -818,6 +849,60 @@ Window {
             morphProgress:  root.surfaceTransition
             dockPresence:   root.autoHidePresence
             geometry:       appDeckGeometry
+            // P0 — propagate debug gate. Until C++ wires SLM_APPDECK_DEBUG into
+            // a context property, this stays driven from the legacy probe
+            // (set by AppDeckWindow.qml externally — currently a constant
+            // false; flip via the runtime override below).
+            debugLogsEnabled: root.appDeckDebugLogsEnabled
+        }
+
+        // P0 — react to AppDeckRoot signals. `hoverRecomputeRequested` is
+        // emitted whenever a transition ends (real or watchdog-forced) so a
+        // stationary pointer still resolves to the right item. `watchdogReset`
+        // clears `root.transitioning` if it's somehow still latched (the
+        // SSOT direction is currently outside-in, so the v2 watchdog signals
+        // upward instead of writing directly).
+        Connections {
+            target: appDeckRoot
+            ignoreUnknownSignals: true
+            function onHoverRecomputeRequested() {
+                Qt.callLater(function() {
+                    if (appDeckController && appDeckController.recomputeHover) {
+                        appDeckController.recomputeHover()
+                    }
+                })
+            }
+            function onWatchdogReset() {
+                if (root.transitioning) {
+                    console.warn("[APPDECK] watchdog reset from AppDeckRoot")
+                    root.transitioning = false
+                }
+            }
+            function onMorphFinished(finalState) {
+                root.syncLayerSurfaceSize()
+                Qt.callLater(function() { root.syncLayerSurfaceSize() })
+            }
+        }
+
+        // P0 — future v2-API call sites (keyboard shortcut, etc.) route
+        // through AppDeckMotion.toggleAppDeck() / interruptOrReverseTransition,
+        // which emit these signals. The legacy state machine on AppDeckWindow
+        // dispatches them into enterGrid / enterDock. Once AppDeckRoot owns
+        // morphProgress directly, this bridge can be removed.
+        Connections {
+            target: appDeckMotion
+            ignoreUnknownSignals: true
+            function onToggleRequested(reason) {
+                if (root.transitioning) {
+                    var reverseTarget = root.surfaceTransition >= 0.5 ? "dock" : "grid"
+                    if (reverseTarget === "dock") root.enterDock(); else root.enterGrid()
+                    return
+                }
+                if (root.gridAppsMode) root.enterDock(); else root.enterGrid()
+            }
+            function onReverseRequested(targetState) {
+                if (targetState === "dock") root.enterDock(); else root.enterGrid()
+            }
         }
 
         AppDeckV2.AppDeckController {
@@ -843,6 +928,7 @@ Window {
             id: appDeckDebugOverlay
             appDeckRoot: appDeckRoot
             geometry:    appDeckGeometry
+            controller:  appDeckController
             inputX:      root.dockInputX
             inputY:      root.dockInputY
             inputW:      root.dockInputWidth
@@ -1187,8 +1273,23 @@ Window {
                              + " gridAppsMode=" + root.gridAppsMode
                              + " state=" + root.state
                              + " transitioning=" + root.transitioning
+                             + " surfaceTransition=" + Number(root.surfaceTransition).toFixed(3)
                              + " active=" + root.active)
                 root.requestOpenAppDeck()
+                // P0 — spec §4/§5: clicks during a morph reverse direction.
+                // Without this, a click mid-expand is silently dropped while
+                // `transitioning=true` and the user perceives the deck as
+                // unresponsive. Direction inferred from morph progress.
+                if (root.transitioning) {
+                    var reverseTarget = root.surfaceTransition >= 0.5 ? "dock" : "grid"
+                    console.info("[APPDECK-LAUNCHER-SIGNAL] interrupt reverse target=" + reverseTarget)
+                    if (reverseTarget === "dock") {
+                        root.enterDock()
+                    } else {
+                        root.enterGrid()
+                    }
+                    return
+                }
                 if (root.gridAppsMode) {
                     root.enterDock()
                 } else {
@@ -1257,12 +1358,35 @@ Window {
         onTriggered: root.endAppDeckLifecycle()
     }
 
-    // §2 APPDECK.md – Clears `transitioning` after morph animation settles
+    // §2 APPDECK.md – Watchdog/cleanup for `transitioning`. Bumped to
+    // morphDuration + 250 ms so it can't fire before morphAnim.onStopped in
+    // the v2 path. Restart is driven by `onTransitioningChanged` (rising
+    // edge), making it a universal cleanup regardless of which path set
+    // transitioning=true.
     Timer {
         id: transitionLockTimer
-        interval: root.morphDuration + 120
+        interval: root.morphDuration + 250
         repeat: false
-        onTriggered: root.transitioning = false
+        onTriggered: {
+            if (root.transitioning) {
+                console.warn("[APPDECK] transitionLockTimer reset"
+                             + " surfaceTransition=" + Number(root.surfaceTransition).toFixed(3))
+                root.transitioning = false
+            }
+        }
+    }
+
+    onTransitioningChanged: {
+        if (transitioning) {
+            transitionLockTimer.restart()
+        } else {
+            transitionLockTimer.stop()
+            // Falling edge — let the layer-shell input region catch up with
+            // the new state, then re-emit hover so a stationary pointer
+            // still ends up over the right item.
+            root.syncLayerSurfaceSize()
+            Qt.callLater(function() { root.syncLayerSurfaceSize() })
+        }
     }
 
     // §13–15 APPDECK.md – Auto hide idle timer
@@ -1318,16 +1442,11 @@ Window {
         }
     }
 
-    Timer {
-        id: gridPointerDismissTimer
-        interval: Math.max(root.motionSurfaceDuration + 1200, 1800)
-        repeat: false
-        onTriggered: {
-            if (root.gridActive) {
-                root._gridPointerDismissArmed = true
-            }
-        }
-    }
+    // P0 — `gridPointerDismissTimer` removed. Replaced by the one-shot
+    // `_armPointerDismissOnNextTick()` call inside enterGrid()/enterPulse()
+    // (see ~line 320). The 1.8–2 s gate it implemented was the visible cause
+    // of the "responsive only on fast click" symptom: any outside-content
+    // click during that window was silently dropped.
 
     Timer {
         id: gridContentSettleTimer

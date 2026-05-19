@@ -23,6 +23,24 @@ Item {
     // §10 — gravity point for expand origin (set by Motion.expandToGrid)
     property point gravityCenter: Qt.point(width / 2, height)
 
+    // P0 — emitted when a transition ends (animation finished, watchdog reset,
+    // or `transitioning` flips to false from any binding source). Consumers
+    // (AppDeckWindow, the v2 controller) re-hit-test the pointer + refresh the
+    // layer-shell input region so a stationary pointer still gets correct hover
+    // after a morph that didn't fire pointer_motion events.
+    signal hoverRecomputeRequested()
+
+    // P0 — emitted when transitionWatchdog forces transitioning to false. The
+    // SSOT for `transitioning` may be bound from outside (AppDeckWindow.root);
+    // a direct write would be overridden by the binding, so we signal upward
+    // instead and the binding owner clears its own copy.
+    signal watchdogReset()
+
+    // Debug logging gate (§19 / SLM_APPDECK_DEBUG). Settable by parent so the
+    // shell can wire it from a context property or a command-line probe; no
+    // direct env-var access from QML.
+    property bool debugLogsEnabled: false
+
     // §15 — auto-hide presence. 1.0 = fully revealed, autoHideMinPresence
     // (token 0.08) = low-presence edge glow. Per spec §15, the surface MUST
     // never go visible:false — only fade to the low-presence floor so the
@@ -71,6 +89,53 @@ Item {
             }
             appDeckRoot.morphFinished(
                 appDeckRoot.morphProgress >= 0.5 ? "grid" : "dock")
+        }
+    }
+
+    // P0 watchdog — prevents `transitioning` from latching true if the morph
+    // ends without onStopped (animation dequeued, MotionController stall,
+    // legacy fallback path that bypasses morphAnim entirely). Restarted on
+    // every transitioning rising edge; cleared on falling edge.
+    Timer {
+        id: transitionWatchdog
+        interval: tokensInstance.morphDuration + 220
+        repeat: false
+        onTriggered: {
+            if (!appDeckRoot.transitioning) {
+                return
+            }
+            if (appDeckRoot.debugLogsEnabled) {
+                console.warn("[AppDeck] transition watchdog reset"
+                             + " progress=" + Number(appDeckRoot.morphProgress).toFixed(3)
+                             + " deckState=" + appDeckRoot.deckState
+                             + " deckMode=" + appDeckRoot.deckMode)
+            }
+            // We don't write transitioning here because the SSOT is currently
+            // bound from AppDeckWindow (one-way). Signal upward; the binding
+            // owner clears its copy, the falling edge below cleans up.
+            appDeckRoot.watchdogReset()
+            // Defensive freeze release (no-op if not frozen).
+            if (appDeckRoot.geometry && typeof appDeckRoot.geometry.unfreezeAnchors === "function") {
+                appDeckRoot.geometry.unfreezeAnchors()
+            }
+        }
+    }
+
+    onTransitioningChanged: {
+        if (transitioning) {
+            transitionWatchdog.restart()
+        } else {
+            transitionWatchdog.stop()
+            // Defer hover recompute one event-loop pass so anchor recompute
+            // and input-region updates settle first.
+            Qt.callLater(function() {
+                appDeckRoot.hoverRecomputeRequested()
+            })
+        }
+        if (debugLogsEnabled) {
+            console.log("[AppDeckRoot] transitioning=" + transitioning
+                        + " progress=" + Number(morphProgress).toFixed(3)
+                        + " state=" + deckState)
         }
     }
 

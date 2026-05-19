@@ -24,18 +24,36 @@ QtObject {
     property var root: null       // AppDeckRoot instance
     property var geometry: null   // AppDeckGeometry instance
 
+    // P0 — signals so AppDeckWindow's legacy state machine (still the actual
+    // morph driver until morphProgress is unbound from root.surfaceTransition)
+    // can react to the spec API call sites. Direct callers that drive
+    // morphAnim themselves can ignore the signals.
+    signal toggleRequested(string reason)
+    signal reverseRequested(string targetState)  // "grid" | "dock"
+
+    function _debug(msg) {
+        if (root && root.debugLogsEnabled) {
+            console.log("[AppDeckMotion] " + msg)
+        }
+    }
+
     function expandToGrid(gravityPoint) {
-        if (!root || root.transitioning) {
+        if (!root) {
             return
         }
+        // P0: do NOT early-return on `transitioning` — callers (toggle /
+        // reverse) decide whether to interrupt. The animation `from` is
+        // re-pinned to the current morphProgress so retargets are smooth.
         root.gravityCenter = gravityPoint
         root.deckState = "grid"
         var anim = root.morphAnimation
         if (anim) {
+            anim.stop()
             anim.from = root.morphProgress
             anim.to = 1.0
             anim.start()
         }
+        _debug("expandToGrid gravity=" + gravityPoint + " from=" + root.morphProgress)
     }
 
     function collapseToDock(reason) {
@@ -48,12 +66,46 @@ QtObject {
         root.deckMode = "apps"
         var anim = root.morphAnimation
         if (anim) {
+            anim.stop()
             anim.from = root.morphProgress
             anim.to = 0.0
             anim.start()
         }
-        // reason is informational — emitted upstream as a log line
-        console.log("[APPDECK-MOTION] collapseToDock reason=" + reason)
+        _debug("collapseToDock reason=" + reason + " from=" + root.morphProgress)
+    }
+
+    // P0 — spec §4. Routed through `toggleRequested` so the legacy state
+    // machine in AppDeckWindow can dispatch enterGrid / enterDock; that path
+    // is what actually moves the morph today. Once AppDeckRoot owns
+    // morphProgress directly, this can call expandToGrid / collapseToDock
+    // inline.
+    function toggleAppDeck(reason) {
+        if (!root) {
+            return
+        }
+        _debug("toggle reason=" + reason
+               + " deckState=" + root.deckState
+               + " progress=" + Number(root.morphProgress).toFixed(3)
+               + " transitioning=" + root.transitioning)
+        if (root.transitioning) {
+            interruptOrReverseTransition()
+            return
+        }
+        motion.toggleRequested(String(reason || "button"))
+    }
+
+    // P0 — spec §5. When clicked mid-morph, retarget to the opposite endpoint
+    // based on how far the morph has gotten. >= 0.5 means already closer to
+    // grid → reverse to dock; < 0.5 means still closer to dock → reverse to
+    // grid.
+    function interruptOrReverseTransition() {
+        if (!root) {
+            return
+        }
+        var target = root.morphProgress >= 0.5 ? "dock" : "grid"
+        _debug("interrupt reverse target=" + target
+               + " progress=" + Number(root.morphProgress).toFixed(3))
+        motion.reverseRequested(target)
     }
 
     function switchMode(mode) {

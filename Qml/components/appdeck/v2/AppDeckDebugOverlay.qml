@@ -16,11 +16,28 @@ Item {
     // Wired by AppDeckWindow.
     property var appDeckRoot: null
     property var geometry: null
+    // P0 — also wired so we can read hoveredIconIndex and confirm hover state
+    // survives a morph with a stationary pointer.
+    property var controller: null
     // Optional — input-region snapshot taken from AppDeckWindow.
     property int inputX: 0
     property int inputY: 0
     property int inputW: 0
     property int inputH: 0
+
+    // P0 — global hover singleton readouts (id under pointer + last X).
+    readonly property string hoveredItemId: (typeof AppDeckController !== "undefined"
+                                              && AppDeckController)
+                                              ? String(AppDeckController.hoveredItemId || "")
+                                              : ""
+    readonly property real hoverX: (typeof AppDeckController !== "undefined"
+                                     && AppDeckController)
+                                     ? Number(AppDeckController.hoverX || 0)
+                                     : 0
+    readonly property bool dockHovered: (typeof AppDeckController !== "undefined"
+                                          && AppDeckController)
+                                          ? !!AppDeckController.dockHovered
+                                          : false
 
     Shortcut {
         sequence: "Ctrl+Alt+D"
@@ -55,6 +72,7 @@ Item {
                     for (var k in obj) { if (obj.hasOwnProperty(k)) ++n }
                     return n
                 }
+                var hoverIdx = dbg.controller ? dbg.controller.hoveredIconIndex : -1
                 return "morphProgress: " + Number(dbg.appDeckRoot.morphProgress).toFixed(3) + "\n"
                      + "deckState:     " + dbg.appDeckRoot.deckState + "\n"
                      + "deckMode:      " + dbg.appDeckRoot.deckMode + "\n"
@@ -65,7 +83,11 @@ Item {
                      + "anchors:       " + anchorsCount(dbg.geometry.dockAnchorsById)
                      + "/" + anchorsCount(dbg.geometry.gridAnchorsByIndex) + "\n"
                      + "inputRegion:   " + dbg.inputX + "," + dbg.inputY
-                     + " " + dbg.inputW + "x" + dbg.inputH
+                     + " " + dbg.inputW + "x" + dbg.inputH + "\n"
+                     + "hoveredIdx:    " + hoverIdx + "\n"
+                     + "hoveredItemId: " + (dbg.hoveredItemId || "(none)") + "\n"
+                     + "hoverX:        " + Number(dbg.hoverX).toFixed(1)
+                     + (dbg.dockHovered ? " [dockHovered]" : "")
             }
         }
     }
@@ -92,5 +114,30 @@ Item {
         color: "transparent"
         border.color: Qt.rgba(0, 1, 1, 1)
         border.width: Theme.borderWidthThin
+    }
+
+    // P0 — input region outline (yellow). Confirms wl_surface input_region
+    // tracks dock/grid state, and that auto-hide low-presence keeps a usable
+    // reveal zone instead of dropping the region entirely.
+    Rectangle {
+        visible: dbg.inputW > 0 && dbg.inputH > 0
+        x: dbg.inputX
+        y: dbg.inputY
+        width: dbg.inputW
+        height: dbg.inputH
+        color: "transparent"
+        border.color: Qt.rgba(1, 1, 0, 1)
+        border.width: Theme.borderWidthThin
+    }
+
+    // P0 — pointer cross-hair at last cached hoverX (green vertical line at
+    // dock height). Helps confirm hover hit-testing is using the right X.
+    Rectangle {
+        visible: dbg.hoverX > 0 && !!dbg.geometry
+        x: dbg.hoverX - 1
+        y: dbg.geometry ? dbg.geometry.dockRect.y : 0
+        width: 2
+        height: dbg.geometry ? dbg.geometry.dockRect.height : 0
+        color: Qt.rgba(0, 1, 0, 0.7)
     }
 }

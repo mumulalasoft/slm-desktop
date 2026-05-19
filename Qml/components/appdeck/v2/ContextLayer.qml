@@ -22,6 +22,9 @@ Item {
 
     opacity: active ? 1.0 : 0.0
     visible: opacity > 0.01
+    // P0 (§12 of fix prompt) — see PulseLayer note. Avoid swallowing clicks
+    // while the layer is technically visible but visually gone.
+    enabled: visible && opacity > 0.05
 
     Behavior on opacity {
         NumberAnimation { duration: Theme.durationMd; easing.type: Theme.easingLight }

@@ -39,6 +39,11 @@ Item {
 
     visible: gateVisible && _t > visibleAt
     opacity: gateVisible ? revealOpacity : 0.0
+    // P0 (§12 of fix prompt) — children MouseAreas must not fire while the
+    // layer is faded below ~5%. Without this, clicks at morphProgress=0.05
+    // (visible=true, opacity≈0) silently dismiss the grid via the header
+    // MouseArea before the reveal even starts.
+    enabled: visible && opacity > 0.05
     transform: Scale {
         origin.x: layer.width  / 2
         origin.y: 0
