@@ -739,14 +739,18 @@ Window {
                 || (!root._forceGridInputRegion && (root.state === "dock" || root._eagerDockMask))
         var w = Math.max(1, Math.round(root.width))
         var h = Math.max(1, Math.round(root.appDeckHidden ? 1 : root.height))
+        // §12/§17 — In pulse mode the input region matches gridSurface so
+        // the dimmed grid backdrop stays interactive (and the pulse panel
+        // sits inside it). Context mode keeps its narrower input rect.
+        var inPulseAsGrid = root.pulseMode || !root.contextMode
         var surfaceX = applyDockMask ? root.dockInputX
-                                     : (root.pulseMode ? root.contextSurfaceX : root.gridSurfaceX)
+                                     : (inPulseAsGrid ? root.gridSurfaceX : root.contextSurfaceX)
         var surfaceY = applyDockMask ? root.dockInputY
-                                     : (root.pulseMode ? root.contextSurfaceY : root.gridSurfaceY)
+                                     : (inPulseAsGrid ? root.gridSurfaceY : root.contextSurfaceY)
         var surfaceW = applyDockMask ? root.dockInputWidth
-                                     : (root.pulseMode ? root.contextSurfaceW : root.gridSurfaceW)
+                                     : (inPulseAsGrid ? root.gridSurfaceW : root.contextSurfaceW)
         var surfaceH = applyDockMask ? root.dockInputHeight
-                                     : (root.pulseMode ? root.contextSurfaceH : root.gridSurfaceH)
+                                     : (inPulseAsGrid ? root.gridSurfaceH : root.contextSurfaceH)
         var dockMarginLeft = 0
         var dockMarginBottom = 0
         if (applyDockMask) {
@@ -1046,11 +1050,15 @@ Window {
                                 Number(root.dockVisualY || 0),
                                 Number(root.dockInputWidth || 1),
                                 Number(root.dockVisualHeight || 1))
-            targetRect: pulseMode
-                        ? Qt.rect(root.contextSurfaceX, root.contextSurfaceY,
-                                  root.contextSurfaceW, root.contextSurfaceH)
-                        : Qt.rect(root.gridSurfaceX, root.gridSurfaceY,
+            // §12/§17 — Pulse is a mode within grid; the morph container
+            // stays at gridSurface rect so the grid backdrop reads as a
+            // continuous surface behind the pulse overlay. Context mode
+            // (separate workflow) still morphs into the smaller rect.
+            targetRect: (pulseMode || !contextMode)
+                        ? Qt.rect(root.gridSurfaceX, root.gridSurfaceY,
                                   root.gridSurfaceW, root.gridSurfaceH)
+                        : Qt.rect(root.contextSurfaceX, root.contextSurfaceY,
+                                  root.contextSurfaceW, root.contextSurfaceH)
             sourceRadius: Theme.radiusWindow
             targetRadius: Theme.radiusWindow + Math.min(8, Theme.radiusWindow)
             sourceColor: root.dockMorphSourceColor
@@ -1197,10 +1205,15 @@ Window {
             opacity: root.pulseTransition
             transform: Translate { y: (1.0 - root.pulseTransition) * 12 }
             panelHeight: root.desktopScene ? root.desktopScene.panelHeight : 0
-            preferredSurfaceX: root.contextContentX
-            preferredSurfaceY: root.contextContentY
-            preferredSurfaceWidth: root.contextContentW
-            preferredSurfaceHeight: root.contextContentH
+            // §12/§17 — In pulse mode the dashboard occupies the SAME rect
+            // as the grid panel so the dimmed grid sits cleanly behind it,
+            // not peeking out around a smaller pulse frame. Context mode
+            // (the legacy narrower workflow surface) still uses its own
+            // smaller geometry.
+            preferredSurfaceX: root.pulseMode ? root.gridContentX : root.contextContentX
+            preferredSurfaceY: root.pulseMode ? root.gridContentY : root.contextContentY
+            preferredSurfaceWidth: root.pulseMode ? root.gridContentW : root.contextContentW
+            preferredSurfaceHeight: root.pulseMode ? root.gridContentH : root.contextContentH
             currentQuery: root.rootWindow ? String(root.rootWindow.pulseQuery || "") : ""
             pulseResultsModel: root.pulseResultsModel
             // Keep icon lookup source aligned with AppDeck: prefer global AppModel context.

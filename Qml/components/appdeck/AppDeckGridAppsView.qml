@@ -291,6 +291,29 @@ FocusScope {
                     }
                 }
 
+                // docs/APPDECK.md §13 — Depth-without-blur scrim. The pulse
+                // overlay above sits on top of the grid icons; without a
+                // depth cue, the two layers read as visually competing.
+                // Spec forbids heavy realtime blur, so we use a subtle dark
+                // material that activates only in pulse (searchActive) to
+                // recede the grid behind the pulse content. Sits above grid
+                // children (z later) so it tints them; pulse overlay (z=2
+                // on AppDeckWindow) renders above this entire wrapper.
+                Rectangle {
+                    anchors.fill: parent
+                    color: Qt.rgba(0, 0, 0, Theme.darkMode ? 0.40 : 0.28)
+                    opacity: root.searchActive ? 1.0 : 0.0
+                    visible: opacity > 0.01
+                    z: 100
+
+                    Behavior on opacity {
+                        NumberAnimation {
+                            duration: Theme.durationFast
+                            easing.type: Theme.easingDecelerate
+                        }
+                    }
+                }
+
                 ColumnLayout {
                     anchors.fill: parent
                     spacing: 14
