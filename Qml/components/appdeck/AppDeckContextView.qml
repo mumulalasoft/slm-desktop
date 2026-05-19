@@ -879,9 +879,21 @@ Item {
         y: (root.preferredSurfaceY >= 0 ? root.preferredSurfaceY : root.panelHeight + 16)
            + (1.0 - root.revealProgress) * 14
         radius: Math.max(18, Theme.radiusWindow + 4)
-        color: "transparent"
+        // §13 — "frosted dark glass" pulse card material. Without heavy
+        // blur (forbidden), the pulse panel needs its own uniform material
+        // so empty pockets between sections don't expose the grid icons
+        // behind at full brightness. Translucent dark tint applied while
+        // pulse is active; grid stays spatially visible per §12 because
+        // alpha is held under 0.55 so icons still ghost through.
+        color: root.active
+               ? Qt.rgba(0, 0, 0, Theme.darkMode ? 0.52 : 0.34)
+               : "transparent"
         border.width: Theme.borderWidthNone
         border.color: "transparent"
+
+        Behavior on color {
+            ColorAnimation { duration: Theme.durationFast; easing.type: Theme.easingDecelerate }
+        }
         opacity: root.active ? 1.0 : 0.0
         scale: 0.985 + (0.015 * root.revealProgress)
 
