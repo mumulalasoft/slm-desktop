@@ -81,6 +81,7 @@ private slots:
     void onFeatureStateChanged(const QString &feature, bool enabled);
     void onSharedFolderAdded(const QString &path, const QVariantMap &info);
     void onSharedFolderRemoved(const QString &path);
+    void onShareStateChanged(const QString &path, const QVariantMap &shareInfo);
     void onDeviceFound(const QString &deviceId, const QVariantMap &info);
     void onDeviceLost(const QString &deviceId);
     void onDeviceUpdated(const QString &deviceId, const QVariantMap &info);

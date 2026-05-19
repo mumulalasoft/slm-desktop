@@ -80,7 +80,7 @@ Flickable {
                         spacing: 8
 
                         Text {
-                            text: modelData.access === "rw" ? qsTr("Read & Write") : qsTr("Read Only")
+                            text: modelData.permission === "write" ? qsTr("Read & Write") : qsTr("Read Only")
                             color: Theme.color("textSecondary")
                             font.pixelSize: Theme.fontSize("small")
                             anchors.verticalCenter: parent.verticalCenter

@@ -10,7 +10,6 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
-#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QProcess>
@@ -58,7 +57,6 @@ bool SharingManager::initialize()
     m_cupsAdapter->probe();
     m_sshAdapter->probe();
 
-    loadPersistedShares();
     return true;
 }
 
@@ -151,45 +149,46 @@ QVariantMap SharingManager::tryAutoFix(const QString &issue)
 
 QVariantMap SharingManager::addSharedFolder(const QString &path, const QVariantMap &options)
 {
-    if (!m_featureStates.value(QStringLiteral("file-sharing")))
-        return {{QStringLiteral("ok"), false}, {QStringLiteral("error"), QStringLiteral("file-sharing-disabled")}};
+    QVariantMap normalized = options;
+    const QString legacyAccess = options.value(QStringLiteral("access"), QStringLiteral("ro")).toString();
+    normalized.insert(QStringLiteral("enabled"), true);
+    normalized.insert(QStringLiteral("permission"),
+                      legacyAccess == QLatin1String("rw") ? QStringLiteral("write") : QStringLiteral("read"));
+    normalized.insert(QStringLiteral("access"),
+                      options.value(QStringLiteral("guestAccess"), false).toBool()
+                          ? QStringLiteral("all")
+                          : QStringLiteral("owner"));
+    normalized.insert(QStringLiteral("allowGuest"),
+                      options.value(QStringLiteral("guestAccess"), false).toBool());
 
-    if (!m_sambaAdapter->configureShare(path, options))
-        return {{QStringLiteral("ok"), false}, {QStringLiteral("error"), QStringLiteral("samba-configure-failed")}};
-
-    const QVariantMap info = {
-        {QStringLiteral("path"), path},
-        {QStringLiteral("access"), options.value(QStringLiteral("access"), QStringLiteral("ro"))},
-        {QStringLiteral("guestAccess"), options.value(QStringLiteral("guestAccess"), false)},
-    };
-    m_sharedFolders.insert(path, info);
-    savePersistedShares();
-    emit sharedFolderAdded(path, info);
-
-    return {{QStringLiteral("ok"), true}, {QStringLiteral("info"), info}};
+    return configureShare(path, normalized);
 }
 
 QVariantMap SharingManager::removeSharedFolder(const QString &path)
 {
-    if (!m_sambaAdapter->removeShare(path))
-        return {{QStringLiteral("ok"), false}, {QStringLiteral("error"), QStringLiteral("samba-remove-failed")}};
-
-    m_sharedFolders.remove(path);
-    savePersistedShares();
-    emit sharedFolderRemoved(path);
-
-    return {{QStringLiteral("ok"), true}};
+    return disableShare(path);
 }
 
 QVariantMap SharingManager::updateSharedFolder(const QString &path, const QVariantMap &options)
 {
-    removeSharedFolder(path);
     return addSharedFolder(path, options);
 }
 
 QVariantMap SharingManager::listSharedFolders() const
 {
-    return {{QStringLiteral("ok"), true}, {QStringLiteral("folders"), m_sharedFolders}};
+    QVariantMap folders;
+    const QVariantMap state = loadFolderSharesState();
+    for (auto it = state.constBegin(); it != state.constEnd(); ++it) {
+        QVariantMap row = it.value().toMap();
+        if (!row.value(QStringLiteral("enabled")).toBool())
+            continue;
+        row.insert(QStringLiteral("path"), it.key());
+        const QVariantMap address = buildAddressPayload(row.value(QStringLiteral("shareName")).toString());
+        for (auto ai = address.constBegin(); ai != address.constEnd(); ++ai)
+            row.insert(ai.key(), ai.value());
+        folders.insert(it.key(), row);
+    }
+    return {{QStringLiteral("ok"), true}, {QStringLiteral("folders"), folders}};
 }
 
 TransferSession *SharingManager::startOutgoingTransfer(const QString &deviceId, const QString &filePath)
@@ -232,42 +231,18 @@ TransferSession *SharingManager::transferById(const QString &transferId) const
     return m_transfers.value(transferId);
 }
 
-void SharingManager::loadPersistedShares()
-{
-    QFile f(stateFilePath());
-    if (!f.open(QIODevice::ReadOnly))
-        return;
-    const auto doc = QJsonDocument::fromJson(f.readAll());
-    if (doc.isObject()) {
-        const auto obj = doc.object();
-        for (auto it = obj.begin(); it != obj.end(); ++it)
-            m_sharedFolders.insert(it.key(), it.value().toVariant());
-    }
-}
-
-void SharingManager::savePersistedShares() const
-{
-    const QString path = stateFilePath();
-    QDir().mkpath(QFileInfo(path).absolutePath());
-    QFile f(path);
-    if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate))
-        return;
-    f.write(QJsonDocument::fromVariant(m_sharedFolders).toJson());
-}
-
-QString SharingManager::stateFilePath() const
-{
-    return QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)
-        + QLatin1String("/slm-sharingd/shares.json");
-}
-
 // ── Folder sharing compat ─────────────────────────────────────────────────
 
 static constexpr const char kPkexecSetupCmd[] =
+    "set -eu; "
     "groupadd -f sambashare && "
     "mkdir -p /var/lib/samba/usershares && "
     "chown root:sambashare /var/lib/samba/usershares && "
     "chmod 1770 /var/lib/samba/usershares && "
+    "if [ -f /etc/samba/smb.conf ] && ! grep -q '^[[:space:]]*usershare max shares' /etc/samba/smb.conf; then "
+    "cp /etc/samba/smb.conf /etc/samba/smb.conf.slm-bak.$(date +%s) && "
+    "sed -i '/^\\[global\\]/a\\   usershare max shares = 100\\n   usershare path = /var/lib/samba/usershares\\n   usershare allow guests = yes\\n   usershare owner only = no' /etc/samba/smb.conf; "
+    "fi && "
     "usermod -aG sambashare \"$1\"";
 
 QString SharingManager::folderSharesStatePath() const
@@ -417,10 +392,12 @@ QVariantMap SharingManager::configureShare(const QString &path, const QVariantMa
     const QString p = canonicalSharePath(path);
     if (p.isEmpty())
         return makeFsResult(false, QStringLiteral("not-a-directory"));
+    if (!options.value(QStringLiteral("enabled"), true).toBool())
+        return disableShare(p);
 
     const QFileInfo info(p);
     QVariantMap row;
-    row.insert(QStringLiteral("enabled"),    options.value(QStringLiteral("enabled"), true).toBool());
+    row.insert(QStringLiteral("enabled"),    true);
     row.insert(QStringLiteral("shareName"),  sanitizeShareName(options.value(QStringLiteral("shareName")).toString(), info.fileName()));
     row.insert(QStringLiteral("access"),     normalizeAccessMode(options.value(QStringLiteral("access"), QStringLiteral("owner")).toString()));
     row.insert(QStringLiteral("permission"), options.value(QStringLiteral("permission"), QStringLiteral("read")).toString());
@@ -453,6 +430,10 @@ QVariantMap SharingManager::configureShare(const QString &path, const QVariantMa
     emit shareStateChanged(p, out);
     if (!applied)
         return makeFsResult(false, row.value(QStringLiteral("backendError")).toString(), out);
+    if (row.value(QStringLiteral("enabled")).toBool())
+        emit sharedFolderAdded(p, out);
+    else
+        emit sharedFolderRemoved(p);
     return makeFsResult(true, QString(), out);
 }
 
@@ -492,6 +473,7 @@ QVariantMap SharingManager::disableShare(const QString &path)
         return makeFsResult(false, saveError);
     QVariantMap out = folderShareRecord(p);
     emit shareStateChanged(p, out);
+    emit sharedFolderRemoved(p);
     return makeFsResult(true, QString(), out);
 }
 
@@ -538,18 +520,38 @@ QVariantMap SharingManager::listSharesCompat() const
 QVariantMap SharingManager::checkFileSharingEnvironment() const
 {
     QVariantList issues;
-    auto pushIssue = [&issues](const QString &code, const QString &message, bool fixable) {
-        issues.push_back(QVariantMap{
-            {QStringLiteral("code"),    code},
+    auto pushIssue = [&issues](const QString &code,
+                               const QString &title,
+                               const QString &message,
+                               const QString &guidance,
+                               bool fixable,
+                               const QVariantMap &extra = QVariantMap{}) {
+        QVariantMap issue{
+            {QStringLiteral("code"), code},
+            {QStringLiteral("title"), title},
             {QStringLiteral("message"), message},
+            {QStringLiteral("guidance"), guidance},
             {QStringLiteral("fixable"), fixable},
-        });
+            {QStringLiteral("severity"), QStringLiteral("required")},
+        };
+        for (auto it = extra.constBegin(); it != extra.constEnd(); ++it) {
+            issue.insert(it.key(), it.value());
+        }
+        issues.push_back(issue);
     };
 
     const QString netExec = QStandardPaths::findExecutable(QStringLiteral("net"));
     if (netExec.isEmpty()) {
         pushIssue(QStringLiteral("samba-net-not-found"),
-                  QStringLiteral("Komponen berbagi jaringan belum terpasang."), false);
+                  QStringLiteral("Samba belum terpasang"),
+                  QStringLiteral("Komponen berbagi folder jaringan belum tersedia."),
+                  QStringLiteral("Pasang paket samba. Di Ubuntu/Debian: sudo apt install samba samba-common-bin. Setelah instalasi selesai, klik Periksa lagi."),
+                  true,
+                  {{QStringLiteral("componentId"), QStringLiteral("samba")},
+                   {QStringLiteral("packageName"), QStringLiteral("samba")},
+                   {QStringLiteral("packageNames"), QStringList{QStringLiteral("samba"), QStringLiteral("samba-common-bin")}},
+                   {QStringLiteral("autoInstallable"), true},
+                   {QStringLiteral("actionLabel"), QStringLiteral("Install Samba")}});
     } else {
         QProcess checkProc;
         checkProc.start(netExec, {QStringLiteral("usershare"), QStringLiteral("info")});
@@ -557,18 +559,38 @@ QVariantMap SharingManager::checkFileSharingEnvironment() const
             checkProc.kill();
             checkProc.waitForFinished();
             pushIssue(QStringLiteral("usershare-timeout"),
-                      QStringLiteral("Layanan berbagi jaringan tidak merespons."), false);
+                      QStringLiteral("Samba tidak merespons"),
+                      QStringLiteral("Perintah usershare tidak selesai tepat waktu."),
+                      QStringLiteral("Pastikan layanan smbd/nmbd berjalan, lalu klik Periksa lagi."),
+                      true,
+                      {{QStringLiteral("actionLabel"), QStringLiteral("Perbaiki otomatis")}});
         } else if (checkProc.exitCode() != 0) {
-            const QString err = QString::fromUtf8(checkProc.readAllStandardError()).toLower();
+            const QString err = (QString::fromUtf8(checkProc.readAllStandardError())
+                                 + QLatin1Char('\n')
+                                 + QString::fromUtf8(checkProc.readAllStandardOutput())).toLower();
             if (err.contains(QStringLiteral("permission denied")) || err.contains(QStringLiteral("denied")))
                 pushIssue(QStringLiteral("usershare-permission-denied"),
-                          QStringLiteral("Akun ini belum diizinkan untuk berbagi folder."), false);
+                          QStringLiteral("Izin berbagi belum aktif"),
+                          QStringLiteral("Akun ini belum dapat menulis konfigurasi Samba usershare."),
+                          QStringLiteral("Tambahkan akun ke grup sambashare, pastikan /var/lib/samba/usershares dapat ditulis, lalu logout/login ulang jika perlu."),
+                          true,
+                          {{QStringLiteral("requiredGroup"), QStringLiteral("sambashare")},
+                           {QStringLiteral("actionLabel"), QStringLiteral("Perbaiki izin")}});
             else if (err.contains(QStringLiteral("usershare")) && err.contains(QStringLiteral("not allowed")))
                 pushIssue(QStringLiteral("usershare-not-enabled"),
-                          QStringLiteral("Berbagi jaringan belum diaktifkan pada sistem."), false);
+                          QStringLiteral("Samba usershare belum aktif"),
+                          QStringLiteral("Konfigurasi Samba belum mengizinkan usershare."),
+                          QStringLiteral("Aktifkan usershare max shares, usershare path, usershare allow guests, dan direktori /var/lib/samba/usershares."),
+                          true,
+                          {{QStringLiteral("configFile"), QStringLiteral("/etc/samba/smb.conf")},
+                           {QStringLiteral("actionLabel"), QStringLiteral("Aktifkan usershare")}});
             else
                 pushIssue(QStringLiteral("usershare-check-failed"),
-                          QStringLiteral("Pemeriksaan layanan berbagi gagal."), false);
+                          QStringLiteral("Pemeriksaan Samba gagal"),
+                          QStringLiteral("Pemeriksaan usershare gagal: %1").arg(err.trimmed()),
+                          QStringLiteral("Jalankan Perbaiki otomatis untuk menyiapkan Samba usershare, lalu klik Periksa lagi."),
+                          true,
+                          {{QStringLiteral("actionLabel"), QStringLiteral("Perbaiki otomatis")}});
         }
     }
 
@@ -576,7 +598,8 @@ QVariantMap SharingManager::checkFileSharingEnvironment() const
     return makeFsResult(ready,
                         ready ? QString() : QStringLiteral("sharing-env-not-ready"),
                         {{QStringLiteral("ready"),  ready},
-                         {QStringLiteral("issues"), issues}});
+                         {QStringLiteral("issues"), issues},
+                         {QStringLiteral("blockingIssues"), issues}});
 }
 
 QVariantMap SharingManager::tryAutoFixFileSharing()

@@ -78,9 +78,6 @@ signals:
 
 private:
     void onAdapterStatusChanged();
-    void loadPersistedShares();
-    void savePersistedShares() const;
-    QString stateFilePath() const;
 
     static QString sanitizeShareName(const QString &name, const QString &fallback);
     static QString normalizeAccessMode(const QString &value);
@@ -106,6 +103,5 @@ private:
     TrustDatabase *m_trustDb = nullptr;
 
     QHash<QString, bool> m_featureStates;
-    QVariantMap m_sharedFolders;
     QHash<QString, TransferSession *> m_transfers;
 };

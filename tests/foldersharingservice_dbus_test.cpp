@@ -2,6 +2,11 @@
 #include <QDBusConnection>
 #include <QDBusInterface>
 #include <QDBusReply>
+#include <QDir>
+#include <QFile>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QTemporaryDir>
 
 #include "../src/daemon/sharingd/sharingmanager.h"
 #include "../src/daemon/sharingd/sharingservice.h"
@@ -169,6 +174,47 @@ private slots:
 
         bus.unregisterObject(QString::fromLatin1(kPath));
         bus.unregisterService(QString::fromLatin1(kService));
+    }
+
+    void listSharedFolders_usesFolderShareState()
+    {
+        QTemporaryDir tempDir;
+        QVERIFY(tempDir.isValid());
+        const QByteArray previousXdgDataHome = qgetenv("XDG_DATA_HOME");
+        qputenv("XDG_DATA_HOME", QFile::encodeName(tempDir.path()));
+
+        const QString stateDir = QDir(tempDir.path()).filePath(QStringLiteral("slm-desktop"));
+        QVERIFY(QDir().mkpath(stateDir));
+        QFile stateFile(QDir(stateDir).filePath(QStringLiteral("folder_shares.json")));
+        QVERIFY(stateFile.open(QIODevice::WriteOnly | QIODevice::Truncate));
+        const QString sharedPath = QDir(tempDir.path()).filePath(QStringLiteral("Shared"));
+        QVariantMap row{
+            {QStringLiteral("enabled"), true},
+            {QStringLiteral("shareName"), QStringLiteral("Shared")},
+            {QStringLiteral("access"), QStringLiteral("all")},
+            {QStringLiteral("permission"), QStringLiteral("write")},
+            {QStringLiteral("allowGuest"), true},
+        };
+        QVariantMap stateMap;
+        stateMap.insert(sharedPath, row);
+        const QJsonObject state = QJsonObject::fromVariantMap(stateMap);
+        stateFile.write(QJsonDocument(state).toJson(QJsonDocument::Compact));
+        stateFile.close();
+
+        SharingManager manager;
+        manager.initialize();
+        const QVariantMap result = manager.listSharedFolders();
+        QVERIFY(result.value(QStringLiteral("ok")).toBool());
+        const QVariantMap folders = result.value(QStringLiteral("folders")).toMap();
+        QVERIFY(folders.contains(sharedPath));
+        const QVariantMap listed = folders.value(sharedPath).toMap();
+        QCOMPARE(listed.value(QStringLiteral("path")).toString(), sharedPath);
+        QCOMPARE(listed.value(QStringLiteral("permission")).toString(), QStringLiteral("write"));
+
+        if (previousXdgDataHome.isEmpty())
+            qunsetenv("XDG_DATA_HOME");
+        else
+            qputenv("XDG_DATA_HOME", previousXdgDataHome);
     }
 };
 

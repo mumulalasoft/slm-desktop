@@ -177,7 +177,6 @@ Rectangle {
     property bool propertiesStorageReadOnly: false
     property bool propertiesStorageExec: false
     property bool propertiesStoragePolicyUpdating: false
-    property var folderShareInfoCache: ({})
     property string propertiesSharePath: ""
     property string quickTypeBuffer: ""
     property string pendingPortalChooserRequestId: ""
@@ -917,19 +916,20 @@ Rectangle {
                     })
         }
         var res = fileManagerApiRef.folderShareInfo(p)
-        if (!!res && !!res.ok) {
-            var next = {}
-            var keys = Object.keys(folderShareInfoCache || ({}))
-            for (var i = 0; i < keys.length; ++i) {
-                next[keys[i]] = folderShareInfoCache[keys[i]]
-            }
-            next[String(res.path || p)] = res
-            folderShareInfoCache = next
-        }
         return res || ({
                            "ok": false,
                            "enabled": false
                        })
+    }
+    function cachedFolderShareInfoForPath(pathValue) {
+        var p = String(pathValue || "")
+        if (p.length <= 0) {
+            return ({
+                        "ok": false,
+                        "enabled": false
+                    })
+        }
+        return folderShareInfoForPath(p)
     }
     function prepareFolderShareDialog(pathValue) {
         var info = folderShareInfoForPath(pathValue)
@@ -972,13 +972,6 @@ Rectangle {
         if (!!res && !!res.ok) {
             var cp = String(res.path || pathValue || "")
             if (cp.length > 0) {
-                var next = {}
-                var keys = Object.keys(folderShareInfoCache || ({}))
-                for (var i = 0; i < keys.length; ++i) {
-                    next[keys[i]] = folderShareInfoCache[keys[i]]
-                }
-                next[cp] = res
-                folderShareInfoCache = next
                 propertiesSharePath = cp
             }
             refreshCurrent()
@@ -1000,13 +993,6 @@ Rectangle {
         if (!!res && !!res.ok) {
             var cp = String(res.path || pathValue || "")
             if (cp.length > 0) {
-                var next = {}
-                var keys = Object.keys(folderShareInfoCache || ({}))
-                for (var i = 0; i < keys.length; ++i) {
-                    next[keys[i]] = folderShareInfoCache[keys[i]]
-                }
-                next[cp] = res
-                folderShareInfoCache = next
                 propertiesSharePath = cp
             }
             refreshCurrent()

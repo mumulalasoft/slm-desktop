@@ -379,13 +379,8 @@ private:
                                 bool overwrite);
     QVariantList queryStorageLocationsSync(int lsblkTimeoutMs) const;
     bool queueFreedesktopThumbnailer(const QString &path, int size);
-    QString folderSharesStatePath() const;
-    QVariantMap loadFolderSharesState() const;
-    bool saveFolderSharesState(const QVariantMap &state,
-                               QString *error = nullptr) const;
     QString canonicalSharePath(const QString &path) const;
     QVariantMap shareRecordForPath(const QString &path) const;
-    QVariantMap buildShareAddressPayload(const QString &shareName) const;
 
 private slots:
     void onBatchTaskProgress(qlonglong baseBytes, qlonglong currentBytes, qlonglong totalBytes);

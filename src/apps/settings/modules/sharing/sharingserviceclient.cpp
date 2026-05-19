@@ -314,6 +314,13 @@ void SharingServiceClient::onSharedFolderRemoved(const QString &path)
     refreshSharedFolders();
 }
 
+void SharingServiceClient::onShareStateChanged(const QString &path, const QVariantMap &shareInfo)
+{
+    Q_UNUSED(path)
+    Q_UNUSED(shareInfo)
+    refreshSharedFolders();
+}
+
 void SharingServiceClient::onDeviceFound(const QString &deviceId, const QVariantMap &info)
 {
     const QVariantMap normalized = normalizeDbusMap(info);
@@ -435,6 +442,8 @@ bool SharingServiceClient::ensureIface()
                  SLOT(onSharedFolderAdded(QString,QVariantMap)),      this);
         connect4(kRootPath, kRootIface, "SharedFolderRemoved",
                  SLOT(onSharedFolderRemoved(QString)),                this);
+        connect4(kRootPath, kRootIface, "ShareStateChanged",
+                 SLOT(onShareStateChanged(QString,QVariantMap)),      this);
         connect4(kRootPath, kRootIface, "TransferStarted",
                  SLOT(onTransferStarted(QString,QVariantMap)),        this);
         connect4(kRootPath, kRootIface, "TransferProgress",
