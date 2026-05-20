@@ -162,25 +162,8 @@ Item {
         elide: Text.ElideRight
     }
 
-    Rectangle {
-        id: badge
-        anchors.right: parent.right
-        anchors.rightMargin: 8
-        anchors.verticalCenter: parent.verticalCenter
-        height: 18
-        width: Math.max(46, badgeLabel.implicitWidth + 12)
-        radius: height / 2
-        color: Theme.color("pulseBadgeBg")
-        border.width: Theme.borderWidthNone
-
-        Label {
-            id: badgeLabel
-            anchors.centerIn: parent
-            text: root.typeText
-            color: Theme.color("textSecondary")
-            font.pixelSize: Theme.fontSize("xs")
-        }
-    }
+    // docs/APPDECK_REDESIGN.md Phase 5 — type badge dropped; the icon and
+    // section context already communicate "this is an action / command".
 
     MouseArea {
         id: hover

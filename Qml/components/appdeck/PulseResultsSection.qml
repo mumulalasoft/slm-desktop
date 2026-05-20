@@ -92,24 +92,14 @@ Item {
             anchors.margins: 6
             spacing: 0
 
-            Row {
-                spacing: 6
-
-                Label {
-                    text: root.titleText
-                    color: Theme.color("textSecondary")
-                    font.pixelSize: Theme.fontSize("small")
-                    font.weight: Theme.fontWeight("semibold")
-                    opacity: Theme.opacityMuted
-                }
-
-                Label {
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: "(" + root.itemCount() + ")"
-                    color: Theme.color("textSecondary")
-                    font.pixelSize: Theme.fontSize("xs")
-                    opacity: Theme.opacityMuted
-                }
+            // docs/APPDECK_REDESIGN.md Phase 5 — section count "(N)" dropped.
+            // The list itself shows the count; the label was noise.
+            Label {
+                text: root.titleText
+                color: Theme.color("textSecondary")
+                font.pixelSize: Theme.fontSize("small")
+                font.weight: Theme.fontWeight("semibold")
+                opacity: Theme.opacityMuted
             }
 
             Item {

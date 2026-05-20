@@ -303,3 +303,32 @@ test suite. Save state di file ini setelah tiap fase selesai.
     `tooltipHeadroom(44) + 8` inside its own height, so the hover
     tooltip and the dock pill cannot be clipped by this change.
   - Build OK. 8/8 AppDeck + AppModel tests still pass.
+- 2026-05-20: **Phase 5 — Pulse visual redesign (correct file)**. The
+  user's second screenshot exposed that Phase 3 work was in the wrong
+  file — `PulseOverlay.qml` is never instantiated. The live Pulse UI
+  is `AppDeckContextView.qml` and its sibling components
+  `PulseBestMatchCard`, `PulseResultItem`, `PulseActionResultItem`,
+  `PulseResultsSection`. Fixed visual issues from the screenshot:
+  - `AppDeckContextView.qml` — `contextSurface.color` alpha bumped
+    from 0.96 → 1.0. Grid icons / labels behind no longer bleed
+    through; the "ct Match" label glitch (a clipped "Best Match"
+    overlaid with grid "Suggestions" label) resolves.
+  - `PulseBestMatchCard.qml` — replaced the light blue/orange
+    gradient with a theme-driven material (accent-soft when selected,
+    subtle white tint otherwise). Now reads correctly in dark mode.
+    Dropped the "app" type pill (icon already says it). Hid the
+    subtitle when it is just a `.desktop` file ID. Title column
+    now spans to the right edge.
+  - `PulseResultItem.qml` — same treatment: dropped the trailing
+    type badge ("app" / "action"); hid the subtitle when it is a
+    `.desktop` file ID. Title column reclaims the freed space.
+  - `PulseActionResultItem.qml` — dropped the type badge.
+  - `PulseResultsSection.qml` — removed the "(N)" count from
+    section headers; the list itself shows the count.
+  - Build OK. 8/8 AppDeck + AppModel tests still pass.
+  - Known follow-up: the "Actions (19)" section in the screenshot
+    is full of dev/debug entries from the `slm_actions` provider
+    (e.g. "Desktop Export Max Horizontal Drift"). Filtering or
+    hiding that section unless the query starts with `>` is a
+    later task — `PulseOverlay.qml` is dead code and can be
+    deleted in a separate sweep.

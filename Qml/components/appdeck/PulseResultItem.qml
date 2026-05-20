@@ -197,11 +197,21 @@ Item {
         }
     }
 
+    // docs/APPDECK_REDESIGN.md Phase 5 — drop the trailing type badge
+    // ("app"/"action"/"file") since the icon already communicates the kind,
+    // and hide the subtitle when it is just the .desktop file ID. The full
+    // width gets reclaimed by the title column.
+    readonly property bool _subtitleIsDesktopId: {
+        var s = String(root.subtitleText || "").trim().toLowerCase()
+        if (s.length === 0) return false
+        return s.endsWith(".desktop")
+    }
+
     Column {
         anchors.left: iconPlate.right
         anchors.leftMargin: 10
-        anchors.right: typeBadge.left
-        anchors.rightMargin: 8
+        anchors.right: parent.right
+        anchors.rightMargin: 12
         anchors.verticalCenter: parent.verticalCenter
         spacing: 1
 
@@ -215,31 +225,10 @@ Item {
 
         Label {
             text: root.subtitleText
-            visible: text.length > 0
+            visible: text.length > 0 && !root._subtitleIsDesktopId
             color: Theme.color("textSecondary")
             font.pixelSize: Theme.fontSize("small")
             elide: Text.ElideRight
-        }
-    }
-
-    Rectangle {
-        id: typeBadge
-        anchors.right: parent.right
-        anchors.rightMargin: 10
-        anchors.verticalCenter: parent.verticalCenter
-        height: 20
-        radius: root.pillRadius
-        width: Math.max(48, badgeLabel.implicitWidth + 14)
-        color: root.selected ? Theme.color("accentSoft") : Theme.color("pulseBadgeBg")
-        border.width: Theme.borderWidthNone
-
-        Label {
-            id: badgeLabel
-            anchors.centerIn: parent
-            text: root.badgeText
-            color: Theme.color("textSecondary")
-            font.pixelSize: Theme.fontSize("xs")
-            font.weight: Theme.fontWeight("medium")
         }
     }
 

@@ -113,14 +113,22 @@ Item {
     Rectangle {
         anchors.fill: parent
         radius: root.cardRadius
-        gradient: Gradient {
-            GradientStop { position: 0.0; color: root.selected ? Qt.rgba(1.0, 0.82, 0.46, 0.92) : Qt.rgba(0.90, 0.94, 0.99, 0.94) }
-            GradientStop { position: 1.0; color: root.selected ? Qt.rgba(1.0, 0.76, 0.36, 0.92) : Qt.rgba(0.84, 0.90, 0.98, 0.92) }
-        }
+        // docs/APPDECK_REDESIGN.md Phase 5 — replaced the light blue/orange
+        // gradient (debug-looking in dark mode) with a subtle theme-driven
+        // material. Selected state uses the accent-soft tint so it reads as
+        // "this is the primary action" without screaming.
+        color: root.selected
+               ? Theme.color("accentSoft")
+               : (hover.containsMouse
+                  ? Qt.rgba(1, 1, 1, Theme.darkMode ? 0.08 : 0.14)
+                  : Qt.rgba(1, 1, 1, Theme.darkMode ? 0.05 : 0.09))
         border.width: root.selected ? Theme.borderWidthThin : 0
-        border.color: Theme.color("panelBorderStrong")
+        border.color: Theme.color("accent")
         opacity: hover.containsMouse ? 1.0 : 0.98
 
+        Behavior on color {
+            ColorAnimation { duration: root.motionFastDuration; easing.type: Theme.easingDecelerate }
+        }
         Behavior on opacity {
             NumberAnimation { duration: root.motionFastDuration; easing.type: Theme.easingLight }
         }
@@ -168,11 +176,21 @@ Item {
         }
     }
 
+    // docs/APPDECK_REDESIGN.md Phase 5 — drop the type pill ("app"/"action")
+    // since the icon already communicates the kind. Hide the subtitle when
+    // it is just the .desktop file ID (debug-looking); keep it when it
+    // carries something user-meaningful (path, description, summary).
+    readonly property bool _subtitleIsDesktopId: {
+        var s = String(root.subtitleText || "").trim().toLowerCase()
+        if (s.length === 0) return false
+        return s.endsWith(".desktop")
+    }
+
     Column {
         anchors.left: parent.left
         anchors.leftMargin: 96
         anchors.right: parent.right
-        anchors.rightMargin: 104
+        anchors.rightMargin: 18
         anchors.verticalCenter: parent.verticalCenter
         spacing: 4
 
@@ -186,31 +204,10 @@ Item {
 
         Label {
             text: root.subtitleText
-            visible: text.length > 0
+            visible: text.length > 0 && !root._subtitleIsDesktopId
             color: Theme.color("textSecondary")
             font.pixelSize: Theme.fontSize("small")
             elide: Text.ElideRight
-        }
-    }
-
-    Rectangle {
-        anchors.right: parent.right
-        anchors.rightMargin: 14
-        anchors.verticalCenter: parent.verticalCenter
-        height: 26
-        width: Math.max(60, typeLabel.implicitWidth + 16)
-        radius: root.pillRadius
-        color: Theme.color("pulseBadgeBg")
-        border.width: Theme.borderWidthThin
-        border.color: Theme.color("pulseBadgeBorder")
-
-        Label {
-            id: typeLabel
-            anchors.centerIn: parent
-            text: root.typeText === "calculator" ? "CALC" : root.typeText
-            color: Theme.color("textSecondary")
-            font.pixelSize: Theme.fontSize("xs")
-            font.weight: Theme.fontWeight("semibold")
         }
     }
 

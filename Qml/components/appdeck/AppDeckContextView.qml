@@ -879,15 +879,13 @@ Item {
         y: (root.preferredSurfaceY >= 0 ? root.preferredSurfaceY : root.panelHeight + 16)
            + (1.0 - root.revealProgress) * 14
         radius: Math.max(18, Theme.radiusWindow + 4)
-        // §13 — Pulse panel uses a near-opaque dark material so empty
-        // pockets between sections (e.g. unfilled right column) don't
-        // expose the grid icons behind at full brightness. Grid is still
-        // mounted at z=1 underneath (spatial continuity per §12) but its
-        // contribution to the visible pulse area is suppressed — pulse
-        // becomes the foreground card, not a translucent overlay.
+        // §13 — Pulse panel is a fully-opaque material card so grid icons
+        // and labels behind cannot bleed through the unfilled pockets of
+        // the result layout. Grid stays mounted at z=1 underneath for
+        // spatial continuity (§12) but contributes no light here.
         color: root.active
-               ? (Theme.darkMode ? Qt.rgba(0.07, 0.07, 0.09, 0.96)
-                                 : Qt.rgba(0.96, 0.96, 0.97, 0.96))
+               ? (Theme.darkMode ? Qt.rgba(0.07, 0.07, 0.09, 1.0)
+                                 : Qt.rgba(0.96, 0.96, 0.97, 1.0))
                : "transparent"
         border.width: Theme.borderWidthNone
         border.color: "transparent"
