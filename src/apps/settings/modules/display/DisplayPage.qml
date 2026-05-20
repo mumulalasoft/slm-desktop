@@ -9,8 +9,8 @@ Flickable {
     contentHeight: contentColumn.implicitHeight + 48
     clip: true
     property string highlightSettingId: ""
-    property var resolutionBinding: SettingsApp.createBindingFor("display", "resolution", "2560 x 1600 (16:10)")
-    property var scalingBinding: SettingsApp.createBindingFor("display", "scaling", 1.0)
+    property var resolutionBinding: SettingsApp.createBinding("desktop:display/resolution", "2560 x 1600 (16:10)")
+    property var scalingBinding: SettingsApp.createBinding("desktop:display/scaling", 1.0)
     property var nightLightBinding: SettingsApp.createBinding("desktop:display/night-light", false)
 
     Component.onCompleted: {
