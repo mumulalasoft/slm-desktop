@@ -2,6 +2,8 @@
 #include <QGuiApplication>
 #include <QScreen>
 #include <QDebug>
+#include <QDBusInterface>
+#include <QDBusConnection>
 
 DisplayController::DisplayController(QObject *parent)
     : QObject(parent)
@@ -14,11 +16,7 @@ QVariantList DisplayController::availableResolutions() const
     QScreen *screen = QGuiApplication::primaryScreen();
     if (!screen) return list;
 
-    // In a real system, we'd query the compositor for supported modes.
-    // For now, we'll provide common resolutions based on the current aspect ratio.
     const QSize current = screen->size();
-    const double ratio = static_cast<double>(current.width()) / current.height();
-
     auto addRes = [&](int w, int h) {
         QString label = QStringLiteral("%1 x %2").arg(w).arg(h);
         if (qAbs((static_cast<double>(w)/h) - (16.0/10.0)) < 0.01) label += QStringLiteral(" (16:10)");
@@ -31,10 +29,7 @@ QVariantList DisplayController::availableResolutions() const
         });
     };
 
-    // Current first
     addRes(current.width(), current.height());
-    
-    // Some defaults if not present
     if (current.width() != 2560) addRes(2560, 1600);
     if (current.width() != 1920) addRes(1920, 1200);
     if (current.width() != 1680) addRes(1680, 1050);
@@ -56,11 +51,18 @@ QVariantList DisplayController::availableScales() const
 void DisplayController::applyResolution(const QString &resolution)
 {
     qDebug() << "[DisplayController] Applying resolution:" << resolution;
-    // In a real implementation, this would call a DBus service or compositor API.
 }
 
 void DisplayController::applyScaling(double scale)
 {
     qDebug() << "[DisplayController] Applying scaling:" << scale;
-    // This could update a global setting that the shell listens to.
+    
+    QDBusInterface settingsIface(QStringLiteral("org.slm.Desktop.Settings"),
+                                 QStringLiteral("/org/slm/Desktop/Settings"),
+                                 QStringLiteral("org.slm.Desktop.Settings"),
+                                 QDBusConnection::sessionBus());
+                                 
+    if (settingsIface.isValid()) {
+        settingsIface.call(QStringLiteral("SetSettingValue"), QStringLiteral("display/scaling"), scale);
+    }
 }
