@@ -228,3 +228,30 @@ test suite. Save state di file ini setelah tiap fase selesai.
     - Replaced static "All Apps" label with a Repeater of pill chips
       (active chip = accent fill + accentText label).
   - Build OK. 8/8 AppDeck + AppModel tests pass.
+- 2026-05-20: **Phase 3 complete**. Changes in
+  `Qml/components/pulse/PulseOverlay.qml`:
+  - Added `settingsModel`, `commandsModel`, `recentsModel` ListModels.
+    `systemModel` is kept as the combined source for command-mode and
+    keyboard section-4 navigation; settings/commands are derived in
+    `rebuildSections` based on `provider`.
+  - Added `useTwoColumns` (auto-detect): ≥2 of {apps, files, settings,
+    commands} buckets each ≥2 items → two columns.
+  - Removed legacy clutter: `PulseActionRow` (chip horizontal Open/Pin/...)
+    and the bottom `PulseGridSection` System/Commands. Quick actions per
+    result moved to a ⌘K context menu.
+  - Idle state replaced: `Recents` row (4 apps from `AppModel.frequentApps`,
+    refreshed on `appScoresChanged`) + tip text
+    `Tip: › for commands  / for slash actions`.
+  - Search layout switches between `singleColPanel` (stacked Apps/Files/
+    Settings/Commands) and `twoColPanel` (Apps+Settings left / Files+
+    Commands right) based on `useTwoColumns`.
+  - Added `Menu` (`contextMenu`) and helper `openContextMenuForFocused()`.
+    Keyboard shortcut `Ctrl/⌘+K` opens it on the focused result.
+    Menu adapts per entry kind (app / file / system / calculator).
+  - Build OK. AppDeck/AppModel tests still 8/8 pass. Pulse C++ test
+    failures (`pulseservice_dbus_test`, `pulse_controller_js_test`) are
+    pre-existing test-infra issues unrelated to QML changes — verified by
+    `git stash` reproducing the same failures on the prior commit.
+  - Known follow-up: keyboard navigation for settingsModel/commandsModel
+    is mouse-only in this pass (no dedicated focusedSection index).
+    Acceptable for the MVP; refine in a later iteration.

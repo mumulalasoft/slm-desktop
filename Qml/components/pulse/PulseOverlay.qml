@@ -45,10 +45,29 @@ Item {
     readonly property bool idleMode: pulseController.mode === "idle"
 
     ListModel { id: topResultModel }
+    // docs/APPDECK_REDESIGN.md Phase 3 — quickActionModel is kept only as a
+    // legacy bridge for the existing focus-section index (1). It is no longer
+    // populated in idle/search modes; idle uses recentsModel + tip text, and
+    // per-result actions are exposed via the ⌘K context menu instead.
     ListModel { id: quickActionModel }
     ListModel { id: appModel }
     ListModel { id: fileModel }
+    // Phase 3 — system results are split into settings (left column) and
+    // commands (right column) so the two-column layout has clean grouping.
+    // systemModel remains the combined list for command-mode and keyboard
+    // section 4 navigation. settingsModel/commandsModel are derived views.
     ListModel { id: systemModel }
+    ListModel { id: settingsModel }
+    ListModel { id: commandsModel }
+    // Idle Recents row — top frequent apps from AppModel; rebuilt when the
+    // Pulse opens or scores change.
+    ListModel { id: recentsModel }
+
+    // Auto-detects whether the search results span enough categories to merit
+    // the two-column layout. Computed in rebuildSections() after the per-
+    // category models settle. Transition is animated by the consumer via
+    // Behavior on Layout.preferredWidth.
+    property bool useTwoColumns: false
 
     property string commandPreviewTitle: ""
     property string commandPreviewImpact: ""
@@ -116,8 +135,56 @@ Item {
         appModel.clear()
         fileModel.clear()
         systemModel.clear()
+        settingsModel.clear()
+        commandsModel.clear()
         commandPreviewTitle = ""
         commandPreviewImpact = ""
+    }
+
+    // docs/APPDECK_REDESIGN.md Phase 3 — refresh the idle Recents row from
+    // AppModel.frequentApps. Kept separate from rebuildSections so that
+    // typing into search does not churn the Recents list.
+    function rebuildRecentsModel() {
+        recentsModel.clear()
+        if (typeof AppModel === "undefined" || !AppModel || !AppModel.frequentApps) {
+            return
+        }
+        var raw = AppModel.frequentApps(4) || []
+        for (var i = 0; i < raw.length && i < 4; ++i) {
+            var row = raw[i]
+            if (!row) continue
+            recentsModel.append({
+                "name": String(row.name || ""),
+                "iconSource": String(row.iconSource || ""),
+                "iconName": String(row.iconName || ""),
+                "desktopFile": String(row.desktopFile || ""),
+                "desktopId": String(row.desktopId || ""),
+                "executable": String(row.executable || "")
+            })
+        }
+    }
+
+    // Phase 3 — Decide single vs two-column layout. Two-column triggers when
+    // results span ≥2 buckets, each holding ≥2 items, within the top-12.
+    // Buckets: apps, files, settings, commands.
+    function recomputeLayoutMode() {
+        if (commandMode || idleMode) {
+            useTwoColumns = false
+            return
+        }
+        var buckets = [
+            appModel.count,
+            fileModel.count,
+            settingsModel.count,
+            commandsModel.count
+        ]
+        var richBuckets = 0
+        for (var i = 0; i < buckets.length; ++i) {
+            if (buckets[i] >= 2) {
+                richBuckets += 1
+            }
+        }
+        useTwoColumns = richBuckets >= 2
     }
 
     function rowScore(row, qLower) {
@@ -242,6 +309,10 @@ Item {
             return false
         }
         if (c === "shutdown") {
+            if (typeof PowerController !== "undefined" && PowerController && PowerController.openPowerDialog) {
+                PowerController.openPowerDialog("shutdown")
+                return true
+            }
             if (typeof PowerBridge !== "undefined" && PowerBridge && PowerBridge.powerOff) {
                 PowerBridge.powerOff()
                 return true
@@ -249,6 +320,10 @@ Item {
             return false
         }
         if (c === "reboot") {
+            if (typeof PowerController !== "undefined" && PowerController && PowerController.openPowerDialog) {
+                PowerController.openPowerDialog("restart")
+                return true
+            }
             if (typeof PowerBridge !== "undefined" && PowerBridge && PowerBridge.reboot) {
                 PowerBridge.reboot()
                 return true
@@ -373,15 +448,15 @@ Item {
             pulseController.focusedItem = Math.max(0, Math.min(systemModel.count - 1, prevItem))
             syncCommandPreviewToFocus()
             root.selectedIndex = -1
+            recomputeLayoutMode()
             return
         }
 
         if (rows.length > 0) {
             var top = rows[0]
             topResultModel.append(top)
-            appendTopActions(top)
-        } else if (pulseController.mode === "idle") {
-            buildIdleQuickActions()
+            // Phase 3 — quick-action chips replaced by ⌘K context menu. Skip
+            // appendTopActions() for search results; idle still has no chips.
         }
 
         for (var j = 0; j < rows.length; ++j) {
@@ -392,6 +467,13 @@ Item {
                 fileModel.append(r)
             } else if (r.isSystem && systemModel.count < 8) {
                 systemModel.append(r)
+                // Phase 3 — mirror into per-bucket models for two-column layout.
+                var prov = String(r.provider || "")
+                if (prov === "settings" && settingsModel.count < 8) {
+                    settingsModel.append(r)
+                } else if (commandsModel.count < 8) {
+                    commandsModel.append(r)
+                }
             }
         }
 
@@ -402,6 +484,7 @@ Item {
                                        "files": fileModel.count,
                                        "system": systemModel.count
                                    })
+        recomputeLayoutMode()
 
         if (!restoreFocusBySource(prevSelected)) {
             pulseController.focusedSection = prevSection
@@ -512,10 +595,21 @@ Item {
     }
     Component.onCompleted: rebuildSections()
     onActiveChanged: {
+        if (root.active) {
+            rebuildRecentsModel()
+        }
         if (root.active && DesktopSettings && DesktopSettings.settingValue
                 && DesktopSettings.settingValue("pulse.autoFocusOnOpen", true) === true) {
             Qt.callLater(function() { root.focusSearch() })
         }
+    }
+
+    // Phase 3 — keep idle Recents row aligned with AppModel usage so the
+    // first row reflects fresh recency the next time the user opens Pulse.
+    Connections {
+        target: (typeof AppModel !== "undefined") ? AppModel : null
+        ignoreUnknownSignals: true
+        function onAppScoresChanged() { root.rebuildRecentsModel() }
     }
 
     Keys.onPressed: function(event) {
@@ -570,6 +664,14 @@ Item {
             event.accepted = true
             return
         }
+
+        // Phase 3 — ⌘K / Ctrl+K opens the per-result context menu.
+        if (event.key === Qt.Key_K
+                && (event.modifiers & (Qt.ControlModifier | Qt.MetaModifier))) {
+            openContextMenuForFocused()
+            event.accepted = true
+            return
+        }
     }
 
     Rectangle {
@@ -604,27 +706,122 @@ Item {
                 subtitleText: topResultModel.count > 0 ? String(topResultModel.get(0).path || "") : ""
             }
 
-            PulseComp.PulseActionRow {
+            // docs/APPDECK_REDESIGN.md Phase 3 — Idle state: Recents row + tip.
+            // Shown only when the input is empty and there is no command prefix.
+            // Recents come from AppModel.frequentApps(4); clicking launches via
+            // resultActivated using a synthetic source index of -1 + provided
+            // desktopFile/iconName/etc routed by the host. The host translates
+            // resultContextAction("desktopFile", ...) into a launch payload.
+            Item {
+                id: idlePanel
                 Layout.fillWidth: true
-                visible: quickActionModel.count > 0
-                model: quickActionModel
-                focusedIndex: pulseController.focusedSection === 1 ? pulseController.focusedItem : -1
-                onActionTriggered: function(index) {
-                    pulseController.focusedSection = 1
-                    pulseController.focusedItem = index
-                    invokeFocused(true)
+                Layout.preferredHeight: visible ? 124 : 0
+                visible: root.idleMode
+
+                ColumnLayout {
+                    anchors.fill: parent
+                    spacing: 8
+
+                    Label {
+                        text: "Recents"
+                        font.pixelSize: Theme.fontSize("small")
+                        font.weight: Theme.fontWeight("semibold")
+                        color: Theme.color("textPrimary")
+                        opacity: Theme.opacityMuted
+                        Layout.fillWidth: true
+                    }
+
+                    Row {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 72
+                        spacing: 8
+
+                        Repeater {
+                            model: recentsModel
+                            delegate: Item {
+                                width: 72
+                                height: 72
+
+                                Rectangle {
+                                    anchors.fill: parent
+                                    radius: Theme.radiusControl
+                                    color: recentHover.containsMouse
+                                           ? Qt.rgba(1, 1, 1, Theme.darkMode ? 0.08 : 0.18)
+                                           : "transparent"
+                                    Behavior on color {
+                                        ColorAnimation { duration: Theme.durationFast; easing.type: Theme.easingLight }
+                                    }
+                                }
+
+                                Image {
+                                    anchors.centerIn: parent
+                                    width: 44
+                                    height: 44
+                                    source: {
+                                        var iconName = String(model.iconName || "")
+                                        if (iconName.length > 0
+                                                && typeof ThemeIconController !== "undefined"
+                                                && ThemeIconController) {
+                                            return "image://themeicon/" + iconName
+                                                   + "?v=" + ThemeIconController.revision
+                                        }
+                                        return String(model.iconSource || "")
+                                    }
+                                    fillMode: Image.PreserveAspectFit
+                                    smooth: true
+                                }
+
+                                MouseArea {
+                                    id: recentHover
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: {
+                                        // Route via AppCommandRouter directly — bypass
+                                        // the host's index-based resultActivated since
+                                        // recents are not part of resultsModel.
+                                        if (typeof AppCommandRouter !== "undefined"
+                                                && AppCommandRouter
+                                                && AppCommandRouter.route) {
+                                            AppCommandRouter.route("app.desktopEntry", {
+                                                "desktopFile": String(model.desktopFile || ""),
+                                                "executable": String(model.executable || ""),
+                                                "name": String(model.name || ""),
+                                                "iconName": String(model.iconName || ""),
+                                                "iconSource": String(model.iconSource || "")
+                                            }, "pulse")
+                                            root.dismissRequested()
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Label {
+                        Layout.fillWidth: true
+                        text: "Tip:  ›  for commands     /  for slash actions"
+                        font.pixelSize: Theme.fontSize("xs")
+                        color: Theme.color("textSecondary")
+                        opacity: Theme.opacityMuted
+                    }
                 }
             }
 
-            RowLayout {
+            // Phase 3 — Search results, single column. Shown when results
+            // exist but the distribution does not justify two columns.
+            ColumnLayout {
+                id: singleColPanel
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                spacing: 10
+                spacing: 8
+                visible: !root.idleMode && !root.useTwoColumns
 
                 PulseComp.PulseListSection {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     titleText: "Apps"
+                    visible: appModel.count > 0
                     model: appModel
                     focusedIndex: pulseController.focusedSection === 2 ? pulseController.focusedItem : -1
                     showPath: false
@@ -640,6 +837,7 @@ Item {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     titleText: "Files"
+                    visible: fileModel.count > 0
                     model: fileModel
                     focusedIndex: pulseController.focusedSection === 3 ? pulseController.focusedItem : -1
                     showPath: true
@@ -650,22 +848,140 @@ Item {
                         invokeFocused(true)
                     }
                 }
+
+                PulseComp.PulseListSection {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    titleText: "Settings"
+                    visible: settingsModel.count > 0
+                    model: settingsModel
+                    focusedIndex: -1
+                    showPath: false
+                    onItemTriggered: function(index) {
+                        if (index < settingsModel.count) {
+                            resultActivated(Number(settingsModel.get(index).sourceIndex))
+                        }
+                    }
+                }
+
+                PulseComp.PulseListSection {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    titleText: "Commands"
+                    visible: commandsModel.count > 0
+                    model: commandsModel
+                    focusedIndex: -1
+                    showPath: false
+                    onItemTriggered: function(index) {
+                        if (index < commandsModel.count) {
+                            resultActivated(Number(commandsModel.get(index).sourceIndex))
+                        }
+                    }
+                }
             }
 
+            // Phase 3 — Search results, two columns. Triggered when at least
+            // two of {apps, files, settings, commands} have ≥2 items each.
+            // Left column = Apps + Settings; Right column = Files + Commands.
+            RowLayout {
+                id: twoColPanel
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                spacing: 10
+                visible: !root.idleMode && root.useTwoColumns
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    spacing: 8
+
+                    PulseComp.PulseListSection {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        titleText: "Apps"
+                        visible: appModel.count > 0
+                        model: appModel
+                        focusedIndex: pulseController.focusedSection === 2 ? pulseController.focusedItem : -1
+                        showPath: false
+                        onItemTriggered: function(index) {
+                            pulseController.focusedSection = 2
+                            pulseController.focusedItem = index
+                            syncFocusedToSelected()
+                            invokeFocused(true)
+                        }
+                    }
+
+                    PulseComp.PulseListSection {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        titleText: "Settings"
+                        visible: settingsModel.count > 0
+                        model: settingsModel
+                        focusedIndex: -1
+                        showPath: false
+                        onItemTriggered: function(index) {
+                            if (index < settingsModel.count) {
+                                resultActivated(Number(settingsModel.get(index).sourceIndex))
+                            }
+                        }
+                    }
+                }
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    spacing: 8
+
+                    PulseComp.PulseListSection {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        titleText: "Files"
+                        visible: fileModel.count > 0
+                        model: fileModel
+                        focusedIndex: pulseController.focusedSection === 3 ? pulseController.focusedItem : -1
+                        showPath: true
+                        onItemTriggered: function(index) {
+                            pulseController.focusedSection = 3
+                            pulseController.focusedItem = index
+                            syncFocusedToSelected()
+                            invokeFocused(true)
+                        }
+                    }
+
+                    PulseComp.PulseListSection {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        titleText: "Commands"
+                        visible: commandsModel.count > 0
+                        model: commandsModel
+                        focusedIndex: -1
+                        showPath: false
+                        onItemTriggered: function(index) {
+                            if (index < commandsModel.count) {
+                                resultActivated(Number(commandsModel.get(index).sourceIndex))
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Command-mode preview retained from prior layout.
             PulseComp.PulseCommandPreview {
                 Layout.fillWidth: true
-                height: 98
+                Layout.preferredHeight: visible ? 98 : 0
                 visible: commandMode
                 titleText: "Command Preview"
                 previewTitle: commandPreviewTitle
                 previewImpact: commandPreviewImpact
             }
 
+            // Command-mode results list (replaces the bottom PulseGridSection;
+            // search mode keeps systems split into settings/commands columns).
             PulseComp.PulseGridSection {
                 Layout.fillWidth: true
-                height: 86
-                visible: systemModel.count > 0
-                titleText: commandMode ? "Commands" : "System / Commands"
+                Layout.preferredHeight: visible ? 86 : 0
+                visible: commandMode && systemModel.count > 0
+                titleText: "Commands"
                 previewStyle: true
                 model: systemModel
                 focusedIndex: pulseController.focusedSection === 4 ? pulseController.focusedItem : -1
@@ -677,5 +993,81 @@ Item {
                 }
             }
         }
+    }
+
+    // docs/APPDECK_REDESIGN.md Phase 3 — ⌘K context menu for the currently
+    // focused result. Bound to Ctrl/Cmd+K via the existing Keys handler
+    // below. The menu adapts to the focused entry's type (app / file /
+    // setting / command). Closes on item activation or Escape.
+    Menu {
+        id: contextMenu
+        property int sourceIndex: -1
+        property var entry: ({})
+        readonly property bool isApp: !!entry && !!entry.isApp
+        readonly property bool isFileLike: !!entry && !!entry.isFileLike
+        readonly property bool isSystem: !!entry && !!entry.isSystem
+        readonly property bool isCalc: !!entry && !!entry.isCalculator
+
+        MenuItem {
+            text: "Open"
+            visible: contextMenu.sourceIndex >= 0
+            onTriggered: {
+                if (contextMenu.sourceIndex >= 0) {
+                    resultActivated(contextMenu.sourceIndex)
+                }
+            }
+        }
+        MenuItem {
+            text: "Pin to AppDeck"
+            visible: contextMenu.isApp && contextMenu.sourceIndex >= 0
+            onTriggered: {
+                resultContextAction(contextMenu.sourceIndex, "pinToAppDeck")
+            }
+        }
+        MenuItem {
+            text: "Open New Window"
+            visible: contextMenu.isApp && contextMenu.sourceIndex >= 0
+            onTriggered: {
+                resultContextAction(contextMenu.sourceIndex, "launch")
+            }
+        }
+        MenuItem {
+            text: "Reveal in Files"
+            visible: contextMenu.isFileLike && contextMenu.sourceIndex >= 0
+            onTriggered: {
+                resultContextAction(contextMenu.sourceIndex, "openContainingFolder")
+            }
+        }
+        MenuItem {
+            text: "Copy Path"
+            visible: contextMenu.isFileLike && contextMenu.sourceIndex >= 0
+            onTriggered: {
+                resultContextAction(contextMenu.sourceIndex, "copyPath")
+            }
+        }
+        MenuItem {
+            text: "Copy Result"
+            visible: contextMenu.isCalc && contextMenu.sourceIndex >= 0
+            onTriggered: {
+                resultContextAction(contextMenu.sourceIndex, "copyResult")
+            }
+        }
+        MenuItem {
+            text: "Copy Expression"
+            visible: contextMenu.isCalc && contextMenu.sourceIndex >= 0
+            onTriggered: {
+                resultContextAction(contextMenu.sourceIndex, "copyExpression")
+            }
+        }
+    }
+
+    function openContextMenuForFocused() {
+        var idx = focusedSourceIndex()
+        if (idx < 0) return
+        var row = (root.resultsModel && root.resultsModel.get) ? root.resultsModel.get(idx) : null
+        if (!row) return
+        contextMenu.sourceIndex = idx
+        contextMenu.entry = toEntry(row, idx)
+        contextMenu.popup()
     }
 }
