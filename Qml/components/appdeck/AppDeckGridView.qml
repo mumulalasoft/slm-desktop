@@ -9,6 +9,13 @@ Item {
 
     property var appModel: null
     property string filterText: ""
+    // docs/APPDECK_REDESIGN.md Phase 4 — Grid search lives in the parent
+    // (AppDeckGridAppsView), which routes the query to Pulse. This inner
+    // view stays full and dims as backdrop. `searchActive` reflects the
+    // parent's intent so the Recent / Suggestions strips and the category
+    // segmented control collapse out of the way while the user is typing
+    // (they reappear on ESC / cleared query).
+    property bool searchActive: false
     property var filteredApps: []
     property var pagedApps: []
     // docs/APPDECK_REDESIGN.md Phase 1 — Recent and Suggestions strips above
@@ -336,10 +343,12 @@ Item {
         for (var i = 0; i < raw.length; ++i) {
             next.push(_normalize(raw[i]))
         }
-        // Phase 2 — segmented category filter. While the user is typing a
-        // local filter we keep "all" so search isn't masked by the active
-        // segment; Phase 4 will route search to Pulse instead.
-        if (selectedCategory !== "all" && needle.length === 0) {
+        // Phase 2 + 4 — segmented category filter. The parent now owns
+        // search via Pulse, so we only apply the category filter when the
+        // user is not actively searching (searchActive=false). When a
+        // search is in flight the grid stays full as a backdrop while
+        // Pulse renders its own filtered results on top.
+        if (selectedCategory !== "all" && !root.searchActive) {
             next = next.filter(function(entry) {
                 return _categoryBucket(entry && entry.categories) === selectedCategory
             })
@@ -484,6 +493,13 @@ Item {
         currentPage = 0
         _rebuildModel()
     }
+    onSearchActiveChanged: {
+        // Re-evaluate the category filter when search state flips. While
+        // searching, the grid shows the full app catalog (no category
+        // filter) so Pulse's results overlay is read against an untruncated
+        // backdrop.
+        _rebuildModel()
+    }
     onAppModelChanged: { _rebuildModel(); _refreshStripModels() }
     onVisibleChanged: if (visible) { _rebuildModel(); _refreshStripModels() }
 
@@ -548,7 +564,7 @@ Item {
             Layout.fillWidth: true
             Layout.preferredHeight: visible ? (root.stripHeight + recentLabel.implicitHeight + 6) : 0
             visible: root.recentApps.length > 0
-                     && String(root.filterText || "").trim().length === 0
+                     && !root.searchActive
 
             Label {
                 id: recentLabel
@@ -597,7 +613,7 @@ Item {
             Layout.fillWidth: true
             Layout.preferredHeight: visible ? (root.stripHeight + suggestionsLabel.implicitHeight + 6) : 0
             visible: root.suggestionApps.length > 0
-                     && String(root.filterText || "").trim().length === 0
+                     && !root.searchActive
 
             Label {
                 id: suggestionsLabel
@@ -646,7 +662,7 @@ Item {
             id: categorySegmentRow
             Layout.fillWidth: true
             Layout.preferredHeight: visible ? 32 : 0
-            visible: String(root.filterText || "").trim().length === 0
+            visible: !root.searchActive
 
             Row {
                 anchors.left: parent.left

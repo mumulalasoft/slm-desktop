@@ -366,6 +366,12 @@ FocusScope {
                             // The grid stays full so it can sit as backdrop
                             // behind the Pulse overlay.
                             filterText: ""
+                            // docs/APPDECK_REDESIGN.md Phase 4 — propagate
+                            // the parent's search-active intent so the grid
+                            // chrome (Recent / Suggestions / category
+                            // segmented control) collapses while Pulse is
+                            // owning the result surface.
+                            searchActive: root.searchActive
                             iconsRenderedExternally: root.iconsRenderedExternally
                             onAppActivated: function(appData) {
                                 root.appChosen(appData)

@@ -1,8 +1,9 @@
 # AppDeck Redesign Plan
 
-Status: **In progress** — design locked, phased implementation
+Status: **MVP complete (4/4 phases)** — pending visual verification in QEMU
 Owner: m.mukharom
 Started: 2026-05-20
+Completed: 2026-05-20
 
 ## Goal
 
@@ -255,3 +256,25 @@ test suite. Save state di file ini setelah tiap fase selesai.
   - Known follow-up: keyboard navigation for settingsModel/commandsModel
     is mouse-only in this pass (no dedicated focusedSection index).
     Acceptable for the MVP; refine in a later iteration.
+- 2026-05-20: **Phase 4 complete**. Most of the wiring was already in
+  place from prior work — `AppDeckGridAppsView` already passes
+  `filterText: ""` to the inner grid and emits `pulseQueryChanged` to
+  flip `deckMode` to pulse; ESC routes through
+  `AppDeckWindow.dismissCurrentLayer()` (pulseMode→grid→dock). The
+  gap from Phase 1+2 was that the visibility checks I added to the
+  inner grid referenced its (always-empty) `filterText` instead of the
+  parent's search intent — so the strips + segmented control never
+  collapsed during search.
+  - `Qml/components/appdeck/AppDeckGridView.qml` — added `searchActive`
+    property; replaced 3 visibility checks and the category-filter
+    guard in `_rebuildModel` to use it. Added `onSearchActiveChanged`
+    to rebuild when search state flips so the category filter stops
+    pruning while a search is in flight.
+  - `Qml/components/appdeck/AppDeckGridAppsView.qml` — bind
+    `searchActive: root.searchActive` on the inner grid (the parent
+    already exposed this readonly property derived from its own
+    filterText).
+  - Build OK. 8/8 AppDeck + AppModel tests pass.
+  - Backdrop "blur ke belakang" remains the existing opacity 0.88 +
+    scale 0.98 (no `MultiEffect` blur). Adding true blur on Wayland
+    needs care around layer.enabled cost; tracked as a follow-up.
