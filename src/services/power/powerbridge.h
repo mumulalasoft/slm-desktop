@@ -5,8 +5,8 @@
 // PowerBridge — thin QML-accessible wrapper for system power and session actions.
 //
 // Calls systemctl for hardware-level actions (suspend/reboot/poweroff) and
-// loginctl/DBUS_SESSION_BUS_ADDRESS for logout. All operations are fire-and-forget
-// via QProcess::startDetached so they do not block the UI thread.
+// loginctl for logout. All operations are fire-and-forget via QProcess::startDetached
+// so they do not block the UI thread.
 class PowerBridge : public QObject
 {
     Q_OBJECT

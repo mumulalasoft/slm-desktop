@@ -14,6 +14,8 @@ Item {
     property bool showDescription: descriptionText.text !== ""
     property bool highlighted: false
     property bool hideSeparator: false
+    property string icon: ""
+    property int iconSize: 28
     default property alias content: controlContainer.data
 
     function microAnimationAllowed() {
@@ -41,6 +43,15 @@ Item {
         anchors.topMargin: 12
         anchors.bottomMargin: 12
         spacing: 16
+
+        Image {
+            visible: root.icon.length > 0
+            source: root.icon.length > 0 ? "image://icon/" + root.icon : ""
+            Layout.preferredWidth: root.iconSize
+            Layout.preferredHeight: root.iconSize
+            smooth: true
+            Layout.alignment: Qt.AlignVCenter
+        }
 
         ColumnLayout {
             Layout.fillWidth: true

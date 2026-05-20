@@ -22,6 +22,8 @@ Flickable {
     property var showDayOfWeekBinding: SettingsApp.createBindingFor("timedate", "show-day-of-week", true)
     property var showDateBinding:      SettingsApp.createBindingFor("timedate", "show-date",        true)
 
+    property var timezoneList: TimeDateController.availableTimeZones()
+
     property bool applyBusy: false
     property string applyError: ""
     property string authError: ""
@@ -54,6 +56,36 @@ Flickable {
             return
         }
         applyError = String(result && result.message ? result.message : qsTr("Failed to apply date/time."))
+    }
+
+    function applyNtp(enabled) {
+        if (applyBusy) return
+        applyBusy = true
+        var result = TimeDateController.setNtp(enabled)
+        applyBusy = false
+        if (result && result.ok === true) {
+            root.autoTimeBinding.value = enabled
+            // If turning on, kick the clock update
+            if (enabled) clockState.now = new Date()
+            return
+        }
+        // Revert toggle on failure
+        autoTimeToggle.checked = Boolean(root.autoTimeBinding.value)
+        applyError = String(result && result.error ? result.error : qsTr("Failed to toggle network time."))
+    }
+
+    function applyTimezone(tzId) {
+        if (applyBusy) return
+        applyBusy = true
+        var result = TimeDateController.setTimezone(tzId)
+        applyBusy = false
+        if (result && result.ok === true) {
+            root.timezoneBinding.value = tzId
+            // Kick the clock to update local time
+            clockState.now = new Date()
+            return
+        }
+        applyError = String(result && result.error ? result.error : qsTr("Failed to set timezone."))
     }
 
     function submitDateTimeFromDialog() {
@@ -299,14 +331,38 @@ Flickable {
                 highlighted: root.highlightSettingId === "auto-time"
                 label: qsTr("Set Automatically")
                 description: autoTimeToggle.checked
-                    ? qsTr("Syncing with %1").arg(String(root.ntpServerBinding.value))
-                    : qsTr("Use a network time server to keep your clock accurate.")
+                    ? qsTr("Synchronizing time with network servers.")
+                    : qsTr("Use network time (NTP) to keep your clock accurate.")
                 Layout.fillWidth: true
 
                 SettingToggle {
                     id: autoTimeToggle
                     checked: Boolean(root.autoTimeBinding.value)
-                    onToggled: root.autoTimeBinding.value = checked
+                    onToggled: root.applyNtp(checked)
+                }
+            }
+
+            SettingCard {
+                objectName: "ntp-server"
+                visible: autoTimeToggle.checked
+                highlighted: root.highlightSettingId === "ntp-server"
+                label: qsTr("Time Server")
+                description: qsTr("Current server: %1").arg(String(root.ntpServerBinding.value))
+                Layout.fillWidth: true
+
+                RowLayout {
+                    spacing: 8
+                    TextField {
+                        id: ntpServerField
+                        text: String(root.ntpServerBinding.value)
+                        placeholderText: "time.google.com"
+                        implicitWidth: 180
+                        onAccepted: root.ntpServerBinding.value = text
+                    }
+                    Button {
+                        text: qsTr("Apply")
+                        onClicked: root.ntpServerBinding.value = ntpServerField.text
+                    }
                 }
             }
 
@@ -392,21 +448,18 @@ Flickable {
 
                 ComboBox {
                     id: timezoneCombo
-                    implicitWidth: 220
-                    model: [
-                        "Africa/Cairo",        "America/Chicago",    "America/Denver",
-                        "America/Los_Angeles", "America/New_York",   "America/Sao_Paulo",
-                        "Asia/Bangkok",        "Asia/Dubai",         "Asia/Hong_Kong",
-                        "Asia/Jakarta",        "Asia/Karachi",       "Asia/Kolkata",
-                        "Asia/Seoul",          "Asia/Shanghai",      "Asia/Singapore",
-                        "Asia/Taipei",         "Asia/Tokyo",         "Australia/Adelaide",
-                        "Australia/Sydney",    "Europe/Amsterdam",   "Europe/Berlin",
-                        "Europe/Istanbul",     "Europe/London",      "Europe/Moscow",
-                        "Europe/Paris",        "Pacific/Auckland",   "Pacific/Honolulu",
-                        "UTC"
-                    ]
-                    currentIndex: Math.max(0, model.indexOf(String(root.timezoneBinding.value)))
-                    onActivated: root.timezoneBinding.value = currentText
+                    implicitWidth: 320
+                    model: root.timezoneList
+                    textRole: "label"
+                    currentIndex: {
+                        var val = String(root.timezoneBinding.value)
+                        for (var i = 0; i < model.length; ++i) {
+                            if (model[i].id === val)
+                                return i
+                        }
+                        return 0
+                    }
+                    onActivated: root.applyTimezone(model[index].id)
                 }
             }
         }
@@ -501,7 +554,13 @@ Flickable {
     Connections {
         target: root.timezoneBinding
         function onValueChanged() {
-            timezoneCombo.currentIndex = Math.max(0, timezoneCombo.model.indexOf(String(root.timezoneBinding.value)))
+            var val = String(root.timezoneBinding.value)
+            for (var i = 0; i < timezoneCombo.model.length; ++i) {
+                if (timezoneCombo.model[i].id === val) {
+                    timezoneCombo.currentIndex = i
+                    break
+                }
+            }
         }
     }
 

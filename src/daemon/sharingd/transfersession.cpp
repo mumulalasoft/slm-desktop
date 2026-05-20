@@ -1,6 +1,7 @@
 #include "transfersession.h"
 
 #include <QFileInfo>
+#include <QMetaEnum>
 
 TransferSession::TransferSession(Direction direction,
                                   const QString &deviceId,

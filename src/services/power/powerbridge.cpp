@@ -15,17 +15,32 @@ bool PowerBridge::canPowerOff() const { return systemctlCan(QStringLiteral("powe
 
 bool PowerBridge::sleep()
 {
-    return startSystemctlAction(QStringLiteral("suspend"));
+    qInfo().noquote() << "[PowerBridge] requesting systemctl suspend";
+    const bool started = startSystemctlAction(QStringLiteral("suspend"));
+    if (!started) {
+        qWarning().noquote() << "[PowerBridge] failed to start systemctl suspend";
+    }
+    return started;
 }
 
 bool PowerBridge::reboot()
 {
-    return startSystemctlAction(QStringLiteral("reboot"));
+    qInfo().noquote() << "[PowerBridge] requesting systemctl reboot";
+    const bool started = startSystemctlAction(QStringLiteral("reboot"));
+    if (!started) {
+        qWarning().noquote() << "[PowerBridge] failed to start systemctl reboot";
+    }
+    return started;
 }
 
 bool PowerBridge::powerOff()
 {
-    return startSystemctlAction(QStringLiteral("poweroff"));
+    qInfo().noquote() << "[PowerBridge] requesting systemctl poweroff";
+    const bool started = startSystemctlAction(QStringLiteral("poweroff"));
+    if (!started) {
+        qWarning().noquote() << "[PowerBridge] failed to start systemctl poweroff";
+    }
+    return started;
 }
 
 bool PowerBridge::shutdown()

@@ -66,6 +66,7 @@ install_if_exists "$BUILD_DIR/slm-svcmgrd" "$BIN_DIR/slm-svcmgrd"
 install_if_exists "$BUILD_DIR/slm-loggerd" "$BIN_DIR/slm-loggerd"
 install_if_exists "$BUILD_DIR/slm-portald" "$BIN_DIR/slm-portald"
 install_if_exists "$BUILD_DIR/slm-fileopsd" "$BIN_DIR/slm-fileopsd"
+install_if_exists "$BUILD_DIR/slm-sharingd" "$BIN_DIR/slm-sharingd"
 install_if_exists "$BUILD_DIR/slm-devicesd" "$BIN_DIR/slm-devicesd"
 install_if_exists "$BUILD_DIR/slm-clipboardd" "$BIN_DIR/slm-clipboardd"
 install_if_exists "$BUILD_DIR/slm-polkit-agent" "$BIN_DIR/slm-polkit-agent"
@@ -75,6 +76,33 @@ install_if_exists "$BUILD_DIR/slm-recoveryd" "$BIN_DIR/slm-recoveryd"
 install_if_exists "$BUILD_DIR/slm-settings" "$BIN_DIR/slm-settings"
 install_if_exists "$BUILD_DIR/slm-settingsd" "$BIN_DIR/slm-settingsd"
 install_if_exists "$BUILD_DIR/desktop-contextd" "$BIN_DIR/desktop-contextd"
+
+setup_samba_usershares() {
+  local target_user="$1"
+  if ! command -v net >/dev/null 2>&1 && ! [[ -x "$BUILD_DIR/slm-sharingd" ]]; then
+    return 0
+  fi
+  groupadd -f sambashare || true
+  mkdir -p /var/lib/samba/usershares
+  chown root:sambashare /var/lib/samba/usershares || true
+  chmod 1770 /var/lib/samba/usershares || true
+  if [[ -n "$target_user" ]]; then
+    usermod -aG sambashare "$target_user" || true
+  fi
+  if [[ -f /etc/samba/smb.conf ]] && ! grep -q '^[[:space:]]*usershare max shares' /etc/samba/smb.conf; then
+    cp /etc/samba/smb.conf "/etc/samba/smb.conf.slm-bak.$(date +%s)" || true
+    sed -i '/^\[global\]/a\   usershare max shares = 100\n   usershare path = /var/lib/samba/usershares\n   usershare allow guests = yes\n   usershare owner only = no' /etc/samba/smb.conf || true
+  fi
+  systemctl enable --now smbd.service nmbd.service >/dev/null 2>&1 || true
+  if [[ "$QEMU_COMPOSITOR" == "1" ]]; then
+    # qemu-smoke installs while the user manager is already alive; it will not
+    # pick up new supplementary groups until reboot. Keep dev smoke usable.
+    chmod 1777 /var/lib/samba/usershares || true
+  fi
+  echo "[install-slm-runtime][OK] samba usershare prerequisites prepared"
+}
+
+setup_samba_usershares "$TARGET_USER"
 
 if [[ -d "$ROOT_DIR/src/apps/settings/modules" ]]; then
   install -d -m0755 "$SETTINGS_MODULES_DIR"
@@ -142,12 +170,19 @@ if [[ -n "$TARGET_USER" ]]; then
     local dst="$UNIT_DIR/$unit_name"
     sed "s#%h/Development/Qt/Desktop_Shell/build/[A-Za-z0-9._-]*#$replacement#g" "$template" > "$dst"
     chown "$TARGET_USER:$TARGET_USER" "$dst" 2>/dev/null || true
+    if [[ "$ENABLE_USER_UNITS" == "1" ]]; then
+      mkdir -p "$UNIT_DIR/default.target.wants"
+      ln -sfn "../$unit_name" "$UNIT_DIR/default.target.wants/$unit_name"
+      chown -h "$TARGET_USER:$TARGET_USER" "$UNIT_DIR/default.target.wants/$unit_name" 2>/dev/null || true
+      chown "$TARGET_USER:$TARGET_USER" "$UNIT_DIR/default.target.wants" 2>/dev/null || true
+    fi
     echo "[install-slm-runtime][OK] user unit: $dst"
   }
 
   install_user_unit "$ROOT_DIR/scripts/systemd/slm-desktopd.service" "slm-desktopd.service" "$BIN_DIR/desktopd"
   install_user_unit "$ROOT_DIR/scripts/systemd/slm-portald.service" "slm-portald.service" "$BIN_DIR/slm-portald"
   install_user_unit "$ROOT_DIR/scripts/systemd/slm-fileopsd.service" "slm-fileopsd.service" "$BIN_DIR/slm-fileopsd"
+  install_user_unit "$ROOT_DIR/scripts/systemd/slm-sharingd.service" "slm-sharingd.service" "$BIN_DIR/slm-sharingd"
   install_user_unit "$ROOT_DIR/scripts/systemd/slm-devicesd.service" "slm-devicesd.service" "$BIN_DIR/slm-devicesd"
   install_user_unit "$ROOT_DIR/scripts/systemd/slm-clipboardd.service" "slm-clipboardd.service" "$BIN_DIR/slm-clipboardd"
   install_user_unit "$ROOT_DIR/scripts/systemd/slm-polkit-agent.service" "slm-polkit-agent.service" "$BIN_DIR/slm-polkit-agent"
@@ -158,13 +193,13 @@ if [[ -n "$TARGET_USER" ]]; then
   if [[ "$ENABLE_USER_UNITS" == "1" ]]; then
     if runuser -u "$TARGET_USER" -- systemctl --user daemon-reload >/dev/null 2>&1; then
       runuser -u "$TARGET_USER" -- systemctl --user enable --now \
-        slm-desktopd.service slm-portald.service slm-fileopsd.service \
+        slm-desktopd.service slm-portald.service slm-fileopsd.service slm-sharingd.service \
         slm-devicesd.service slm-clipboardd.service slm-polkit-agent.service slm-envd.service \
         slm-recoveryd.service slm-settingsd.service || true
       echo "[install-slm-runtime][OK] attempted to enable user units"
     else
       echo "[install-slm-runtime][WARN] cannot access user systemd manager now; units installed but not started"
-      echo "[install-slm-runtime][HINT] login as ${TARGET_USER} and run: systemctl --user daemon-reload && systemctl --user enable --now slm-desktopd.service slm-portald.service slm-fileopsd.service slm-devicesd.service slm-clipboardd.service slm-polkit-agent.service slm-envd.service slm-recoveryd.service slm-settingsd.service"
+      echo "[install-slm-runtime][HINT] login as ${TARGET_USER} and run: systemctl --user daemon-reload && systemctl --user enable --now slm-desktopd.service slm-portald.service slm-fileopsd.service slm-sharingd.service slm-devicesd.service slm-clipboardd.service slm-polkit-agent.service slm-envd.service slm-recoveryd.service slm-settingsd.service"
     fi
   fi
 else

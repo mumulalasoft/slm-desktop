@@ -267,17 +267,49 @@ Rectangle {
         }
     }
 
+    function updateTimeText() {
+        var now = new Date()
+        var parts = []
+
+        // Show Day of Week
+        if (DesktopSettings.settingValue("timedate/show-day-of-week", true)) {
+            parts.push(Qt.formatDateTime(now, "ddd"))
+        }
+
+        // Show Date
+        if (DesktopSettings.settingValue("timedate/show-date", true)) {
+            parts.push(Qt.formatDateTime(now, "MMM d"))
+        }
+
+        // Time format
+        var timeFormat = ""
+        var use24 = DesktopSettings.settingValue("timedate/use-24-hour", false)
+        if (use24) {
+            timeFormat = "HH:mm"
+        } else {
+            timeFormat = "h:mm AP"
+        }
+
+        // Show Seconds
+        if (DesktopSettings.settingValue("timedate/show-seconds", false)) {
+            timeFormat += ":ss"
+        }
+
+        parts.push(Qt.formatDateTime(now, timeFormat))
+        root.timeText = parts.join("  ")
+    }
+
     Timer {
         id: clockTimer
         interval: 1000
         running: true
         repeat: true
-        onTriggered: root.timeText = Qt.formatDateTime(new Date(), "ddd MMM d  hh:mm")
+        onTriggered: root.updateTimeText()
     }
 
     Component.onCompleted: {
         startupQmlMark("crown.onCompleted.begin")
-        root.timeText = Qt.formatDateTime(new Date(), "ddd MMM d  hh:mm")
+        root.updateTimeText()
         if (typeof DesktopSettings !== "undefined" && DesktopSettings && DesktopSettings.settingValue) {
             root.crownTransparent = DesktopSettings.settingValue("shellTheme.crownTransparent", false) === true
         }
@@ -344,6 +376,8 @@ Rectangle {
                             DesktopSettings.settingValue("ui.fontScale", 1.0))
             } else if (k === "shellTheme.crownTransparent") {
                 root.crownTransparent = DesktopSettings.settingValue("shellTheme.crownTransparent", false) === true
+            } else if (k.startsWith("timedate/")) {
+                root.updateTimeText()
             } else if (k.startsWith("shellTheme.applets.")) {
                 var appletName = k.slice("shellTheme.applets.".length)
                 if (appletName === "pulse") {

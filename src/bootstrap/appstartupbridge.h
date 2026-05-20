@@ -53,6 +53,9 @@ class ShellStateController;
 class ShellInputRouter;
 class ShellLayerWatchdog;
 class PowerBridge;
+class PowerController;
+class ScheduleController;
+class SessionController;
 namespace Slm::ContextMenu {
 class ContextMenuService;
 }
@@ -107,6 +110,9 @@ void registerCoreContext(QQmlContext *context,
                          ShellInputRouter *shellInputRouter,
                          ShellLayerWatchdog *shellLayerWatchdog,
                          PowerBridge *powerBridge,
+                         PowerController *powerController,
+                         ScheduleController *scheduleController,
+                         SessionController *sessionController,
                          Slm::ContextMenu::ContextMenuService *contextMenuService);
 
 void setStartupWindowContext(QQmlContext *context,

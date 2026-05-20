@@ -47,7 +47,7 @@ FAST_TARGETS=(
     # desktop shell & compositor daemons
     slm-desktop desktopd slm-svcmgrd slm-loggerd slm-lockd
     # portals & system daemons
-    slm-portald slm-fileopsd slm-devicesd slm-clipboardd
+    slm-portald slm-fileopsd slm-sharingd slm-devicesd slm-clipboardd
     slm-envd slm-envd-helper slm-recoveryd slm-polkit-agent
     # settings & context
     slm-settingsd desktop-contextd slm-settings slm-cleanerd
@@ -61,7 +61,7 @@ FULL_TARGETS=(
     # desktop shell & compositor daemons
     slm-desktop desktopd slm-svcmgrd slm-loggerd slm-lockd
     # portals & system daemons
-    slm-portald slm-fileopsd slm-devicesd slm-clipboardd
+    slm-portald slm-fileopsd slm-sharingd slm-devicesd slm-clipboardd
     slm-envd slm-envd-helper slm-recoveryd slm-polkit-agent
     # settings & context
     slm-settingsd desktop-contextd slm-settings slm-cleanerd
@@ -430,6 +430,7 @@ install_exec_atomic '__BUILD_DIR__/slm-loggerd' /usr/local/bin/slm-loggerd
 install_exec_atomic '__BUILD_DIR__/slm-portald' /usr/local/bin/slm-portald
 install_exec_atomic '__BUILD_DIR__/slm-lockd' /usr/local/bin/slm-lockd
 install_exec_atomic '__BUILD_DIR__/slm-fileopsd' /usr/local/bin/slm-fileopsd
+install_exec_atomic '__BUILD_DIR__/slm-sharingd' /usr/local/bin/slm-sharingd
 install_exec_atomic '__BUILD_DIR__/slm-devicesd' /usr/local/bin/slm-devicesd
 install_exec_atomic '__BUILD_DIR__/slm-clipboardd' /usr/local/bin/slm-clipboardd
 install_exec_atomic '__BUILD_DIR__/slm-envd' /usr/local/bin/slm-envd
@@ -460,6 +461,21 @@ install_exec_atomic '__BUILD_DIR__/workspacectl' /usr/local/bin/workspacectl
 install_exec_atomic '__BUILD_DIR__/fileopctl' /usr/local/bin/fileopctl
 install_exec_atomic '__BUILD_DIR__/devicectl' /usr/local/bin/devicectl
 install_exec_atomic '__BUILD_DIR__/globalmenuctl' /usr/local/bin/globalmenuctl
+if command -v net >/dev/null 2>&1; then
+    groupadd -f sambashare || true
+    mkdir -p /var/lib/samba/usershares
+    chown root:sambashare /var/lib/samba/usershares || true
+    chmod 1777 /var/lib/samba/usershares || true
+    usermod -aG sambashare "$session_user" || true
+    if [[ -f /etc/samba/smb.conf ]] && ! grep -q '^[[:space:]]*usershare max shares' /etc/samba/smb.conf; then
+        cp /etc/samba/smb.conf "/etc/samba/smb.conf.slm-bak.$(date +%s)" || true
+        sed -i '/^\[global\]/a\   usershare max shares = 100\n   usershare path = /var/lib/samba/usershares\n   usershare allow guests = yes\n   usershare owner only = no' /etc/samba/smb.conf || true
+    fi
+    systemctl enable --now smbd.service nmbd.service >/dev/null 2>&1 || true
+    echo '[qemu-smoke][guest] prepared Samba usershare prerequisites'
+else
+    echo '[qemu-smoke][guest] samba net not found; folder sharing backend will report setup required'
+fi
 cat > /tmp/slm-shell.wrapper.\$\$ <<'SLM_SHELL_WRAPPER'
 #!/bin/sh
 unset KWIN_COMPOSE QT_QUICK_BACKEND
@@ -879,7 +895,23 @@ RestartSec=1
 [Install]
 WantedBy=default.target
 PORTALD_UNIT
-echo '[qemu-smoke][guest] installed slm-desktopd.service, slm-lockd.service, and slm-portald.service unit files'
+cat > /etc/systemd/user/slm-sharingd.service <<'SHARINGD_UNIT'
+[Unit]
+Description=SLM Desktop Sharing Daemon
+After=dbus.socket
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/slm-sharingd
+StandardOutput=journal
+StandardError=journal
+Restart=on-failure
+RestartSec=1
+
+[Install]
+WantedBy=default.target
+SHARINGD_UNIT
+echo '[qemu-smoke][guest] installed slm-desktopd.service, slm-lockd.service, slm-portald.service, and slm-sharingd.service unit files'
 if command -v systemctl >/dev/null 2>&1; then
     systemctl daemon-reload
     systemctl disable --now slm-greeter.service 2>/dev/null || true
@@ -893,8 +925,8 @@ if command -v systemctl >/dev/null 2>&1; then
     rm -f /run/greetd.run 2>/dev/null || true
     systemctl restart greetd.service
     echo '[qemu-smoke][guest] enabled greetd handoff and disabled direct-PAM slm-greeter.service'
-    systemctl --global enable slm-desktopd.service slm-lockd.service slm-portald.service 2>/dev/null || true
-    echo '[qemu-smoke][guest] globally enabled slm-desktopd, slm-lockd, and slm-portald user services'
+    systemctl --global enable slm-desktopd.service slm-lockd.service slm-portald.service slm-sharingd.service 2>/dev/null || true
+    echo '[qemu-smoke][guest] globally enabled slm-desktopd, slm-lockd, slm-portald, and slm-sharingd user services'
 fi
 SLM_FAST_INSTALL
     sed -i -e 's/\\"/"/g' -e 's/\\\$/\$/g' "$FAST_INSTALL_SCRIPT"

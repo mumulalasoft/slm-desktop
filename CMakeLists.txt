@@ -284,11 +284,15 @@ qt_add_executable(slm-settings
     src/apps/settings/searchengine.cpp
     src/apps/settings/globalsearchprovider.cpp
     src/apps/settings/include/settingbinding.cpp
-    src/apps/settings/include/mockbinding.cpp
+    src/apps/settings/include/dbusbinding.cpp
+    src/apps/settings/include/desktopsettingsbinding.cpp
     src/apps/settings/include/gsettingsbinding.cpp
+    src/apps/settings/include/mockbinding.cpp
+    src/apps/settings/include/localsettingsbinding.cpp
     src/apps/settings/include/networkmanagerbinding.cpp
     src/apps/settings/include/dbusbinding.cpp
-    src/apps/settings/include/localsettingsbinding.cpp
+    src/apps/settings/include/desktopsettingsbinding.cpp
+    src/apps/settings/include/gsettingsbinding.cpp
     src/apps/settings/include/settingbindingresolver.cpp
     src/apps/settings/include/settingbindingfactory.cpp
     src/apps/settings/include/settingspolkitbridge.cpp
@@ -399,6 +403,22 @@ qt_add_executable(slm-settings
     src/core/launcher/launchenvresolver.cpp
     src/core/launcher/launchenvresolver.h
 )
+
+qt_add_executable(slm-powerd
+    src/daemon/powerd/powerd_main.cpp
+    src/services/power/powerbridge.cpp
+    src/services/power/powerbridge.h
+    src/services/power/powercontroller.cpp
+    src/services/power/powercontroller.h
+    src/services/power/schedulecontroller.cpp
+    src/services/power/schedulecontroller.h
+    src/services/power/sessioncontroller.cpp
+    src/services/power/sessioncontroller.h
+    src/core/shell/shellstatecontroller.cpp
+    src/core/shell/shellstatecontroller.h
+)
+target_include_directories(slm-powerd PRIVATE ${CMAKE_SOURCE_DIR})
+target_link_libraries(slm-powerd PRIVATE Qt6::Core Qt6::DBus)
 
 qt_add_executable(slm-loggerd
     src/daemon/loggerd/loggerd_main.cpp
@@ -892,6 +912,7 @@ set(DESKTOP_SHELL_QML_FILES
     Qml/components/overlay/PopupHostLayer.qml
     Qml/components/overlay/CrownPopupStateController.qml
     Qml/components/overlay/AppDeckWindow.qml
+    Qml/components/overlay/PowerTopOverlayWindow.qml
     Qml/components/overlay/DetachedFileManagerWindow.qml
     Qml/components/overlay/PortalFileChooserWindow.qml
     Qml/components/overlay/AreaShotSelectorWindow.qml
@@ -1012,6 +1033,11 @@ set(DESKTOP_SHELL_QML_FILES
     Qml/components/appdeck/v2/ContextLayer.qml
     Qml/components/appdeck/v2/AppDeckMotion.qml
     Qml/components/appdeck/v2/AppDeckDebugOverlay.qml
+    Qml/components/power/PowerDialog.qml
+    Qml/components/power/PowerSafetyDialog.qml
+    Qml/components/power/ScheduledShutdownDialog.qml
+    Qml/components/power/PowerActionButton.qml
+    Qml/components/power/PowerCountdownBanner.qml
     Qml/components/shell/ShellShortcutTile.qml
     Qml/components/shell/ShellSelectionRect.qml
     Qml/components/shell/ShellDragGhost.qml
@@ -1265,6 +1291,10 @@ install(TARGETS indicatorctl
 )
 
 install(TARGETS slm-settings
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
+install(TARGETS slm-powerd
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 install(FILES src/apps/settings/slm-settings.desktop
@@ -4661,14 +4691,16 @@ qt_add_executable(settingsapp_deeplink_anchor_test
     src/apps/settings/include/settingbinding.cpp
     src/apps/settings/include/settingbinding.h
     src/apps/settings/include/mockbinding.cpp
-    src/apps/settings/include/mockbinding.h
+    src/apps/settings/include/dbusbinding.cpp
+    src/apps/settings/include/desktopsettingsbinding.cpp
     src/apps/settings/include/gsettingsbinding.cpp
     src/apps/settings/include/gsettingsbinding.h
     src/apps/settings/include/networkmanagerbinding.cpp
     src/apps/settings/include/networkmanagerbinding.h
     src/apps/settings/include/dbusbinding.cpp
-    src/apps/settings/include/dbusbinding.h
-    src/apps/settings/include/localsettingsbinding.cpp
+    src/apps/settings/include/dbusbinding.cpp
+    src/apps/settings/include/desktopsettingsbinding.cpp
+    src/apps/settings/include/gsettingsbinding.cpp
     src/apps/settings/include/localsettingsbinding.h
     src/apps/settings/include/settingbindingresolver.cpp
     src/apps/settings/include/settingbindingresolver.h
@@ -4708,14 +4740,16 @@ qt_add_executable(settingsapp_policy_test
     src/apps/settings/include/settingbinding.cpp
     src/apps/settings/include/settingbinding.h
     src/apps/settings/include/mockbinding.cpp
-    src/apps/settings/include/mockbinding.h
+    src/apps/settings/include/dbusbinding.cpp
+    src/apps/settings/include/desktopsettingsbinding.cpp
     src/apps/settings/include/gsettingsbinding.cpp
     src/apps/settings/include/gsettingsbinding.h
     src/apps/settings/include/networkmanagerbinding.cpp
     src/apps/settings/include/networkmanagerbinding.h
     src/apps/settings/include/dbusbinding.cpp
-    src/apps/settings/include/dbusbinding.h
-    src/apps/settings/include/localsettingsbinding.cpp
+    src/apps/settings/include/dbusbinding.cpp
+    src/apps/settings/include/desktopsettingsbinding.cpp
+    src/apps/settings/include/gsettingsbinding.cpp
     src/apps/settings/include/localsettingsbinding.h
     src/apps/settings/include/settingbindingresolver.cpp
     src/apps/settings/include/settingbindingresolver.h
@@ -4758,14 +4792,16 @@ qt_add_executable(settingsapp_policy_core_test
     src/apps/settings/include/settingbinding.cpp
     src/apps/settings/include/settingbinding.h
     src/apps/settings/include/mockbinding.cpp
-    src/apps/settings/include/mockbinding.h
+    src/apps/settings/include/dbusbinding.cpp
+    src/apps/settings/include/desktopsettingsbinding.cpp
     src/apps/settings/include/gsettingsbinding.cpp
     src/apps/settings/include/gsettingsbinding.h
     src/apps/settings/include/networkmanagerbinding.cpp
     src/apps/settings/include/networkmanagerbinding.h
     src/apps/settings/include/dbusbinding.cpp
-    src/apps/settings/include/dbusbinding.h
-    src/apps/settings/include/localsettingsbinding.cpp
+    src/apps/settings/include/dbusbinding.cpp
+    src/apps/settings/include/desktopsettingsbinding.cpp
+    src/apps/settings/include/gsettingsbinding.cpp
     src/apps/settings/include/localsettingsbinding.h
     src/apps/settings/include/settingbindingresolver.cpp
     src/apps/settings/include/settingbindingresolver.h
@@ -4814,14 +4850,16 @@ qt_add_executable(settingsapp_secret_consent_test
     src/apps/settings/include/settingbinding.cpp
     src/apps/settings/include/settingbinding.h
     src/apps/settings/include/mockbinding.cpp
-    src/apps/settings/include/mockbinding.h
+    src/apps/settings/include/dbusbinding.cpp
+    src/apps/settings/include/desktopsettingsbinding.cpp
     src/apps/settings/include/gsettingsbinding.cpp
     src/apps/settings/include/gsettingsbinding.h
     src/apps/settings/include/networkmanagerbinding.cpp
     src/apps/settings/include/networkmanagerbinding.h
     src/apps/settings/include/dbusbinding.cpp
-    src/apps/settings/include/dbusbinding.h
-    src/apps/settings/include/localsettingsbinding.cpp
+    src/apps/settings/include/dbusbinding.cpp
+    src/apps/settings/include/desktopsettingsbinding.cpp
+    src/apps/settings/include/gsettingsbinding.cpp
     src/apps/settings/include/localsettingsbinding.h
     src/apps/settings/include/settingbindingresolver.cpp
     src/apps/settings/include/settingbindingresolver.h
@@ -4928,14 +4966,16 @@ qt_add_executable(settings_ui_smoke_test
     src/apps/settings/include/settingbinding.cpp
     src/apps/settings/include/settingbinding.h
     src/apps/settings/include/mockbinding.cpp
-    src/apps/settings/include/mockbinding.h
+    src/apps/settings/include/dbusbinding.cpp
+    src/apps/settings/include/desktopsettingsbinding.cpp
     src/apps/settings/include/gsettingsbinding.cpp
     src/apps/settings/include/gsettingsbinding.h
     src/apps/settings/include/networkmanagerbinding.cpp
     src/apps/settings/include/networkmanagerbinding.h
     src/apps/settings/include/dbusbinding.cpp
-    src/apps/settings/include/dbusbinding.h
-    src/apps/settings/include/localsettingsbinding.cpp
+    src/apps/settings/include/dbusbinding.cpp
+    src/apps/settings/include/desktopsettingsbinding.cpp
+    src/apps/settings/include/gsettingsbinding.cpp
     src/apps/settings/include/localsettingsbinding.h
     src/apps/settings/include/settingbindingresolver.cpp
     src/apps/settings/include/settingbindingresolver.h
@@ -5006,12 +5046,14 @@ qt_add_executable(settings_backend_fallback_test
     src/apps/settings/include/settingbinding.cpp
     src/apps/settings/include/settingbinding.h
     src/apps/settings/include/mockbinding.cpp
-    src/apps/settings/include/mockbinding.h
+    src/apps/settings/include/dbusbinding.cpp
+    src/apps/settings/include/desktopsettingsbinding.cpp
     src/apps/settings/include/gsettingsbinding.cpp
     src/apps/settings/include/gsettingsbinding.h
     src/apps/settings/include/dbusbinding.cpp
-    src/apps/settings/include/dbusbinding.h
-    src/apps/settings/include/localsettingsbinding.cpp
+    src/apps/settings/include/dbusbinding.cpp
+    src/apps/settings/include/desktopsettingsbinding.cpp
+    src/apps/settings/include/gsettingsbinding.cpp
     src/apps/settings/include/localsettingsbinding.h
     src/apps/settings/include/settingbindingresolver.cpp
     src/apps/settings/include/settingbindingresolver.h

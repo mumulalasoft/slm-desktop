@@ -1,0 +1,33 @@
+[2026-05-19 05:36:24.052][INF] === slm-greeter start (pid=1957) ===
+[2026-05-19 05:36:24.053][INF] env: GREETD_SOCK=/run/greetd-1648.sock
+[2026-05-19 05:36:24.053][INF] env: XDG_RUNTIME_DIR=/run/user/997
+[2026-05-19 05:36:24.053][INF] env: WAYLAND_DISPLAY=wayland-0
+[2026-05-19 05:36:24.053][INF] env: DISPLAY=:0
+[2026-05-19 05:36:24.053][INF] env: QT_QPA_PLATFORM=wayland;xcb
+[2026-05-19 05:36:24.053][INF] env: WLR_RENDERER=pixman
+[2026-05-19 05:36:24.053][INF] env: QT_QUICK_BACKEND=software
+[2026-05-19 05:36:24.053][INF] env: SLM_OFFICIAL_SESSION=<unset>
+[2026-05-19 05:36:24.053][WRN] Detected locale "C" with character encoding "ANSI_X3.4-1968", which is not UTF-8.
+Qt depends on a UTF-8 locale, and has switched to "C.UTF-8" instead.
+If this causes problems, reconfigure your locale. See the locale(1) manual
+for more information.
+[2026-05-19 05:36:24.086][INF] slm-greeter: connected to greetd
+[2026-05-19 05:36:24.087][INF] state: load=ok crash_count=0 last_boot_status= config_pending=false safe_mode_forced=false recovery_reason= last_crash_reason=
+[2026-05-19 05:36:24.087][INF] greeter: direct PAM path available (SLM_HAVE_PAM)
+[2026-05-19 05:36:28.567][INF] login: user='garis' mode='normal' greetd_connected=yes pam_direct=yes
+[2026-05-19 05:36:28.567][INF] login: sending create_session for user='garis'
+[2026-05-19 05:36:28.567][INF] ipc_send: {"type":"create_session","username":"garis"}
+[2026-05-19 05:36:28.621][INF] ipc_recv: type='auth_message'
+[2026-05-19 05:36:28.621][INF] ipc_recv: auth_message_type='secret' auth_message='Password: '
+[2026-05-19 05:36:28.621][INF] auth_message: type='secret' (content suppressed)
+[2026-05-19 05:36:28.621][INF] auth_message: posting password response for type='secret'
+[2026-05-19 05:36:28.621][INF] ipc_send: type='post_auth_message_response' (response suppressed) bytes=55
+[2026-05-19 05:36:28.634][INF] ipc_recv: type='success'
+[2026-05-19 05:36:28.635][INF] greetd_success: step=1
+[2026-05-19 05:36:28.635][INF] greetd_success: auth ok — resolved broker='/usr/local/libexec/slm-session-broker-launch'
+[2026-05-19 05:36:28.635][INF] greetd_success: sending start_session broker='/usr/local/libexec/slm-session-broker-launch' mode='normal'
+[2026-05-19 05:36:28.635][INF] ipc_send: {"cmd":["/usr/local/libexec/slm-session-broker-launch","--mode","normal"],"env":["DESKTOP_SESSION=slm","SLM_OFFICIAL_SESSION=1","XDG_SEAT=seat0","XDG_SESSION_CLASS=user","XDG_SESSION_DESKTOP=slm","XDG_SESSION_TYPE=wayland"],"type":"start_session"}
+[2026-05-19 05:36:28.636][INF] ipc_recv: type='success'
+[2026-05-19 05:36:28.636][INF] greetd_success: step=2
+[2026-05-19 05:36:28.636][INF] greetd_success: start_session confirmed — exiting greeter for session handoff
+[2026-05-19 05:36:28.636][INF] === slm-greeter exit (code=0) ===

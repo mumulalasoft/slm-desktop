@@ -1,0 +1,394 @@
+[slm-shell][2026-05-20 01:27:19.672][INF] === slm-shell start (pid=2226) ===
+[2026-05-20 01:27:19.672][INF] === slm-shell start (pid=2226) ===
+[slm-shell][2026-05-20 01:27:19.672][INF] SLM-SHELL: WAYLAND_DISPLAY=wayland-0 QT_QPA_PLATFORM=wayland XDG_RUNTIME_DIR=/run/user/1000 XDG_SESSION_TYPE=wayland SLM_SESSION_MODE=normal
+[2026-05-20 01:27:19.672][INF] SLM-SHELL: WAYLAND_DISPLAY=wayland-0 QT_QPA_PLATFORM=wayland XDG_RUNTIME_DIR=/run/user/1000 XDG_SESSION_TYPE=wayland SLM_SESSION_MODE=normal
+[slm-shell][2026-05-20 01:27:19.673][INF] [STARTUP] dockEffectsEnabled= false SLM_ENABLE_DOCK_EFFECTS=  SLM_DISABLE_DOCK_EFFECTS= 
+[2026-05-20 01:27:19.673][INF] [STARTUP] dockEffectsEnabled= false SLM_ENABLE_DOCK_EFFECTS=  SLM_DISABLE_DOCK_EFFECTS= 
+[slm-shell][2026-05-20 01:27:19.703][INF] SLM-SHELL: Qt platform plugin loaded: 'wayland'
+[2026-05-20 01:27:19.703][INF] SLM-SHELL: Qt platform plugin loaded: 'wayland'
+[slm-shell][2026-05-20 01:27:19.703][INF] SLM-SHELL: Locale: C (LANG=C.UTF-8 LC_ALL=C.UTF-8)
+[2026-05-20 01:27:19.703][INF] SLM-SHELL: Locale: C (LANG=C.UTF-8 LC_ALL=C.UTF-8)
+[slm-shell][2026-05-20 01:27:19.703][INF] SLM-SHELL: Wayland backend confirmed — connecting to compositor
+[2026-05-20 01:27:19.703][INF] SLM-SHELL: Wayland backend confirmed — connecting to compositor
+[slm-shell][2026-05-20 01:27:19.781][INF] SLM-SHELL: startup cover shown
+[2026-05-20 01:27:19.781][INF] SLM-SHELL: startup cover shown
+[slm-shell][2026-05-20 01:27:19.781][INF] SLM-SHELL: screen event=initial changed=<none> count=1 screens=Virtual-1 geom=1842x984+0+0 avail=1842x984+0+0 dpr=1 primary=true
+[2026-05-20 01:27:19.781][INF] SLM-SHELL: screen event=initial changed=<none> count=1 screens=Virtual-1 geom=1842x984+0+0 avail=1842x984+0+0 dpr=1 primary=true
+[slm-shell][2026-05-20 01:27:19.781][INF] [startup] registered DBus name org.slm.Desktop
+[2026-05-20 01:27:19.781][INF] [startup] registered DBus name org.slm.Desktop
+[slm-shell][2026-05-20 01:27:19.879][INF] NotificationManager: restored 20 notifications from history
+[2026-05-20 01:27:19.879][INF] NotificationManager: restored 20 notifications from history
+[slm-shell][2026-05-20 01:27:19.890][INF] DesktopAppModel initial refresh scheduled asynchronously
+[2026-05-20 01:27:19.890][INF] DesktopAppModel initial refresh scheduled asynchronously
+[slm-shell][2026-05-20 01:27:19.918][INF] [appdeck] dbus bridge connected canonical= true legacy= true
+[2026-05-20 01:27:19.918][INF] [appdeck] dbus bridge connected canonical= true legacy= true
+[slm-shell][2026-05-20 01:27:19.930][INF] [LAYERSHELL] deterministic LayerShellQt architecture enabled
+[2026-05-20 01:27:19.930][INF] [LAYERSHELL] deterministic LayerShellQt architecture enabled
+[slm-shell][2026-05-20 01:27:19.930][INF] active IPC disabled (set SLM_KWIN_ACTIVE_IPC=1 to enable)
+[2026-05-20 01:27:19.930][INF] active IPC disabled (set SLM_KWIN_ACTIVE_IPC=1 to enable)
+[slm-shell][2026-05-20 01:27:20.367][DBG] refreshAsync: starting background scan
+[2026-05-20 01:27:20.367][DBG] refreshAsync: starting background scan
+[slm-shell][2026-05-20 01:27:20.586][INF] DOCK_BOOTSTRAP integration enabled
+[2026-05-20 01:27:20.586][INF] DOCK_BOOTSTRAP integration enabled
+[slm-shell][2026-05-20 01:27:20.586][INF] [LAYERSHELL] activeChanged supported=true
+[2026-05-20 01:27:20.586][INF] [LAYERSHELL] activeChanged supported=true
+[slm-shell][2026-05-20 01:27:20.608][INF] SLM-SHELL: first frame rendered (t=935ms visible=true size=1842x984)
+[2026-05-20 01:27:20.608][INF] SLM-SHELL: first frame rendered (t=935ms visible=true size=1842x984)
+[slm-shell][2026-05-20 01:27:20.609][INF] SLM-SHELL: startup cover dismissed
+[2026-05-20 01:27:20.609][INF] SLM-SHELL: startup cover dismissed
+[slm-shell][2026-05-20 01:27:20.898][INF] refreshAsync: scan done, app count = 29
+[2026-05-20 01:27:20.898][INF] refreshAsync: scan done, app count = 29
+[slm-shell][2026-05-20 01:27:21.072][INF] [CROWN] [SHELL_POLICY] contentVisible=true policy=Normal
+[2026-05-20 01:27:21.072][INF] [CROWN] [SHELL_POLICY] contentVisible=true policy=Normal
+[slm-shell][2026-05-20 01:27:21.086][INF] [CROWN] [LAYERSHELL] [SURFACE_READY] prepared layer=OverlayLayer anchors=top|left|right exclusiveZone=0 scope=slm-crown
+[2026-05-20 01:27:21.086][INF] [CROWN] [LAYERSHELL] [SURFACE_READY] prepared layer=OverlayLayer anchors=top|left|right exclusiveZone=0 scope=slm-crown
+[slm-shell][2026-05-20 01:27:21.086][INF] [CROWN] [LAYER_STATE] policySurface=true policyContent=true layer=OverlayLayer
+[2026-05-20 01:27:21.086][INF] [CROWN] [LAYER_STATE] policySurface=true policyContent=true layer=OverlayLayer
+[slm-shell][2026-05-20 01:27:21.142][WRN] qrc:/qt/qml/Slm_Desktop/Qml/components/overlay/PowerTopOverlayWindow.qml:29: ReferenceError: overlayProgress is not defined
+[2026-05-20 01:27:21.142][WRN] qrc:/qt/qml/Slm_Desktop/Qml/components/overlay/PowerTopOverlayWindow.qml:29: ReferenceError: overlayProgress is not defined
+[slm-shell][2026-05-20 01:27:21.151][WRN] qrc:/qt/qml/Slm_Desktop/Main.qml:1201:13: QML PowerTopOverlayWindow: Conflicting properties 'visible' and 'visibility'
+[2026-05-20 01:27:21.151][WRN] qrc:/qt/qml/Slm_Desktop/Main.qml:1201:13: QML PowerTopOverlayWindow: Conflicting properties 'visible' and 'visibility'
+[slm-shell][2026-05-20 01:27:21.152][INF] [SURFACE_READY] [LAYERSHELL] window=SLM Crown Surface layer=OverlayLayer
+[2026-05-20 01:27:21.152][INF] [SURFACE_READY] [LAYERSHELL] window=SLM Crown Surface layer=OverlayLayer
+[slm-shell][2026-05-20 01:27:21.510][INF] [STACKING] [LAYERSHELL] scope=slm-crown layer=OverlayLayer anchors=top|left|right exclusiveZone=36 size=1842x36 margins=0,0,0,0 input=0,0 1842x36
+[2026-05-20 01:27:21.510][INF] [STACKING] [LAYERSHELL] scope=slm-crown layer=OverlayLayer anchors=top|left|right exclusiveZone=36 size=1842x36 margins=0,0,0,0 input=0,0 1842x36
+[slm-shell][2026-05-20 01:27:21.510][INF] [INPUT_REGION] window=SLM Crown Surface size=1842x36 input=0,0 1842x36
+[2026-05-20 01:27:21.510][INF] [INPUT_REGION] window=SLM Crown Surface size=1842x36 input=0,0 1842x36
+[slm-shell][2026-05-20 01:27:21.531][WRN] qrc:/qt/qml/Slm_Desktop/Qml/components/overlay/AppDeckWindow.qml:1547: ReferenceError: gridPointerDismissTimer is not defined
+[2026-05-20 01:27:21.531][WRN] qrc:/qt/qml/Slm_Desktop/Qml/components/overlay/AppDeckWindow.qml:1547: ReferenceError: gridPointerDismissTimer is not defined
+[slm-shell][2026-05-20 01:27:21.532][INF] [APPDECK] [SHELL_POLICY] contentVisible=true sensorOnly=false policy=Normal
+[2026-05-20 01:27:21.532][INF] [APPDECK] [SHELL_POLICY] contentVisible=true sensorOnly=false policy=Normal
+[slm-shell][2026-05-20 01:27:21.532][INF] [APPDECK] [RUNTIME_STATE] reason=sync state=dock mode=apps gridActive=false gridRequested=false policy=Normal policyContent=true hidden=false contentOpacity=0.00 surfaceTarget=0.00 surfaceTransition=0.00 appsTransition=0.00 forceGridInput=false dockInput=0,0 1x10 guards=false pointerArmed=false
+[2026-05-20 01:27:21.532][INF] [APPDECK] [RUNTIME_STATE] reason=sync state=dock mode=apps gridActive=false gridRequested=false policy=Normal policyContent=true hidden=false contentOpacity=0.00 surfaceTarget=0.00 surfaceTransition=0.00 appsTransition=0.00 forceGridInput=false dockInput=0,0 1x10 guards=false pointerArmed=false
+[slm-shell][2026-05-20 01:27:21.532][INF] [APPDECK] [RUNTIME_STATE] reason=sync state=dock mode=apps gridActive=false gridRequested=false policy=Normal policyContent=true hidden=false contentOpacity=0.00 surfaceTarget=0.00 surfaceTransition=0.00 appsTransition=0.00 forceGridInput=false dockInput=0,0 1x10 guards=false pointerArmed=false
+[2026-05-20 01:27:21.532][INF] [APPDECK] [RUNTIME_STATE] reason=sync state=dock mode=apps gridActive=false gridRequested=false policy=Normal policyContent=true hidden=false contentOpacity=0.00 surfaceTarget=0.00 surfaceTransition=0.00 appsTransition=0.00 forceGridInput=false dockInput=0,0 1x10 guards=false pointerArmed=false
+[slm-shell][2026-05-20 01:27:21.532][INF] [APPDECK-HOVER] rendererActive=false acceptsInput=true
+[2026-05-20 01:27:21.532][INF] [APPDECK-HOVER] rendererActive=false acceptsInput=true
+[slm-shell][2026-05-20 01:27:21.535][DBG] [appdeck-pulse] rebuild query="" modelRows=0 navRows=0
+[2026-05-20 01:27:21.535][DBG] [appdeck-pulse] rebuild query="" modelRows=0 navRows=0
+[slm-shell][2026-05-20 01:27:21.548][DBG] [appdeck-pulse] dashboard twoColumn= true width= 0 effectiveWidth= 620 threshold= 620
+[2026-05-20 01:27:21.548][DBG] [appdeck-pulse] dashboard twoColumn= true width= 0 effectiveWidth= 620 threshold= 620
+[slm-shell][2026-05-20 01:27:21.549][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=320 collapsedView.width=320 parent.width=0
+[2026-05-20 01:27:21.549][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=320 collapsedView.width=320 parent.width=0
+[slm-shell][2026-05-20 01:27:21.580][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=356 collapsedView.width=356 parent.width=0
+[2026-05-20 01:27:21.580][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=356 collapsedView.width=356 parent.width=0
+[slm-shell][2026-05-20 01:27:22.048][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=360 collapsedView.width=360 parent.width=0
+[2026-05-20 01:27:22.048][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=360 collapsedView.width=360 parent.width=0
+[slm-shell][2026-05-20 01:27:22.080][INF] [AppDeckWindow] DOCK_CREATED ptr=AppDeckWindow_QMLTYPE_202(0x58fa0e8ebfd0)
+[2026-05-20 01:27:22.080][INF] [AppDeckWindow] DOCK_CREATED ptr=AppDeckWindow_QMLTYPE_202(0x58fa0e8ebfd0)
+[slm-shell][2026-05-20 01:27:22.081][INF] DOCK_BOOTSTRAP layer role bound
+[2026-05-20 01:27:22.081][INF] DOCK_BOOTSTRAP layer role bound
+[slm-shell][2026-05-20 01:27:22.081][INF] [APPDECK] [LAYERSHELL] [SURFACE_READY] prepared layer=TopLayer anchors=bottom|left exclusiveZone=0 scope=slm-appdeck
+[2026-05-20 01:27:22.081][INF] [APPDECK] [LAYERSHELL] [SURFACE_READY] prepared layer=TopLayer anchors=bottom|left exclusiveZone=0 scope=slm-appdeck
+[slm-shell][2026-05-20 01:27:22.081][INF] [APPDECK] [LAYER_STATE] policySurface=true policyContent=true layer=TopLayer
+[2026-05-20 01:27:22.081][INF] [APPDECK] [LAYER_STATE] policySurface=true policyContent=true layer=TopLayer
+[slm-shell][2026-05-20 01:27:22.081][INF] [AppDeck] DOCK_CREATED renderer ptr=AppDeck_QMLTYPE_238(0x58fa0eaaa910) host=appdeck
+[2026-05-20 01:27:22.081][INF] [AppDeck] DOCK_CREATED renderer ptr=AppDeck_QMLTYPE_238(0x58fa0eaaa910) host=appdeck
+[slm-shell][2026-05-20 01:27:22.082][INF] [APPDECK-DOCK-BG] dockTransparent=false visible=true color=#2d2f34 size=360x74 renderEffectsEnabled=false forceTransparentBackground=false ignoreDesktopTransparentSetting=true
+[2026-05-20 01:27:22.082][INF] [APPDECK-DOCK-BG] dockTransparent=false visible=true color=#2d2f34 size=360x74 renderEffectsEnabled=false forceTransparentBackground=false ignoreDesktopTransparentSetting=true
+[slm-shell][2026-05-20 01:27:22.083][DBG] [appdeck-pulse] rebuild query="" modelRows=0 navRows=0
+[2026-05-20 01:27:22.083][DBG] [appdeck-pulse] rebuild query="" modelRows=0 navRows=0
+[slm-shell][2026-05-20 01:27:22.083][DBG] [appdeck-pulse] dashboard init twoColumn= true width= 0 effectiveWidth= 620 threshold= 620
+[2026-05-20 01:27:22.083][DBG] [appdeck-pulse] dashboard init twoColumn= true width= 0 effectiveWidth= 620 threshold= 620
+[slm-shell][2026-05-20 01:27:22.097][INF] DOCK_BOOTSTRAP first configure received serial=0
+[2026-05-20 01:27:22.097][INF] DOCK_BOOTSTRAP first configure received serial=0
+[slm-shell][2026-05-20 01:27:22.098][INF] DOCK_BOOTSTRAP configure acked serial=0
+[2026-05-20 01:27:22.098][INF] DOCK_BOOTSTRAP configure acked serial=0
+[slm-shell][2026-05-20 01:27:22.098][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=370x138 margins=736,0,0,8 input=5,54 360x84
+[2026-05-20 01:27:22.098][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=370x138 margins=736,0,0,8 input=5,54 360x84
+[slm-shell][2026-05-20 01:27:22.098][INF] [APPDECK-HOVER] rendererActive=true acceptsInput=true
+[2026-05-20 01:27:22.098][INF] [APPDECK-HOVER] rendererActive=true acceptsInput=true
+[slm-shell][2026-05-20 01:27:22.098][INF] DOCK_BOOTSTRAP readyToRender=true
+[2026-05-20 01:27:22.098][INF] DOCK_BOOTSTRAP readyToRender=true
+[slm-shell][2026-05-20 01:27:22.098][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[2026-05-20 01:27:22.098][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[slm-shell][2026-05-20 01:27:22.107][INF] [APPDECK] [RUNTIME_STATE] reason=post-sync state=dock mode=apps gridActive=false gridRequested=false policy=Normal policyContent=true hidden=false contentOpacity=1.00 surfaceTarget=0.00 surfaceTransition=0.00 appsTransition=0.00 forceGridInput=false dockInput=0,0 360x84 guards=false pointerArmed=false
+[2026-05-20 01:27:22.107][INF] [APPDECK] [RUNTIME_STATE] reason=post-sync state=dock mode=apps gridActive=false gridRequested=false policy=Normal policyContent=true hidden=false contentOpacity=1.00 surfaceTarget=0.00 surfaceTransition=0.00 appsTransition=0.00 forceGridInput=false dockInput=0,0 360x84 guards=false pointerArmed=false
+[slm-shell][2026-05-20 01:27:22.107][INF] [APPDECK] [RUNTIME_STATE] reason=post-sync state=dock mode=apps gridActive=false gridRequested=false policy=Normal policyContent=true hidden=false contentOpacity=1.00 surfaceTarget=0.00 surfaceTransition=0.00 appsTransition=0.00 forceGridInput=false dockInput=0,0 360x84 guards=false pointerArmed=false
+[2026-05-20 01:27:22.107][INF] [APPDECK] [RUNTIME_STATE] reason=post-sync state=dock mode=apps gridActive=false gridRequested=false policy=Normal policyContent=true hidden=false contentOpacity=1.00 surfaceTarget=0.00 surfaceTransition=0.00 appsTransition=0.00 forceGridInput=false dockInput=0,0 360x84 guards=false pointerArmed=false
+[slm-shell][2026-05-20 01:27:22.107][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=370x138 margins=736,0,0,8 input=5,54 360x84
+[2026-05-20 01:27:22.107][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=370x138 margins=736,0,0,8 input=5,54 360x84
+[slm-shell][2026-05-20 01:27:22.269][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=370x138 margins=736,0,0,8 input=5,54 360x84
+[2026-05-20 01:27:22.269][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=370x138 margins=736,0,0,8 input=5,54 360x84
+[slm-shell][2026-05-20 01:27:22.271][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=370x138 margins=736,0,0,8 input=5,54 360x84
+[2026-05-20 01:27:22.271][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=370x138 margins=736,0,0,8 input=5,54 360x84
+[slm-shell][2026-05-20 01:27:22.271][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[2026-05-20 01:27:22.271][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[slm-shell][2026-05-20 01:27:22.290][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=370x138 margins=736,0,0,8 input=5,54 360x84
+[2026-05-20 01:27:22.290][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=370x138 margins=736,0,0,8 input=5,54 360x84
+[slm-shell][2026-05-20 01:27:22.290][INF] [INPUT_REGION] window=SLM AppDeck Surface size=370x138 input=5,54 360x84
+[2026-05-20 01:27:22.290][INF] [INPUT_REGION] window=SLM AppDeck Surface size=370x138 input=5,54 360x84
+[slm-shell][2026-05-20 01:27:22.693][INF] [NOTIFY] [SHELL_POLICY] notificationsAllowed=true centerAllowed=true compact=false policy=Normal
+[2026-05-20 01:27:22.693][INF] [NOTIFY] [SHELL_POLICY] notificationsAllowed=true centerAllowed=true compact=false policy=Normal
+[slm-shell][2026-05-20 01:27:22.694][INF] [NOTIFY] [LAYERSHELL] [SURFACE_READY] prepared layer=OverlayLayer anchors=top|right exclusiveZone=0 scope=slm-notifyd
+[2026-05-20 01:27:22.694][INF] [NOTIFY] [LAYERSHELL] [SURFACE_READY] prepared layer=OverlayLayer anchors=top|right exclusiveZone=0 scope=slm-notifyd
+[slm-shell][2026-05-20 01:27:22.821][WRN] [APPDECK] transitionLockTimer reset surfaceTransition=0.000
+[2026-05-20 01:27:22.821][WRN] [APPDECK] transitionLockTimer reset surfaceTransition=0.000
+[slm-shell][2026-05-20 01:27:23.761][INF] SLM-SHELL: deferred service bootstrap started (count=5)
+[2026-05-20 01:27:23.761][INF] SLM-SHELL: deferred service bootstrap started (count=5)
+[slm-shell][2026-05-20 01:27:26.346][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=361x138 margins=741,0,0,8 input=5,54 351x84
+[2026-05-20 01:27:26.346][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=361x138 margins=741,0,0,8 input=5,54 351x84
+[slm-shell][2026-05-20 01:27:26.346][INF] [INPUT_REGION] window=SLM AppDeck Surface size=361x138 input=5,54 351x84
+[2026-05-20 01:27:26.346][INF] [INPUT_REGION] window=SLM AppDeck Surface size=361x138 input=5,54 351x84
+[slm-shell][2026-05-20 01:27:26.348][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=351.14752 collapsedView.width=351.14752 parent.width=361
+[2026-05-20 01:27:26.348][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=351.14752 collapsedView.width=351.14752 parent.width=361
+[slm-shell][2026-05-20 01:27:26.348][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[2026-05-20 01:27:26.348][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[slm-shell][2026-05-20 01:27:26.363][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=353x138 margins=745,0,0,8 input=5,54 343x84
+[2026-05-20 01:27:26.363][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=353x138 margins=745,0,0,8 input=5,54 343x84
+[slm-shell][2026-05-20 01:27:26.363][INF] [INPUT_REGION] window=SLM AppDeck Surface size=353x138 input=5,54 343x84
+[2026-05-20 01:27:26.363][INF] [INPUT_REGION] window=SLM AppDeck Surface size=353x138 input=5,54 343x84
+[slm-shell][2026-05-20 01:27:26.365][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=343.287315 collapsedView.width=343.287315 parent.width=353
+[2026-05-20 01:27:26.365][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=343.287315 collapsedView.width=343.287315 parent.width=353
+[slm-shell][2026-05-20 01:27:26.366][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[2026-05-20 01:27:26.366][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[slm-shell][2026-05-20 01:27:26.379][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=347x138 margins=748,0,0,8 input=5,54 337x84
+[2026-05-20 01:27:26.379][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=347x138 margins=748,0,0,8 input=5,54 337x84
+[slm-shell][2026-05-20 01:27:26.379][INF] [INPUT_REGION] window=SLM AppDeck Surface size=347x138 input=5,54 337x84
+[2026-05-20 01:27:26.379][INF] [INPUT_REGION] window=SLM AppDeck Surface size=347x138 input=5,54 337x84
+[slm-shell][2026-05-20 01:27:26.382][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=337.214755 collapsedView.width=337.214755 parent.width=347
+[2026-05-20 01:27:26.382][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=337.214755 collapsedView.width=337.214755 parent.width=347
+[slm-shell][2026-05-20 01:27:26.383][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[2026-05-20 01:27:26.383][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[slm-shell][2026-05-20 01:27:26.394][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=343x138 margins=750,0,0,8 input=5,54 333x84
+[2026-05-20 01:27:26.394][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=343x138 margins=750,0,0,8 input=5,54 333x84
+[slm-shell][2026-05-20 01:27:26.395][INF] [INPUT_REGION] window=SLM AppDeck Surface size=343x138 input=5,54 333x84
+[2026-05-20 01:27:26.395][INF] [INPUT_REGION] window=SLM AppDeck Surface size=343x138 input=5,54 333x84
+[slm-shell][2026-05-20 01:27:26.397][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=332.57728 collapsedView.width=332.57728 parent.width=343
+[2026-05-20 01:27:26.397][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=332.57728 collapsedView.width=332.57728 parent.width=343
+[slm-shell][2026-05-20 01:27:26.398][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[2026-05-20 01:27:26.398][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[slm-shell][2026-05-20 01:27:26.411][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=338x138 margins=752,0,0,8 input=5,54 328x84
+[2026-05-20 01:27:26.411][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=338x138 margins=752,0,0,8 input=5,54 328x84
+[slm-shell][2026-05-20 01:27:26.412][INF] [INPUT_REGION] window=SLM AppDeck Surface size=338x138 input=5,54 328x84
+[2026-05-20 01:27:26.412][INF] [INPUT_REGION] window=SLM AppDeck Surface size=338x138 input=5,54 328x84
+[slm-shell][2026-05-20 01:27:26.414][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=328.425795 collapsedView.width=328.425795 parent.width=338
+[2026-05-20 01:27:26.414][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=328.425795 collapsedView.width=328.425795 parent.width=338
+[slm-shell][2026-05-20 01:27:26.416][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[2026-05-20 01:27:26.416][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[slm-shell][2026-05-20 01:27:26.427][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=336x138 margins=753,0,0,8 input=5,54 326x84
+[2026-05-20 01:27:26.427][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=336x138 margins=753,0,0,8 input=5,54 326x84
+[slm-shell][2026-05-20 01:27:26.427][INF] [INPUT_REGION] window=SLM AppDeck Surface size=336x138 input=5,54 326x84
+[2026-05-20 01:27:26.427][INF] [INPUT_REGION] window=SLM AppDeck Surface size=336x138 input=5,54 326x84
+[slm-shell][2026-05-20 01:27:26.430][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=325.62432 collapsedView.width=325.62432 parent.width=336
+[2026-05-20 01:27:26.430][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=325.62432 collapsedView.width=325.62432 parent.width=336
+[slm-shell][2026-05-20 01:27:26.431][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[2026-05-20 01:27:26.431][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[slm-shell][2026-05-20 01:27:26.443][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=333x138 margins=755,0,0,8 input=5,54 323x84
+[2026-05-20 01:27:26.443][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=333x138 margins=755,0,0,8 input=5,54 323x84
+[slm-shell][2026-05-20 01:27:26.443][INF] [INPUT_REGION] window=SLM AppDeck Surface size=333x138 input=5,54 323x84
+[2026-05-20 01:27:26.443][INF] [INPUT_REGION] window=SLM AppDeck Surface size=333x138 input=5,54 323x84
+[slm-shell][2026-05-20 01:27:26.446][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=323.40736 collapsedView.width=323.40736 parent.width=333
+[2026-05-20 01:27:26.446][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=323.40736 collapsedView.width=323.40736 parent.width=333
+[slm-shell][2026-05-20 01:27:26.447][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[2026-05-20 01:27:26.447][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[slm-shell][2026-05-20 01:27:26.459][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=332x138 margins=755,0,0,8 input=5,54 322x84
+[2026-05-20 01:27:26.459][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=332x138 margins=755,0,0,8 input=5,54 322x84
+[slm-shell][2026-05-20 01:27:26.459][INF] [INPUT_REGION] window=SLM AppDeck Surface size=332x138 input=5,54 322x84
+[2026-05-20 01:27:26.459][INF] [INPUT_REGION] window=SLM AppDeck Surface size=332x138 input=5,54 322x84
+[slm-shell][2026-05-20 01:27:26.462][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=321.86624 collapsedView.width=321.86624 parent.width=332
+[2026-05-20 01:27:26.462][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=321.86624 collapsedView.width=321.86624 parent.width=332
+[slm-shell][2026-05-20 01:27:26.463][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[2026-05-20 01:27:26.463][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[slm-shell][2026-05-20 01:27:26.475][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=331x138 margins=756,0,0,8 input=5,54 321x84
+[2026-05-20 01:27:26.475][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=331x138 margins=756,0,0,8 input=5,54 321x84
+[slm-shell][2026-05-20 01:27:26.475][INF] [INPUT_REGION] window=SLM AppDeck Surface size=331x138 input=5,54 321x84
+[2026-05-20 01:27:26.475][INF] [INPUT_REGION] window=SLM AppDeck Surface size=331x138 input=5,54 321x84
+[slm-shell][2026-05-20 01:27:26.483][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=320.87808 collapsedView.width=320.87808 parent.width=331
+[2026-05-20 01:27:26.483][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=320.87808 collapsedView.width=320.87808 parent.width=331
+[slm-shell][2026-05-20 01:27:26.484][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[2026-05-20 01:27:26.484][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[slm-shell][2026-05-20 01:27:26.491][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=330x138 margins=756,0,0,8 input=5,54 320x84
+[2026-05-20 01:27:26.491][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=330x138 margins=756,0,0,8 input=5,54 320x84
+[slm-shell][2026-05-20 01:27:26.491][INF] [INPUT_REGION] window=SLM AppDeck Surface size=330x138 input=5,54 320x84
+[2026-05-20 01:27:26.491][INF] [INPUT_REGION] window=SLM AppDeck Surface size=330x138 input=5,54 320x84
+[slm-shell][2026-05-20 01:27:26.493][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=320.32 collapsedView.width=320.32 parent.width=330
+[2026-05-20 01:27:26.493][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=320.32 collapsedView.width=320.32 parent.width=330
+[slm-shell][2026-05-20 01:27:26.495][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[2026-05-20 01:27:26.495][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[slm-shell][2026-05-20 01:27:26.506][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=320.060835 collapsedView.width=320.060835 parent.width=330
+[2026-05-20 01:27:26.506][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=320.060835 collapsedView.width=320.060835 parent.width=330
+[slm-shell][2026-05-20 01:27:26.522][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=320.001715 collapsedView.width=320.001715 parent.width=330
+[2026-05-20 01:27:26.522][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=320.001715 collapsedView.width=320.001715 parent.width=330
+[slm-shell][2026-05-20 01:27:26.538][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=320 collapsedView.width=320 parent.width=330
+[2026-05-20 01:27:26.538][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=320 collapsedView.width=320 parent.width=330
+[slm-shell][2026-05-20 01:27:45.947][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=331x138 margins=756,0,0,8 input=5,54 321x84
+[2026-05-20 01:27:45.947][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=331x138 margins=756,0,0,8 input=5,54 321x84
+[slm-shell][2026-05-20 01:27:45.947][INF] [INPUT_REGION] window=SLM AppDeck Surface size=331x138 input=5,54 321x84
+[2026-05-20 01:27:45.947][INF] [INPUT_REGION] window=SLM AppDeck Surface size=331x138 input=5,54 321x84
+[slm-shell][2026-05-20 01:27:45.948][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=320.597005 collapsedView.width=320.597005 parent.width=331
+[2026-05-20 01:27:45.948][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=320.597005 collapsedView.width=320.597005 parent.width=331
+[slm-shell][2026-05-20 01:27:45.949][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[2026-05-20 01:27:45.949][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[slm-shell][2026-05-20 01:27:45.963][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=339x138 margins=752,0,0,8 input=5,54 329x84
+[2026-05-20 01:27:45.963][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=339x138 margins=752,0,0,8 input=5,54 329x84
+[slm-shell][2026-05-20 01:27:45.963][INF] [INPUT_REGION] window=SLM AppDeck Surface size=339x138 input=5,54 329x84
+[2026-05-20 01:27:45.963][INF] [INPUT_REGION] window=SLM AppDeck Surface size=339x138 input=5,54 329x84
+[slm-shell][2026-05-20 01:27:45.966][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=329.357565 collapsedView.width=329.357565 parent.width=339
+[2026-05-20 01:27:45.966][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=329.357565 collapsedView.width=329.357565 parent.width=339
+[slm-shell][2026-05-20 01:27:45.967][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[2026-05-20 01:27:45.967][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[slm-shell][2026-05-20 01:27:45.979][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=347x138 margins=748,0,0,8 input=5,54 337x84
+[2026-05-20 01:27:45.979][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=347x138 margins=748,0,0,8 input=5,54 337x84
+[slm-shell][2026-05-20 01:27:45.979][INF] [INPUT_REGION] window=SLM AppDeck Surface size=347x138 input=5,54 337x84
+[2026-05-20 01:27:45.979][INF] [INPUT_REGION] window=SLM AppDeck Surface size=347x138 input=5,54 337x84
+[slm-shell][2026-05-20 01:27:45.982][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=336.712685 collapsedView.width=336.712685 parent.width=347
+[2026-05-20 01:27:45.982][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=336.712685 collapsedView.width=336.712685 parent.width=347
+[slm-shell][2026-05-20 01:27:45.984][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[2026-05-20 01:27:45.984][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[slm-shell][2026-05-20 01:27:45.996][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=353x138 margins=745,0,0,8 input=5,54 343x84
+[2026-05-20 01:27:45.996][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=353x138 margins=745,0,0,8 input=5,54 343x84
+[slm-shell][2026-05-20 01:27:45.996][INF] [INPUT_REGION] window=SLM AppDeck Surface size=353x138 input=5,54 343x84
+[2026-05-20 01:27:45.996][INF] [INPUT_REGION] window=SLM AppDeck Surface size=353x138 input=5,54 343x84
+[slm-shell][2026-05-20 01:27:45.998][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=342.785245 collapsedView.width=342.785245 parent.width=353
+[2026-05-20 01:27:45.998][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=342.785245 collapsedView.width=342.785245 parent.width=353
+[slm-shell][2026-05-20 01:27:45.999][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[2026-05-20 01:27:45.999][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[slm-shell][2026-05-20 01:27:46.012][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=358x138 margins=742,0,0,8 input=5,54 348x84
+[2026-05-20 01:27:46.012][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=358x138 margins=742,0,0,8 input=5,54 348x84
+[slm-shell][2026-05-20 01:27:46.012][INF] [INPUT_REGION] window=SLM AppDeck Surface size=358x138 input=5,54 348x84
+[2026-05-20 01:27:46.012][INF] [INPUT_REGION] window=SLM AppDeck Surface size=358x138 input=5,54 348x84
+[slm-shell][2026-05-20 01:27:46.014][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=347.698125 collapsedView.width=347.698125 parent.width=358
+[2026-05-20 01:27:46.014][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=347.698125 collapsedView.width=347.698125 parent.width=358
+[slm-shell][2026-05-20 01:27:46.016][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[2026-05-20 01:27:46.016][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[slm-shell][2026-05-20 01:27:46.027][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=362x138 margins=740,0,0,8 input=5,54 352x84
+[2026-05-20 01:27:46.027][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=362x138 margins=740,0,0,8 input=5,54 352x84
+[slm-shell][2026-05-20 01:27:46.027][INF] [INPUT_REGION] window=SLM AppDeck Surface size=362x138 input=5,54 352x84
+[2026-05-20 01:27:46.027][INF] [INPUT_REGION] window=SLM AppDeck Surface size=362x138 input=5,54 352x84
+[slm-shell][2026-05-20 01:27:46.030][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=351.574205 collapsedView.width=351.574205 parent.width=362
+[2026-05-20 01:27:46.030][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=351.574205 collapsedView.width=351.574205 parent.width=362
+[slm-shell][2026-05-20 01:27:46.031][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[2026-05-20 01:27:46.031][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[slm-shell][2026-05-20 01:27:46.043][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=365x138 margins=739,0,0,8 input=5,54 355x84
+[2026-05-20 01:27:46.043][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=365x138 margins=739,0,0,8 input=5,54 355x84
+[slm-shell][2026-05-20 01:27:46.043][INF] [INPUT_REGION] window=SLM AppDeck Surface size=365x138 input=5,54 355x84
+[2026-05-20 01:27:46.043][INF] [INPUT_REGION] window=SLM AppDeck Surface size=365x138 input=5,54 355x84
+[slm-shell][2026-05-20 01:27:46.046][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=354.536365 collapsedView.width=354.536365 parent.width=365
+[2026-05-20 01:27:46.046][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=354.536365 collapsedView.width=354.536365 parent.width=365
+[slm-shell][2026-05-20 01:27:46.047][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[2026-05-20 01:27:46.047][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[slm-shell][2026-05-20 01:27:46.060][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=367x138 margins=738,0,0,8 input=5,54 357x84
+[2026-05-20 01:27:46.060][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=367x138 margins=738,0,0,8 input=5,54 357x84
+[slm-shell][2026-05-20 01:27:46.060][INF] [INPUT_REGION] window=SLM AppDeck Surface size=367x138 input=5,54 357x84
+[2026-05-20 01:27:46.060][INF] [INPUT_REGION] window=SLM AppDeck Surface size=367x138 input=5,54 357x84
+[slm-shell][2026-05-20 01:27:46.063][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=356.707485 collapsedView.width=356.707485 parent.width=367
+[2026-05-20 01:27:46.063][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=356.707485 collapsedView.width=356.707485 parent.width=367
+[slm-shell][2026-05-20 01:27:46.064][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[2026-05-20 01:27:46.064][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[slm-shell][2026-05-20 01:27:46.075][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=368x138 margins=737,0,0,8 input=5,54 358x84
+[2026-05-20 01:27:46.075][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=368x138 margins=737,0,0,8 input=5,54 358x84
+[slm-shell][2026-05-20 01:27:46.075][INF] [INPUT_REGION] window=SLM AppDeck Surface size=368x138 input=5,54 358x84
+[2026-05-20 01:27:46.075][INF] [INPUT_REGION] window=SLM AppDeck Surface size=368x138 input=5,54 358x84
+[slm-shell][2026-05-20 01:27:46.080][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=358.210445 collapsedView.width=358.210445 parent.width=368
+[2026-05-20 01:27:46.080][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=358.210445 collapsedView.width=358.210445 parent.width=368
+[slm-shell][2026-05-20 01:27:46.081][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[2026-05-20 01:27:46.081][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[slm-shell][2026-05-20 01:27:46.092][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=369x138 margins=737,0,0,8 input=5,54 359x84
+[2026-05-20 01:27:46.092][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=369x138 margins=737,0,0,8 input=5,54 359x84
+[slm-shell][2026-05-20 01:27:46.092][INF] [INPUT_REGION] window=SLM AppDeck Surface size=369x138 input=5,54 359x84
+[2026-05-20 01:27:46.092][INF] [INPUT_REGION] window=SLM AppDeck Surface size=369x138 input=5,54 359x84
+[slm-shell][2026-05-20 01:27:46.096][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=359.168125 collapsedView.width=359.168125 parent.width=369
+[2026-05-20 01:27:46.096][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=359.168125 collapsedView.width=359.168125 parent.width=369
+[slm-shell][2026-05-20 01:27:46.099][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[2026-05-20 01:27:46.099][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[slm-shell][2026-05-20 01:27:46.106][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=370x138 margins=736,0,0,8 input=5,54 360x84
+[2026-05-20 01:27:46.106][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=370x138 margins=736,0,0,8 input=5,54 360x84
+[slm-shell][2026-05-20 01:27:46.106][INF] [INPUT_REGION] window=SLM AppDeck Surface size=370x138 input=5,54 360x84
+[2026-05-20 01:27:46.106][INF] [INPUT_REGION] window=SLM AppDeck Surface size=370x138 input=5,54 360x84
+[slm-shell][2026-05-20 01:27:46.108][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=359.703405 collapsedView.width=359.703405 parent.width=370
+[2026-05-20 01:27:46.108][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=359.703405 collapsedView.width=359.703405 parent.width=370
+[slm-shell][2026-05-20 01:27:46.108][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[2026-05-20 01:27:46.108][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[slm-shell][2026-05-20 01:27:46.123][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=359.939165 collapsedView.width=359.939165 parent.width=370
+[2026-05-20 01:27:46.123][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=359.939165 collapsedView.width=359.939165 parent.width=370
+[slm-shell][2026-05-20 01:27:46.139][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=359.998285 collapsedView.width=359.998285 parent.width=370
+[2026-05-20 01:27:46.139][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=359.998285 collapsedView.width=359.998285 parent.width=370
+[slm-shell][2026-05-20 01:27:46.154][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=360 collapsedView.width=360 parent.width=370
+[2026-05-20 01:27:46.154][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=360 collapsedView.width=360 parent.width=370
+[slm-shell][2026-05-20 01:27:46.642][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=361x138 margins=741,0,0,8 input=5,54 351x84
+[2026-05-20 01:27:46.642][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=361x138 margins=741,0,0,8 input=5,54 351x84
+[slm-shell][2026-05-20 01:27:46.642][INF] [INPUT_REGION] window=SLM AppDeck Surface size=361x138 input=5,54 351x84
+[2026-05-20 01:27:46.642][INF] [INPUT_REGION] window=SLM AppDeck Surface size=361x138 input=5,54 351x84
+[slm-shell][2026-05-20 01:27:46.645][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=350.642435 collapsedView.width=350.642435 parent.width=361
+[2026-05-20 01:27:46.645][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=350.642435 collapsedView.width=350.642435 parent.width=361
+[slm-shell][2026-05-20 01:27:46.646][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[2026-05-20 01:27:46.646][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[slm-shell][2026-05-20 01:27:46.658][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=353x138 margins=745,0,0,8 input=5,54 343x84
+[2026-05-20 01:27:46.658][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=353x138 margins=745,0,0,8 input=5,54 343x84
+[slm-shell][2026-05-20 01:27:46.658][INF] [INPUT_REGION] window=SLM AppDeck Surface size=353x138 input=5,54 343x84
+[2026-05-20 01:27:46.658][INF] [INPUT_REGION] window=SLM AppDeck Surface size=353x138 input=5,54 343x84
+[slm-shell][2026-05-20 01:27:46.661][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=343.287315 collapsedView.width=343.287315 parent.width=353
+[2026-05-20 01:27:46.661][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=343.287315 collapsedView.width=343.287315 parent.width=353
+[slm-shell][2026-05-20 01:27:46.661][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[2026-05-20 01:27:46.661][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[slm-shell][2026-05-20 01:27:46.674][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=347x138 margins=748,0,0,8 input=5,54 337x84
+[2026-05-20 01:27:46.674][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=347x138 margins=748,0,0,8 input=5,54 337x84
+[slm-shell][2026-05-20 01:27:46.674][INF] [INPUT_REGION] window=SLM AppDeck Surface size=347x138 input=5,54 337x84
+[2026-05-20 01:27:46.674][INF] [INPUT_REGION] window=SLM AppDeck Surface size=347x138 input=5,54 337x84
+[slm-shell][2026-05-20 01:27:46.677][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=337.214755 collapsedView.width=337.214755 parent.width=347
+[2026-05-20 01:27:46.677][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=337.214755 collapsedView.width=337.214755 parent.width=347
+[slm-shell][2026-05-20 01:27:46.677][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[2026-05-20 01:27:46.677][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[slm-shell][2026-05-20 01:27:46.691][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=342x138 margins=750,0,0,8 input=5,54 332x84
+[2026-05-20 01:27:46.691][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=342x138 margins=750,0,0,8 input=5,54 332x84
+[slm-shell][2026-05-20 01:27:46.691][INF] [INPUT_REGION] window=SLM AppDeck Surface size=342x138 input=5,54 332x84
+[2026-05-20 01:27:46.691][INF] [INPUT_REGION] window=SLM AppDeck Surface size=342x138 input=5,54 332x84
+[slm-shell][2026-05-20 01:27:46.693][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=332.03052 collapsedView.width=332.03052 parent.width=342
+[2026-05-20 01:27:46.693][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=332.03052 collapsedView.width=332.03052 parent.width=342
+[slm-shell][2026-05-20 01:27:46.693][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[2026-05-20 01:27:46.693][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[slm-shell][2026-05-20 01:27:46.706][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=338x138 margins=752,0,0,8 input=5,54 328x84
+[2026-05-20 01:27:46.706][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=338x138 margins=752,0,0,8 input=5,54 328x84
+[slm-shell][2026-05-20 01:27:46.706][INF] [INPUT_REGION] window=SLM AppDeck Surface size=338x138 input=5,54 328x84
+[2026-05-20 01:27:46.706][INF] [INPUT_REGION] window=SLM AppDeck Surface size=338x138 input=5,54 328x84
+[slm-shell][2026-05-20 01:27:46.708][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=328.425795 collapsedView.width=328.425795 parent.width=338
+[2026-05-20 01:27:46.708][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=328.425795 collapsedView.width=328.425795 parent.width=338
+[slm-shell][2026-05-20 01:27:46.709][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[2026-05-20 01:27:46.709][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[slm-shell][2026-05-20 01:27:46.722][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=335x138 margins=754,0,0,8 input=5,54 325x84
+[2026-05-20 01:27:46.722][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=335x138 margins=754,0,0,8 input=5,54 325x84
+[slm-shell][2026-05-20 01:27:46.723][INF] [INPUT_REGION] window=SLM AppDeck Surface size=335x138 input=5,54 325x84
+[2026-05-20 01:27:46.723][INF] [INPUT_REGION] window=SLM AppDeck Surface size=335x138 input=5,54 325x84
+[slm-shell][2026-05-20 01:27:46.725][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=325.463635 collapsedView.width=325.463635 parent.width=335
+[2026-05-20 01:27:46.725][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=325.463635 collapsedView.width=325.463635 parent.width=335
+[slm-shell][2026-05-20 01:27:46.726][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[2026-05-20 01:27:46.726][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[slm-shell][2026-05-20 01:27:46.739][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=333x138 margins=755,0,0,8 input=5,54 323x84
+[2026-05-20 01:27:46.739][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=333x138 margins=755,0,0,8 input=5,54 323x84
+[slm-shell][2026-05-20 01:27:46.739][INF] [INPUT_REGION] window=SLM AppDeck Surface size=333x138 input=5,54 323x84
+[2026-05-20 01:27:46.739][INF] [INPUT_REGION] window=SLM AppDeck Surface size=333x138 input=5,54 323x84
+[slm-shell][2026-05-20 01:27:46.741][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=323.292515 collapsedView.width=323.292515 parent.width=333
+[2026-05-20 01:27:46.741][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=323.292515 collapsedView.width=323.292515 parent.width=333
+[slm-shell][2026-05-20 01:27:46.741][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[2026-05-20 01:27:46.741][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[slm-shell][2026-05-20 01:27:46.755][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=332x138 margins=755,0,0,8 input=5,54 322x84
+[2026-05-20 01:27:46.755][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=332x138 margins=755,0,0,8 input=5,54 322x84
+[slm-shell][2026-05-20 01:27:46.755][INF] [INPUT_REGION] window=SLM AppDeck Surface size=332x138 input=5,54 322x84
+[2026-05-20 01:27:46.755][INF] [INPUT_REGION] window=SLM AppDeck Surface size=332x138 input=5,54 322x84
+[slm-shell][2026-05-20 01:27:46.757][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=321.789555 collapsedView.width=321.789555 parent.width=332
+[2026-05-20 01:27:46.757][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=321.789555 collapsedView.width=321.789555 parent.width=332
+[slm-shell][2026-05-20 01:27:46.759][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[2026-05-20 01:27:46.759][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[slm-shell][2026-05-20 01:27:46.771][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=331x138 margins=756,0,0,8 input=5,54 321x84
+[2026-05-20 01:27:46.771][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=331x138 margins=756,0,0,8 input=5,54 321x84
+[slm-shell][2026-05-20 01:27:46.771][INF] [INPUT_REGION] window=SLM AppDeck Surface size=331x138 input=5,54 321x84
+[2026-05-20 01:27:46.771][INF] [INPUT_REGION] window=SLM AppDeck Surface size=331x138 input=5,54 321x84
+[slm-shell][2026-05-20 01:27:46.780][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=320.831875 collapsedView.width=320.831875 parent.width=331
+[2026-05-20 01:27:46.780][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=320.831875 collapsedView.width=320.831875 parent.width=331
+[slm-shell][2026-05-20 01:27:46.784][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[2026-05-20 01:27:46.784][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[slm-shell][2026-05-20 01:27:46.790][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=330x138 margins=756,0,0,8 input=5,54 320x84
+[2026-05-20 01:27:46.790][INF] [STACKING] [LAYERSHELL] scope=slm-appdeck layer=TopLayer anchors=bottom|left exclusiveZone=0 size=330x138 margins=756,0,0,8 input=5,54 320x84
+[slm-shell][2026-05-20 01:27:46.790][INF] [INPUT_REGION] window=SLM AppDeck Surface size=330x138 input=5,54 320x84
+[2026-05-20 01:27:46.790][INF] [INPUT_REGION] window=SLM AppDeck Surface size=330x138 input=5,54 320x84
+[slm-shell][2026-05-20 01:27:46.792][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=320.214375 collapsedView.width=320.214375 parent.width=330
+[2026-05-20 01:27:46.792][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=320.214375 collapsedView.width=320.214375 parent.width=330
+[slm-shell][2026-05-20 01:27:46.792][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[2026-05-20 01:27:46.792][INF] [SURFACE_READY] [LAYERSHELL] window=SLM AppDeck Surface layer=TopLayer
+[slm-shell][2026-05-20 01:27:46.801][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=320.060835 collapsedView.width=320.060835 parent.width=330
+[2026-05-20 01:27:46.801][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=320.060835 collapsedView.width=320.060835 parent.width=330
+[slm-shell][2026-05-20 01:27:46.817][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=320.001715 collapsedView.width=320.001715 parent.width=330
+[2026-05-20 01:27:46.817][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=320.001715 collapsedView.width=320.001715 parent.width=330
+[slm-shell][2026-05-20 01:27:46.834][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=320 collapsedView.width=320 parent.width=330
+[2026-05-20 01:27:46.834][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=320 collapsedView.width=320 parent.width=330

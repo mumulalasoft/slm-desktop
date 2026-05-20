@@ -27,6 +27,7 @@ QtObject {
         readonly property bool toTheSpotVisible:         ShellStateController ? ShellStateController.toTheSpotVisible : false
         readonly property bool notificationsVisible:     ShellStateController ? ShellStateController.notificationsVisible : false
         readonly property bool styleGalleryVisible:      ShellStateController ? ShellStateController.styleGalleryVisible : false
+        readonly property bool topOverlayActive:         ShellStateController ? ShellStateController.topOverlayActive : false
         readonly property bool anyVisible:               ShellStateController ? ShellStateController.anyOverlayVisible : false
     }
 
@@ -57,6 +58,7 @@ QtObject {
     readonly property bool workspaceOverviewVisible: overlayState.overviewVisible
     readonly property bool toTheSpotVisible:         overlayState.toTheSpotVisible
     readonly property bool styleGalleryVisible:      overlayState.styleGalleryVisible
+    readonly property bool topOverlayActive:         overlayState.topOverlayActive
     readonly property bool showDesktop:              modeState.showDesktop
     readonly property bool anyOverlayVisible:        overlayState.anyVisible
 

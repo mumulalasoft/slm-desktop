@@ -6,16 +6,16 @@
 struct BindingDescriptor
 {
     enum class Kind {
-        Invalid,
         GSettings,
         NetworkManagerState,
         NetworkManagerProperty,
         DBusProperty,
         DBusMethod,
         LocalSettings,
+        Desktop,
         Unsupported,
-    };
-
+        Invalid
+        };
     Kind kind = Kind::Invalid;
     QString original;
     QString scheme;

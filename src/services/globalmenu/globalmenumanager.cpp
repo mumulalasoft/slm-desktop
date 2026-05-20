@@ -351,6 +351,24 @@ void GlobalMenuManager::refresh()
         }
     }
 
+    // Transient focus/window glitches (e.g., popup layers) can temporarily make
+    // active-window lookup fail even though the focused app menu is still valid.
+    // Keep the last non-fallback app menu binding when it can still be queried.
+    if (!m_available
+        && !m_lastActiveAppId.isEmpty()
+        && !oldService.isEmpty()
+        && !oldPath.isEmpty()
+        && oldService != QString::fromLatin1(kSlmMenuService)) {
+        const QVariantList stickyRows = queryTopLevelMenus(oldService, oldPath);
+        if (!stickyRows.isEmpty()) {
+            m_activeMenuService = oldService;
+            m_activeMenuPath = oldPath;
+            m_topLevelMenus = stickyRows;
+            m_available = true;
+            m_lastSelectionSource = QStringLiteral("sticky-last-app");
+        }
+    }
+
     if (oldService != m_activeMenuService || oldPath != m_activeMenuPath) {
         // Focus/app changed: invalidate stale submenu rows for both old and new active bindings.
         invalidateMenuCache(oldService, oldPath);
@@ -363,25 +381,8 @@ void GlobalMenuManager::refresh()
         unbindActiveMenuSignals();
     }
 
-    if (!m_available) {
-        QDBusInterface slmMenu(QString::fromLatin1(kSlmMenuService),
-                               QString::fromLatin1(kSlmMenuPath),
-                               QString::fromLatin1(kSlmMenuIface),
-                               QDBusConnection::sessionBus());
-        if (slmMenu.isValid()) {
-            QDBusReply<QVariantList> menusReply = slmMenu.call(QStringLiteral("GetTopLevelMenus"));
-            if (menusReply.isValid()) {
-                const QVariantList rows = menusReply.value();
-                if (!rows.isEmpty()) {
-                    m_activeMenuService = QString::fromLatin1(kSlmMenuService);
-                    m_activeMenuPath = QString::fromLatin1(kSlmMenuPath);
-                    m_topLevelMenus = rows;
-                    m_available = true;
-                    m_lastSelectionSource = QStringLiteral("slm-fallback");
-                }
-            }
-        }
-    }
+    // Intentionally no SLM default fallback:
+    // Global Menu must reflect app-provided menu only, otherwise stay empty.
 
     if (oldAvailable != m_available ||
         oldMenus != m_topLevelMenus ||

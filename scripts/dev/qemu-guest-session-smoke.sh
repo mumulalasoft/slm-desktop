@@ -595,7 +595,7 @@ for log_path in "${REQUIRED_LOGS[@]}" "${OPTIONAL_LOGS[@]}"; do
 done
 
 PROCESS_MATCHES=0
-REQUIRED_PROCESSES=(greetd slm-session-broker slm-watchdog slm-shell slm-portald xdg-desktop-portal)
+REQUIRED_PROCESSES=(greetd slm-session-broker slm-watchdog slm-shell slm-portald slm-sharingd xdg-desktop-portal)
 OPTIONAL_PROCESSES=(cage slm-greeter slm-desktop)
 for pattern in "${REQUIRED_PROCESSES[@]}" "${OPTIONAL_PROCESSES[@]}"; do
     if pgrep -af "$pattern" >"$ARTIFACT_DIR/proc-${pattern}.log" 2>&1; then

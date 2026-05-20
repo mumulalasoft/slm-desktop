@@ -15,6 +15,7 @@ bool ShellStateController::styleGalleryVisible() const     { return m_styleGalle
 bool ShellStateController::showDesktop() const             { return m_showDesktop; }
 bool ShellStateController::lockScreenActive() const        { return m_lockScreenActive; }
 bool ShellStateController::notificationsVisible() const    { return m_notificationsVisible; }
+bool ShellStateController::topOverlayActive() const        { return m_topOverlayActive; }
 bool ShellStateController::focusMode() const               { return m_focusMode; }
 QString ShellStateController::dockHoveredItem() const      { return m_dockHoveredItem; }
 QString ShellStateController::dockExpandedItem() const     { return m_dockExpandedItem; }
@@ -101,6 +102,14 @@ void ShellStateController::setNotificationsVisible(bool visible)
     emit notificationsVisibleChanged(visible);
 }
 
+void ShellStateController::setTopOverlayActive(bool active)
+{
+    if (m_topOverlayActive == active) return;
+    m_topOverlayActive = active;
+    emit topOverlayActiveChanged(active);
+    recomputeDerivedState();
+}
+
 void ShellStateController::setFocusMode(bool active)
 {
     if (m_focusMode == active) return;
@@ -167,6 +176,13 @@ void ShellStateController::dismissAllOverlays()
     setWorkspaceOverviewVisible(false);
     setPulseVisible(false);
     setStyleGalleryVisible(false);
+    setTopOverlayActive(false);
+}
+
+void ShellStateController::openAppDeck()
+{
+    setPulseVisible(false);
+    setAppDeckVisible(true);
 }
 
 void ShellStateController::recomputeDerivedState()
@@ -205,7 +221,7 @@ void ShellStateController::recomputeDerivedState()
     }
 
     // workspaceInteractionBlocked: blocked when appdeck is visible
-    const bool newBlocked = m_appdeckVisible;
+    const bool newBlocked = m_appdeckVisible || m_topOverlayActive;
     if (m_workspaceInteractionBlocked != newBlocked) {
         m_workspaceInteractionBlocked = newBlocked;
         emit workspaceInteractionBlockedChanged(m_workspaceInteractionBlocked);
@@ -213,7 +229,8 @@ void ShellStateController::recomputeDerivedState()
 
     // anyOverlayVisible: any transient overlay is active
     const bool newAnyOverlay = m_appdeckVisible || m_workspaceOverviewVisible
-                               || m_toTheSpotVisible || m_styleGalleryVisible;
+                               || m_toTheSpotVisible || m_styleGalleryVisible
+                               || m_topOverlayActive;
     if (m_anyOverlayVisible != newAnyOverlay) {
         m_anyOverlayVisible = newAnyOverlay;
         emit anyOverlayVisibleChanged(m_anyOverlayVisible);

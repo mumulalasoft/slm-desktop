@@ -63,7 +63,7 @@
             "description": "Show hours from 0 to 23 instead of AM/PM",
             "keywords": ["24 hour", "time format", "am pm", "military"],
             "type": "toggle",
-            "backend_binding": "settings:timedate/use-24-hour"
+            "backend_binding": "desktop:timedate/use-24-hour"
         },
         {
             "id": "show-seconds",
@@ -71,7 +71,7 @@
             "description": "Display seconds in the menu bar clock",
             "keywords": ["seconds", "clock", "menubar"],
             "type": "toggle",
-            "backend_binding": "settings:timedate/show-seconds"
+            "backend_binding": "desktop:timedate/show-seconds"
         },
         {
             "id": "show-day-of-week",
@@ -79,7 +79,7 @@
             "description": "Display abbreviated day name next to the time",
             "keywords": ["day", "week", "clock", "menubar"],
             "type": "toggle",
-            "backend_binding": "settings:timedate/show-day-of-week"
+            "backend_binding": "desktop:timedate/show-day-of-week"
         },
         {
             "id": "show-date",
@@ -87,7 +87,7 @@
             "description": "Display the date in the menu bar clock",
             "keywords": ["date", "calendar", "clock", "menubar"],
             "type": "toggle",
-            "backend_binding": "settings:timedate/show-date"
+            "backend_binding": "desktop:timedate/show-date"
         }
     ]
 }

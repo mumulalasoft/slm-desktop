@@ -20,6 +20,13 @@ QVariantMap focusedFullscreenWindow(const QString &appId)
         { QStringLiteral("fullscreen"), true },
     };
 }
+
+QVariantMap focusedFullscreenShellSurface(const QString &title)
+{
+    QVariantMap window = focusedFullscreenWindow(QString());
+    window[QStringLiteral("title")] = title;
+    return window;
+}
 }
 
 class ShellPolicyControllerTest : public QObject
@@ -127,6 +134,20 @@ private slots:
         QVERIFY(!policy.crownSurfaceVisible());
         QVERIFY(!policy.appDeckSurfaceVisible());
         QVERIFY(policy.notificationsSuppressed());
+    }
+
+    void shellLayerSurfaceTitle_isIgnoredForFullscreenPolicy()
+    {
+        ShellStateController state;
+        ShellPolicyController policy(&state, nullptr);
+
+        policy.setWindowSnapshot({ focusedFullscreenShellSurface(QStringLiteral("SLM AppDeck Surface")) },
+                                 QStringLiteral("test"));
+
+        QCOMPARE(policy.visibilityPolicy(), ShellPolicyController::Normal);
+        QVERIFY(!policy.fullscreenActive());
+        QVERIFY(policy.appDeckSurfaceVisible());
+        QVERIFY(policy.appDeckContentVisible());
     }
 };
 

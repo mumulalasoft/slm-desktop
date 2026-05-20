@@ -37,6 +37,8 @@ WorkspaceCompatService::WorkspaceCompatService(WorkspaceManager *workspaceManage
                 this, &WorkspaceCompatService::WorkspaceChanged);
         connect(m_workspaceManager, &WorkspaceManager::WindowAttention,
                 this, &WorkspaceCompatService::WindowAttention);
+        connect(m_workspaceManager, &WorkspaceManager::AppGridRequested,
+                this, &WorkspaceCompatService::AppGridRequested);
     }
 }
 

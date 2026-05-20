@@ -48,6 +48,8 @@ DesktopDaemonService::DesktopDaemonService(WorkspaceManager *workspaceManager,
                 this, &DesktopDaemonService::WorkspaceChanged);
         connect(m_workspaceManager, &WorkspaceManager::WindowAttention,
                 this, &DesktopDaemonService::WindowAttention);
+        connect(m_workspaceManager, &WorkspaceManager::AppGridRequested,
+                this, &DesktopDaemonService::AppGridRequested);
     }
     if (m_windowingBackend) {
         connect(m_windowingBackend, &WindowingBackendManager::backendChanged,

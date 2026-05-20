@@ -2,6 +2,7 @@
 #include <QMetaObject>
 #include <QMetaMethod>
 
+#include "src/core/shell/shellstatecontroller.h"
 #include "src/core/workspace/workspacemanager.h"
 
 class WorkspaceManagerRebrandingTest : public QObject
@@ -46,6 +47,28 @@ private slots:
         QVERIFY(signalNames.contains("OverviewVisibilityChanged"));
         QVERIFY(signalNames.contains("WorkspaceShown"));
         QVERIFY(signalNames.contains("WorkspaceVisibilityChanged"));
+    }
+
+    void showAppGridUpdatesShellState()
+    {
+        ShellStateController shellState;
+        shellState.setPulseVisible(true);
+        WorkspaceManager manager(nullptr, nullptr, nullptr, &shellState);
+
+        manager.ShowAppGrid();
+
+        QVERIFY(shellState.appdeckVisible());
+        QVERIFY(!shellState.toTheSpotVisible());
+    }
+
+    void showAppGridEmitsRequestSignal()
+    {
+        WorkspaceManager manager(nullptr, nullptr, nullptr);
+        QSignalSpy spy(&manager, SIGNAL(AppGridRequested()));
+
+        manager.ShowAppGrid();
+
+        QCOMPARE(spy.count(), 1);
     }
 };
 

@@ -1,6 +1,7 @@
 #include "nearbyservice.h"
 #include "nearbyengine.h"
 #include "sharingmanager.h"
+#include "transfersession.h"
 
 NearbyService::NearbyService(SharingManager *manager, QObject *parent)
     : QObject(parent)

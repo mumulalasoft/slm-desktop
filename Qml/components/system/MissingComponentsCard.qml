@@ -110,7 +110,8 @@ Item {
                         Button {
                             visible: !!(modelData || {}).autoInstallable
                             enabled: !root.busy
-                            text: root.busy ? root.installingText : root.installText
+                            text: root.busy ? root.installingText
+                                            : String((modelData || {}).actionLabel || root.installText)
                             onClicked: root.installRequested(String((modelData || {}).componentId || ""))
                         }
                     }

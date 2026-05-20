@@ -11,9 +11,12 @@ bool isShellWindow(const QVariantMap &w)
     const QString app = w.value(QStringLiteral("appId")).toString().trimmed().toLower();
     const QString title = w.value(QStringLiteral("title")).toString().trimmed().toLower();
     return app == QStringLiteral("appdesktop_shell")
+           || app == QStringLiteral("slm_desktop")
            || app == QStringLiteral("desktop_shell")
            || app == QStringLiteral("desktopshell")
            || app.contains(QStringLiteral("desktop_shell"))
+           || app.contains(QStringLiteral("slm_desktop"))
+           || title == QStringLiteral("slm desktop")
            || title == QStringLiteral("desktop shell");
 }
 }
@@ -21,11 +24,13 @@ bool isShellWindow(const QVariantMap &w)
 WorkspaceManager::WorkspaceManager(WindowingBackendManager *windowingBackend,
                                    SpacesManager *spacesManager,
                                    QObject *compositorStateModel,
+                                   QObject *shellStateController,
                                    QObject *parent)
     : QObject(parent)
     , m_windowingBackend(windowingBackend)
     , m_spacesManager(spacesManager)
     , m_compositorStateModel(compositorStateModel)
+    , m_shellStateController(shellStateController)
 {
     if (m_spacesManager) {
         connect(m_spacesManager, &SpacesManager::activeSpaceChanged,
@@ -124,7 +129,12 @@ void WorkspaceManager::ToggleWorkspace()
 
 void WorkspaceManager::ShowAppGrid()
 {
-    sendCommand(QStringLiteral("apphub on"));
+    emit AppGridRequested();
+    if (m_shellStateController) {
+        QMetaObject::invokeMethod(m_shellStateController, "setPulseVisible", Q_ARG(bool, false));
+        QMetaObject::invokeMethod(m_shellStateController, "setAppDeckVisible", Q_ARG(bool, true));
+    }
+    sendCommand(QStringLiteral("appdeck on"));
 }
 
 void WorkspaceManager::ShowDesktop()

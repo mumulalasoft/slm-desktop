@@ -1,4 +1,5 @@
 #include "trustservice.h"
+#include "nearbyengine.h"
 #include "sharingmanager.h"
 #include "trustdatabase.h"
 

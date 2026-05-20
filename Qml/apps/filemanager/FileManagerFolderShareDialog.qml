@@ -78,7 +78,13 @@ AppDialog {
             return "Layanan berbagi sedang tidak merespons. Coba lagi beberapa saat."
         }
         if (code === "daemon-unavailable") {
-            return "Layanan berbagi desktop belum berjalan. Coba restart sesi desktop."
+            return "Layanan slm-sharingd belum berjalan. Jalankan layanan berbagi lalu coba lagi."
+        }
+        if (code === "daemon-timeout") {
+            return "Layanan slm-sharingd tidak merespons. Coba lagi beberapa saat."
+        }
+        if (code === "daemon-dbus-error") {
+            return "Tidak dapat menghubungi slm-sharingd melalui DBus."
         }
         if (backendMsg.length > 0) {
             return backendMsg
@@ -163,8 +169,14 @@ AppDialog {
         }
         if (c === "daemon-unavailable") {
             return [
-                        "Pastikan service desktop daemon berjalan.",
+                        "Pastikan service slm-sharingd berjalan.",
                         "Restart sesi desktop jika perlu, lalu klik \"Periksa lagi\"."
+                    ]
+        }
+        if (c === "daemon-timeout" || c === "daemon-dbus-error") {
+            return [
+                        "Pastikan service slm-sharingd sehat dan terdaftar di DBus session.",
+                        "Klik \"Periksa lagi\" setelah layanan siap."
                     ]
         }
         return [
@@ -194,7 +206,8 @@ AppDialog {
                 title: title,
                 description: String(issue.message || ""),
                 guidance: guidance,
-                packageName: String(issue.packageName || (installable ? "samba" : ""))
+                packageName: String(issue.packageName || (installable ? "samba" : "")),
+                actionLabel: String(issue.actionLabel || (installable ? "Install Samba" : ""))
             })
         }
         return mapped
@@ -218,14 +231,46 @@ AppDialog {
         return permissionMode === "write" ? "Can make changes" : "Read only"
     }
 
+    function panelColor() {
+        return Theme.darkMode ? Qt.rgba(0.16, 0.16, 0.18, 1.0) : Qt.rgba(0.965, 0.97, 0.98, 1.0)
+    }
+
+    function panelBorderColor() {
+        return Theme.darkMode ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(0, 0, 0, 0.10)
+    }
+
+    function rowColor(selected, hovered) {
+        if (selected) {
+            return Theme.darkMode ? Qt.rgba(0.20, 0.29, 0.36, 1.0) : Qt.rgba(0.89, 0.94, 0.98, 1.0)
+        }
+        if (hovered) {
+            return Theme.darkMode ? Qt.rgba(0.20, 0.20, 0.22, 1.0) : Qt.rgba(1, 1, 1, 1.0)
+        }
+        return Theme.darkMode ? Qt.rgba(0.13, 0.13, 0.15, 1.0) : Qt.rgba(0.985, 0.987, 0.992, 1.0)
+    }
+
     title: "Share Folder"
     standardButtons: Dialog.NoButton
-    dialogWidth: 560
-    property real maxBodyHeight: Math.max(300, Math.min((hostRoot ? hostRoot.height : 720) - 250, 600))
+    dialogWidth: 540
+    property real maxBodyHeight: Math.max(320, Math.min((hostRoot ? hostRoot.height : 720) - 230, 620))
+    property real dialogHeight: Math.min((hostRoot ? hostRoot.height : 720) - 48,
+                                         root.maxBodyHeight + 132)
     x: Math.round((hostRoot.width - width) * 0.5)
     y: Math.round((hostRoot.height - height) * 0.5)
-    bodyPadding: 12
-    footerPadding: 12
+    height: root.dialogHeight
+    bodyPadding: 18
+    footerPadding: 14
+    showFooterDivider: true
+
+    background: DSStyle.PopupSurface {
+        implicitWidth: root.dialogWidth
+        implicitHeight: root.dialogHeight
+        popupRadius: Theme.radiusWindowAlt
+        popupColor: Theme.color("surface")
+        popupBorderColor: root.panelBorderColor()
+        popupOpacity: 1.0
+        elevation: "high"
+    }
 
     bodyComponent: Component {
         Flickable {
@@ -235,7 +280,7 @@ AppDialog {
             interactive: contentHeight > height
             contentWidth: width
             contentHeight: contentColumn.implicitHeight
-            implicitHeight: Math.min(contentColumn.implicitHeight, root.maxBodyHeight)
+            implicitHeight: root.maxBodyHeight
 
             ScrollBar.vertical: ScrollBar {
                 policy: bodyFlick.contentHeight > bodyFlick.height ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
@@ -244,29 +289,29 @@ AppDialog {
             ColumnLayout {
                 id: contentColumn
                 width: bodyFlick.width
-                spacing: 12
+                spacing: 14
 
                 Rectangle {
                     Layout.fillWidth: true
-                    radius: Theme.radiusControlLarge
-                    color: Theme.darkMode ? Qt.rgba(1, 1, 1, 0.055) : Qt.rgba(0, 0, 0, 0.035)
+                    radius: 10
+                    color: root.panelColor()
                     border.width: Theme.borderWidthThin
-                    border.color: Theme.darkMode ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(0, 0, 0, 0.085)
-                    implicitHeight: folderHeader.implicitHeight + 22
+                    border.color: root.panelBorderColor()
+                    implicitHeight: folderHeader.implicitHeight + 26
 
                     RowLayout {
                         id: folderHeader
                         anchors.fill: parent
-                        anchors.margins: 11
-                        spacing: 12
+                        anchors.margins: 13
+                        spacing: 13
 
                         Rectangle {
-                            Layout.preferredWidth: 44
-                            Layout.preferredHeight: 44
-                            radius: Theme.radiusControl
-                            color: Theme.color("accentSoft")
+                            Layout.preferredWidth: 42
+                            Layout.preferredHeight: 42
+                            radius: 9
+                            color: Theme.darkMode ? Qt.rgba(0.24, 0.28, 0.32, 1.0) : Qt.rgba(0.90, 0.94, 0.98, 1.0)
                             border.width: Theme.borderWidthThin
-                            border.color: Theme.darkMode ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(0, 0, 0, 0.08)
+                            border.color: root.panelBorderColor()
 
                             Image {
                                 anchors.centerIn: parent
@@ -275,7 +320,7 @@ AppDialog {
                                 sourceSize.width: 26
                                 sourceSize.height: 26
                                 source: root.iconSource("folder-symbolic")
-                                opacity: Theme.opacityGhost
+                                opacity: Theme.darkMode ? 0.88 : 0.72
                             }
                         }
 
@@ -289,6 +334,8 @@ AppDialog {
                                 color: Theme.color("textPrimary")
                                 font.pixelSize: Theme.fontSize("title")
                                 font.weight: Theme.fontWeight("semibold")
+                                lineHeightMode: Text.ProportionalHeight
+                                lineHeight: Theme.lineHeight("tight")
                                 elide: Text.ElideMiddle
                             }
 
@@ -303,16 +350,16 @@ AppDialog {
                         }
 
                         Rectangle {
-                            Layout.preferredWidth: statusLabel.implicitWidth + 18
-                            Layout.preferredHeight: 24
-                            radius: height / 2
+                            Layout.preferredWidth: Math.max(76, statusLabel.implicitWidth + 20)
+                            Layout.preferredHeight: 26
+                            radius: 13
                             color: root.successState || root.sharingEnabled
-                                   ? Qt.rgba(0.16, 0.78, 0.25, Theme.darkMode ? 0.18 : 0.14)
-                                   : Qt.rgba(0, 0, 0, Theme.darkMode ? 0.18 : 0.06)
+                                   ? (Theme.darkMode ? Qt.rgba(0.08, 0.35, 0.16, 1.0) : Qt.rgba(0.88, 0.97, 0.90, 1.0))
+                                   : (Theme.darkMode ? Qt.rgba(0.20, 0.20, 0.22, 1.0) : Qt.rgba(0.93, 0.94, 0.96, 1.0))
                             border.width: Theme.borderWidthThin
                             border.color: root.successState || root.sharingEnabled
                                           ? Qt.rgba(0.16, 0.78, 0.25, 0.42)
-                                          : Theme.color("panelBorder")
+                                          : root.panelBorderColor()
 
                             DSStyle.Label {
                                 id: statusLabel
@@ -331,16 +378,16 @@ AppDialog {
                 Rectangle {
                     Layout.fillWidth: true
                     visible: !root.successState && !root.envReady
-                    radius: Theme.radiusControl
-                    color: Qt.rgba(1.0, 0.76, 0.0, Theme.darkMode ? 0.11 : 0.13)
+                    radius: 10
+                    color: Theme.darkMode ? Qt.rgba(0.28, 0.22, 0.08, 1.0) : Qt.rgba(1.0, 0.965, 0.84, 1.0)
                     border.width: Theme.borderWidthThin
-                    border.color: Qt.rgba(1.0, 0.76, 0.0, 0.44)
-                    implicitHeight: warningCol.implicitHeight + 16
+                    border.color: Theme.darkMode ? Qt.rgba(1.0, 0.76, 0.0, 0.38) : Qt.rgba(0.72, 0.52, 0.02, 0.26)
+                    implicitHeight: warningCol.implicitHeight + 18
 
                     ColumnLayout {
                         id: warningCol
                         anchors.fill: parent
-                        anchors.margins: 8
+                        anchors.margins: 9
                         spacing: 8
 
                         MissingComponentsCard {
@@ -352,8 +399,8 @@ AppDialog {
                             showPackageName: true
                             busy: root.installInProgress
                             statusText: root.installStatusText
-                            cardColor: Qt.rgba(1, 1, 1, 0.06)
-                            cardBorderColor: Qt.rgba(1, 1, 1, 0.25)
+                            cardColor: Theme.darkMode ? Qt.rgba(0.20, 0.17, 0.08, 1.0) : Qt.rgba(1, 1, 1, 1.0)
+                            cardBorderColor: Theme.darkMode ? Qt.rgba(1, 1, 1, 0.14) : Qt.rgba(0, 0, 0, 0.08)
                             titleColor: Theme.color("textPrimary")
                             detailColor: Theme.color("textSecondary")
                             statusColor: Theme.color("textSecondary")
@@ -453,31 +500,31 @@ AppDialog {
                 Rectangle {
                     Layout.fillWidth: true
                     visible: root.successState
-                    radius: Theme.radiusControlLarge
-                    color: Qt.rgba(0.16, 0.78, 0.25, Theme.darkMode ? 0.12 : 0.09)
+                    radius: 10
+                    color: Theme.darkMode ? Qt.rgba(0.08, 0.22, 0.12, 1.0) : Qt.rgba(0.91, 0.98, 0.93, 1.0)
                     border.width: Theme.borderWidthThin
-                    border.color: Qt.rgba(0.16, 0.78, 0.25, 0.36)
-                    implicitHeight: successColumn.implicitHeight + 22
+                    border.color: Qt.rgba(0.16, 0.68, 0.25, 0.34)
+                    implicitHeight: successColumn.implicitHeight + 24
 
                     ColumnLayout {
                         id: successColumn
                         anchors.fill: parent
-                        anchors.margins: 11
-                        spacing: 8
+                        anchors.margins: 12
+                        spacing: 10
 
                         RowLayout {
                             Layout.fillWidth: true
                             spacing: 10
 
                             Rectangle {
-                                Layout.preferredWidth: 28
-                                Layout.preferredHeight: 28
-                                radius: width / 2
-                                color: Theme.color("success")
+                                Layout.preferredWidth: 30
+                                Layout.preferredHeight: 30
+                                radius: 15
+                                color: Theme.darkMode ? Qt.rgba(0.14, 0.58, 0.22, 1.0) : Qt.rgba(0.18, 0.70, 0.28, 1.0)
 
                                 DSStyle.Label {
                                     anchors.centerIn: parent
-                                    text: "OK"
+                                    text: "On"
                                     color: Theme.color("accentText")
                                     font.pixelSize: Theme.fontSize("tiny")
                                     font.weight: Theme.fontWeight("semibold")
@@ -516,16 +563,16 @@ AppDialog {
                 Rectangle {
                     Layout.fillWidth: true
                     visible: !root.successState
-                    radius: Theme.radiusControlLarge
-                    color: Theme.darkMode ? Qt.rgba(1, 1, 1, 0.06) : Qt.rgba(0, 0, 0, 0.04)
+                    radius: 10
+                    color: root.panelColor()
                     border.width: Theme.borderWidthThin
-                    border.color: Theme.darkMode ? Qt.rgba(1, 1, 1, 0.13) : Qt.rgba(0, 0, 0, 0.09)
-                    implicitHeight: shareSwitchRow.implicitHeight + 22
+                    border.color: root.panelBorderColor()
+                    implicitHeight: shareSwitchRow.implicitHeight + 24
 
                     RowLayout {
                         id: shareSwitchRow
                         anchors.fill: parent
-                        anchors.margins: 11
+                        anchors.margins: 12
                         spacing: 12
 
                         ColumnLayout {
@@ -558,54 +605,72 @@ AppDialog {
 
                 ColumnLayout {
                     visible: !root.successState && root.sharingEnabled
-                    spacing: 12
+                    Layout.fillWidth: true
+                    spacing: 14
 
-                    ColumnLayout {
+                    Rectangle {
                         Layout.fillWidth: true
-                        spacing: 6
+                        radius: 10
+                        color: root.panelColor()
+                        border.width: Theme.borderWidthThin
+                        border.color: root.panelBorderColor()
+                        implicitHeight: shareNameColumn.implicitHeight + 24
 
-                        DSStyle.Label {
-                            Layout.fillWidth: true
-                            text: "Share name"
-                            color: Theme.color("textPrimary")
-                            font.weight: Theme.fontWeight("semibold")
-                        }
-                        DSStyle.TextField {
-                            Layout.fillWidth: true
-                            text: root.shareName
-                            onTextChanged: root.shareName = text
-                            placeholderText: hostRoot.basename(root.targetPath)
-                        }
-                        DSStyle.Label {
-                            Layout.fillWidth: true
-                            text: "This is the name other devices will see."
-                            color: Theme.color("textSecondary")
-                            font.pixelSize: Theme.fontSize("small")
+                        ColumnLayout {
+                            id: shareNameColumn
+                            anchors.fill: parent
+                            anchors.margins: 12
+                            spacing: 7
+
+                            DSStyle.Label {
+                                Layout.fillWidth: true
+                                text: "Share name"
+                                color: Theme.color("textPrimary")
+                                font.weight: Theme.fontWeight("semibold")
+                            }
+                            DSStyle.TextField {
+                                Layout.fillWidth: true
+                                text: root.shareName
+                                onTextChanged: root.shareName = text
+                                placeholderText: hostRoot.basename(root.targetPath)
+                            }
+                            DSStyle.Label {
+                                Layout.fillWidth: true
+                                text: "This is the name other devices will see."
+                                color: Theme.color("textSecondary")
+                                font.pixelSize: Theme.fontSize("small")
+                            }
                         }
                     }
 
-                    ColumnLayout {
+                    Rectangle {
                         Layout.fillWidth: true
-                        spacing: 8
+                        radius: 10
+                        color: root.panelColor()
+                        border.width: Theme.borderWidthThin
+                        border.color: root.panelBorderColor()
+                        implicitHeight: accessSection.implicitHeight + 24
 
-                        DSStyle.Label {
-                            Layout.fillWidth: true
-                            text: "Who can access"
-                            color: Theme.color("textPrimary")
-                            font.weight: Theme.fontWeight("semibold")
-                        }
+                        ColumnLayout {
+                            id: accessSection
+                            anchors.fill: parent
+                            anchors.margins: 12
+                            spacing: 8
+
+                            DSStyle.Label {
+                                Layout.fillWidth: true
+                                text: "Who can access"
+                                color: Theme.color("textPrimary")
+                                font.weight: Theme.fontWeight("semibold")
+                            }
 
                         Rectangle {
                             Layout.fillWidth: true
-                            radius: Theme.radiusControl
-                            color: root.accessMode === "owner"
-                                   ? Theme.color("accentSoft")
-                                   : (accessOwnerArea.containsMouse
-                                      ? Theme.color("controlBgHover")
-                                      : Theme.color("controlBg"))
+                            radius: 8
+                            color: root.rowColor(root.accessMode === "owner", accessOwnerArea.containsMouse)
                             border.width: Theme.borderWidthThin
                             border.color: root.accessMode === "owner" ? Theme.color("accent") : Theme.color("panelBorder")
-                            implicitHeight: accessOwnerRow.implicitHeight + 18
+                            implicitHeight: accessOwnerRow.implicitHeight + 16
 
                             RowLayout {
                                 id: accessOwnerRow
@@ -650,15 +715,11 @@ AppDialog {
 
                         Rectangle {
                             Layout.fillWidth: true
-                            radius: Theme.radiusControl
-                            color: root.accessMode === "anyone"
-                                   ? Theme.color("accentSoft")
-                                   : (accessAnyoneArea.containsMouse
-                                      ? Theme.color("controlBgHover")
-                                      : Theme.color("controlBg"))
+                            radius: 8
+                            color: root.rowColor(root.accessMode === "anyone", accessAnyoneArea.containsMouse)
                             border.width: Theme.borderWidthThin
                             border.color: root.accessMode === "anyone" ? Theme.color("accent") : Theme.color("panelBorder")
-                            implicitHeight: accessAnyoneColumn.implicitHeight + 18
+                            implicitHeight: accessAnyoneColumn.implicitHeight + 16
 
                             ColumnLayout {
                                 id: accessAnyoneColumn
@@ -717,15 +778,11 @@ AppDialog {
 
                         Rectangle {
                             Layout.fillWidth: true
-                            radius: Theme.radiusControl
-                            color: root.accessMode === "users"
-                                   ? Theme.color("accentSoft")
-                                   : (accessUsersArea.containsMouse
-                                      ? Theme.color("controlBgHover")
-                                      : Theme.color("controlBg"))
+                            radius: 8
+                            color: root.rowColor(root.accessMode === "users", accessUsersArea.containsMouse)
                             border.width: Theme.borderWidthThin
                             border.color: root.accessMode === "users" ? Theme.color("accent") : Theme.color("panelBorder")
-                            implicitHeight: accessUsersColumn.implicitHeight + 18
+                            implicitHeight: accessUsersColumn.implicitHeight + 16
 
                             ColumnLayout {
                                 id: accessUsersColumn
@@ -792,25 +849,36 @@ AppDialog {
                             }
                         }
                     }
+                    }
 
-                    ColumnLayout {
+                    Rectangle {
                         Layout.fillWidth: true
-                        spacing: 8
+                        radius: 10
+                        color: root.panelColor()
+                        border.width: Theme.borderWidthThin
+                        border.color: root.panelBorderColor()
+                        implicitHeight: permissionSection.implicitHeight + 24
 
-                        DSStyle.Label {
-                            Layout.fillWidth: true
-                            text: "Permission"
-                            color: Theme.color("textPrimary")
-                            font.weight: Theme.fontWeight("semibold")
-                        }
+                        ColumnLayout {
+                            id: permissionSection
+                            anchors.fill: parent
+                            anchors.margins: 12
+                            spacing: 8
+
+                            DSStyle.Label {
+                                Layout.fillWidth: true
+                                text: "Permission"
+                                color: Theme.color("textPrimary")
+                                font.weight: Theme.fontWeight("semibold")
+                            }
 
                         Rectangle {
                             Layout.fillWidth: true
-                            radius: Theme.radiusControl
-                            color: Theme.color("controlBg")
+                            radius: 9
+                            color: Theme.darkMode ? Qt.rgba(0.10, 0.10, 0.12, 1.0) : Qt.rgba(0.91, 0.92, 0.94, 1.0)
                             border.width: Theme.borderWidthThin
-                            border.color: Theme.color("panelBorder")
-                            implicitHeight: 38
+                            border.color: root.panelBorderColor()
+                            implicitHeight: 40
 
                             RowLayout {
                                 anchors.fill: parent
@@ -820,13 +888,17 @@ AppDialog {
                                 Rectangle {
                                     Layout.fillWidth: true
                                     Layout.fillHeight: true
-                                    radius: Theme.radiusMd
-                                    color: root.permissionMode === "read" ? Theme.color("accent") : "transparent"
+                                    radius: 7
+                                    color: root.permissionMode === "read"
+                                           ? (Theme.darkMode ? Qt.rgba(0.28, 0.35, 0.42, 1.0) : Qt.rgba(1, 1, 1, 1.0))
+                                           : "transparent"
+                                    border.width: root.permissionMode === "read" ? Theme.borderWidthThin : 0
+                                    border.color: root.panelBorderColor()
 
                                     DSStyle.Label {
                                         anchors.centerIn: parent
                                         text: "Read only"
-                                        color: root.permissionMode === "read" ? Theme.color("accentText") : Theme.color("textPrimary")
+                                        color: Theme.color("textPrimary")
                                         font.pixelSize: Theme.fontSize("small")
                                         font.weight: Theme.fontWeight("semibold")
                                     }
@@ -841,13 +913,17 @@ AppDialog {
                                 Rectangle {
                                     Layout.fillWidth: true
                                     Layout.fillHeight: true
-                                    radius: Theme.radiusMd
-                                    color: root.permissionMode === "write" ? Theme.color("accent") : "transparent"
+                                    radius: 7
+                                    color: root.permissionMode === "write"
+                                           ? (Theme.darkMode ? Qt.rgba(0.28, 0.35, 0.42, 1.0) : Qt.rgba(1, 1, 1, 1.0))
+                                           : "transparent"
+                                    border.width: root.permissionMode === "write" ? Theme.borderWidthThin : 0
+                                    border.color: root.panelBorderColor()
 
                                     DSStyle.Label {
                                         anchors.centerIn: parent
                                         text: "Can make changes"
-                                        color: root.permissionMode === "write" ? Theme.color("accentText") : Theme.color("textPrimary")
+                                        color: Theme.color("textPrimary")
                                         font.pixelSize: Theme.fontSize("small")
                                         font.weight: Theme.fontWeight("semibold")
                                     }
@@ -863,11 +939,11 @@ AppDialog {
 
                         Rectangle {
                             Layout.fillWidth: true
-                            radius: Theme.radiusControl
-                            color: Theme.darkMode ? Qt.rgba(1, 1, 1, 0.045) : Qt.rgba(0, 0, 0, 0.03)
+                            radius: 8
+                            color: root.rowColor(root.allowGuest, guestArea.containsMouse)
                             border.width: Theme.borderWidthThin
-                            border.color: Theme.darkMode ? Qt.rgba(1, 1, 1, 0.10) : Qt.rgba(0, 0, 0, 0.08)
-                            implicitHeight: guestRow.implicitHeight + 18
+                            border.color: root.allowGuest ? Theme.color("accent") : root.panelBorderColor()
+                            implicitHeight: guestRow.implicitHeight + 16
 
                             RowLayout {
                                 id: guestRow
@@ -897,15 +973,24 @@ AppDialog {
                                     }
                                 }
                             }
+
+                            MouseArea {
+                                id: guestArea
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: root.allowGuest = !root.allowGuest
+                            }
                         }
+                    }
                     }
                 }
 
                 Rectangle {
                     Layout.fillWidth: true
                     visible: String(root.errorText || "").length > 0
-                    radius: Theme.radiusControl
-                    color: Qt.rgba(0.82, 0.29, 0.29, Theme.darkMode ? 0.13 : 0.09)
+                    radius: 10
+                    color: Theme.darkMode ? Qt.rgba(0.30, 0.10, 0.10, 1.0) : Qt.rgba(1.0, 0.92, 0.92, 1.0)
                     border.width: Theme.borderWidthThin
                     border.color: Qt.rgba(0.82, 0.29, 0.29, 0.34)
                     implicitHeight: errorLabel.implicitHeight + 18
@@ -988,6 +1073,7 @@ AppDialog {
                     if (!!res && !!res.ok) {
                         root.successState = !!root.sharingEnabled
                         root.successAddress = String(res.address || "")
+                        root.applyFromInfo(res)
                         if (!root.successState) {
                             root.close()
                         }

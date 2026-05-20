@@ -1,0 +1,4 @@
+[LOCKD] [SUPERVISOR] starting watch shell-name= org.slm.Desktop
+[LOCKD] [SUPERVISOR] running shell-alive= false started_at= 2026-05-19T18:27:16Z
+[LOCKD] [SUPERVISOR] shell name returned name= org.slm.Desktop
+[LOCKD] [SUPERVISOR] shell returned; daemon lock state preserved (unlock requires PAM via SessionState.Unlock)

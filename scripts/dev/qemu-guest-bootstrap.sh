@@ -25,6 +25,8 @@ CORE_APT_PACKAGES=(
     ninja-build
     openssh-server
     pkg-config
+    samba
+    samba-common-bin
     spice-vdagent
     qml6-module-qtquick
     qml6-module-qtquick-controls

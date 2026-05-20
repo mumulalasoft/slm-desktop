@@ -42,6 +42,9 @@
 #include "src/core/execution/appexecutiongate.h"
 #include "src/services/power/batterymanager.h"
 #include "src/services/power/powerbridge.h"
+#include "src/services/power/powercontroller.h"
+#include "src/services/power/schedulecontroller.h"
+#include "src/services/power/sessioncontroller.h"
 #include "src/services/bluetooth/bluetoothmanager.h"
 #include "src/core/appdeck/appdeckmodel.h"
 #include "src/services/media/mediasessionmanager.h"
@@ -781,6 +784,12 @@ Window {
     ShellInputRouter shellInputRouter(&shellStateController);
     ShellLayerWatchdog shellLayerWatchdog(&shellStateController);
     PowerBridge powerBridge;
+    SessionController sessionController;
+    ScheduleController scheduleController;
+    PowerController powerController(&powerBridge,
+                                    &sessionController,
+                                    &scheduleController,
+                                    &shellStateController);
     Slm::ContextMenu::ContextMenuService contextMenuService;
     Slm::System::MissingComponentController missingComponentController;
 #ifdef SLM_HAVE_WAYLANDCLIENT
@@ -1006,6 +1015,9 @@ Window {
                                           &shellInputRouter,
                                           &shellLayerWatchdog,
                                           &powerBridge,
+                                          &powerController,
+                                          &scheduleController,
+                                          &sessionController,
                                           &contextMenuService);
     AppStartupBridge::setStartupWindowContext(engine.rootContext(),
                                               startupArgs.startWindowed,

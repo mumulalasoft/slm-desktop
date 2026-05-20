@@ -1175,11 +1175,31 @@ ApplicationWindow {
                 desktopScene: desktopScene
                 appsModel: AppDeckModel
                 pulseResultsModel: pulseResultsStore
+                onRequestCollapse: {
+                    root.setSearchVisible(false)
+                    if (typeof ShellStateController !== "undefined" && ShellStateController
+                            && ShellStateController.setAppDeckVisible) {
+                        ShellStateController.setAppDeckVisible(false)
+                    } else if (desktopScene && desktopScene.setAppDeckVisible) {
+                        desktopScene.setAppDeckVisible(false)
+                    }
+                }
             }
         }
         onActiveChanged: {
             if (active) {
                 root.startupQmlMark("main.dockLoader.activated")
+            }
+        }
+    }
+
+    Loader {
+        id: powerTopOverlayLoader
+        active: typeof PowerController !== "undefined" && PowerController
+        asynchronous: false
+        sourceComponent: Component {
+            OverlayComp.PowerTopOverlayWindow {
+                rootWindow: root
             }
         }
     }

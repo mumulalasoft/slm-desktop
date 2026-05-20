@@ -1,0 +1,3 @@
+[slm-portald] serviceRegistered= true
+[slm-portald] implServiceRegistered= true
+[slm-portald] permission-db= /var/lib/greetd/.local/share/slm-desktop/permissions.db

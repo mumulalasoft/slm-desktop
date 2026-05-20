@@ -24,6 +24,7 @@ class ShellStateController : public QObject
     Q_PROPERTY(bool showDesktop READ showDesktop WRITE setShowDesktop NOTIFY showDesktopChanged)
     Q_PROPERTY(bool lockScreenActive READ lockScreenActive WRITE setLockScreenActive NOTIFY lockScreenActiveChanged)
     Q_PROPERTY(bool notificationsVisible READ notificationsVisible WRITE setNotificationsVisible NOTIFY notificationsVisibleChanged)
+    Q_PROPERTY(bool topOverlayActive READ topOverlayActive WRITE setTopOverlayActive NOTIFY topOverlayActiveChanged)
     Q_PROPERTY(bool focusMode READ focusMode WRITE setFocusMode NOTIFY focusModeChanged)
     Q_PROPERTY(QString dockHoveredItem READ dockHoveredItem WRITE setDockHoveredItem NOTIFY dockHoveredItemChanged)
     Q_PROPERTY(QString dockExpandedItem READ dockExpandedItem WRITE setDockExpandedItem NOTIFY dockExpandedItemChanged)
@@ -50,6 +51,7 @@ public:
     bool showDesktop() const;
     bool lockScreenActive() const;
     bool notificationsVisible() const;
+    bool topOverlayActive() const;
     bool focusMode() const;
     QString dockHoveredItem() const;
     QString dockExpandedItem() const;
@@ -72,6 +74,7 @@ public:
     Q_INVOKABLE void setShowDesktop(bool active);
     Q_INVOKABLE void setLockScreenActive(bool active);
     Q_INVOKABLE void setNotificationsVisible(bool visible);
+    Q_INVOKABLE void setTopOverlayActive(bool active);
     Q_INVOKABLE void setFocusMode(bool active);
     Q_INVOKABLE void setDockHoveredItem(const QString &itemId);
     Q_INVOKABLE void setDockExpandedItem(const QString &itemId);
@@ -84,6 +87,9 @@ public:
     Q_INVOKABLE void togglePulse();
     Q_INVOKABLE void dismissAllOverlays();
 
+public slots:
+    void openAppDeck();
+
 signals:
     void appdeckVisibleChanged(bool visible);
     void workspaceOverviewVisibleChanged(bool visible);
@@ -95,6 +101,7 @@ signals:
     void showDesktopChanged(bool active);
     void lockScreenActiveChanged(bool active);
     void notificationsVisibleChanged(bool visible);
+    void topOverlayActiveChanged(bool active);
     void focusModeChanged(bool active);
     void dockHoveredItemChanged(const QString &itemId);
     void dockExpandedItemChanged(const QString &itemId);
@@ -120,6 +127,7 @@ private:
     bool m_showDesktop = false;
     bool m_lockScreenActive = false;
     bool m_notificationsVisible = false;
+    bool m_topOverlayActive = false;
     bool m_focusMode = false;
     QString m_dockHoveredItem;
     QString m_dockExpandedItem;

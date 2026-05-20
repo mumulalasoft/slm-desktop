@@ -1,0 +1,49 @@
+[startup-trace] t=340ms phase=app.ready
+[startup-trace] t=342ms phase=service.bootstrap.installed
+[startup-trace] t=342ms phase=args.parsed detail=windowed=false width=0 height=0
+[startup-trace] t=345ms phase=engine.created
+[startup-trace] t=461ms phase=managers.constructed
+[startup-trace] t=462ms phase=qml.context.configured
+[startup-trace] t=462ms phase=qml.load.begin
+[startup-trace] t=497ms phase=qml.objectCreated detail=url=qrc:/qt/qml/Slm_Desktop/FastMain.qml created=true rootCount=1
+[startup-trace] t=497ms phase=qml.load.end detail=rootCount=1
+[startup-trace] t=497ms phase=window.snapshot.afterLoad detail=SLM Desktop Starting visible=1 exposed=0 size=500x500 type=0 | SLM Desktop visible=1 exposed=0 size=500x500 type=0
+[startup-trace] t=497ms phase=eventloop.enter
+[startup-trace] t=497ms phase=runtime.pulse.start detail=path=/tmp/slm-startup-1778591194967.log
+[startup-trace] t=996ms phase=window.firstFrameSwapped detail=visible=true size=1853x985
+[startup-trace] t=1029ms phase=app.stateChanged detail=state=4
+[startup-trace] t=1029ms phase=window.focusChanged detail=SLM Desktop visible=1 exposed=1 size=1853x985 type=0
+[startup-trace] t=1567ms phase=runtime.pulse detail=n=1 rootCount=1 windows=3 snapshot=SLM Desktop visible=0 exposed=0 size=1853x985 type=0 | Slm Desktop visible=1 exposed=0 size=1853x985 type=0 | SLM Crown Surface visible=1 exposed=0 size=1853x36 type=0
+[startup-trace] t=1611ms phase=window.focusChanged detail=Slm Desktop visible=1 exposed=1 size=1853x985 type=0
+[startup-trace] t=2544ms phase=runtime.pulse detail=n=2 rootCount=1 windows=4 snapshot=SLM Desktop visible=0 exposed=0 size=1853x985 type=0 | Slm Desktop visible=1 exposed=1 size=1853x985 type=0 | SLM Crown Surface visible=1 exposed=1 size=1853x36 type=0 | SLM AppDeck Surface visible=1 exposed=1 size=1853x985 type=0
+[startup-trace] t=3347ms phase=runtime.pulse detail=n=3 rootCount=1 windows=6 snapshot=SLM Desktop visible=0 exposed=0 size=1853x985 type=0 | Slm Desktop visible=1 exposed=1 size=1853x985 type=0 | SLM Crown Surface visible=1 exposed=1 size=1853x36 type=0 | SLM AppDeck Surface visible=1 exposed=1 size=1853x985 type=0 | Desktop Notification Manager visible=0 exposed=0 size=396x18 type=0 | Join Wi-Fi Network visible=0 exposed=0 size=340x317 type=3
+[startup-trace] t=3849ms phase=service.spawn detail=desktopd/SLMCapabilities attempt=1
+[startup-trace] t=3851ms phase=service.spawn detail=slm-clipboardd attempt=1
+[startup-trace] t=3854ms phase=service.spawn detail=slm-recoveryd attempt=1
+[startup-trace] t=3860ms phase=service.spawn detail=slm-devicesd attempt=1
+[startup-trace] t=3860ms phase=service.bootstrap.started detail=count=5
+[startup-trace] t=4321ms phase=runtime.pulse detail=n=4 rootCount=1 windows=6 snapshot=SLM Desktop visible=0 exposed=0 size=1853x985 type=0 | Slm Desktop visible=1 exposed=1 size=1853x985 type=0 | SLM Crown Surface visible=1 exposed=1 size=1853x36 type=0 | SLM AppDeck Surface visible=1 exposed=1 size=1853x985 type=0 | Desktop Notification Manager visible=0 exposed=0 size=396x18 type=0 | Join Wi-Fi Network visible=0 exposed=0 size=340x317 type=3
+[startup-trace] t=5321ms phase=service.ready detail=desktopd/SLMCapabilities attempt=2
+[startup-trace] t=5321ms phase=service.ready detail=slm-clipboardd attempt=2
+[startup-trace] t=5322ms phase=service.ready detail=slm-recoveryd attempt=2
+[startup-trace] t=5322ms phase=service.ready detail=slm-devicesd attempt=2
+[startup-trace] t=5323ms phase=runtime.pulse detail=n=5 rootCount=1 windows=6 snapshot=SLM Desktop visible=0 exposed=0 size=1853x985 type=0 | Slm Desktop visible=1 exposed=1 size=1853x985 type=0 | SLM Crown Surface visible=1 exposed=1 size=1853x36 type=0 | SLM AppDeck Surface visible=1 exposed=1 size=1853x985 type=0 | Desktop Notification Manager visible=0 exposed=0 size=396x18 type=0 | Join Wi-Fi Network visible=0 exposed=0 size=340x317 type=3
+[startup-trace] t=6322ms phase=runtime.pulse detail=n=6 rootCount=1 windows=6
+[startup-trace] t=7322ms phase=runtime.pulse detail=n=7 rootCount=1 windows=6
+[startup-trace] t=8322ms phase=runtime.pulse detail=n=8 rootCount=1 windows=6
+[startup-trace] t=9321ms phase=runtime.pulse detail=n=9 rootCount=1 windows=6
+[startup-trace] t=10321ms phase=runtime.pulse detail=n=10 rootCount=1 windows=6
+[startup-trace] t=11323ms phase=runtime.pulse detail=n=11 rootCount=1 windows=6
+[startup-trace] t=12322ms phase=runtime.pulse detail=n=12 rootCount=1 windows=6
+[startup-trace] t=13322ms phase=runtime.pulse detail=n=13 rootCount=1 windows=6
+[startup-trace] t=14322ms phase=runtime.pulse detail=n=14 rootCount=1 windows=6
+[startup-trace] t=15322ms phase=runtime.pulse detail=n=15 rootCount=1 windows=6
+[startup-trace] t=16321ms phase=runtime.pulse detail=n=16 rootCount=1 windows=6
+[startup-trace] t=17322ms phase=runtime.pulse detail=n=17 rootCount=1 windows=6
+[startup-trace] t=18322ms phase=runtime.pulse detail=n=18 rootCount=1 windows=6
+[startup-trace] t=19321ms phase=runtime.pulse detail=n=19 rootCount=1 windows=6
+[startup-trace] t=20322ms phase=service.gaveUp detail=slm-settingsd attempt=12
+[startup-trace] t=20322ms phase=runtime.pulse detail=n=20 rootCount=1 windows=6
+[startup-trace] t=20322ms phase=runtime.pulse.stop
+[startup-trace] t=60162ms phase=app.stateChanged detail=state=2
+[startup-trace] t=60162ms phase=window.focusChanged detail=null-window

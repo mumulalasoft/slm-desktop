@@ -905,13 +905,6 @@ Item {
         if (state === root.lastPushedAppDeckState) {
             return
         }
-        if (root.appdeckVisible &&
-                typeof WorkspaceManager !== "undefined" && WorkspaceManager &&
-                WorkspaceManager.ShowAppGrid) {
-            WorkspaceManager.ShowAppGrid()
-            root.lastPushedAppDeckState = state
-            return
-        }
         if (typeof WindowingBackend !== "undefined" && WindowingBackend && WindowingBackend.sendCommand) {
             if (WindowingBackend.sendCommand("appdeck " + (root.appdeckVisible ? "on" : "off"))) {
                 root.lastPushedAppDeckState = state

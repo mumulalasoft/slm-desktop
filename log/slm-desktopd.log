@@ -1,0 +1,13 @@
+slm.kwin: active IPC disabled (set SLM_KWIN_ACTIVE_IPC=1 to enable)
+slm.appmodel: DesktopAppModel initial refresh scheduled asynchronously
+slm.appmodel: monitor refresh enabled = false
+DesktopAppModel monitor refresh disabled for KWin runtime
+slm.appmodel: refreshAsync: starting background scan
+[desktopd] serviceRegistered= true searchRegistered= true legacyServiceRegistered= true sessionStateRegistered= true legacySessionStateRegistered= true globalMenuRegistered= true captureRegistered= true screencastRegistered= true inputCaptureRegistered= true slmCapabilitiesRegistered= true fileOperationsEmbedded= true fileOperationsRegistered= true backend= kwin-wayland connected= false
+slm.appmodel: refreshAsync: already running, skipped
+qt.dbus.integration: QDBusConnection: name 'org.slm.Desktop.Screencast' had owner '' but we thought it was ':1.12'
+[slm][dbus] service=org.slm.Desktop.Search.v1 method=ConfigureTrackerPreset request_id=req-1779143783756-1 caller=local job_id=- phase=finish ok=true path=/var/lib/greetd/.config/tracker3/miners/files.cfg
+[desktopd][watchdog] missing optional service= org.slm.Desktop.Devices failures= 1
+slm.appmodel: refreshAsync: scan done, app count = 29
+[desktopd][watchdog] missing optional service= org.slm.Desktop.Devices failures= 2
+[desktopd][watchdog] missing optional service= org.slm.Desktop.Devices failures= 3

@@ -282,6 +282,7 @@ int main(int argc, char *argv[])
 
     // Create the main application controller
     SettingsApp settingsApp(&engine);
+    settingsApp.setDesktopSettingsClient(&desktopSettings);
     
     // Setup Global Search D-Bus provider
     GlobalSearchProvider searchProvider(settingsApp.moduleLoader(), settingsApp.searchEngine(), &app);

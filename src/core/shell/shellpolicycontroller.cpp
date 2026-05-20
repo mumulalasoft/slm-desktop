@@ -519,11 +519,35 @@ bool ShellPolicyController::isMappedCandidate(const QVariantMap &window) const
 bool ShellPolicyController::isShellWindow(const QVariantMap &window) const
 {
     const QString appId = normalizedAppId(window.value(QStringLiteral("appId")).toString());
-    if (appId.isEmpty()) {
+    const QString appKey = appId;
+    const QString title = window.value(QStringLiteral("title")).toString().trimmed().toLower();
+    const QString resourceClass = window.value(QStringLiteral("resourceClass")).toString().trimmed().toLower();
+    const QString windowClass = window.value(QStringLiteral("class")).toString().trimmed().toLower();
+    const QString scope = window.value(QStringLiteral("scope")).toString().trimmed().toLower();
+
+    // Layer-shell surfaces may be reported without an appId. Do not let shell
+    // chrome (AppDeck/Crown/etc.) classify itself as the focused fullscreen app,
+    // otherwise the policy hides the AppDeck content while it is opening.
+    if (title.startsWith(QStringLiteral("slm "))
+            || title.contains(QStringLiteral("appdeck"))
+            || title.contains(QStringLiteral("desktop shell"))
+            || scope.startsWith(QStringLiteral("slm-"))
+            || scope.contains(QStringLiteral("appdeck"))
+            || resourceClass.contains(QStringLiteral("slm"))
+            || resourceClass.contains(QStringLiteral("desktop_shell"))
+            || windowClass.contains(QStringLiteral("slm"))
+            || windowClass.contains(QStringLiteral("desktop_shell"))) {
+        return true;
+    }
+
+    if (appKey.isEmpty()) {
         return false;
     }
-    return appId == QStringLiteral("slm-shell")
-            || appId == QStringLiteral("slm-desktop")
+    return appKey == QStringLiteral("slm-shell")
+            || appKey == QStringLiteral("slm-desktop")
+            || appKey == QStringLiteral("slm_desktop")
+            || appKey == QStringLiteral("desktop-shell")
+            || appKey == QStringLiteral("desktop_shell")
             || appId.startsWith(QStringLiteral("org.slm."))
             || appId.startsWith(QStringLiteral("io.slm."));
 }

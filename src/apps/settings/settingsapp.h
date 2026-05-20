@@ -10,9 +10,10 @@
 
 class ModuleLoader;
 class SearchEngine;
-class SettingBinding;
 class SettingBindingFactory;
 class SettingsPolkitBridge;
+class DesktopSettingsClient;
+class SettingBinding;
 
 class SettingsApp : public QObject
 {
@@ -32,7 +33,9 @@ public:
 
     explicit SettingsApp(QQmlApplicationEngine *engine, QObject *parent = nullptr);
 
-    ModuleLoader* moduleLoader() const { return m_moduleLoader; }
+    void setDesktopSettingsClient(DesktopSettingsClient *client);
+
+    ModuleLoader *moduleLoader() const { return m_moduleLoader; }
     SearchEngine* searchEngine() const { return m_searchEngine; }
     
     QString currentModuleId() const { return m_currentModuleId; }

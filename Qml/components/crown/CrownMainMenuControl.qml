@@ -137,6 +137,11 @@ Item {
 
     function _logOut() {
         mainMenu.close()
+        if (typeof PowerController !== "undefined" && PowerController
+                && PowerController.openPowerDialog) {
+            PowerController.openPowerDialog("logout")
+            return
+        }
         if (root._hasPowerAction("logout")) {
             PowerBridge.logout()
         }
@@ -314,6 +319,11 @@ Item {
     function _startPowerConfirmation(actionName) {
         var action = String(actionName || "")
         if (action !== "restart" && action !== "shutdown") {
+            return
+        }
+        if (typeof PowerController !== "undefined" && PowerController
+                && PowerController.openPowerDialog) {
+            PowerController.openPowerDialog(action)
             return
         }
         shutdownAdvancedExpanded = false
@@ -587,6 +597,11 @@ Item {
             enabled: typeof PowerBridge !== "undefined" && PowerBridge && PowerBridge.canSuspend
             onTriggered: {
                 mainMenu.close()
+                if (typeof PowerController !== "undefined" && PowerController
+                        && PowerController.openPowerDialog) {
+                    PowerController.openPowerDialog("sleep")
+                    return
+                }
                 if (typeof PowerBridge !== "undefined" && PowerBridge) PowerBridge.sleep()
             }
         }

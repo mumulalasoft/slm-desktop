@@ -82,6 +82,12 @@ QString mappedWorkspaceEventFromCommand(const QString &event, const QVariantMap 
     if (command == QStringLiteral("workspace toggle") || command == QStringLiteral("overview toggle")) {
         return QStringLiteral("workspace-toggle");
     }
+    if (command == QStringLiteral("appdeck on")) {
+        return QStringLiteral("appdeck-open");
+    }
+    if (command == QStringLiteral("appdeck off")) {
+        return QStringLiteral("appdeck-close");
+    }
     return QString();
 }
 
