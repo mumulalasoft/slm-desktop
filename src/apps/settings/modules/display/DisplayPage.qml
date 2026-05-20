@@ -13,6 +13,11 @@ Flickable {
     property var scalingBinding: SettingsApp.createBindingFor("display", "scaling", "125%")
     property var nightLightBinding: SettingsApp.createBindingFor("display", "night-light", false)
 
+    Component.onCompleted: {
+        resolutionCombo.model = DisplayController.availableResolutions()
+        scalingCombo.model = DisplayController.availableScales()
+    }
+
     ColumnLayout {
         id: contentColumn
         anchors.left: parent.left
@@ -30,15 +35,14 @@ Flickable {
                 objectName: "resolution"
                 highlighted: root.highlightSettingId === "resolution"
                 label: qsTr("Resolution")
-                description: qsTr("Built-in Display (2560 × 1600)")
+                description: qsTr("Built-in Display")
                 Layout.fillWidth: true
 
                 ComboBox {
                     id: resolutionCombo
-                    model: ["2560 x 1600 (16:10)", "2048 x 1280", "1920 x 1200", "1680 x 1050"]
-                    currentIndex: Math.max(0, model.indexOf(String(root.resolutionBinding.value)))
+                    textRole: "label"
                     implicitWidth: 200
-                    onActivated: root.resolutionBinding.value = currentText
+                    onActivated: DisplayController.applyResolution(model[index].label)
                 }
             }
 
@@ -51,10 +55,9 @@ Flickable {
 
                 ComboBox {
                     id: scalingCombo
-                    model: ["100%", "125%", "150%", "200%"]
-                    currentIndex: Math.max(0, model.indexOf(String(root.scalingBinding.value)))
-                    implicitWidth: 100
-                    onActivated: root.scalingBinding.value = currentText
+                    textRole: "label"
+                    implicitWidth: 150
+                    onActivated: DisplayController.applyScaling(model[index].scale)
                 }
             }
         }
