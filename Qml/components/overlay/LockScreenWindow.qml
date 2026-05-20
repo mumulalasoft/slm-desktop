@@ -18,6 +18,7 @@ Window {
     property int lockoutDurationSec: 10
     property int lockoutLevel: 0
     property bool unlockBusy: false
+    property bool readyForUnlock: false
     property date now: new Date()
     readonly property bool layerShellSupported: (typeof SecurityLayerShell !== "undefined")
                                                 && !!SecurityLayerShell
@@ -66,6 +67,7 @@ Window {
     onVisibleChanged: {
         unlockBusy = false
         if (visible) {
+            root.readyForUnlock = false
             root.syncSecurityLayerSurface()
             lockFailed = false
             unlockErrorCode = ""
@@ -78,11 +80,20 @@ Window {
             lockoutTick.stop()
             passwordField.text = ""
             root.now = new Date()
-            passwordField.forceActiveFocus()
             console.info("[LOCKSCREEN] [MONITOR] surface visible screen="
                          + (root.targetScreen && root.targetScreen.name ? root.targetScreen.name : "default")
                          + " geometry=" + root.x + "," + root.y + " " + root.width + "x" + root.height)
             console.info("[LOCKSCREEN] [INPUT_BLOCK] active=true inputRegion=fullscreen keyboard=exclusive")
+        }
+    }
+
+    // Global MouseArea to handle the wake-up click
+    MouseArea {
+        anchors.fill: parent
+        enabled: !root.readyForUnlock
+        onClicked: {
+            root.readyForUnlock = true
+            passwordField.forceActiveFocus()
         }
     }
 
@@ -256,11 +267,21 @@ Window {
             font.weight: Theme.fontWeight("medium")
         }
 
+        // Click to unlock label
+        Label {
+            anchors.horizontalCenter: parent.horizontalCenter
+            visible: !root.readyForUnlock
+            text: "Click to unlock"
+            color: Qt.rgba(1, 1, 1, 0.6)
+            font.pixelSize: Math.round(15 * root.uiScale)
+        }
+
         // Password + submit (integrated pill)
         Item {
             anchors.horizontalCenter: parent.horizontalCenter
             width: Math.min(centerContent.width * 0.64, Math.round(320 * root.uiScale))
             height: Math.round(44 * root.uiScale)
+            visible: root.readyForUnlock
 
             TextField {
                 id: passwordField
