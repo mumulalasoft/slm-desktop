@@ -841,10 +841,10 @@ Item {
             }
         }
 
-        // HIG-style pagination strip — chevron icon buttons (borderless,
-        // secondary tint, 30% opacity when disabled) flanking an iOS-style
-        // expanding-dot indicator. No counter text; the indicator is the
-        // single source of truth for "where am I".
+        // docs/APPDECK_REDESIGN.md Phase 1 (post-eval iter 3) — pagination
+        // chevrons now sit IN-LINE with the expanding-dot indicator at the
+        // horizontal center, instead of being pushed to the far left/right
+        // edges of the row. Apple-style compact pagination.
         Item {
             id: paginationRow
             Layout.fillWidth: true
@@ -857,13 +857,16 @@ Item {
                 NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingDecelerate }
             }
 
+            Row {
+                id: paginationCenterCluster
+                anchors.centerIn: parent
+                spacing: 12
+
             // Previous — circular ghost button with system symbolic chevron.
             Item {
                 id: previousButton
                 width: root.pageButtonSize
                 height: root.pageButtonSize
-                anchors.left: parent.left
-                anchors.verticalCenter: parent.verticalCenter
                 opacity: root.hasPreviousPage ? 1.0 : 0.30
 
                 Behavior on opacity {
@@ -926,7 +929,7 @@ Item {
             // and clicks both feel continuous.
             Row {
                 id: dotRow
-                anchors.centerIn: parent
+                anchors.verticalCenter: parent.verticalCenter
                 spacing: 6
 
                 readonly property int dotHeight: 6
@@ -985,8 +988,6 @@ Item {
                 id: nextButton
                 width: root.pageButtonSize
                 height: root.pageButtonSize
-                anchors.right: parent.right
-                anchors.verticalCenter: parent.verticalCenter
                 opacity: root.hasNextPage ? 1.0 : 0.30
 
                 Behavior on opacity {
@@ -1041,6 +1042,7 @@ Item {
                     onClicked: root.switchToPage(root.currentPage + 1, true, 1)
                 }
             }
+            }  // paginationCenterCluster Row
         }
     }
 

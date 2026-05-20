@@ -112,12 +112,23 @@ Window {
     readonly property real sharedPanelMarginX: Math.max(28, root.width * 0.07)
     readonly property int safeCrownHeight: Math.max(36, Number(root.desktopScene ? root.desktopScene.panelHeight : 0))
     readonly property real sharedPanelTopInset: safeCrownHeight + 16
+    // docs/APPDECK_REDESIGN.md Phase 1 (post-eval iter 3): the gap between
+    // the grid's page indicator and the dock was driven by THIS computation,
+    // not the AppDeckGridAppsView.bottomSafeInset property (the latter is
+    // overridden by preferredPanelHeight: root.gridContentH below).
+    // dockView.dockItem.height already contains
+    //     baseHeight(~74) + liftMax(10) + tooltipHeadroom(44) + 8 ≈ 136
+    // The 44px tooltipHeadroom is just a render buffer ABOVE the dock pill
+    // so the per-icon hover tooltip is not clipped by the dock's own
+    // Wayland surface edge. The tooltip floats ~30–36 px above the pill in
+    // practice, so leaving 8 px of headroom (tooltipHeadroom - 36) is
+    // still enough; we claw back the rest as grid space.
     readonly property real sharedPanelBottomInset: Math.max(
                                                         24,
                                                         Math.round(
-                                                            (dockView.dockItem ? Number(dockView.dockItem.height || 120) : 120)
+                                                            (dockView.dockItem ? Number(dockView.dockItem.height || 120) - 36 : 84)
                                                             + (root.desktopScene ? Number(root.desktopScene.dockBottomMargin || 0) : 0)
-                                                            + 20
+                                                            + 8
                                                         )
                                                     )
     readonly property real sharedDockWidth: Math.max(320, Number(root.dockInputWidth || 1) + 20)
