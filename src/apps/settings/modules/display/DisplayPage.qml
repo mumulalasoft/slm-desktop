@@ -10,8 +10,8 @@ Flickable {
     clip: true
     property string highlightSettingId: ""
     property var resolutionBinding: SettingsApp.createBindingFor("display", "resolution", "2560 x 1600 (16:10)")
-    property var scalingBinding: SettingsApp.createBindingFor("display", "scaling", "125%")
-    property var nightLightBinding: SettingsApp.createBindingFor("display", "night-light", false)
+    property var scalingBinding: SettingsApp.createBindingFor("display", "scaling", 1.0)
+    property var nightLightBinding: SettingsApp.createBinding("desktop:display/night-light", false)
 
     Component.onCompleted: {
         resolutionCombo.model = DisplayController.availableResolutions()

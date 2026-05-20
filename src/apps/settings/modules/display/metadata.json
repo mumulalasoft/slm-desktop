@@ -29,7 +29,7 @@
             "description": "Reduce blue light at night",
             "keywords": ["night", "warm", "blue light"],
             "type": "toggle",
-            "backend_binding": "gsettings:org.gnome.settings-daemon.plugins.color/night-light-enabled"
+            "backend_binding": "desktop:display/night-light"
         }
     ]
 }
