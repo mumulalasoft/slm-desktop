@@ -65,9 +65,6 @@ QString defaultPrivilegedActionFor(const QString &moduleId, const QString &setti
             return QStringLiteral("org.slm.settings.network.modify");
         }
     }
-    if (mod == QStringLiteral("power")) {
-        return QStringLiteral("org.slm.settings.power.modify");
-    }
     if (mod == QStringLiteral("applications")) {
         return QStringLiteral("org.slm.settings.applications.modify");
     }
