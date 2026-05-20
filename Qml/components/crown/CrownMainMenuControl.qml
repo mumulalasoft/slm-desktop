@@ -575,15 +575,17 @@ Item {
 
         DSStyle.MenuSeparator {}
 
-        // ── Force Quit ────────────────────────────────────────────────────────
+        // ── Theme Toggle ──────────────────────────────────────────────────────
 
         DSStyle.MenuItem {
-            text: qsTr("Force Quit…")
+            text: (typeof DesktopSettings !== "undefined" && DesktopSettings.themeMode === "dark")
+                  ? qsTr("Switch to Light Mode")
+                  : qsTr("Switch to Dark Mode")
             onTriggered: {
                 mainMenu.close()
-                if (typeof AppCommandRouter !== "undefined" && AppCommandRouter
-                        && AppCommandRouter.route) {
-                    AppCommandRouter.route("app.forcequit", {}, "main-menu")
+                if (typeof DesktopSettings !== "undefined") {
+                    var newMode = (DesktopSettings.themeMode === "dark") ? "light" : "dark"
+                    DesktopSettings.setThemeMode(newMode)
                 }
             }
         }
