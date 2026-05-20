@@ -13,7 +13,7 @@ Rectangle {
 
     implicitWidth: Math.min(520, label.implicitWidth + 210)
     implicitHeight: 40
-    radius: 8
+    radius: Theme.radiusControl
     color: Theme.color("surface")
     border.color: Theme.color("panelBorder")
     border.width: Theme.borderWidthThin

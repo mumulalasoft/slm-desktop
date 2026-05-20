@@ -54,7 +54,7 @@ FocusScope {
                 Layout.fillWidth: true
                 visible: (root.apps || []).length > 0
                 implicitHeight: Math.min(190, appList.implicitHeight + 16)
-                radius: 8
+                radius: Theme.radiusControl
                 color: Theme.color("panelBg")
                 border.color: Theme.color("panelBorder")
                 clip: true

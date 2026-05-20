@@ -34,7 +34,7 @@ FocusScope {
         id: card
         anchors.centerIn: parent
         width: Math.min(480, parent.width - 48)
-        radius: 18
+        radius: Theme.radiusWindow
         color: Theme.color("surface")
         border.color: Theme.color("panelBorder")
         border.width: Theme.borderWidthThin
