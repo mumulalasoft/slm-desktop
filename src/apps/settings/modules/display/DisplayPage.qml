@@ -76,7 +76,9 @@ Flickable {
                 SettingToggle {
                     id: nightLightToggle
                     checked: Boolean(root.nightLightBinding.value)
-                    onToggled: root.nightLightBinding.value = checked
+                    onToggled: {
+                        root.nightLightBinding.value = checked
+                    }
                 }
             }
 
