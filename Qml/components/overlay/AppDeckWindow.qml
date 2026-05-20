@@ -1138,16 +1138,20 @@ Window {
             appdeckSearchSeed: root.desktopScene
                               ? String(root.desktopScene.appdeckSearchSeed || "")
                               : ""
-            // docs/APPDECK_REDESIGN.md Phase 1 (post-evaluation): trimmed
-            // the extra padding from +20 to +8 so the page indicator does
-            // not float so far above the dock. dockView.dockItem.height
-            // already contains tooltipHeadroom (44) and an internal +8
-            // safety margin (AppDeck.qml:144), so the dock + its hover
-            // tooltip cannot be clipped by this change.
+            // docs/APPDECK_REDESIGN.md Phase 1 (post-eval iter 2): trim
+            // the grid's bottom reservation further so the page indicator
+            // sits closer to the dock. dockView.dockItem.height is
+            //     baseHeight(~74) + liftMax(10) + tooltipHeadroom(44) + 8
+            // The 44px tooltipHeadroom is just a render buffer ABOVE the
+            // dock pill so the per-icon hover tooltip is not clipped by
+            // the dock's own Wayland surface edge. Tooltip text floats
+            // ~30–36 px above the pill in practice, so leaving 8 px of
+            // headroom (tooltipHeadroom - 36) is still enough; we
+            // claw back the rest as grid space below the page indicator.
             bottomSafeInset: Math.max(
                 24,
                 Math.round(
-                    (dockView.dockItem ? Number(dockView.dockItem.height || 120) : 120)
+                    (dockView.dockItem ? Number(dockView.dockItem.height || 120) - 36 : 84)
                     + (root.desktopScene ? Number(root.desktopScene.dockBottomMargin || 0) : 0)
                     + 8
                 )
