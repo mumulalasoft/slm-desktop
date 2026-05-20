@@ -22,6 +22,11 @@ struct DesktopAppEntry {
     QString desktopId;
     QString desktopFile;
     QString executable;
+    // docs/APPDECK_REDESIGN.md Phase 2 — XDG Categories= from the .desktop
+    // entry, parsed as a list of tokens. Used by AppDeck grid's category
+    // segmented control to bucket apps into Productivity / Internet /
+    // Graphics & Media / Utilities.
+    QStringList categories;
     int score = 0;
     int launchCount7d = 0;
     int fileOpenCount7d = 0;
@@ -41,7 +46,8 @@ public:
         ScoreRole,
         LaunchCount7dRole,
         FileOpenCount7dRole,
-        LastLaunchRole
+        LastLaunchRole,
+        CategoriesRole
     };
 
     explicit DesktopAppModel(QObject *parent = nullptr);

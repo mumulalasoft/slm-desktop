@@ -55,6 +55,27 @@ QString fromUtf8(const char *value)
     return value ? QString::fromUtf8(value) : QString();
 }
 
+// docs/APPDECK_REDESIGN.md Phase 2 — XDG Categories= is a semicolon-separated
+// list (trailing semicolon allowed). Tokenize, trim, drop empties so QStringList
+// consumers can match against bucket rules without string fiddling.
+QStringList parseDesktopCategories(const QString &raw)
+{
+    const QString trimmed = raw.trimmed();
+    if (trimmed.isEmpty()) {
+        return {};
+    }
+    const QStringList parts = trimmed.split(QLatin1Char(';'), Qt::SkipEmptyParts);
+    QStringList out;
+    out.reserve(parts.size());
+    for (const QString &p : parts) {
+        const QString token = p.trimmed();
+        if (!token.isEmpty()) {
+            out.append(token);
+        }
+    }
+    return out;
+}
+
 bool envFlagEnabled(const char *name)
 {
     const QByteArray value = qgetenv(name).trimmed().toLower();
@@ -76,6 +97,7 @@ QString appCatalogSignature(const DesktopAppEntry &app)
     appendField(app.desktopId);
     appendField(app.desktopFile);
     appendField(app.executable);
+    appendField(app.categories.join(QLatin1Char(';')));
     return signature;
 }
 
@@ -1068,6 +1090,8 @@ QVariant DesktopAppModel::data(const QModelIndex &index, int role) const
         return app.fileOpenCount7d;
     case LastLaunchRole:
         return app.lastLaunchIso;
+    case CategoriesRole:
+        return app.categories;
     default:
         return QVariant();
     }
@@ -1086,6 +1110,7 @@ QHash<int, QByteArray> DesktopAppModel::roleNames() const
     roles[LaunchCount7dRole] = "launchCount7d";
     roles[FileOpenCount7dRole] = "fileOpenCount7d";
     roles[LastLaunchRole] = "lastLaunch";
+    roles[CategoriesRole] = "categories";
     return roles;
 }
 
@@ -1124,6 +1149,9 @@ void DesktopAppModel::refresh()
             if (app.iconName.isEmpty()) {
                 app.iconName = fromUtf8(g_desktop_app_info_get_string(G_DESKTOP_APP_INFO(info), "Icon"));
             }
+            const QString rawCategories = fromUtf8(
+                g_desktop_app_info_get_categories(G_DESKTOP_APP_INFO(info)));
+            app.categories = parseDesktopCategories(rawCategories);
         }
 
         GIcon *icon = g_app_info_get_icon(info);
@@ -1182,6 +1210,7 @@ void DesktopAppModel::refresh()
             const QString name = fromUtf8(g_key_file_get_string(kf, "Desktop Entry", "Name", nullptr)).trimmed();
             const QString execRaw = fromUtf8(g_key_file_get_string(kf, "Desktop Entry", "Exec", nullptr)).trimmed();
             const QString iconName = fromUtf8(g_key_file_get_string(kf, "Desktop Entry", "Icon", nullptr)).trimmed();
+            const QString rawCats = fromUtf8(g_key_file_get_string(kf, "Desktop Entry", "Categories", nullptr));
             g_key_file_free(kf);
 
             if (type.compare(QStringLiteral("Application"), Qt::CaseInsensitive) != 0
@@ -1196,6 +1225,7 @@ void DesktopAppModel::refresh()
             app.executable = execRaw;
             app.iconName = iconName;
             app.iconSource = resolveThemedIconPath(iconName);
+            app.categories = parseDesktopCategories(rawCats);
             const QString dedupeKey = !app.desktopId.isEmpty()
                                           ? app.desktopId.toLower()
                                           : app.name.toLower();
@@ -1252,6 +1282,9 @@ QVector<DesktopAppEntry> DesktopAppModel::computeAppsFromSystem()
             app.desktopFile = fromUtf8(g_desktop_app_info_get_filename(G_DESKTOP_APP_INFO(info)));
             if (app.iconName.isEmpty())
                 app.iconName = fromUtf8(g_desktop_app_info_get_string(G_DESKTOP_APP_INFO(info), "Icon"));
+            const QString rawCategories = fromUtf8(
+                g_desktop_app_info_get_categories(G_DESKTOP_APP_INFO(info)));
+            app.categories = parseDesktopCategories(rawCategories);
         }
 
         GIcon *icon = g_app_info_get_icon(info);
@@ -1292,6 +1325,7 @@ QVector<DesktopAppEntry> DesktopAppModel::computeAppsFromSystem()
             const QString name     = fromUtf8(g_key_file_get_string(kf, "Desktop Entry", "Name",      nullptr)).trimmed();
             const QString execRaw  = fromUtf8(g_key_file_get_string(kf, "Desktop Entry", "Exec",      nullptr)).trimmed();
             const QString iconName = fromUtf8(g_key_file_get_string(kf, "Desktop Entry", "Icon",      nullptr)).trimmed();
+            const QString rawCats  = fromUtf8(g_key_file_get_string(kf, "Desktop Entry", "Categories", nullptr));
             g_key_file_free(kf);
 
             if (type.compare(QStringLiteral("Application"), Qt::CaseInsensitive) != 0
@@ -1305,6 +1339,7 @@ QVector<DesktopAppEntry> DesktopAppModel::computeAppsFromSystem()
             app.executable = execRaw;
             app.iconName   = iconName;
             app.iconSource = resolveThemedIconPath(iconName);
+            app.categories = parseDesktopCategories(rawCats);
             const QString dedupeKey = !app.desktopId.isEmpty()
                                           ? app.desktopId.toLower() : app.name.toLower();
             if (!seenKeys.contains(dedupeKey)) {
@@ -1748,6 +1783,7 @@ QVariantList DesktopAppModel::page(int pageIndex, int pageSize, const QString &s
         item.insert(QStringLiteral("launchCount7d"), app.launchCount7d);
         item.insert(QStringLiteral("fileOpenCount7d"), app.fileOpenCount7d);
         item.insert(QStringLiteral("lastLaunch"), app.lastLaunchIso);
+        item.insert(QStringLiteral("categories"), app.categories);
         result.push_back(item);
     }
     return result;
@@ -1812,6 +1848,7 @@ QVariantList DesktopAppModel::frequentApps(int limit) const
         item.insert(QStringLiteral("launchCount7d"), app.launchCount7d);
         item.insert(QStringLiteral("fileOpenCount7d"), app.fileOpenCount7d);
         item.insert(QStringLiteral("lastLaunch"), app.lastLaunchIso);
+        item.insert(QStringLiteral("categories"), app.categories);
         out.push_back(item);
     }
     return out;

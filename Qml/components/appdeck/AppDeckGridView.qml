@@ -11,6 +11,31 @@ Item {
     property string filterText: ""
     property var filteredApps: []
     property var pagedApps: []
+    // docs/APPDECK_REDESIGN.md Phase 1 — Recent and Suggestions strips above
+    // the paged "All Apps" grid. recentApps = top MRU from AppModel.frequentApps;
+    // suggestionApps = next frequent apps not already in Recent. Phase 2 will
+    // refine suggestions with time-of-day category bucketing.
+    property var recentApps: []
+    property var suggestionApps: []
+    readonly property int recentCount: 6
+    readonly property int suggestionCount: 4
+    readonly property int stripCellWidth: 96
+    readonly property int stripHeight: 100
+    readonly property int stripSpacing: 8
+
+    // docs/APPDECK_REDESIGN.md Phase 2 — Category segmented control.
+    // 5 fixed buckets; XDG Categories= tokens map to a bucket via
+    // _categoryBucket() with priority order Internet → Graphics & Media →
+    // Productivity → Utilities (most-specific-first). Apps with no recognized
+    // category appear only under "all".
+    property string selectedCategory: "all"
+    readonly property var categoryButtons: [
+        { "id": "all",            "label": "All" },
+        { "id": "productivity",   "label": "Productivity" },
+        { "id": "internet",       "label": "Internet" },
+        { "id": "graphics-media", "label": "Graphics & Media" },
+        { "id": "utilities",      "label": "Utilities" }
+    ]
     property int selectedIndex: -1
     property int currentPage: 0
     property int pendingPage: -1
@@ -121,11 +146,60 @@ Item {
             "running": !!(entry && entry.running),
             "favorite": !!(entry && entry.favorite),
             "category": String((entry && entry.category) || ""),
+            // docs/APPDECK_REDESIGN.md Phase 2 — XDG Categories list from
+            // .desktop file, exposed by DesktopAppModel.page()/frequentApps().
+            "categories": (entry && entry.categories) ? entry.categories : [],
             "desktopId": String((entry && entry.desktopId) || ""),
             "desktopFile": String((entry && entry.desktopFile) || ""),
             "executable": String((entry && entry.executable) || ""),
             "name": String((entry && entry.name) || "")
         }
+    }
+
+    // docs/APPDECK_REDESIGN.md Phase 2 — Bucket an app into one of 5 fixed
+    // categories by inspecting its XDG Categories= tokens. Priority order:
+    // Internet (most specific for comms apps) → Graphics & Media →
+    // Productivity (broad office/dev) → Utilities (catch-all system tools).
+    // Mail app with Office;Network;Email; resolves to Internet because
+    // Internet's check runs first.
+    function _categoryBucket(categories) {
+        var cats = []
+        var src = categories || []
+        for (var k = 0; k < src.length; ++k) {
+            cats.push(String(src[k] || "").trim().toLowerCase())
+        }
+        if (cats.length === 0) {
+            return "uncategorized"
+        }
+        var rules = [
+            { id: "internet",
+              tokens: ["network", "webbrowser", "email", "chat", "instantmessaging",
+                       "ircclient", "telephony", "videoconference", "filetransfer",
+                       "remoteaccess", "p2p", "news", "rss"] },
+            { id: "graphics-media",
+              tokens: ["graphics", "photography", "scanning", "vectorgraphics",
+                       "rastergraphics", "imageprocessing", "3dgraphics",
+                       "audiovideo", "audio", "video", "music", "player",
+                       "recorder", "tv"] },
+            { id: "productivity",
+              tokens: ["office", "development", "ide", "texteditor",
+                       "projectmanagement", "spreadsheet", "presentation",
+                       "wordprocessor", "database", "calendar", "dictionary"] },
+            { id: "utilities",
+              tokens: ["settings", "system", "utility", "accessibility",
+                       "filemanager", "calculator", "terminal", "consoleonly",
+                       "hardwaresettings", "monitor", "security",
+                       "packagemanager"] }
+        ]
+        for (var r = 0; r < rules.length; ++r) {
+            var rule = rules[r]
+            for (var c = 0; c < cats.length; ++c) {
+                if (rule.tokens.indexOf(cats[c]) >= 0) {
+                    return rule.id
+                }
+            }
+        }
+        return "uncategorized"
     }
 
     function _matchesFilter(entry, needle) {
@@ -262,6 +336,14 @@ Item {
         for (var i = 0; i < raw.length; ++i) {
             next.push(_normalize(raw[i]))
         }
+        // Phase 2 — segmented category filter. While the user is typing a
+        // local filter we keep "all" so search isn't masked by the active
+        // segment; Phase 4 will route search to Pulse instead.
+        if (selectedCategory !== "all" && needle.length === 0) {
+            next = next.filter(function(entry) {
+                return _categoryBucket(entry && entry.categories) === selectedCategory
+            })
+        }
         filteredApps = next
         if (filteredApps.length <= 0) {
             selectedIndex = -1
@@ -275,6 +357,59 @@ Item {
             selectedIndex = 0
         }
         _syncPaginationToSelection()
+    }
+
+    // Identity key used to dedupe between Recent and Suggestions strips.
+    function _identityKey(entry) {
+        if (!entry) return ""
+        var id = String(entry.desktopId || entry.desktopFile || entry.executable || entry.name || "")
+        return id.toLowerCase()
+    }
+
+    function _rebuildRecentApps() {
+        if (typeof AppModel === "undefined" || !AppModel || !AppModel.frequentApps) {
+            recentApps = []
+            return
+        }
+        var raw = AppModel.frequentApps(recentCount) || []
+        var next = []
+        for (var i = 0; i < raw.length && next.length < recentCount; ++i) {
+            var row = raw[i]
+            if (!row) continue
+            next.push(_normalize(row))
+        }
+        recentApps = next
+    }
+
+    function _rebuildSuggestionApps() {
+        if (typeof AppModel === "undefined" || !AppModel || !AppModel.frequentApps) {
+            suggestionApps = []
+            return
+        }
+        // Pull a wider window of frequent apps; suggestions are picked as the
+        // next-most-frequent apps that are NOT already in the Recent strip.
+        // Phase 2 will refine ranking with time-of-day category bucketing.
+        var raw = AppModel.frequentApps(recentCount + suggestionCount + 8) || []
+        var seen = {}
+        for (var i = 0; i < recentApps.length; ++i) {
+            seen[_identityKey(recentApps[i])] = true
+        }
+        var next = []
+        for (var j = 0; j < raw.length && next.length < suggestionCount; ++j) {
+            var row = raw[j]
+            if (!row) continue
+            var normalized = _normalize(row)
+            var key = _identityKey(normalized)
+            if (key.length === 0 || seen[key]) continue
+            seen[key] = true
+            next.push(normalized)
+        }
+        suggestionApps = next
+    }
+
+    function _refreshStripModels() {
+        _rebuildRecentApps()
+        _rebuildSuggestionApps()
     }
 
     function _pinFlightSize() {
@@ -342,8 +477,15 @@ Item {
     }
 
     onFilterTextChanged: _rebuildModel()
-    onAppModelChanged: _rebuildModel()
-    onVisibleChanged: if (visible) _rebuildModel()
+    onSelectedCategoryChanged: {
+        // Reset to first page when the category changes so the user does
+        // not stay on a now-empty page index.
+        selectedIndex = -1
+        currentPage = 0
+        _rebuildModel()
+    }
+    onAppModelChanged: { _rebuildModel(); _refreshStripModels() }
+    onVisibleChanged: if (visible) { _rebuildModel(); _refreshStripModels() }
 
     Keys.onPressed: function(event) {
         if (event.key === Qt.Key_Escape) {
@@ -355,11 +497,12 @@ Item {
     Connections {
         target: root.appModel ? root.appModel : null
         ignoreUnknownSignals: true
-        function onCountChanged() { root._rebuildModel() }
-        function onDataChanged() { root._rebuildModel() }
-        function onModelReset() { root._rebuildModel() }
-        function onRowsInserted() { root._rebuildModel() }
-        function onRowsRemoved() { root._rebuildModel() }
+        function onCountChanged() { root._rebuildModel(); root._refreshStripModels() }
+        function onDataChanged() { root._rebuildModel(); root._refreshStripModels() }
+        function onModelReset() { root._rebuildModel(); root._refreshStripModels() }
+        function onRowsInserted() { root._rebuildModel(); root._refreshStripModels() }
+        function onRowsRemoved() { root._rebuildModel(); root._refreshStripModels() }
+        function onAppScoresChanged() { root._refreshStripModels() }
     }
 
     SequentialAnimation {
@@ -397,25 +540,162 @@ Item {
         anchors.fill: parent
         spacing: 10
 
+        // docs/APPDECK_REDESIGN.md Phase 1 — Region 1: Recent strip.
+        // 6 MRU apps sourced from AppModel.frequentApps; hidden while a
+        // local filter is active (Phase 4 routes search to Pulse instead).
         Item {
+            id: recentSection
             Layout.fillWidth: true
-            implicitHeight: headerLabel.implicitHeight
+            Layout.preferredHeight: visible ? (root.stripHeight + recentLabel.implicitHeight + 6) : 0
+            visible: root.recentApps.length > 0
+                     && String(root.filterText || "").trim().length === 0
 
             Label {
-                id: headerLabel
-                text: "Applications"
+                id: recentLabel
+                text: "Recent"
                 font.pixelSize: Theme.fontSize("small")
                 font.weight: Theme.fontWeight("semibold")
                 color: Theme.color("textPrimary")
                 opacity: Theme.opacityMuted
                 anchors.left: parent.left
-                anchors.verticalCenter: parent.verticalCenter
+                anchors.top: parent.top
             }
 
-            MouseArea {
-                anchors.fill: parent
-                acceptedButtons: Qt.LeftButton
-                onClicked: root.collapseRequested()
+            Row {
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: recentLabel.bottom
+                anchors.topMargin: 6
+                height: root.stripHeight
+                spacing: root.stripSpacing
+
+                Repeater {
+                    model: root.recentApps
+                    delegate: Item {
+                        width: root.stripCellWidth
+                        height: root.stripHeight
+
+                        AppDeckComp.AppDeckItemDelegate {
+                            anchors.fill: parent
+                            appData: modelData
+                            title: String((modelData && modelData.display) || "")
+                            iconSource: String((modelData && modelData.icon) || "")
+                            running: !!(modelData && modelData.running)
+                            selected: false
+                            onActivated: function(appData) { root.appActivated(modelData) }
+                        }
+                    }
+                }
+            }
+        }
+
+        // docs/APPDECK_REDESIGN.md Phase 1 — Region 2: Suggestions strip.
+        // Next 4 frequent apps not already in Recent. Phase 2 will refine
+        // ranking with time-of-day category buckets.
+        Item {
+            id: suggestionsSection
+            Layout.fillWidth: true
+            Layout.preferredHeight: visible ? (root.stripHeight + suggestionsLabel.implicitHeight + 6) : 0
+            visible: root.suggestionApps.length > 0
+                     && String(root.filterText || "").trim().length === 0
+
+            Label {
+                id: suggestionsLabel
+                text: "Suggestions"
+                font.pixelSize: Theme.fontSize("small")
+                font.weight: Theme.fontWeight("semibold")
+                color: Theme.color("textPrimary")
+                opacity: Theme.opacityMuted
+                anchors.left: parent.left
+                anchors.top: parent.top
+            }
+
+            Row {
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: suggestionsLabel.bottom
+                anchors.topMargin: 6
+                height: root.stripHeight
+                spacing: root.stripSpacing
+
+                Repeater {
+                    model: root.suggestionApps
+                    delegate: Item {
+                        width: root.stripCellWidth
+                        height: root.stripHeight
+
+                        AppDeckComp.AppDeckItemDelegate {
+                            anchors.fill: parent
+                            appData: modelData
+                            title: String((modelData && modelData.display) || "")
+                            iconSource: String((modelData && modelData.icon) || "")
+                            running: !!(modelData && modelData.running)
+                            selected: false
+                            onActivated: function(appData) { root.appActivated(modelData) }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Region 3 header — category segmented control above the paged grid.
+        // 5 fixed buckets; selecting one filters the GridView via
+        // _rebuildModel(). Hidden while a local filter is active (search
+        // routes through Pulse in Phase 4).
+        Item {
+            id: categorySegmentRow
+            Layout.fillWidth: true
+            Layout.preferredHeight: visible ? 32 : 0
+            visible: String(root.filterText || "").trim().length === 0
+
+            Row {
+                anchors.left: parent.left
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: 8
+
+                Repeater {
+                    model: root.categoryButtons
+                    delegate: Rectangle {
+                        id: chip
+                        readonly property bool active: root.selectedCategory === modelData.id
+                        height: 28
+                        width: chipLabel.implicitWidth + 24
+                        radius: height * 0.5
+                        antialiasing: true
+                        color: active
+                               ? Theme.color("accent")
+                               : (chipHover.containsMouse
+                                  ? Qt.rgba(1, 1, 1, Theme.darkMode ? 0.08 : 0.18)
+                                  : "transparent")
+                        border.width: active ? 0 : Theme.borderWidthThin
+                        border.color: active ? "transparent" : Qt.rgba(1, 1, 1, Theme.darkMode ? 0.14 : 0.22)
+
+                        Behavior on color {
+                            ColorAnimation { duration: Theme.durationFast; easing.type: Theme.easingLight }
+                        }
+
+                        Label {
+                            id: chipLabel
+                            anchors.centerIn: parent
+                            text: String(modelData.label || "")
+                            font.pixelSize: Theme.fontSize("small")
+                            font.weight: Theme.fontWeight("semibold")
+                            color: chip.active
+                                   ? Theme.color("accentText")
+                                   : Theme.color("textPrimary")
+                            opacity: chip.active ? 1.0 : Theme.opacityMuted
+                        }
+
+                        MouseArea {
+                            id: chipHover
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            acceptedButtons: Qt.LeftButton
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.selectedCategory = String(modelData.id || "all")
+                        }
+                    }
+                }
             }
         }
 
@@ -947,5 +1227,5 @@ Item {
         }
     }
 
-    Component.onCompleted: { _rebuildModel(); gridLayoutSettled() }
+    Component.onCompleted: { _rebuildModel(); _refreshStripModels(); gridLayoutSettled() }
 }
