@@ -975,15 +975,6 @@ set(DESKTOP_SHELL_QML_FILES
     Qml/components/workspace/WorkspaceOverviewScene.qml
     Qml/components/workspace/WindowThumbnail.qml
     Qml/apps/filemanager/FileManagerWindow.qml
-    Qml/components/pulse/PulseOverlay.qml
-    Qml/components/pulse/PulseSurface.qml
-    Qml/components/pulse/PulseInput.qml
-    Qml/components/pulse/PulseTopResult.qml
-    Qml/components/pulse/PulseSection.qml
-    Qml/components/pulse/PulseGridSection.qml
-    Qml/components/pulse/PulseListSection.qml
-    Qml/components/pulse/PulseActionRow.qml
-    Qml/components/pulse/PulseCommandPreview.qml
     Qml/components/appdeck/AppDeckAppDelegate.qml
     Qml/components/appdeck/AppDeckItemDelegate.qml
     Qml/components/appdeck/AppDeckCollapsedView.qml
@@ -992,7 +983,6 @@ set(DESKTOP_SHELL_QML_FILES
     Qml/components/appdeck/AppDeckGridView.qml
     Qml/components/appdeck/AppDeckFavoritesRow.qml
     Qml/components/appdeck/AppDeckContextView.qml
-    Qml/components/appdeck/PulseQueryHeader.qml
     Qml/components/appdeck/PulseBestMatchCard.qml
     Qml/components/appdeck/PulseResultsDashboard.qml
     Qml/components/appdeck/PulseResultsColumn.qml
