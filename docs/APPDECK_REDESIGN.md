@@ -278,3 +278,28 @@ test suite. Save state di file ini setelah tiap fase selesai.
   - Backdrop "blur ke belakang" remains the existing opacity 0.88 +
     scale 0.98 (no `MultiEffect` blur). Adding true blur on Wayland
     needs care around layer.enabled cost; tracked as a follow-up.
+- 2026-05-20: **Phase 1 revision after visual eval**. The first QEMU
+  screenshot exposed three issues:
+  - `AppDeckGridAppsView` already renders `AppDeckFavoritesRow` as the
+    "Recent" section (its own "Recent" label + 8 large icons sorted by
+    lastLaunch). My new Recent strip inside `AppDeckGridView` duplicated
+    it visually.
+  - Suggestions delegates lacked `compact: true` so the icons looked
+    smaller than the favoritesRow above them.
+  - Page indicator dots floated far above the dock pill because
+    `AppDeckWindow` added a `+20` extra padding on top of the dock
+    item's already-built-in `tooltipHeadroom(44) + 8` safety margin.
+
+  Fixes:
+  - Removed the duplicate Recent strip (`recentApps`,
+    `_rebuildRecentApps`, `recentSection`) from `AppDeckGridView.qml`.
+  - Added an `excludeKeys` property on `AppDeckGridView`. The parent
+    builds it from `favoriteApps[*].appId|desktopId|...` so Suggestions
+    no longer echoes apps the user already sees in Recent above.
+  - Suggestions delegates now use `compact: true` and the same 96×104
+    cell footprint as `AppDeckFavoritesRow`.
+  - `AppDeckWindow.qml` — trimmed the `bottomSafeInset` extra padding
+    from `+20` to `+8`. The dock item already reserves
+    `tooltipHeadroom(44) + 8` inside its own height, so the hover
+    tooltip and the dock pill cannot be clipped by this change.
+  - Build OK. 8/8 AppDeck + AppModel tests still pass.

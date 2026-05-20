@@ -1138,12 +1138,18 @@ Window {
             appdeckSearchSeed: root.desktopScene
                               ? String(root.desktopScene.appdeckSearchSeed || "")
                               : ""
+            // docs/APPDECK_REDESIGN.md Phase 1 (post-evaluation): trimmed
+            // the extra padding from +20 to +8 so the page indicator does
+            // not float so far above the dock. dockView.dockItem.height
+            // already contains tooltipHeadroom (44) and an internal +8
+            // safety margin (AppDeck.qml:144), so the dock + its hover
+            // tooltip cannot be clipped by this change.
             bottomSafeInset: Math.max(
                 24,
                 Math.round(
                     (dockView.dockItem ? Number(dockView.dockItem.height || 120) : 120)
                     + (root.desktopScene ? Number(root.desktopScene.dockBottomMargin || 0) : 0)
-                    + 20
+                    + 8
                 )
             )
             onDismissRequested: {

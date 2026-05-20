@@ -368,10 +368,27 @@ FocusScope {
                             filterText: ""
                             // docs/APPDECK_REDESIGN.md Phase 4 — propagate
                             // the parent's search-active intent so the grid
-                            // chrome (Recent / Suggestions / category
-                            // segmented control) collapses while Pulse is
-                            // owning the result surface.
+                            // chrome (Suggestions strip + category segmented
+                            // control) collapses while Pulse is owning the
+                            // result surface.
                             searchActive: root.searchActive
+                            // docs/APPDECK_REDESIGN.md Phase 1 (revision) —
+                            // dedupe Suggestions against the apps the parent
+                            // already shows in AppDeckFavoritesRow (the
+                            // canonical "Recent" row above this grid).
+                            excludeKeys: {
+                                var keys = []
+                                var src = root.favoriteApps || []
+                                for (var i = 0; i < src.length; ++i) {
+                                    var f = src[i]
+                                    if (!f) continue
+                                    keys.push(String(f.appId || f.desktopId
+                                                     || f.desktopFile
+                                                     || f.executable
+                                                     || f.name || "").toLowerCase())
+                                }
+                                return keys
+                            }
                             iconsRenderedExternally: root.iconsRenderedExternally
                             onAppActivated: function(appData) {
                                 root.appChosen(appData)

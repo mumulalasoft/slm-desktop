@@ -18,17 +18,19 @@ Item {
     property bool searchActive: false
     property var filteredApps: []
     property var pagedApps: []
-    // docs/APPDECK_REDESIGN.md Phase 1 — Recent and Suggestions strips above
-    // the paged "All Apps" grid. recentApps = top MRU from AppModel.frequentApps;
-    // suggestionApps = next frequent apps not already in Recent. Phase 2 will
-    // refine suggestions with time-of-day category bucketing.
-    property var recentApps: []
+    // docs/APPDECK_REDESIGN.md Phase 1 (post-evaluation revision):
+    // The parent AppDeckGridAppsView already owns the "Recent" row via
+    // AppDeckFavoritesRow (using AppModel.topApps sorted by lastLaunch).
+    // Keeping a second Recent strip inside this view duplicated the row,
+    // so only the Suggestions strip lives here. Excluded apps are passed
+    // in via `excludeKeys` so Suggestions does not echo back items the
+    // parent already surfaces in Recent.
     property var suggestionApps: []
-    readonly property int recentCount: 6
+    property var excludeKeys: []
     readonly property int suggestionCount: 4
     readonly property int stripCellWidth: 96
-    readonly property int stripHeight: 100
-    readonly property int stripSpacing: 8
+    readonly property int stripHeight: 104
+    readonly property int stripSpacing: 10
 
     // docs/APPDECK_REDESIGN.md Phase 2 — Category segmented control.
     // 5 fixed buckets; XDG Categories= tokens map to a bucket via
@@ -375,33 +377,20 @@ Item {
         return id.toLowerCase()
     }
 
-    function _rebuildRecentApps() {
-        if (typeof AppModel === "undefined" || !AppModel || !AppModel.frequentApps) {
-            recentApps = []
-            return
-        }
-        var raw = AppModel.frequentApps(recentCount) || []
-        var next = []
-        for (var i = 0; i < raw.length && next.length < recentCount; ++i) {
-            var row = raw[i]
-            if (!row) continue
-            next.push(_normalize(row))
-        }
-        recentApps = next
-    }
-
     function _rebuildSuggestionApps() {
         if (typeof AppModel === "undefined" || !AppModel || !AppModel.frequentApps) {
             suggestionApps = []
             return
         }
-        // Pull a wider window of frequent apps; suggestions are picked as the
-        // next-most-frequent apps that are NOT already in the Recent strip.
-        // Phase 2 will refine ranking with time-of-day category bucketing.
-        var raw = AppModel.frequentApps(recentCount + suggestionCount + 8) || []
+        // Suggestions = next-most-frequent apps that are NOT already shown in
+        // the parent's Recent row (favoritesRow). Identity keys come in via
+        // excludeKeys; without them Suggestions would echo back the same icons
+        // the user already sees in Recent.
+        var raw = AppModel.frequentApps(suggestionCount + 12) || []
         var seen = {}
-        for (var i = 0; i < recentApps.length; ++i) {
-            seen[_identityKey(recentApps[i])] = true
+        var keys = excludeKeys || []
+        for (var i = 0; i < keys.length; ++i) {
+            seen[String(keys[i] || "").toLowerCase()] = true
         }
         var next = []
         for (var j = 0; j < raw.length && next.length < suggestionCount; ++j) {
@@ -417,9 +406,10 @@ Item {
     }
 
     function _refreshStripModels() {
-        _rebuildRecentApps()
         _rebuildSuggestionApps()
     }
+
+    onExcludeKeysChanged: _rebuildSuggestionApps()
 
     function _pinFlightSize() {
         return Theme.controlHeightLarge + Theme.spacingXxl
@@ -556,54 +546,10 @@ Item {
         anchors.fill: parent
         spacing: 10
 
-        // docs/APPDECK_REDESIGN.md Phase 1 — Region 1: Recent strip.
-        // 6 MRU apps sourced from AppModel.frequentApps; hidden while a
-        // local filter is active (Phase 4 routes search to Pulse instead).
-        Item {
-            id: recentSection
-            Layout.fillWidth: true
-            Layout.preferredHeight: visible ? (root.stripHeight + recentLabel.implicitHeight + 6) : 0
-            visible: root.recentApps.length > 0
-                     && !root.searchActive
-
-            Label {
-                id: recentLabel
-                text: "Recent"
-                font.pixelSize: Theme.fontSize("small")
-                font.weight: Theme.fontWeight("semibold")
-                color: Theme.color("textPrimary")
-                opacity: Theme.opacityMuted
-                anchors.left: parent.left
-                anchors.top: parent.top
-            }
-
-            Row {
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.top: recentLabel.bottom
-                anchors.topMargin: 6
-                height: root.stripHeight
-                spacing: root.stripSpacing
-
-                Repeater {
-                    model: root.recentApps
-                    delegate: Item {
-                        width: root.stripCellWidth
-                        height: root.stripHeight
-
-                        AppDeckComp.AppDeckItemDelegate {
-                            anchors.fill: parent
-                            appData: modelData
-                            title: String((modelData && modelData.display) || "")
-                            iconSource: String((modelData && modelData.icon) || "")
-                            running: !!(modelData && modelData.running)
-                            selected: false
-                            onActivated: function(appData) { root.appActivated(modelData) }
-                        }
-                    }
-                }
-            }
-        }
+        // docs/APPDECK_REDESIGN.md Phase 1 (post-evaluation revision) —
+        // Region 1 (Recent) is owned by the parent AppDeckGridAppsView via
+        // AppDeckFavoritesRow (top apps sorted by lastLaunch). This view
+        // starts directly with Suggestions so the same row is not duplicated.
 
         // docs/APPDECK_REDESIGN.md Phase 1 — Region 2: Suggestions strip.
         // Next 4 frequent apps not already in Recent. Phase 2 will refine
@@ -636,19 +582,16 @@ Item {
 
                 Repeater {
                     model: root.suggestionApps
-                    delegate: Item {
+                    delegate: AppDeckComp.AppDeckItemDelegate {
                         width: root.stripCellWidth
                         height: root.stripHeight
-
-                        AppDeckComp.AppDeckItemDelegate {
-                            anchors.fill: parent
-                            appData: modelData
-                            title: String((modelData && modelData.display) || "")
-                            iconSource: String((modelData && modelData.icon) || "")
-                            running: !!(modelData && modelData.running)
-                            selected: false
-                            onActivated: function(appData) { root.appActivated(modelData) }
-                        }
+                        compact: true
+                        appData: modelData
+                        title: String((modelData && modelData.display) || "")
+                        iconSource: String((modelData && modelData.icon) || "")
+                        running: !!(modelData && modelData.running)
+                        selected: false
+                        onActivated: function(appData) { root.appActivated(modelData) }
                     }
                 }
             }
