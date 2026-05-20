@@ -876,7 +876,7 @@ ApplicationWindow {
         pulseResultsModel: pulseResultsStore
         shellApi: root
         desktopViewController: desktopViewController
-        desktopMenuProvider: desktopMenuProvider
+        desktopMenuProvider: root.desktopMenuProviderRef
     }
 
     ShellComp.MotionMonitor { }
@@ -1111,7 +1111,7 @@ ApplicationWindow {
             rootWindow: root
             desktopScene: desktopScene
             shellApi: root
-            desktopMenuProvider: desktopMenuProvider
+            desktopMenuProvider: root.desktopMenuProviderRef
             onStartupItemsReadyReached: root.markStartupTopbarItemsReady()
             onStartupItemsReadyChanged: {
                 if (startupItemsReady) {
@@ -1159,7 +1159,7 @@ ApplicationWindow {
         desktopScene: desktopScene
         globalMenuActionRouter: globalMenuActionRouter
         globalMenuManager: GlobalMenuManager
-        desktopMenuProvider: desktopMenuProvider
+        desktopMenuProvider: root.desktopMenuProviderRef
     }
 
     // AppDeckWindow — single persistent AppDeck surface (wlr-layer-shell).

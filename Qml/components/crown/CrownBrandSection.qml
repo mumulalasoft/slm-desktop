@@ -94,12 +94,20 @@ Row {
         return []
     }
 
-    function _moreCompactRows(menus) {
+    // Maximum number of menus to pin in the bar when compact mode is active.
+    // Any menus beyond this count overflow into a "More" entry.
+    // If ALL menus fit within this limit, no "More" entry is created and the
+    // bar effectively behaves identically to full mode.
+    readonly property int _compactPinCount: 5
+
+    function _moreCompactRows(menus, keepIds) {
+        // keepIds: a plain JS object used as a Set — keys are menu id strings
+        // that are already pinned in the bar. Only menus NOT in keepIds go here.
         var rows = []
         for (var i = 0; i < menus.length; ++i) {
             var row = menus[i] || ({})
-            var label = String(row.label || "").toLowerCase()
-            if (label === "file" || label === "edit" || label === "view") continue
+            var id  = String(row.id || "")
+            if (keepIds[id]) continue
             rows.push({
                 "id": 7000 + i, "label": String(row.label || ""),
                 "enabled": row.enabled !== false,
@@ -112,27 +120,33 @@ Row {
 
     function _effectiveMenus() {
         var menus = _rawMenus()
-        if (_effectiveAdaptiveMode === "compact") {
-            var keep = []
-            var haveFile = false, haveEdit = false, haveView = false
-            var haveGo = false, haveWorkspace = false
-            for (var i = 0; i < menus.length; ++i) {
-                var row = menus[i] || ({})
-                var label = String(row.label || "").toLowerCase()
-                if (!haveFile  && label === "file")  { keep.push(row); haveFile  = true; continue }
-                if (!haveEdit  && label === "edit")  { keep.push(row); haveEdit  = true; continue }
-                if (!haveView  && label === "view")  { keep.push(row); haveView  = true; continue }
-                if (!haveGo && label === "go") { keep.push(row); haveGo = true; continue }
-                if (!haveWorkspace && label === "workspace") { keep.push(row); haveWorkspace = true; continue }
-            }
-            var more = _moreCompactRows(menus)
-            if (more.length > 0) {
-                keep.push({ "id": 9999, "label": "More", "enabled": true,
-                            "source": "compact", "moreItems": more })
-            }
-            return keep
+
+        // When there are few enough menus to fit comfortably, always show them
+        // all regardless of what the adaptive controller reports.  This avoids
+        // the "More" overflow pattern entirely for typical desktop-mode menus
+        // (Desktop / Edit / Storage / Workspace = 4 items).  The threshold
+        // _compactPinCount acts as the ceiling: ≤ pinCount → always full.
+        if (_effectiveAdaptiveMode !== "compact" || menus.length <= _compactPinCount) {
+            return menus
         }
-        return menus
+
+        // Compact mode with more menus than the pin limit: pin the first
+        // _compactPinCount menus and collect the rest into "More".
+        // This is label-agnostic — no hardcoded menu names.
+        var keep    = []
+        var keepIds = {}
+        for (var i = 0; i < Math.min(menus.length, _compactPinCount); ++i) {
+            var row = menus[i] || ({})
+            keep.push(row)
+            keepIds[String(row.id || "")] = true
+        }
+
+        var more = _moreCompactRows(menus, keepIds)
+        if (more.length > 0) {
+            keep.push({ "id": 9999, "label": "More", "enabled": true,
+                        "source": "compact", "moreItems": more })
+        }
+        return keep
     }
 
     function _menuItemsFor(menuRow) {
@@ -140,8 +154,13 @@ Row {
         var menuId = Number(menuRow.id || -1)
         if (menuId === 9999 && menuRow.moreItems) return menuRow.moreItems
         var source = String(menuRow.source || "")
+        // Route to desktop provider when:
+        //   (a) the row explicitly carries source="desktop-provider" (QML fallback path), OR
+        //   (b) the provider claims ownership of this menuId (override path via C++ where
+        //       the source field may not survive the QVariantMap round-trip).
         if (desktopMenuProvider && desktopMenuProvider.menuItemsFor
-                && source === "desktop-provider") {
+                && (source === "desktop-provider"
+                    || (desktopMenuProvider.ownsMenu && desktopMenuProvider.ownsMenu(menuId)))) {
             return desktopMenuProvider.menuItemsFor(menuId)
         }
         if (typeof GlobalMenuManager !== "undefined" && GlobalMenuManager
