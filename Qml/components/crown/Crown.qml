@@ -414,12 +414,15 @@ Rectangle {
         anchors.leftMargin: root.panelInset
         anchors.verticalCenter: parent.verticalCenter
         height: Math.max(root.iconButtonH, Math.min(parent.height, Theme.metric("topBarHeight")))
-        spacing: root.panelGap
+        spacing: Theme.metric("spacingXs")
 
         Loader {
             id: mainMenuControlLoader
             width: item ? item.implicitWidth : root.iconButtonW
-            height: item ? item.implicitHeight : root.iconButtonH
+            // Match the row height so the logo's centerIn-parent lands on the
+            // bar's true vertical center; the inner button is only iconButtonH
+            // tall, which would top-align inside a taller Row.
+            height: leftCluster.height
             active: root.deferredReady
             asynchronous: true
             sourceComponent: Component {

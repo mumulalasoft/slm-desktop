@@ -11,7 +11,7 @@ Item {
     property int iconButtonW: Theme.metric("controlHeightRegular")
     property int iconButtonH: Theme.metric("controlHeightCompact")
     property int iconGlyph: 18
-    property int logoVisualOffsetX: -1
+    property int logoVisualOffsetX: 0
     property int logoVisualOffsetY: 0
     property var popupHost: null
     property var rootWindow: null

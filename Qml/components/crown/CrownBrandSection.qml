@@ -5,7 +5,7 @@ import "../globalmenu" as GlobalMenuComp
 
 Row {
     id: root
-    spacing: 4
+    spacing: Theme.metric("spacingXs")
 
     readonly property int _focusRevealHitWidth: Math.max(20, Theme.metric("spacingXl") * 2)
     width: _menuVisible ? implicitWidth : _focusRevealHitWidth
@@ -286,7 +286,7 @@ Row {
     Row {
         visible: root._menuVisible
         height: root.menuBarHeight
-        spacing: 2
+        spacing: Theme.metric("spacingXs")
 
         Repeater {
             model: root._effectiveMenus()

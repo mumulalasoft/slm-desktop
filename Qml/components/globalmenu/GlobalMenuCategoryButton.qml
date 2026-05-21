@@ -17,7 +17,7 @@ Item {
     signal clicked()
 
     implicitWidth: Math.max(42, label.implicitWidth + Theme.metric("spacingMd") * 2)
-    implicitHeight: 28
+    implicitHeight: Theme.metric("controlHeightRegular")
 
     // ── label ────────────────────────────────────────────────────────────────
     Text {

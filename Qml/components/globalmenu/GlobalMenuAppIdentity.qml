@@ -71,7 +71,7 @@ Item {
     readonly property string _appIcon: String(_appData.icon || _appData.iconName || "")
 
     implicitWidth: identityRow.implicitWidth + Theme.metric("spacingMd") * 2
-    implicitHeight: 28
+    implicitHeight: Theme.metric("controlHeightRegular")
 
     // ── layout ────────────────────────────────────────────────────────────────
     Row {
@@ -81,7 +81,7 @@ Item {
 
         Image {
             anchors.verticalCenter: parent.verticalCenter
-            width: 16; height: 16
+            width: 14; height: 14
             source: root._appIcon.length > 0
                     ? (root._appIcon.startsWith("qrc:")
                        || root._appIcon.startsWith("file:")
