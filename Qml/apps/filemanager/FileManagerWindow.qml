@@ -56,45 +56,6 @@ Rectangle {
     property var pendingOpenActions: ({})
     property string pendingMountDevice: ""
     property string pendingConnectServerUri: ""
-    property var connectServerTypes: [{
-            "label": "Public FTP",
-            "scheme": "ftp",
-            "port": 21
-        }, {
-            "label": "FTP (with login)",
-            "scheme": "ftp",
-            "port": 21
-        }, {
-            "label": "SSH",
-            "scheme": "sftp",
-            "port": 22
-        }, {
-            "label": "AFP (Apple Filing Protocol)",
-            "scheme": "afp",
-            "port": 548
-        }, {
-            "label": "Windows share",
-            "scheme": "smb",
-            "port": 445
-        }, {
-            "label": "WebDAV (HTTP)",
-            "scheme": "dav",
-            "port": 80
-        }, {
-            "label": "Secure WebDAV (HTTPS)",
-            "scheme": "davs",
-            "port": 443
-        }]
-    property int connectServerTypeIndex: 4
-    property string connectServerHost: ""
-    property string connectServerShare: ""
-    property int connectServerPort: 445
-    property string connectServerFolder: "/"
-    property string connectServerDomain: "WORKGROUP"
-    property string connectServerUser: ""
-    property string connectServerPassword: ""
-    property string connectServerError: ""
-    property bool connectServerBusy: false
     property var storageOrderMap: ({})
     property int storageOrderNext: 1
     property bool storageSnapshotReady: false

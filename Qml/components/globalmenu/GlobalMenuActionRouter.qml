@@ -193,20 +193,28 @@ QtObject {
         var menu = Number(menuId || 0)
         var item = Number(itemId || 0)
         var ctx = String(context || "")
-        if (ctx.length <= 0) {
+        if (ctx.length <= 0) return
+
+        // 1. GLOBAL MENU ROUTING (Independent of File Manager context)
+        if (menu === 2101 && item === 12) { // Go > Connect Server
+            console.log("GlobalMenu: Connect Server requested, context=", ctx)
+            if (fileManagerContent && fileManagerContent.openConnectServerDialog) {
+                console.log("GlobalMenu: Routing to fileManagerContent")
+                fileManagerContent.openConnectServerDialog()
+            } else if (rootWindow) {
+                console.log("GlobalMenu: Routing to ShellUtils (detached)")
+                ShellUtils.openDetachedConnectServerDialog(rootWindow)
+            }
             return
         }
-        if (ctx === "filemanager") {
-            if (!fileManagerContent) {
-                return
-            }
+
+        // 2. FILE MANAGER CONTEXTUAL MENU
+        if (ctx === "filemanager" && fileManagerContent) {
             var currentPath = (fileManagerContent.fileModel && fileManagerContent.fileModel.currentPath)
                     ? String(fileManagerContent.fileModel.currentPath) : "~"
 
             function openPathSafe(pathValue) {
-                if (fileManagerContent.openPath) {
-                    fileManagerContent.openPath(String(pathValue || "~"))
-                }
+                if (fileManagerContent.openPath) fileManagerContent.openPath(String(pathValue || "~"))
             }
 
             function unsupported(title) {
@@ -224,12 +232,8 @@ QtObject {
                                 ? fileManagerContent.shellSingleQuote(currentPath)
                                 : ("'" + String(currentPath).replace(/'/g, "'\\''") + "'")
                         var terminalCmd = "cd " + quotedPath
-                        var termRes = AppCommandRouter.routeWithResult("terminal.exec",
-                                                                        { "command": terminalCmd },
-                                                                        "global-menu-filemanager")
-                        if (!termRes || !termRes.ok) {
-                            requestHelpMessage("Open Terminal Here failed.")
-                        }
+                        var termRes = AppCommandRouter.routeWithResult("terminal.exec", { "command": terminalCmd }, "global-menu-filemanager")
+                        if (!termRes || !termRes.ok) requestHelpMessage("Open Terminal Here failed.")
                     } else {
                         requestHelpMessage("Open Terminal Here is unavailable.")
                     }
@@ -264,9 +268,7 @@ QtObject {
             if (menu === 2003) { // View
                 if (item === 1) { fileManagerContent.viewMode = "grid"; return }
                 if (item === 2) {
-                    if (fileManagerContent.fileModel && fileManagerContent.fileModel.setSort) {
-                        fileManagerContent.fileModel.setSort("name", false)
-                    }
+                    if (fileManagerContent.fileModel && fileManagerContent.fileModel.setSort) fileManagerContent.fileModel.setSort("name", false)
                     return
                 }
                 if (item === 3) {
@@ -278,15 +280,13 @@ QtObject {
                     return
                 }
                 if (item === 4) {
-                    if (fileManagerContent.fileModel && fileManagerContent.fileModel.directoriesFirst !== undefined) {
+                    if (fileManagerContent.fileModel && fileManagerContent.fileModel.directoriesFirst !== undefined)
                         fileManagerContent.fileModel.directoriesFirst = !fileManagerContent.fileModel.directoriesFirst
-                    }
                     return
                 }
                 if (item === 5) {
-                    if (fileManagerContent.fileModel && fileManagerContent.fileModel.includeHidden !== undefined) {
+                    if (fileManagerContent.fileModel && fileManagerContent.fileModel.includeHidden !== undefined)
                         fileManagerContent.fileModel.includeHidden = !fileManagerContent.fileModel.includeHidden
-                    }
                     return
                 }
                 if (item === 6) { unsupported("Show File Extensions"); return }
@@ -296,62 +296,28 @@ QtObject {
                 return
             }
 
-            if (menu === 2101) { // Go
-                if (item === 1) { openPathSafe("~"); return }
-                if (item === 2) { openPathSafe("~/Desktop"); return }
-                if (item === 3) { openPathSafe("~/Documents"); return }
-                if (item === 4) { openPathSafe("~/Downloads"); return }
-                if (item === 5) { openPathSafe("~/Pictures"); return }
-                if (item === 6) { openPathSafe("~/Videos"); return }
-                if (item === 7) { openPathSafe("__recent__"); return }
-                if (item === 8) { unsupported("Recent Folders"); return }
-                if (item === 9) { openPathSafe("__network__"); return }
-                if (item === 10) {
-                    if (fileManagerContent.fileManagerApiRef && fileManagerContent.fileManagerApiRef.storageLocations) {
-                        var rows = fileManagerContent.fileManagerApiRef.storageLocations() || []
-                        for (var i = 0; i < rows.length; ++i) {
-                            var row = rows[i] || ({})
-                            if (!row.mounted) {
-                                continue
-                            }
-                            var mountedPath = String(row.path || row.rootPath || "")
-                            if (mountedPath.length > 0 && mountedPath.indexOf("__mount__:") !== 0) {
-                                openPathSafe(mountedPath)
-                                return
-                            }
-                        }
-                    }
-                    requestHelpMessage("No mounted devices found.")
-                    return
-                }
-                if (item === 11) { openPathSafe("~/.local/share/Trash/files"); return }
-                if (item === 12 && fileManagerContent.openConnectServerDialog) {
-                    fileManagerContent.openConnectServerDialog()
-                    return
-                }
+            if (menu === 2101) { // Go (Contextual)
+                if (item === 1 && fileManagerContent.navigateBack) { fileManagerContent.navigateBack(); return }
+                if (item === 2 && fileManagerContent.navigateForward) { fileManagerContent.navigateForward(); return }
+                if (item === 3 && fileManagerContent.openHome) { fileManagerContent.openHome(); return }
+                if (item === 4 && fileManagerContent.openPath) { fileManagerContent.openPath("~/Documents"); return }
+                if (item === 5 && fileManagerContent.openPath) { fileManagerContent.openPath("~/Downloads"); return }
+                if (item === 6 && fileManagerContent.openPath) { fileManagerContent.openPath("~/Pictures"); return }
                 return
             }
 
             if (menu === 2004) { // Tools
-                if (item === 1) {
-                    ShellUtils.openDetachedFileManager(rootWindow, currentPath)
-                    return
-                }
+                if (item === 1) { ShellUtils.openDetachedFileManager(rootWindow, currentPath); return }
                 if (item === 2) {
-                    if (fileManagerContent.openPathInNewTab) {
-                        fileManagerContent.openPathInNewTab(currentPath)
-                    }
+                    if (fileManagerContent.openPathInNewTab) fileManagerContent.openPathInNewTab(currentPath)
                     return
                 }
                 if (item === 3) { requestFocusPulse(); return }
                 if (item === 4) { unsupported("Batch Rename"); return }
                 if (item === 5 && fileManagerContent.compressSelection) { fileManagerContent.compressSelection(); return }
                 if (item === 6) {
-                    if (fileManagerContent.copySelectedAsLinkToClipboard) {
-                        fileManagerContent.copySelectedAsLinkToClipboard()
-                    } else {
-                        unsupported("Create Shortcut / Link")
-                    }
+                    if (fileManagerContent.copySelectedAsLinkToClipboard) fileManagerContent.copySelectedAsLinkToClipboard()
+                    else unsupported("Create Shortcut / Link")
                     return
                 }
                 if (item === 7 && fileManagerContent.showPropertiesForSelection) { fileManagerContent.showPropertiesForSelection(); return }
@@ -360,242 +326,66 @@ QtObject {
 
             if (menu === 2005) { // Workspace
                 if (item === 1) {
-                    _routeOrWarn("workspace.toggle",
-                                 _withMenuMeta({}, menu, item),
-                                 "global-menu",
-                                 "Workspace action failed")
+                    _routeOrWarn("workspace.toggle", _withMenuMeta({}, menu, item), "global-menu", "Workspace action failed")
                     return
                 }
                 if (item === 2 || item === 3) {
-                    if (typeof WindowingBackend !== "undefined" && WindowingBackend && WindowingBackend.sendCommand) {
+                    if (typeof WindowingBackend !== "undefined" && WindowingBackend && WindowingBackend.sendCommand)
                         WindowingBackend.sendCommand(item === 2 ? "focus left" : "focus right")
-                    } else {
-                        unsupported(item === 2 ? "Move Focus Left" : "Move Focus Right")
-                    }
+                    else unsupported(item === 2 ? "Move Focus Left" : "Move Focus Right")
                     return
                 }
                 if (item === 4) {
-                    _routeOrWarn("workspace.pin_current",
-                                 _withMenuMeta({}, menu, item),
-                                 "global-menu",
-                                 "Workspace pin failed")
+                    _routeOrWarn("workspace.pin_current", _withMenuMeta({}, menu, item), "global-menu", "Workspace pin failed")
                     return
                 }
                 if (item === 5) {
-                    _routeOrWarn("workspace.split_right",
-                                 _withMenuMeta({}, menu, item),
-                                 "global-menu",
-                                 "Workspace split failed")
+                    _routeOrWarn("workspace.split_right", _withMenuMeta({}, menu, item), "global-menu", "Workspace split failed")
                     openPathSafe("~/Desktop")
                     return
                 }
                 return
             }
-            return
-        }
 
+            if (menu === 2102) { // Devices
+                var target = _resolveStorageDeviceTarget()
+                var deviceTarget = String(target.device || "").trim()
+                if (item === 1 && target.row && fileManagerContent.openStorageVolumeChoice) {
+                    fileManagerContent.openStorageVolumeChoice(target.row)
+                    _notify(true, "Drive opened", String(target.row.label || target.row.name || "Storage"), "drive-removable-media-symbolic")
+                    return
+                }
+                if (item === 1 && deviceTarget.length > 0) {
+                    var mountRes = _routeOrWarn("storage.mount", _withMenuMeta({ "devicePath": deviceTarget }, menu, item), "global-menu", "Storage mount failed")
+                    if (mountRes && mountRes.ok) _notify(true, "Drive mounted", deviceTarget, "drive-removable-media-symbolic")
+                    if ((!mountRes || !mountRes.ok) && fileManagerContent.openStorageVolumeChoice) {
+                        fileManagerContent.openStorageVolumeChoice({ "device": deviceTarget, "path": String(target.path || ""), "mounted": !!target.mounted })
+                    }
+                    return
+                }
+                if (item === 2 && deviceTarget.length > 0) {
+                    var unmountRes = _routeOrWarn("storage.unmount", _withMenuMeta({ "devicePath": deviceTarget }, menu, item), "global-menu", "Storage unmount failed")
+                    if (unmountRes && unmountRes.ok) _notify(true, "Drive ejected", deviceTarget, "media-eject-symbolic")
+                    if ((!unmountRes || !unmountRes.ok) && fileManagerContent.fileManagerApiRef && fileManagerContent.fileManagerApiRef.startUnmountStorageDevice)
+                        fileManagerContent.fileManagerApiRef.startUnmountStorageDevice(deviceTarget)
+                    return
+                }
+                requestHelpMessage("Pilih drive di sidebar terlebih dahulu.")
+                return
+            }
+        } // End File Manager Context
+
+        // 3. GLOBAL MENU FALLBACK (Applicable without active file manager)
         if (menu === 2001) { // File
             if (item === 1) { // New Window
-                ShellUtils.openDetachedFileManager(rootWindow,
-                                                   fileManagerContent && fileManagerContent.fileModel && fileManagerContent.fileModel.currentPath
-                                                   ? String(fileManagerContent.fileModel.currentPath) : "~")
+                ShellUtils.openDetachedFileManager(rootWindow, "~")
                 return
             }
             if (item === 2) { // New Tab
-                if (fileManagerContent && fileManagerContent.openPathInNewTab) {
-                    var tabPath = (fileManagerContent.fileModel && fileManagerContent.fileModel.currentPath)
-                            ? String(fileManagerContent.fileModel.currentPath) : "~"
-                    fileManagerContent.openPathInNewTab(tabPath)
-                } else {
-                    ShellUtils.openDetachedFileManager(rootWindow, "~")
-                }
+                ShellUtils.openDetachedFileManager(rootWindow, "~")
                 return
             }
-            if (item === 3) { // Open...
-                requestFocusPulse()
-                return
-            }
-            if (item === 6) { // Print...
-                if (fileManagerContent && fileManagerContent.canPrintSelection
-                        && fileManagerContent.requestPrintSelection
-                        && fileManagerContent.canPrintSelection()) {
-                    fileManagerContent.requestPrintSelection()
-                }
-                return
-            }
-            if (item === 4) { // Close Window
-                if (rootWindow && rootWindow.detachedFileManagerVisible !== undefined) {
-                    rootWindow.detachedFileManagerVisible = false
-                }
-                return
-            }
-            if (item === 5) { // Quit SLM Desktop
-                Qt.quit()
-                return
-            }
-        } else if (menu === 2002) { // Edit
-            if (!fileManagerContent) {
-                return
-            }
-            if (item === 3 && fileManagerContent.copySelected) { // Cut
-                fileManagerContent.copySelected(true)
-                return
-            }
-            if (item === 4 && fileManagerContent.copySelected) { // Copy
-                fileManagerContent.copySelected(false)
-                return
-            }
-            if (item === 5 && fileManagerContent.pasteIntoCurrent) { // Paste
-                fileManagerContent.pasteIntoCurrent()
-                return
-            }
-            if (item === 6 && fileManagerContent.selectAllVisibleEntries) { // Select All
-                fileManagerContent.selectAllVisibleEntries()
-                return
-            }
-        } else if (menu === 2003) { // View
-            if (!fileManagerContent) {
-                return
-            }
-            if (item === 1) {
-                fileManagerContent.viewMode = "grid"
-                return
-            }
-            if (item === 2) {
-                fileManagerContent.viewMode = "list"
-                return
-            }
-            if (item === 3) {
-                fileManagerContent.viewMode = "columns"
-                return
-            }
-            return
-        } else if (menu === 2004) { // Tools
-            if (!fileManagerContent) {
-                return
-            }
-            if (item === 3 && fileManagerContent.openInTerminal) {
-                fileManagerContent.openInTerminal()
-                return
-            }
-            if (item === 4) {
-                requestFocusPulse()
-                return
-            }
-            return
-        } else if (menu === 2005) { // Workspace
-            if (item === 1) {
-                _routeOrWarn("workspace.presentview",
-                             _withMenuMeta({ "viewId": "1" }, menu, item),
-                             "global-menu",
-                             "Workspace action failed")
-                return
-            }
-            if (item === 2) {
-                _routeOrWarn("workspace.presentview",
-                             _withMenuMeta({ "viewId": "2" }, menu, item),
-                             "global-menu",
-                             "Workspace action failed")
-                return
-            }
-            if (item === 3) {
-                _routeOrWarn("workspace.split_left",
-                             _withMenuMeta({}, menu, item),
-                             "global-menu",
-                             "Workspace split failed")
-                return
-            }
-            if (item === 4) {
-                _routeOrWarn("workspace.split_right",
-                             _withMenuMeta({}, menu, item),
-                             "global-menu",
-                             "Workspace split failed")
-                return
-            }
-            if (item === 5) {
-                _routeOrWarn("workspace.pin_current",
-                             _withMenuMeta({}, menu, item),
-                             "global-menu",
-                             "Workspace pin failed")
-                return
-            }
-            return
-        } else if (menu === 2101) { // Go (file-manager contextual)
-            if (!fileManagerContent) {
-                return
-            }
-            if (item === 1 && fileManagerContent.navigateBack) {
-                fileManagerContent.navigateBack()
-                return
-            }
-            if (item === 2 && fileManagerContent.navigateForward) {
-                fileManagerContent.navigateForward()
-                return
-            }
-            if (item === 3 && fileManagerContent.openHome) {
-                fileManagerContent.openHome()
-                return
-            }
-            if (item === 4 && fileManagerContent.openPath) {
-                fileManagerContent.openPath("~/Documents")
-                return
-            }
-            if (item === 5 && fileManagerContent.openPath) {
-                fileManagerContent.openPath("~/Downloads")
-                return
-            }
-            if (item === 6 && fileManagerContent.openPath) {
-                fileManagerContent.openPath("~/Pictures")
-                return
-            }
-        } else if (menu === 2102) { // Devices (file-manager contextual)
-            if (!fileManagerContent) {
-                return
-            }
-            var target = _resolveStorageDeviceTarget()
-            var deviceTarget = String(target.device || "").trim()
-            if (item === 1 && target.row && fileManagerContent.openStorageVolumeChoice) {
-                fileManagerContent.openStorageVolumeChoice(target.row)
-                _notify(true,
-                        "Drive opened",
-                        String(target.row.label || target.row.name || "Storage"),
-                        "drive-removable-media-symbolic")
-                return
-            }
-            if (item === 1 && deviceTarget.length > 0) {
-                var mountRes = _routeOrWarn("storage.mount",
-                                            _withMenuMeta({ "devicePath": deviceTarget }, menu, item),
-                                            "global-menu",
-                                            "Storage mount failed")
-                if (mountRes && mountRes.ok) {
-                    _notify(true, "Drive mounted", deviceTarget, "drive-removable-media-symbolic")
-                }
-                if ((!mountRes || !mountRes.ok)
-                        && fileManagerContent.openStorageVolumeChoice) {
-                    fileManagerContent.openStorageVolumeChoice({
-                                                                   "device": deviceTarget,
-                                                                   "path": String(target.path || ""),
-                                                                   "mounted": !!target.mounted
-                                                               })
-                }
-                return
-            }
-            if (item === 2 && deviceTarget.length > 0) {
-                var unmountRes = _routeOrWarn("storage.unmount",
-                                              _withMenuMeta({ "devicePath": deviceTarget }, menu, item),
-                                              "global-menu",
-                                              "Storage unmount failed")
-                if (unmountRes && unmountRes.ok) {
-                    _notify(true, "Drive ejected", deviceTarget, "media-eject-symbolic")
-                }
-                if ((!unmountRes || !unmountRes.ok)
-                        && fileManagerContent.fileManagerApiRef
-                        && fileManagerContent.fileManagerApiRef.startUnmountStorageDevice) {
-                    fileManagerContent.fileManagerApiRef.startUnmountStorageDevice(deviceTarget)
-                }
-                return
-            }
-            requestHelpMessage("Pilih drive di sidebar terlebih dahulu.")
+            if (item === 5) { Qt.quit(); return }
         } else if (menu === 2006) { // Help
             requestHelpMessage("SLM Desktop Help: use Crown menu and shortcuts.")
             return

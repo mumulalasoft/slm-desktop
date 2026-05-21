@@ -1,5 +1,6 @@
 import QtQuick 2.15
 import Slm_Desktop
+import "qrc:/qt/qml/Slm_Desktop/Qml/components/desktop" as DesktopComp
 
 Item {
     id: root
@@ -22,9 +23,18 @@ Item {
     property alias nearbySendSheetRef: nearbySendSheet
 
 
-    FileManagerConnectServerDialog {
+    DesktopComp.ConnectServerDialog {
         id: connectServerDialog
-        hostRoot: root.hostRoot
+        onConnectRequested: function(details) {
+            hostRoot.connectServerHost = details.host
+            hostRoot.connectServerPort = details.port
+            hostRoot.connectServerShare = details.share
+            hostRoot.connectServerFolder = details.folder
+            hostRoot.connectServerDomain = details.domain
+            hostRoot.connectServerUser = details.user
+            hostRoot.connectServerPassword = details.password
+            hostRoot.submitConnectServer()
+        }
     }
 
     FileManagerBatchOverlayPopup {

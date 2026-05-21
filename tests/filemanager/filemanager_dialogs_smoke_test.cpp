@@ -177,7 +177,7 @@ private slots:
         }
 
         verifyComponentLoads(QStringLiteral("FileManagerDialogs.qml"));
-        verifyComponentLoads(QStringLiteral("FileManagerConnectServerDialog.qml"));
+        verifyComponentLoads(QStringLiteral("ConnectServerDialog.qml"));
         verifyComponentLoads(QStringLiteral("FileManagerBatchOverlayPopup.qml"));
         verifyComponentLoads(QStringLiteral("FileManagerMenus.qml"));
         verifyComponentLoads(QStringLiteral("FileManagerSidebarContextMenu.qml"));

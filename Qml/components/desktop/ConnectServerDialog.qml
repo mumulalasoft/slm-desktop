@@ -7,24 +7,56 @@ import SlmStyle as DSStyle
 Popup {
     id: root
 
-    required property var hostRoot
+    property alias host: hostField.text
+    property alias port: portSpin.value
+    property alias share: shareField.text
+    property alias folder: folderField.text
+    property alias domain: domainField.text
+    property alias user: userField.text
+    property alias password: passwordField.text
+    
+    property int typeIndex: 4
+    property var types: [{
+        label: "Public FTP",
+        scheme: "ftp",
+        port: 21
+    }, {
+        label: "SFTP",
+        scheme: "sftp",
+        port: 22
+    }, {
+        label: "SSH",
+        scheme: "ssh",
+        port: 22
+    }, {
+        label: "FTP with Login",
+        scheme: "ftp",
+        port: 21
+    }, {
+        label: "Windows Share",
+        scheme: "smb",
+        port: 445
+    }]
+    
+    property bool busy: false
+    property string error: ""
 
-    readonly property var currentType: hostRoot.connectServerTypes[Math.max(0, hostRoot.connectServerTypeIndex)]
-                                       || hostRoot.connectServerTypes[0]
+    signal connectRequested(var serverDetails)
+
+    readonly property var currentType: types[Math.max(0, typeIndex)] || types[0]
     readonly property string currentScheme: String((currentType && currentType.scheme) ? currentType.scheme : "smb")
     readonly property bool isWindowsShare: currentScheme === "smb"
-    readonly property bool isPublicFtp: hostRoot.connectServerTypeIndex === 0
+    readonly property bool isPublicFtp: typeIndex === 0
     readonly property bool showUserDetails: !isPublicFtp
+    
     readonly property color fieldColor: Theme.darkMode ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(0, 0, 0, 0.06)
     readonly property color fieldFocusColor: Theme.darkMode ? Qt.rgba(1, 1, 1, 0.11) : Qt.rgba(0, 0, 0, 0.09)
     readonly property color dividerColor: Theme.darkMode ? Qt.rgba(1, 1, 1, 0.10) : Qt.rgba(0, 0, 0, 0.10)
 
-    function openAndFocus() {
+    function openConnectServer() {
         open()
         Qt.callLater(function() {
-            if (connectServerField) {
-                connectServerField.forceActiveFocus()
-            }
+            hostField.forceActiveFocus()
         })
     }
 
@@ -34,13 +66,12 @@ Popup {
     closePolicy: Popup.CloseOnEscape
     width: 488
     height: showUserDetails ? (isWindowsShare ? 420 : 384) : 342
-    x: Math.round((hostRoot.width - width) * 0.5)
-    y: Math.round((hostRoot.height - height) * 0.34)
+    x: Math.round((Overlay.overlay.width - width) * 0.5)
+    y: Math.round((Overlay.overlay.height - height) * 0.34)
     padding: 0
     onClosed: {
-        hostRoot.connectServerBusy = false
-        hostRoot.pendingConnectServerUri = ""
-        hostRoot.connectServerError = ""
+        busy = false
+        error = ""
     }
 
     background: Rectangle {
@@ -73,13 +104,10 @@ Popup {
         anchors.fill: parent
 
         ColumnLayout {
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.top: parent.top
-            anchors.bottom: actionRow.top
+            anchors.fill: parent
             anchors.margins: 12
             anchors.topMargin: 48
-            anchors.bottomMargin: 10
+            anchors.bottomMargin: 50
             spacing: 8
 
             DSStyle.Label {
@@ -104,18 +132,16 @@ Popup {
                 }
 
                 DSStyle.ComboBox {
-                    id: connectProtocolCombo
                     Layout.fillWidth: true
                     Layout.preferredHeight: 28
-                    enabled: !hostRoot.connectServerBusy
-                    model: hostRoot.connectServerTypes
+                    enabled: !busy
+                    model: types
                     textRole: "label"
-                    currentIndex: hostRoot.connectServerTypeIndex
+                    currentIndex: typeIndex
                     onActivated: function(index) {
-                        hostRoot.connectServerTypeIndex = index
-                        var row = hostRoot.connectServerTypes[Math.max(0, index)] || hostRoot.connectServerTypes[0]
-                        hostRoot.connectServerPort = Number(row.port || 21)
-                        hostRoot.connectServerError = ""
+                        typeIndex = index
+                        port = Number(types[Math.max(0, index)].port || 21)
+                        error = ""
                     }
                 }
 
@@ -132,12 +158,11 @@ Popup {
                     spacing: 7
 
                     TextField {
-                        id: connectServerField
+                        id: hostField
                         Layout.fillWidth: true
                         Layout.preferredHeight: 28
-                        enabled: !hostRoot.connectServerBusy
+                        enabled: !busy
                         placeholderText: "Server name or IP address"
-                        text: hostRoot.connectServerHost
                         selectByMouse: true
                         color: Theme.color("textPrimary")
                         placeholderTextColor: Theme.color("accent")
@@ -148,17 +173,12 @@ Popup {
                         verticalAlignment: TextInput.AlignVCenter
                         background: Rectangle {
                             radius: Theme.radiusSmPlus
-                            color: connectServerField.activeFocus ? root.fieldFocusColor : root.fieldColor
+                            color: hostField.activeFocus ? root.fieldFocusColor : root.fieldColor
                             border.width: Theme.borderWidthNone
                         }
-                        onTextChanged: {
-                            hostRoot.connectServerHost = text
-                            if (hostRoot.connectServerError.length > 0) {
-                                hostRoot.connectServerError = ""
-                            }
-                        }
-                        Keys.onReturnPressed: hostRoot.submitConnectServer()
-                        Keys.onEnterPressed: hostRoot.submitConnectServer()
+                        onTextChanged: if (error.length > 0) error = ""
+                        Keys.onReturnPressed: root.connectRequested(root.getDetails())
+                        Keys.onEnterPressed: root.connectRequested(root.getDetails())
                     }
 
                     DSStyle.Label {
@@ -170,11 +190,10 @@ Popup {
                     }
 
                     SpinBox {
-                        id: connectServerPortSpin
-                        enabled: !hostRoot.connectServerBusy
+                        id: portSpin
+                        enabled: !busy
                         from: 1
                         to: 65535
-                        value: Math.max(1, Math.min(65535, Number(hostRoot.connectServerPort || 21)))
                         editable: true
                         Layout.preferredWidth: 100
                         Layout.preferredHeight: 28
@@ -185,7 +204,6 @@ Popup {
                             color: root.fieldColor
                             border.width: Theme.borderWidthNone
                         }
-                        onValueModified: hostRoot.connectServerPort = Number(value)
                     }
                 }
 
@@ -199,12 +217,12 @@ Popup {
                 }
 
                 TextField {
+                    id: shareField
                     visible: root.isWindowsShare
                     Layout.fillWidth: true
                     Layout.preferredHeight: 28
-                    enabled: !hostRoot.connectServerBusy
+                    enabled: !busy
                     placeholderText: "Name of share on server (Optional)"
-                    text: hostRoot.connectServerShare
                     selectByMouse: true
                     color: Theme.color("textPrimary")
                     placeholderTextColor: Theme.color("accent")
@@ -218,14 +236,9 @@ Popup {
                         color: parent.activeFocus ? root.fieldFocusColor : root.fieldColor
                         border.width: Theme.borderWidthNone
                     }
-                    onTextChanged: {
-                        hostRoot.connectServerShare = text
-                        if (hostRoot.connectServerError.length > 0) {
-                            hostRoot.connectServerError = ""
-                        }
-                    }
-                    Keys.onReturnPressed: hostRoot.submitConnectServer()
-                    Keys.onEnterPressed: hostRoot.submitConnectServer()
+                    onTextChanged: if (error.length > 0) error = ""
+                    Keys.onReturnPressed: root.connectRequested(root.getDetails())
+                    Keys.onEnterPressed: root.connectRequested(root.getDetails())
                 }
 
                 DSStyle.Label {
@@ -237,11 +250,12 @@ Popup {
                 }
 
                 TextField {
+                    id: folderField
                     Layout.fillWidth: true
                     Layout.preferredHeight: 28
-                    enabled: !hostRoot.connectServerBusy
+                    enabled: !busy
                     placeholderText: "/"
-                    text: hostRoot.connectServerFolder
+                    text: "/"
                     selectByMouse: true
                     color: Theme.color("textPrimary")
                     font.family: Theme.fontFamilyUi
@@ -254,14 +268,9 @@ Popup {
                         color: parent.activeFocus ? root.fieldFocusColor : root.fieldColor
                         border.width: Theme.borderWidthNone
                     }
-                    onTextChanged: {
-                        hostRoot.connectServerFolder = text
-                        if (hostRoot.connectServerError.length > 0) {
-                            hostRoot.connectServerError = ""
-                        }
-                    }
-                    Keys.onReturnPressed: hostRoot.submitConnectServer()
-                    Keys.onEnterPressed: hostRoot.submitConnectServer()
+                    onTextChanged: if (error.length > 0) error = ""
+                    Keys.onReturnPressed: root.connectRequested(root.getDetails())
+                    Keys.onEnterPressed: root.connectRequested(root.getDetails())
                 }
             }
 
@@ -291,11 +300,12 @@ Popup {
                 }
 
                 TextField {
+                    id: domainField
                     visible: root.isWindowsShare
                     Layout.fillWidth: true
                     Layout.preferredHeight: 28
-                    enabled: !hostRoot.connectServerBusy
-                    text: hostRoot.connectServerDomain
+                    enabled: !busy
+                    text: "WORKGROUP"
                     selectByMouse: true
                     color: Theme.color("textPrimary")
                     font.family: Theme.fontFamilyUi
@@ -308,7 +318,6 @@ Popup {
                         color: parent.activeFocus ? root.fieldFocusColor : root.fieldColor
                         border.width: Theme.borderWidthNone
                     }
-                    onTextChanged: hostRoot.connectServerDomain = text
                 }
 
                 DSStyle.Label {
@@ -320,10 +329,10 @@ Popup {
                 }
 
                 TextField {
+                    id: userField
                     Layout.fillWidth: true
                     Layout.preferredHeight: 28
-                    enabled: !hostRoot.connectServerBusy
-                    text: hostRoot.connectServerUser
+                    enabled: !busy
                     placeholderText: "Optional"
                     selectByMouse: true
                     color: Theme.color("textPrimary")
@@ -338,9 +347,8 @@ Popup {
                         color: parent.activeFocus ? root.fieldFocusColor : root.fieldColor
                         border.width: Theme.borderWidthNone
                     }
-                    onTextChanged: hostRoot.connectServerUser = text
-                    Keys.onReturnPressed: hostRoot.submitConnectServer()
-                    Keys.onEnterPressed: hostRoot.submitConnectServer()
+                    Keys.onReturnPressed: root.connectRequested(root.getDetails())
+                    Keys.onEnterPressed: root.connectRequested(root.getDetails())
                 }
 
                 DSStyle.Label {
@@ -352,10 +360,10 @@ Popup {
                 }
 
                 TextField {
+                    id: passwordField
                     Layout.fillWidth: true
                     Layout.preferredHeight: 28
-                    enabled: !hostRoot.connectServerBusy
-                    text: hostRoot.connectServerPassword
+                    enabled: !busy
                     echoMode: TextInput.Password
                     selectByMouse: true
                     color: Theme.color("textPrimary")
@@ -369,16 +377,15 @@ Popup {
                         color: parent.activeFocus ? root.fieldFocusColor : root.fieldColor
                         border.width: Theme.borderWidthNone
                     }
-                    onTextChanged: hostRoot.connectServerPassword = text
-                    Keys.onReturnPressed: hostRoot.submitConnectServer()
-                    Keys.onEnterPressed: hostRoot.submitConnectServer()
+                    Keys.onReturnPressed: root.connectRequested(root.getDetails())
+                    Keys.onEnterPressed: root.connectRequested(root.getDetails())
                 }
             }
 
             DSStyle.Label {
                 Layout.fillWidth: true
-                visible: hostRoot.connectServerError.length > 0
-                text: hostRoot.connectServerError
+                visible: error.length > 0
+                text: error
                 color: Theme.color("error")
                 font.pixelSize: Theme.fontSize("small")
                 wrapMode: Text.WrapAnywhere
@@ -388,7 +395,6 @@ Popup {
         }
 
         RowLayout {
-            id: actionRow
             anchors.right: parent.right
             anchors.bottom: parent.bottom
             anchors.margins: 12
@@ -396,15 +402,28 @@ Popup {
 
             DSStyle.Button {
                 text: "Cancel"
-                enabled: !hostRoot.connectServerBusy
+                enabled: !busy
                 onClicked: root.close()
             }
 
             DSStyle.Button {
-                text: hostRoot.connectServerBusy ? "Connecting..." : "Connect"
-                enabled: !hostRoot.connectServerBusy && String(hostRoot.connectServerHost || "").trim().length > 0
-                onClicked: hostRoot.submitConnectServer()
+                text: busy ? "Connecting..." : "Connect"
+                enabled: !busy && String(host || "").trim().length > 0
+                onClicked: root.connectRequested(root.getDetails())
             }
+        }
+    }
+
+    function getDetails() {
+        return {
+            type: types[typeIndex],
+            host: host,
+            port: port,
+            share: share,
+            folder: folder,
+            domain: domain,
+            user: user,
+            password: password
         }
     }
 }

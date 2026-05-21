@@ -826,7 +826,7 @@ add_custom_target(lint_ui_style
 )
 
 add_custom_target(lint_slm_style_usage
-    COMMAND ${CMAKE_SOURCE_DIR}/scripts/check-slm-style-usage.sh
+    COMMAND ${CMAKE_SOURCE_DIR}/scripts/check-slm-style-usage.sh all
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
     COMMENT "Checking SLM style component usage in QML"
 )
@@ -897,6 +897,7 @@ set(DESKTOP_SHELL_QML_FILES
     Qml/components/desktop/DesktopViewController.qml
     Qml/components/desktop/DesktopMenuProvider.qml
     Qml/components/desktop/DesktopSurface.qml
+    Qml/components/desktop/ConnectServerDialog.qml
     Qml/components/appdeck/AppDeck.qml
     Qml/components/appdeck/AppDeckItem.qml
     # Qml/components/NetworkIndicator.qml
@@ -1055,7 +1056,6 @@ set(DESKTOP_SHELL_QML_FILES
     Qml/apps/filemanager/FileManagerStatusBar.qml
     Qml/apps/filemanager/FileManagerMenus.qml
     Qml/apps/filemanager/FileManagerApiConnections.qml
-    Qml/apps/filemanager/FileManagerConnectServerDialog.qml
     Qml/apps/filemanager/FileManagerBatchOverlayPopup.qml
     Qml/apps/filemanager/FileManagerSidebarContextMenu.qml
     Qml/apps/filemanager/FileManagerClearRecentsDialog.qml
@@ -5702,6 +5702,8 @@ install(TARGETS slm-greeter
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(FILES sessions/slm.desktop
     DESTINATION ${CMAKE_INSTALL_DATADIR}/wayland-sessions)
+install(FILES sessions/slm-shell.desktop
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
 
 # slm-recovery-app
 qt_add_executable(slm-recovery-app ${SLM_RECOVERY_APP_SOURCES})
