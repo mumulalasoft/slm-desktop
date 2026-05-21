@@ -85,6 +85,8 @@ void PortalSlmPortalSnapshotTest::slmPortal_snapshot_contract()
         QStringLiteral("org.freedesktop.impl.portal.GlobalShortcuts"),
         QStringLiteral("org.freedesktop.impl.portal.InputCapture"),
         QStringLiteral("org.freedesktop.impl.portal.Wallpaper"),
+        QStringLiteral("org.freedesktop.impl.portal.Background"),
+        QStringLiteral("org.freedesktop.impl.portal.Print"),
     };
 
     QVERIFY2(actual == expected,
