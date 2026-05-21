@@ -139,16 +139,20 @@ is_local_graphical_session() {
 
 ensure_greetd_initial_session_for_smoke() {
     local cfg="/etc/greetd/config.toml"
+    local smoke_env=""
     [[ -f "$cfg" ]] || return 1
     if grep -Eq '^[[:space:]]*\[initial_session\][[:space:]]*$' "$cfg"; then
         return 1
+    fi
+    if [[ -f /tmp/slm-smoke-screenshot-required ]]; then
+        smoke_env=" SLM_SMOKE_SCREENSHOT_RESULT=/tmp/slm-smoke-screenshot-result.json SLM_SMOKE_SCREENSHOT_OUTPUT=/tmp/slm-smoke-screenshot.png"
     fi
 
     log "injecting temporary greetd [initial_session] for smoke autologin"
     cat >>"$cfg" <<EOF
 
 [initial_session]
-command = "/usr/bin/env XDG_SESSION_TYPE=wayland XDG_SESSION_CLASS=user XDG_CURRENT_DESKTOP=SLM XDG_SESSION_DESKTOP=SLM DESKTOP_SESSION=slm XDG_SEAT=seat0 /usr/local/libexec/slm-session-broker-launch --mode normal"
+command = "/usr/bin/env XDG_SESSION_TYPE=wayland XDG_SESSION_CLASS=user XDG_CURRENT_DESKTOP=SLM XDG_SESSION_DESKTOP=SLM DESKTOP_SESSION=slm XDG_SEAT=seat0${smoke_env} /usr/local/libexec/slm-session-broker-launch --mode normal"
 user = "$SESSION_USER"
 EOF
     return 0

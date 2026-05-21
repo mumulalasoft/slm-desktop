@@ -41,6 +41,17 @@ private:
                                  const QString &targetPath,
                                  bool cropEnabled = false,
                                  const QRect &cropRect = QRect());
+    QVariantMap captureViaScreenGrab(const QString &mode,
+                                     const QString &targetPath,
+                                     bool cropEnabled = false,
+                                     const QRect &cropRect = QRect());
+    QVariantMap captureViaKWinScreenShot2(const QString &mode,
+                                          const QString &targetPath,
+                                          const QRect &captureRect);
+    QVariantMap captureViaOwnWindows(const QString &mode,
+                                     const QString &targetPath,
+                                     bool cropEnabled = false,
+                                     const QRect &cropRect = QRect());
     QVariantMap captureViaCompositor(const QString &command,
                                      const QString &mode,
                                      const QString &targetPath);

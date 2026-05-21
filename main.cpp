@@ -17,6 +17,7 @@
 #include <QPalette>
 #include <QRegion>
 #include <QProcess>
+#include <QProcessEnvironment>
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
 #include <QScreen>
@@ -385,6 +386,7 @@ int main(int argc, char *argv[])
     const QString appDir = QFileInfo(QString::fromLocal8Bit(argv[0])).absolutePath();
     qputenv("QT_QUICK_CONTROLS_STYLE", "SlmStyle");
 
+    QGuiApplication::setDesktopFileName(QStringLiteral("slm-shell"));
     QGuiApplication app(argc, argv);
     qInfo("SLM-SHELL: Qt platform plugin loaded: '%s'",
           qPrintable(app.platformName()));
@@ -759,6 +761,33 @@ Window {
     screenshotManager.setLockedProvider([&sessionStateClient]() {
         return sessionStateClient.locked();
     });
+    const QProcessEnvironment processEnv = QProcessEnvironment::systemEnvironment();
+    const QString smokeScreenshotResultPath =
+        processEnv.value(QStringLiteral("SLM_SMOKE_SCREENSHOT_RESULT")).trimmed();
+    if (!smokeScreenshotResultPath.isEmpty()) {
+        const QString smokeScreenshotOutputPath =
+            processEnv.value(QStringLiteral("SLM_SMOKE_SCREENSHOT_OUTPUT"),
+                             QStringLiteral("/tmp/slm-smoke-screenshot.png")).trimmed();
+        QTimer::singleShot(6000, &app, [&screenshotManager,
+                                        smokeScreenshotResultPath,
+                                        smokeScreenshotOutputPath]() {
+            QVariantMap shot = screenshotManager.captureFullscreen(smokeScreenshotOutputPath);
+            shot.insert(QStringLiteral("smoke"), true);
+            QFile resultFile(smokeScreenshotResultPath);
+            if (resultFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+                resultFile.write(QJsonDocument(QJsonObject::fromVariantMap(shot)).toJson(
+                    QJsonDocument::Compact));
+                resultFile.write("\n");
+            } else {
+                qWarning().noquote() << "[slm][screenshot-smoke] failed to write result"
+                                     << smokeScreenshotResultPath
+                                     << resultFile.errorString();
+            }
+            qInfo().noquote() << "[slm][screenshot-smoke] result"
+                              << QJsonDocument(QJsonObject::fromVariantMap(shot)).toJson(
+                                     QJsonDocument::Compact);
+        });
+    }
     Slm::Motion::MotionController motionController;
     ShellStateController shellStateController;
     {

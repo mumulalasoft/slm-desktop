@@ -245,11 +245,63 @@ else
     ng "/usr/share/wayland-sessions/slm.desktop hilang"
 fi
 
+if [[ -f /usr/share/applications/slm-shell.desktop ]]; then
+    ok "/usr/share/applications/slm-shell.desktop ada"
+    cp /usr/share/applications/slm-shell.desktop "$ARTIFACT_DIR/slm-shell.desktop"
+else
+    ng "/usr/share/applications/slm-shell.desktop hilang"
+fi
+
 if wait_for_healthy_state; then
     ok "state healthy tercapai"
 else
     ng "state healthy tidak tercapai dalam ${TIMEOUT_SEC}s"
 fi
+
+verify_screenshot_smoke() {
+    local required="/tmp/slm-smoke-screenshot-required"
+    local result="/tmp/slm-smoke-screenshot-result.json"
+    local output="/tmp/slm-smoke-screenshot.png"
+    [[ -f "$required" ]] || return 0
+
+    local deadline=$((SECONDS + 30))
+    while (( SECONDS < deadline )); do
+        [[ -s "$result" ]] && break
+        sleep 1
+    done
+
+    if [[ ! -s "$result" ]]; then
+        ng "screenshot smoke result tidak muncul: $result"
+        return 0
+    fi
+    cp "$result" "$ARTIFACT_DIR/screenshot-smoke-result.json" || true
+
+    if python3 - "$result" "$output" >"$ARTIFACT_DIR/screenshot-smoke-eval.log" 2>&1 <<'PY'
+import json
+import os
+import sys
+
+result_path, output_path = sys.argv[1:3]
+with open(result_path, "r", encoding="utf-8") as fh:
+    payload = json.load(fh)
+if not payload.get("ok"):
+    raise SystemExit(f"screenshot failed: {payload.get('error') or payload}")
+actual_path = payload.get("path") or output_path
+if not os.path.exists(actual_path):
+    raise SystemExit(f"screenshot output missing: {actual_path}")
+if os.path.getsize(actual_path) <= 0:
+    raise SystemExit(f"screenshot output empty: {actual_path}")
+print(f"ok path={actual_path} size={os.path.getsize(actual_path)}")
+PY
+    then
+        ok "screenshot smoke berhasil"
+        [[ -f "$output" ]] && cp "$output" "$ARTIFACT_DIR/slm-smoke-screenshot.png" || true
+    else
+        ng "screenshot smoke gagal"
+    fi
+}
+
+verify_screenshot_smoke
 
 # Compatibility policy validation (session/env/wayland/x11/portal/dbus)
 pick_best_session_id() {

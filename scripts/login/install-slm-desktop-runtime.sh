@@ -23,6 +23,7 @@ BIN_DIR="/usr/local/bin"
 LIBEXEC_DIR="/usr/libexec"
 SLM_LIBEXEC_DIR="/usr/local/libexec/slm/recovery"
 SESSION_DIR="/usr/share/wayland-sessions"
+APPLICATIONS_DIR="/usr/share/applications"
 SETTINGS_MODULES_DIR="/usr/lib/settings/modules"
 SETTINGS_COMPONENTS_DIR="/usr/lib/settings/components"
 POLKIT_ACTIONS_DIR="/usr/share/polkit-1/actions"
@@ -124,6 +125,8 @@ fi
 
 install -Dm644 "$ROOT_DIR/sessions/slm.desktop" "$SESSION_DIR/slm.desktop"
 echo "[install-slm-runtime][OK] $SESSION_DIR/slm.desktop"
+install -Dm644 "$ROOT_DIR/sessions/slm-shell.desktop" "$APPLICATIONS_DIR/slm-shell.desktop"
+echo "[install-slm-runtime][OK] $APPLICATIONS_DIR/slm-shell.desktop"
 
 install -d -m0755 "$POLKIT_ACTIONS_DIR"
 for policy in org.slm.desktop.devices.policy \

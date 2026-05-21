@@ -29,6 +29,7 @@ public:
                                           int quality = -1,
                                           bool overwrite = false) const;
     Q_INVOKABLE QVariantMap storageInfoForPath(const QString &path) const;
+    Q_INVOKABLE bool targetExists(const QString &path) const;
     Q_INVOKABLE bool shouldPromptOverwrite(bool targetExists, bool forceOverwrite) const;
     Q_INVOKABLE QString resolveChosenFolder(const QString &currentFolder,
                                             const QVariantList &selectedPaths,

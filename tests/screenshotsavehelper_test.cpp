@@ -1,4 +1,5 @@
 #include <QtTest>
+#include <QDir>
 #include <QFileInfo>
 #include <QImage>
 #include <QTemporaryDir>
@@ -57,11 +58,11 @@ private slots:
     {
         ScreenshotSaveHelper helper;
         QCOMPARE(helper.buildTargetPath(QStringLiteral("~/Pictures/Screenshots"), QStringLiteral("shot")),
-                 QStringLiteral("~/Pictures/Screenshots/shot.png"));
+                 QDir::homePath() + QStringLiteral("/Pictures/Screenshots/shot.png"));
         QCOMPARE(helper.buildTargetPath(QStringLiteral("~/Pictures/Screenshots/"), QStringLiteral("shot.png")),
-                 QStringLiteral("~/Pictures/Screenshots/shot.png"));
+                 QDir::homePath() + QStringLiteral("/Pictures/Screenshots/shot.png"));
         QCOMPARE(helper.buildTargetPath(QStringLiteral("~/Pictures/Screenshots"), QStringLiteral("shot.   ")),
-                 QStringLiteral("~/Pictures/Screenshots/Screenshot.png"));
+                 QDir::homePath() + QStringLiteral("/Pictures/Screenshots/Screenshot.png"));
     }
 
     void overwritePrompt_decisionPath()

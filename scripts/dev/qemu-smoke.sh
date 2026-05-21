@@ -479,6 +479,10 @@ fi
 cat > /tmp/slm-shell.wrapper.\$\$ <<'SLM_SHELL_WRAPPER'
 #!/bin/sh
 unset KWIN_COMPOSE QT_QUICK_BACKEND
+if [ -f /tmp/slm-smoke-screenshot-required ]; then
+    export SLM_SMOKE_SCREENSHOT_RESULT=/tmp/slm-smoke-screenshot-result.json
+    export SLM_SMOKE_SCREENSHOT_OUTPUT=/tmp/slm-smoke-screenshot.png
+fi
 exec env LIBGL_ALWAYS_SOFTWARE=1 QSG_RHI_BACKEND=opengl SLM_FAST_FIRST_FRAME=1 SLM_STARTUP_LOG=1 SLM_STARTUP_TRACE=1 /usr/local/bin/slm-shell.real \"\$@\"
 SLM_SHELL_WRAPPER
 /bin/sh -n /tmp/slm-shell.wrapper.\$\$
@@ -530,7 +534,18 @@ Exec=/usr/local/libexec/slm-session-broker-launch --mode normal
 Type=Application
 DesktopNames=SLM
 X-GDM-SessionRegisters=true
+X-KDE-DBUS-Restricted-Interfaces=org.kde.KWin.ScreenShot2
 SLM_DESKTOP_ENTRY
+install -d -m0755 /usr/share/applications
+cat > /usr/share/applications/slm-shell.desktop <<'SLM_SHELL_DESKTOP_ENTRY'
+[Desktop Entry]
+Name=SLM Shell
+Comment=SLM Desktop Shell
+Exec=/usr/local/bin/slm-shell
+Type=Application
+NoDisplay=true
+X-KDE-DBUS-Restricted-Interfaces=org.kde.KWin.ScreenShot2
+SLM_SHELL_DESKTOP_ENTRY
 install -d -m0755 -o \"\$session_user\" -g \"\$session_user\" \"\$session_home/.config/slm-desktop\"
 cat > \"\$session_home/.config/slm-desktop/config.json\" <<'SLM_CONFIG_JSON'
 {
@@ -579,6 +594,9 @@ SLM_PORTAL_FILE
 cat > "$portal_config_dir/portals.conf" <<'SLM_PORTALS_CONF'
 [preferred]
 default=gtk
+org.freedesktop.impl.portal.Screenshot=slm
+org.freedesktop.impl.portal.Background=slm
+org.freedesktop.impl.portal.Print=slm
 org.freedesktop.impl.portal.RemoteDesktop=wlr;kde;gtk
 org.freedesktop.impl.portal.Camera=gtk;kde
 org.freedesktop.impl.portal.Location=gtk;kde
@@ -692,6 +710,8 @@ for log in /tmp/slm-desktopd.log /tmp/slm-lockd.log /tmp/slm-portald.log; do
     install -m0664 /dev/null \"\$log\"
     chown \"\$session_user:\$session_user\" \"\$log\"
 done
+rm -f /tmp/slm-smoke-screenshot-result.json /tmp/slm-smoke-screenshot.png
+install -m0644 /dev/null /tmp/slm-smoke-screenshot-required
 if ! command -v cage >/dev/null 2>&1; then
     echo '[qemu-smoke][guest] cage not found; install cage before greetd greeter mode' >&2
     exit 1
@@ -974,7 +994,16 @@ if [[ "$SESSION_RESET_MODE" == "auto" || "$SESSION_RESET_MODE" == "always" ]]; t
     g_ssh "chmod +x /tmp/qemu-guest-session-reset.sh"
 fi
 
+if [[ "$SESSION_RESET_MODE" != "off" ]]; then
+    g_ssh "sudo -n rm -f /tmp/slm-smoke-screenshot-result.json /tmp/slm-smoke-screenshot.png && sudo -n install -m0644 /dev/null /tmp/slm-smoke-screenshot-required"
+fi
+
 if [[ "$SESSION_RESET_MODE" == "auto" ]]; then
+    echo "[qemu-smoke] Session reset required (auto): screenshot smoke needs fresh shell env"
+    DO_SESSION_RESET=1
+fi
+
+if [[ "$SESSION_RESET_MODE" == "auto" && "$DO_SESSION_RESET" -eq 0 ]]; then
     CHECK_CMD="sudo -n /tmp/qemu-guest-session-reset.sh"
     CHECK_CMD+=" --check-only"
     CHECK_CMD+=" --session-user $(printf '%q' "$SESSION_USER")"

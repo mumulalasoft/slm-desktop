@@ -65,6 +65,7 @@ ApplicationWindow {
     readonly property bool crownLayerShellSupported: (typeof CrownLayerShell !== "undefined")
                                                      && !!CrownLayerShell
                                                      && !!CrownLayerShell.supported
+    readonly property var appCommandRouterRef: (typeof AppCommandRouter !== "undefined") ? AppCommandRouter : null
     readonly property bool appDeckDisabled: (typeof DisableAppDeck !== "undefined")
                                            && !!DisableAppDeck
     readonly property bool externalAppDeckWindowAllowed: !appDeckDisabled
@@ -813,7 +814,7 @@ ApplicationWindow {
 
     Timer {
         id: screenshotDelayTimer
-        interval: Math.max(1, root.pendingScreenshotDelaySec) * 1000
+        interval: root.pendingScreenshotDelaySec <= 0 ? 250 : Math.max(1, root.pendingScreenshotDelaySec) * 1000
         repeat: false
         running: false
         onTriggered: ScreenshotController.performCapture(root, root.pendingScreenshotMode)

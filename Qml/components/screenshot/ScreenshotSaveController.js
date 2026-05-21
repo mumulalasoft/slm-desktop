@@ -296,9 +296,17 @@ function finalizeSave(shell, forceOverwrite) {
             "targetPath": finalPath
         })
     if (!forceOverwrite) {
-        var st = (typeof FileManagerApi !== "undefined" && FileManagerApi && FileManagerApi.statPath)
-                ? FileManagerApi.statPath(finalPath) : ({ "ok": false })
-        if (st && st.ok) {
+        var targetExists = false
+        if (typeof ScreenshotSaveHelper !== "undefined"
+                && ScreenshotSaveHelper
+                && ScreenshotSaveHelper.targetExists) {
+            targetExists = !!ScreenshotSaveHelper.targetExists(finalPath)
+        }
+        log(shell, "save-overwrite-check", {
+                "targetPath": finalPath,
+                "exists": targetExists
+            })
+        if (targetExists) {
             shell.screenshotOverwriteTargetPath = finalPath
             shell.screenshotOverwriteDialogVisible = true
             log(shell, "save-overwrite-prompt", { "targetPath": finalPath })
@@ -320,11 +328,21 @@ function finalizeSave(shell, forceOverwrite) {
     if (typeof ScreenshotSaveHelper !== "undefined"
             && ScreenshotSaveHelper
             && ScreenshotSaveHelper.saveImageFile) {
+        log(shell, "save-helper-call", {
+                "sourcePath": sourcePath,
+                "targetPath": finalPath,
+                "format": targetFormat
+            })
         var saveRes = ScreenshotSaveHelper.saveImageFile(sourcePath,
                                                          finalPath,
                                                          targetFormat,
                                                          targetQuality,
                                                          !!forceOverwrite)
+        log(shell, "save-helper-result", {
+                "ok": !!(saveRes && saveRes.ok),
+                "targetPath": String((saveRes && saveRes.targetPath) ? saveRes.targetPath : finalPath),
+                "error": String((saveRes && saveRes.error) ? saveRes.error : "")
+            })
         ok = !!(saveRes && saveRes.ok)
         if (!ok) {
             err = String((saveRes && saveRes.error) ? saveRes.error : "save-failed")

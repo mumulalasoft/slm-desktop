@@ -6,9 +6,22 @@
 #include <QImage>
 #include <QImageWriter>
 #include <QRegularExpression>
+#include <QStandardPaths>
 #include <QStorageInfo>
 
 namespace {
+QString expandUserPath(const QString &path)
+{
+    const QString out = path.trimmed();
+    if (out == QStringLiteral("~")) {
+        return QDir::homePath();
+    }
+    if (out.startsWith(QStringLiteral("~/"))) {
+        return QDir::homePath() + out.mid(1);
+    }
+    return out;
+}
+
 QString mapFileError(const QFileDevice::FileError err)
 {
     switch (err) {
@@ -112,9 +125,13 @@ QString ScreenshotSaveHelper::buildTargetPathWithExtension(const QString &folder
                                                            const QString &name,
                                                            const QString &extension) const
 {
-    QString base = folder.trimmed();
+    QString base = expandUserPath(folder);
     if (base.isEmpty()) {
-        base = QStringLiteral("~/Pictures/Screenshots");
+        base = QStandardPaths::writableLocation(QStandardPaths::PicturesLocation);
+        if (base.trimmed().isEmpty()) {
+            base = QDir::homePath() + QStringLiteral("/Pictures");
+        }
+        base += QStringLiteral("/Screenshots");
     }
     const QString fileName = ensureFileNameForExtension(name, extension);
     if (base.endsWith(QLatin1Char('/'))) {
@@ -161,10 +178,10 @@ QVariantMap ScreenshotSaveHelper::saveImageFile(const QString &sourcePath,
     QVariantMap out;
     out.insert(QStringLiteral("ok"), false);
     out.insert(QStringLiteral("error"), QStringLiteral("io-error"));
-    out.insert(QStringLiteral("targetPath"), targetPath.trimmed());
+    out.insert(QStringLiteral("targetPath"), expandUserPath(targetPath));
 
-    const QString src = sourcePath.trimmed();
-    const QString dst = targetPath.trimmed();
+    const QString src = expandUserPath(sourcePath);
+    const QString dst = expandUserPath(targetPath);
     if (src.isEmpty() || dst.isEmpty()) {
         out.insert(QStringLiteral("error"), QStringLiteral("invalid-args"));
         return out;
@@ -307,6 +324,11 @@ QVariantMap ScreenshotSaveHelper::storageInfoForPath(const QString &path) const
 bool ScreenshotSaveHelper::shouldPromptOverwrite(bool targetExists, bool forceOverwrite) const
 {
     return targetExists && !forceOverwrite;
+}
+
+bool ScreenshotSaveHelper::targetExists(const QString &path) const
+{
+    return QFileInfo::exists(expandUserPath(path));
 }
 
 QString ScreenshotSaveHelper::resolveChosenFolder(const QString &currentFolder,

@@ -9,3 +9,4 @@ DesktopNames=SLM
 # which slm-session-broker and slm-greeter's SlmPamSession set explicitly before
 # calling pam_open_session so that logind assigns seat0 and Type=wayland.
 X-GnomeSession-SessionType=wayland
+X-KDE-DBUS-Restricted-Interfaces=org.kde.KWin.ScreenShot2

@@ -57,6 +57,16 @@ function showResultNotification(shell, ok, path, errorText) {
                                3500)
 }
 
+function routerFor(shell) {
+    if (shell && shell.appCommandRouterRef && shell.appCommandRouterRef.routeWithResult) {
+        return shell.appCommandRouterRef
+    }
+    if (typeof AppCommandRouter !== "undefined" && AppCommandRouter && AppCommandRouter.routeWithResult) {
+        return AppCommandRouter
+    }
+    return null
+}
+
 function commitAreaSelection(shell) {
     if (!shell) {
         return
@@ -71,24 +81,44 @@ function commitAreaSelection(shell) {
         shell.areaShotOutputPath = ""
         return
     }
+    var fromScreenshotTool = !!shell.areaShotFromScreenshotTool
+    var outputPath = String(shell.areaShotOutputPath || "")
+    shell.areaShotFromScreenshotTool = false
+    shell.areaShotOutputPath = ""
     if (typeof CursorController !== "undefined" && CursorController && CursorController.startBusy) {
         CursorController.startBusy(800)
     }
-    if (typeof AppCommandRouter !== "undefined" && AppCommandRouter && AppCommandRouter.route) {
-        var result = AppCommandRouter.routeWithResult(
+    Qt.callLater(function() {
+        finishAreaSelectionCapture(shell, x, y, w, h, fromScreenshotTool, outputPath)
+    })
+}
+
+function finishAreaSelectionCapture(shell, x, y, w, h, fromScreenshotTool, outputPath) {
+    if (!shell) {
+        return
+    }
+    var router = routerFor(shell)
+    if (router) {
+        var result = router.routeWithResult(
                     "screenshot.area",
                     {
                         "x": x,
                         "y": y,
                         "width": w,
                         "height": h,
-                        "outputPath": shell.areaShotFromScreenshotTool ? shell.areaShotOutputPath : ""
+                        "outputPath": fromScreenshotTool ? outputPath : ""
                     },
                     "area-selector")
         var payload = result && result.payload ? result.payload : {}
-        if (shell.areaShotFromScreenshotTool && !!(result && result.ok)) {
+        ScreenshotSaveController.log(shell, "capture-result", {
+                                "mode": "area",
+                                "ok": !!(result && result.ok),
+                                "path": String(payload.path || ""),
+                                "error": String(payload.error || result.error || "")
+                            })
+        if (fromScreenshotTool && !!(result && result.ok)) {
             ScreenshotSaveController.openSaveDialog(shell,
-                                                    String(payload.path || shell.areaShotOutputPath),
+                                                    String(payload.path || outputPath),
                                                     shell.screenshotRequestId)
         } else {
             showResultNotification(shell,
@@ -97,8 +127,6 @@ function commitAreaSelection(shell) {
                                    (payload.error || result.error || ""))
         }
     }
-    shell.areaShotFromScreenshotTool = false
-    shell.areaShotOutputPath = ""
 }
 
 function performCapture(shell, modeValue) {
@@ -117,6 +145,7 @@ function performCapture(shell, modeValue) {
         beginAreaSelection(shell)
         return
     }
+    var router = routerFor(shell)
     if (mode === "window") {
         var geom = null
         if (typeof CompositorStateModel !== "undefined" && CompositorStateModel
@@ -144,8 +173,8 @@ function performCapture(shell, modeValue) {
             showResultNotification(shell, false, "", "window-not-found")
             return
         }
-        if (typeof AppCommandRouter !== "undefined" && AppCommandRouter && AppCommandRouter.route) {
-            var winResult = AppCommandRouter.routeWithResult(
+        if (router) {
+            var winResult = router.routeWithResult(
                         "screenshot.window",
                         {
                             "x": Math.round(Number(geom.x || 0)),
@@ -156,6 +185,12 @@ function performCapture(shell, modeValue) {
                         },
                         "crown.screenshot.window")
             var winPayload = winResult && winResult.payload ? winResult.payload : {}
+            ScreenshotSaveController.log(shell, "capture-result", {
+                                    "mode": "window",
+                                    "ok": !!(winResult && winResult.ok),
+                                    "path": String(winPayload.path || ""),
+                                    "error": String(winPayload.error || winResult.error || "")
+                                })
             if (!!(winResult && winResult.ok)) {
                 ScreenshotSaveController.openSaveDialog(shell,
                                                         String(winPayload.path || outPath),
@@ -167,12 +202,18 @@ function performCapture(shell, modeValue) {
         }
         return
     }
-    if (typeof AppCommandRouter !== "undefined" && AppCommandRouter && AppCommandRouter.route) {
-        var result = AppCommandRouter.routeWithResult(
+    if (router) {
+        var result = router.routeWithResult(
                     "screenshot.fullscreen",
                     { "outputPath": outPath },
                     "crown.screenshot")
         var payload = result && result.payload ? result.payload : {}
+        ScreenshotSaveController.log(shell, "capture-result", {
+                                "mode": "screen",
+                                "ok": !!(result && result.ok),
+                                "path": String(payload.path || ""),
+                                "error": String(payload.error || result.error || "")
+                            })
         if (!!(result && result.ok)) {
             ScreenshotSaveController.openSaveDialog(shell,
                                                     String(payload.path || outPath),
@@ -180,6 +221,8 @@ function performCapture(shell, modeValue) {
         } else {
             showResultNotification(shell, false, "", (payload.error || result.error || ""))
         }
+    } else {
+        showResultNotification(shell, false, "", "router-unavailable")
     }
 }
 
@@ -193,11 +236,11 @@ function startFromCrown(shell, modeValue, delaySecValue, grabPointerValue, conce
     if (typeof grabPointerValue !== "undefined" || typeof concealTextValue !== "undefined") {
         // Reserved for future backend options; keep API stable from UI.
     }
-    if (shell.pendingScreenshotDelaySec <= 0) {
-        performCapture(shell, shell.pendingScreenshotMode)
-        return
-    }
     if (shell.screenshotDelayTimer && shell.screenshotDelayTimer.restart) {
         shell.screenshotDelayTimer.restart()
+    } else {
+        Qt.callLater(function() {
+            performCapture(shell, shell.pendingScreenshotMode)
+        })
     }
 }
