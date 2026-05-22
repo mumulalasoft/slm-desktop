@@ -56,11 +56,11 @@ Rectangle {
     readonly property bool selected: selectedPaths[path] === true
 
     width: listWidth
-    height: 32
+    height: 34
     radius: 0
     color: selected
-           ? Theme.color("accent")
-           : (rowMouse.containsMouse ? Theme.color("accentSoft") : "transparent")
+           ? Theme.color("selectedItem")
+           : (rowMouse.containsMouse ? Theme.color("accentSubtle") : "transparent")
     Behavior on color {
         enabled: root.microAnimationAllowed()
         ColorAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault }
@@ -82,14 +82,14 @@ Rectangle {
                 height: 18
                 anchors.verticalCenter: parent.verticalCenter
                 fillMode: Image.PreserveAspectFit
-                source: "image://themeicon/" + (root.isDir ? "folder" : "text-x-generic") + "?v=" + root.iconRevision
+                source: "image://themeicon/" + (root.isDir ? "folder" : (root.mimeType.indexOf("image/") === 0 ? "image-x-generic" : "text-x-generic")) + "?v=" + root.iconRevision
             }
 
             Label {
                 width: parent.width - 26
                 height: parent.height
                 text: root.name
-                color: root.selected ? Theme.color("accentText") : Theme.color("textPrimary")
+                color: root.selected ? Theme.color("selectedItemText") : Theme.color("textPrimary")
                 elide: Text.ElideRight
                 verticalAlignment: Text.AlignVCenter
             }
@@ -99,12 +99,13 @@ Rectangle {
             width: Math.max(90, Number(root.dateColumnWidth || 140))
             height: parent.height
             text: root.lastModified.length > 0 ? root.lastModified : "-"
-            color: root.selected ? Theme.color("accentText") : Theme.color("textSecondary")
+            color: root.selected ? Theme.color("selectedItemText") : Theme.color("textSecondary")
             elide: Text.ElideRight
             verticalAlignment: Text.AlignVCenter
         }
 
         Item {
+            id: kindCell
             width: Math.max(80, Number(root.kindColumnWidth || 92))
             height: parent.height
 
@@ -128,7 +129,7 @@ Rectangle {
             Label {
                 anchors.fill: parent
                 text: parent.kindText
-                color: root.selected ? Theme.color("accentText") : Theme.color("textSecondary")
+                color: root.selected ? Theme.color("selectedItemText") : Theme.color("textSecondary")
                 elide: Text.ElideRight
                 verticalAlignment: Text.AlignVCenter
             }
@@ -139,10 +140,10 @@ Rectangle {
                 hoverEnabled: true
                 acceptedButtons: Qt.NoButton
             }
-            ToolTip.visible: kindHover.containsMouse && parent.kindTooltip.length > 0
+            ToolTip.visible: kindHover.containsMouse && kindCell.kindTooltip.length > 0
             ToolTip.delay: 250
             ToolTip.timeout: 3000
-            ToolTip.text: parent.kindTooltip
+            ToolTip.text: kindCell.kindTooltip
         }
     }
 

@@ -128,7 +128,7 @@ Item {
                 return
             }
             if (root.portalChooserApi && root.portalChooserApi.portalChooserRefreshStoragePlaces) {
-                root.portalChooserApi.portalChooserRefreshStoragePlaces()
+                root.portalChooserApi.portalChooserRefreshStoragePlaces(false)
             }
         }
     }

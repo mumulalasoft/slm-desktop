@@ -1,6 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import Slm_Desktop
+import SlmStyle as DSStyle
 
 Rectangle {
     id: root
@@ -9,19 +10,19 @@ Rectangle {
 
     width: previewPath.length > 0 ? 240 : 0
     height: parent ? parent.height : 0
-    radius: Theme.radiusControlLarge
-    color: Theme.color("fileManagerWindowBg")
+    radius: Theme.radiusControl
+    color: Theme.color("fileManagerContentBg")
     border.width: previewPath.length > 0 ? 1 : 0
-    border.color: Theme.color("fileManagerWindowBorder")
+    border.color: Theme.color("fileManagerContentBorder")
     visible: previewPath.length > 0
     clip: true
 
     Column {
         anchors.fill: parent
-        anchors.margins: 8
-        spacing: 8
+        anchors.margins: Theme.metric("spacingSm")
+        spacing: Theme.metric("spacingSm")
 
-        Label {
+        DSStyle.Label {
             text: "Preview"
             color: Theme.color("textSecondary")
             font.pixelSize: Theme.fontSize("small")
@@ -31,9 +32,9 @@ Rectangle {
             width: parent.width
             height: parent.height - 26
             radius: Theme.radiusControl
-            color: Theme.color("windowBg")
+            color: Theme.color("controlBg")
             border.width: Theme.borderWidthThin
-            border.color: Theme.color("menuBorder")
+            border.color: Theme.color("panelBorder")
             clip: true
 
             Image {

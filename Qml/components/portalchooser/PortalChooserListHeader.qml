@@ -1,6 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import Slm_Desktop
+import SlmStyle as DSStyle
 
 Rectangle {
     id: root
@@ -15,10 +16,10 @@ Rectangle {
     signal resizeReleased()
 
     width: root.listWidth
-    height: 28
-    color: Theme.color("menuBg")
+    height: Theme.metric("controlHeightRegular")
+    color: Theme.color("fileManagerControlBg")
     border.width: Theme.borderWidthThin
-    border.color: Theme.color("fileManagerWindowBorder")
+    border.color: Theme.color("fileManagerContentBorder")
 
     readonly property real rowW: Math.max(220, width - 20)
 
@@ -28,7 +29,7 @@ Rectangle {
         anchors.rightMargin: 10
         spacing: 8
 
-        Label {
+        DSStyle.Label {
             width: root.nameColumnWidth
             height: parent.height
             text: "Name"
@@ -36,7 +37,7 @@ Rectangle {
             font.weight: Theme.fontWeight("bold")
             verticalAlignment: Text.AlignVCenter
         }
-        Label {
+        DSStyle.Label {
             width: Math.max(90, Number(root.dateColumnWidth || 140))
             height: parent.height
             text: "Date Modified"
@@ -44,7 +45,7 @@ Rectangle {
             font.weight: Theme.fontWeight("bold")
             verticalAlignment: Text.AlignVCenter
         }
-        Label {
+        DSStyle.Label {
             width: Math.max(80, Number(root.kindColumnWidth || 92))
             height: parent.height
             text: "Kind / Size"

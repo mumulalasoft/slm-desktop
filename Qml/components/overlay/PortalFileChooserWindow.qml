@@ -1,6 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Window 2.15
 import Slm_Desktop
+import SlmStyle as DSStyle
 import "../portalchooser" as PortalChooserComp
 
 Window {
@@ -28,10 +29,10 @@ Window {
              && !!chooserApi.shellRoot
              && !!rootWindow.visible
              && !!chooserApi.shellRoot.portalFileChooserVisible
-    color: Theme.color("menuBg")
+    color: "transparent"
     flags: Qt.Dialog | Qt.FramelessWindowHint
-    modality: Qt.ApplicationModal
-    transientParent: null
+    modality: Qt.WindowModal
+    transientParent: rootWindow
     title: (chooserApi && chooserApi.shellRoot) ? String(chooserApi.shellRoot.portalChooserTitle || "") : ""
     width: 900
     height: 560
@@ -45,6 +46,12 @@ Window {
                                          || chooserApi.portalChooserDefaultWidth()))
             height = Math.max(500, Number((chooserApi.shellRoot && chooserApi.shellRoot.portalChooserWindowHeight)
                                           || chooserApi.portalChooserDefaultHeight()))
+        }
+    }
+    onClosing: function(close) {
+        if (chooserApi && chooserApi.shellRoot && chooserApi.shellRoot.portalFileChooserVisible) {
+            close.accepted = false
+            chooserApi.finishPortalFileChooser(false, true, "canceled")
         }
     }
     onWidthChanged: {
@@ -136,61 +143,100 @@ Window {
         Rectangle {
             id: portalChooserCard
             anchors.fill: parent
-            radius: Theme.radiusXl
-            color: Theme.color("menuBg")
+            radius: Theme.radiusWindow
+            color: Theme.color("fileManagerWindowBg")
             border.width: Theme.borderWidthThin
-            border.color: Theme.color("menuBorder")
+            border.color: Theme.color("fileManagerWindowBorder")
             clip: true
 
             Column {
                 anchors.fill: parent
-                anchors.margins: 12
-                spacing: 8
+                anchors.margins: Theme.metric("spacingLg")
+                spacing: 0
 
-                PortalChooserComp.PortalChooserHeaderControls {
-                    width: parent.width
-                    titleText: chooserApi.shellRoot ? chooserApi.shellRoot.portalChooserTitle : ""
-                    sortKey: chooserApi.shellRoot ? chooserApi.shellRoot.portalChooserSortKey : "name"
-                    showHidden: chooserApi.shellRoot ? !!chooserApi.shellRoot.portalChooserShowHidden : false
-                    sortDescending: chooserApi.shellRoot ? !!chooserApi.shellRoot.portalChooserSortDescending : false
-                    onSortKeySelected: function(key) {
-                        chooserApi.shellRoot.portalChooserSortKey = key
-                        chooserApi.portalChooserLoadDirectory(chooserApi.shellRoot.portalChooserCurrentDir)
-                    }
-                    onToggleHiddenRequested: {
-                        chooserApi.shellRoot.portalChooserShowHidden = !chooserApi.shellRoot.portalChooserShowHidden
-                        chooserApi.portalChooserLoadDirectory(chooserApi.shellRoot.portalChooserCurrentDir)
-                    }
-                    onToggleSortDirectionRequested: {
-                        chooserApi.shellRoot.portalChooserSortDescending = !chooserApi.shellRoot.portalChooserSortDescending
-                        chooserApi.portalChooserLoadDirectory(chooserApi.shellRoot.portalChooserCurrentDir)
-                    }
-                }
+                Rectangle {
+                    id: portalChooserToolbar
+                    readonly property real contentHeight: portalChooserTitleRow.height
+                                                      + portalChooserToolbarColumn.spacing
+                                                      + portalPathBar.height
 
-                PortalChooserComp.PortalChooserPathBar {
-                    id: portalPathBar
                     width: parent.width
-                    height: 34
-                    pathEditMode: chooserApi.shellRoot ? !!chooserApi.shellRoot.portalChooserPathEditMode : false
-                    currentDir: chooserApi.shellRoot ? String(chooserApi.shellRoot.portalChooserCurrentDir || "") : ""
-                    breadcrumbSegments: chooserApi.portalChooserBreadcrumbSegments()
-                    iconRevision: ((typeof ThemeIconController !== "undefined" && ThemeIconController)
-                                   ? ThemeIconController.revision : 0)
-                    onPathEditModeChangeRequested: function(value) {
-                        chooserApi.shellRoot.portalChooserPathEditMode = value
-                        if (!value) {
-                            portalChooserCard.forceActiveFocus()
+                    height: contentHeight
+                    color: "transparent"
+                    border.width: Theme.borderWidthNone
+
+                    Column {
+                        id: portalChooserToolbarColumn
+                        anchors.fill: parent
+                        spacing: Theme.metric("spacingXxs")
+
+                        Row {
+                            id: portalChooserTitleRow
+                            width: parent.width
+                            height: Theme.metric("controlHeightRegular")
+                            spacing: Theme.metric("spacingSm")
+
+                            DSStyle.Label {
+                                width: Math.max(0, parent.width - portalChooserSortControls.width - parent.spacing)
+                                height: parent.height
+                                text: chooserApi.shellRoot ? chooserApi.shellRoot.portalChooserTitle : ""
+                                color: Theme.color("textPrimary")
+                                font.pixelSize: Theme.fontSize("title")
+                                font.family: Theme.fontFamilyDisplay
+                                font.weight: Theme.fontWeight("semibold")
+                                verticalAlignment: Text.AlignVCenter
+                                elide: Text.ElideRight
+                            }
+
+                            PortalChooserComp.PortalChooserHeaderControls {
+                                id: portalChooserSortControls
+                                width: 218
+                                height: parent.height
+                                showTitle: false
+                                sortKey: chooserApi.shellRoot ? chooserApi.shellRoot.portalChooserSortKey : "name"
+                                showHidden: chooserApi.shellRoot ? !!chooserApi.shellRoot.portalChooserShowHidden : false
+                                sortDescending: chooserApi.shellRoot ? !!chooserApi.shellRoot.portalChooserSortDescending : false
+                                onSortKeySelected: function(key) {
+                                    chooserApi.shellRoot.portalChooserSortKey = key
+                                    chooserApi.portalChooserLoadDirectory(chooserApi.shellRoot.portalChooserCurrentDir)
+                                }
+                                onToggleHiddenRequested: {
+                                    chooserApi.shellRoot.portalChooserShowHidden = !chooserApi.shellRoot.portalChooserShowHidden
+                                    chooserApi.portalChooserLoadDirectory(chooserApi.shellRoot.portalChooserCurrentDir)
+                                }
+                                onToggleSortDirectionRequested: {
+                                    chooserApi.shellRoot.portalChooserSortDescending = !chooserApi.shellRoot.portalChooserSortDescending
+                                    chooserApi.portalChooserLoadDirectory(chooserApi.shellRoot.portalChooserCurrentDir)
+                                }
+                            }
                         }
-                    }
-                    onLoadDirectoryRequested: function(path) {
-                        chooserApi.portalChooserLoadDirectory(String(path || ""))
+
+                        PortalChooserComp.PortalChooserPathBar {
+                            id: portalPathBar
+                            width: parent.width
+                            height: Theme.metric("controlHeightLarge")
+                            pathEditMode: chooserApi.shellRoot ? !!chooserApi.shellRoot.portalChooserPathEditMode : false
+                            currentDir: chooserApi.shellRoot ? String(chooserApi.shellRoot.portalChooserCurrentDir || "") : ""
+                            breadcrumbSegments: chooserApi.portalChooserBreadcrumbSegments()
+                            iconRevision: ((typeof ThemeIconController !== "undefined" && ThemeIconController)
+                                           ? ThemeIconController.revision : 0)
+                            onPathEditModeChangeRequested: function(value) {
+                                chooserApi.shellRoot.portalChooserPathEditMode = value
+                                if (!value) {
+                                    portalChooserCard.forceActiveFocus()
+                                }
+                            }
+                            onLoadDirectoryRequested: function(path) {
+                                chooserApi.portalChooserLoadDirectory(String(path || ""))
+                            }
+                        }
                     }
                 }
 
                 PortalChooserComp.PortalChooserContentPane {
                     id: portalChooserListPane
                     width: parent.width
-                    height: Math.max(280, parent.height - ((chooserApi.shellRoot && chooserApi.shellRoot.portalChooserMode === "save") ? 180 : 132))
+                    height: Math.max(280, parent.height - portalChooserToolbar.height - portalSaveNameRow.height)
                     previewPath: chooserApi.shellRoot ? String(chooserApi.shellRoot.portalChooserPreviewPath || "") : ""
                     placesModel: root.placesModel
                     currentDir: chooserApi.shellRoot ? String(chooserApi.shellRoot.portalChooserCurrentDir || "") : ""
@@ -213,28 +259,34 @@ Window {
                         chooserApi.portalChooserLoadDirectory(String(path || ""))
                     }
                     onMountRequested: function(device) {
-                        if (typeof FileManagerApi === "undefined" || !FileManagerApi
-                                || !FileManagerApi.startMountStorageDevice) {
+                        var fm = (chooserApi && chooserApi.shellRoot) ? chooserApi.shellRoot.fileManagerApiRef : null
+                        if (!fm && typeof FileManagerApi !== "undefined" && FileManagerApi) {
+                            fm = FileManagerApi
+                        }
+                        if (!fm || !fm.startMountStorageDevice) {
                             return
                         }
                         var dev = String(device || "")
                         if (dev.length <= 0) {
                             return
                         }
-                        FileManagerApi.startMountStorageDevice(dev)
-                        chooserApi.portalChooserRefreshStoragePlaces()
+                        fm.startMountStorageDevice(dev)
+                        chooserApi.portalChooserRefreshStoragePlaces(true)
                     }
                     onUnmountRequested: function(device) {
-                        if (typeof FileManagerApi === "undefined" || !FileManagerApi
-                                || !FileManagerApi.startUnmountStorageDevice) {
+                        var fm = (chooserApi && chooserApi.shellRoot) ? chooserApi.shellRoot.fileManagerApiRef : null
+                        if (!fm && typeof FileManagerApi !== "undefined" && FileManagerApi) {
+                            fm = FileManagerApi
+                        }
+                        if (!fm || !fm.startUnmountStorageDevice) {
                             return
                         }
                         var dev = String(device || "")
                         if (dev.length <= 0) {
                             return
                         }
-                        FileManagerApi.startUnmountStorageDevice(dev)
-                        chooserApi.portalChooserRefreshStoragePlaces()
+                        fm.startUnmountStorageDevice(dev)
+                        chooserApi.portalChooserRefreshStoragePlaces(true)
                     }
                     onFilterIndexChangedByUser: function(index) {
                         chooserApi.shellRoot.portalChooserFilterIndex = index
@@ -304,6 +356,7 @@ Window {
                 PortalChooserComp.PortalChooserFooterPane {
                     id: portalSaveNameRow
                     width: parent.width
+                    height: contentHeight
                     chooserMode: chooserApi.shellRoot ? String(chooserApi.shellRoot.portalChooserMode || "open") : "open"
                     chooserName: chooserApi.shellRoot ? String(chooserApi.shellRoot.portalChooserName || "") : ""
                     validationError: chooserApi.shellRoot ? String(chooserApi.shellRoot.portalChooserValidationError || "") : ""

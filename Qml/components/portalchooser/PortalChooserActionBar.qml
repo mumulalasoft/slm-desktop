@@ -1,6 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import Slm_Desktop
+import SlmStyle as DSStyle
 
 Row {
     id: root
@@ -17,8 +18,8 @@ Row {
     signal primaryRequested()
 
     width: parent ? parent.width : 0
-    height: 34
-    spacing: 8
+    height: Theme.metric("controlHeightLarge")
+    spacing: Theme.metric("spacingSm")
 
     Item {
         width: Math.max(0, root.width - 224)
@@ -29,14 +30,14 @@ Row {
             anchors.verticalCenter: parent.verticalCenter
             spacing: 8
 
-            Label {
+            DSStyle.Label {
                 text: root.selectionSummaryText
                 visible: text.length > 0
                 color: Theme.color("textSecondary")
                 font.pixelSize: Theme.fontSize("small")
             }
 
-            Button {
+            DSStyle.Button {
                 width: 108
                 height: 26
                 text: "Clear Selection"
@@ -45,7 +46,7 @@ Row {
                 onClicked: root.clearSelectionRequested()
             }
 
-            Button {
+            DSStyle.Button {
                 width: 112
                 height: 26
                 text: "Invert Selection"
@@ -56,18 +57,21 @@ Row {
         }
     }
 
-    Button {
+    DSStyle.Button {
         text: "Cancel"
         width: 96
-        height: 32
+        height: Theme.metric("controlHeightRegular")
+        anchors.verticalCenter: parent.verticalCenter
         onClicked: root.cancelRequested()
     }
 
-    Button {
+    DSStyle.Button {
         text: root.primaryText
         width: 96
-        height: 32
+        height: Theme.metric("controlHeightRegular")
+        anchors.verticalCenter: parent.verticalCenter
         enabled: root.primaryEnabled
+        defaultAction: true
         onClicked: root.primaryRequested()
     }
 }
