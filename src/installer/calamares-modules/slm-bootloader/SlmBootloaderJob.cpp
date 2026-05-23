@@ -1,9 +1,15 @@
 #include "SlmBootloaderJob.h"
 
+#include "SlmCommand.h"
+
 #include <GlobalStorage.h>
 #include <JobQueue.h>
 #include <utils/Logger.h>
 
+#include <QByteArray>
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
 #include <QString>
 #include <QStringList>
 #include <QVariantMap>
@@ -45,6 +51,43 @@ QString resolveRootMountPoint(Calamares::GlobalStorage *gs)
 {
     const QString fromGs = gs->value(QStringLiteral("rootMountPoint")).toString();
     return fromGs.isEmpty() ? QStringLiteral("/mnt/slm-install-root") : fromGs;
+}
+
+// Resolve a partition's UUID via blkid. Empty return signals failure;
+// callers translate that into a JobResult::error with the appropriate
+// BOOT_xxx code.
+QString readUuid(const QString &device)
+{
+    const auto res = Slm::Installer::SlmCommand::run(
+        QStringLiteral("blkid"),
+        { QStringLiteral("-s"), QStringLiteral("UUID"),
+          QStringLiteral("-o"), QStringLiteral("value"), device },
+        5000);
+    if (!res.started || res.exitCode != 0) {
+        return {};
+    }
+    return res.output.trimmed();
+}
+
+bool writeFile(const QString &path, const QByteArray &content, QString *err)
+{
+    const QFileInfo info(path);
+    if (!QDir().mkpath(info.absolutePath())) {
+        *err = QStringLiteral("mkpath failed for %1").arg(info.absolutePath());
+        return false;
+    }
+    QFile f(path);
+    if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        *err = QStringLiteral("open(%1) failed: %2").arg(path, f.errorString());
+        return false;
+    }
+    if (f.write(content) != content.size()) {
+        *err = QStringLiteral("short write to %1: %2").arg(path, f.errorString());
+        f.close();
+        return false;
+    }
+    f.close();
+    return true;
 }
 
 } // namespace
@@ -138,13 +181,103 @@ Calamares::JobResult SlmBootloaderJob::exec()
             QStringLiteral("BOOT_006: slm.target.confirmed not set"));
     }
 
-    // Real execution touches the ESP and writes EFI variables — both have
-    // host-wide blast radius if the wrong disk is targeted. Even past the
-    // confirmation guard, the chroot bootctl + efibootmgr sequence has not
-    // been implemented in this module yet.
-    return Calamares::JobResult::error(
-        tr("Bootloader installation is not yet implemented."),
-        QStringLiteral("BOOT_005: real-execution path not yet implemented"));
+    // Real execution: bootctl install inside the chroot, write the
+    // loader.conf + entries with real UUIDs, then efibootmgr from the
+    // live env. Sequence matches docs/SLM_INSTALLER_BACKEND.md §3.2.
+
+    auto fail = [](const QString &code, const QString &userMsg,
+                   const Slm::Installer::CommandResult &res) {
+        return Calamares::JobResult::error(
+            userMsg,
+            QStringLiteral("%1: exit=%2 started=%3 output=%4")
+                .arg(code)
+                .arg(res.exitCode)
+                .arg(res.started ? QStringLiteral("yes") : QStringLiteral("no"))
+                .arg(res.output.trimmed()));
+    };
+
+    // 1. bootctl install --no-variables inside the chroot. This places the
+    // systemd-boot binaries in $ESP/EFI/systemd/ and creates the loader/
+    // directory. --no-variables defers EFI variable creation to efibootmgr
+    // (step 4) so we control the boot entry label and ordering.
+    cDebug() << "slm-bootloader: chroot bootctl install" << rootMount;
+    const auto bootctl = Slm::Installer::SlmCommand::run(QStringLiteral("chroot"), {
+        rootMount,
+        QStringLiteral("bootctl"),
+        QStringLiteral("install"),
+        QStringLiteral("--path=/boot/efi"),
+        QStringLiteral("--no-variables"),
+    });
+    if (!bootctl.started || bootctl.exitCode != 0) {
+        return fail(QStringLiteral("BOOT_010"),
+                    tr("Unable to install systemd-boot."), bootctl);
+    }
+
+    // 2. Resolve the real Btrfs and Recovery partition UUIDs. blkid runs
+    // outside the chroot — slm-fstab already proved this works at this
+    // point in the pipeline (the filesystems were just created by
+    // slm-partition, then mounted by slm-btrfs-layout).
+    const QString realBtrfsUuid = readUuid(rootDevice);
+    if (realBtrfsUuid.isEmpty()) {
+        return Calamares::JobResult::error(
+            tr("Unable to read Btrfs root UUID."),
+            QStringLiteral("BOOT_011: blkid failed for %1").arg(rootDevice));
+    }
+    const QString realRecoveryUuid = readUuid(recoveryDevice);
+    if (realRecoveryUuid.isEmpty()) {
+        return Calamares::JobResult::error(
+            tr("Unable to read recovery partition UUID."),
+            QStringLiteral("BOOT_011: blkid failed for %1").arg(recoveryDevice));
+    }
+
+    // 3. Render the conf files with real UUIDs and write them. bootctl
+    // install created loader/ already, but the entries/ subdirectory
+    // may not exist — writeFile() mkpaths as needed.
+    const QString loaderDir = rootMount + espRelative + QStringLiteral("/loader");
+    const QString entriesDir = loaderDir + QStringLiteral("/entries");
+
+    const QString realEntryDesktop  = QString(QLatin1String(kEntryDesktop)).arg(realBtrfsUuid);
+    const QString realEntryRecovery = QString(QLatin1String(kEntryRecovery)).arg(realRecoveryUuid);
+    const QString realEntrySafeMode = QString(QLatin1String(kEntrySafeMode)).arg(realBtrfsUuid);
+
+    struct ConfFile { QString path; QByteArray content; };
+    const ConfFile files[] = {
+        { loaderDir + QStringLiteral("/loader.conf"), loaderConf.toUtf8() },
+        { entriesDir + QStringLiteral("/slm-desktop.conf"), realEntryDesktop.toUtf8() },
+        { entriesDir + QStringLiteral("/slm-recovery.conf"), realEntryRecovery.toUtf8() },
+        { entriesDir + QStringLiteral("/slm-safe-mode.conf"), realEntrySafeMode.toUtf8() },
+    };
+    for (const ConfFile &f : files) {
+        QString err;
+        if (!writeFile(f.path, f.content, &err)) {
+            return Calamares::JobResult::error(
+                tr("Unable to write bootloader configuration."),
+                QStringLiteral("BOOT_012: %1").arg(err));
+        }
+    }
+
+    // 4. efibootmgr from the live env — writes the EFI variables that
+    // point firmware at our newly-installed systemd-boot binary. Runs
+    // OUTSIDE the chroot (the live ISO's efibootmgr has access to
+    // /sys/firmware/efi/efivars; the staged root doesn't yet).
+    cDebug() << "slm-bootloader: efibootmgr --create" << targetDisk;
+    const auto efimgr = Slm::Installer::SlmCommand::run(QStringLiteral("efibootmgr"), {
+        QStringLiteral("--create"),
+        QStringLiteral("--disk"), targetDisk,
+        QStringLiteral("--part"), QStringLiteral("1"),
+        QStringLiteral("--label"), QStringLiteral("SLM Desktop"),
+        QStringLiteral("--loader"),
+        QStringLiteral("\\EFI\\systemd\\systemd-bootx64.efi"),
+    });
+    if (!efimgr.started || efimgr.exitCode != 0) {
+        return fail(QStringLiteral("BOOT_014"),
+                    tr("Unable to register the SLM boot entry with firmware."),
+                    efimgr);
+    }
+
+    gs->insert(QStringLiteral("slm.bootloader.executed"), true);
+    cDebug() << "slm-bootloader: real execution complete";
+    return Calamares::JobResult::ok();
 }
 
 void SlmBootloaderJob::setConfigurationMap(const QVariantMap &configurationMap)
