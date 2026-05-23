@@ -1,0 +1,3 @@
+usr/lib/*/calamares/modules/slm-*
+usr/share/calamares/branding/slm
+etc/calamares/settings.conf

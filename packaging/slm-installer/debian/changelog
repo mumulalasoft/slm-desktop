@@ -1,0 +1,6 @@
+slm-installer (0.1.0-1) UNRELEASED; urgency=medium
+
+  * Initial scaffolding. No modules implemented yet — all Calamares jobs
+    return JobResult::ok() unconditionally.
+
+ -- SLM Desktop Maintainers <maintainers@example.invalid>  Fri, 22 May 2026 10:00:00 +0700

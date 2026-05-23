@@ -5823,3 +5823,8 @@ endif()
 target_include_directories(slm-polkit-agent PRIVATE ${CMAKE_SOURCE_DIR})
 install(TARGETS slm-polkit-agent
     RUNTIME DESTINATION ${CMAKE_INSTALL_LIBEXECDIR})
+
+# SLM Installer (Calamares-based). Self-gated by SLM_BUILD_INSTALLER option;
+# returns early without doing anything when the option is OFF (default), so
+# it is safe to always include here.
+add_subdirectory(src/installer)
