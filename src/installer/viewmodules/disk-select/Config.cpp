@@ -27,9 +27,24 @@ void DiskSelectConfig::commit(const QString &path)
         cWarning() << "slm-disk-select: commit() called with empty path";
         return;
     }
+
+    // Resolve the friendly name from the model so downstream screens
+    // (slm-summary) can show "Samsung 970 EVO" rather than just /dev/nvme0n1.
+    QString diskName;
+    for (int row = 0; row < m_diskModel.rowCount(); ++row) {
+        const QVariantMap fields = m_diskModel.get(row);
+        if (fields.value(QStringLiteral("path")).toString() == path) {
+            diskName = fields.value(QStringLiteral("name")).toString();
+            break;
+        }
+    }
+
     auto *gs = Calamares::JobQueue::instanceGlobalStorage();
     if (gs) {
         gs->insert(QStringLiteral("slm.target.disk"), path);
+        if (!diskName.isEmpty()) {
+            gs->insert(QStringLiteral("slm.target.disk_name"), diskName);
+        }
     } else {
         cWarning() << "slm-disk-select: GlobalStorage unavailable; "
                    << "slm.target.disk not written";

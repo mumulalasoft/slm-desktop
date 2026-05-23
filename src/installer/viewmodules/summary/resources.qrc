@@ -1,0 +1,20 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+    <!--
+        Mirrors disk-select's QRC layout: the SlmInstaller components and
+        this viewmodule's summary.qml entry share the qrc:/qt/qml/SlmInstaller/
+        prefix so qmldir-singleton lookup and sibling imports both work
+        inside the Calamares QML engine.
+    -->
+    <qresource prefix="/qt/qml/SlmInstaller">
+        <file alias="qmldir">../../qml-components/qmldir</file>
+        <file alias="InstallerTheme.qml">../../qml-components/InstallerTheme.qml</file>
+        <file alias="InstallerCard.qml">../../qml-components/InstallerCard.qml</file>
+        <file alias="InstallerPrimaryButton.qml">../../qml-components/InstallerPrimaryButton.qml</file>
+        <file alias="InstallerDiskCard.qml">../../qml-components/InstallerDiskCard.qml</file>
+        <file alias="PartitionDiagram.qml">../../qml-components/PartitionDiagram.qml</file>
+        <file alias="DiskSelectionScreen.qml">../../qml-components/DiskSelectionScreen.qml</file>
+        <file alias="SummaryScreen.qml">../../qml-components/SummaryScreen.qml</file>
+        <file alias="summary.qml">summary.qml</file>
+    </qresource>
+</RCC>
