@@ -27,6 +27,11 @@ Item {
     // disk card).
     property bool animate: false
 
+    // §2.5 ESP-reuse: when an existing EF00 partition was detected on
+    // this disk, the EFI label gets an "(existing)" suffix so the user
+    // sees their bootloader is preserved.
+    property bool efiExisting: false
+
     implicitHeight: 48     // bar (28) + spacing (4) + label row (14) + 2
     implicitWidth: 200     // caller usually overrides via Layout.fillWidth
 
@@ -164,9 +169,14 @@ Item {
             width: parent.width
             height: 14
 
+            // EFI label — left-anchored under segment. The "(existing)"
+            // suffix appears when an existing EF00 was detected on the disk
+            // (§2.5 reuse advisory).
             Text {
                 x: efiSeg.x
-                text: qsTr("EFI  1 GB")
+                text: root.efiExisting
+                      ? qsTr("EFI  1 GB  (existing)")
+                      : qsTr("EFI  1 GB")
                 font.pixelSize: InstallerTheme.fontPxXs
                 font.family: InstallerTheme.fontFamilyUi
                 color: InstallerTheme.textTertiary

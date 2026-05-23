@@ -91,6 +91,37 @@ QString classifyKind(const QString &basename, bool rotational, bool removable)
     return rotational ? QStringLiteral("HDD") : QStringLiteral("SATA SSD");
 }
 
+// EFI System Partition GPT type GUID — per UEFI spec.
+constexpr const char *kEspTypeGuid = "c12a7328-f81f-11d2-ba4b-00a0c93ec93b";
+
+// Synchronous existing-ESP detection via lsblk. Runs on a worker thread.
+// Returns true if any partition on the disk has the EF00 / ESP type GUID.
+//
+// We do NOT additionally check for /EFI/ contents — §2.5's advisory copy
+// ("SLM will add its entry without removing others") is accurate for any
+// existing ESP regardless of whether bootloader entries are present.
+bool probeExistingEspSync(const QString &devicePath)
+{
+    QProcess proc;
+    proc.start(QStringLiteral("lsblk"),
+               { QStringLiteral("-lno"), QStringLiteral("PARTTYPE"), devicePath });
+    if (!proc.waitForStarted(2000) || !proc.waitForFinished(5000)) {
+        return false;  // lsblk missing or stuck — assume no existing ESP
+    }
+    if (proc.exitCode() != 0) {
+        return false;
+    }
+    const QString out = QString::fromUtf8(proc.readAll());
+    const QStringList lines = out.split(QLatin1Char('\n'), Qt::SkipEmptyParts);
+    for (QString line : lines) {
+        line = line.trimmed().toLower();
+        if (line == QLatin1String(kEspTypeGuid)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 // Synchronous SMART health check via smartctl -H. Runs on a worker thread —
 // must not touch QObject state. Returns one of "healthy", "warning", "failed".
 //
@@ -184,6 +215,7 @@ QVariant SlmInstallerDiskModel::data(const QModelIndex &index, int role) const
     case RecoveryBytesRole:  return QVariant::fromValue(d.recoveryBytes);
     case RemovableRole:      return d.removable;
     case SizeBytesRole:      return QVariant::fromValue(d.sizeBytes);
+    case HasExistingEspRole: return d.hasExistingEsp;
     default:                 return {};
     }
 }
@@ -201,6 +233,7 @@ QHash<int, QByteArray> SlmInstallerDiskModel::roleNames() const
         { RecoveryBytesRole,  "recoveryBytes" },
         { RemovableRole,      "removable" },
         { SizeBytesRole,      "sizeBytes" },
+        { HasExistingEspRole, "hasExistingEsp" },
     };
 }
 
@@ -274,6 +307,7 @@ void SlmInstallerDiskModel::enumerateFrom(const QString &sysfsBlockRoot)
 
     if (m_healthProbesEnabled) {
         startHealthProbes();
+        startEspProbes();
     }
 }
 
@@ -320,6 +354,47 @@ void SlmInstallerDiskModel::applyHealthProbeResult(int row, qint64 generation,
     m_disks[size_t(row)].health = health;
     const QModelIndex idx = index(row);
     emit dataChanged(idx, idx, { HealthRole });
+}
+
+void SlmInstallerDiskModel::startEspProbes()
+{
+    const qint64 gen = m_generation;
+    QPointer<SlmInstallerDiskModel> self(this);
+
+    for (size_t row = 0; row < m_disks.size(); ++row) {
+        const QString path = m_disks[row].path;
+        const int rowInt = static_cast<int>(row);
+
+        (void)QtConcurrent::run([self, rowInt, gen, path]() {
+            const bool hasEsp = probeExistingEspSync(path);
+            QMetaObject::invokeMethod(
+                self.data(),
+                [self, rowInt, gen, hasEsp]() {
+                    if (!self) {
+                        return;
+                    }
+                    self->applyEspProbeResult(rowInt, gen, hasEsp);
+                },
+                Qt::QueuedConnection);
+        });
+    }
+}
+
+void SlmInstallerDiskModel::applyEspProbeResult(int row, qint64 generation,
+                                                bool hasExistingEsp)
+{
+    if (generation != m_generation) {
+        return;
+    }
+    if (row < 0 || row >= static_cast<int>(m_disks.size())) {
+        return;
+    }
+    if (m_disks[size_t(row)].hasExistingEsp == hasExistingEsp) {
+        return;
+    }
+    m_disks[size_t(row)].hasExistingEsp = hasExistingEsp;
+    const QModelIndex idx = index(row);
+    emit dataChanged(idx, idx, { HasExistingEspRole });
 }
 
 } // namespace Slm::Installer

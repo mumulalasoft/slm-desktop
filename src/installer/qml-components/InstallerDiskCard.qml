@@ -43,6 +43,11 @@ Rectangle {
     property real recoveryBytes: 8589934592                  // 8 GB default
     property real rootBytes:     0                            // caller sets
 
+    // §2.5 ESP-reuse: when true, the disk has an existing EF00 partition,
+    // so the diagram appends "(existing)" and the erasure warning is
+    // softened to "boot partition will be preserved" copy.
+    property bool existingEsp: false
+
     readonly property bool cardDisabled: health === "failed"
 
     signal clicked()
@@ -310,6 +315,7 @@ Rectangle {
                     rootBytes:     root.rootBytes
                     recoveryBytes: root.recoveryBytes
                     animate:       root.selected
+                    efiExisting:   root.existingEsp
                 }
 
                 // Separator under the diagram. §5 inline-error grammar reuses
@@ -327,19 +333,25 @@ Rectangle {
                     topPadding: 8
                     spacing: 8
 
-                    // Left accent rule (high-stakes disclosure marker per
-                    // design report §2: the user's data is about to be erased).
+                    // Left accent rule. Red for the bare erasure warning;
+                    // amber (warning) for the softer existing-ESP advisory.
                     Rectangle {
                         width: 3
                         height: erasureText.implicitHeight
                         radius: width / 2
-                        color: InstallerTheme.error
+                        color: root.existingEsp ? InstallerTheme.warning
+                                                : InstallerTheme.error
                     }
 
                     Text {
                         id: erasureText
                         width: parent.width - 11
-                        text: qsTr("Your files on this disk will be erased.")
+                        // §2.5: existing-ESP advisory replaces the bare
+                        // erasure warning. The user's bootloader entries
+                        // from another OS are preserved; only SLM's are added.
+                        text: root.existingEsp
+                              ? qsTr("This disk has an existing boot partition from another operating system. SLM will add its entry without removing others. Other files on the disk will be erased.")
+                              : qsTr("Your files on this disk will be erased.")
                         font.pixelSize: InstallerTheme.fontPxSm
                         font.weight: InstallerTheme.weightMedium
                         font.family: InstallerTheme.fontFamilyUi

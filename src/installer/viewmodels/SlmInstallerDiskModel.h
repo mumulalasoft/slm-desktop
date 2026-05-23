@@ -37,6 +37,7 @@ public:
         RecoveryBytesRole,
         RemovableRole,
         SizeBytesRole,
+        HasExistingEspRole,
     };
     Q_ENUM(Roles)
 
@@ -69,20 +70,28 @@ private slots:
     // model was reset between dispatch and completion).
     void applyHealthProbeResult(int row, qint64 generation, const QString &health);
 
+    // Stale-safe sink for async ESP-detection probes. See §2.5 in the
+    // backend spec: an existing EF00 partition triggers the disk-card's
+    // "boot partition will be preserved" advisory in place of the default
+    // erasure warning.
+    void applyEspProbeResult(int row, qint64 generation, bool hasExistingEsp);
+
 private:
     void startHealthProbes();
+    void startEspProbes();
     struct Disk
     {
-        QString path;          // "/dev/nvme0n1"
-        QString name;          // "Samsung SSD 870 — 500 GB"
-        QString sizeDisplay;   // "500 GB"
-        QString kind;          // "NVMe" | "SATA SSD" | "HDD" | "USB" | "MMC" | "Disk"
-        QString health;        // "healthy" | "warning" | "failed"
+        QString path;             // "/dev/nvme0n1"
+        QString name;             // "Samsung SSD 870 — 500 GB"
+        QString sizeDisplay;      // "500 GB"
+        QString kind;             // "NVMe" | "SATA SSD" | "HDD" | "USB" | "MMC" | "Disk"
+        QString health;           // "healthy" | "warning" | "failed"
         qint64  sizeBytes = 0;
         qint64  rootBytes = 0;
         qint64  efiBytes = 0;
         qint64  recoveryBytes = 0;
         bool    removable = false;
+        bool    hasExistingEsp = false;  // §2.5 ESP-reuse advisory
     };
 
     std::vector<Disk> m_disks;

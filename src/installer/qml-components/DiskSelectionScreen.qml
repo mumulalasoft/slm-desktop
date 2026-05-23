@@ -122,6 +122,7 @@ Rectangle {
                                    ? model.efiBytes : 1073741824
                     recoveryBytes: model.recoveryBytes !== undefined
                                    ? model.recoveryBytes : 8589934592
+                    existingEsp:   model.hasExistingEsp === true
                     selected: model.path === root.selectedPath
                     onClicked: root.selectedPath = model.path
                 }
