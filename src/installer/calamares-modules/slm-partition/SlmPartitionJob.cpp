@@ -71,6 +71,42 @@ std::optional<qint64> diskSizeMb(const QString &disk)
     return static_cast<qint64>(sectors) * kSysBlockSectorBytes / (1024 * 1024);
 }
 
+struct CmdResult
+{
+    bool started = false;
+    int exitCode = -1;
+    QString output;
+};
+
+// Generic subprocess wrapper used by the real-execution path. Merges
+// stdout+stderr so a failure can quote the full noise back to the user
+// in JobResult details. Defaults to a 60s timeout (mkfs.btrfs on a slow
+// HDD can take 30+ seconds; sgdisk is fast).
+CmdResult runCmd(const QString &program, const QStringList &args,
+                 int timeoutMs = 60000)
+{
+    QProcess proc;
+    proc.setProcessChannelMode(QProcess::MergedChannels);
+    proc.start(program, args);
+
+    CmdResult out;
+    if (!proc.waitForStarted(3000)) {
+        return out;
+    }
+    out.started = true;
+
+    if (!proc.waitForFinished(timeoutMs)) {
+        proc.kill();
+        proc.waitForFinished(2000);
+        out.exitCode = -2;
+        out.output = QString::fromUtf8(proc.readAll());
+        return out;
+    }
+    out.exitCode = proc.exitCode();
+    out.output = QString::fromUtf8(proc.readAll());
+    return out;
+}
+
 enum class SmartOutcome { Ok, Failed, Unknown };
 
 SmartOutcome runSmartHealthCheck(const QString &disk)
@@ -201,12 +237,116 @@ Calamares::JobResult SlmPartitionJob::exec()
             QStringLiteral("PART_006: slm.target.confirmed not set"));
     }
 
-    // Real execution still pending — disk-select UI now exists (slm-disk-select
-    // + slm-summary viewmodules) but the sgdisk + mkfs subprocess sequence
-    // has not been implemented in this module yet.
-    return Calamares::JobResult::error(
-        tr("Disk partitioning is not yet implemented."),
-        QStringLiteral("PART_004: real-execution path not yet implemented"));
+    // Real execution: wipe, partition, format. The §2.1 sequence — kept in
+    // sync with the bash recipe documented in docs/SLM_INSTALLER_BACKEND.md.
+    //
+    // We do NOT mount anything here; staging mounts are slm-btrfs-layout's
+    // responsibility. We do NOT publish UUIDs here either; slm-fstab reads
+    // them via blkid at its own runtime to avoid stale cached values.
+
+    auto fail = [](const QString &code, const QString &userMsg,
+                   const CmdResult &res) {
+        return Calamares::JobResult::error(
+            userMsg,
+            QStringLiteral("%1: exit=%2 started=%3 output=%4")
+                .arg(code)
+                .arg(res.exitCode)
+                .arg(res.started ? QStringLiteral("yes") : QStringLiteral("no"))
+                .arg(res.output.trimmed()));
+    };
+
+    // 1. Wipe existing GPT/MBR signatures.
+    cDebug() << "slm-partition:" << "running sgdisk --zap-all" << targetDisk;
+    auto wipe = runCmd(QStringLiteral("sgdisk"),
+                       { QStringLiteral("--zap-all"), targetDisk });
+    if (!wipe.started || wipe.exitCode != 0) {
+        return fail(QStringLiteral("PART_010"),
+                    tr("Unable to wipe the disk's partition table."), wipe);
+    }
+
+    // 2. Create the three partitions in a single sgdisk invocation
+    // (§2.1 recipe — fewer round-trips through the kernel partition table
+    // update than three separate calls).
+    cDebug() << "slm-partition: creating GPT layout on" << targetDisk;
+    const QString espSize = QStringLiteral("0:+%1M").arg(kEspSizeMb);
+    const QString recoverySize = QStringLiteral("0:+%1M").arg(kRecoverySizeMb);
+    auto part = runCmd(QStringLiteral("sgdisk"), {
+        QStringLiteral("--new=1:") + espSize,
+        QStringLiteral("--typecode=1:EF00"),
+        QStringLiteral("--change-name=1:EFI System Partition"),
+        QStringLiteral("--new=2:") + recoverySize,
+        QStringLiteral("--typecode=2:8300"),
+        QStringLiteral("--change-name=2:SLM Recovery"),
+        QStringLiteral("--new=3:0:0"),
+        QStringLiteral("--typecode=3:8300"),
+        QStringLiteral("--change-name=3:SLM Root"),
+        targetDisk,
+    });
+    if (!part.started || part.exitCode != 0) {
+        return fail(QStringLiteral("PART_011"),
+                    tr("Unable to create the partition table."), part);
+    }
+
+    // 3. Force the kernel to re-read the partition table, then wait for
+    // udev to materialise the partition device nodes. Without this the
+    // mkfs.* calls below can hit a race where /dev/<disk>N doesn't exist
+    // yet. partprobe is the primary mechanism; udevadm settle is the
+    // safety net.
+    runCmd(QStringLiteral("partprobe"), { targetDisk }, 10000);
+    runCmd(QStringLiteral("udevadm"),
+           { QStringLiteral("settle"), QStringLiteral("--timeout=10") },
+           15000);
+
+    // Sanity-check that the partition nodes appeared. If they didn't,
+    // we don't want to mkfs against /dev/sda1 that's still a stale node
+    // from a previous layout.
+    for (const QString &dev : { espDevice, recoveryDevice, rootDevice }) {
+        if (!isBlockDevice(dev)) {
+            return Calamares::JobResult::error(
+                tr("Partition device did not appear after partitioning."),
+                QStringLiteral("PART_012: %1 is not a block device").arg(dev));
+        }
+    }
+
+    // 4. Format each partition with its target filesystem. -F / -f is
+    // important: the disk could have had a previous filesystem signature
+    // that the format tools would otherwise refuse to overwrite.
+    cDebug() << "slm-partition: mkfs.fat" << espDevice;
+    auto efi = runCmd(QStringLiteral("mkfs.fat"), {
+        QStringLiteral("-F32"),
+        QStringLiteral("-n"), QStringLiteral("SLM-EFI"),
+        espDevice,
+    });
+    if (!efi.started || efi.exitCode != 0) {
+        return fail(QStringLiteral("PART_013"),
+                    tr("Unable to format the EFI partition."), efi);
+    }
+
+    cDebug() << "slm-partition: mkfs.ext4" << recoveryDevice;
+    auto rec = runCmd(QStringLiteral("mkfs.ext4"), {
+        QStringLiteral("-F"),
+        QStringLiteral("-L"), QStringLiteral("SLM-RECOVERY"),
+        recoveryDevice,
+    });
+    if (!rec.started || rec.exitCode != 0) {
+        return fail(QStringLiteral("PART_014"),
+                    tr("Unable to format the recovery partition."), rec);
+    }
+
+    cDebug() << "slm-partition: mkfs.btrfs" << rootDevice;
+    auto root = runCmd(QStringLiteral("mkfs.btrfs"), {
+        QStringLiteral("-f"),
+        QStringLiteral("-L"), QStringLiteral("SLM-ROOT"),
+        rootDevice,
+    });
+    if (!root.started || root.exitCode != 0) {
+        return fail(QStringLiteral("PART_015"),
+                    tr("Unable to format the root partition."), root);
+    }
+
+    gs->insert(QStringLiteral("slm.partition.executed"), true);
+    cDebug() << "slm-partition: real execution complete";
+    return Calamares::JobResult::ok();
 }
 
 void SlmPartitionJob::setConfigurationMap(const QVariantMap &configurationMap)
