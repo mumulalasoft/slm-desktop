@@ -15,4 +15,5 @@ target_include_directories(slm_installer_viewmodels
 target_link_libraries(slm_installer_viewmodels
     PUBLIC
         Qt6::Core
+        Qt6::Concurrent
 )

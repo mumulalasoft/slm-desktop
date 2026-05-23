@@ -46,7 +46,7 @@ public:
     QVariant data(const QModelIndex &index, int role) const override;
     QHash<int, QByteArray> roleNames() const override;
 
-    // Rescan /sys/block. Emits modelReset.
+    // Rescan /sys/block. Emits modelReset and kicks off the async SMART probes.
     Q_INVOKABLE void refresh();
 
     // Convenience for QML — returns the row as a {role: value} map so
@@ -57,10 +57,20 @@ public:
     // disk-model unit tests to point at a fixture directory.
     void enumerateFrom(const QString &sysfsBlockRoot);
 
+    // Disable async health probes for unit tests / no-smartctl harnesses.
+    void setHealthProbesEnabled(bool enabled) { m_healthProbesEnabled = enabled; }
+
 signals:
     void countChanged();
 
+private slots:
+    // Stale-safe sink for async health probes. Drops results whose
+    // generation epoch doesn't match the current model state (i.e. the
+    // model was reset between dispatch and completion).
+    void applyHealthProbeResult(int row, qint64 generation, const QString &health);
+
 private:
+    void startHealthProbes();
     struct Disk
     {
         QString path;          // "/dev/nvme0n1"
@@ -76,6 +86,11 @@ private:
     };
 
     std::vector<Disk> m_disks;
+
+    // Epoch — bumped on every enumerateFrom() so workers spawned by a
+    // previous enumeration know to discard their results.
+    qint64 m_generation = 0;
+    bool m_healthProbesEnabled = true;
 };
 
 } // namespace Slm::Installer

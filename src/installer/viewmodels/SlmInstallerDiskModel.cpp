@@ -5,6 +5,11 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QFileInfoList>
+#include <QMetaObject>
+#include <QPointer>
+#include <QProcess>
+#include <QStringList>
+#include <QtConcurrentRun>
 
 namespace Slm::Installer {
 
@@ -84,6 +89,47 @@ QString classifyKind(const QString &basename, bool rotational, bool removable)
         return QStringLiteral("USB");
     }
     return rotational ? QStringLiteral("HDD") : QStringLiteral("SATA SSD");
+}
+
+// Synchronous SMART health check via smartctl -H. Runs on a worker thread —
+// must not touch QObject state. Returns one of "healthy", "warning", "failed".
+//
+// Exit-code semantics (smartctl(8)): the exit code is a bitmask, bit 3 (8)
+// indicates "SMART status check returned 'DISK FAILING'". Output text
+// containing "PASSED" or "OK" indicates a healthy disk.
+QString probeDiskHealthSync(const QString &devicePath)
+{
+    QProcess proc;
+    proc.setProcessChannelMode(QProcess::MergedChannels);
+    proc.start(QStringLiteral("smartctl"),
+               { QStringLiteral("-H"), devicePath });
+
+    // If smartctl isn't installed (or never starts in 2s), treat the disk as
+    // healthy — refusing to install over a missing-tool case is worse than
+    // accepting an unknown-health disk that slm-partition will warn on later.
+    if (!proc.waitForStarted(2000)) {
+        return QStringLiteral("healthy");
+    }
+    if (!proc.waitForFinished(15000)) {
+        proc.kill();
+        proc.waitForFinished(2000);
+        return QStringLiteral("warning");
+    }
+
+    const int exitCode = proc.exitCode();
+    if (exitCode & 8) {
+        return QStringLiteral("failed");
+    }
+
+    const QString out = QString::fromUtf8(proc.readAll());
+    if (out.contains(QStringLiteral("PASSED"), Qt::CaseInsensitive)
+        || out.contains(QStringLiteral("OK"), Qt::CaseSensitive)) {
+        return QStringLiteral("healthy");
+    }
+
+    // smartctl ran, produced no clear PASSED/FAILED — surface as warning so
+    // the UI can show a non-blocking caution badge.
+    return QStringLiteral("warning");
 }
 
 QString deriveDisplayName(const QString &vendor, const QString &model,
@@ -179,6 +225,10 @@ QVariantMap SlmInstallerDiskModel::get(int row) const
 
 void SlmInstallerDiskModel::enumerateFrom(const QString &sysfsBlockRoot)
 {
+    // Bump epoch first so any still-in-flight workers from a prior
+    // enumeration see a stale generation and discard their results.
+    ++m_generation;
+
     beginResetModel();
     m_disks.clear();
 
@@ -221,6 +271,55 @@ void SlmInstallerDiskModel::enumerateFrom(const QString &sysfsBlockRoot)
 
     endResetModel();
     emit countChanged();
+
+    if (m_healthProbesEnabled) {
+        startHealthProbes();
+    }
+}
+
+void SlmInstallerDiskModel::startHealthProbes()
+{
+    const qint64 gen = m_generation;
+    QPointer<SlmInstallerDiskModel> self(this);
+
+    for (size_t row = 0; row < m_disks.size(); ++row) {
+        const QString path = m_disks[row].path;
+        const int rowInt = static_cast<int>(row);
+
+        (void)QtConcurrent::run([self, rowInt, gen, path]() {
+            const QString health = probeDiskHealthSync(path);
+            // Bounce back to the model's thread. invokeMethod on a null
+            // QPointer is a no-op, so this stays safe if the model has been
+            // destroyed in the meantime.
+            QMetaObject::invokeMethod(
+                self.data(),
+                [self, rowInt, gen, health]() {
+                    if (!self) {
+                        return;
+                    }
+                    self->applyHealthProbeResult(rowInt, gen, health);
+                },
+                Qt::QueuedConnection);
+        });
+    }
+}
+
+void SlmInstallerDiskModel::applyHealthProbeResult(int row, qint64 generation,
+                                                   const QString &health)
+{
+    // Stale result from a prior enumeration — drop it.
+    if (generation != m_generation) {
+        return;
+    }
+    if (row < 0 || row >= static_cast<int>(m_disks.size())) {
+        return;
+    }
+    if (m_disks[size_t(row)].health == health) {
+        return;
+    }
+    m_disks[size_t(row)].health = health;
+    const QModelIndex idx = index(row);
+    emit dataChanged(idx, idx, { HealthRole });
 }
 
 } // namespace Slm::Installer
