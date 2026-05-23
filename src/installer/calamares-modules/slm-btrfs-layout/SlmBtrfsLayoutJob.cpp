@@ -1,11 +1,12 @@
 #include "SlmBtrfsLayoutJob.h"
 
+#include "SlmCommand.h"
+
 #include <GlobalStorage.h>
 #include <JobQueue.h>
 #include <utils/Logger.h>
 
 #include <QDir>
-#include <QProcess>
 #include <QStringList>
 #include <QVariantList>
 #include <QVariantMap>
@@ -50,36 +51,11 @@ constexpr MountPlan kMountPlan[] = {
 constexpr const char *kScratchMount = "/mnt/slm-btrfs-scratch";
 constexpr const char *kStagingRoot = "/mnt/slm-install-root";
 
-struct CmdResult
+using CmdResult = Slm::Installer::CommandResult;
+inline CmdResult runCmd(const QString &program, const QStringList &args,
+                        int timeoutMs = 60000)
 {
-    bool started = false;
-    int exitCode = -1;
-    QString output;
-};
-
-// Generic subprocess wrapper. Duplicates the slm-partition helper for now;
-// when a fourth user appears these graduate to shared/SlmCommand.
-CmdResult runCmd(const QString &program, const QStringList &args,
-                 int timeoutMs = 60000)
-{
-    QProcess proc;
-    proc.setProcessChannelMode(QProcess::MergedChannels);
-    proc.start(program, args);
-    CmdResult out;
-    if (!proc.waitForStarted(3000)) {
-        return out;
-    }
-    out.started = true;
-    if (!proc.waitForFinished(timeoutMs)) {
-        proc.kill();
-        proc.waitForFinished(2000);
-        out.exitCode = -2;
-        out.output = QString::fromUtf8(proc.readAll());
-        return out;
-    }
-    out.exitCode = proc.exitCode();
-    out.output = QString::fromUtf8(proc.readAll());
-    return out;
+    return Slm::Installer::SlmCommand::run(program, args, timeoutMs);
 }
 
 bool isBlockDevice(const QString &path)

@@ -32,6 +32,8 @@ find_package(Calamares REQUIRED)
 include(CalamaresAddPlugin)
 
 add_library(slm_installer_shared STATIC
+    shared/SlmCommand.cpp
+    shared/SlmCommand.h
     shared/SlmErrorTranslator.cpp
     shared/SlmErrorTranslator.h
 )

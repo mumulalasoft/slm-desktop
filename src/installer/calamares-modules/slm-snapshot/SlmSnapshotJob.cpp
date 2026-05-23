@@ -1,12 +1,13 @@
 #include "SlmSnapshotJob.h"
 
+#include "SlmCommand.h"
+
 #include <GlobalStorage.h>
 #include <JobQueue.h>
 #include <utils/Logger.h>
 
 #include <QDir>
 #include <QFileInfo>
-#include <QProcess>
 #include <QString>
 #include <QStringList>
 #include <QVariantMap>
@@ -20,35 +21,6 @@ namespace {
 // of which subvol is bound at /.
 constexpr const char *kSnapshotName = "@factory-initial";
 constexpr const char *kTopLevelScratch = "/mnt/slm-btrfs-root";
-
-struct ProcOutcome
-{
-    int exitCode = -1;
-    QString output;
-    bool started = false;
-};
-
-ProcOutcome runProcess(const QString &program, const QStringList &args, int timeoutMs = 30000)
-{
-    QProcess proc;
-    proc.setProcessChannelMode(QProcess::MergedChannels);
-    proc.start(program, args);
-    ProcOutcome out;
-    out.started = proc.waitForStarted(2000);
-    if (!out.started) {
-        return out;
-    }
-    if (!proc.waitForFinished(timeoutMs)) {
-        proc.kill();
-        proc.waitForFinished(2000);
-        out.exitCode = -2;
-        out.output = QString::fromUtf8(proc.readAll());
-        return out;
-    }
-    out.exitCode = proc.exitCode();
-    out.output = QString::fromUtf8(proc.readAll());
-    return out;
-}
 
 QString resolveRootMountPoint(Calamares::GlobalStorage *gs)
 {
@@ -115,7 +87,7 @@ Calamares::JobResult SlmSnapshotJob::exec()
             QStringLiteral("SNAP_002: mkpath failed for %1").arg(kTopLevelScratch));
     }
 
-    const ProcOutcome mount = runProcess(QStringLiteral("mount"),
+    const Slm::Installer::CommandResult mount = Slm::Installer::SlmCommand::run(QStringLiteral("mount"),
         { QStringLiteral("-o"), QStringLiteral("subvolid=5"),
           rootDevice, QString::fromLatin1(kTopLevelScratch) });
     if (!mount.started || mount.exitCode != 0) {
@@ -125,7 +97,7 @@ Calamares::JobResult SlmSnapshotJob::exec()
                 .arg(rootDevice).arg(mount.exitCode).arg(mount.output.trimmed()));
     }
 
-    const ProcOutcome snap = runProcess(QStringLiteral("btrfs"),
+    const Slm::Installer::CommandResult snap = Slm::Installer::SlmCommand::run(QStringLiteral("btrfs"),
         { QStringLiteral("subvolume"), QStringLiteral("snapshot"),
           QStringLiteral("-r"), rootMount, snapshotPath });
     const bool snapFailed = !snap.started || snap.exitCode != 0;
@@ -134,7 +106,7 @@ Calamares::JobResult SlmSnapshotJob::exec()
 
     // Always attempt to unmount, even on snapshot failure. A leaked scratch
     // mount would block later modules and any installer re-run.
-    const ProcOutcome umount = runProcess(QStringLiteral("umount"),
+    const Slm::Installer::CommandResult umount = Slm::Installer::SlmCommand::run(QStringLiteral("umount"),
         { QString::fromLatin1(kTopLevelScratch) });
     if (!umount.started || umount.exitCode != 0) {
         cWarning() << "slm-snapshot: failed to unmount" << kTopLevelScratch

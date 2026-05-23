@@ -4,6 +4,8 @@
 #include <JobQueue.h>
 #include <utils/Logger.h>
 
+#include "SlmCommand.h"
+
 #include <QByteArray>
 #include <QDateTime>
 #include <QDir>
@@ -11,7 +13,6 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
-#include <QProcess>
 #include <QString>
 #include <QStringList>
 #include <QVariantMap>
@@ -34,34 +35,11 @@ const QStringList kRecoveryDirs = {
 constexpr const char *kManifestVersion = "1.0";
 constexpr const char *kInstallerVersion = "1.0.0";
 
-struct CmdResult
+using CmdResult = Slm::Installer::CommandResult;
+inline CmdResult runCmd(const QString &program, const QStringList &args,
+                        int timeoutMs = 30000)
 {
-    bool started = false;
-    int exitCode = -1;
-    QString output;
-};
-
-CmdResult runCmd(const QString &program, const QStringList &args,
-                 int timeoutMs = 30000)
-{
-    QProcess proc;
-    proc.setProcessChannelMode(QProcess::MergedChannels);
-    proc.start(program, args);
-    CmdResult out;
-    if (!proc.waitForStarted(3000)) {
-        return out;
-    }
-    out.started = true;
-    if (!proc.waitForFinished(timeoutMs)) {
-        proc.kill();
-        proc.waitForFinished(2000);
-        out.exitCode = -2;
-        out.output = QString::fromUtf8(proc.readAll());
-        return out;
-    }
-    out.exitCode = proc.exitCode();
-    out.output = QString::fromUtf8(proc.readAll());
-    return out;
+    return Slm::Installer::SlmCommand::run(program, args, timeoutMs);
 }
 
 QString resolveRootMountPoint(Calamares::GlobalStorage *gs)

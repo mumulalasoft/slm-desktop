@@ -1,5 +1,7 @@
 #include "SlmPartitionJob.h"
 
+#include "SlmCommand.h"
+
 #include <GlobalStorage.h>
 #include <JobQueue.h>
 #include <utils/Logger.h>
@@ -71,40 +73,11 @@ std::optional<qint64> diskSizeMb(const QString &disk)
     return static_cast<qint64>(sectors) * kSysBlockSectorBytes / (1024 * 1024);
 }
 
-struct CmdResult
+using CmdResult = Slm::Installer::CommandResult;
+inline CmdResult runCmd(const QString &program, const QStringList &args,
+                        int timeoutMs = 60000)
 {
-    bool started = false;
-    int exitCode = -1;
-    QString output;
-};
-
-// Generic subprocess wrapper used by the real-execution path. Merges
-// stdout+stderr so a failure can quote the full noise back to the user
-// in JobResult details. Defaults to a 60s timeout (mkfs.btrfs on a slow
-// HDD can take 30+ seconds; sgdisk is fast).
-CmdResult runCmd(const QString &program, const QStringList &args,
-                 int timeoutMs = 60000)
-{
-    QProcess proc;
-    proc.setProcessChannelMode(QProcess::MergedChannels);
-    proc.start(program, args);
-
-    CmdResult out;
-    if (!proc.waitForStarted(3000)) {
-        return out;
-    }
-    out.started = true;
-
-    if (!proc.waitForFinished(timeoutMs)) {
-        proc.kill();
-        proc.waitForFinished(2000);
-        out.exitCode = -2;
-        out.output = QString::fromUtf8(proc.readAll());
-        return out;
-    }
-    out.exitCode = proc.exitCode();
-    out.output = QString::fromUtf8(proc.readAll());
-    return out;
+    return Slm::Installer::SlmCommand::run(program, args, timeoutMs);
 }
 
 enum class SmartOutcome { Ok, Failed, Unknown };
