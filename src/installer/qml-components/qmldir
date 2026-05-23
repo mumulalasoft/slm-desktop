@@ -5,3 +5,4 @@ InstallerDiskCard 1.0 InstallerDiskCard.qml
 InstallerPrimaryButton 1.0 InstallerPrimaryButton.qml
 PartitionDiagram 1.0 PartitionDiagram.qml
 DiskSelectionScreen 1.0 DiskSelectionScreen.qml
+SummaryScreen 1.0 SummaryScreen.qml
