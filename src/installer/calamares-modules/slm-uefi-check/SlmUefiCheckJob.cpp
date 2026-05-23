@@ -114,16 +114,21 @@ Calamares::JobResult SlmUefiCheckJob::exec()
         warnings << QStringLiteral("UEFI_W001");
     }
 
+    QString secureBootState;
+    if (!secureBoot.has_value()) {
+        secureBootState = QStringLiteral("unknown");
+    } else {
+        secureBootState = secureBoot.value() ? QStringLiteral("enabled") : QStringLiteral("disabled");
+    }
+
     auto *gs = Calamares::JobQueue::instanceGlobalStorage();
     if (gs) {
         gs->insert(QStringLiteral("slm.hw.uefi.firmware_present"), firmwarePresent);
         gs->insert(QStringLiteral("slm.hw.uefi.efivars_writable"), efivarsWritable);
-        if (secureBoot.has_value()) {
-            gs->insert(QStringLiteral("slm.hw.uefi.secure_boot"), secureBoot.value());
-        }
+        gs->insert(QStringLiteral("slm.hw.uefi.secure_boot"), secureBootState);
         if (ramBytes.has_value()) {
-            gs->insert(QStringLiteral("slm.hw.ram.total_bytes"),
-                       QVariant::fromValue(ramBytes.value()));
+            gs->insert(QStringLiteral("slm.hw.ram.mb"),
+                       static_cast<int>(ramBytes.value() / (1024 * 1024)));
         }
         // Merge with any blocks/warnings already collected by earlier jobs.
         QStringList allBlocks = gs->value(QStringLiteral("slm.hw.blocks")).toStringList();
@@ -139,8 +144,8 @@ Calamares::JobResult SlmUefiCheckJob::exec()
     cDebug() << "slm-uefi-check:"
              << "firmware=" << firmwarePresent
              << "efivars_writable=" << efivarsWritable
-             << "secure_boot=" << (secureBoot.has_value() ? (secureBoot.value() ? "on" : "off") : "unknown")
-             << "ram_bytes=" << (ramBytes.has_value() ? ramBytes.value() : -1)
+             << "secure_boot=" << secureBootState
+             << "ram_mb=" << (ramBytes.has_value() ? static_cast<int>(ramBytes.value() / (1024 * 1024)) : -1)
              << "blocks=" << blocks.join(QLatin1Char(','))
              << "warnings=" << warnings.join(QLatin1Char(','));
 
