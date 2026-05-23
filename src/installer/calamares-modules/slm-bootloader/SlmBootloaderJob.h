@@ -16,6 +16,9 @@ public:
     QString prettyName() const override;
     Calamares::JobResult exec() override;
     void setConfigurationMap(const QVariantMap &configurationMap) override;
+
+private:
+    bool m_dryRun = true;
 };
 
 CALAMARES_PLUGIN_FACTORY_DECLARATION(SlmBootloaderJobFactory)
