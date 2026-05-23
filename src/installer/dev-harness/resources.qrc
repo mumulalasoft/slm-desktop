@@ -1,0 +1,25 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+    <!--
+        SlmInstaller QML module — same prefix as the viewmodule QRCs so
+        `import SlmInstaller 1.0` resolves identically to production.
+    -->
+    <qresource prefix="/qt/qml/SlmInstaller">
+        <file alias="qmldir">../qml-components/qmldir</file>
+        <file alias="InstallerTheme.qml">../qml-components/InstallerTheme.qml</file>
+        <file alias="InstallerCard.qml">../qml-components/InstallerCard.qml</file>
+        <file alias="InstallerPrimaryButton.qml">../qml-components/InstallerPrimaryButton.qml</file>
+        <file alias="InstallerDiskCard.qml">../qml-components/InstallerDiskCard.qml</file>
+        <file alias="PartitionDiagram.qml">../qml-components/PartitionDiagram.qml</file>
+        <file alias="DiskSelectionScreen.qml">../qml-components/DiskSelectionScreen.qml</file>
+        <file alias="SummaryScreen.qml">../qml-components/SummaryScreen.qml</file>
+        <file alias="WelcomeScreen.qml">../qml-components/WelcomeScreen.qml</file>
+    </qresource>
+
+    <!-- Harness scenes — one per screen the harness can launch. -->
+    <qresource prefix="/harness">
+        <file>disk-select-harness.qml</file>
+        <file>summary-harness.qml</file>
+        <file>welcome-harness.qml</file>
+    </qresource>
+</RCC>

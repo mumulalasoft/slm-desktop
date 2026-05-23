@@ -51,6 +51,7 @@ set_target_properties(slm_installer_shared PROPERTIES
 add_subdirectory(viewmodels)
 add_subdirectory(calamares-modules)
 add_subdirectory(viewmodules)
+add_subdirectory(dev-harness)
 
 install(FILES settings.conf
     DESTINATION ${CMAKE_INSTALL_SYSCONFDIR}/calamares
