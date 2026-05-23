@@ -1,0 +1,4 @@
+module SlmInstaller
+singleton InstallerTheme 1.0 InstallerTheme.qml
+InstallerDiskCard 1.0 InstallerDiskCard.qml
+PartitionDiagram 1.0 PartitionDiagram.qml
