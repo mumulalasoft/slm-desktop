@@ -58,6 +58,13 @@ QtObject {
     readonly property int weightSemiBold: Font.DemiBold
     readonly property int weightBold:     Font.Bold
 
+    // Letter-spacing tokens — match the §4 installer type ramp.
+    readonly property real letterSpacingDisplay: -0.6   // 28px headline
+    readonly property real letterSpacingTitle3:  -0.2   // 15px section label
+    readonly property real letterSpacingNormal:   0.0
+    readonly property real letterSpacingWide:     0.1
+    readonly property real letterSpacingWider:    0.2
+
     // ── Shape ──────────────────────────────────────────────────────────────
     readonly property real radiusCard:    12
     readonly property real radiusControl:  8
