@@ -6,9 +6,12 @@
 
 #include <QByteArray>
 #include <QDateTime>
+#include <QDir>
+#include <QFile>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QProcess>
 #include <QString>
 #include <QStringList>
 #include <QVariantMap>
@@ -30,6 +33,36 @@ const QStringList kRecoveryDirs = {
 
 constexpr const char *kManifestVersion = "1.0";
 constexpr const char *kInstallerVersion = "1.0.0";
+
+struct CmdResult
+{
+    bool started = false;
+    int exitCode = -1;
+    QString output;
+};
+
+CmdResult runCmd(const QString &program, const QStringList &args,
+                 int timeoutMs = 30000)
+{
+    QProcess proc;
+    proc.setProcessChannelMode(QProcess::MergedChannels);
+    proc.start(program, args);
+    CmdResult out;
+    if (!proc.waitForStarted(3000)) {
+        return out;
+    }
+    out.started = true;
+    if (!proc.waitForFinished(timeoutMs)) {
+        proc.kill();
+        proc.waitForFinished(2000);
+        out.exitCode = -2;
+        out.output = QString::fromUtf8(proc.readAll());
+        return out;
+    }
+    out.exitCode = proc.exitCode();
+    out.output = QString::fromUtf8(proc.readAll());
+    return out;
+}
 
 QString resolveRootMountPoint(Calamares::GlobalStorage *gs)
 {
@@ -156,14 +189,157 @@ Calamares::JobResult SlmRecoveryJob::exec()
             QStringLiteral("RCVR_006: slm.target.confirmed not set"));
     }
 
-    // Real path stays gated: mounting and writing to the recovery partition
-    // requires it to already be formatted by slm-partition's real path; until
-    // that is wired up there is no recovery filesystem to populate. Recovery
-    // squashfs build and factory-image generation are separate follow-ups
-    // (they depend on dracut configuration and disk-space policy from §4.4).
-    return Calamares::JobResult::error(
-        tr("Recovery partition setup is not yet implemented."),
-        QStringLiteral("RCVR_005: real-execution path pending slm-partition follow-up"));
+    // Real execution: mount the recovery partition, populate the §4.1
+    // directory tree, copy kernel + initrd from the staged root, write
+    // the install manifest. The two big remaining items — recovery.squashfs
+    // (dracut + custom busybox rootfs) and slm-factory.img.zst (btrfs send |
+    // zstd of @factory-initial, subject to §4.4 disk-space policy) — are
+    // explicit follow-ups; we mark them with TODO logs rather than
+    // implementing them inline here.
+
+    auto fail = [](const QString &code, const QString &userMsg,
+                   const CmdResult &res) {
+        return Calamares::JobResult::error(
+            userMsg,
+            QStringLiteral("%1: exit=%2 started=%3 output=%4")
+                .arg(code)
+                .arg(res.exitCode)
+                .arg(res.started ? QStringLiteral("yes") : QStringLiteral("no"))
+                .arg(res.output.trimmed()));
+    };
+
+    // 1. Mount the recovery partition at the scratch path.
+    if (!QDir().mkpath(staging)) {
+        return Calamares::JobResult::error(
+            tr("Unable to prepare recovery staging directory."),
+            QStringLiteral("RCVR_010: mkpath failed for %1").arg(staging));
+    }
+    auto mountRes = runCmd(QStringLiteral("mount"),
+                           { recoveryDevice, staging });
+    if (!mountRes.started || mountRes.exitCode != 0) {
+        return fail(QStringLiteral("RCVR_010"),
+                    tr("Unable to mount the recovery partition."), mountRes);
+    }
+
+    // Track populate failures as scalars so we always umount the recovery
+    // partition before returning (JobResult is move-only — see
+    // [[feedback-calamares-api]]).
+    QString failCode;
+    QString failMsg;
+    CmdResult failRes;
+    QString failDetail;
+
+    auto recordFail = [&](const QString &code, const QString &msg,
+                          const QString &detail) {
+        if (failCode.isEmpty()) {
+            failCode = code;
+            failMsg = msg;
+            failDetail = detail;
+        }
+    };
+
+    do {
+        // 2. Create the §4.1 directory tree under the mounted recovery.
+        for (const QString &dir : kRecoveryDirs) {
+            const QString target = staging + QLatin1Char('/') + dir;
+            if (!QDir().mkpath(target)) {
+                recordFail(QStringLiteral("RCVR_011"),
+                           tr("Unable to prepare recovery directory."),
+                           QStringLiteral("mkpath failed for %1").arg(target));
+                break;
+            }
+        }
+        if (!failCode.isEmpty()) break;
+
+        // 3. Physical copy of kernel + initrd (§4.2 independence guarantee:
+        // PHYSICAL copy, never a symlink — recovery boots without touching @).
+        // QFile::copy follows symlinks (resolves to the actual file) which
+        // is exactly the behaviour we want for /boot/vmlinuz → vmlinuz-N.
+        if (QFile::exists(srcKernel)) {
+            QFile::remove(dstKernel);  // QFile::copy refuses to overwrite
+            if (!QFile::copy(srcKernel, dstKernel)) {
+                recordFail(QStringLiteral("RCVR_012"),
+                           tr("Unable to copy kernel to recovery partition."),
+                           QStringLiteral("copy %1 → %2 failed")
+                               .arg(srcKernel, dstKernel));
+                break;
+            }
+        } else {
+            cWarning() << "slm-recovery: kernel missing at" << srcKernel
+                       << "(slm-deploy may not have populated /boot yet)";
+        }
+
+        if (QFile::exists(srcInitrd)) {
+            QFile::remove(dstInitrd);
+            if (!QFile::copy(srcInitrd, dstInitrd)) {
+                recordFail(QStringLiteral("RCVR_013"),
+                           tr("Unable to copy initrd to recovery partition."),
+                           QStringLiteral("copy %1 → %2 failed")
+                               .arg(srcInitrd, dstInitrd));
+                break;
+            }
+        } else {
+            cWarning() << "slm-recovery: initrd missing at" << srcInitrd;
+        }
+
+        // 4. Write the install-manifest.json (the dry-run path already
+        // built `manifestBytes` for the GS preview — re-emitted here so the
+        // on-disk file matches what the user saw on the summary screen).
+        QFile manifestFile(manifestPath);
+        if (!manifestFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+            recordFail(QStringLiteral("RCVR_014"),
+                       tr("Unable to write recovery install manifest."),
+                       QStringLiteral("open(%1) failed: %2")
+                           .arg(manifestPath, manifestFile.errorString()));
+            break;
+        }
+        if (manifestFile.write(manifestBytes) != manifestBytes.size()) {
+            const QString err = manifestFile.errorString();
+            manifestFile.close();
+            recordFail(QStringLiteral("RCVR_014"),
+                       tr("Unable to write recovery install manifest."),
+                       QStringLiteral("short write to %1: %2")
+                           .arg(manifestPath, err));
+            break;
+        }
+        manifestFile.close();
+
+        // 5. Best-effort copy of protected-packages.json from the
+        // post-install location slm-protected-packages writes to. If it
+        // doesn't exist yet (slm-protected-packages may run after us
+        // depending on settings.conf order) the copy is silently skipped —
+        // recoveryd will fall back to /usr/share/slm/ at runtime anyway.
+        if (!protectedSrc.isEmpty() && QFile::exists(protectedSrc)) {
+            QFile::remove(protectedDst);
+            QFile::copy(protectedSrc, protectedDst);
+        }
+
+        cDebug() << "slm-recovery: TODO recovery.squashfs build (needs dracut + custom rootfs)";
+        cDebug() << "slm-recovery: TODO factory image generation (needs btrfs send | zstd of @factory-initial)";
+    } while (false);
+
+    // 6. Always unmount the recovery partition, even on populate failure.
+    // Leaving it mounted would leak the scratch mount and might block a
+    // later re-run.
+    auto umountRes = runCmd(QStringLiteral("umount"), { staging });
+    if (!umountRes.started || umountRes.exitCode != 0) {
+        cWarning() << "slm-recovery: umount failed for" << staging
+                   << "exit=" << umountRes.exitCode
+                   << "out=" << umountRes.output.trimmed();
+        // Don't promote umount failure to JobResult if populate succeeded —
+        // the recovery data is on disk and the kernel will release the
+        // mount on shutdown.
+    }
+
+    if (!failCode.isEmpty()) {
+        return Calamares::JobResult::error(
+            failMsg,
+            QStringLiteral("%1: %2").arg(failCode, failDetail));
+    }
+
+    gs->insert(QStringLiteral("slm.recovery.executed"), true);
+    cDebug() << "slm-recovery: real execution complete";
+    return Calamares::JobResult::ok();
 }
 
 void SlmRecoveryJob::setConfigurationMap(const QVariantMap &configurationMap)
