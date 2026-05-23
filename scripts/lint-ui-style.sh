@@ -61,7 +61,9 @@ check() {
   local disallowed=""
   local baseline_count=0
   echo "[lint-ui-style] check: ${name}"
-  output="$(rg -n --pcre2 "${pattern}" "${TARGETS[@]}" || true)"
+  # -H forces filename prefix even when TARGETS has a single file, so the
+  # `${line%%:*}` allowlist lookup below sees a path rather than a line number.
+  output="$(rg -n -H --pcre2 "${pattern}" "${TARGETS[@]}" || true)"
   if [[ -z "${output}" ]]; then
     return
   fi
