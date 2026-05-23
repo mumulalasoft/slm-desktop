@@ -8,6 +8,8 @@ Build-Depends:
  calamares-dev (>= 3.3),
  qt6-base-dev,
  qt6-declarative-dev,
+ libyaml-cpp-dev,
+ libkf6coreaddons-dev,
  libbtrfsutil-dev,
  libparted-dev,
  libblkid-dev,
