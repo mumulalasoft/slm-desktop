@@ -131,12 +131,20 @@ Calamares::JobResult SlmBootloaderJob::exec()
         return Calamares::JobResult::ok();
     }
 
+    // Defense in depth — see slm-partition for the rationale.
+    if (!gs->value(QStringLiteral("slm.target.confirmed")).toBool()) {
+        return Calamares::JobResult::error(
+            tr("Installation has not been confirmed."),
+            QStringLiteral("BOOT_006: slm.target.confirmed not set"));
+    }
+
     // Real execution touches the ESP and writes EFI variables — both have
-    // host-wide blast radius if the wrong disk is targeted. Gate behind the
-    // same disk-select confirmation pending for slm-partition real path.
+    // host-wide blast radius if the wrong disk is targeted. Even past the
+    // confirmation guard, the chroot bootctl + efibootmgr sequence has not
+    // been implemented in this module yet.
     return Calamares::JobResult::error(
         tr("Bootloader installation is not yet implemented."),
-        QStringLiteral("BOOT_005: real-execution path pending disk-select UI"));
+        QStringLiteral("BOOT_005: real-execution path not yet implemented"));
 }
 
 void SlmBootloaderJob::setConfigurationMap(const QVariantMap &configurationMap)

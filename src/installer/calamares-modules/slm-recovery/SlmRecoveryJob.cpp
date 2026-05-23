@@ -149,6 +149,13 @@ Calamares::JobResult SlmRecoveryJob::exec()
         return Calamares::JobResult::ok();
     }
 
+    // Defense in depth — see slm-partition for the rationale.
+    if (!gs->value(QStringLiteral("slm.target.confirmed")).toBool()) {
+        return Calamares::JobResult::error(
+            tr("Installation has not been confirmed."),
+            QStringLiteral("RCVR_006: slm.target.confirmed not set"));
+    }
+
     // Real path stays gated: mounting and writing to the recovery partition
     // requires it to already be formatted by slm-partition's real path; until
     // that is wired up there is no recovery filesystem to populate. Recovery

@@ -131,6 +131,13 @@ Calamares::JobResult SlmBtrfsLayoutJob::exec()
         return Calamares::JobResult::ok();
     }
 
+    // Defense in depth — see slm-partition for the rationale.
+    if (!gs->value(QStringLiteral("slm.target.confirmed")).toBool()) {
+        return Calamares::JobResult::error(
+            tr("Installation has not been confirmed."),
+            QStringLiteral("BTRFS_006: slm.target.confirmed not set"));
+    }
+
     // Real execution waits on slm-partition's real-execution follow-up so
     // there is an actual Btrfs filesystem on rootDevice to operate on.
     return Calamares::JobResult::error(

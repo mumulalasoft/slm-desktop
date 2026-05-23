@@ -153,6 +153,13 @@ Calamares::JobResult SlmFstabJob::exec()
         return Calamares::JobResult::ok();
     }
 
+    // Defense in depth — see slm-partition for the rationale.
+    if (!gs->value(QStringLiteral("slm.target.confirmed")).toBool()) {
+        return Calamares::JobResult::error(
+            tr("Installation has not been confirmed."),
+            QStringLiteral("FSTAB_006: slm.target.confirmed not set"));
+    }
+
     const QFileInfo info(fstabPath);
     if (!QDir().mkpath(info.absolutePath())) {
         return Calamares::JobResult::error(

@@ -88,6 +88,13 @@ Calamares::JobResult SlmDeployJob::exec()
         return Calamares::JobResult::ok();
     }
 
+    // Defense in depth — see slm-partition for the rationale.
+    if (!gs->value(QStringLiteral("slm.target.confirmed")).toBool()) {
+        return Calamares::JobResult::error(
+            tr("Installation has not been confirmed."),
+            QStringLiteral("DEPLOY_006: slm.target.confirmed not set"));
+    }
+
     if (!sourceExists) {
         return Calamares::JobResult::error(
             tr("SLM Desktop image not found on the install medium."),
@@ -96,11 +103,10 @@ Calamares::JobResult SlmDeployJob::exec()
 
     // Real path stays gated: this is the heaviest module (multi-minute
     // unsquashfs, determinate progress reporting via Calamares' progress
-    // signal, rollback via `rm -rf $ROOT/*` per §5.3). Wire up alongside the
-    // disk-select UI follow-up so the destructive prefix lands together.
+    // signal, rollback via `rm -rf $ROOT/*` per §5.3).
     return Calamares::JobResult::error(
         tr("Filesystem deployment is not yet implemented."),
-        QStringLiteral("DEPLOY_005: real-execution path pending disk-select UI"));
+        QStringLiteral("DEPLOY_005: real-execution path not yet implemented"));
 }
 
 void SlmDeployJob::setConfigurationMap(const QVariantMap &configurationMap)

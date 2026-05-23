@@ -191,12 +191,22 @@ Calamares::JobResult SlmPartitionJob::exec()
         return Calamares::JobResult::ok();
     }
 
-    // Real execution is intentionally not wired up yet — the disk-select UI
-    // that sets slm.target.confirmed does not exist, and shipping a destructive
-    // path without it risks wiping the wrong disk in test harnesses.
+    // Defense in depth: no destructive path runs without the §2.5 summary
+    // screen having explicitly confirmed. This guard is independent of
+    // m_dryRun so a misconfigured `dry-run: false` still can't reach
+    // destruction without user opt-in.
+    if (!gs->value(QStringLiteral("slm.target.confirmed")).toBool()) {
+        return Calamares::JobResult::error(
+            tr("Installation has not been confirmed."),
+            QStringLiteral("PART_006: slm.target.confirmed not set"));
+    }
+
+    // Real execution still pending — disk-select UI now exists (slm-disk-select
+    // + slm-summary viewmodules) but the sgdisk + mkfs subprocess sequence
+    // has not been implemented in this module yet.
     return Calamares::JobResult::error(
         tr("Disk partitioning is not yet implemented."),
-        QStringLiteral("PART_004: real-execution path pending disk-select UI"));
+        QStringLiteral("PART_004: real-execution path not yet implemented"));
 }
 
 void SlmPartitionJob::setConfigurationMap(const QVariantMap &configurationMap)
