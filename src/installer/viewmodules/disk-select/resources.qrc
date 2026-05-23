@@ -1,0 +1,20 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+    <!--
+        All six SlmInstaller components plus the viewmodule's disk-select.qml
+        entry live under the same prefix so qmldir-singletons (InstallerTheme)
+        and sibling-relative `import "."` both resolve inside the Calamares
+        QML engine. The qmldir from qml-components/ is also bundled so the
+        directory acts as a proper QML module.
+    -->
+    <qresource prefix="/qt/qml/SlmInstaller">
+        <file alias="qmldir">../../qml-components/qmldir</file>
+        <file alias="InstallerTheme.qml">../../qml-components/InstallerTheme.qml</file>
+        <file alias="InstallerCard.qml">../../qml-components/InstallerCard.qml</file>
+        <file alias="InstallerPrimaryButton.qml">../../qml-components/InstallerPrimaryButton.qml</file>
+        <file alias="InstallerDiskCard.qml">../../qml-components/InstallerDiskCard.qml</file>
+        <file alias="PartitionDiagram.qml">../../qml-components/PartitionDiagram.qml</file>
+        <file alias="DiskSelectionScreen.qml">../../qml-components/DiskSelectionScreen.qml</file>
+        <file alias="disk-select.qml">disk-select.qml</file>
+    </qresource>
+</RCC>
