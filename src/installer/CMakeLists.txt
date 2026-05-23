@@ -48,6 +48,7 @@ set_target_properties(slm_installer_shared PROPERTIES
     POSITION_INDEPENDENT_CODE ON
 )
 
+add_subdirectory(viewmodels)
 add_subdirectory(calamares-modules)
 
 install(FILES settings.conf
