@@ -1,5 +1,0 @@
-src/apps/settings/
-Qml/apps/settings/
-scripts/systemd/slm-settingsd.service
-scripts/polkit/org.slm.settings.policy
-docs/SETTINGS_APP_ARCHITECTURE.md

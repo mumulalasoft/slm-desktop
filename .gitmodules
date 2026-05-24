@@ -1,3 +1,6 @@
 [submodule "third_party/slm-style"]
 	path = third_party/slm-style
 	url = https://github.com/mumulalasoft/slm-style.git
+[submodule "modules/slm-settings"]
+	path = modules/slm-settings
+	url = https://github.com/mumulalasoft/slm-settings.git
