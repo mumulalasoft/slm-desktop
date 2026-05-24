@@ -56,41 +56,6 @@ Rectangle {
     property var pendingOpenActions: ({})
     property string pendingMountDevice: ""
     property string pendingConnectServerUri: ""
-    property var connectServerTypes: [{
-            "label": "Public FTP",
-            "scheme": "ftp",
-            "port": 21
-        }, {
-            "label": "FTP (with login)",
-            "scheme": "ftp",
-            "port": 21
-        }, {
-            "label": "SSH",
-            "scheme": "sftp",
-            "port": 22
-        }, {
-            "label": "AFP (Apple Filing Protocol)",
-            "scheme": "afp",
-            "port": 548
-        }, {
-            "label": "Windows share",
-            "scheme": "smb",
-            "port": 445
-        }, {
-            "label": "WebDAV (HTTP)",
-            "scheme": "dav",
-            "port": 80
-        }, {
-            "label": "Secure WebDAV (HTTPS)",
-            "scheme": "davs",
-            "port": 443
-        }]
-    property int connectServerTypeIndex: 4
-    property string connectServerHost: ""
-    property int connectServerPort: 445
-    property string connectServerFolder: "/"
-    property string connectServerError: ""
-    property bool connectServerBusy: false
     property var storageOrderMap: ({})
     property int storageOrderNext: 1
     property bool storageSnapshotReady: false
@@ -140,6 +105,7 @@ Rectangle {
     property string sidebarContextDevice: ""
     property bool sidebarContextMounted: false
     property bool sidebarContextBrowsable: false
+    property bool sidebarContextBookmarkRemovable: false
     property var compressPendingPaths: []
     property string compressOutputDirectory: "~"
     property string compressFormat: "tar"
@@ -172,7 +138,6 @@ Rectangle {
     property bool propertiesStorageReadOnly: false
     property bool propertiesStorageExec: false
     property bool propertiesStoragePolicyUpdating: false
-    property var folderShareInfoCache: ({})
     property string propertiesSharePath: ""
     property string quickTypeBuffer: ""
     property string pendingPortalChooserRequestId: ""
@@ -207,7 +172,7 @@ Rectangle {
     readonly property var appCommandRouterRef: (typeof AppCommandRouter !== "undefined") ? AppCommandRouter : null
     readonly property var notificationManagerRef: (typeof NotificationManager !== "undefined") ? NotificationManager : null
     readonly property var cursorControllerRef: (typeof CursorController !== "undefined") ? CursorController : null
-    readonly property var dialogsRef: fileManagerDialogs
+    readonly property var dialogsRef: fileManagerDialogsLoader ? fileManagerDialogsLoader.item : null
     readonly property var connectServerDialogRef: dialogsRef ? dialogsRef.connectServerDialogRef : null
     readonly property var batchOverlayPopupDialogRef: dialogsRef ? dialogsRef.batchOverlayPopupRef : null
     readonly property var fileManagerMenusDialogRef: dialogsRef ? dialogsRef.fileManagerMenusRef : null
@@ -221,6 +186,7 @@ Rectangle {
     readonly property var folderShareDialogRef: dialogsRef ? dialogsRef.folderShareDialogRef : null
     readonly property var storageVolumeSelectorDialogRef: dialogsRef ? dialogsRef.storageVolumeSelectorDialogRef : null
     readonly property var shareSheetRef: dialogsRef ? dialogsRef.shareSheetRef : null
+    readonly property var nearbySendSheetRef: dialogsRef ? dialogsRef.nearbySendSheetRef : null
 
     function isRecentPath(pathValue) {
         return String(pathValue || "").trim() === "__recent__"
@@ -254,6 +220,12 @@ Rectangle {
     readonly property real sidebarActionIconPx: Math.max(
                                                     13, Math.round(
                                                         sidebarMenuFontPx * 0.95))
+    readonly property color windowChromeTopColor: Theme.darkMode
+                                                   ? Qt.rgba(1, 1, 1, 0.055)
+                                                   : Qt.rgba(1, 1, 1, 0.72)
+    readonly property color windowChromeBottomColor: Theme.darkMode
+                                                      ? Qt.rgba(0, 0, 0, 0.12)
+                                                      : Theme.color("fileManagerWindowBg")
 
     color: "transparent"
     radius: Theme.radiusWindow
@@ -265,11 +237,17 @@ Rectangle {
     Rectangle {
         anchors.fill: parent
         radius: root.radius
-        color: Theme.color("fileManagerWindowBg")
+        color: Theme.color("surface")
         border.width: Theme.borderWidthThin
         border.color: Theme.color("fileManagerWindowBorder")
         antialiasing: true
         z: -1
+
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: root.windowChromeTopColor }
+            GradientStop { position: 0.42; color: Theme.color("fileManagerWindowBg") }
+            GradientStop { position: 1.0; color: root.windowChromeBottomColor }
+        }
     }
 
     function openPath(pathValue) { FileManagerPathOps.openPath(root, fileManagerApiRef, pathValue) }
@@ -292,9 +270,11 @@ Rectangle {
     function sidebarContextCanOpenInNewWindow() { return FileManagerSidebarContextOps.sidebarContextCanOpenInNewWindow(root) }
     function sidebarContextCanMount() { return FileManagerSidebarContextOps.sidebarContextCanMount(root) }
     function sidebarContextCanUnmount() { return FileManagerSidebarContextOps.sidebarContextCanUnmount(root) }
+    function sidebarContextCanRemoveBookmark() { return FileManagerSidebarContextOps.sidebarContextCanRemoveBookmark(root) }
     function sidebarContextMount() { FileManagerSidebarContextOps.sidebarContextMount(root, fileManagerApiRef) }
     function sidebarContextMountDevice(deviceValue) { FileManagerSidebarContextOps.sidebarContextMountDevice(root, fileManagerApiRef, deviceValue) }
     function sidebarContextUnmount() { FileManagerSidebarContextOps.sidebarContextUnmount(root, fileManagerApiRef) }
+    function sidebarContextRemoveBookmark() { FileManagerSidebarContextOps.sidebarContextRemoveBookmark(root, fileManagerApiRef) }
     function sidebarContextRevealInFileManager() { FileManagerSidebarContextOps.sidebarContextRevealInFileManager(root, fileManagerApiRef) }
     function sidebarContextCopyPath() { FileManagerSidebarContextOps.sidebarContextCopyPath(root, fileManagerApiRef) }
     function storageUsageRatio(bytesAvailableValue, bytesTotalValue) { return FileManagerSidebarContextOps.storageUsageRatio(bytesAvailableValue, bytesTotalValue) }
@@ -897,19 +877,20 @@ Rectangle {
                     })
         }
         var res = fileManagerApiRef.folderShareInfo(p)
-        if (!!res && !!res.ok) {
-            var next = {}
-            var keys = Object.keys(folderShareInfoCache || ({}))
-            for (var i = 0; i < keys.length; ++i) {
-                next[keys[i]] = folderShareInfoCache[keys[i]]
-            }
-            next[String(res.path || p)] = res
-            folderShareInfoCache = next
-        }
         return res || ({
                            "ok": false,
                            "enabled": false
                        })
+    }
+    function cachedFolderShareInfoForPath(pathValue) {
+        var p = String(pathValue || "")
+        if (p.length <= 0) {
+            return ({
+                        "ok": false,
+                        "enabled": false
+                    })
+        }
+        return folderShareInfoForPath(p)
     }
     function prepareFolderShareDialog(pathValue) {
         var info = folderShareInfoForPath(pathValue)
@@ -927,6 +908,19 @@ Rectangle {
         }
         folderShareDialogRef.openForPath(p)
     }
+    function openNearbySendSheet(pathsValue) {
+        var paths = pathsValue
+        if (!paths || paths.length <= 0) {
+            paths = root.selectedPaths ? root.selectedPaths() : []
+            if (!paths || paths.length <= 0) {
+                var cp = String(contextEntryPath || "")
+                if (cp.length > 0) paths = [cp]
+            }
+        }
+        if (!paths || paths.length <= 0) return
+        if (!nearbySendSheetRef || !nearbySendSheetRef.openForPaths) return
+        nearbySendSheetRef.openForPaths(paths)
+    }
     function applyFolderShareConfig(pathValue, options) {
         if (!fileManagerApiRef || !fileManagerApiRef.configureFolderShare) {
             return ({
@@ -939,13 +933,6 @@ Rectangle {
         if (!!res && !!res.ok) {
             var cp = String(res.path || pathValue || "")
             if (cp.length > 0) {
-                var next = {}
-                var keys = Object.keys(folderShareInfoCache || ({}))
-                for (var i = 0; i < keys.length; ++i) {
-                    next[keys[i]] = folderShareInfoCache[keys[i]]
-                }
-                next[cp] = res
-                folderShareInfoCache = next
                 propertiesSharePath = cp
             }
             refreshCurrent()
@@ -967,13 +954,6 @@ Rectangle {
         if (!!res && !!res.ok) {
             var cp = String(res.path || pathValue || "")
             if (cp.length > 0) {
-                var next = {}
-                var keys = Object.keys(folderShareInfoCache || ({}))
-                for (var i = 0; i < keys.length; ++i) {
-                    next[keys[i]] = folderShareInfoCache[keys[i]]
-                }
-                next[cp] = res
-                folderShareInfoCache = next
                 propertiesSharePath = cp
             }
             refreshCurrent()
@@ -1117,6 +1097,18 @@ Rectangle {
     function selectEntryByPath(pathValue) { return FileManagerOps.selectEntryByPath(root, pathValue) }
     function showPropertiesForSelection() { FileManagerOps.showPropertiesForSelection(root, fileManagerApiRef, propertiesDialogRef) }
     function showPropertiesForPath(pathValue) { FileManagerOps.showPropertiesForPath(root, fileManagerApiRef, pathValue, propertiesDialogRef) }
+    function requestRenameForPath(pathValue) {
+        var p = String(pathValue || "").trim()
+        if (p.length <= 0) {
+            return false
+        }
+        var ok = selectEntryByPath(p)
+        if (!ok) {
+            return false
+        }
+        renameSelected()
+        return true
+    }
     function isImageSuffix(nameValue) { return FileManagerOps.isImageSuffix(nameValue) }
     function previewSourceForEntry(entry) { return FileManagerOps.previewSourceForEntry(entry) }
     function toggleQuickPreview() { FileManagerOps.toggleQuickPreview(root, quickPreviewDialogRef) }
@@ -1206,7 +1198,7 @@ Rectangle {
         sidebarModel: sidebarModel
         tabModel: tabModel
         sidebarContextMenuRef: sidebarContextMenuDialogRef
-        fileManagerDialogsRef: fileManagerDialogs
+        fileManagerDialogsRef: dialogsRef
     }
 
     FM.FileManagerDragGhost {
@@ -1217,9 +1209,15 @@ Rectangle {
         label: root.dndGhostLabel
     }
 
-    FM.FileManagerDialogs {
-        id: fileManagerDialogs
-        hostRoot: root
+    Loader {
+        id: fileManagerDialogsLoader
+        active: true
+        asynchronous: true
+        sourceComponent: Component {
+            FM.FileManagerDialogs {
+                hostRoot: root
+            }
+        }
     }
 
     Keys.onPressed: function (event) {

@@ -14,7 +14,7 @@ Fokus: backend enforcement, bukan popup UI.
 ## 2. Trust Model
 
 - `CoreDesktopComponent`
-  - Shell, topbar, launcher, official filemanager/tothespot.
+  - Shell, crown, launcher, official filemanager/pulse.
 - `PrivilegedDesktopService`
   - daemon desktop internal (`desktopd`, `slm-fileopsd`, `slm-devicesd`, `slm-portald`).
 - `ThirdPartyApplication`

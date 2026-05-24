@@ -5,7 +5,7 @@ import QtQuick.Layouts 1.15
 import Slm_Desktop
 import SlmStyle
 
-// PrintJobApplet — topbar indicator for active print jobs.
+// PrintJobApplet — crown indicator for active print jobs.
 //
 // Visible only when there is at least one tracked job.
 // Shows a spinner animation while any job is printing.
@@ -26,8 +26,8 @@ Item {
     property bool popupHint: false
     property double lastMenuCloseMs: 0
 
-    readonly property int iconSize: 22
-    readonly property int popupGap: Theme.metric("spacingXs")
+    readonly property int iconSize: 20
+    readonly property int popupGap: Theme.metric("spacingSm")
 
     // ── Job tracking ──────────────────────────────────────────────────────
 
@@ -127,7 +127,7 @@ Item {
         if ((Date.now() - lastMenuCloseMs) < 180) return
         root.popupHint = true
         popupHintTimer.restart()
-        Qt.callLater(function() { menu.open() })
+        Qt.callLater(function() { menu.togglePopup() })
     }
 
     // ── Timers ────────────────────────────────────────────────────────────

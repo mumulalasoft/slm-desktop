@@ -1,0 +1,20 @@
+# Animation token lint allowlist — pre-existing debt baseline.
+# Keep sorted. Remove entries as files are migrated to Theme tokens.
+# Format: relative path from repo root (one per line).
+
+# ── src/apps debt: hardcoded duration/easing (pre-dates MotionController) ─────
+src/apps/settings/modules/appearance/AppearancePage.qml
+src/apps/settings/modules/developer/AppPickerDialog.qml
+src/apps/settings/modules/developer/DbusInspectorPage.qml
+src/apps/settings/modules/developer/DeveloperNavPane.qml
+src/apps/settings/modules/developer/EffectiveEnvPreviewPanel.qml
+src/apps/settings/modules/developer/EnvVariablesPage.qml
+src/apps/settings/modules/developer/EnvVarRow.qml
+src/apps/settings/modules/developer/PerAppOverridesView.qml
+src/apps/settings/modules/keyboard/KeyboardPage.qml
+src/apps/settings/modules/print/AddPrinterDialog.qml
+src/apps/settings/modules/print/components/AnimatedDetailField.qml
+src/apps/settings/modules/print/components/AnimatedSpinner.qml
+src/apps/settings/modules/print/components/AnimatedTabSwitcher.qml
+src/apps/settings/modules/print/components/PrinterListItem.qml
+src/apps/settings/modules/print/components/StatePanel.qml

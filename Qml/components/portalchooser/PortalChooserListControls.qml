@@ -1,6 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import Slm_Desktop
+import SlmStyle as DSStyle
 
 Row {
     id: root
@@ -18,15 +19,15 @@ Row {
     signal hiddenToggled()
 
     width: parent ? parent.width : 0
-    height: 30
-    spacing: 8
+    height: Theme.metric("controlHeightRegular")
+    spacing: Theme.metric("spacingSm")
 
     Item {
         width: Math.max(120, root.width - 300)
         height: 1
     }
 
-    ComboBox {
+    DSStyle.ComboBox {
         visible: false
         width: 108
         height: root.height
@@ -47,7 +48,7 @@ Row {
         }
     }
 
-    Button {
+    DSStyle.Button {
         visible: false
         width: 58
         height: root.height
@@ -55,7 +56,7 @@ Row {
         onClicked: root.sortDirectionToggled()
     }
 
-    Button {
+    DSStyle.Button {
         width: 68
         height: root.height
         visible: false
@@ -63,8 +64,8 @@ Row {
         onClicked: root.hiddenToggled()
     }
 
-    ComboBox {
-        width: 106
+    DSStyle.ComboBox {
+        width: 142
         height: root.height
         model: root.filters
         textRole: "label"

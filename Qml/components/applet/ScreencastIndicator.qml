@@ -12,7 +12,7 @@ Item {
                                ? ScreencastPrivacyModel : null
     readonly property bool active: !!privacyModel && !!privacyModel.active
     readonly property int activeCount: privacyModel ? Number(privacyModel.activeCount) : 0
-    readonly property int iconSize: 22
+    readonly property int iconSize: 20
     readonly property bool popupOpen: menu.opened
 
     visible: active
@@ -46,7 +46,7 @@ Item {
             if (menu.opened || menu.visible) {
                 menu.close()
             } else {
-                menu.open()
+                menu.togglePopup()
             }
         }
 
@@ -101,7 +101,7 @@ Item {
     IndicatorMenu {
         id: menu
         anchorItem: button
-        popupGap: Theme.metric("spacingXs")
+        popupGap: Theme.metric("spacingSm")
         popupWidth: Theme.metric("popupWidthM")
 
         MenuItem {

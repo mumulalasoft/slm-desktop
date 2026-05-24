@@ -1,15 +1,20 @@
 #include "filemanagermodel.h"
 
 #include "filemanagerapi.h"
-#include "metadataindexserver.h"
+#include "../../services/fileindex/metadataindexserver.h"
 
 #include <QDateTime>
 #include <QDir>
+#include <QCryptographicHash>
+#include <QFile>
 #include <QFileInfo>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QMetaObject>
 #include <QMimeDatabase>
 #include <QMimeType>
 #include <QPointer>
+#include <QSettings>
 #include <QStandardPaths>
 #include <QTimer>
 #include <QUrl>
@@ -28,6 +33,18 @@ struct DirectoryScanResult
 
 QString mimeIconForInfo(const QFileInfo &info);
 bool isArchiveEntry(const FileEntry &entry);
+void applyDesktopEntryMetadata(FileEntry *entry);
+QString slotMapFilePathForPath(const QString &path);
+QHash<QString, int> loadSlotMapForPath(const QString &path);
+bool saveSlotMapForPath(const QString &path, const QHash<QString, int> &slotByPath);
+void applySlotOrder(QVector<FileEntry> *entries, const QHash<QString, int> &slotByPath);
+
+bool isInternalDesktopMetaFileName(const QString &name)
+{
+    const QString n = name.trimmed();
+    return n == QStringLiteral(".desktop_shell_slot_map.json")
+            || n == QStringLiteral(".desktop_shell_shortcut_order");
+}
 
 QString fileKindSortKey(const FileEntry &e)
 {
@@ -53,6 +70,43 @@ QDateTime parseIsoDateLoose(const QString &iso)
         dt = QDateTime::fromString(value, Qt::ISODate);
     }
     return dt;
+}
+
+bool compareIsoDateText(const QString &aIso, const QString &bIso, bool sortDescending)
+{
+    const QString a = aIso.trimmed();
+    const QString b = bIso.trimmed();
+    if (!a.isEmpty() && !b.isEmpty() && a != b) {
+        return sortDescending ? (a > b) : (a < b);
+    }
+    if (a.isEmpty() != b.isEmpty()) {
+        return !a.isEmpty();
+    }
+    const QDateTime da = parseIsoDateLoose(a);
+    const QDateTime db = parseIsoDateLoose(b);
+    if (da.isValid() && db.isValid() && da != db) {
+        return sortDescending ? (da > db) : (da < db);
+    }
+    if (da.isValid() != db.isValid()) {
+        return da.isValid();
+    }
+    return false;
+}
+
+QMimeDatabase &mimeDatabaseFast()
+{
+    thread_local QMimeDatabase db;
+    return db;
+}
+
+QMimeType mimeTypeForPathFast(const QString &path)
+{
+    QMimeDatabase &db = mimeDatabaseFast();
+    QMimeType mime = db.mimeTypeForFile(path, QMimeDatabase::MatchExtension);
+    if (!mime.isValid() || mime.name().isEmpty()) {
+        mime = db.mimeTypeForFile(path, QMimeDatabase::MatchDefault);
+    }
+    return mime;
 }
 
 void sortEntries(QVector<FileEntry> &entries,
@@ -88,22 +142,18 @@ void sortEntries(QVector<FileEntry> &entries,
                 return compareOrder(-cmp);
             }
         } else if (key == QLatin1String("dateAdded")) {
-            const QDateTime da = parseIsoDateLoose(a.dateAdded);
-            const QDateTime db = parseIsoDateLoose(b.dateAdded);
-            if (da.isValid() && db.isValid() && da != db) {
-                return sortDescending ? (da > db) : (da < db);
+            if (compareIsoDateText(a.dateAdded, b.dateAdded, sortDescending)) {
+                return true;
             }
-            if (da.isValid() != db.isValid()) {
-                return da.isValid();
+            if (compareIsoDateText(b.dateAdded, a.dateAdded, sortDescending)) {
+                return false;
             }
         } else {
-            const QDateTime ma = parseIsoDateLoose(a.lastModified);
-            const QDateTime mb = parseIsoDateLoose(b.lastModified);
-            if (ma.isValid() && mb.isValid() && ma != mb) {
-                return sortDescending ? (ma > mb) : (ma < mb);
+            if (compareIsoDateText(a.lastModified, b.lastModified, sortDescending)) {
+                return true;
             }
-            if (ma.isValid() != mb.isValid()) {
-                return ma.isValid();
+            if (compareIsoDateText(b.lastModified, a.lastModified, sortDescending)) {
+                return false;
             }
         }
 
@@ -113,7 +163,8 @@ void sortEntries(QVector<FileEntry> &entries,
 
 DirectoryScanResult scanDirectoryFast(const QString &currentPath,
                                       bool includeHidden,
-                                      bool directoriesFirst)
+                                      bool directoriesFirst,
+                                      bool lightweightMetadata = false)
 {
     DirectoryScanResult out;
     const QString resolved = QDir(currentPath).absolutePath();
@@ -130,38 +181,37 @@ DirectoryScanResult scanDirectoryFast(const QString &currentPath,
         filters |= QDir::Hidden;
     }
     QFileInfoList rows = dir.entryInfoList(filters, QDir::NoSort);
-    std::sort(rows.begin(), rows.end(), [directoriesFirst](const QFileInfo &a, const QFileInfo &b) {
-        const QDateTime ma = a.lastModified();
-        const QDateTime mb = b.lastModified();
-        if (ma.isValid() && mb.isValid() && ma != mb) {
-            return ma > mb; // newest first
-        }
-        if (ma.isValid() != mb.isValid()) {
-            return ma.isValid();
-        }
-        if (directoriesFirst && a.isDir() != b.isDir()) {
-            return a.isDir();
-        }
-        return QString::compare(a.fileName(), b.fileName(), Qt::CaseInsensitive) < 0;
-    });
+    Q_UNUSED(directoriesFirst)
 
     out.entries.reserve(rows.size());
     for (const QFileInfo &info : rows) {
+        if (isInternalDesktopMetaFileName(info.fileName())) {
+            continue;
+        }
         FileEntry e;
         e.name = info.fileName();
         e.path = info.absoluteFilePath();
         e.thumbnailPath = QString();
         e.suffix = info.suffix();
-        e.mimeType = info.isDir()
-                ? QStringLiteral("inode/directory")
-                : QMimeDatabase().mimeTypeForFile(info.absoluteFilePath(), QMimeDatabase::MatchDefault).name();
-        e.iconName = mimeIconForInfo(info);
+        if (info.isDir()) {
+            e.mimeType = QStringLiteral("inode/directory");
+            e.iconName = QStringLiteral("folder");
+        } else if (lightweightMetadata) {
+            e.mimeType = QString();
+            e.iconName = QStringLiteral("text-x-generic-symbolic");
+        } else {
+            e.mimeType = mimeTypeForPathFast(info.absoluteFilePath()).name();
+            e.iconName = mimeIconForInfo(info);
+        }
         e.dateAdded = (info.birthTime().isValid() ? info.birthTime() : info.lastModified())
                 .toString(Qt::ISODateWithMs);
         e.lastModified = info.lastModified().toString(Qt::ISODateWithMs);
         e.size = static_cast<qlonglong>(info.size());
         e.dir = info.isDir();
         e.hidden = info.isHidden();
+        if (!lightweightMetadata) {
+            applyDesktopEntryMetadata(&e);
+        }
         out.entries.push_back(e);
     }
     out.ok = true;
@@ -185,6 +235,36 @@ bool isRecentVirtualPath(const QString &path)
 bool isUriPath(const QString &path)
 {
     return path.contains(QStringLiteral("://"));
+}
+
+QString themeIconNameFromProviderUrl(const QString &value)
+{
+    const QString prefix = QStringLiteral("image://themeicon/");
+    const QString raw = value.trimmed();
+    if (!raw.startsWith(prefix)) {
+        return QString();
+    }
+    QString name = raw.mid(prefix.size());
+    const int query = name.indexOf(QLatin1Char('?'));
+    if (query >= 0) {
+        name = name.left(query);
+    }
+    return QUrl::fromPercentEncoding(name.toUtf8()).trimmed();
+}
+
+QString iconSourceFromDesktopIconValue(const QString &value)
+{
+    const QString raw = value.trimmed();
+    if (raw.isEmpty()) {
+        return QString();
+    }
+    if (raw.startsWith(QLatin1Char('/'))) {
+        return QUrl::fromLocalFile(raw).toString();
+    }
+    if (raw.contains(QStringLiteral("://")) && !raw.startsWith(QStringLiteral("image://themeicon/"))) {
+        return raw;
+    }
+    return QString();
 }
 
 QString joinChildPath(const QString &basePath, const QString &childName)
@@ -238,7 +318,7 @@ QString mimeIconForInfo(const QFileInfo &info)
     if (info.isDir()) {
         return QStringLiteral("folder");
     }
-    const QMimeType mime = QMimeDatabase().mimeTypeForFile(info.absoluteFilePath(), QMimeDatabase::MatchDefault);
+    const QMimeType mime = mimeTypeForPathFast(info.absoluteFilePath());
     if (!mime.iconName().isEmpty()) {
         return mime.iconName();
     }
@@ -288,6 +368,144 @@ bool isArchiveEntry(const FileEntry &entry)
     return false;
 }
 
+void applyDesktopEntryMetadata(FileEntry *entry)
+{
+    if (entry == nullptr) {
+        return;
+    }
+    const QFileInfo fi(entry->path);
+    if (!fi.exists() || !fi.isFile() || fi.suffix().compare(QStringLiteral("desktop"), Qt::CaseInsensitive) != 0) {
+        return;
+    }
+
+    QSettings desktopFile(entry->path, QSettings::IniFormat);
+    desktopFile.beginGroup(QStringLiteral("Desktop Entry"));
+    const QString displayName = desktopFile.value(QStringLiteral("Name")).toString().trimmed();
+    const QString iconValue = desktopFile.value(QStringLiteral("Icon")).toString().trimmed();
+    desktopFile.endGroup();
+
+    if (!displayName.isEmpty()) {
+        entry->name = displayName;
+    }
+    if (!iconValue.isEmpty()) {
+        const QString providerIconName = themeIconNameFromProviderUrl(iconValue);
+        const QString iconSource = iconSourceFromDesktopIconValue(iconValue);
+        if (!providerIconName.isEmpty()) {
+            entry->iconName = providerIconName;
+            entry->iconSource.clear();
+        } else if (!iconSource.isEmpty()) {
+            entry->iconSource = iconSource;
+        } else {
+            entry->iconName = iconValue;
+            entry->iconSource.clear();
+        }
+    }
+    if (entry->mimeType.isEmpty()) {
+        entry->mimeType = QStringLiteral("application/x-desktop");
+    }
+}
+
+QString slotMapFilePathForPath(const QString &path)
+{
+    if (path.contains(QStringLiteral("://")) || isRecentVirtualPath(path) || path.startsWith(QStringLiteral("__"))) {
+        return QString();
+    }
+    const QString dirPath = QDir(path).absolutePath();
+    if (dirPath.isEmpty()) {
+        return QString();
+    }
+
+    QString configRoot = QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
+    if (configRoot.isEmpty()) {
+        const QString genericConfig = QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation);
+        if (genericConfig.isEmpty()) {
+            return QString();
+        }
+        configRoot = QDir(genericConfig).filePath(QStringLiteral("slm-desktop"));
+    }
+
+    const QByteArray hash = QCryptographicHash::hash(dirPath.toUtf8(), QCryptographicHash::Sha1).toHex();
+    return QDir(configRoot).filePath(QStringLiteral("slotmaps/%1.json").arg(QString::fromLatin1(hash)));
+}
+
+QHash<QString, int> loadSlotMapForPath(const QString &path)
+{
+    QHash<QString, int> out;
+    const QString slotFile = slotMapFilePathForPath(path);
+    if (slotFile.isEmpty()) {
+        return out;
+    }
+    QFile file(slotFile);
+    if (!file.open(QIODevice::ReadOnly)) {
+        return out;
+    }
+    QJsonParseError err;
+    const QJsonDocument doc = QJsonDocument::fromJson(file.readAll(), &err);
+    file.close();
+    if (err.error != QJsonParseError::NoError || !doc.isObject()) {
+        return out;
+    }
+    const QJsonObject obj = doc.object();
+    for (auto it = obj.constBegin(); it != obj.constEnd(); ++it) {
+        if (!it.value().isDouble()) {
+            continue;
+        }
+        const int slot = it.value().toInt(-1);
+        if (slot >= 0) {
+            out.insert(QFileInfo(it.key()).absoluteFilePath(), slot);
+        }
+    }
+    return out;
+}
+
+bool saveSlotMapForPath(const QString &path, const QHash<QString, int> &slotByPath)
+{
+    const QString slotFile = slotMapFilePathForPath(path);
+    if (slotFile.isEmpty()) {
+        return false;
+    }
+    QDir parentDir = QFileInfo(slotFile).absoluteDir();
+    if (!parentDir.exists() && !parentDir.mkpath(QStringLiteral("."))) {
+        return false;
+    }
+    QJsonObject obj;
+    for (auto it = slotByPath.constBegin(); it != slotByPath.constEnd(); ++it) {
+        const int slot = it.value();
+        if (slot < 0) {
+            continue;
+        }
+        obj.insert(QFileInfo(it.key()).absoluteFilePath(), slot);
+    }
+    QFile file(slotFile);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        return false;
+    }
+    file.write(QJsonDocument(obj).toJson(QJsonDocument::Compact));
+    file.close();
+    return true;
+}
+
+void applySlotOrder(QVector<FileEntry> *entries, const QHash<QString, int> &slotByPath)
+{
+    if (entries == nullptr || entries->isEmpty() || slotByPath.isEmpty()) {
+        return;
+    }
+    std::stable_sort(entries->begin(), entries->end(),
+                     [&slotByPath](const FileEntry &a, const FileEntry &b) {
+        const QString aPath = QFileInfo(a.path).absoluteFilePath();
+        const QString bPath = QFileInfo(b.path).absoluteFilePath();
+        const bool hasA = slotByPath.contains(aPath);
+        const bool hasB = slotByPath.contains(bPath);
+        if (hasA && hasB) {
+            return slotByPath.value(aPath) < slotByPath.value(bPath);
+        }
+        if (hasA != hasB) {
+            return hasA;
+        }
+        return false;
+    });
+}
+
 QVector<FileEntry> entriesFromApiResult(const QVariantList &rows)
 {
     QVector<FileEntry> out;
@@ -304,6 +522,7 @@ QVector<FileEntry> entriesFromApiResult(const QVariantList &rows)
         e.suffix = row.value(QStringLiteral("suffix")).toString();
         e.mimeType = row.value(QStringLiteral("mimeType")).toString();
         e.iconName = row.value(QStringLiteral("iconName")).toString();
+        e.iconSource = row.value(QStringLiteral("iconSource")).toString();
         e.dateAdded = row.value(QStringLiteral("dateAdded")).toString();
         e.lastModified = row.value(QStringLiteral("lastModified")).toString();
         e.size = row.value(QStringLiteral("size")).toLongLong();
@@ -330,8 +549,9 @@ QVector<FileEntry> entriesFromApiResult(const QVariantList &rows)
             QFileInfo fi(e.path);
             e.mimeType = fi.isDir()
                     ? QStringLiteral("inode/directory")
-                    : QMimeDatabase().mimeTypeForFile(fi.absoluteFilePath(), QMimeDatabase::MatchDefault).name();
+                    : mimeTypeForPathFast(fi.absoluteFilePath()).name();
         }
+        applyDesktopEntryMetadata(&e);
         if (e.dateAdded.isEmpty()) {
             const QString created = row.value(QStringLiteral("created")).toString();
             const QString lastOpened = row.value(QStringLiteral("lastOpened")).toString();
@@ -405,6 +625,7 @@ QVariant FileManagerModel::data(const QModelIndex &index, int role) const
     case SuffixRole: return e.suffix;
     case MimeTypeRole: return e.mimeType;
     case IconNameRole: return e.iconName;
+    case IconSourceRole: return e.iconSource;
     case DateAddedRole: return e.dateAdded;
     case LastModifiedRole: return e.lastModified;
     case SizeRole: return e.size;
@@ -424,6 +645,7 @@ QHash<int, QByteArray> FileManagerModel::roleNames() const
     roles[SuffixRole] = "suffix";
     roles[MimeTypeRole] = "mimeType";
     roles[IconNameRole] = "iconName";
+    roles[IconSourceRole] = "iconSource";
     roles[DateAddedRole] = "dateAdded";
     roles[LastModifiedRole] = "lastModified";
     roles[SizeRole] = "size";
@@ -550,6 +772,21 @@ void FileManagerModel::setSortDescending(bool value)
     refresh();
 }
 
+bool FileManagerModel::useSlotOrder() const
+{
+    return m_useSlotOrder;
+}
+
+void FileManagerModel::setUseSlotOrder(bool value)
+{
+    if (m_useSlotOrder == value) {
+        return;
+    }
+    m_useSlotOrder = value;
+    emit useSlotOrderChanged();
+    refresh();
+}
+
 void FileManagerModel::setSearchText(const QString &value)
 {
     const QString next = value;
@@ -643,6 +880,14 @@ QVariantMap FileManagerModel::refresh()
     const QString search = m_searchText.trimmed();
     const bool searchActive = !search.isEmpty();
     const bool deepSearchPlanned = searchActive && search.size() >= 2;
+    const bool startupFastPass = m_startupFastPassPending
+            && !searchActive
+            && !targetPath.contains(QStringLiteral("://"))
+            && !isRecentVirtualPath(targetPath)
+            && !targetPath.startsWith(QStringLiteral("__"));
+    if (startupFastPass) {
+        m_startupFastPassPending = false;
+    }
     ++m_refreshGeneration;
     const quint64 generation = m_refreshGeneration.load();
     if (deepSearchPlanned) {
@@ -658,7 +903,7 @@ QVariantMap FileManagerModel::refresh()
         }, Qt::QueuedConnection);
     }
     QPointer<FileManagerModel> self(this);
-    std::thread([self, generation, targetPath, includeHidden, directoriesFirst, search, searchActive]() {
+    std::thread([self, generation, targetPath, includeHidden, directoriesFirst, search, searchActive, startupFastPass]() {
         DirectoryScanResult scan;
         if (self && self->m_api != nullptr && isRecentVirtualPath(targetPath)) {
             scan.ok = true;
@@ -680,7 +925,7 @@ QVariantMap FileManagerModel::refresh()
                 e.suffix = fi.suffix();
                 e.mimeType = fi.isDir()
                         ? QStringLiteral("inode/directory")
-                        : QMimeDatabase().mimeTypeForFile(fi.absoluteFilePath(), QMimeDatabase::MatchDefault).name();
+                        : mimeTypeForPathFast(fi.absoluteFilePath()).name();
                 const QString rowIcon = row.value(QStringLiteral("iconName")).toString();
                 e.iconName = rowIcon.isEmpty() ? mimeIconForInfo(fi) : rowIcon;
                 e.dateAdded = row.value(QStringLiteral("lastOpened")).toString();
@@ -689,6 +934,7 @@ QVariantMap FileManagerModel::refresh()
                 e.dir = fi.isDir();
                 e.hidden = fi.isHidden();
                 e.networkShared = row.value(QStringLiteral("networkShared")).toBool();
+                applyDesktopEntryMetadata(&e);
                 if (searchActive && !e.name.contains(search, Qt::CaseInsensitive)) {
                     continue;
                 }
@@ -698,7 +944,7 @@ QVariantMap FileManagerModel::refresh()
         } else if (searchActive && self && self->m_api != nullptr) {
             if (search.size() < 2) {
                 // For very short queries, return local filtered entries first.
-                scan = scanDirectoryFast(targetPath, includeHidden, directoriesFirst);
+                scan = scanDirectoryFast(targetPath, includeHidden, directoriesFirst, false);
                 if (scan.ok) {
                     QVector<FileEntry> filtered;
                     filtered.reserve(scan.entries.size());
@@ -740,12 +986,12 @@ QVariantMap FileManagerModel::refresh()
             if (self && self->m_api != nullptr) {
                 self->m_api->beginSearchSession();
             }
-            scan = scanDirectoryFast(targetPath, includeHidden, directoriesFirst);
+            scan = scanDirectoryFast(targetPath, includeHidden, directoriesFirst, startupFastPass);
         }
         if (!self) {
             return;
         }
-        QMetaObject::invokeMethod(self.data(), [self, generation, scan = std::move(scan), searchActive, search]() mutable {
+        QMetaObject::invokeMethod(self.data(), [self, generation, scan = std::move(scan), searchActive, search, startupFastPass]() mutable {
             if (!self || generation != self->m_refreshGeneration.load()) {
                 return;
             }
@@ -768,6 +1014,16 @@ QVariantMap FileManagerModel::refresh()
             }
             self->applyEntries(std::move(scan.entries));
             self->setLastError(QString());
+            if (startupFastPass && !self->m_startupFullPassScheduled) {
+                self->m_startupFullPassScheduled = true;
+                QTimer::singleShot(120, self.data(), [self]() {
+                    if (!self) {
+                        return;
+                    }
+                    self->m_startupFullPassScheduled = false;
+                    self->refresh();
+                });
+            }
             if (self->m_api != nullptr
                     && !self->m_currentPath.contains(QStringLiteral("://"))
                     && !isRecentVirtualPath(self->m_currentPath)
@@ -801,6 +1057,9 @@ void FileManagerModel::setSort(const QString &key, bool descending)
 void FileManagerModel::applyEntries(QVector<FileEntry> entries)
 {
     sortEntries(entries, m_sortKey, m_sortDescending, m_directoriesFirst);
+    if (m_useSlotOrder) {
+        applySlotOrder(&entries, loadSlotMapForPath(m_currentPath));
+    }
     beginResetModel();
     m_entries = std::move(entries);
     endResetModel();
@@ -921,6 +1180,7 @@ QVariantMap FileManagerModel::entryAt(int index) const
         {QStringLiteral("thumbnailPath"), e.thumbnailPath},
         {QStringLiteral("mimeType"), e.mimeType},
         {QStringLiteral("iconName"), e.iconName},
+        {QStringLiteral("iconSource"), e.iconSource},
         {QStringLiteral("isDir"), e.dir},
         {QStringLiteral("networkShared"), e.networkShared},
         {QStringLiteral("size"), e.size},
@@ -1034,4 +1294,32 @@ QVariantMap FileManagerModel::renameAt(int index, const QString &newName)
         refresh();
     }
     return result;
+}
+
+QVariantMap FileManagerModel::loadSlotMap() const
+{
+    QVariantMap out;
+    const auto slotByPath = loadSlotMapForPath(m_currentPath);
+    for (auto it = slotByPath.constBegin(); it != slotByPath.constEnd(); ++it) {
+        out.insert(it.key(), it.value());
+    }
+    return out;
+}
+
+bool FileManagerModel::saveSlotMap(const QVariantMap &slotMap)
+{
+    QHash<QString, int> next;
+    for (auto it = slotMap.constBegin(); it != slotMap.constEnd(); ++it) {
+        bool ok = false;
+        const int slot = it.value().toInt(&ok);
+        if (!ok || slot < 0) {
+            continue;
+        }
+        next.insert(QFileInfo(it.key()).absoluteFilePath(), slot);
+    }
+    const bool saved = saveSlotMapForPath(m_currentPath, next);
+    if (saved && m_useSlotOrder) {
+        refresh();
+    }
+    return saved;
 }

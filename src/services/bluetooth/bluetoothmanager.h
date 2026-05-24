@@ -1,9 +1,12 @@
 #pragma once
 
+#include <QDBusObjectPath>
+#include <QFutureWatcher>
 #include <QObject>
-#include <QTimer>
 #include <QStringList>
+#include <QTimer>
 #include <QVariantList>
+#include <QVariantMap>
 
 class BluetoothManager : public QObject {
     Q_OBJECT
@@ -33,10 +36,21 @@ signals:
     void changed();
 
 private:
+    void scheduleRefresh();
     QString detectAdapterPath() const;
     bool readPowered(const QString &adapterPath, bool *ok = nullptr) const;
     QVariantList queryConnectedDeviceItems() const;
 
+private slots:
+    void onBluezPropertiesChanged(const QString &interfaceName,
+                                  const QVariantMap &changedProperties,
+                                  const QStringList &invalidatedProperties);
+    void onBluezInterfacesAdded(const QDBusObjectPath &objectPath,
+                                const QVariantMap &interfacesAndProperties);
+    void onBluezInterfacesRemoved(const QDBusObjectPath &objectPath,
+                                  const QStringList &interfaces);
+
+private:
     bool m_available = false;
     bool m_powered = false;
     QString m_statusText = QStringLiteral("Bluetooth unavailable");
@@ -44,4 +58,6 @@ private:
     QStringList m_connectedDevices;
     QVariantList m_connectedDeviceItems;
     QTimer *m_timer = nullptr;
+    QTimer *m_realtimeRefreshTimer = nullptr;
+    bool m_refreshPending = false;
 };

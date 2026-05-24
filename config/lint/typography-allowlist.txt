@@ -1,0 +1,24 @@
+# Typography lint allowlist — pre-existing debt baseline.
+# Keep sorted. Remove entries as files are migrated to Theme tokens / TypeLabel.
+# Format: relative path from repo root (suppresses all rules for that file).
+#         A bare rule ID suppresses that rule globally (not recommended).
+
+# ── hardcoded font.family (developer tools use monospace strings directly) ────
+Qml/apps/filemanager/FileManagerFolderShareDialog.qml
+Qml/apps/filemanager/FileManagerQuickPreviewDialog.qml
+Qml/recovery/LogPage.qml
+Qml/recovery/SnapshotPage.qml
+src/apps/settings/modules/applications/ApplicationsPage.qml
+src/apps/settings/modules/developer/AppPickerDialog.qml
+src/apps/settings/modules/developer/BuildInfoPage.qml
+src/apps/settings/modules/developer/ContextDebugPage.qml
+src/apps/settings/modules/developer/DbusInspectorPage.qml
+src/apps/settings/modules/developer/EffectiveEnvPreviewPanel.qml
+src/apps/settings/modules/developer/LogsPage.qml
+src/apps/settings/modules/developer/PerAppOverridesView.qml
+src/apps/settings/modules/developer/ProcessServicesPage.qml
+src/apps/settings/modules/developer/XdgPortalsPage.qml
+
+# ── hardcoded font.letterSpacing (pre-dates Theme.letterSpacing* tokens) ──────
+src/apps/settings/modules/developer/EnvVarRow.qml
+src/apps/settings/modules/developer/EnvVariablesPage.qml

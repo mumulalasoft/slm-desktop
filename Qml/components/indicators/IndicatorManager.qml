@@ -15,7 +15,7 @@ RowLayout {
     property string timeText: ""
     property date nowDate: new Date()
     property bool includeDefaultIndicators: true
-    property int indicatorSlotHeight: Theme.metric("controlHeightRegular")
+    property int indicatorSlotHeight: Theme.metric("controlHeightCompact")
     readonly property var monthNames: [
         "January", "February", "March", "April", "May", "June",
         "July", "August", "September", "October", "November", "December"
@@ -37,7 +37,7 @@ RowLayout {
     }
     readonly property bool anyPopupOpen: itemPopupOpen
 
-    spacing: Theme.metric("spacingMd")
+    spacing: Theme.metric("spacingXxs")
 
     Timer {
         id: nowDateTimer
@@ -142,22 +142,16 @@ RowLayout {
     }
 
     function openDateTimeSettings() {
-        var commands = [
-            "gnome-control-center datetime",
-            "plasma-open-settings kcm_clock",
-            "kcmshell6 kcm_clock",
-            "kcmshell5 kcm_clock",
-            "xfce4-datetime-settings",
-            "mate-time-admin"
-        ]
-        if (typeof AppExecutionGate === "undefined" || !AppExecutionGate || !AppExecutionGate.launchCommand) {
-            return
-        }
-        for (var i = 0; i < commands.length; ++i) {
-            if (AppExecutionGate.launchCommand(commands[i], "", "topbar.datetime")) {
-                if (datetimeApplet && datetimeApplet.popup) datetimeApplet.popup.close()
+        if (typeof AppExecutionGate !== "undefined" && AppExecutionGate && AppExecutionGate.launchCommand) {
+            if (typeof AppBinaryDir !== "undefined" && String(AppBinaryDir || "").length > 0) {
+                AppExecutionGate.launchCommand(String(AppBinaryDir) + "/slm-settings --deep-link settings://timedate",
+                                               "",
+                                               "crown.datetime")
                 return
             }
+            AppExecutionGate.launchCommand("slm-settings --deep-link settings://timedate",
+                                           "",
+                                           "crown.datetime")
         }
     }
 
@@ -207,10 +201,14 @@ RowLayout {
     Repeater {
         model: IndicatorRegistry.entries
         delegate: Loader {
+            id: indicatorSlot
             required property var modelData
+            required property int index
             active: !!modelData && modelData.enabled !== false
             visible: !!modelData && modelData.visible !== false
             asynchronous: true
+            readonly property bool slotVisible: visible
+                                             && (!item || item.visible === undefined || !!item.visible)
             source: {
                 var s = String(modelData && modelData.source ? modelData.source : "")
                 if (s === "" || s.indexOf("://") >= 0 || s.indexOf("/") === 0) {
@@ -222,11 +220,43 @@ RowLayout {
                 // Indicator applet QML files live in ../applet relative to this file.
                 return Qt.resolvedUrl("../applet/" + s)
             }
-            Layout.minimumWidth: implicitWidth
-            Layout.preferredWidth: implicitWidth
-            Layout.maximumWidth: implicitWidth
+            Layout.minimumWidth: slotVisible ? implicitWidth : 0
+            Layout.preferredWidth: slotVisible ? implicitWidth : 0
+            Layout.maximumWidth: slotVisible ? implicitWidth : 0
             Layout.preferredHeight: root.indicatorSlotHeight
             Layout.alignment: Qt.AlignVCenter
+
+            opacity: 0
+            scale: 0.82
+
+            Component.onCompleted: {
+                if (Theme.animationsEnabled) {
+                    indicatorEntranceTimer.start()
+                } else {
+                    indicatorSlot.opacity = 1.0
+                    indicatorSlot.scale = 1.0
+                }
+            }
+
+            Timer {
+                id: indicatorEntranceTimer
+                interval: indicatorSlot.index * 40
+                onTriggered: indicatorEntranceAnim.start()
+            }
+
+            ParallelAnimation {
+                id: indicatorEntranceAnim
+                NumberAnimation {
+                    target: indicatorSlot; property: "opacity"
+                    to: 1.0; duration: Theme.durationMd
+                    easing.type: Theme.easingDecelerate
+                }
+                NumberAnimation {
+                    target: indicatorSlot; property: "scale"
+                    to: 1.0; duration: Theme.durationMd
+                    easing.type: Theme.easingDecelerate
+                }
+            }
 
             onLoaded: {
                 if (!item || !modelData) {
@@ -267,16 +297,52 @@ RowLayout {
         model: (typeof ExternalIndicatorRegistry !== "undefined" && ExternalIndicatorRegistry)
                ? ExternalIndicatorRegistry.entries : []
         delegate: Loader {
+            id: extIndicatorSlot
             required property var modelData
+            required property int index
             active: !!modelData && modelData.enabled !== false
             visible: !!modelData && modelData.visible !== false
             asynchronous: true
+            readonly property bool slotVisible: visible
+                                             && (!item || item.visible === undefined || !!item.visible)
             source: modelData && modelData.source ? modelData.source : ""
-            Layout.minimumWidth: implicitWidth
-            Layout.preferredWidth: implicitWidth
-            Layout.maximumWidth: implicitWidth
+            Layout.minimumWidth: slotVisible ? implicitWidth : 0
+            Layout.preferredWidth: slotVisible ? implicitWidth : 0
+            Layout.maximumWidth: slotVisible ? implicitWidth : 0
             Layout.preferredHeight: root.indicatorSlotHeight
             Layout.alignment: Qt.AlignVCenter
+
+            opacity: 0
+            scale: 0.82
+
+            Component.onCompleted: {
+                if (Theme.animationsEnabled) {
+                    extEntranceTimer.start()
+                } else {
+                    extIndicatorSlot.opacity = 1.0
+                    extIndicatorSlot.scale = 1.0
+                }
+            }
+
+            Timer {
+                id: extEntranceTimer
+                interval: extIndicatorSlot.index * 40
+                onTriggered: extEntranceAnim.start()
+            }
+
+            ParallelAnimation {
+                id: extEntranceAnim
+                NumberAnimation {
+                    target: extIndicatorSlot; property: "opacity"
+                    to: 1.0; duration: Theme.durationMd
+                    easing.type: Theme.easingDecelerate
+                }
+                NumberAnimation {
+                    target: extIndicatorSlot; property: "scale"
+                    to: 1.0; duration: Theme.durationMd
+                    easing.type: Theme.easingDecelerate
+                }
+            }
 
             onLoaded: {
                 if (!item || !modelData) {

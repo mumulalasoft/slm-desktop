@@ -1,6 +1,7 @@
 #include "settingbindingfactory.h"
 
 #include "dbusbinding.h"
+#include "desktopsettingsbinding.h"
 #include "gsettingsbinding.h"
 #include "localsettingsbinding.h"
 #include "mockbinding.h"
@@ -55,6 +56,8 @@ SettingBinding *SettingBindingFactory::create(const BindingDescriptor &descripto
                                owner);
     case BindingDescriptor::Kind::LocalSettings:
         return new LocalSettingsBinding(descriptor.localKey, descriptor.defaultValue, owner);
+    case BindingDescriptor::Kind::Desktop:
+        return new DesktopSettingsBinding(m_client, descriptor.localKey, descriptor.defaultValue, owner);
     case BindingDescriptor::Kind::Unsupported:
         qWarning() << "[slm-settings] unsupported backend_binding scheme:"
                    << descriptor.scheme << "spec=" << descriptor.original;

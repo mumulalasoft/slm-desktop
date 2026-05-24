@@ -15,7 +15,7 @@ namespace Slm::Appd {
 //
 // Registered as context property "AppStateClient" in main.cpp.
 // Provides:
-//  - runningAppIds: set of currently running appIds (for dock indicators)
+//  - runningAppIds: set of currently running appIds (for appdeck indicators)
 //  - launchingAppIds: set of apps in launching state
 //  - focusedAppId: currently focused appId
 //  - getAppState(appId): state string for a specific app

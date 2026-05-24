@@ -212,7 +212,7 @@ All app-launch paths use `slm-envd` to obtain the effective environment before s
 
 - `AppLauncher::launch()` — single function used by all launch paths
 - `LaunchEnvResolver` — D-Bus call to `GetLaunchEnvironment` + 500 ms cache
-- Dock, app grid, command palette, global search, open-with updated to use `AppLauncher`
+- AppDeck, app grid, command palette, global search, open-with updated to use `AppLauncher`
 - `TerminalEnvBridge` — terminal-side baseline env fetch
 - Settings UI: Per-App Overrides tab (`PerAppOverridesView.qml`, `PerAppOverridesController`)
 
@@ -259,7 +259,7 @@ ListAppsWithOverrides() → as
 | AppLauncher calls GetLaunchEnvironment | Unit | Mock D-Bus; verify call made with correct app_id |
 | AppLauncher fallback when service down | Unit | QProcess spawned with current process env; warning logged |
 | Cache TTL: second call within 500 ms hits cache | Unit | D-Bus mock called only once for two launches within TTL |
-| Dock launch inherits user variable | Integration | Set MY_VAR=hello; launch test app from dock; app sees MY_VAR |
+| AppDeck launch inherits user variable | Integration | Set MY_VAR=hello; launch test app from appdeck; app sees MY_VAR |
 | Per-app override scoped correctly | Integration | Set MOZ_VAR=1 per-app for Firefox only; other apps do not see it |
 | Terminal baseline env | Manual | `echo $MY_VAR` in new terminal → "hello" |
 | Open-with uses AppLauncher | Manual | Open file from file manager → launched app sees correct env |
@@ -277,7 +277,7 @@ ListAppsWithOverrides() → as
 
 1. `LaunchEnvResolver` (pure logic + D-Bus call + cache) — test-first
 2. `AppLauncher::launch()` with resolver + fallback
-3. Wire **dock** to AppLauncher (most visible; easy to verify)
+3. Wire **appdeck** to AppLauncher (most visible; easy to verify)
 4. Wire **app grid**
 5. Wire **command palette**
 6. Wire **global search**

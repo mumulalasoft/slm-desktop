@@ -36,9 +36,9 @@ Rectangle {
 
     RowLayout {
         anchors.fill: parent
-        anchors.leftMargin: 16
-        anchors.rightMargin: 16
-        spacing: 10
+        anchors.leftMargin: Theme.metric("spacingLg")
+        anchors.rightMargin: Theme.metric("spacingLg")
+        spacing: Theme.metric("spacingMd")
 
         DSStyle.Label {
             text: statusBar.indexing

@@ -22,13 +22,13 @@ Primary jobs:
 Coverage intent:
 - repository governance and script syntax sanity
 - desktop runtime boot/log smoke (offscreen)
-- backend smoke and tothespot contextmenu smoke
+- backend smoke and pulse contextmenu smoke
 
 Local mirror commands:
 - `scripts/test-policy-core-suite.sh build/toppanel-Debug`
 - `scripts/smoke-runtime.sh --build-dir build --app-bin build/slm-desktop`
 - `scripts/smoke-backends.sh --build-dir build --app-bin build/slm-desktop`
-- `scripts/smoke-tothespot-contextmenu.sh --build-dir build --app-bin build/slm-desktop`
+- `scripts/smoke-pulse-contextmenu.sh --build-dir build --app-bin build/slm-desktop`
 
 ## Tier-2: Nightly Required (release gate)
 
@@ -42,8 +42,8 @@ Primary jobs:
 - `filemanager-recovery-strict-nightly`
 - `portal-profile-matrix`
 - `portal-interop-nightly`
-- `tothespot-quick`
-- `tothespot-full`
+- `pulse-quick`
+- `pulse-full`
 - `storage-runtime-hardware-smoke` (weekly scheduled + manual dogfooding lane on self-hosted `storage-hw`)
 
 Coverage intent:
@@ -51,7 +51,7 @@ Coverage intent:
 - filemanager mode/pinned compatibility
 - strict recovery gate
 - portal interop/profile/artifacts matrix
-- tothespot quick+full regression
+- pulse quick+full regression
 
 Local mirror commands:
 - `scripts/test.sh nightly build` (default `SLM_TEST_NIGHTLY_POLKIT_RUNTIME_MODE=auto`)

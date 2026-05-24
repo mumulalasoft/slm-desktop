@@ -13,11 +13,15 @@ Item {
     property var bluetoothManager: BluetoothManager
     property var soundManager: SoundManager
     property var notificationManager: NotificationManager
+    property bool bluetoothEnabledPreference: false
+    property bool bluetoothPreferenceKnown: false
+    property bool bluetoothLongPressConsumed: false
     property bool popupHint: false
     property double lastMenuCloseMs: 0
     property real brightnessValue: 72
-    readonly property int iconSize: 22
-    readonly property int popupGap: Theme.metric("spacingXs")
+    readonly property int iconSize: 20
+    readonly property int popupGap: Theme.metric("spacingSm")
+    readonly property int popupDropExtra: 0
     readonly property int sectionGap: Theme.metric("spacingSm")
     readonly property int itemGap: Theme.metric("spacingXs")
     readonly property int popupWidth: 336
@@ -76,6 +80,40 @@ Item {
         }
     }
 
+    function loadBluetoothPreference() {
+        if (typeof DesktopSettings === "undefined" || !DesktopSettings || !DesktopSettings.settingValue) {
+            return
+        }
+        root.bluetoothEnabledPreference = !!DesktopSettings.settingValue("bluetooth.enabled", false)
+        root.bluetoothPreferenceKnown = true
+    }
+
+    function effectiveBluetoothPowered() {
+        if (root.bluetoothPreferenceKnown) {
+            return root.bluetoothEnabledPreference
+        }
+        if (root.bluetoothManager && root.bluetoothManager.powered !== undefined && root.bluetoothManager.powered !== null) {
+            return !!root.bluetoothManager.powered
+        }
+        return false
+    }
+
+    function setBluetoothEnabled(enabled) {
+        var on = !!enabled
+        root.bluetoothEnabledPreference = on
+        root.bluetoothPreferenceKnown = true
+        if (typeof DesktopSettings !== "undefined" && DesktopSettings && DesktopSettings.setSettingValue) {
+            DesktopSettings.setSettingValue("bluetooth.enabled", on)
+        }
+        if (root.bluetoothManager && root.bluetoothManager.setPowered) {
+            root.bluetoothManager.setPowered(on)
+        }
+    }
+
+    function toggleBluetooth() {
+        root.setBluetoothEnabled(!root.effectiveBluetoothPowered())
+    }
+
     ToolButton {
         id: indicatorButton
         anchors.fill: parent
@@ -124,14 +162,16 @@ Item {
 
     IndicatorMenu {
         id: menu
-        appletId: "topbar.controlcenter"
+        appletId: "crown.controlcenter"
         anchorItem: indicatorButton
         popupHost: root.popupHost
         popupGap: root.popupGap
+        popupDropExtra: root.popupDropExtra
         popupWidth: root.popupWidth
         padding: Theme.metric("spacingXs")
         onAboutToShow: {
             root.popupHint = false
+            root.loadBluetoothPreference()
             if (root.networkManager && root.networkManager.refresh) root.networkManager.refresh()
             if (root.bluetoothManager && root.bluetoothManager.refresh) root.bluetoothManager.refresh()
             if (root.soundManager && root.soundManager.refresh) root.soundManager.refresh()
@@ -142,7 +182,14 @@ Item {
         }
 
         MenuItem {
-            enabled: false
+            enabled: true
+            hoverEnabled: false
+            onTriggered: {}
+            background: Rectangle {
+                color: "transparent"
+                border.width: Theme.borderWidthThin
+                border.color: "transparent"
+            }
             contentItem: ColumnLayout {
                 spacing: root.sectionGap
 
@@ -152,7 +199,9 @@ Item {
 
                     Rectangle {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: Theme.metric("controlHeightLarge") * 3 + Theme.metric("spacingSm")
+                        Layout.preferredHeight: Theme.metric("controlHeightLarge") * 3
+                                                + (root.cardPadding * 2)
+                                                + (Theme.metric("spacingXs") * 2)
                         radius: Theme.radiusCard
                         color: Theme.color("surface")
                         border.width: Theme.borderWidthThin
@@ -196,9 +245,13 @@ Item {
                                 Layout.fillWidth: true
                                 Layout.preferredHeight: Theme.metric("controlHeightLarge")
                                 radius: Theme.radiusControl
-                                color: btArea.containsMouse ? Theme.color("controlBgHover") : Theme.color("controlBg")
+                                color: root.effectiveBluetoothPowered()
+                                       ? (btArea.containsMouse ? Theme.color("accentHover") : Theme.color("accent"))
+                                       : (btArea.containsMouse ? Theme.color("controlBgHover") : Theme.color("controlBg"))
                                 border.width: Theme.borderWidthThin
-                                border.color: Theme.color("panelBorder")
+                                border.color: root.effectiveBluetoothPowered()
+                                              ? Theme.color("accent")
+                                              : Theme.color("panelBorder")
                                 RowLayout {
                                     anchors.fill: parent
                                     anchors.leftMargin: Theme.metric("spacingSm")
@@ -207,18 +260,54 @@ Item {
                                     IconImage {
                                         Layout.preferredWidth: 16
                                         Layout.preferredHeight: 16
-                                        source: root.iconSourceByName("bluetooth-active-symbolic")
-                                        color: Theme.color("textPrimary")
+                                        source: root.iconSourceByName(root.effectiveBluetoothPowered()
+                                                                      ? "bluetooth-active-symbolic"
+                                                                      : "bluetooth-disabled-symbolic")
+                                        color: root.effectiveBluetoothPowered()
+                                               ? Theme.color("accentText")
+                                               : Theme.color("textPrimary")
                                     }
                                     ColumnLayout {
                                         Layout.fillWidth: true
                                         spacing: 0
-                                        Label { text: "Bluetooth"; color: Theme.color("textPrimary"); font.family: Theme.fontFamilyUi; font.pixelSize: Theme.fontSize("body") }
-                                        Label { text: root.bluetoothManager && root.bluetoothManager.powered ? "On" : "Off"; color: Theme.color("textSecondary"); font.family: Theme.fontFamilyUi; font.pixelSize: Theme.fontSize("small") }
+                                        Label {
+                                            text: "Bluetooth"
+                                            color: root.effectiveBluetoothPowered()
+                                                   ? Theme.color("accentText")
+                                                   : Theme.color("textPrimary")
+                                            font.family: Theme.fontFamilyUi
+                                            font.pixelSize: Theme.fontSize("body")
+                                        }
+                                        Label {
+                                            text: root.effectiveBluetoothPowered() ? "On" : "Off"
+                                            color: root.effectiveBluetoothPowered()
+                                                   ? Theme.color("accentText")
+                                                   : Theme.color("textSecondary")
+                                            font.family: Theme.fontFamilyUi
+                                            font.pixelSize: Theme.fontSize("small")
+                                        }
                                     }
                                 }
                                 HoverHandler { id: btArea }
-                                TapHandler { onTapped: root.openSettings("bluetooth") }
+                                TapHandler {
+                                    acceptedButtons: Qt.LeftButton
+                                    onLongPressed: {
+                                        root.bluetoothLongPressConsumed = true
+                                        root.openSettings("bluetooth")
+                                    }
+                                    onTapped: {
+                                        if (root.bluetoothLongPressConsumed) {
+                                            root.bluetoothLongPressConsumed = false
+                                            return
+                                        }
+                                        root.toggleBluetooth()
+                                    }
+                                    onCanceled: root.bluetoothLongPressConsumed = false
+                                }
+                                TapHandler {
+                                    acceptedButtons: Qt.RightButton
+                                    onTapped: root.openSettings("bluetooth")
+                                }
                             }
 
                             Rectangle {
@@ -496,4 +585,18 @@ Item {
             }
         }
     }
+
+    Connections {
+        target: (typeof DesktopSettings !== "undefined") ? DesktopSettings : null
+        function onSettingChanged(path) {
+            if (String(path || "") === "bluetooth.enabled") {
+                root.loadBluetoothPreference()
+            }
+        }
+        function onAvailableChanged() {
+            root.loadBluetoothPreference()
+        }
+    }
+
+    Component.onCompleted: loadBluetoothPreference()
 }

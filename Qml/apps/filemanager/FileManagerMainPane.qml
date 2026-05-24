@@ -24,6 +24,7 @@ Rectangle {
         FileManagerTabBar {
             Layout.fillWidth: true
             Layout.preferredHeight: Theme.controlHeightRegular
+            Layout.rightMargin: Theme.metric("spacingMd")
             hostRoot: root.hostRoot
             tabModel: root.tabModel
         }
@@ -128,7 +129,9 @@ Rectangle {
         FileManagerFooterBar {
             Layout.fillWidth: true
             Layout.preferredHeight: Theme.fileManagerStatusBarHeight
-            Layout.bottomMargin: 4
+            Layout.leftMargin: Theme.metric("spacingSm")
+            Layout.rightMargin: Theme.metric("spacingLg")
+            Layout.bottomMargin: Theme.metric("spacingXs")
             hostRoot: root.hostRoot
         }
     }

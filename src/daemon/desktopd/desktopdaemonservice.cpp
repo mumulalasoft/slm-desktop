@@ -1,7 +1,7 @@
 #include "desktopdaemonservice.h"
 
-#include "../../../dbuslogutils.h"
-#include "../../../appmodel.h"
+#include "../../core/utils/dbuslogutils.h"
+#include "../../core/appmodel.h"
 #include "daemonhealthmonitor.h"
 #include "../../core/workspace/spacesmanager.h"
 #include "../../core/workspace/windowingbackendmanager.h"
@@ -48,6 +48,8 @@ DesktopDaemonService::DesktopDaemonService(WorkspaceManager *workspaceManager,
                 this, &DesktopDaemonService::WorkspaceChanged);
         connect(m_workspaceManager, &WorkspaceManager::WindowAttention,
                 this, &DesktopDaemonService::WindowAttention);
+        connect(m_workspaceManager, &WorkspaceManager::AppGridRequested,
+                this, &DesktopDaemonService::AppGridRequested);
     }
     if (m_windowingBackend) {
         connect(m_windowingBackend, &WindowingBackendManager::backendChanged,
@@ -365,14 +367,14 @@ void DesktopDaemonService::SwitchWorkspaceByDelta(int delta)
                       {QStringLiteral("delta"), delta}});
 }
 
-bool DesktopDaemonService::MoveWindowToWorkspace(const QVariant &window, int index)
+bool DesktopDaemonService::MoveWindowToWorkspace(const QDBusVariant &window, int index)
 {
     if (!checkPermission(Slm::Permissions::Capability::WorkspaceManage, QStringLiteral("MoveWindowToWorkspace"))) {
         return false;
     }
     const QString requestId = SlmDbusLog::nextRequestId();
     const QString caller = calledFromDBus() ? message().service() : QString();
-    const bool ok = m_workspaceManager && m_workspaceManager->MoveWindowToWorkspace(window, index);
+    const bool ok = m_workspaceManager && m_workspaceManager->MoveWindowToWorkspace(window.variant(), index);
     SlmDbusLog::logEvent(QString::fromLatin1(kService),
                      QStringLiteral("MoveWindowToWorkspace"),
                      requestId,

@@ -516,14 +516,22 @@ QVariantMap FileManagerApi::copyPaths(const QVariantList &sourcePaths,
         return makeResult(false, QStringLiteral("invalid-path"));
     }
     QVariantMap last = makeResult(true);
+    QVariantList copiedTargets;
+    copiedTargets.reserve(paths.size());
     for (const QString &src : paths) {
         const QString dst = uniqueTargetPathFs(dir, QFileInfo(src).fileName());
         last = copyPath(src, dst, overwrite);
         if (!last.value(QStringLiteral("ok")).toBool()) {
             return last;
         }
+        copiedTargets.push_back(last.value(QStringLiteral("to")));
     }
-    return makeResult(true, QString(), {{QStringLiteral("count"), paths.size()}});
+    QVariantMap extra{{QStringLiteral("count"), paths.size()},
+                      {QStringLiteral("paths"), copiedTargets}};
+    if (!copiedTargets.isEmpty()) {
+        extra.insert(QStringLiteral("to"), copiedTargets.constLast());
+    }
+    return makeResult(true, QString(), extra);
 }
 
 QVariantMap FileManagerApi::movePath(const QString &sourcePath,

@@ -2,7 +2,630 @@
 
 > Canonical session summary: `docs/SESSION_STATE.md`
 
+## REFINE PULSE CONTEXT MODE LAYOUT - STOP USING SINGLE LISTVIEW
+
+Tujuan: merombak layout UI Pulse Context Mode agar tidak lagi menggunakan satu ListView vertikal untuk semua hasil. Pulse berjalan di area AppDeck yang lebar, sehingga layout harus memanfaatkan ruang horizontal dengan lebih efektif.
+
+==================================================
+1. MASALAH YANG HARUS DIPERBAIKI
+==================================================
+
+Implementasi saat ini menampilkan hampir semua hasil Pulse dalam satu ListView vertikal.
+Ini dianggap gagal secara UX karena:
+- membuang area horizontal yang lebar
+- membuat scanning hasil lambat
+- tidak memberi hierarchy visual yang jelas
+- semua tipe hasil terasa setara
+- best match tenggelam dalam list
+- files, apps, actions, recent dicampur dalam pola baca linear
+
+JANGAN lanjut mempertahankan single vertical ListView sebagai layout utama di Pulse Context Mode.
+
+==================================================
+2. TUJUAN LAYOUT BARU
+==================================================
+
+Pulse Context Mode harus terasa seperti:
+- intelligent result surface
+- dashboard hasil intent
+- adaptive structured search space
+
+Bukan:
+- list hasil panjang
+- popup search biasa
+- file picker
+- launchpad + search bar
+
+==================================================
+3. PRINSIP LAYOUT BARU
+==================================================
+
+Gunakan layout campuran:
+- Best Match besar di atas
+- Section hasil di bawah
+- gunakan 2 kolom pada area lebar
+- gunakan fallback 1 kolom pada area sempit
+
+Prinsip:
+- hasil tidak dibaca linear saja
+- hasil harus dipindai per kelompok
+- area lebar harus dipakai untuk multi-section layout
+
+==================================================
+4. STRUKTUR UI BARU WAJIB
+==================================================
+
+Pulse Context Mode harus terdiri dari:
+
+A. Query Header
+- icon Pulse
+- input
+- clear / close action
+- keyboard hint opsional
+
+B. Best Match Hero
+- hasil terbaik tampil besar
+- bukan item list biasa
+- tampil di bagian atas
+
+C. Results Sections Area
+- area utama hasil
+- gunakan layout 2 kolom jika lebar cukup
+- gunakan layout 1 kolom jika sempit
+
+D. Footer Hints opsional
+- Enter to open
+- Esc to close
+- arrows to navigate
+
+==================================================
+5. SECTION LAYOUT YANG DIWAJIBKAN
+==================================================
+
+Minimal gunakan section berikut jika data tersedia:
+- Applications
+- Files
+- Actions
+- Recent / Suggestions
+
+Aturan:
+- Best Match tampil terpisah
+- Applications jangan dicampur dalam list yang sama dengan Files
+- Files harus punya ruang subtitle/path lebih lebar
+- Actions tampil ringkas
+- Recent/Suggestions bisa di section samping
+
+==================================================
+6. LAYOUT RESPONSIVE WAJIB
+==================================================
+
+Jika AppDeck context area lebar:
+- gunakan 2 kolom
+
+Contoh:
+kolom kiri:
+- Applications
+- Actions
+
+kolom kanan:
+- Files
+- Recent / Suggestions
+
+Jika lebar sedang:
+- gunakan 1 kolom tetapi tetap dengan section terpisah
+
+Jika lebar sempit:
+- boleh fallback ke list terstruktur per section
+
+Catatan:
+ListView tunggal hanya boleh jadi fallback responsive, bukan layout utama default.
+
+==================================================
+7. BEST MATCH HERO WAJIB DIPISAH
+==================================================
+
+Best Match harus:
+- tampil sebagai card utama
+- lebih besar dari item lain
+- punya hierarchy kuat
+- bisa memuat icon, title, subtitle, type badge
+
+JANGAN:
+- menaruh best match di urutan pertama ListView biasa
+
+==================================================
+8. KOMPONEN QML YANG HARUS DIBUAT / DIREFACTOR
+==================================================
+
+Buat/refactor komponen berikut:
+
+appdeck/
+  AppDeckContextView.qml
+  PulseQueryHeader.qml
+  PulseBestMatchCard.qml
+  PulseResultsDashboard.qml
+  PulseResultsColumn.qml
+  PulseResultsSection.qml
+  PulseResultItem.qml
+  PulseFileResultItem.qml
+  PulseActionResultItem.qml
+  PulseEmptyState.qml
+  PulseNoResultState.qml
+  PulseFooterHints.qml
+
+==================================================
+9. STRUKTUR QML YANG DIHARAPKAN
+==================================================
+
+AppDeckContextView harus memakai struktur seperti ini:
+
+ColumnLayout
+ ├── PulseQueryHeader
+ ├── PulseBestMatchCard (visible if exists)
+ ├── Loader / Stack for:
+ │    ├── EmptyState
+ │    ├── NoResultState
+ │    └── ResultsDashboard
+ └── PulseFooterHints
+
+PulseResultsDashboard:
+- jika width cukup besar → 2 columns
+- jika tidak → 1 column
+
+==================================================
+10. CONTOH KOMPOSISI DASHBOARD
+==================================================
+
+Layout lebar:
+
+ResultsDashboard
+ ├── LeftColumn
+ │    ├── ApplicationsSection
+ │    └── ActionsSection
+ └── RightColumn
+      ├── FilesSection
+      └── RecentSection
+
+Layout sempit:
+
+ResultsDashboard
+ ├── ApplicationsSection
+ ├── FilesSection
+ ├── ActionsSection
+ └── RecentSection
+
+==================================================
+11. QML IMPLEMENTATION RULES
+==================================================
+
+JANGAN gunakan satu ListView untuk semua hasil campuran.
+
+WAJIB:
+- pecah results berdasarkan section/type
+- gunakan beberapa section component
+- tiap section boleh pakai Repeater, ListView kecil, atau Column
+- gunakan Flickable/ScrollView untuk keseluruhan area bila perlu
+- manfaatkan RowLayout/ColumnLayout/GridLayout responsif
+
+==================================================
+12. CONTOH TEKNIS YANG DIHARAPKAN
+==================================================
+
+Agent harus mengarah ke struktur seperti ini:
+
+- QueryHeader fixed di atas
+- BestMatchCard fixed di bawah header
+- Scrollable dashboard di bawahnya
+- Dashboard berisi 2 kolom jika width > threshold
+- masing-masing kolom berisi beberapa PulseResultsSection
+
+Threshold contoh:
+- if width >= 980 → two-column mode
+- else → single-column mode
+
+==================================================
+13. SECTION COMPONENT RULES
+==================================================
+
+PulseResultsSection harus:
+- punya title
+- punya spacing jelas
+- tidak memakai border keras
+- punya item count opsional
+- bisa diisi item delegate berbeda sesuai type
+
+Contoh section:
+- Applications memakai PulseResultItem
+- Files memakai PulseFileResultItem
+- Actions memakai PulseActionResultItem
+
+==================================================
+14. ITEM DIFFERENTIATION WAJIB
+==================================================
+
+Aplikasi, file, dan action tidak boleh dirender identik semua.
+
+Minimal:
+- app item: icon + title + running indicator opsional
+- file item: icon + title + path/subtitle lebih dominan
+- action item: compact, cepat dibaca, bisa ada shortcut hint
+
+==================================================
+15. EMPTY / NO RESULT STATE
+==================================================
+
+Jika query kosong:
+- tampilkan recent, suggestions, frequent apps
+- jangan area kosong
+
+Jika no results:
+- tampilkan no result state elegan
+- opsional tampilkan suggested alternatives
+- jangan dead-end
+
+==================================================
+16. INTERAKSI WAJIB
+==================================================
+
+Harus mendukung:
+- keyboard navigation
+- hover highlight
+- click/tap activate
+- Enter activate selected
+- Esc collapse
+- real-time rerender saat query berubah
+
+Selection logic:
+- best match bisa jadi default selection
+- arrow keys pindah antar item/section dengan masuk akal
+
+==================================================
+17. ANIMASI DAN TRANSISI
+==================================================
+
+Saat masuk context mode:
+- QueryHeader muncul halus
+- BestMatch card muncul lebih dulu
+- sections muncul bertahap ringan
+- tidak terasa seperti popup baru
+
+Saat hasil berubah:
+- hindari full refresh yang membuat layout “meloncat”
+- gunakan transisi opacity/position ringan
+
+==================================================
+18. DELIVERABLE WAJIB
+==================================================
+
+Agent harus memberikan:
+1. AppDeckContextView hasil refactor
+2. PulseResultsDashboard.qml
+3. minimal 3 section component
+4. best match card terpisah
+5. responsive layout logic
+6. fallback narrow layout
+7. contoh binding model per section
+8. interaction dasar keyboard/mouse
+
+==================================================
+19. VALIDATION CHECKLIST
+==================================================
+
+Implementasi dianggap benar jika:
+
+[ ] Tidak ada single ListView utama untuk semua hasil
+[ ] Best Match terpisah dari list biasa
+[ ] Ada grouping per section
+[ ] Area lebar memakai 2 kolom
+[ ] Ada fallback 1 kolom
+[ ] Files, apps, dan actions tampil berbeda
+[ ] Query header tetap jelas
+[ ] Empty state ada
+[ ] No result state ada
+[ ] UI terasa lebih efektif di area lebar
+[ ] Pulse context tidak terasa seperti popup search biasa
+
+==================================================
+20. PRINSIP AKHIR
+==================================================
+
+“Pulse Context Mode bukan list hasil.
+Pulse Context Mode adalah dashboard intent yang terstruktur.”
+
+“Lebar layar harus dipakai untuk hierarchy, bukan dihabiskan oleh satu kolom list.”
+
+END PROMPT
+
 ## Fokus Aktif (Prioritas Tinggi)
+
+### Stabilisasi Runtime Shell — Phase Lanjutan (D / E / F)
+
+Lanjutan dari commit `2b5fd71` (locale C.UTF-8 + opacity layer-shell + log `[kwin-backend]`). Audit codebase menunjukkan banyak item asli (D-Bus blanket watcher, kategori `slm.dbus`, `WaylandBootstrapManager`) sudah ditangani atau redundant. Scope berikut yang masih valid:
+
+#### D — D-Bus client recovery (focused, 2 file)
+
+- [x] `src/apps/settings/desktopsettingsclient.cpp` — `onNameOwnerChanged` sekarang membedakan departure vs arrival: pada departure (`newOwner.isEmpty()`) langsung delete `m_iface`, set `m_available=false`, emit `availableChanged`; pada arrival tetap `refresh()`.
+- [x] ~~`src/apps/settings/modules/network/firewallserviceclient.cpp`~~ — **NOT NEEDED**. Pemeriksaan ulang menunjukkan `onNameOwnerChanged` di line 847-884 sudah lengkap clear semua cached state (`m_appPolicies`, `m_ipPolicies`, `m_activeConnections`, `m_pendingPrompts`, `m_lastPromptEpochByKey`) + delete `m_iface` saat departure. Hook `NameOwnerChanged` global ke session bus, tidak terikat ke `m_iface`, jadi tidak perlu re-arm. Audit awal salah baca.
+
+Yang sudah cukup, **tidak perlu diutak-atik**:
+- `ClipboardServiceClient`, `AppStateClient`, `ContextClient`, `SessionStateClient` — sudah punya `QDBusServiceWatcher` + auto-refresh.
+- `AppIdentityClient`, `EnvServiceClient`, `LogServiceClient`, `SvcManagerClient` — fire-and-forget, watcher tidak relevan.
+- `DaemonHealthClient`, `CleanerServiceClient` — single snapshot atau manual hook sudah memadai.
+
+#### E — Q_LOGGING_CATEGORY (kwin + layershell saja)
+
+- [x] `src/core/utils/slmlogcategories.h` dibuat dengan `Q_DECLARE_LOGGING_CATEGORY(slmKwin)` + `Q_DECLARE_LOGGING_CATEGORY(slmLayershell)`. Definisi `slmKwin` di `kwinwaylandipcclient.cpp` (terpakai di 3 target build), `slmLayershell` di `wlrlayershell.cpp` (hanya `slm-desktop`).
+- [x] 5 call-site kwin → `qCInfo(slmKwin, ...)`:
+  - `src/core/workspace/kwinwaylandipcclient.cpp:54, 396`
+  - `src/core/workspace/kwinwaylandstatemodel.cpp:453, 1085`
+  - `src/core/workspace/windowingbackendmanager.cpp:140`
+- [x] 15 call-site layershell → `qCInfo(slmLayershell, ...)` / `qCWarning` / `qCDebug`:
+  - `src/core/wayland/layershell/appdeckbootstrapstate.cpp:70, 72, 85, 97, 109, 121, 137`
+  - `src/core/wayland/layershell/appdecklayerwindow.cpp:61, 102`
+  - `src/core/wayland/layershell/wlrlayershell.cpp:35, 39, 49, 56, 67, 109`
+- **Tidak dilakukan**: kategori `slm.dbus` — call-site tersebar di puluhan daemon (~70 sites), refactor besar dengan nilai rendah. Buka lagi hanya bila ada kebutuhan filter spesifik.
+
+#### F — WaylandBootstrapManager — DROPPED
+
+Tidak akan dikerjakan. Alasan eksplisit:
+- Qt Wayland plugin sudah bind `wl_seat`/`wl_output` saat `QGuiApplication` constructor return.
+- First consumer di `main.cpp:164` (`screenSummary()`) sudah defensive (handle `screens().isEmpty()`).
+- Handler existing `screenAdded/Removed/primaryScreenChanged` (`main.cpp:396-407`) sudah reaktif untuk hot-plug.
+- Layer-shell race utama sudah dibereskan di commit `cc73ba3` (expose-event filter — bukan timer polling).
+- Menambah parallel `wl_display` registry manager = duplikasi kerja Qt + risiko race dengan plugin internal.
+
+Buka kembali ke roadmap **HANYA** bila muncul bukti race konkrit pasca-`QGuiApplication` (mis. crash/null-deref pada konsumsi `screens()` atau input device).
+
+#### Acceptance criteria phase lanjutan
+
+- [x] D selesai: `desktopsettingsclient` clear stale state pada owner-departure (delete iface + flag m_available + emit signal); `firewallserviceclient` ternyata sudah benar (audit awal salah).
+- [x] E selesai: `slmlogcategories.h` dibuat; 20 call-site (5 kwin + 15 layershell) migrate ke `qC*` macro; runtime filter via `QT_LOGGING_RULES=slm.kwin=true;slm.layershell=true` berfungsi.
+- [x] F: tetap di-drop sampai bukti regresi muncul.
+
+### Implement SLM Pulse UI (Command-First, Non-Spotlight, Anti-Failure)
+
+OBJECTIVE:
+Bangun Pulse sebagai command surface + discovery system, bukan search bar dan bukan clone Spotlight.
+
+Pulse harus:
+- cepat, ringan, keyboard-first
+- punya multi-section UI
+- punya command mode
+- punya quick actions
+- terintegrasi dengan AppDeck, AppDeck, dan Crown
+
+Pulse BUKAN:
+- dialog search biasa
+- list vertikal panjang
+- launcher pengganti AppDeck
+
+--------------------------------------------------
+
+CORE UX MODEL:
+
+Ganti model list tunggal dengan multi-section layout:
+
+[ Input ]
+
+[ Top Result ]
+
+[ Quick Actions ]
+
+[ Apps ]   [ Files ]
+
+[ System / Commands ]
+
+WAJIB:
+- tidak boleh single vertical list
+- top result harus dominan
+- setiap section punya identitas
+
+--------------------------------------------------
+
+ARCHITECTURE:
+
+Gunakan single controller:
+
+PulseController:
+- isOpen
+- searchText
+- mode (idle / search / command)
+- focusedSection
+- focusedItem
+- results (grouped)
+
+Layer:
+- PulseLayer (overlay)
+- di atas AppDeck
+- tidak menutup Crown
+- tidak menutupi AppDeck sepenuhnya
+
+--------------------------------------------------
+
+COMPONENTS:
+
+- PulseLayer
+- PulseSurface
+- PulseInput
+- PulseTopResult
+- PulseSection
+- PulseGridSection
+- PulseListSection
+- PulseActionRow
+- PulseCommandPreview
+
+--------------------------------------------------
+
+MODES:
+
+1. Idle Mode (tanpa input):
+- recent apps
+- suggested apps
+- quick toggles (wifi, bluetooth, dark mode)
+
+2. Search Mode:
+- realtime update
+- highlight top result
+
+3. Command Mode:
+Trigger:
+- ">" atau "/"
+
+Contoh:
+> wifi off
+> open settings
+> shutdown
+
+WAJIB:
+- tampilkan preview aksi
+- tampilkan dampak aksi
+
+--------------------------------------------------
+
+RESULT SYSTEM:
+
+Ranking:
+1. exact match
+2. frequency
+3. recent
+4. keyword match
+5. context
+
+DILARANG:
+- urutan alfabet saja
+- hasil random
+
+--------------------------------------------------
+
+TOP RESULT:
+
+WAJIB:
+- lebih besar
+- highlight jelas
+- langsung actionable
+
+Contoh:
+App:
+- Open
+- Open Incognito
+- Pin to AppDeck
+
+--------------------------------------------------
+
+QUICK ACTION SYSTEM:
+
+Setiap item wajib punya aksi:
+
+App:
+- Open
+- Pin to AppDeck
+- Open new window
+
+File:
+- Open
+- Reveal
+- Copy path
+
+Setting:
+- Toggle langsung
+
+--------------------------------------------------
+
+KEYBOARD UX:
+
+- ↑ ↓ : navigasi item
+- Tab : pindah section
+- → : buka action
+- Enter : aksi utama
+- Shift+Enter : aksi alternatif
+- Esc : close
+
+WAJIB:
+- focus tidak hilang saat update
+- highlight jelas
+
+--------------------------------------------------
+
+VISUAL STYLE:
+
+Gunakan:
+- panel ringan, rounded
+- spacing lega
+- accent untuk focus
+
+Hindari:
+- list polos
+- UI sempit
+- blur berat
+- tampilan mirip Spotlight
+
+--------------------------------------------------
+
+ANIMATION:
+
+Open:
+- fade + scale (0.95 → 1.0)
+- <200ms
+
+Update:
+- smooth, tanpa flicker
+
+Close:
+- reverse animation
+
+--------------------------------------------------
+
+INTEGRATION:
+
+AppDeck:
+- launch update running state
+- bisa pin langsung
+
+AppDeck:
+- bisa buka kategori
+
+Crown:
+- toggle system update real-time
+
+--------------------------------------------------
+
+HARD RULES:
+
+DILARANG:
+- clone Spotlight
+- single list panjang
+- tanpa command mode
+- tanpa quick actions
+- delay saat buka
+
+WAJIB:
+- multi-section UI
+- command-first design
+- fast response
+- keyboard-first
+
+--------------------------------------------------
+
+CHECKLIST:
+
+- [ ] bukan Spotlight clone
+- [x] multi-section layout
+- [x] command mode ada
+- [x] top result dominan
+- [x] quick actions ada
+- [x] idle mode ada
+- [x] keyboard navigation lengkap
+- [ ] tidak ada flicker
+- [x] integrasi AppDeck jalan
+
+--------------------------------------------------
+
+SUCCESS:
+
+Pulse terasa seperti:
+- pusat kontrol cepat
+- sistem pintar
+- bukan search biasa
 
 ### Storage & Automount
 - [ ] QA cold reboot penuh (bukan hanya restart service) untuk persistence policy mount/automount.
@@ -10,6 +633,70 @@
 
 ### Startup Performance Desktop
 - [ ] Turunkan waktu `qml.load.begin -> main.onCompleted` dengan profiling terarah per komponen.
+
+### Cleaner System SLM (Freedesktop Compliant)
+- [ ] Definisikan kontrak produk Cleaner sebagai **system-aware cleaner** (deterministic, safe, reversible jika memungkinkan).
+- [ ] Tetapkan kepatuhan wajib:
+  - [ ] XDG Base Directory Spec (`$XDG_CACHE_HOME`, default `~/.cache`).
+  - [ ] Freedesktop Thumbnail Managing Standard (`~/.cache/thumbnails/{normal,large,x-large,xx-large,fail}`).
+- [ ] Tegakkan strict safety guardrail:
+  - [ ] Tidak pernah menghapus `~/.config` dan `~/.local/share`.
+  - [ ] Tidak ada hardcoded path di luar XDG resolve.
+  - [ ] Tidak ada `rm -rf` tanpa filter terverifikasi.
+  - [ ] Hindari penghapusan file aktif / race-condition.
+- [ ] Buat daemon `slm-cleanerd` dengan struktur modul:
+  - [ ] `scanner/`
+  - [ ] `analyzer/`
+  - [ ] `cleaner/`
+  - [ ] `policy/`
+  - [ ] `api/`
+- [ ] Implement Scanner (async, non-blocking UI):
+  - [ ] Scan seluruh subtree `$XDG_CACHE_HOME`.
+  - [ ] Hasilkan metadata per folder: ukuran, jumlah file, last access time.
+- [ ] Implement Analyzer:
+  - [ ] Kelompok `thumbnail` (`$XDG_CACHE_HOME/thumbnails/*`).
+  - [ ] Kelompok `failed_thumbnail` (`$XDG_CACHE_HOME/thumbnails/fail`).
+  - [ ] Kelompok `app_cache` (selain thumbnails).
+  - [ ] Hasilkan output agregat size/files/grouping untuk UI preview.
+- [ ] Implement Cleaner Engine:
+  - [ ] Clear thumbnail cache.
+  - [ ] Clear failed thumbnail cache.
+  - [ ] Clear selected app cache (selective per app/folder).
+  - [ ] Mode `Full Clean`.
+  - [ ] Mode `Age-based Clean` (>X hari).
+  - [ ] Mode `Smart Clean` (unused lama, ukuran besar, corrupted).
+- [ ] Implement Safety System runtime:
+  - [ ] File existence check sebelum delete.
+  - [ ] Permission check + error mapping.
+  - [ ] Skip file yang sedang digunakan.
+  - [ ] Logging ke `~/.local/share/slm/logs/cleaner.log`.
+- [ ] Implement Policy module:
+  - [ ] Simpan/ambil config `auto_clean`, `max_cache_size_mb`, `delete_after_days`.
+  - [ ] Validasi nilai policy dan fallback default aman.
+- [ ] Integrasi UI Settings:
+  - [ ] Lokasi: `Settings > System > Storage > Cleaner`.
+  - [ ] Tombol Scan.
+  - [ ] Result view (thumbnail, failed thumbnail, daftar app cache).
+  - [ ] Aksi per kategori (`Clear All`, `Clear > 7 days`, checklist app).
+  - [ ] Preview total size sebelum delete.
+  - [ ] Progress indicator real-time.
+  - [ ] Smart suggestion (mis. thumbnail > 500MB, unused cache detected).
+- [ ] Integrasi sistem:
+  - [ ] Gunakan GIO untuk operasi file.
+  - [ ] Gunakan GLib untuk directory scan.
+  - [ ] Jalankan task async/batched delete agar tidak freeze.
+- [ ] Test wajib:
+  - [ ] Cache besar (>1GB).
+  - [ ] File sedang digunakan.
+  - [ ] Folder kosong.
+  - [ ] Permission denied.
+  - [ ] Partial delete.
+- [ ] Acceptance criteria:
+  - [ ] `slm-cleanerd` stabil.
+  - [ ] UI cleaner mendukung scan, preview, selective clean.
+  - [ ] Tidak menghapus data penting.
+  - [ ] Cache berkurang terukur.
+  - [ ] Lolos compliance XDG/Freedesktop.
 
 ---
 
@@ -42,7 +729,7 @@
 - [ ] Hardening multi-monitor behavior.
 
 ## Parking Lot (Tidak Aktif Sekarang)
-- Struktur Dock: **dibekukan** pada state "last good" sampai siklus pengujian berikutnya.
+- Struktur AppDeck: **dibekukan** pada state "last good" sampai siklus pengujian berikutnya.
 - Rencana refactor arsitektur shell yang besar: lanjut setelah milestone stabilitas/firewall tercapai.
 
 ---
@@ -359,3 +1046,755 @@ Agent MUST produce:
 * ALWAYS provide at least one working graphical path
 
 END.
+
+---
+
+## NEW SECTION — Desktop View As Core System Component
+
+Implement a Desktop View system as a core part of the shell architecture.
+
+This is NOT a visual feature.
+This is a SYSTEM COMPONENT.
+
+The Desktop View MUST be implemented as a File Manager instance rendering the directory ~/Desktop.
+
+---
+
+========================================
+CORE RULE (NON-NEGOTIABLE)
+========================================
+
+Desktop View = FileManager instance (path: ~/Desktop)
+
+NOT:
+- wallpaper layer
+- fallback UI
+- special empty state
+- static icon renderer
+
+FAIL if:
+- Desktop does not use FileManager backend
+- Menu is not coming from FileManager
+- Desktop has no real filesystem binding
+
+---
+
+========================================
+ARCHITECTURE OVERVIEW
+========================================
+
+You MUST implement these components:
+
+1. DesktopSurface (QML layer)
+2. FileManager Backend (core logic)
+3. DesktopViewController (state manager)
+4. DesktopMenuProvider (menu source)
+5. Integration with global-menud
+
+---
+
+========================================
+1. DESKTOP SURFACE (QML)
+========================================
+
+Responsibilities:
+- Render icons from ~/Desktop
+- Handle mouse interaction:
+  - click
+  - selection
+  - drag
+  - context menu trigger
+- Display grid layout
+
+Constraints:
+- MUST NOT be a normal window
+- MUST be part of shell scene
+- MUST sit above wallpaper and below application windows
+
+FAIL if:
+- DesktopSurface is implemented as a standalone window
+- Uses WindowStaysOnTopHint
+- Competes with app windows in stacking
+
+---
+
+========================================
+2. FILE MANAGER BACKEND (REQUIRED)
+========================================
+
+Responsibilities:
+- Read directory ~/Desktop
+- Track file list
+- Track selection
+- Provide actions (open, rename, delete, etc.)
+- Provide menu data
+
+Must be reusable:
+- same backend used for:
+  - desktop view
+  - file manager window
+
+FAIL if:
+- Desktop uses custom logic separate from FileManager
+- Logic duplicated between desktop and file manager
+
+---
+
+========================================
+3. DESKTOP VIEW CONTROLLER
+========================================
+
+Responsibilities:
+- Bind FileManager to DesktopSurface
+- Maintain state:
+
+State:
+- path = ~/Desktop
+- mode = desktop_view
+- selection = list of selected items
+
+Must emit:
+- selectionChanged
+- directoryChanged
+
+---
+
+========================================
+4. DESKTOP MENU PROVIDER (CRITICAL)
+========================================
+
+You MUST implement a MenuProvider for Desktop View.
+
+Definition:
+
+DesktopMenuProvider:
+  appId: filemanager
+  role: desktop_view
+  path: ~/Desktop
+  selection: currentSelection
+
+This provider is used by global-menud.
+
+FAIL if:
+- Desktop menu is hardcoded
+- Desktop menu is fallback menu
+- Menu not based on selection
+
+---
+
+========================================
+5. GLOBAL MENU INTEGRATION
+========================================
+
+Rules:
+
+IF active window exists:
+    use window.menuProvider
+
+ELSE:
+    use DesktopMenuProvider
+
+This is REQUIRED.
+
+FAIL if:
+- Menu disappears when no app is active
+- Menu switches to fallback instead of DesktopMenuProvider
+
+---
+
+========================================
+6. MENU BEHAVIOR (DYNAMIC)
+========================================
+
+Menu MUST change based on selection.
+
+Case 1: No selection
+- New Folder
+- Open Terminal Here
+
+Case 2: Single file selected
+- Open
+- Rename
+- Compress
+- Move to Trash
+- Properties
+
+Case 3: Multiple selection
+- Compress
+- Move to Trash
+
+FAIL if:
+- Menu is static
+- Selection has no effect
+
+---
+
+========================================
+7. DATA MODEL (REQUIRED)
+========================================
+
+FileItem:
+- path
+- name
+- type
+- icon
+- isExecutable
+- isHidden
+
+DesktopState:
+- path = ~/Desktop
+- items = list<FileItem>
+- selection = list<FileItem>
+
+MenuContext:
+- selectionCount
+- selectionTypes
+
+---
+
+========================================
+8. Z-ORDER (STRICT)
+========================================
+
+Layer order:
+
+Crown > AppDeck > AppDeck > Windows > DesktopSurface > Wallpaper
+
+FAIL if:
+- Desktop overlaps windows
+- Desktop hidden behind wallpaper
+- Menu appears behind desktop
+
+---
+
+========================================
+9. INTERACTION MODEL
+========================================
+
+- Clicking desktop:
+  → Desktop becomes active context
+
+- Clicking icon:
+  → updates selection
+  → updates menu
+
+- Double click:
+  → open file
+
+- Right click:
+  → context menu (optional, separate from global menu)
+
+---
+
+========================================
+10. RESILIENCE (UNBREAKABLE)
+========================================
+
+Must handle:
+
+- ~/Desktop missing → recreate
+- FileManager crash → restart backend
+- MenuProvider unavailable → retry
+
+Fallback menu is ONLY allowed if:
+- FileManager backend fails completely
+
+---
+
+========================================
+11. PERFORMANCE
+========================================
+
+- No blocking IO on UI thread
+- Use async file listing
+- Incremental updates
+
+---
+
+========================================
+12. FORBIDDEN IMPLEMENTATIONS
+========================================
+
+DO NOT:
+
+- Create Desktop as fake UI without FS binding
+- Use static list of icons
+- Hardcode menu items
+- Treat Desktop as empty state
+- Skip FileManager backend
+
+---
+
+========================================
+SUCCESS CRITERIA
+========================================
+
+Implementation is valid ONLY if:
+
+- Desktop renders real files from ~/Desktop
+- Menu comes from FileManager (not fallback)
+- Menu changes based on selection
+- Desktop behaves like an application context
+- Global menu works even when no app is open
+
+---
+
+FINAL STATEMENT:
+
+Desktop View MUST behave as:
+FileManager(path=~/Desktop, mode=desktop_view)
+
+Anything else is INVALID.
+
+---
+
+## Desktop View Spatial Placement Program (Qt/QML)
+
+### Scope dan Tujuan Produk
+- [ ] Desktop View menjadi icon layer modern di atas wallpaper.
+- [ ] User dapat memindah icon ke area kosong mana saja secara bebas.
+- [ ] Posisi icon stabil, tidak lompat-lompat.
+- [ ] Perubahan isi `~/Desktop` tersinkron otomatis.
+- [ ] Drop dari AppDeck dan AppDeck membuat shortcut valid lalu ditempatkan ke slot kosong yang legal.
+- [ ] Re-arrange otomatis/manual tersedia.
+- [ ] Siap untuk perubahan ukuran layar, work area, scale factor, dan jalur multi-monitor.
+
+### Kontrak Arsitektur Wajib
+- [ ] Buat `DesktopView.qml` sebagai root desktop icon layer.
+- [ ] Buat `DesktopItem.qml` untuk render icon+label+state interaksi.
+- [ ] Sediakan `DesktopModel` dengan field minimum:
+  - [ ] `id`
+  - [ ] `filePath`
+  - [ ] `displayName`
+  - [ ] `iconName` / `iconSource`
+  - [ ] `itemType`
+  - [ ] `screenId` / `monitorId`
+  - [ ] `cellX` / `cellY`
+  - [ ] `posX` / `posY`
+  - [ ] `isPinnedPosition`
+  - [ ] `lastKnownOrder`
+  - [ ] `sourceType`
+  - [ ] `mtime` / `version`
+- [ ] Buat `DesktopPlacementEngine` sebagai satu-satunya source of truth posisi.
+- [ ] Buat `DesktopFileWatcher` untuk event add/remove/rename/move/metadata + debounce.
+- [ ] Buat `DesktopShortcutImporter` untuk drop AppDeck/AppDeck.
+- [ ] Buat `DesktopPositionStore` untuk persist posisi restart-safe.
+
+### Larangan Implementasi (Hard Rule)
+- [ ] Jangan gunakan `GridView`/`Grid`/`Flow` sebagai source of truth posisi.
+- [ ] Jangan gunakan index delegate sebagai posisi item desktop.
+- [ ] Repeater hanya boleh untuk render; `x/y` harus dari PlacementEngine.
+- [ ] Posisi logis utama harus `cellX/cellY`, bukan truthy/falsy index.
+
+### Desain Grid Logis (Virtual Grid)
+- [ ] Definisikan `cellWidth` dan `cellHeight` tetap.
+- [ ] Definisikan `workArea` valid (exclude crown + reserved margins + policy appdeck overlap).
+- [ ] Hitung `columns = max(1, floor(workAreaWidth / cellWidth))`.
+- [ ] Hitung `rows = max(1, floor(workAreaHeight / cellHeight))`.
+- [ ] Validasi cell:
+  - [ ] `Number.isInteger(cellX)`
+  - [ ] `Number.isInteger(cellY)`
+  - [ ] `cellX >= 0 && cellX < columns`
+  - [ ] `cellY >= 0 && cellY < rows`
+- [ ] Render posisi:
+  - [ ] `x = workArea.x + cellX * cellWidth`
+  - [ ] `y = workArea.y + cellY * cellHeight`
+
+### Bugfix Kritis Row 0 / Column 0
+- [ ] Audit semua validasi koordinat, hilangkan pola truthy/falsy.
+- [ ] Pastikan tidak ada kondisi seperti:
+  - [ ] `if (cellX && cellY)`
+  - [ ] `if (!row || !column)`
+  - [ ] `if (item.row && item.column)`
+- [ ] Gunakan sentinel `-1` atau `null` untuk posisi unset.
+- [ ] Jangan pernah gunakan `0` sebagai tanda uninitialized.
+- [ ] Tambah test eksplisit untuk cell `(0,0)`, `(0,1)`, `(1,0)`, `(1,1)`.
+
+### Placement Engine API Minimum
+- [ ] `computeGrid()`
+- [ ] `firstFreeCell()`
+- [ ] `nearestFreeCell()`
+- [ ] `canPlace(cellX, cellY)`
+- [ ] `placeItem(itemId, cellX, cellY)`
+- [ ] `moveItem(itemId, targetCellX, targetCellY)`
+- [ ] `rearrange(mode)`
+- [ ] `reflowOnGeometryChange()`
+- [ ] `resolveCollisions()`
+- [ ] Deterministik untuk input state yang sama.
+
+### Alur Sinkronisasi Filesystem
+- [ ] Startup:
+  - [ ] Scan `~/Desktop`
+  - [ ] Load persisted positions
+  - [ ] Tempatkan item valid pada posisi tersimpan
+  - [ ] Item tanpa posisi masuk `firstFreeCell()`
+- [ ] File baru: insert model + place slot kosong + persist.
+- [ ] File hapus: remove model + kosongkan occupancy.
+- [ ] Rename/move: pertahankan posisi bila identity masih match.
+- [ ] Tangani atomic rename agar tidak menimbulkan ghost duplicate.
+
+### Integrasi AppDeck dan AppDeck
+- [ ] Definisikan payload drag internal:
+  - [ ] `application/x-slm-app-entry`
+  - [ ] `application/x-slm-desktop-item`
+  - [ ] `text/uri-list` bila relevan
+- [ ] Payload minimum:
+  - [ ] `appId`
+  - [ ] `desktopFilePath`
+  - [ ] `iconName`
+  - [ ] `displayName`
+  - [ ] `exec`
+  - [ ] `source`
+- [ ] Validasi payload sebelum create shortcut.
+- [ ] Buat shortcut aman (`.desktop` wrapper bila perlu).
+- [ ] Tempatkan ke target cell / nearest free cell.
+- [ ] Persist posisi dan refresh model inkremental.
+
+### Re-arrange dan Snap
+- [ ] Implement action:
+  - [ ] Sort by Name
+  - [ ] Sort by Type
+  - [ ] Sort by Date Modified
+  - [ ] Snap to Grid
+  - [ ] Clean Up Desktop
+- [ ] Semua operasi re-arrange wajib lewat PlacementEngine.
+- [ ] Fill mode minimal:
+  - [ ] `vertical-first`
+  - [ ] `horizontal-first`
+- [ ] Anchor minimal:
+  - [ ] `top-left`
+  - [ ] `top-right`
+  - [ ] `bottom-left`
+  - [ ] `bottom-right`
+
+### Interaksi Drag & Drop
+- [ ] Drag preview jelas (ghost/placeholder).
+- [ ] Target cell di-highlight saat drag.
+- [ ] Snap preview ke grid.
+- [ ] Commit posisi hanya saat drop, bukan per pixel.
+- [ ] Drop invalid area harus revert ke posisi awal.
+
+### Persistensi Posisi
+- [ ] Simpan `identityKey`, `canonicalPath`, `cellX`, `cellY`, `monitor/workArea signature`, `timestamp`.
+- [ ] Restore posisi saat restart shell.
+- [ ] Clamp/remap saat grid berubah (resolusi/work area/scale).
+- [ ] Jika slot tidak valid, gunakan `nearestFreeCell`.
+
+### Checklist Uji Wajib
+- [ ] Item pertama di `(0,0)` tampil benar.
+- [ ] Drag item ke row `0` berhasil.
+- [ ] Drag item ke column `0` berhasil.
+- [ ] Drop shortcut dari AppDeck ke desktop berhasil.
+- [ ] Drop shortcut dari AppDeck ke desktop berhasil.
+- [ ] File baru di `~/Desktop` muncul otomatis.
+- [ ] File dihapus dari `~/Desktop` hilang otomatis.
+- [ ] Restart shell mempertahankan posisi.
+- [ ] Resize/resolution change tidak menumpuk item di `(0,0)`.
+- [ ] Tidak ada item hilang karena koordinat `0` dianggap falsy.
+- [ ] Re-arrange tidak merusak posisi item.
+- [ ] Snap to Grid tidak menyebabkan overlap.
+
+### Deliverable Implementasi
+- [ ] Penjelasan arsitektur singkat.
+- [ ] Struktur file komponen.
+- [ ] Implementasi `DesktopView.qml`.
+- [ ] Implementasi `DesktopItem.qml`.
+- [ ] Implementasi `DesktopPlacementEngine` (C++ preferred, JS helper acceptable jika rapi).
+- [ ] Integrasi watcher `~/Desktop`.
+- [ ] Integrasi drop AppDeck dan AppDeck.
+- [ ] Integrasi penyimpanan posisi persisten.
+- [ ] Checklist bugfix row 0 / column 0.
+- [ ] Skenario test manual.
+
+### Milestone Eksekusi (M1/M2/M3)
+
+#### M1 - Fondasi Spatial Placement (Target: Week 1)
+- [ ] Buat `DesktopPlacementEngine` deterministik + occupancy map 2D.
+- [ ] Buat `DesktopView.qml` tanpa `GridView/Grid/Flow` sebagai source posisi.
+- [ ] Buat `DesktopItem.qml` (render, select, hover, drag state).
+- [ ] Implement virtual grid metrics (`cellWidth`, `cellHeight`, `workArea`, `columns`, `rows`).
+- [ ] Implement render absolut `x/y` dari `cellX/cellY`.
+- [ ] Tambah guard koordinat eksplisit (`>= 0`, integer, within bounds).
+- [ ] DoD M1:
+  - [ ] Item `(0,0)` selalu tampil.
+  - [ ] Tidak ada validasi truthy/falsy untuk koordinat.
+  - [ ] Drag ke row 0/column 0 valid.
+
+#### M2 - Sinkronisasi FS + Persistensi + DnD Integrasi (Target: Week 2)
+- [ ] Implement `DesktopFileWatcher` debounced (100-300ms).
+- [ ] Implement `DesktopPositionStore` (identity stabil + restore posisi).
+- [ ] Implement startup flow: scan desktop -> load posisi -> resolve collision -> place missing.
+- [ ] Integrasi drop payload AppDeck (`application/x-slm-app-entry`).
+- [ ] Integrasi drop payload AppDeck (`application/x-slm-desktop-item`).
+- [ ] Implement `DesktopShortcutImporter` + pembuatan shortcut aman.
+- [ ] DoD M2:
+  - [ ] File add/remove/rename/move di `~/Desktop` sinkron tanpa full reset.
+  - [ ] Restart shell mempertahankan posisi.
+  - [ ] Drop AppDeck/AppDeck membuat item valid dan langsung terpasang.
+
+#### M3 - Re-arrange, Hardening, QA (Target: Week 3)
+- [ ] Implement `Snap to Grid` dan `Clean Up Desktop`.
+- [ ] Implement sort: Name, Type, Date Modified lewat PlacementEngine.
+- [ ] Implement `reflowOnGeometryChange()` untuk resize/scale/workarea changes.
+- [ ] Tambahkan test manual checklist penuh + regression guard row/column 0.
+- [ ] Hardening edge case: atomic rename, burst FS events, collision recovery.
+- [ ] DoD M3:
+  - [ ] Tidak ada selisih jumlah render vs isi `~/Desktop`.
+  - [ ] Tidak ada item hilang di row 0 / column 0.
+  - [ ] Re-arrange dan snap stabil tanpa overlap.
+
+### Owner dan Estimasi (Hari Kerja)
+
+#### M1 - Owner Matrix
+- [ ] `DesktopPlacementEngine` (C++).
+  - Owner: Core Shell Engineer
+  - Estimasi: 2.5 hari
+- [ ] `DesktopView.qml` (absolute placement + interaction container).
+  - Owner: QML UI Engineer
+  - Estimasi: 2 hari
+- [ ] `DesktopItem.qml` (icon, label, hover/select/drag visual).
+  - Owner: QML UI Engineer
+  - Estimasi: 1.5 hari
+- [ ] Guard koordinat + bugfix row/column 0 audit.
+  - Owner: Core Shell Engineer
+  - Estimasi: 1 hari
+- [ ] Integrasi dasar engine <-> view + smoke test.
+  - Owner: Core Shell Engineer + QA Engineer
+  - Estimasi: 1 hari
+- [ ] Total estimasi M1.
+  - Owner: Team Desktop View
+  - Estimasi: 8 hari
+
+#### M2 - Owner Matrix
+- [ ] `DesktopFileWatcher` + debounce + event classifier.
+  - Owner: Platform/Filesystem Engineer
+  - Estimasi: 1.5 hari
+- [ ] `DesktopPositionStore` + restore migration path.
+  - Owner: Platform/Filesystem Engineer
+  - Estimasi: 1.5 hari
+- [ ] Startup reconciliation flow (scan/load/place/collision).
+  - Owner: Core Shell Engineer
+  - Estimasi: 1.5 hari
+- [ ] `DesktopShortcutImporter` + shortcut creation policy.
+  - Owner: Integration Engineer
+  - Estimasi: 1.5 hari
+- [ ] Integrasi drop payload AppDeck + AppDeck.
+  - Owner: Integration Engineer + QML UI Engineer
+  - Estimasi: 1 hari
+- [ ] Regression pass sinkronisasi `~/Desktop`.
+  - Owner: QA Engineer
+  - Estimasi: 1 hari
+- [ ] Total estimasi M2.
+  - Owner: Team Desktop View
+  - Estimasi: 8 hari
+
+#### M3 - Owner Matrix
+- [ ] Re-arrange actions (sort/snap/cleanup) via PlacementEngine.
+  - Owner: Core Shell Engineer
+  - Estimasi: 2 hari
+- [ ] Geometry reflow (resize, scale factor, work area changes).
+  - Owner: Core Shell Engineer
+  - Estimasi: 1.5 hari
+- [ ] Hardening edge case (atomic rename, burst event, collision recovery).
+  - Owner: Platform/Filesystem Engineer
+  - Estimasi: 1.5 hari
+- [ ] Full manual checklist execution + bug triage.
+  - Owner: QA Engineer
+  - Estimasi: 2 hari
+- [ ] Stabilization fixes dari hasil QA.
+  - Owner: Team Desktop View
+  - Estimasi: 1 hari
+- [ ] Total estimasi M3.
+  - Owner: Team Desktop View
+  - Estimasi: 8 hari
+
+#### Ringkasan Durasi Program
+- [ ] Total estimasi implementasi + hardening.
+  - Owner: Tech Lead Desktop
+  - Estimasi: 24 hari kerja (3 milestone x 8 hari)
+- [ ] Buffer risiko integrasi lintas komponen.
+  - Owner: Tech Lead Desktop
+  - Estimasi: 3-5 hari kerja tambahan
+
+### Kanban Ringkas (Harian)
+
+#### Backlog
+- [ ] P0 - M1: `DesktopPlacementEngine` deterministik + occupancy map. (Owner: Core Shell Engineer)
+- [ ] P0 - M1: `DesktopView.qml` absolute placement tanpa `GridView/Grid/Flow`. (Owner: QML UI Engineer)
+- [ ] P0 - M1: Audit row 0 / column 0 (hapus truthy/falsy coordinate checks). (Owner: Core Shell Engineer)
+- [ ] P0 - M1: `DesktopItem.qml` state lengkap (select/hover/drag/rename-ready). (Owner: QML UI Engineer)
+- [ ] P1 - M2: `DesktopFileWatcher` debounced + event classifier. (Owner: Platform/Filesystem Engineer)
+- [ ] P1 - M2: `DesktopPositionStore` + restore/migration posisi. (Owner: Platform/Filesystem Engineer)
+- [ ] P1 - M2: `DesktopShortcutImporter` + drop AppDeck/AppDeck. (Owner: Integration Engineer)
+- [ ] P2 - M3: Re-arrange (sort/snap/cleanup) via PlacementEngine. (Owner: Core Shell Engineer)
+- [ ] P2 - M3: Geometry reflow hardening (resize/scale/workarea). (Owner: Core Shell Engineer)
+- [ ] P2 - M3: QA full checklist + stabilization. (Owner: QA Engineer)
+
+#### In Progress
+- [ ] Investigasi mismatch render init (`~/Desktop` jumlah 4, render 3) dengan fokus bug slot `row 0 / column 0`.
+  - Owner: Core Shell Engineer
+  - Target output: patch penempatan deterministik startup + verifikasi manual ulang.
+- [ ] Migrasi desktop surface ke source of truth placement engine (hilangkan ketergantungan posisi pada flow delegate grid bawaan).
+  - Owner: QML UI Engineer
+  - Target output: `DesktopView.qml` + `DesktopItem.qml` awal terintegrasi.
+- [ ] Definisikan kontrak payload drop AppDeck/AppDeck dan importer shortcut tunggal.
+  - Owner: Integration Engineer
+  - Target output: dokumen kontrak + adaptor import awal.
+
+#### Done
+- [x] Menambahkan program implementasi Desktop View spatial placement lengkap beserta checklist teknis.
+  - Artefak: `docs/TODO.md` section `Desktop View Spatial Placement Program (Qt/QML)`.
+- [x] Menambahkan milestone eksekusi `M1/M2/M3` + definition of done per fase.
+  - Artefak: `docs/TODO.md` section `Milestone Eksekusi (M1/M2/M3)`.
+- [x] Menambahkan owner matrix dan estimasi hari kerja.
+  - Artefak: `docs/TODO.md` section `Owner dan Estimasi (Hari Kerja)`.
+- [x] Menambahkan Kanban ringkas harian untuk tracking implementasi.
+  - Artefak: `docs/TODO.md` section `Kanban Ringkas (Harian)`.
+
+#### Blocked
+- [ ] Bug klasik render `row 0 / column 0` masih menyebabkan selisih jumlah item pada fase init.
+  - Sebab blokir: arsitektur render saat ini masih memadukan state slot-map lama dengan pipeline delegate berbasis grid visual.
+  - Mitigasi: percepat migrasi ke placement engine sebagai source of truth tunggal; startup placement wajib sekuensial-deterministik.
+  - ETA unblock: setelah delivery M1 + verifikasi checklist `(0,0)`.
+
+### Ritme Eksekusi Harian
+
+#### WIP Limit
+- [ ] Maksimal 3 item di `In Progress` dalam waktu bersamaan.
+- [ ] Minimal 1 item `P0` aktif sampai blocker utama (`row 0 / column 0`) closed.
+- [ ] Item baru tidak boleh masuk `In Progress` sebelum ada item selesai atau dipindah ke `Blocked`.
+
+#### Template Standup (Isi Harian)
+- [ ] Yesterday:
+  - [ ] Item yang selesai (link commit/PR/test).
+- [ ] Today:
+  - [ ] 1-3 item aktif (harus referensi ke Backlog P0/P1/P2).
+- [ ] Blockers:
+  - [ ] Hambatan teknis/depedensi dan owner unblock.
+- [ ] ETA:
+  - [ ] Perkiraan selesai item aktif.
+
+#### Aturan Update Board
+- [ ] Update `In Progress` saat mulai kerja (bukan akhir hari).
+- [ ] Update `Done` hanya jika ada bukti artefak (commit/PR/test pass).
+- [ ] Update `Blocked` maksimal 15 menit setelah hambatan teridentifikasi.
+- [ ] Review prioritas `P0/P1/P2` setiap akhir hari kerja.
+
+### Risk Register dan Mitigasi
+
+#### Risiko Teknis Utama
+- [ ] R1: Slot-map legacy menyebabkan posisi awal tidak deterministik.
+  - Dampak: Selisih jumlah render, item hilang di row/column 0.
+  - Mitigasi: startup sequential placement + migrasi map terkontrol + checksum placement state.
+  - Owner: Core Shell Engineer
+- [ ] R2: Event burst filesystem memicu race (add/remove/rename beruntun).
+  - Dampak: ghost item, duplicate, missing icon sementara.
+  - Mitigasi: debounce + coalescing event + reconciliation pass terjadwal.
+  - Owner: Platform/Filesystem Engineer
+- [ ] R3: Drag-drop AppDeck/AppDeck tidak konsisten payload.
+  - Dampak: shortcut gagal dibuat atau metadata tidak lengkap.
+  - Mitigasi: kontrak payload tunggal + validator + fallback wrapper policy.
+  - Owner: Integration Engineer
+- [ ] R4: Reflow saat resize/scale merusak posisi persist.
+  - Dampak: item tumpang tindih / melompat setelah perubahan geometri.
+  - Mitigasi: reflow deterministic + nearest free remap + test matrix resolusi.
+  - Owner: Core Shell Engineer
+
+#### Trigger Eskalasi
+- [ ] Jika mismatch render vs `~/Desktop` muncul 2 hari berturut-turut -> eskalasi ke Tech Lead.
+- [ ] Jika P0 tidak selesai sesuai target week 1 -> freeze pekerjaan P2 dan fokus P0/P1.
+- [ ] Jika test `(0,0)` gagal setelah merge -> rollback patch terakhir dan aktifkan hotfix branch.
+
+### Acceptance Gate per Milestone
+
+#### Gate M1 (Harus Lulus Semua)
+- [ ] Tidak ada penggunaan `GridView/Grid/Flow` sebagai source posisi.
+- [ ] Placement engine menjadi source of truth tunggal.
+- [ ] Test manual `(0,0)`, `(0,1)`, `(1,0)`, `(1,1)` lulus.
+- [ ] Drag ke row 0/column 0 lulus.
+- [ ] Bukti artefak:
+  - [ ] commit/PR
+  - [ ] hasil test/rekaman validasi
+
+#### Gate M2 (Harus Lulus Semua)
+- [ ] File watcher sinkron add/remove/rename/move tanpa full reset.
+- [ ] Posisi restart-safe dari position store.
+- [ ] Drop AppDeck dan AppDeck membuat shortcut valid + terpasang benar.
+- [ ] Tidak ada duplicate/ghost dari atomic rename.
+- [ ] Bukti artefak:
+  - [ ] commit/PR
+  - [ ] test sinkronisasi filesystem
+
+#### Gate M3 (Harus Lulus Semua)
+- [ ] Re-arrange (sort/snap/cleanup) stabil via placement engine.
+- [ ] Reflow geometri tidak merusak posisi.
+- [ ] Checklist QA wajib lulus penuh.
+- [ ] Tidak ada selisih jumlah render vs isi `~/Desktop`.
+- [ ] Bukti artefak:
+  - [ ] commit/PR final
+  - [ ] laporan QA penutupan
+
+### Runbook Eksekusi Mingguan
+
+#### Week 1 (M1 - Fondasi)
+- [ ] Senin:
+  - [ ] finalisasi kontrak `DesktopPlacementEngine` + struktur model posisi.
+  - [ ] setup branch kerja dan baseline test `(0,0)`.
+- [ ] Selasa-Rabu:
+  - [ ] implement engine + render absolut `DesktopView/DesktopItem`.
+  - [ ] hapus jalur truthy/falsy pada koordinat grid.
+- [ ] Kamis:
+  - [ ] integrasi interaksi dasar (select/drag/drop commit).
+  - [ ] validasi row 0 / column 0.
+- [ ] Jumat:
+  - [ ] smoke test, bugfix cepat, tutup Gate M1.
+
+#### Week 2 (M2 - Sinkronisasi dan Integrasi)
+- [ ] Senin:
+  - [ ] implement `DesktopFileWatcher` debounced.
+  - [ ] wiring startup reconcile scan/load/place.
+- [ ] Selasa:
+  - [ ] implement `DesktopPositionStore` + restore path.
+- [ ] Rabu-Kamis:
+  - [ ] integrasi `DesktopShortcutImporter` untuk AppDeck/AppDeck.
+  - [ ] validasi payload + kebijakan wrapper shortcut.
+- [ ] Jumat:
+  - [ ] test sinkronisasi filesystem + restart-safe.
+  - [ ] tutup Gate M2.
+
+#### Week 3 (M3 - Hardening dan QA)
+- [ ] Senin-Selasa:
+  - [ ] implement re-arrange (sort/snap/cleanup).
+  - [ ] implement geometry reflow dan collision recovery.
+- [ ] Rabu:
+  - [ ] jalankan checklist QA wajib penuh.
+- [ ] Kamis:
+  - [ ] triage bug dan stabilization pass.
+- [ ] Jumat:
+  - [ ] final acceptance review + tutup Gate M3.
+
+### Template Laporan Progres Mingguan
+
+#### Ringkasan
+- [ ] Milestone aktif: `M1/M2/M3`
+- [ ] Status minggu ini: `On Track / At Risk / Blocked`
+- [ ] Persentase progres aktual: `__%`
+
+#### Capaian
+- [ ] Item selesai (dengan referensi commit/PR/test):
+  - [ ] ...
+
+#### Risiko dan Blocker
+- [ ] Risiko baru minggu ini:
+  - [ ] ...
+- [ ] Blocker aktif:
+  - [ ] ...
+- [ ] Rencana mitigasi:
+  - [ ] ...
+
+#### Rencana Minggu Berikutnya
+- [ ] Fokus utama:
+  - [ ] ...
+- [ ] Target gate:
+  - [ ] `Gate M1 / Gate M2 / Gate M3`
+

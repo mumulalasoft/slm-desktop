@@ -12,7 +12,7 @@
 #include <QVariantList>
 #include <QVariantMap>
 
-#include "../appmodel.h"
+#include "../src/core/appmodel.h"
 
 namespace {
 QString deriveKey(const QString &desktopId, const QString &desktopFile, const QString &executable)

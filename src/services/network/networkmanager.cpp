@@ -1,6 +1,7 @@
 #include "networkmanager.h"
-#include "../../../resourcepaths.h"
+#include "../../core/utils/resourcepaths.h"
 #include <QProcess>
+#include <QtConcurrent/QtConcurrentRun>
 #include <QDebug>
 #include <QTimer>
 #include <QNetworkInterface>
@@ -12,6 +13,7 @@
 #include <QDBusReply>
 #include <QDBusVariant>
 #include <QDBusArgument>
+#include <QDateTime>
 #include <algorithm>
 
 namespace {
@@ -20,6 +22,10 @@ constexpr const char *kNmPath = "/org/freedesktop/NetworkManager";
 constexpr const char *kNmIface = "org.freedesktop.NetworkManager";
 constexpr uint kNmDeviceTypeEthernet = 1;
 constexpr uint kNmDeviceTypeWifi = 2;
+constexpr const char *kSlmNetworkAppId = "org.slm.desktop.network";
+constexpr const char *kSlmSecretService = "org.slm.Secret1";
+constexpr const char *kSlmSecretPath = "/org/slm/Secret1";
+constexpr const char *kSlmSecretIface = "org.slm.Secret1";
 const QString kNmPathStr = QString::fromLatin1(kNmPath);
 const QString kNmIfaceStr = QString::fromLatin1(kNmIface);
 
@@ -326,8 +332,8 @@ NetworkManager::NetworkManager(QObject *parent)
     m_availableNetworksModel = new AvailableNetworksModel(this);
     setupTimer();
     setupDbusSignalSubscriptions();
-    updateNetworkStatus();
-    scanAvailableNetworks();
+    QTimer::singleShot(0, this, &NetworkManager::updateNetworkStatus);
+    QTimer::singleShot(0, this, &NetworkManager::scanAvailableNetworks);
 }
 
 NetworkManager::~NetworkManager()
@@ -422,6 +428,11 @@ QString NetworkManager::statusText() const
     return QStringLiteral("Connected");
 }
 
+bool NetworkManager::activeConnectionSecure() const
+{
+    return m_activeConnectionSecure;
+}
+
 QStringList NetworkManager::availableNetworkNames() const
 {
     QStringList names;
@@ -439,7 +450,17 @@ QStringList NetworkManager::availableNetworkNames() const
 
 void NetworkManager::updateNetworkStatus()
 {
-    queryNetworkManager();
+    if (m_statusFetching) return;
+    m_statusFetching = true;
+    m_statusWatcher = new QFutureWatcher<NetworkStatusResult>(this);
+    connect(m_statusWatcher, &QFutureWatcher<NetworkStatusResult>::finished, this, [this]() {
+        NetworkStatusResult result = m_statusWatcher->result();
+        m_statusWatcher->deleteLater();
+        m_statusWatcher = nullptr;
+        m_statusFetching = false;
+        applyNetworkStatus(result);
+    });
+    m_statusWatcher->setFuture(QtConcurrent::run(&NetworkManager::fetchNetworkStatus));
 }
 
 void NetworkManager::scanAvailableNetworks()
@@ -455,6 +476,71 @@ void NetworkManager::refresh()
 void NetworkManager::refreshAvailableNetworks()
 {
     scanAvailableNetworks();
+}
+
+QVariantMap NetworkManager::connectToNetwork(const QString &ssid,
+                                             const QString &password,
+                                             bool remember)
+{
+    const QString cleanSsid = ssid.trimmed();
+    if (cleanSsid.isEmpty() || cleanSsid == QStringLiteral("<Hidden Network>")) {
+        return {
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), QStringLiteral("invalid-ssid")},
+            {QStringLiteral("message"), QStringLiteral("Network name is invalid.")}
+        };
+    }
+
+    QStringList args{QStringLiteral("device"), QStringLiteral("wifi"),
+                     QStringLiteral("connect"), cleanSsid};
+    if (!password.isEmpty()) {
+        args << QStringLiteral("password") << password;
+    }
+
+    QProcess nmcli;
+    nmcli.setProcessChannelMode(QProcess::MergedChannels);
+    nmcli.start(QStringLiteral("nmcli"), args);
+    if (!nmcli.waitForStarted(1500)) {
+        return {
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), QStringLiteral("nmcli-unavailable")},
+            {QStringLiteral("message"), QStringLiteral("Network connector is unavailable.")}
+        };
+    }
+    if (!nmcli.waitForFinished(25000)) {
+        nmcli.kill();
+        nmcli.waitForFinished(1000);
+        return {
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), QStringLiteral("connect-timeout")},
+            {QStringLiteral("message"), QStringLiteral("Connection timed out.")}
+        };
+    }
+
+    const QString output = QString::fromUtf8(nmcli.readAllStandardOutput()).trimmed();
+    if (nmcli.exitStatus() != QProcess::NormalExit || nmcli.exitCode() != 0) {
+        return {
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), QStringLiteral("connect-failed")},
+            {QStringLiteral("message"), output.isEmpty()
+                ? QStringLiteral("Could not join the selected network.")
+                : output}
+        };
+    }
+
+    QVariantMap secretResult;
+    if (remember && !password.isEmpty()) {
+        secretResult = storeWifiSecret(cleanSsid, password);
+    }
+
+    refresh();
+    refreshAvailableNetworks();
+    return {
+        {QStringLiteral("ok"), true},
+        {QStringLiteral("ssid"), cleanSsid},
+        {QStringLiteral("remembered"), remember && !password.isEmpty()},
+        {QStringLiteral("secret"), secretResult}
+    };
 }
 
 void NetworkManager::setupTimer()
@@ -513,7 +599,7 @@ void NetworkManager::setupDbusSignalSubscriptions()
         }
     });
 
-    refreshDbusDeviceSubscriptions();
+    QTimer::singleShot(0, this, &NetworkManager::refreshDbusDeviceSubscriptions);
 }
 
 void NetworkManager::refreshDbusDeviceSubscriptions()
@@ -639,135 +725,133 @@ void NetworkManager::onAccessPointRemoved(const QDBusObjectPath &apPath)
     queueRefresh(true);
 }
 
-int NetworkManager::normalizeSignalStrength(int percentage)
+// static
+NetworkManager::NetworkStatusResult NetworkManager::fetchNetworkStatus()
 {
-    return qBound(0, percentage, 100);
-}
-
-void NetworkManager::queryNetworkManager()
-{
-    const bool wasConnected = m_isConnected;
-    const QString oldConnectionType = m_connectionType;
-    const QString oldNetworkName = m_networkName;
-    const int oldSignalStrength = m_signalStrength;
-    const QString oldInterfaceName = m_interfaceName;
-    const QString oldIpv4Address = m_ipv4Address;
-    const QString oldIconSource = iconSource();
-
-    m_isConnected = false;
-    m_signalStrength = 0;
-    m_connectionType = "none";
-    m_networkName = "N/A";
-    m_interfaceName = detectInterfaceName();
-    m_ipv4Address = detectIpv4Address();
+    NetworkStatusResult r;
+    r.interfaceName = detectInterfaceName();
+    r.ipv4Address   = detectIpv4Address();
 
     const QDBusConnection bus = QDBusConnection::systemBus();
     QDBusInterface nm(kNmService, kNmPath, kNmIface, bus);
 
     if (nm.isValid()) {
         QString activeConnPath = objectPathFromVariant(
-            dbusGetProperty(kNmPathStr,
-                            kNmIfaceStr,
-                            QStringLiteral("PrimaryConnection")));
+            dbusGetProperty(kNmPathStr, kNmIfaceStr, QStringLiteral("PrimaryConnection")));
 
         if (activeConnPath.isEmpty() || activeConnPath == QStringLiteral("/")) {
             const QStringList activeConnections = objectPathListFromVariant(
-                dbusGetProperty(kNmPathStr,
-                                kNmIfaceStr,
-                                QStringLiteral("ActiveConnections")));
-            if (!activeConnections.isEmpty()) {
+                dbusGetProperty(kNmPathStr, kNmIfaceStr, QStringLiteral("ActiveConnections")));
+            if (!activeConnections.isEmpty())
                 activeConnPath = activeConnections.first();
-            }
         }
 
         if (!activeConnPath.isEmpty() && activeConnPath != QStringLiteral("/")) {
             const QString acIface = QStringLiteral("org.freedesktop.NetworkManager.Connection.Active");
-            const QString acType = dbusGetProperty(activeConnPath, acIface, QStringLiteral("Type")).toString().trimmed();
-            const QString acId = dbusGetProperty(activeConnPath, acIface, QStringLiteral("Id")).toString().trimmed();
+            const QString acType  = dbusGetProperty(activeConnPath, acIface, QStringLiteral("Type")).toString().trimmed();
+            const QString acId    = dbusGetProperty(activeConnPath, acIface, QStringLiteral("Id")).toString().trimmed();
             const QStringList devices = objectPathListFromVariant(
                 dbusGetProperty(activeConnPath, acIface, QStringLiteral("Devices")));
 
-            m_isConnected = true;
-            m_networkName = acId.isEmpty() ? QStringLiteral("Connected") : acId;
+            r.isConnected  = true;
+            r.networkName  = acId.isEmpty() ? QStringLiteral("Connected") : acId;
 
             if (acType.contains(QStringLiteral("wireless"), Qt::CaseInsensitive) ||
                 acType.contains(QStringLiteral("wifi"), Qt::CaseInsensitive) ||
                 acType.contains(QStringLiteral("802-11"), Qt::CaseInsensitive)) {
-                m_connectionType = QStringLiteral("wifi");
+                r.connectionType = QStringLiteral("wifi");
             } else if (acType.contains(QStringLiteral("ethernet"), Qt::CaseInsensitive) ||
                        acType.contains(QStringLiteral("802-3"), Qt::CaseInsensitive)) {
-                m_connectionType = QStringLiteral("ethernet");
-                m_signalStrength = 100;
+                r.connectionType  = QStringLiteral("ethernet");
+                r.signalStrength  = 100;
             } else {
-                m_connectionType = QStringLiteral("unknown");
-                m_signalStrength = 60;
+                r.connectionType  = QStringLiteral("unknown");
+                r.signalStrength  = 60;
             }
 
             if (!devices.isEmpty()) {
                 const QString devicePath = devices.first();
-                const QString devIface = QStringLiteral("org.freedesktop.NetworkManager.Device");
-                const QString ifaceName = dbusGetProperty(devicePath, devIface, QStringLiteral("Interface")).toString().trimmed();
-                if (!ifaceName.isEmpty()) {
-                    m_interfaceName = ifaceName;
-                }
+                const QString devIface   = QStringLiteral("org.freedesktop.NetworkManager.Device");
+                const QString ifaceName  = dbusGetProperty(devicePath, devIface, QStringLiteral("Interface")).toString().trimmed();
+                if (!ifaceName.isEmpty())
+                    r.interfaceName = ifaceName;
 
                 const QString ip4Path = objectPathFromVariant(
                     dbusGetProperty(devicePath, devIface, QStringLiteral("Ip4Config")));
                 const QString dbusIp = ipv4FromConfigPath(ip4Path);
-                if (dbusIp != QStringLiteral("n/a")) {
-                    m_ipv4Address = dbusIp;
-                } else if (!ifaceName.isEmpty()) {
-                    m_ipv4Address = ipv4ForInterface(ifaceName);
-                }
+                if (dbusIp != QStringLiteral("n/a"))
+                    r.ipv4Address = dbusIp;
+                else if (!ifaceName.isEmpty())
+                    r.ipv4Address = ipv4ForInterface(ifaceName);
 
-                if (m_connectionType == QStringLiteral("wifi")) {
+                if (r.connectionType == QStringLiteral("wifi")) {
                     const QString wifiIface = QStringLiteral("org.freedesktop.NetworkManager.Device.Wireless");
                     const QString apPath = objectPathFromVariant(
                         dbusGetProperty(devicePath, wifiIface, QStringLiteral("ActiveAccessPoint")));
                     if (!apPath.isEmpty() && apPath != QStringLiteral("/")) {
+                        const QString apIface = QStringLiteral("org.freedesktop.NetworkManager.AccessPoint");
                         const QString ssid = ssidFromVariant(
-                            dbusGetProperty(apPath,
-                                            QStringLiteral("org.freedesktop.NetworkManager.AccessPoint"),
-                                            QStringLiteral("Ssid")));
-                        if (!ssid.isEmpty()) {
-                            m_networkName = ssid;
-                        }
-                        m_signalStrength = wifiStrengthFromApPath(apPath);
+                            dbusGetProperty(apPath, apIface, QStringLiteral("Ssid")));
+                        if (!ssid.isEmpty())
+                            r.networkName = ssid;
+                        r.signalStrength = wifiStrengthFromApPath(apPath);
+                        const uint wpaFlags = dbusGetProperty(apPath, apIface, QStringLiteral("WpaFlags")).toUInt();
+                        const uint rsnFlags = dbusGetProperty(apPath, apIface, QStringLiteral("RsnFlags")).toUInt();
+                        r.activeSecure = (wpaFlags != 0 || rsnFlags != 0);
                     }
                 }
             }
         }
     } else {
         QString activeIface = detectDefaultRouteInterface();
-        if (activeIface.isEmpty()) {
+        if (activeIface.isEmpty())
             activeIface = detectFallbackActiveInterface();
-        }
 
         if (!activeIface.isEmpty()) {
-            m_isConnected = true;
-            m_interfaceName = activeIface;
-            m_ipv4Address = ipv4ForInterface(activeIface);
+            r.isConnected   = true;
+            r.interfaceName = activeIface;
+            r.ipv4Address   = ipv4ForInterface(activeIface);
 
             if (isWirelessInterfaceName(activeIface)) {
-                m_connectionType = QStringLiteral("wifi");
-                m_networkName = QStringLiteral("Wi-Fi");
-                m_signalStrength = 0;
+                r.connectionType = QStringLiteral("wifi");
+                r.networkName    = QStringLiteral("Wi-Fi");
+                r.signalStrength = 0;
             } else if (isEthernetInterfaceName(activeIface)) {
-                m_connectionType = QStringLiteral("ethernet");
-                m_networkName = QStringLiteral("Ethernet");
-                m_signalStrength = 100;
+                r.connectionType = QStringLiteral("ethernet");
+                r.networkName    = QStringLiteral("Ethernet");
+                r.signalStrength = 100;
             } else {
-                m_connectionType = QStringLiteral("unknown");
-                m_networkName = QStringLiteral("Connected");
-                m_signalStrength = 60;
+                r.connectionType = QStringLiteral("unknown");
+                r.networkName    = QStringLiteral("Connected");
+                r.signalStrength = 60;
             }
         }
     }
 
-    // Emit signals for changed properties
-    if (m_isConnected != wasConnected) {
+    return r;
+}
+
+void NetworkManager::applyNetworkStatus(const NetworkStatusResult &result)
+{
+    const bool wasConnected              = m_isConnected;
+    const QString oldConnectionType      = m_connectionType;
+    const QString oldNetworkName         = m_networkName;
+    const int oldSignalStrength          = m_signalStrength;
+    const QString oldInterfaceName       = m_interfaceName;
+    const QString oldIpv4Address         = m_ipv4Address;
+    const QString oldIconSource          = iconSource();
+    const bool oldActiveConnectionSecure = m_activeConnectionSecure;
+
+    m_isConnected             = result.isConnected;
+    m_connectionType          = result.connectionType;
+    m_networkName             = result.networkName;
+    m_signalStrength          = result.signalStrength;
+    m_interfaceName           = result.interfaceName;
+    m_ipv4Address             = result.ipv4Address;
+    m_activeConnectionSecure  = result.activeSecure;
+
+    if (m_isConnected != wasConnected)
         emit isConnectedChanged();
-    }
     if (m_connectionType != oldConnectionType) {
         emit connectionTypeChanged();
         emit statusTextChanged();
@@ -776,55 +860,105 @@ void NetworkManager::queryNetworkManager()
         emit networkNameChanged();
         emit statusTextChanged();
     }
-    if (m_signalStrength != oldSignalStrength) {
+    if (m_signalStrength != oldSignalStrength)
         emit signalStrengthChanged();
-    }
-    if (m_interfaceName != oldInterfaceName) {
+    if (m_interfaceName != oldInterfaceName)
         emit interfaceNameChanged();
-    }
-    if (m_ipv4Address != oldIpv4Address) {
+    if (m_ipv4Address != oldIpv4Address)
         emit ipv4AddressChanged();
-    }
-    if (m_isConnected != wasConnected) {
+    if (m_activeConnectionSecure != oldActiveConnectionSecure)
+        emit activeConnectionSecureChanged();
+    if (!wasConnected && m_isConnected)
         emit statusTextChanged();
-    }
-    if (iconSource() != oldIconSource) {
+    if (iconSource() != oldIconSource)
         emit iconSourceChanged();
-    }
 }
 
 void NetworkManager::queryAvailableNetworks(bool rescan)
+{
+    if (m_scanFetching) return;
+    m_scanFetching = true;
+    m_scanWatcher = new QFutureWatcher<QVector<AvailableNetwork>>(this);
+    connect(m_scanWatcher, &QFutureWatcher<QVector<AvailableNetwork>>::finished, this, [this]() {
+        QVector<AvailableNetwork> networks = m_scanWatcher->result();
+        m_scanWatcher->deleteLater();
+        m_scanWatcher = nullptr;
+        m_scanFetching = false;
+
+        m_availableNetworksModel->setNetworks(networks);
+        m_hasAvailableNetworks = !networks.isEmpty();
+        emit availableNetworksChanged();
+    });
+    m_scanWatcher->setFuture(QtConcurrent::run(&NetworkManager::fetchAvailableNetworks, rescan));
+}
+
+QVariantMap NetworkManager::storeWifiSecret(const QString &ssid, const QString &password) const
+{
+    if (ssid.trimmed().isEmpty() || password.isEmpty()) {
+        return {
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), QStringLiteral("invalid-secret")}
+        };
+    }
+
+    QDBusInterface secretIface(QString::fromLatin1(kSlmSecretService),
+                               QString::fromLatin1(kSlmSecretPath),
+                               QString::fromLatin1(kSlmSecretIface),
+                               QDBusConnection::sessionBus());
+    if (!secretIface.isValid()) {
+        return {
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), QStringLiteral("secret-service-unavailable")}
+        };
+    }
+
+    QVariantMap options{
+        {QStringLiteral("namespace"), QStringLiteral("wifi")},
+        {QStringLiteral("key"), ssid},
+        {QStringLiteral("label"), QStringLiteral("Wi-Fi: %1").arg(ssid)},
+        {QStringLiteral("sensitivity"), QStringLiteral("password")},
+        {QStringLiteral("updatedAt"), QDateTime::currentMSecsSinceEpoch()}
+    };
+    QDBusReply<QVariantMap> reply = secretIface.call(QStringLiteral("StoreSecret"),
+                                                     QString::fromLatin1(kSlmNetworkAppId),
+                                                     options,
+                                                     password.toUtf8());
+    if (!reply.isValid()) {
+        return {
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), QStringLiteral("secret-store-failed")},
+            {QStringLiteral("message"), reply.error().message()}
+        };
+    }
+    return reply.value();
+}
+
+// static
+QVector<AvailableNetwork> NetworkManager::fetchAvailableNetworks(bool rescan)
 {
     QVector<AvailableNetwork> networks;
     QHash<QString, AvailableNetwork> bySsid;
     const QDBusConnection bus = QDBusConnection::systemBus();
     QDBusInterface nm(kNmService, kNmPath, kNmIface, bus);
     if (!nm.isValid()) {
-        m_availableNetworksModel->setNetworks(networks);
-        m_hasAvailableNetworks = false;
-        emit availableNetworksChanged();
-        return;
+        return networks;
     }
 
     const QStringList devicePaths = objectPathListFromVariant(
-        dbusGetProperty(kNmPathStr,
-                        kNmIfaceStr,
-                        QStringLiteral("Devices")));
-    const QString apIface = QStringLiteral("org.freedesktop.NetworkManager.AccessPoint");
-    const QString devIface = QStringLiteral("org.freedesktop.NetworkManager.Device");
+        dbusGetProperty(kNmPathStr, kNmIfaceStr, QStringLiteral("Devices")));
+    const QString apIface   = QStringLiteral("org.freedesktop.NetworkManager.AccessPoint");
+    const QString devIface  = QStringLiteral("org.freedesktop.NetworkManager.Device");
     const QString wifiIface = QStringLiteral("org.freedesktop.NetworkManager.Device.Wireless");
 
     for (const QString &devicePath : devicePaths) {
         const uint deviceType = dbusGetProperty(devicePath, devIface, QStringLiteral("DeviceType")).toUInt();
-        if (deviceType != kNmDeviceTypeWifi) {
+        if (deviceType != kNmDeviceTypeWifi)
             continue;
-        }
 
         if (rescan) {
             QDBusInterface wifiDev(kNmService, devicePath, wifiIface, bus);
-            if (wifiDev.isValid()) {
+            if (wifiDev.isValid())
                 wifiDev.call(QStringLiteral("RequestScan"), QVariantMap());
-            }
         }
 
         const QString activeApPath = objectPathFromVariant(
@@ -834,95 +968,42 @@ void NetworkManager::queryAvailableNetworks(bool rescan)
 
         for (const QString &apPath : apPaths) {
             QString ssid = ssidFromVariant(dbusGetProperty(apPath, apIface, QStringLiteral("Ssid"))).trimmed();
-            if (ssid.isEmpty()) {
+            if (ssid.isEmpty())
                 ssid = QStringLiteral("<Hidden Network>");
-            }
 
-            const int normalized = normalizeSignalStrength(
-                dbusGetProperty(apPath, apIface, QStringLiteral("Strength")).toInt());
+            const int normalized = qBound(0, dbusGetProperty(apPath, apIface, QStringLiteral("Strength")).toInt(), 100);
             const bool isActive = (!activeApPath.isEmpty() && apPath == activeApPath);
-
-            const uint flags = dbusGetProperty(apPath, apIface, QStringLiteral("Flags")).toUInt();
+            const uint flags    = dbusGetProperty(apPath, apIface, QStringLiteral("Flags")).toUInt();
             const uint wpaFlags = dbusGetProperty(apPath, apIface, QStringLiteral("WpaFlags")).toUInt();
             const uint rsnFlags = dbusGetProperty(apPath, apIface, QStringLiteral("RsnFlags")).toUInt();
             const bool isSecure = (wpaFlags != 0 || rsnFlags != 0 || (flags & 0x1u) == 0);
 
             AvailableNetwork net;
-            net.ssid = ssid;
+            net.ssid          = ssid;
             net.signalStrength = normalized;
-            net.isSecure = isSecure;
-            net.isActive = isActive;
+            net.isSecure      = isSecure;
+            net.isActive      = isActive;
 
             const auto it = bySsid.find(ssid);
             if (it == bySsid.end()) {
                 bySsid.insert(ssid, net);
             } else {
-                const bool existingInUse = it->isActive;
-                if ((isActive && !existingInUse) ||
-                    (isActive == existingInUse && normalized > it->signalStrength)) {
+                if ((isActive && !it->isActive) ||
+                    (isActive == it->isActive && normalized > it->signalStrength)) {
                     bySsid[ssid] = net;
                 }
             }
         }
     }
 
-    for (auto it = bySsid.cbegin(); it != bySsid.cend(); ++it) {
+    for (auto it = bySsid.cbegin(); it != bySsid.cend(); ++it)
         networks.push_back(it.value());
-    }
 
-    // Sort active first, then by signal strength (strongest first).
     std::sort(networks.begin(), networks.end(),
               [](const AvailableNetwork &a, const AvailableNetwork &b) {
-                  if (a.isActive != b.isActive) {
-                      return a.isActive;
-                  }
+                  if (a.isActive != b.isActive) return a.isActive;
                   return a.signalStrength > b.signalStrength;
               });
 
-    m_availableNetworksModel->setNetworks(networks);
-
-    // Update availability flag
-    bool wasAvailable = m_hasAvailableNetworks;
-    m_hasAvailableNetworks = !networks.isEmpty();
-
-    emit availableNetworksChanged();
-    if (m_hasAvailableNetworks != wasAvailable) {
-        // availableNetworksChanged signal already emitted, which triggers the property update
-    }
-}
-
-void NetworkManager::queryWiFiSignalStrength()
-{
-    if (!m_isConnected || m_connectionType != QStringLiteral("wifi")) {
-        return;
-    }
-
-    const QDBusConnection bus = QDBusConnection::systemBus();
-    const QDBusInterface nm(kNmService, kNmPath, kNmIface, bus);
-    if (!nm.isValid()) {
-        return;
-    }
-
-    const QStringList devicePaths = objectPathListFromVariant(
-        dbusGetProperty(kNmPathStr,
-                        kNmIfaceStr,
-                        QStringLiteral("Devices")));
-
-    for (const QString &devicePath : devicePaths) {
-        const uint deviceType = dbusGetProperty(devicePath,
-                                                QStringLiteral("org.freedesktop.NetworkManager.Device"),
-                                                QStringLiteral("DeviceType")).toUInt();
-        if (deviceType != kNmDeviceTypeWifi) {
-            continue;
-        }
-
-        const QString apPath = objectPathFromVariant(
-            dbusGetProperty(devicePath,
-                            QStringLiteral("org.freedesktop.NetworkManager.Device.Wireless"),
-                            QStringLiteral("ActiveAccessPoint")));
-        if (!apPath.isEmpty() && apPath != QStringLiteral("/")) {
-            m_signalStrength = wifiStrengthFromApPath(apPath);
-            return;
-        }
-    }
+    return networks;
 }

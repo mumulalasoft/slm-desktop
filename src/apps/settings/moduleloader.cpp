@@ -173,6 +173,9 @@ void ModuleLoader::loadModuleFromDir(const QString &dirPath)
     if (id.isEmpty() || name.isEmpty()) {
         return;
     }
+    if (obj.value("hidden").toBool(false)) {
+        return;
+    }
 
     QVariantMap mod;
     mod.insert("id", id);
@@ -234,12 +237,15 @@ void ModuleLoader::addBuiltinModuleOrder()
 {
     static const QStringList preferred = {
         QStringLiteral("appearance"),
-        QStringLiteral("dock"),
+        QStringLiteral("appdeck"),
         QStringLiteral("network"),
         QStringLiteral("bluetooth"),
         QStringLiteral("sound"),
+        QStringLiteral("notifications"),
         QStringLiteral("display"),
+        QStringLiteral("timedate"),
         QStringLiteral("power"),
+        QStringLiteral("storage"),
         QStringLiteral("print"),
         QStringLiteral("keyboard"),
         QStringLiteral("mouse"),

@@ -1,0 +1,9 @@
+module SlmInstaller
+singleton InstallerTheme 1.0 InstallerTheme.qml
+InstallerCard 1.0 InstallerCard.qml
+InstallerDiskCard 1.0 InstallerDiskCard.qml
+InstallerPrimaryButton 1.0 InstallerPrimaryButton.qml
+PartitionDiagram 1.0 PartitionDiagram.qml
+DiskSelectionScreen 1.0 DiskSelectionScreen.qml
+SummaryScreen 1.0 SummaryScreen.qml
+WelcomeScreen 1.0 WelcomeScreen.qml

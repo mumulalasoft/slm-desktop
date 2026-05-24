@@ -22,7 +22,7 @@ is_official_uri() {
   [[ "$uri" == *"deb.debian.org"* ]] && return 0
   [[ "$uri" == *"security.debian.org"* ]] && return 0
   [[ "$uri" == *"packages.linuxmint.com"* ]] && return 0
-  [[ "$uri" == *"ppa.launchpadcontent.net"* ]] && return 1
+  [[ "$uri" == *"ppa.apphubcontent.net"* ]] && return 1
   [[ "$uri" == *"download.opensuse.org"* ]] && return 1
   [[ "$uri" == *"dl.google.com"* ]] && return 1
   [[ "$uri" == *"repo.steampowered.com"* ]] && return 1

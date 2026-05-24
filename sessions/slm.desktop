@@ -4,3 +4,9 @@ Comment=SLM Desktop Session
 Exec=/usr/libexec/slm-session-broker
 Type=Application
 DesktopNames=SLM
+# greetd reads X-GnomeSession-SessionType (some forks) or XDG_SESSION_TYPE from env.
+# pam_systemd.so determines the session type from XDG_SESSION_TYPE in the PAM env,
+# which slm-session-broker and slm-greeter's SlmPamSession set explicitly before
+# calling pam_open_session so that logind assigns seat0 and Type=wayland.
+X-GnomeSession-SessionType=wayland
+X-KDE-DBUS-Restricted-Interfaces=org.kde.KWin.ScreenShot2

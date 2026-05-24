@@ -15,6 +15,7 @@ public:
     explicit WorkspaceManager(WindowingBackendManager *windowingBackend,
                               SpacesManager *spacesManager,
                               QObject *compositorStateModel,
+                              QObject *shellStateController = nullptr,
                               QObject *parent = nullptr);
 
     // Deprecated legacy alias API kept for compatibility.
@@ -44,6 +45,7 @@ signals:
     void WorkspaceVisibilityChanged(bool visible);
     void WorkspaceChanged();
     void WindowAttention(const QVariantMap &window);
+    void AppGridRequested();
 
 private:
     QVariantList activeViewIds() const;
@@ -61,5 +63,6 @@ private:
     WindowingBackendManager *m_windowingBackend = nullptr;
     SpacesManager *m_spacesManager = nullptr;
     QObject *m_compositorStateModel = nullptr;
+    QObject *m_shellStateController = nullptr;
     bool m_workspaceVisible = false;
 };

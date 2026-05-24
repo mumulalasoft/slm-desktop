@@ -27,7 +27,7 @@ Window {
     // True while a submit is in progress — disables the Print button.
     readonly property bool isSubmitting: printDialogController
                                          ? !!printDialogController.isSubmitting
-                                         : false
+                                         : (printJobSubmitter ? !!printJobSubmitter.busy : false)
 
     // Convenience accessors for capability-driven UI visibility.
     readonly property var activeCap: (printSession && printSession.printerCapability)
@@ -40,9 +40,9 @@ Window {
     signal closeRequested()
 
     color: Theme.color("menuBg")
-    flags: Qt.Dialog | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
+    flags: Qt.Dialog | Qt.FramelessWindowHint
     modality: Qt.ApplicationModal
-    transientParent: parentWindow
+    transientParent: null
     title: "Print"
     width: parentWindow ? Math.min(920, Math.max(760, parentWindow.width - 240)) : 840
     height: parentWindow ? Math.min(640, Math.max(500, parentWindow.height - 180)) : 560
@@ -206,18 +206,11 @@ Window {
             submitErrorText = String(payload.error || "Unable to build print job payload.")
             return
         }
-        var result = printJobSubmitter.submit(payload)
-        if (!!result.success) {
-            submitInfoText = String(result.jobId || "Job submitted")
-            closeRequested()
-        } else {
-            submitErrorText = String(result.error || "Failed to submit print job.")
-        }
+        printJobSubmitter.submit(payload)
     }
 
     onVisibleChanged: {
         if (visible) {
-            requestActivate()
             initializeSession()
         }
     }
@@ -248,6 +241,23 @@ Window {
             dialog.submitErrorText = error.length > 0
                 ? error
                 : qsTr("Failed to submit print job.")
+        }
+    }
+
+    // Wire direct-path JobSubmitter results (fallback when no controller).
+    Connections {
+        target: dialog.printDialogController ? null : dialog.printJobSubmitter
+        function onSubmissionFinished(result) {
+            if (result.success) {
+                dialog.submitInfoText = result.jobId
+                    ? qsTr("Sent to printer (job %1)").arg(result.jobId)
+                    : qsTr("Print job submitted")
+                dialog.closeRequested()
+            } else {
+                dialog.submitErrorText = result.error
+                    ? String(result.error)
+                    : qsTr("Failed to submit print job.")
+            }
         }
     }
 

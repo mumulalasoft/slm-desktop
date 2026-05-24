@@ -1,6 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import Slm_Desktop
+import SlmStyle as DSStyle
 
 Rectangle {
     id: root
@@ -15,10 +16,10 @@ Rectangle {
 
     width: 206
     height: parent ? parent.height : 0
-    radius: Theme.radiusControlLarge
-    color: Theme.color("fileManagerWindowBg")
+    radius: Theme.radiusControl
+    color: Theme.color("fileManagerSidebarBg")
     border.width: Theme.borderWidthThin
-    border.color: Theme.color("fileManagerWindowBorder")
+    border.color: Theme.color("fileManagerSidebarBorder")
 
     Item {
         anchors.fill: parent
@@ -74,8 +75,8 @@ Rectangle {
                             anchors.fill: parent
                             radius: Theme.radiusMdPlus
                             color: String(root.currentDir || "") === path
-                                   ? Theme.color("accentSoft")
-                                   : (placeMouse.containsMouse ? Theme.color("accentSoft") : "transparent")
+                                   ? Theme.color("accentSubtle")
+                                   : (placeMouse.containsMouse ? Theme.color("controlBgHover") : "transparent")
                         }
 
                         Item {
@@ -119,7 +120,7 @@ Rectangle {
                                 anchors.rightMargin: 6
                                 anchors.verticalCenter: parent.verticalCenter
                                 color: storageMountMouse.containsMouse
-                                       ? Theme.color("accentSoft")
+                                       ? Theme.color("controlBgHover")
                                        : "transparent"
                                 border.width: Theme.borderWidthThin
                                 border.color: Theme.color("menuBorder")
@@ -152,6 +153,9 @@ Rectangle {
                                         }
                                     }
                                 }
+                                ToolTip.visible: storageMountMouse.containsMouse
+                                ToolTip.delay: 350
+                                ToolTip.text: mounted ? qsTr("Unmount") : qsTr("Mount")
                             }
                         }
 

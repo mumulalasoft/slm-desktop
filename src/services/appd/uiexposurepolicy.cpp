@@ -16,7 +16,7 @@ UIExposure UIExposurePolicy::compute(AppCategory category)
     case AppCategory::Kde:
     case AppCategory::QtGeneric:
     case AppCategory::QtDesktopFallback:
-        e.dock          = true;
+        e.appdeck          = true;
         e.appSwitcher   = true;
         e.systemMonitor = true;
         break;
@@ -32,7 +32,7 @@ UIExposure UIExposurePolicy::compute(AppCategory category)
 
     case AppCategory::Unknown:
         e.systemMonitor = true;
-        // Dock and switcher intentionally off for unknown category.
+        // AppDeck and switcher intentionally off for unknown category.
         break;
     }
     return e;

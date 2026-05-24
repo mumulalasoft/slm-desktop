@@ -1,0 +1,11 @@
+[Unit]
+Description=SLM scheduled power action service
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=slm-powerd
+Restart=on-failure
+
+[Install]
+WantedBy=default.target

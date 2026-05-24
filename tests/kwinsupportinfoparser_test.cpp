@@ -15,6 +15,7 @@ private slots:
             + QStringLiteral("  geometry: 10,20 1000x700\n")
             + QStringLiteral("  desktop: 2\n")
             + QStringLiteral("  active: true\n")
+            + QStringLiteral("  fullscreen: true\n")
             + QStringLiteral("\n");
 
         const QVector<QVariantMap> out = KWinSupportInfoParser::parseSupportInformationDump(dump, 1);
@@ -28,6 +29,7 @@ private slots:
         QCOMPARE(w.value(QStringLiteral("height")).toInt(), 700);
         QCOMPARE(w.value(QStringLiteral("space")).toInt(), 2);
         QCOMPARE(w.value(QStringLiteral("focused")).toBool(), true);
+        QCOMPARE(w.value(QStringLiteral("fullscreen")).toBool(), true);
     }
 };
 

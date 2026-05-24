@@ -1,0 +1,2 @@
+# Motion lint allowlist — pre-existing debt baseline.
+# Format: relative path or rule ID, one per line.

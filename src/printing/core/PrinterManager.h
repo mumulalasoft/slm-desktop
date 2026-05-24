@@ -2,6 +2,7 @@
 
 #include "PrinterCapabilityProvider.h"
 
+#include <QFutureWatcher>
 #include <QObject>
 #include <QVariantList>
 
@@ -38,10 +39,18 @@ private:
     static bool probeScheduler();
     static QString runCommand(const QString &program, const QStringList &arguments);
 
+    struct ReloadResult {
+        bool cupsAvailable = false;
+        QString defaultPrinter;
+        QVariantList printers;
+    };
+
     PrinterCapabilityProvider m_capabilityProvider;
     QVariantList m_printers;
     QString m_defaultPrinterId;
     bool m_cupsAvailable = true;
+    bool m_reloading = false;
+    QFutureWatcher<ReloadResult> *m_reloadWatcher = nullptr;
 };
 
 } // namespace Slm::Print

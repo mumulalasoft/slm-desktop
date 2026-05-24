@@ -1,6 +1,6 @@
 #include "slmcapabilityservice.h"
 
-#include "../../../dbuslogutils.h"
+#include "../../core/utils/dbuslogutils.h"
 
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>

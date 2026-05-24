@@ -86,12 +86,20 @@ void GreetdClient::onReadyRead()
 void GreetdClient::sendMessage(const QJsonObject &obj)
 {
     if (!m_connected) {
-        qWarning("slm-greeter: sendMessage called while not connected");
+        qWarning("ipc_send: not connected — dropping message");
         return;
     }
     const QByteArray payload = QJsonDocument(obj).toJson(QJsonDocument::Compact);
     const quint32 len        = static_cast<quint32>(payload.size());
     quint32 lenLE            = qToLittleEndian(len);
+
+    // Suppress "response" value to avoid logging passwords.
+    const QString msgType = obj.value(QStringLiteral("type")).toString();
+    if (msgType == QStringLiteral("post_auth_message_response")) {
+        qInfo("ipc_send: type='post_auth_message_response' (response suppressed) bytes=%u", len);
+    } else {
+        qInfo("ipc_send: %s", payload.constData());
+    }
 
     QByteArray frame;
     frame.resize(4);
@@ -146,19 +154,24 @@ void GreetdClient::cancelSession()
 void GreetdClient::handleResponse(const QJsonObject &response)
 {
     const QString type = response.value(QStringLiteral("type")).toString();
+    qInfo("ipc_recv: type='%s'", qPrintable(type));
 
     if (type == QStringLiteral("auth_message")) {
-        emit authMessage(
-            response.value(QStringLiteral("auth_message_type")).toString(),
-            response.value(QStringLiteral("auth_message")).toString());
+        const QString authType = response.value(QStringLiteral("auth_message_type")).toString();
+        const QString authMsg  = response.value(QStringLiteral("auth_message")).toString();
+        qInfo("ipc_recv: auth_message_type='%s' auth_message='%s'",
+              qPrintable(authType), qPrintable(authMsg));
+        emit authMessage(authType, authMsg);
     } else if (type == QStringLiteral("success")) {
         emit success();
     } else if (type == QStringLiteral("error")) {
-        emit error(
-            response.value(QStringLiteral("error_type")).toString(),
-            response.value(QStringLiteral("description")).toString());
+        const QString errType = response.value(QStringLiteral("error_type")).toString();
+        const QString errDesc = response.value(QStringLiteral("description")).toString();
+        qWarning("ipc_recv: error_type='%s' description='%s'",
+                 qPrintable(errType), qPrintable(errDesc));
+        emit error(errType, errDesc);
     } else {
-        qWarning("slm-greeter: unknown greetd response type: %s", qUtf8Printable(type));
+        qWarning("ipc_recv: unknown response type='%s'", qPrintable(type));
     }
 }
 

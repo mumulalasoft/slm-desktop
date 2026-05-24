@@ -20,7 +20,7 @@ Window {
     visible: !!parentWindow && parentWindow.visible && contextOpen
     color: "transparent"
     flags: Qt.FramelessWindowHint | Qt.WindowDoesNotAcceptFocus
-    transientParent: parentWindow
+    transientParent: null
     title: "Slm Desktop Context"
     x: parentWindow ? parentWindow.x : 0
     y: parentWindow ? parentWindow.y : 0

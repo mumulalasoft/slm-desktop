@@ -13,6 +13,15 @@ Rectangle {
     property alias sidebarPaneRef: sidebarPane
     property alias headerBarRef: headerBar
     property alias mainPaneRef: mainPane
+    readonly property real hostWindowWidth: (hostRoot && hostRoot.hostWindow)
+                                           ? Number(hostRoot.hostWindow.width || 0)
+                                           : Number(width || 0)
+    readonly property real adaptiveSidebarWidth: Math.max(
+                                                     188,
+                                                     Math.min(
+                                                         248,
+                                                         Math.round(
+                                                             hostWindowWidth * 0.21)))
 
     anchors.fill: parent
     anchors.margins: 0
@@ -32,12 +41,12 @@ Rectangle {
 
             FileManagerSidebarPane {
                 id: sidebarPane
-                Layout.preferredWidth: 214
+                Layout.preferredWidth: root.adaptiveSidebarWidth
                 Layout.fillHeight: true
-                Layout.leftMargin: 16
-                Layout.topMargin: 16
-                Layout.bottomMargin: 16
-                Layout.rightMargin: 16
+                Layout.leftMargin: Theme.metric("spacingLg")
+                Layout.topMargin: Theme.metric("spacingLg")
+                Layout.bottomMargin: Theme.metric("spacingLg")
+                Layout.rightMargin: Theme.metric("spacingLg")
                 hostRoot: root.hostRoot
                 sidebarModel: root.sidebarModel
                 sidebarContextMenuRef: root.sidebarContextMenuRef
@@ -51,10 +60,10 @@ Rectangle {
                 FileManagerHeaderBar {
                     id: headerBar
                     Layout.fillWidth: true
-                    Layout.preferredHeight: Theme.fileManagerToolbarHeight + 2
-                    Layout.leftMargin: 10
-                    Layout.rightMargin: 10
-                    Layout.topMargin: 4
+                    Layout.preferredHeight: Theme.fileManagerToolbarHeight + Theme.metric("spacingXs")
+                    Layout.leftMargin: Theme.metric("spacingMd")
+                    Layout.rightMargin: Theme.metric("spacingLg")
+                    Layout.topMargin: Theme.metric("spacingXs")
                     hostRoot: root.hostRoot
                     contentViewRef: mainPane ? mainPane.contentViewRef : null
                 }

@@ -70,6 +70,10 @@ public:
     Q_INVOKABLE QVariantMap writeTextFile(const QString &path,
                                           const QString &content,
                                           bool append = false);
+    Q_INVOKABLE QVariantMap setDesktopFileKey(const QString &path,
+                                              const QString &group,
+                                              const QString &key,
+                                              const QString &value);
     Q_INVOKABLE bool isProtectedPath(const QString &path) const;
     Q_INVOKABLE QVariantMap createDirectory(const QString &path, bool recursive = true);
     Q_INVOKABLE QVariantMap createEmptyFile(const QString &path);
@@ -162,6 +166,11 @@ public:
     Q_INVOKABLE QVariantMap copyFolderShareAddress(const QString &path) const;
     Q_INVOKABLE QVariantMap folderSharingEnvironment() const;
     Q_INVOKABLE QVariantMap repairFolderSharingEnvironment();
+    Q_INVOKABLE QVariantList nearbyDevices() const;
+    Q_INVOKABLE QVariantMap sendFileToNearbyDevice(const QString &deviceId,
+                                                   const QString &path);
+    Q_INVOKABLE QVariantMap startNearbyDiscovery();
+    Q_INVOKABLE QVariantMap stopNearbyDiscovery();
     Q_INVOKABLE QVariantMap installMissingComponent(const QString &componentId);
     Q_INVOKABLE QVariantList missingComponentsForDomain(const QString &domain) const;
     Q_INVOKABLE QVariantMap installMissingComponentForDomain(const QString &domain,
@@ -186,6 +195,7 @@ public:
                                                            const QString &requestId = QString());
     Q_INVOKABLE QVariantMap startSlmContextMenuTreeDebug(const QVariantList &uris,
                                                          const QString &target = QString());
+    Q_INVOKABLE QVariantMap syncDesktopViewActionContext(const QVariantMap &state);
     Q_INVOKABLE QVariantMap startResolveSlmDragDropAction(const QVariantList &sourceUris,
                                                           const QString &targetUri,
                                                           const QString &requestId = QString());
@@ -287,6 +297,13 @@ signals:
                         bool ok,
                         const QString &error);
     void folderShareStateChanged(const QString &path, const QVariantMap &shareInfo);
+    void nearbyTransferStarted(const QString &transferId,
+                               const QString &deviceName,
+                               const QVariantMap &info);
+    void nearbyTransferCompleted(const QString &transferId,
+                                 bool success,
+                                 const QString &error);
+    void nearbyDevicesChanged(const QVariantList &devices);
 
 private:
     struct ThumbnailDbusRequest {
@@ -363,13 +380,8 @@ private:
                                 bool overwrite);
     QVariantList queryStorageLocationsSync(int lsblkTimeoutMs) const;
     bool queueFreedesktopThumbnailer(const QString &path, int size);
-    QString folderSharesStatePath() const;
-    QVariantMap loadFolderSharesState() const;
-    bool saveFolderSharesState(const QVariantMap &state,
-                               QString *error = nullptr) const;
     QString canonicalSharePath(const QString &path) const;
     QVariantMap shareRecordForPath(const QString &path) const;
-    QVariantMap buildShareAddressPayload(const QString &shareName) const;
 
 private slots:
     void onBatchTaskProgress(qlonglong baseBytes, qlonglong currentBytes, qlonglong totalBytes);
@@ -430,4 +442,5 @@ private:
     QHash<uint, QList<ThumbnailDbusRequest>> m_thumbnailDbusRequests;
     QVariantMap m_slmContextMenuNodes;
     SlmContextMenuController *m_slmContextMenuController = nullptr;
+    bool m_actiondDesktopProviderRegistered = false;
 };

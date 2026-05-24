@@ -28,7 +28,7 @@ MotionPresetSpec MotionPresetLibrary::spec(MotionPreset preset)
         out.physics = {11.0, 7.0, 6200.0};
         break;
     case MotionPreset::Launcher:
-        // Slightly underdamped launchpad reveal: quick with a subtle premium overshoot.
+        // Slightly underdamped apphub reveal: quick with a subtle premium overshoot.
         out.spring = {700.0, 42.0, 1.0, 0.001};
         out.time = {170.0, 0.0};
         out.physics = {10.0, 7.0, 6200.0};

@@ -69,7 +69,7 @@ public slots:
                       {QStringLiteral("sunriseHour"), m_sunrise},
                       {QStringLiteral("sunsetHour"), m_sunset},
                   }},
-                 {QStringLiteral("dock"), QVariantMap{
+                 {QStringLiteral("appdeck"), QVariantMap{
                       {QStringLiteral("motionPreset"), m_dockMotion},
                       {QStringLiteral("autoHideEnabled"), m_dockAutoHide},
                       {QStringLiteral("dropPulseEnabled"), m_dockDropPulse},
@@ -128,53 +128,53 @@ public slots:
             emit SettingChanged(path, QDBusVariant(m_sunset));
             return {{QStringLiteral("ok"), true}};
         }
-        if (path == QLatin1String("dock.motionPreset")) {
+        if (path == QLatin1String("appdeck.motionPreset")) {
             const QString v = rawValue.toString().trimmed().toLower();
             if (v != QLatin1String("subtle") && v != QLatin1String("macos-lively")) {
                 return {
                     {QStringLiteral("ok"), false},
-                    {QStringLiteral("error"), QStringLiteral("invalid-dock-motion")},
+                    {QStringLiteral("error"), QStringLiteral("invalid-appdeck-motion")},
                 };
             }
             m_dockMotion = v;
             emit SettingChanged(path, QDBusVariant(m_dockMotion));
             return {{QStringLiteral("ok"), true}};
         }
-        if (path == QLatin1String("dock.autoHideEnabled")) {
+        if (path == QLatin1String("appdeck.autoHideEnabled")) {
             m_dockAutoHide = rawValue.toBool();
             emit SettingChanged(path, QDBusVariant(m_dockAutoHide));
             return {{QStringLiteral("ok"), true}};
         }
-        if (path == QLatin1String("dock.dropPulseEnabled")) {
+        if (path == QLatin1String("appdeck.dropPulseEnabled")) {
             m_dockDropPulse = rawValue.toBool();
             emit SettingChanged(path, QDBusVariant(m_dockDropPulse));
             return {{QStringLiteral("ok"), true}};
         }
-        if (path == QLatin1String("dock.dragThresholdMouse")) {
+        if (path == QLatin1String("appdeck.dragThresholdMouse")) {
             m_dockDragMouse = qBound(2, rawValue.toInt(), 24);
             emit SettingChanged(path, QDBusVariant(m_dockDragMouse));
             return {{QStringLiteral("ok"), true}};
         }
-        if (path == QLatin1String("dock.dragThresholdTouchpad")) {
+        if (path == QLatin1String("appdeck.dragThresholdTouchpad")) {
             m_dockDragTouchpad = qBound(2, rawValue.toInt(), 24);
             emit SettingChanged(path, QDBusVariant(m_dockDragTouchpad));
             return {{QStringLiteral("ok"), true}};
         }
-        if (path == QLatin1String("dock.iconSize")) {
+        if (path == QLatin1String("appdeck.iconSize")) {
             const QString v = rawValue.toString().trimmed().toLower();
             if (v != QLatin1String("small")
                     && v != QLatin1String("medium")
                     && v != QLatin1String("large")) {
                 return {
                     {QStringLiteral("ok"), false},
-                    {QStringLiteral("error"), QStringLiteral("invalid-dock-icon-size")},
+                    {QStringLiteral("error"), QStringLiteral("invalid-appdeck-icon-size")},
                 };
             }
             m_dockIconSize = v;
             emit SettingChanged(path, QDBusVariant(m_dockIconSize));
             return {{QStringLiteral("ok"), true}};
         }
-        if (path == QLatin1String("dock.magnificationEnabled")) {
+        if (path == QLatin1String("appdeck.magnificationEnabled")) {
             m_dockMagnification = rawValue.toBool();
             emit SettingChanged(path, QDBusVariant(m_dockMagnification));
             return {{QStringLiteral("ok"), true}};
@@ -342,7 +342,7 @@ private slots:
         QTRY_COMPARE(client.dockMotionPreset(), QStringLiteral("macos-lively"));
         QVERIFY(client.setDockAutoHideEnabled(true));
         QTRY_VERIFY(client.dockAutoHideEnabled());
-        QVERIFY(client.setDockDropPulseEnabled(false));
+        QVERIFY(client.setAppDeckDropPulseEnabled(false));
         QTRY_VERIFY(!client.dockDropPulseEnabled());
         QVERIFY(client.setDockDragThresholdMouse(12));
         QTRY_COMPARE(client.dockDragThresholdMouse(), 12);
@@ -387,10 +387,10 @@ private slots:
         emit fake.SettingChanged(QStringLiteral("contextTime.mode"),
                                  QDBusVariant(QStringLiteral("local")));
         QTRY_COMPARE(client.contextTimeMode(), QStringLiteral("local"));
-        emit fake.SettingChanged(QStringLiteral("dock.motionPreset"),
+        emit fake.SettingChanged(QStringLiteral("appdeck.motionPreset"),
                                  QDBusVariant(QStringLiteral("subtle")));
         QTRY_COMPARE(client.dockMotionPreset(), QStringLiteral("subtle"));
-        emit fake.SettingChanged(QStringLiteral("dock.iconSize"),
+        emit fake.SettingChanged(QStringLiteral("appdeck.iconSize"),
                                  QDBusVariant(QStringLiteral("small")));
         QTRY_COMPARE(client.dockIconSize(), QStringLiteral("small"));
         emit fake.SettingChanged(QStringLiteral("print.pdfFallbackPrinterId"),

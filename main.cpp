@@ -6,6 +6,7 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QCoreApplication>
+#include <QLocale>
 #include <QUrl>
 #include <QTimer>
 #include <QDateTime>
@@ -16,17 +17,25 @@
 #include <QPalette>
 #include <QRegion>
 #include <QProcess>
+#include <QProcessEnvironment>
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
+#include <QScreen>
 #include <QWindow>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QTextStream>
+#include <QVector>
+#include <clocale>
 #include <csignal>
+#include <cstdio>
+#include <utility>
 #if defined(__linux__)
 #include <execinfo.h>
 #include <unistd.h>
 #endif
 
-#include "appmodel.h"
+#include "src/core/appmodel.h"
 #include "src/core/execution/appcommandrouter.h"
 #include "src/bootstrap/appstartupargs.h"
 #include "src/bootstrap/appstartupbridge.h"
@@ -34,14 +43,17 @@
 #include "src/core/execution/appexecutiongate.h"
 #include "src/services/power/batterymanager.h"
 #include "src/services/power/powerbridge.h"
+#include "src/services/power/powercontroller.h"
+#include "src/services/power/schedulecontroller.h"
+#include "src/services/power/sessioncontroller.h"
 #include "src/services/bluetooth/bluetoothmanager.h"
-#include "dockmodel.h"
+#include "src/core/appdeck/appdeckmodel.h"
 #include "src/services/media/mediasessionmanager.h"
 #include "src/services/network/networkmanager.h"
 #include "src/services/notifications/notificationmanager.h"
 #include "src/services/storage/storageattachnotifier.h"
-#include "shortcutmodel.h"
-#include "cursorcontroller.h"
+#include "src/core/shortcutmodel.h"
+#include "src/core/shell/cursorcontroller.h"
 #include "src/core/workspace/spacesmanager.h"
 #include "src/core/workspace/workspacemanager.h"
 #include "src/core/workspace/workspacestripmodel.h"
@@ -49,28 +61,28 @@
 #include "src/core/workspace/windowthumbnaillayoutengine.h"
 #include "src/core/icons/themeiconprovider.h"
 #include "src/core/icons/themeiconcontroller.h"
-#include "resourcepaths.h"
+#include "src/core/utils/resourcepaths.h"
 #include "src/services/sound/soundmanager.h"
 #include "src/services/indicator/statusnotifierhost.h"
 #include "src/services/contextmenu/contextmenuservice.h"
 #include "src/services/portal/screencastprivacymodel.h"
 #include "src/services/portal/inputcaptureprivacymodel.h"
-#include "externalindicatorregistry.h"
-#include "globalmenumanager.h"
+#include "src/services/indicator/externalindicatorregistry.h"
+#include "src/services/globalmenu/globalmenumanager.h"
 #include "src/services/globalmenu/globalmenuadaptivecontroller.h"
 #include "src/services/globalmenu/globalmenususpendbridge.h"
 #include "src/core/workspace/windowingbackendmanager.h"
 #include "src/core/workspace/compositorinputcapturebackendservice.h"
 #include "src/core/workspace/compositorinputcaptureprimitiveservice.h"
 #include "src/core/workspace/workspacepreviewmanager.h"
-#include "screenshotmanager.h"
-#include "portalchooserlogichelper.h"
-#include "screenshotsavehelper.h"
-#include "portaluibridge.h"
-#include "metadataindexserver.h"
-#include "tothespotservice.h"
-#include "tothespotcontextmenuhelper.h"
-#include "tothespottexthighlighter.h"
+#include "src/services/screenshot/screenshotmanager.h"
+#include "src/services/portal/portalchooserlogichelper.h"
+#include "src/services/screenshot/screenshotsavehelper.h"
+#include "src/services/portal/portaluibridge.h"
+#include "src/services/fileindex/metadataindexserver.h"
+#include "src/services/search/pulseservice.h"
+#include "src/services/search/pulsecontextmenuhelper.h"
+#include "src/services/search/pulsetexthighlighter.h"
 #include "src/services/clipboard/ClipboardServiceClient.h"
 #include "src/services/session/SessionStateClient.h"
 #include "src/apps/filemanager/include/filemanagerapi.h"
@@ -83,10 +95,13 @@
 #include "src/filemanager/ThumbnailImageProvider.h"
 #include "src/core/motion/slmmotioncontroller.h"
 #include "src/core/shell/shellstatecontroller.h"
+#include "src/core/shell/shellpolicycontroller.h"
 #include "src/core/shell/shellinputrouter.h"
 #include "src/core/shell/shelllayerwatchdog.h"
 #ifdef SLM_HAVE_WAYLANDCLIENT
-#include "src/core/wayland/layershell/dockbootstrapstate.h"
+#include "src/core/wayland/layershell/appdeckbootstrapstate.h"
+#include "src/core/wayland/layershell/appdeckcompositorevents.h"
+#include "src/core/wayland/layershell/appdecklayershellcontroller.h"
 #include "src/core/wayland/layershell/wlrlayershell.h"
 #endif
 #include "src/core/system/missingcomponentcontroller.h"
@@ -94,6 +109,97 @@
 #include "src/printing/core/PrintSession.h"
 #include "src/printing/core/PrintPreviewModel.h"
 #include "src/printing/core/JobSubmitter.h"
+
+static FILE *g_shellLogFile = nullptr;
+
+static void shellMessageHandler(QtMsgType type, const QMessageLogContext &,
+                                const QString &msg)
+{
+    // Qt emits this warning for every Popup/Menu created in a layer-shell window because
+    // it cannot resolve the containing window via the Window.window attached property
+    // (Popup/Menu are QObject, not QQuickItem). This is a known Qt/layer-shell limitation
+    // and does not affect runtime behavior.
+    if (type == QtWarningMsg
+            && msg.contains(QLatin1String("Window.window does only support types deriving from Item"))) {
+        return;
+    }
+
+    const char *level = "DBG";
+    switch (type) {
+    case QtInfoMsg:     level = "INF"; break;
+    case QtWarningMsg:  level = "WRN"; break;
+    case QtCriticalMsg:
+    case QtFatalMsg:    level = "ERR"; break;
+    default: break;
+    }
+    const QByteArray ts   = QDateTime::currentDateTime()
+                                .toString(QStringLiteral("yyyy-MM-dd HH:mm:ss.zzz"))
+                                .toLocal8Bit();
+    const QByteArray line = msg.toLocal8Bit();
+    fprintf(stderr, "[slm-shell][%s][%s] %s\n", ts.constData(), level, line.constData());
+    fflush(stderr);
+    if (g_shellLogFile) {
+        fprintf(g_shellLogFile, "[%s][%s] %s\n", ts.constData(), level, line.constData());
+        fflush(g_shellLogFile);
+    }
+}
+
+// Write / update the shell lifecycle marker file.
+// Path: $XDG_RUNTIME_DIR/slm-shell-lifecycle.json (fallback: /tmp/).
+// Called at key phases: started, wayland_ok, first_frame.
+static void writeShellLifecycle(const QString &phase)
+{
+    static QJsonObject s_lc;
+    const QString now = QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs);
+    s_lc.insert(phase, now);
+    const QByteArray runtimeDir = qgetenv("XDG_RUNTIME_DIR");
+    const QString path = runtimeDir.isEmpty()
+        ? QStringLiteral("/tmp/slm-shell-lifecycle.json")
+        : QString::fromLocal8Bit(runtimeDir) + QStringLiteral("/slm-shell-lifecycle.json");
+    QFile f(path);
+    if (f.open(QIODevice::WriteOnly | QIODevice::Truncate))
+        f.write(QJsonDocument(s_lc).toJson(QJsonDocument::Compact));
+}
+
+static bool envFlagEnabled(const char *name)
+{
+    const QByteArray value = qgetenv(name).trimmed().toLower();
+    return value == "1" || value == "true" || value == "yes" || value == "on";
+}
+
+static QString screenSummary()
+{
+    const QList<QScreen *> screens = QGuiApplication::screens();
+    if (screens.isEmpty()) {
+        return QStringLiteral("none");
+    }
+
+    QStringList parts;
+    parts.reserve(screens.size());
+    for (QScreen *screen : screens) {
+        if (!screen) {
+            parts << QStringLiteral("<null>");
+            continue;
+        }
+        const QRect geometry = screen->geometry();
+        const QRect available = screen->availableGeometry();
+        parts << QStringLiteral("%1 geom=%2x%3+%4+%5 avail=%6x%7+%8+%9 dpr=%10 primary=%11")
+                     .arg(screen->name().isEmpty() ? QStringLiteral("<unnamed>") : screen->name())
+                     .arg(geometry.width())
+                     .arg(geometry.height())
+                     .arg(geometry.x())
+                     .arg(geometry.y())
+                     .arg(available.width())
+                     .arg(available.height())
+                     .arg(available.x())
+                     .arg(available.y())
+                     .arg(screen->devicePixelRatio())
+                     .arg(screen == QGuiApplication::primaryScreen()
+                              ? QStringLiteral("true")
+                              : QStringLiteral("false"));
+    }
+    return parts.join(QStringLiteral(" | "));
+}
 
 #if defined(__linux__)
 namespace {
@@ -124,6 +230,46 @@ int main(int argc, char *argv[])
 #if defined(__linux__)
     installCrashSignalHandlers();
 #endif
+
+    // ── Lifecycle logging setup ───────────────────────────────────────────────
+    g_shellLogFile = fopen("/tmp/slm-shell.log", "a");
+    qInstallMessageHandler(shellMessageHandler);
+    qInfo("=== slm-shell start (pid=%d) ===", static_cast<int>(getpid()));
+    qInfo("SLM-SHELL: WAYLAND_DISPLAY=%s QT_QPA_PLATFORM=%s XDG_RUNTIME_DIR=%s "
+          "XDG_SESSION_TYPE=%s SLM_SESSION_MODE=%s",
+          qgetenv("WAYLAND_DISPLAY").constData(),
+          qgetenv("QT_QPA_PLATFORM").constData(),
+          qgetenv("XDG_RUNTIME_DIR").constData(),
+          qgetenv("XDG_SESSION_TYPE").constData(),
+          qgetenv("SLM_SESSION_MODE").constData());
+    writeShellLifecycle(QStringLiteral("started"));
+
+    // ── Locale pre-flight ─────────────────────────────────────────────────────
+    // Force a UTF-8 locale before QGuiApplication so QLocale::system() and any
+    // libc consumer (iconv, fontconfig, glib) agree. Missing/non-UTF-8 locale
+    // causes Qt warnings ("Detected locale ... lacks UTF-8 encoding").
+    if (qgetenv("LANG").isEmpty()) {
+        qputenv("LANG", "C.UTF-8");
+    }
+    if (qgetenv("LC_ALL").isEmpty()) {
+        qputenv("LC_ALL", "C.UTF-8");
+    }
+    if (qgetenv("LC_CTYPE").isEmpty()) {
+        qputenv("LC_CTYPE", "C.UTF-8");
+    }
+    std::setlocale(LC_ALL, "");
+
+    // ── Wayland pre-flight ────────────────────────────────────────────────────
+    // Ensure WAYLAND_DISPLAY is set before QGuiApplication loads the platform plugin.
+    if (qgetenv("WAYLAND_DISPLAY").isEmpty()) {
+        qWarning("SLM-SHELL: WAYLAND_DISPLAY not set — defaulting to slm-wayland-0");
+        qputenv("WAYLAND_DISPLAY", "slm-wayland-0");
+    }
+    if (qgetenv("QT_QPA_PLATFORM").isEmpty()) {
+        qWarning("SLM-SHELL: QT_QPA_PLATFORM not set — forcing wayland");
+        qputenv("QT_QPA_PLATFORM", "wayland");
+    }
+
     const auto roundedRegionForRect = [](const QRect &rect, int radius) -> QRegion {
         if (rect.isEmpty() || radius <= 0) {
             return QRegion(rect);
@@ -140,6 +286,27 @@ int main(int argc, char *argv[])
     const qint64 t0 = QDateTime::currentMSecsSinceEpoch();
     const bool startupLogs = qEnvironmentVariableIntValue("SLM_STARTUP_LOG") > 0;
     const bool startupTrace = qEnvironmentVariableIntValue("SLM_STARTUP_TRACE") > 0;
+    const bool disableAppDeck = envFlagEnabled("SLM_DISABLE_APPDECK");
+    const bool disableEmbeddedAppDeck = envFlagEnabled("SLM_DISABLE_EMBEDDED_APPDECK");
+    // docs/APPDECK.md §19 Tahap 4 rollback hatch — flip with
+    //   SLM_APPDECK_V2_ICON_MORPH=1 ./slm-desktop
+    const bool appDeckV2IconMorphEnabled = envFlagEnabled("SLM_APPDECK_V2_ICON_MORPH");
+    // Heavy QML effects (layer.enabled + MultiEffect shadow on the dock pill)
+    // are unreliable under software OpenGL — texture/shader paths in swrast
+    // can render the layered item black or empty, which manifests visually as
+    // a missing dock background. The QEMU smoke wrapper forces
+    // LIBGL_ALWAYS_SOFTWARE=1, but session daemons (greeter / session-broker)
+    // may exec slm-shell.real directly and lose the env. To keep the dock
+    // visible everywhere, dock effects are **opt-in only** —
+    //   SLM_ENABLE_DOCK_EFFECTS=1 ./slm-desktop
+    // re-enables the layer+shadow pipeline when a hardware GL backend is
+    // known to be available. SLM_DISABLE_DOCK_EFFECTS=1 stays as the explicit
+    // off switch for back-compat with existing tooling.
+    const bool dockEffectsEnabled = envFlagEnabled("SLM_ENABLE_DOCK_EFFECTS")
+                                    && !envFlagEnabled("SLM_DISABLE_DOCK_EFFECTS");
+    qInfo().noquote() << "[STARTUP] dockEffectsEnabled=" << dockEffectsEnabled
+                      << "SLM_ENABLE_DOCK_EFFECTS=" << qgetenv("SLM_ENABLE_DOCK_EFFECTS")
+                      << "SLM_DISABLE_DOCK_EFFECTS=" << qgetenv("SLM_DISABLE_DOCK_EFFECTS");
     const bool startupDiag = startupLogs || startupTrace;
     QString startupTracePath;
     QFile startupTraceFile;
@@ -219,7 +386,128 @@ int main(int argc, char *argv[])
     const QString appDir = QFileInfo(QString::fromLocal8Bit(argv[0])).absolutePath();
     qputenv("QT_QUICK_CONTROLS_STYLE", "SlmStyle");
 
+    QGuiApplication::setDesktopFileName(QStringLiteral("slm-shell"));
     QGuiApplication app(argc, argv);
+    qInfo("SLM-SHELL: Qt platform plugin loaded: '%s'",
+          qPrintable(app.platformName()));
+    qInfo("SLM-SHELL: Locale: %s (LANG=%s LC_ALL=%s)",
+          qPrintable(QLocale::system().name()),
+          qgetenv("LANG").constData(),
+          qgetenv("LC_ALL").constData());
+    writeShellLifecycle(QStringLiteral("platformLoaded"));
+
+    // Hard-fail if Qt chose a non-Wayland backend. Exit code 101 lets the
+    // session broker classify this as a Wayland attach failure (not a crash).
+    if (app.platformName() != QStringLiteral("wayland")) {
+        qCritical("SLM-SHELL: platform plugin is '%s', expected 'wayland' — aborting (exit 101)",
+                  qPrintable(app.platformName()));
+        qCritical("SLM-SHELL: check WAYLAND_DISPLAY='%s' and that the compositor socket exists",
+                  qgetenv("WAYLAND_DISPLAY").constData());
+        if (g_shellLogFile) fclose(g_shellLogFile);
+        return 101;
+    }
+    qInfo("SLM-SHELL: Wayland backend confirmed — connecting to compositor");
+    writeShellLifecycle(QStringLiteral("waylandOk"));
+
+    QQmlApplicationEngine *startupCoverEngine = nullptr;
+    auto closeStartupCover = [&]() {
+        if (!startupCoverEngine) {
+            return;
+        }
+        for (QObject *root : startupCoverEngine->rootObjects()) {
+            if (auto *window = qobject_cast<QWindow *>(root)) {
+                window->close();
+            }
+        }
+        startupCoverEngine->deleteLater();
+        startupCoverEngine = nullptr;
+        qInfo("SLM-SHELL: startup cover dismissed");
+    };
+    if (!envFlagEnabled("SLM_DISABLE_STARTUP_COVER")) {
+        startupCoverEngine = new QQmlApplicationEngine(&app);
+        static constexpr auto kStartupCoverQml = R"QML(
+import QtQuick
+import QtQuick.Window
+
+Window {
+    id: root
+    visible: true
+    visibility: Window.FullScreen
+    flags: Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
+    title: "SLM Desktop Starting"
+    color: "#111418"
+
+    Rectangle {
+        anchors.fill: parent
+        color: "#111418"
+    }
+
+    Column {
+        anchors.centerIn: parent
+        spacing: 14
+
+        Text {
+            anchors.horizontalCenter: parent.horizontalCenter
+            text: "SLM"
+            color: "#f4f7fb"
+            font.pixelSize: 40
+            font.weight: Font.DemiBold
+            horizontalAlignment: Text.AlignHCenter
+        }
+
+        Rectangle {
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: 72
+            height: 2
+            color: "#62d2a2"
+        }
+
+        Text {
+            anchors.horizontalCenter: parent.horizontalCenter
+            text: "Starting desktop"
+            color: "#b9c2ce"
+            font.pixelSize: 14
+            horizontalAlignment: Text.AlignHCenter
+        }
+    }
+}
+)QML";
+        startupCoverEngine->loadData(QByteArray(kStartupCoverQml),
+                                     QUrl(QStringLiteral("qrc:/SlmStartupCover.qml")));
+        if (startupCoverEngine->rootObjects().isEmpty()) {
+            qWarning("SLM-SHELL: startup cover failed to load");
+            startupCoverEngine->deleteLater();
+            startupCoverEngine = nullptr;
+        } else {
+            qInfo("SLM-SHELL: startup cover shown");
+        }
+    }
+
+    const auto logScreenState = [](const char *event, QScreen *screen = nullptr) {
+        const QString changed = screen
+                ? (screen->name().isEmpty() ? QStringLiteral("<unnamed>") : screen->name())
+                : QStringLiteral("<none>");
+        const int count = QGuiApplication::screens().size();
+        qInfo("SLM-SHELL: screen event=%s changed=%s count=%d screens=%s",
+              event,
+              qUtf8Printable(changed),
+              count,
+              qUtf8Printable(screenSummary()));
+    };
+    logScreenState("initial");
+    QObject::connect(&app, &QGuiApplication::screenAdded, &app,
+                     [logScreenState](QScreen *screen) {
+        logScreenState("added", screen);
+    });
+    QObject::connect(&app, &QGuiApplication::screenRemoved, &app,
+                     [logScreenState](QScreen *screen) {
+        logScreenState("removed", screen);
+    });
+    QObject::connect(&app, &QGuiApplication::primaryScreenChanged, &app,
+                     [logScreenState](QScreen *screen) {
+        logScreenState("primaryChanged", screen);
+    });
+
     if (startupDiag) {
         qInfo().noquote() << "[startup] QGuiApplication ready"
                           << (QDateTime::currentMSecsSinceEpoch() - t0) << "ms";
@@ -236,21 +524,108 @@ int main(int argc, char *argv[])
     });
     QCoreApplication::setOrganizationName(QStringLiteral("SLM"));
     QCoreApplication::setApplicationName(QStringLiteral("SLM Desktop"));
+
+    // Register a well-known bus name early so slm-lockd's QDBusServiceWatcher
+    // has a stable target. Loss of this name is the primary signal that the
+    // shell process has exited and the lockscreen authority must take over.
+    {
+        QDBusConnection bus = QDBusConnection::sessionBus();
+        if (bus.isConnected()) {
+            const QString shellBusName = QStringLiteral("org.slm.Desktop");
+            QDBusConnectionInterface *iface = bus.interface();
+            const bool already = iface
+                ? iface->isServiceRegistered(shellBusName).value()
+                : false;
+            if (!already) {
+                if (bus.registerService(shellBusName)) {
+                    qInfo().noquote() << "[startup] registered DBus name" << shellBusName;
+                } else {
+                    qWarning().noquote() << "[startup] failed to register DBus name"
+                                         << shellBusName
+                                         << "(supervisor lockd will not detect shell loss)";
+                }
+            }
+        }
+    }
+
     const auto serviceRegistered = [](const QString &service) -> bool {
         QDBusConnectionInterface *iface = QDBusConnection::sessionBus().interface();
         return iface ? iface->isServiceRegistered(service).value() : false;
     };
+    const QString runtimeAppDir = QFileInfo(QCoreApplication::applicationFilePath()).absolutePath();
+    const auto resolveLocalBinaryPath = [runtimeAppDir](const QString &binaryName) -> QString {
+        const QString name = binaryName.trimmed();
+        if (name.isEmpty()) {
+            return QString();
+        }
+        const QStringList candidates{
+            QDir(runtimeAppDir).filePath(name),
+            QDir(QDir::currentPath()).filePath(name),
+            QDir(QDir::currentPath()).filePath(QStringLiteral("build/") + name),
+            QDir(QDir::currentPath()).filePath(QStringLiteral("build/qemu-smoke/") + name),
+            QDir(QDir::currentPath()).filePath(QStringLiteral("build/ci/") + name)
+        };
+        for (const QString &path : candidates) {
+            QFileInfo fi(path);
+            if (fi.exists() && fi.isFile() && fi.isExecutable()) {
+                return fi.absoluteFilePath();
+            }
+        }
+        return QString();
+    };
+    const QString resolvedSettingsPath = resolveLocalBinaryPath(QStringLiteral("slm-settings"));
+    const QString resolvedBinaryDir = resolvedSettingsPath.isEmpty()
+                                          ? runtimeAppDir
+                                          : QFileInfo(resolvedSettingsPath).absolutePath();
     const auto startDaemonBinary = [](const QString &localBinary, const QString &fallbackBinary) -> bool {
         const QString appDir = QFileInfo(QCoreApplication::applicationFilePath()).absolutePath();
-        const QString localPath = QDir(appDir).filePath(localBinary);
+        const QString cwd = QDir::currentPath();
+        auto resolveDaemon = [&](const QString &name) -> QString {
+            const QString trimmed = name.trimmed();
+            if (trimmed.isEmpty()) {
+                return QString();
+            }
+            const QStringList candidates{
+                QDir(appDir).filePath(trimmed),
+                QDir(cwd).filePath(trimmed),
+                QDir(cwd).filePath(QStringLiteral("build/") + trimmed),
+                QDir(cwd).filePath(QStringLiteral("build/qemu-smoke/") + trimmed),
+                QDir(cwd).filePath(QStringLiteral("build/ci/") + trimmed)
+            };
+            for (const QString &path : candidates) {
+                QFileInfo fi(path);
+                if (fi.exists() && fi.isFile() && fi.isExecutable()) {
+                    return fi.absoluteFilePath();
+                }
+            }
+            return QString();
+        };
+        const QString localPath = resolveDaemon(localBinary);
         bool started = false;
-        if (QFileInfo::exists(localPath)) {
+        if (!localPath.isEmpty()) {
             started = QProcess::startDetached(localPath, {});
         }
         if (!started) {
             started = QProcess::startDetached(fallbackBinary, {});
         }
         return started;
+    };
+    QVector<Slm::Bootstrap::DaemonServiceBootstrapRunner *> serviceBootstrapRunners;
+    bool serviceBootstrapStarted = false;
+    const auto startServiceBootstraps = [&]() {
+        if (serviceBootstrapStarted) {
+            return;
+        }
+        serviceBootstrapStarted = true;
+        for (Slm::Bootstrap::DaemonServiceBootstrapRunner *runner : std::as_const(serviceBootstrapRunners)) {
+            if (runner) {
+                runner->start();
+            }
+        }
+        qInfo("SLM-SHELL: deferred service bootstrap started (count=%lld)",
+              static_cast<long long>(serviceBootstrapRunners.size()));
+        startupMark(QStringLiteral("service.bootstrap.started"),
+                    QStringLiteral("count=%1").arg(serviceBootstrapRunners.size()));
     };
     const auto installServiceBootstrap = [&](const QString &service,
                                              const QString &localBinary,
@@ -300,7 +675,7 @@ int main(int argc, char *argv[])
             startupMark(QStringLiteral("service.gaveUp"),
                         QStringLiteral("%1 attempt=%2").arg(logName).arg(attempt));
         });
-        runner->start();
+        serviceBootstrapRunners.append(runner);
     };
     installServiceBootstrap(QStringLiteral("org.freedesktop.SLMCapabilities"),
                             QStringLiteral("desktopd"),
@@ -318,6 +693,10 @@ int main(int argc, char *argv[])
                             QStringLiteral("slm-recoveryd"),
                             QStringLiteral("slm-recoveryd"),
                             QStringLiteral("slm-recoveryd"));
+    installServiceBootstrap(QStringLiteral("org.slm.Desktop.Devices"),
+                            QStringLiteral("slm-devicesd"),
+                            QStringLiteral("slm-devicesd"),
+                            QStringLiteral("slm-devicesd"));
     startupMark(QStringLiteral("service.bootstrap.installed"));
     const AppStartupArgs startupArgs = parseAppStartupArgs(app.arguments());
     startupMark(QStringLiteral("args.parsed"),
@@ -354,7 +733,7 @@ int main(int argc, char *argv[])
     NetworkManager networkManager;
     DesktopAppModel appModel;
     ShortcutModel shortcutModel;
-    DockModel dockModel;
+    AppDeckModel dockModel;
     SpacesManager spacesManager;
     CursorController cursorController;
     DesktopSettingsClient desktopSettings;
@@ -372,44 +751,116 @@ int main(int argc, char *argv[])
     FileManagerModel fileManagerModel(&fileManagerApi, &metadataIndexServer);
     FileManagerModelFactory fileManagerModelFactory(&fileManagerApi, &metadataIndexServer);
     GlobalProgressCenter globalProgressCenter;
-    TothespotService tothespotService;
-    TothespotContextMenuHelper tothespotContextMenuHelper;
-    TothespotTextHighlighter tothespotTextHighlighter;
+    PulseService pulseService;
+    PulseContextMenuHelper pulseContextMenuHelper;
+    PulseTextHighlighter pulseTextHighlighter;
     Slm::Clipboard::ClipboardServiceClient clipboardServiceClient;
     Slm::Session::SessionStateClient sessionStateClient;
+    // Defense-in-depth: block all screenshot capture paths while the session is locked.
+    // Pairs with ShellInputRouter's input-gate rejection of screenshot.* actions.
+    screenshotManager.setLockedProvider([&sessionStateClient]() {
+        return sessionStateClient.locked();
+    });
+    const QProcessEnvironment processEnv = QProcessEnvironment::systemEnvironment();
+    const QString smokeScreenshotResultPath =
+        processEnv.value(QStringLiteral("SLM_SMOKE_SCREENSHOT_RESULT")).trimmed();
+    if (!smokeScreenshotResultPath.isEmpty()) {
+        const QString smokeScreenshotOutputPath =
+            processEnv.value(QStringLiteral("SLM_SMOKE_SCREENSHOT_OUTPUT"),
+                             QStringLiteral("/tmp/slm-smoke-screenshot.png")).trimmed();
+        QTimer::singleShot(6000, &app, [&screenshotManager,
+                                        smokeScreenshotResultPath,
+                                        smokeScreenshotOutputPath]() {
+            QVariantMap shot = screenshotManager.captureFullscreen(smokeScreenshotOutputPath);
+            shot.insert(QStringLiteral("smoke"), true);
+            QFile resultFile(smokeScreenshotResultPath);
+            if (resultFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+                resultFile.write(QJsonDocument(QJsonObject::fromVariantMap(shot)).toJson(
+                    QJsonDocument::Compact));
+                resultFile.write("\n");
+            } else {
+                qWarning().noquote() << "[slm][screenshot-smoke] failed to write result"
+                                     << smokeScreenshotResultPath
+                                     << resultFile.errorString();
+            }
+            qInfo().noquote() << "[slm][screenshot-smoke] result"
+                              << QJsonDocument(QJsonObject::fromVariantMap(shot)).toJson(
+                                     QJsonDocument::Compact);
+        });
+    }
     Slm::Motion::MotionController motionController;
     ShellStateController shellStateController;
+    {
+        QDBusConnection bus = QDBusConnection::sessionBus();
+        if (bus.isConnected()) {
+            const bool canonicalConnected = bus.connect(QStringLiteral("org.slm.WorkspaceManager"),
+                                                        QStringLiteral("/org/slm/WorkspaceManager"),
+                                                        QStringLiteral("org.slm.WorkspaceManager1"),
+                                                        QStringLiteral("AppGridRequested"),
+                                                        &shellStateController,
+                                                        SLOT(openAppDeck()));
+            const bool legacyConnected = bus.connect(QStringLiteral("org.desktop_shell.WorkspaceManager"),
+                                                     QStringLiteral("/org/desktop_shell/WorkspaceManager"),
+                                                     QStringLiteral("org.desktop_shell.WorkspaceManager1"),
+                                                     QStringLiteral("AppGridRequested"),
+                                                     &shellStateController,
+                                                     SLOT(openAppDeck()));
+            qInfo().noquote() << "[appdeck] dbus bridge connected"
+                              << "canonical=" << canonicalConnected
+                              << "legacy=" << legacyConnected;
+        }
+    }
     ShellInputRouter shellInputRouter(&shellStateController);
     ShellLayerWatchdog shellLayerWatchdog(&shellStateController);
     PowerBridge powerBridge;
+    SessionController sessionController;
+    ScheduleController scheduleController;
+    PowerController powerController(&powerBridge,
+                                    &sessionController,
+                                    &scheduleController,
+                                    &shellStateController);
     Slm::ContextMenu::ContextMenuService contextMenuService;
     Slm::System::MissingComponentController missingComponentController;
 #ifdef SLM_HAVE_WAYLANDCLIENT
-    DockBootstrapState dockBootstrapState;
+    AppDeckBootstrapState dockBootstrapState;
     WlrLayerShell wlrLayerShell;
-    wlrLayerShell.setDockBootstrapState(&dockBootstrapState);
+    AppDeckLayerShellController appDeckLayerShell(&wlrLayerShell);
+    AppDeckLayerShellController crownLayerShell(&wlrLayerShell);
+    AppDeckLayerShellController notificationLayerShell(&wlrLayerShell);
+    AppDeckLayerShellController securityLayerShell(&wlrLayerShell);
+    appDeckLayerShell.setBootstrapState(&dockBootstrapState);
+    wlrLayerShell.setAppDeckBootstrapState(&dockBootstrapState);
     QObject::connect(&wlrLayerShell, &WlrLayerShell::activeChanged, &app, [&]() {
         dockBootstrapState.setIntegrationEnabled(wlrLayerShell.isActive());
+        qInfo("[LAYERSHELL] activeChanged supported=%s", wlrLayerShell.isActive() ? "true" : "false");
     });
     dockBootstrapState.setIntegrationEnabled(wlrLayerShell.isActive());
+    qInfo("[LAYERSHELL] deterministic LayerShellQt architecture enabled");
 #endif
     Slm::Print::PrinterManager printerManager;
     Slm::Print::PrintSession printSession;
     Slm::Print::PrintPreviewModel printPreviewModel;
     Slm::Print::JobSubmitter printJobSubmitter;
     WindowingBackendManager windowingBackendManager;
+    ShellPolicyController shellPolicyController(&shellStateController, &windowingBackendManager);
+    AppDeckCompositorEvents appDeckCompositorEvents(&shellPolicyController, &shellStateController);
     CompositorInputCaptureBackendService compositorInputCaptureBackendService(&windowingBackendManager);
     CompositorInputCapturePrimitiveService compositorInputCapturePrimitiveService(&windowingBackendManager);
     WorkspacePreviewManager workspacePreviewManager;
     WorkspaceManager workspaceManager(&windowingBackendManager,
                                       &spacesManager,
-                                      windowingBackendManager.compositorStateObject());
+                                      windowingBackendManager.compositorStateObject(),
+                                      &shellStateController);
     WorkspaceStripModel workspaceStripModel(&spacesManager, &workspaceManager);
     MultitaskingController multitaskingController(&workspaceManager, &spacesManager);
     WindowThumbnailLayoutEngine windowThumbnailLayoutEngine;
     const auto applyIconThemePref = [&]() {
-        const QString light = desktopSettings.gtkIconThemeLight().trimmed();
-        const QString dark = desktopSettings.gtkIconThemeDark().trimmed();
+        const QString gtkLight = desktopSettings.gtkIconThemeLight().trimmed();
+        const QString gtkDark = desktopSettings.gtkIconThemeDark().trimmed();
+        const QString kdeLight = desktopSettings.kdeIconThemeLight().trimmed();
+        const QString kdeDark = desktopSettings.kdeIconThemeDark().trimmed();
+        const QString light = !gtkLight.isEmpty() ? gtkLight : kdeLight;
+        const QString dark = !gtkDark.isEmpty() ? gtkDark : kdeDark;
         if (!light.isEmpty() && !dark.isEmpty()) {
             themeIconController.setThemeMapping(light, dark);
         } else {
@@ -421,6 +872,21 @@ int main(int argc, char *argv[])
                     && app.palette().color(QPalette::Window).lightness() < 128);
         themeIconController.applyForDarkMode(darkMode);
     };
+    const auto syncNotificationRuntimeContext = [&]() {
+        notificationManager.setRuntimeContext(shellPolicyController.fullscreenActive(),
+                                              screencastPrivacyModel.active(),
+                                              shellStateController.focusMode());
+    };
+    syncNotificationRuntimeContext();
+    QObject::connect(&shellPolicyController, &ShellPolicyController::policyStateChanged, &app, [&]() {
+        syncNotificationRuntimeContext();
+    });
+    QObject::connect(&screencastPrivacyModel, &ScreencastPrivacyModel::activeChanged, &app, [&]() {
+        syncNotificationRuntimeContext();
+    });
+    QObject::connect(&shellStateController, &ShellStateController::focusModeChanged, &app, [&]() {
+        syncNotificationRuntimeContext();
+    });
     applyIconThemePref();
     globalMenuSuspendBridge.setMenuManager(&globalMenuManager);
     const auto applyGlobalMenuModePref = [&]() {
@@ -477,6 +943,12 @@ int main(int argc, char *argv[])
     QObject::connect(&desktopSettings, &DesktopSettingsClient::gtkIconThemeDarkChanged, &app, [&]() {
         applyIconThemePref();
     });
+    QObject::connect(&desktopSettings, &DesktopSettingsClient::kdeIconThemeLightChanged, &app, [&]() {
+        applyIconThemePref();
+    });
+    QObject::connect(&desktopSettings, &DesktopSettingsClient::kdeIconThemeDarkChanged, &app, [&]() {
+        applyIconThemePref();
+    });
     QObject::connect(&app, &QGuiApplication::focusWindowChanged, &app, [&](QWindow *window) {
         globalMenuAdaptiveController.setWindowFullscreen(window && window->visibility() == QWindow::FullScreen);
         if (window) {
@@ -496,7 +968,7 @@ int main(int argc, char *argv[])
                                                              QStringLiteral("kwin-wayland")).toString();
     const QString requestedBackend = envBackend.isEmpty() ? prefBackend : envBackend;
     windowingBackendManager.configureBackend(requestedBackend);
-    printerManager.reload();
+    QTimer::singleShot(0, &printerManager, &Slm::Print::PrinterManager::reload);
     const auto syncPrintSessionWithSelection = [&]() {
         QString selectedPrinter = printSession.settingsModel()->printerId();
         if (selectedPrinter.trimmed().isEmpty()) {
@@ -524,7 +996,7 @@ int main(int argc, char *argv[])
                           << (QDateTime::currentMSecsSinceEpoch() - t0) << "ms";
     }
     startupMark(QStringLiteral("managers.constructed"));
-    AppStartupBridge::registerTopBarIndicatorContext(engine.rootContext(),
+    AppStartupBridge::registerCrownIndicatorContext(engine.rootContext(),
                                                      &networkManager,
                                                      &bluetoothManager,
                                                      &soundManager,
@@ -562,9 +1034,9 @@ int main(int argc, char *argv[])
                                           &fileManagerModel,
                                           &fileManagerModelFactory,
                                           &globalProgressCenter,
-                                          &tothespotService,
-                                          &tothespotContextMenuHelper,
-                                          &tothespotTextHighlighter,
+                                          &pulseService,
+                                          &pulseContextMenuHelper,
+                                          &pulseTextHighlighter,
                                           &metadataIndexServer,
                                           &clipboardServiceClient,
                                           &motionController,
@@ -572,6 +1044,9 @@ int main(int argc, char *argv[])
                                           &shellInputRouter,
                                           &shellLayerWatchdog,
                                           &powerBridge,
+                                          &powerController,
+                                          &scheduleController,
+                                          &sessionController,
                                           &contextMenuService);
     AppStartupBridge::setStartupWindowContext(engine.rootContext(),
                                               startupArgs.startWindowed,
@@ -600,9 +1075,16 @@ int main(int argc, char *argv[])
                                              slmActionTreeDebug);
 #ifdef SLM_HAVE_WAYLANDCLIENT
     engine.rootContext()->setContextProperty(QStringLiteral("WlrLayerShell"), &wlrLayerShell);
-    engine.rootContext()->setContextProperty(QStringLiteral("DockBootstrapState"), &dockBootstrapState);
+    engine.rootContext()->setContextProperty(QStringLiteral("AppDeckLayerShell"), &appDeckLayerShell);
+    engine.rootContext()->setContextProperty(QStringLiteral("CrownLayerShell"), &crownLayerShell);
+    engine.rootContext()->setContextProperty(QStringLiteral("NotificationLayerShell"), &notificationLayerShell);
+    engine.rootContext()->setContextProperty(QStringLiteral("SecurityLayerShell"), &securityLayerShell);
+    engine.rootContext()->setContextProperty(QStringLiteral("AppDeckBootstrapState"), &dockBootstrapState);
 #endif
     engine.rootContext()->setContextProperty(QStringLiteral("SessionStateClient"), &sessionStateClient);
+    engine.rootContext()->setContextProperty(QStringLiteral("ShellPolicyController"), &shellPolicyController);
+    engine.rootContext()->setContextProperty(QStringLiteral("ShellVisibilityPolicy"), &shellPolicyController);
+    engine.rootContext()->setContextProperty(QStringLiteral("AppDeckCompositorEvents"), &appDeckCompositorEvents);
     engine.rootContext()->setContextProperty(QStringLiteral("FirewallServiceClient"), &firewallServiceClient);
     engine.rootContext()->setContextProperty(QStringLiteral("MissingComponents"), &missingComponentController);
     engine.rootContext()->setContextProperty(QStringLiteral("PrintManager"), &printerManager);
@@ -610,11 +1092,18 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("PrintPreviewModel"), &printPreviewModel);
     engine.rootContext()->setContextProperty(QStringLiteral("PrintJobSubmitter"), &printJobSubmitter);
     engine.rootContext()->setContextProperty(QStringLiteral("AppBinaryDir"),
-                                             QCoreApplication::applicationDirPath());
+                                             resolvedBinaryDir);
     engine.rootContext()->setContextProperty(QStringLiteral("SessionStartupMode"), sessionMode);
     engine.rootContext()->setContextProperty(QStringLiteral("SafeModeActive"), safeModeActive);
     engine.rootContext()->setContextProperty(QStringLiteral("AnimationsEnabled"), runtimeAnimationsEnabled);
     engine.rootContext()->setContextProperty(QStringLiteral("StartupTraceEnabled"), startupTrace);
+    engine.rootContext()->setContextProperty(QStringLiteral("DisableAppDeck"), disableAppDeck);
+    engine.rootContext()->setContextProperty(QStringLiteral("DisableEmbeddedAppDeck"),
+                                             disableEmbeddedAppDeck);
+    engine.rootContext()->setContextProperty(QStringLiteral("AppDeckV2IconMorphEnabled"),
+                                             appDeckV2IconMorphEnabled);
+    engine.rootContext()->setContextProperty(QStringLiteral("DockEffectsEnabled"),
+                                             dockEffectsEnabled);
     AppStartupBridge::wireGlobalBatchProgress(&app,
                                               &fileManagerApi,
                                               &windowingBackendManager,
@@ -644,15 +1133,29 @@ int main(int argc, char *argv[])
         Qt::QueuedConnection);
     // Prefer direct qrc loading for startup reliability. Support both resource
     // prefixes used by different Qt/CMake generator configurations.
-    const QString mainQmlQtPrefix = ResourcePaths::Qml::mainQtPrefix();
-    const QString mainQmlModulePrefix = ResourcePaths::Qml::mainModulePrefix();
+    // FastMain path is the default: render wallpaper+tint as first frame, then
+    // load Main.qml asynchronously. Opt-out via SLM_DISABLE_FAST_FIRST_FRAME=1.
+    // SLM_FAST_FIRST_FRAME=1 is still honored as a no-op (kept for legacy callers).
+    const bool fastFirstFrame = !envFlagEnabled("SLM_DISABLE_FAST_FIRST_FRAME");
+    const QString mainQmlQtPrefix = fastFirstFrame
+            ? ResourcePaths::Qml::fastMainQtPrefix()
+            : ResourcePaths::Qml::mainQtPrefix();
+    const QString mainQmlModulePrefix = fastFirstFrame
+            ? ResourcePaths::Qml::fastMainModulePrefix()
+            : ResourcePaths::Qml::mainModulePrefix();
+    const QString mainQmlQtPrefixUrl = fastFirstFrame
+            ? ResourcePaths::Qml::fastMainQtPrefixUrl()
+            : ResourcePaths::Qml::mainQtPrefixUrl();
+    const QString mainQmlModulePrefixUrl = fastFirstFrame
+            ? ResourcePaths::Qml::fastMainModulePrefixUrl()
+            : ResourcePaths::Qml::mainModulePrefixUrl();
     startupMark(QStringLiteral("qml.load.begin"));
     if (QFile::exists(mainQmlQtPrefix)) {
-        engine.load(QUrl(ResourcePaths::Qml::mainQtPrefixUrl()));
+        engine.load(QUrl(mainQmlQtPrefixUrl));
     } else if (QFile::exists(mainQmlModulePrefix)) {
-        engine.load(QUrl(ResourcePaths::Qml::mainModulePrefixUrl()));
+        engine.load(QUrl(mainQmlModulePrefixUrl));
     } else {
-        qCritical().noquote() << "[startup] Main.qml resource not found in qrc prefixes:"
+        qCritical().noquote() << "[startup] QML entry resource not found in qrc prefixes:"
                               << mainQmlQtPrefix << "or" << mainQmlModulePrefix;
     }
     if (startupLogs) {
@@ -674,12 +1177,20 @@ int main(int argc, char *argv[])
             QObject::connect(shellWindow, &QQuickWindow::afterAnimating,
                              &motionController, &Slm::Motion::MotionController::windowFrame);
             QObject::connect(shellWindow, &QQuickWindow::frameSwapped,
-                             &app, [&, shellWindow]() {
+                             &app, [&, shellWindow, t0]() {
                 static bool firstFrameLogged = false;
                 if (firstFrameLogged) {
                     return;
                 }
                 firstFrameLogged = true;
+                const qint64 elapsed = QDateTime::currentMSecsSinceEpoch() - t0;
+                qInfo("SLM-SHELL: first frame rendered (t=%lldms visible=%s size=%dx%d)",
+                      (long long)elapsed,
+                      shellWindow->isVisible() ? "true" : "false",
+                      shellWindow->width(), shellWindow->height());
+                closeStartupCover();
+                writeShellLifecycle(QStringLiteral("firstFrame"));
+                QTimer::singleShot(fastFirstFrame ? 3000 : 250, &app, startServiceBootstraps);
                 startupMark(QStringLiteral("window.firstFrameSwapped"),
                             QStringLiteral("visible=%1 size=%2x%3")
                                 .arg(shellWindow->isVisible() ? QStringLiteral("true")
@@ -747,5 +1258,12 @@ int main(int argc, char *argv[])
                     QStringLiteral("path=%1").arg(startupTracePath));
     }
 
-    return app.exec();
+    QTimer::singleShot(5000, &app, startServiceBootstraps);
+    const int ret = app.exec();
+    qInfo("=== slm-shell exit (code=%d) ===", ret);
+    if (g_shellLogFile) {
+        fclose(g_shellLogFile);
+        g_shellLogFile = nullptr;
+    }
+    return ret;
 }

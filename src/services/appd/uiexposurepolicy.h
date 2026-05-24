@@ -8,15 +8,15 @@ namespace Slm::Appd {
 //
 // Policy matrix (from design spec):
 //  shell               → none
-//  gui-app             → dock, switcher, systemMonitor
-//  gtk                 → dock, switcher, systemMonitor
-//  kde                 → dock, switcher, systemMonitor
-//  qt-generic          → dock, switcher, systemMonitor
-//  qt-desktop-fallback → dock, switcher, systemMonitor
+//  gui-app             → appdeck, switcher, systemMonitor
+//  gtk                 → appdeck, switcher, systemMonitor
+//  kde                 → appdeck, switcher, systemMonitor
+//  qt-generic          → appdeck, switcher, systemMonitor
+//  qt-desktop-fallback → appdeck, switcher, systemMonitor
 //  cli-app             → systemMonitor only
 //  background-agent    → tray, systemMonitor
 //  system-ignore       → none
-//  unknown             → systemMonitor only (never dock/switcher by default)
+//  unknown             → systemMonitor only (never appdeck/switcher by default)
 class UIExposurePolicy
 {
 public:

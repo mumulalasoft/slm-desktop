@@ -1,12 +1,13 @@
 #include "sessionstateservice.h"
 
-#include "../../../dbuslogutils.h"
+#include "../../core/utils/dbuslogutils.h"
 #include "sessionauthenticator.h"
 #include "sessionstatemanager.h"
 
 #include <QDateTime>
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
+#include <QDebug>
 #include <QDir>
 #include <QStandardPaths>
 
@@ -14,6 +15,10 @@ namespace {
 constexpr const char kService[] = "org.slm.SessionState";
 constexpr const char kPath[] = "/org/slm/SessionState";
 constexpr const char kApiVersion[] = "1.0";
+constexpr const char kStateActive[] = "Active";
+constexpr const char kStateLocking[] = "Locking";
+constexpr const char kStateLocked[] = "Locked";
+constexpr const char kStateUnlocking[] = "Unlocking";
 }
 
 SessionStateService::SessionStateService(SessionStateManager *manager, QObject *parent)
@@ -27,13 +32,15 @@ SessionStateService::SessionStateService(SessionStateManager *manager, QObject *
 
     if (m_manager) {
         connect(m_manager, &SessionStateManager::SessionLocked,
-                this, &SessionStateService::SessionLocked);
+                this, &SessionStateService::onManagerSessionLocked);
         connect(m_manager, &SessionStateManager::SessionUnlocked,
-                this, &SessionStateService::SessionUnlocked);
+                this, &SessionStateService::onManagerSessionUnlocked);
         connect(m_manager, &SessionStateManager::IdleChanged,
                 this, &SessionStateService::IdleChanged);
         connect(m_manager, &SessionStateManager::ActiveAppChanged,
                 this, &SessionStateService::ActiveAppChanged);
+        connect(m_manager, &SessionStateManager::Resumed,
+                this, &SessionStateService::Resumed);
     }
 }
 
@@ -57,6 +64,11 @@ QString SessionStateService::apiVersion() const
     return QString::fromLatin1(kApiVersion);
 }
 
+QString SessionStateService::lockState() const
+{
+    return m_lockState;
+}
+
 QVariantMap SessionStateService::Ping() const
 {
     return {
@@ -64,6 +76,7 @@ QVariantMap SessionStateService::Ping() const
         {QStringLiteral("service"), QString::fromLatin1(kService)},
         {QStringLiteral("sessionRegistered"), m_serviceRegistered},
         {QStringLiteral("api_version"), apiVersion()},
+        {QStringLiteral("lock_state"), lockState()},
     };
 }
 
@@ -80,7 +93,9 @@ QVariantMap SessionStateService::GetCapabilities() const
              QStringLiteral("reboot"),
              QStringLiteral("lock"),
              QStringLiteral("unlock"),
+             QStringLiteral("lock-state"),
         }},
+        {QStringLiteral("lock_state"), lockState()},
     };
 }
 
@@ -169,9 +184,27 @@ void SessionStateService::Lock()
     }
     const QString requestId = SlmDbusLog::nextRequestId();
     const QString caller = calledFromDBus() ? message().service() : QString();
+    if (m_lockState == QString::fromLatin1(kStateLocked)
+            || m_lockState == QString::fromLatin1(kStateLocking)) {
+        // Idempotent: PrepareForSleep can race with a manual Lock or fire
+        // repeatedly across redundant suspend signals. Don't re-emit
+        // LockStateChanged or re-run the manager call.
+        SlmDbusLog::logEvent(QString::fromLatin1(kService),
+                         QStringLiteral("Lock"),
+                         requestId,
+                         caller,
+                         QString(),
+                         QStringLiteral("finish"),
+                         {{QStringLiteral("ok"), true},
+                          {QStringLiteral("noop"), true},
+                          {QStringLiteral("lock_state"), lockState()}});
+        return;
+    }
+    setLockState(QString::fromLatin1(kStateLocking), QStringLiteral("lock-request"));
     if (m_manager) {
         m_manager->Lock();
     }
+    setLockState(QString::fromLatin1(kStateLocked), QStringLiteral("lock-surface-authority"));
     SlmDbusLog::logEvent(QString::fromLatin1(kService),
                      QStringLiteral("Lock"),
                      requestId,
@@ -193,6 +226,9 @@ QVariantMap SessionStateService::Unlock(const QString &password)
     const QString caller = calledFromDBus() ? message().service() : QString();
     const QString key = throttleKey();
     const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
+    qInfo().noquote() << "[LOCKD] [AUTH] unlock requested caller="
+                      << (caller.isEmpty() ? QStringLiteral("<local>") : caller)
+                      << "state=" << m_lockState;
     Slm::Desktopd::SessionUnlockThrottleState currentState = m_unlockThrottle.value(key);
     if (applyThrottleDecay(currentState, nowMs)) {
         m_unlockThrottle.insert(key, currentState);
@@ -227,8 +263,10 @@ QVariantMap SessionStateService::Unlock(const QString &password)
     }
 
     QString reason;
+    qInfo().noquote() << "[LOCKD] [PAM] authenticate begin user=current";
     const bool authOk = SessionAuthenticator::authenticateCurrentUser(password, &reason);
     if (authOk && m_manager) {
+        setLockState(QString::fromLatin1(kStateUnlocking), QStringLiteral("pam-success"));
         m_manager->Unlock();
         recordUnlockSuccess(key);
     } else {
@@ -260,6 +298,7 @@ QVariantMap SessionStateService::Unlock(const QString &password)
     QVariantMap result{
         {QStringLiteral("ok"), authOk && (m_manager != nullptr)},
         {QStringLiteral("error"), authOk ? QString() : reason},
+        {QStringLiteral("lock_state"), lockState()},
     };
     if (!authOk) {
         result.insert(QStringLiteral("retry_after_sec"),
@@ -274,9 +313,56 @@ QVariantMap SessionStateService::Unlock(const QString &password)
                      QStringLiteral("finish"),
                      {{QStringLiteral("ok"), result.value(QStringLiteral("ok")).toBool()},
                       {QStringLiteral("error"), result.value(QStringLiteral("error")).toString()},
+                      {QStringLiteral("lock_state"), lockState()},
                       {QStringLiteral("retry_after_sec"),
                        result.value(QStringLiteral("retry_after_sec"), 0)}});
     return result;
+}
+
+QVariantMap SessionStateService::ForceLocked(const QString &reason)
+{
+    if (!checkPermission(Slm::Permissions::Capability::SessionLock,
+                         QStringLiteral("ForceLocked"))) {
+        return {
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), QStringLiteral("permission-denied")},
+            {QStringLiteral("lock_state"), lockState()},
+        };
+    }
+    const QString requestId = SlmDbusLog::nextRequestId();
+    const QString caller = calledFromDBus() ? message().service() : QString();
+    const QString resolvedReason = reason.trimmed().isEmpty()
+            ? QStringLiteral("force-locked")
+            : reason.trimmed();
+
+    qInfo().noquote() << "[LOCKD] ForceLocked caller="
+                      << (caller.isEmpty() ? QStringLiteral("<local>") : caller)
+                      << "reason=" << resolvedReason
+                      << "current_state=" << m_lockState;
+
+    const bool wasAlreadyLocked = (m_lockState == QString::fromLatin1(kStateLocked));
+
+    // setLockState dedups if already Locked. We always drive to Locked here,
+    // skipping the Locking transition because the trigger is a hard event
+    // (shell crash, suspend race) — there is no in-progress lock to wait on.
+    setLockState(QString::fromLatin1(kStateLocked), resolvedReason);
+
+    SlmDbusLog::logEvent(QString::fromLatin1(kService),
+                     QStringLiteral("ForceLocked"),
+                     requestId,
+                     caller,
+                     QString(),
+                     QStringLiteral("finish"),
+                     {{QStringLiteral("ok"), true},
+                      {QStringLiteral("noop"), wasAlreadyLocked},
+                      {QStringLiteral("reason"), resolvedReason},
+                      {QStringLiteral("lock_state"), lockState()}});
+    return {
+        {QStringLiteral("ok"), true},
+        {QStringLiteral("noop"), wasAlreadyLocked},
+        {QStringLiteral("reason"), resolvedReason},
+        {QStringLiteral("lock_state"), lockState()},
+    };
 }
 
 void SessionStateService::registerDbusService()
@@ -341,6 +427,7 @@ void SessionStateService::setupSecurity()
     m_securityGuard.registerMethodCapability(QStringLiteral("org.slm.SessionState"), QStringLiteral("Lock"), Slm::Permissions::Capability::SessionLock);
     m_securityGuard.registerMethodCapability(QStringLiteral("org.slm.SessionState"), QStringLiteral("Unlock"), Slm::Permissions::Capability::SessionUnlock);
     m_securityGuard.registerMethodCapability(QStringLiteral("org.slm.SessionState"), QStringLiteral("Inhibit"), Slm::Permissions::Capability::SessionInhibit);
+    m_securityGuard.registerMethodCapability(QStringLiteral("org.slm.SessionState"), QStringLiteral("ForceLocked"), Slm::Permissions::Capability::SessionLock);
 }
 
 bool SessionStateService::checkPermission(Slm::Permissions::Capability capability, const QString &methodName)
@@ -363,6 +450,37 @@ bool SessionStateService::checkPermission(Slm::Permissions::Capability capabilit
                        .arg(methodName)
                        .arg(d.reason));
     return false;
+}
+
+void SessionStateService::setLockState(const QString &state, const QString &reason)
+{
+    const QString normalized = state.trimmed().isEmpty() ? QString::fromLatin1(kStateActive) : state.trimmed();
+    if (m_lockState == normalized) {
+        return;
+    }
+    const QString previous = m_lockState;
+    m_lockState = normalized;
+    qInfo().noquote() << "[LOCKD] [LOCK_STATE]"
+                      << "transition=" + previous + "->" + m_lockState
+                      << "reason=" + (reason.trimmed().isEmpty() ? QStringLiteral("unspecified") : reason.trimmed());
+    emit LockStateChanged(m_lockState);
+    if (m_lockState == QString::fromLatin1(kStateLocked)) {
+        qInfo().noquote() << "[LOCKD] [INPUT_BLOCK] active=true shell=disabled shortcuts=locked";
+        emit SessionLocked();
+    } else if (m_lockState == QString::fromLatin1(kStateActive)) {
+        qInfo().noquote() << "[LOCKD] [INPUT_BLOCK] active=false shell=restored shortcuts=enabled";
+        emit SessionUnlocked();
+    }
+}
+
+void SessionStateService::onManagerSessionLocked()
+{
+    setLockState(QString::fromLatin1(kStateLocked), QStringLiteral("manager-session-locked"));
+}
+
+void SessionStateService::onManagerSessionUnlocked()
+{
+    setLockState(QString::fromLatin1(kStateActive), QStringLiteral("manager-session-unlocked"));
 }
 
 QString SessionStateService::throttleKey() const

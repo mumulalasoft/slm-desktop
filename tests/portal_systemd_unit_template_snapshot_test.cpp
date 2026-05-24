@@ -70,7 +70,7 @@ void PortalSystemdUnitTemplateSnapshotTest::systemdUnitTemplate_snapshot_contrac
 
     QCOMPARE(service.value(QStringLiteral("Type")), QStringLiteral("simple"));
     QCOMPARE(service.value(QStringLiteral("ExecStart")),
-             QStringLiteral("%h/Development/Qt/Slm_Desktop/build/slm-portald"));
+             QStringLiteral("%h/Development/Qt/Desktop_Shell/build/slm-portald"));
     QCOMPARE(service.value(QStringLiteral("Restart")), QStringLiteral("on-failure"));
     QCOMPARE(service.value(QStringLiteral("RestartSec")), QStringLiteral("1"));
 

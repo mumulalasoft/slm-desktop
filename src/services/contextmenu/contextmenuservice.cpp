@@ -117,7 +117,7 @@ QVariantList ContextMenuService::buildMenu(const QVariantMap &context) const
         items = buildWindowMenu(context);
     } else if (type == QStringLiteral("notification")) {
         items = buildNotificationMenu(context);
-    } else if (type == QStringLiteral("dock")) {
+    } else if (type == QStringLiteral("appdeck")) {
         items = buildDockMenu(context);
     }
 
@@ -402,6 +402,28 @@ QVariantList ContextMenuService::buildDesktopMenu(const QVariantMap &ctx) const
                     QStringLiteral("edit-paste"), 20);
     }
 
+    QVariantList arrangeItems;
+    arrangeItems << item(QStringLiteral("arrange_icons_by_name"),
+                         QStringLiteral("Name"),
+                         QStringLiteral("view-sort-ascending"), 1);
+    arrangeItems << item(QStringLiteral("arrange_icons_by_date_modified"),
+                         QStringLiteral("Date Modified"),
+                         QStringLiteral("view-sort-descending"), 2);
+    arrangeItems << item(QStringLiteral("arrange_icons_by_size"),
+                         QStringLiteral("Size"),
+                         QStringLiteral("view-sort-descending"), 3);
+    arrangeItems << separator();
+    arrangeItems << item(QStringLiteral("snap_to_grid"),
+                         QStringLiteral("Snap to Grid"),
+                         QStringLiteral("view-grid"), 4);
+    arrangeItems << item(QStringLiteral("clean_up_desktop"),
+                         QStringLiteral("Clean Up Desktop"),
+                         QStringLiteral("edit-clear"), 5);
+    top << submenu(QStringLiteral("arrange_icons"),
+                   QStringLiteral("Arrange Icons By"),
+                   QStringLiteral("view-sort-ascending"),
+                   arrangeItems, 24);
+
     top << separator();
 
     top << item(QStringLiteral("change_wallpaper"),
@@ -460,10 +482,10 @@ QVariantList ContextMenuService::buildWindowMenu(const QVariantMap &ctx) const
                     QStringLiteral("Focus App"),
                     QStringLiteral("window-restore"), 31);
         top << item(QStringLiteral("reveal_in_dock"),
-                    QStringLiteral("Reveal in Dock"),
+                    QStringLiteral("Reveal in AppDeck"),
                     QStringLiteral("go-bottom"), 32);
         top << item(QStringLiteral("pin_to_dock"),
-                    QStringLiteral("Pin to Dock"),
+                    QStringLiteral("Pin to AppDeck"),
                     QStringLiteral("view-pin"), 33);
     }
 
@@ -537,7 +559,7 @@ QVariantList ContextMenuService::buildDockMenu(const QVariantMap &ctx) const
                     QStringLiteral("view-unpin"), 20);
     } else {
         top << item(QStringLiteral("pin_to_dock"),
-                    QStringLiteral("Pin to Dock"),
+                    QStringLiteral("Pin to AppDeck"),
                     QStringLiteral("view-pin"), 20);
     }
 

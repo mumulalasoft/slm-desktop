@@ -1,0 +1,6 @@
+[LOCKD] [SUPERVISOR] starting watch shell-name= org.slm.Desktop
+[LOCKD] [SUPERVISOR] running shell-alive= false started_at= 2026-05-24T03:59:57Z
+[LOCKD] [SUPERVISOR] shell name returned name= org.slm.Desktop
+[LOCKD] [SUPERVISOR] shell returned; daemon lock state preserved (unlock requires PAM via SessionState.Unlock)
+[LOCKD] [SUPERVISOR] shell name lost name= org.slm.Desktop reason= shell-process-died
+[LOCKD] [SUPERVISOR] ForceLocked call failed: Permission denied for method ForceLocked: default-deny

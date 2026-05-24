@@ -1,10 +1,12 @@
 #include "appexecutiongate.h"
 
-#include "../../../dockmodel.h"
-#include "../../../shortcutmodel.h"
+#include "../appdeck/appdeckmodel.h"
+#include "../shortcutmodel.h"
 #include "../../core/launcher/applauncher.h"
 #include "../../core/launcher/launchenvresolver.h"
 
+#include <QCoreApplication>
+#include <QDir>
 #include <QFileInfo>
 #include <QFile>
 #include <QProcess>
@@ -30,42 +32,9 @@ QString fromUtf8(const char *value)
     return value ? QString::fromUtf8(value) : QString();
 }
 
-bool launchDesktopFileViaGio(const QString &desktopFilePath,
-                             QString *outDisplayName,
-                             QString *outExecutable,
-                             QString *outIconName)
-{
-    const QString path = QFileInfo(desktopFilePath).absoluteFilePath();
-    if (path.isEmpty() || !QFileInfo::exists(path)) {
-        return false;
-    }
-
-    GDesktopAppInfo *info = g_desktop_app_info_new_from_filename(path.toUtf8().constData());
-    if (!info) {
-        return false;
-    }
-
-    if (outDisplayName) {
-        *outDisplayName = fromUtf8(g_app_info_get_display_name(G_APP_INFO(info)));
-    }
-    if (outExecutable) {
-        *outExecutable = fromUtf8(g_app_info_get_executable(G_APP_INFO(info)));
-    }
-    if (outIconName) {
-        *outIconName = fromUtf8(g_desktop_app_info_get_string(info, "Icon"));
-    }
-
-    GError *gerr = nullptr;
-    const bool ok = g_app_info_launch(G_APP_INFO(info), nullptr, nullptr, &gerr);
-    if (gerr != nullptr) {
-        g_error_free(gerr);
-    }
-    g_object_unref(info);
-    return ok;
-}
 }
 
-AppExecutionGate::AppExecutionGate(DockModel *dockModel, ShortcutModel *shortcutModel,
+AppExecutionGate::AppExecutionGate(AppDeckModel *dockModel, ShortcutModel *shortcutModel,
                                    QObject *desktopSettings,
                                    QObject *parent)
     : QObject(parent)
@@ -93,7 +62,7 @@ bool AppExecutionGate::launchDesktopEntry(const QString &desktopFilePath, const 
         ok = m_dockModel->activateOrLaunch(desktopFilePath, executable, displayName);
     } else if (!desktopFilePath.trimmed().isEmpty()) {
         if (m_envResolver) {
-            // Inject resolved environment via GAppLaunchContext.
+            // Inject the resolved per-app environment without mutating this process.
             const QString appId = AppLauncher::appIdFromDesktopFile(desktopFilePath);
             const QProcessEnvironment env = m_envResolver->resolve(appId);
             const AppLaunchResult r = AppLauncher::launchDesktopFile(desktopFilePath, env);
@@ -102,7 +71,13 @@ bool AppExecutionGate::launchDesktopEntry(const QString &desktopFilePath, const 
             if (!r.executable.isEmpty())  resolvedExec = r.executable;
             if (!r.iconName.isEmpty())    resolvedIcon = r.iconName;
         } else {
-            ok = launchDesktopFileViaGio(desktopFilePath, &resolvedName, &resolvedExec, &resolvedIcon);
+            const AppLaunchResult r =
+                AppLauncher::launchDesktopFile(desktopFilePath,
+                                               QProcessEnvironment::systemEnvironment());
+            ok = r.ok;
+            if (!r.displayName.isEmpty()) resolvedName = r.displayName;
+            if (!r.executable.isEmpty())  resolvedExec = r.executable;
+            if (!r.iconName.isEmpty())    resolvedIcon = r.iconName;
         }
     }
     if (ok && m_dockModel) {
@@ -112,7 +87,14 @@ bool AppExecutionGate::launchDesktopEntry(const QString &desktopFilePath, const 
         resolvedName = QFileInfo(desktopFilePath).completeBaseName();
     }
 
-    if (verboseLoggingEnabled()) {
+    if (source == QStringLiteral("appdeck")) {
+        qInfo().noquote() << "[app-launch] gate desktopEntry"
+                          << "source=" << source
+                          << "name=" << resolvedName
+                          << "desktop=" << desktopFilePath
+                          << "exec=" << resolvedExec
+                          << "ok=" << ok;
+    } else if (verboseLoggingEnabled()) {
         qInfo().noquote() << "AppExecutionGate.launchDesktopEntry:"
                           << "source=" << source
                           << "name=" << resolvedName
@@ -138,6 +120,22 @@ bool AppExecutionGate::launchDesktopId(const QString &desktopId, const QString &
         info = g_desktop_app_info_new(id.toUtf8().constData());
     }
     if (!info) {
+        const QString lowered = id.toLower();
+        if (lowered == QStringLiteral("slm-settings")
+                || lowered == QStringLiteral("slm-settings.desktop")
+                || lowered == QStringLiteral("settings")
+                || lowered == QStringLiteral("settings.desktop")) {
+            const bool launchedByName = launchCommand(QStringLiteral("slm-settings"), QString(), source);
+            if (launchedByName) {
+                return true;
+            }
+            const QString localPath = QDir(QCoreApplication::applicationDirPath())
+                                          .filePath(QStringLiteral("slm-settings"));
+            if (QFileInfo::exists(localPath)) {
+                return launchCommand(localPath, QString(), source);
+            }
+            return false;
+        }
         emit appExecutionRecorded(source, desktopId, QString(), QString(), false);
         return false;
     }
@@ -216,6 +214,17 @@ bool AppExecutionGate::launchEntryMap(const QVariantMap &entry, const QString &s
         return launchCommand(executable, QString(), source);
     }
 
+    if (source == QStringLiteral("appdeck")) {
+        qInfo().noquote() << "[app-launch] gate entryMap"
+                          << "source=" << source
+                          << "type=" << type
+                          << "name=" << name
+                          << "desktopId=" << desktopId
+                          << "desktopFile=" << desktopFile
+                          << "exec=" << executable
+                          << "target=" << target
+                          << "ok=false";
+    }
     emit appExecutionRecorded(source, name.isEmpty() ? QStringLiteral("entry") : name,
                               desktopFile, executable, false);
     return false;
@@ -279,10 +288,16 @@ bool AppExecutionGate::launchCommand(const QString &command, const QString &work
 
 bool AppExecutionGate::openTarget(const QString &targetPathOrUrl, const QString &source)
 {
-    const QString raw = targetPathOrUrl.trimmed();
+    QString raw = targetPathOrUrl.trimmed();
     if (raw.isEmpty()) {
         emit appExecutionRecorded(source, QStringLiteral("target"), QString(), QString(), false);
         return false;
+    }
+
+    if (raw == QStringLiteral("~") || raw.startsWith(QStringLiteral("~/"))) {
+        raw = QDir::homePath() + raw.mid(1);
+    } else if (raw == QStringLiteral("__trash__")) {
+        raw = QDir::homePath() + QStringLiteral("/.local/share/Trash/files");
     }
 
     QString desktopFilePath;
@@ -393,7 +408,7 @@ bool AppExecutionGate::openTarget(const QString &targetPathOrUrl, const QString 
 
 bool AppExecutionGate::launchFromFileManager(const QString &targetPathOrUrl)
 {
-    return openTarget(targetPathOrUrl, QStringLiteral("filemanager"));
+    return openTarget(targetPathOrUrl, QStringLiteral("slm-filemanager"));
 }
 
 bool AppExecutionGate::launchFromTerminal(const QString &command, const QString &workingDirectory)

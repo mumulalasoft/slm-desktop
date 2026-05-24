@@ -40,13 +40,13 @@ cmake --build desktop-shell/build/dev-local-fm -j$(nproc)
 ### Jalankan dev session
 ```bash
 cd desktop-shell/
-source dev/workspace.env
-bash dev/run-dev.sh
+source scripts/dev/workspace.env
+bash scripts/dev/desktop-run-dev.sh
 ```
 
 ### Hot rebuild saat mengubah filemanager
 ```bash
-bash dev/dev-rebuild.sh
+bash scripts/dev/filemanager-dev-rebuild.sh
 ```
 
 ## Mode Build CMake
@@ -64,7 +64,7 @@ bash dev/dev-rebuild.sh
 |---|---|
 | `FileManagerSidebarIntegration` | Sidebar places, mount events, trash count |
 | `FileOperationsProgressOverlay` | Progress bar operasi copy/move/delete |
-| `TrashBadgeController` | Badge jumlah item trash di dock |
+| `TrashBadgeController` | Badge jumlah item trash di appdeck |
 | `FileManagerRecentFilesModel` | Model recent files untuk quick access |
 | `FileManagerSearchBridge` | In-process search dengan debounce |
 | `FileManagerOpenWithSheet` | Bottom sheet pilih aplikasi untuk open-with |
@@ -87,7 +87,7 @@ Image {
 
 ## Environment Variables Dev
 
-Lihat `dev/workspace.env` untuk daftar lengkap. Variabel kunci:
+Lihat `scripts/dev/workspace.env` untuk daftar lengkap. Variabel kunci:
 
 ```bash
 SLM_FILEMANAGER_SOURCE_DIR   # path source checkout filemanager

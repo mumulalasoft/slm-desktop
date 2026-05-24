@@ -35,7 +35,7 @@ check_exec "/usr/local/libexec/slm/recovery/smoke-recovery-partition-pipeline.sh
 
 for opt in /usr/local/bin/slm-shell /usr/local/bin/desktopd /usr/local/bin/slm-svcmgrd \
            /usr/local/bin/slm-loggerd /usr/local/bin/slm-portald /usr/local/bin/slm-fileopsd \
-           /usr/local/bin/slm-devicesd /usr/local/bin/slm-clipboardd /usr/local/bin/slm-envd \
+           /usr/local/bin/slm-sharingd /usr/local/bin/slm-devicesd /usr/local/bin/slm-clipboardd /usr/local/bin/slm-envd \
            /usr/local/bin/slm-polkit-agent /usr/local/bin/slm-recoveryd; do
   [[ -x "$opt" ]] && ok "optional bin $opt" || warnf "optional bin missing $opt"
 done
@@ -53,7 +53,7 @@ if [[ -n "$TARGET_USER" ]]; then
   USER_HOME="$(getent passwd "$TARGET_USER" | cut -d: -f6)"
   if [[ -n "$USER_HOME" ]]; then
     for unit in slm-desktopd.service slm-portald.service slm-fileopsd.service \
-                slm-devicesd.service slm-clipboardd.service slm-polkit-agent.service slm-envd.service \
+                slm-sharingd.service slm-devicesd.service slm-clipboardd.service slm-polkit-agent.service slm-envd.service \
                 slm-recoveryd.service; do
       if [[ -f "$USER_HOME/.config/systemd/user/$unit" ]]; then
         ok "user unit installed $unit"

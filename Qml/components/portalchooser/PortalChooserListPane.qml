@@ -26,11 +26,11 @@ Rectangle {
     signal clearSelectionRequested()
 
     width: parent ? parent.width : 0
-    height: parent ? (parent.height - 42) : 0
-    radius: Theme.radiusControlLarge
-    color: Theme.color("fileManagerWindowBg")
+    height: parent ? parent.height : 0
+    radius: Theme.radiusControl
+    color: Theme.color("fileManagerContentBg")
     border.width: Theme.borderWidthThin
-    border.color: Theme.color("fileManagerWindowBorder")
+    border.color: Theme.color("fileManagerContentBorder")
     clip: true
 
     ListView {
@@ -39,6 +39,8 @@ Rectangle {
         anchors.margins: 0
         model: root.entriesModel
         spacing: 0
+        boundsBehavior: Flickable.StopAtBounds
+        highlightFollowsCurrentItem: false
 
         header: PortalChooserListHeader {
             listWidth: portalChooserList.width

@@ -21,8 +21,7 @@
             "description": "Saver, balanced, or performance",
             "keywords": ["performance", "balanced", "power saver"],
             "type": "dropdown",
-            "backend_binding": "dbus:org.freedesktop.UPower.PowerProfiles/ActiveProfile",
-            "privileged_action": "org.slm.settings.power.modify"
+            "backend_binding": "dbus:org.freedesktop.UPower.PowerProfiles/ActiveProfile"
         },
         {
             "id": "suspend",
@@ -30,8 +29,7 @@
             "description": "Suspend when inactive",
             "keywords": ["sleep", "suspend", "idle"],
             "type": "toggle",
-            "backend_binding": "gsettings:org.gnome.settings-daemon.plugins.power/sleep-inactive-ac-type",
-            "privileged_action": "org.slm.settings.power.modify"
+            "backend_binding": "gsettings:org.gnome.settings-daemon.plugins.power/sleep-inactive-ac-type"
         }
     ]
 }

@@ -50,6 +50,7 @@ signals:
     void WorkspaceVisibilityChanged(bool visible);
     void WorkspaceChanged();
     void WindowAttention(const QVariantMap &window);
+    void AppGridRequested();
 
 private:
     void registerDbusService();

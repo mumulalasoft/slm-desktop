@@ -1,8 +1,48 @@
 #include <QtTest/QtTest>
+#include <QByteArray>
 #include <QSignalSpy>
 
 #include "../src/core/workspace/windowingbackendmanager.h"
 #include "../src/core/workspace/kwinwaylandipcclient.h"
+
+namespace {
+constexpr const char *kActiveIpcEnv = "SLM_KWIN_ACTIVE_IPC";
+
+class EnvVarGuard
+{
+public:
+    explicit EnvVarGuard(const char *name)
+        : m_name(name)
+        , m_hadPrevious(qEnvironmentVariableIsSet(name))
+        , m_previous(qgetenv(name))
+    {
+    }
+
+    ~EnvVarGuard()
+    {
+        if (m_hadPrevious) {
+            qputenv(m_name, m_previous);
+        } else {
+            qunsetenv(m_name);
+        }
+    }
+
+    void set(const QByteArray &value) const
+    {
+        qputenv(m_name, value);
+    }
+
+    void unset() const
+    {
+        qunsetenv(m_name);
+    }
+
+private:
+    const char *m_name = nullptr;
+    bool m_hadPrevious = false;
+    QByteArray m_previous;
+};
+}
 
 class WindowingBackendManagerTest : public QObject {
     Q_OBJECT
@@ -36,8 +76,35 @@ private slots:
         QCOMPARE(manager.eventSchemaVersion(), -1);
     }
 
+    void activeIpc_disabledByDefault()
+    {
+        EnvVarGuard guard(kActiveIpcEnv);
+        guard.unset();
+
+        WindowingBackendManager manager;
+        QVERIFY(manager.findChild<KWinWaylandIpcClient *>() == nullptr);
+        QVERIFY(manager.compositorStateObject() != nullptr);
+        QVERIFY(!manager.connected());
+        QVERIFY(!manager.hasCapability(QStringLiteral("window-list")));
+        QVERIFY(!manager.hasCapability(QStringLiteral("command.switcher-next")));
+    }
+
+    void activeIpc_enabledWhenRequested()
+    {
+        EnvVarGuard guard(kActiveIpcEnv);
+        guard.set("1");
+
+        WindowingBackendManager manager;
+        QVERIFY(manager.findChild<KWinWaylandIpcClient *>() != nullptr);
+        QVERIFY(manager.hasCapability(QStringLiteral("window-list")));
+        QVERIFY(manager.hasCapability(QStringLiteral("command.switcher-next")));
+    }
+
     void capabilityParity_kwinOnly()
     {
+        EnvVarGuard guard(kActiveIpcEnv);
+        guard.set("1");
+
         WindowingBackendManager manager;
         const QVariantMap expected =
                 WindowingBackendManager::baseCapabilitiesForBackend(QStringLiteral("kwin-wayland"));
@@ -70,6 +137,9 @@ private slots:
 
     void eventRelay_kwin()
     {
+        EnvVarGuard guard(kActiveIpcEnv);
+        guard.set("1");
+
         WindowingBackendManager manager;
         KWinWaylandIpcClient *kwinIpc = manager.findChild<KWinWaylandIpcClient *>();
         QVERIFY(kwinIpc != nullptr);
@@ -86,6 +156,9 @@ private slots:
 
     void commandWorkspaceOn_emitsCanonicalWorkspaceOpen()
     {
+        EnvVarGuard guard(kActiveIpcEnv);
+        guard.set("1");
+
         WindowingBackendManager manager;
         KWinWaylandIpcClient *kwinIpc = manager.findChild<KWinWaylandIpcClient *>();
         QVERIFY(kwinIpc != nullptr);
@@ -110,6 +183,9 @@ private slots:
 
     void windowActivated_emitsCanonicalWindowFocused()
     {
+        EnvVarGuard guard(kActiveIpcEnv);
+        guard.set("1");
+
         WindowingBackendManager manager;
         KWinWaylandIpcClient *kwinIpc = manager.findChild<KWinWaylandIpcClient *>();
         QVERIFY(kwinIpc != nullptr);

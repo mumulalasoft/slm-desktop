@@ -20,9 +20,11 @@ ApplicationWindow {
     readonly property bool windowMaximized: window.visibility === Window.Maximized
                                            || window.visibility === Window.FullScreen
     readonly property int shadowMargin: Theme.windowShadowMargin
+    readonly property int titleBarHeight: 52
 
     // Navigation state — true = home grid, false = module page
     property bool atHome: true
+    property bool _themeSyncPending: false
 
     readonly property var currentModule: {
         if (!SettingsApp || !SettingsApp.currentModuleId || !ModuleLoader) return null
@@ -54,15 +56,35 @@ ApplicationWindow {
         DSStyle.Theme.userFontScale = DesktopSettings.fontScale
     }
 
+    function requestThemeSync() {
+        if (_themeSyncPending) {
+            return
+        }
+        _themeSyncPending = true
+        Qt.callLater(function() {
+            _themeSyncPending = false
+            syncThemePreferences()
+        })
+    }
+
     Component.onCompleted: {
-        syncThemePreferences()
+        requestThemeSync()
+        if (SettingsApp && String(SettingsApp.currentModuleId || "").length > 0) {
+            window.atHome = false
+        }
     }
 
     Connections {
         target: DesktopSettings
-        function onThemeModeChanged() { window.syncThemePreferences() }
-        function onAccentColorChanged() { window.syncThemePreferences() }
-        function onFontScaleChanged() { window.syncThemePreferences() }
+        function onThemeModeChanged() { window.requestThemeSync() }
+        function onAccentColorChanged() { window.requestThemeSync() }
+        function onFontScaleChanged() { window.requestThemeSync() }
+        function onSettingChanged(path) {
+            var p = String(path || "")
+            if (p.indexOf("globalAppearance.") === 0 || p.indexOf("globalAppearance/") === 0) {
+                window.requestThemeSync()
+            }
+        }
     }
 
     // External module open (deep link / D-Bus)
@@ -157,7 +179,7 @@ ApplicationWindow {
         id: windowSurface
         anchors.fill: parent
         anchors.margins: windowMaximized ? 0 : shadowMargin
-        color: Theme.color("windowBg")
+        color: Theme.color("surface")
         radius: Theme.radiusWindow
         clip: true
         antialiasing: true
@@ -174,6 +196,16 @@ ApplicationWindow {
             z: 1
         }
 
+        Rectangle {
+            anchors.fill: parent
+            z: 0
+            gradient: Gradient {
+                GradientStop { position: 0.0; color: Theme.darkMode ? Qt.rgba(1, 1, 1, 0.055) : Qt.rgba(1, 1, 1, 0.72) }
+                GradientStop { position: 0.48; color: Theme.color("windowBg") }
+                GradientStop { position: 1.0; color: Theme.darkMode ? Qt.rgba(0, 0, 0, 0.10) : Qt.rgba(0.93, 0.96, 0.98, 1.0) }
+            }
+        }
+
         // ── Title bar ─────────────────────────────────────────────────────
         // All children are direct siblings so anchoring between them is valid.
         Item {
@@ -181,8 +213,13 @@ ApplicationWindow {
             anchors.top: parent.top
             anchors.left: parent.left
             anchors.right: parent.right
-            height: 48
+            height: window.titleBarHeight
             z: 20
+
+            Rectangle {
+                anchors.fill: parent
+                color: Theme.darkMode ? Qt.rgba(0, 0, 0, 0.08) : Qt.rgba(1, 1, 1, 0.34)
+            }
 
             DragHandler {
                 target: null
@@ -199,7 +236,7 @@ ApplicationWindow {
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: 0
 
-                DSStyle.WindowControlsCapsule {
+                WindowControlsCapsule {
                     spacing: 0
                     iconProvider: function(kind, hovered, pressed) {
                         return window.titleButtonIcon(kind, hovered, pressed)
@@ -224,8 +261,8 @@ ApplicationWindow {
                 anchors.left: trafficLights.right
                 anchors.leftMargin: 6
                 anchors.verticalCenter: parent.verticalCenter
-                width: 30
-                height: 30
+                width: 36
+                height: 36
                 padding: 0
                 opacity: window.atHome ? 0 : 1
                 visible: opacity > 0
@@ -247,59 +284,31 @@ ApplicationWindow {
                 ToolTip.delay: 500
             }
 
-            // ── Module icon + name (centered, module state only) ──────────
-            Row {
+            // ── Module name (centered, module state only) ─────────────────
+            Text {
                 anchors.centerIn: parent
-                spacing: 8
                 opacity: window.atHome ? 0 : 1
                 visible: opacity > 0
                 Behavior on opacity { NumberAnimation { duration: Theme.durationMd; easing.type: Theme.easingDefault } }
-
-                Image {
-                    source: window.currentModule
-                        ? "image://icon/" + (window.currentModule.icon || "preferences-system")
-                        : ""
-                    width: 18; height: 18
-                    visible: window.currentModule !== null
-                    anchors.verticalCenter: parent.verticalCenter
-                    smooth: true
-                }
-                Text {
-                    text: window.currentModule ? (window.currentModule.name || "") : ""
-                    font.pixelSize: Theme.fontSize("body")
-                    font.weight: Theme.fontWeight("semibold")
-                    color: Theme.color("textPrimary")
-                    anchors.verticalCenter: parent.verticalCenter
-                }
+                text: window.currentModule ? (window.currentModule.name || "") : ""
+                font.pixelSize: Theme.fontSize("body")
+                font.weight: Theme.fontWeight("semibold")
+                color: Theme.color("textPrimary")
             }
 
             // ── Search field (right-aligned, home state only) ─────────────
-            DSStyle.TextField {
+            DSStyle.SearchField {
                 id: searchField
                 anchors.right: parent.right
-                anchors.rightMargin: 16
+                anchors.rightMargin: Theme.metric("spacingXl")
                 anchors.verticalCenter: parent.verticalCenter
-                width: 280
+                width: 300
                 opacity: window.atHome ? 1 : 0
                 visible: opacity > 0
                 Behavior on opacity { NumberAnimation { duration: Theme.durationMd; easing.type: Theme.easingDefault } }
                 placeholderText: qsTr("Search Settings")
                 selectByMouse: true
-                leftPadding: 32
                 onTextChanged: if (SearchEngine) SearchEngine.searchQuery = text
-                Text {
-                    anchors.left: parent.left; anchors.leftMargin: 10
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: "🔍"; font.pixelSize: Theme.fontSize("menu")
-                    color: Theme.color("textDisabled")
-                }
-                background: Rectangle {
-                    radius: Theme.radiusControl
-                    color: Theme.color("surface")
-                    border.color: searchField.activeFocus ? Theme.color("accent") : Theme.color("panelBorder")
-                    border.width: searchField.activeFocus ? 2 : 1
-                    Behavior on border.color { enabled: window.microAnimationAllowed(); ColorAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault } }
-                }
             }
         }
 
@@ -309,7 +318,7 @@ ApplicationWindow {
             anchors.left: parent.left
             anchors.right: parent.right
             height: 1
-            color: Theme.color("panelBorder")
+            color: Theme.darkMode ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(0, 0, 0, 0.10)
             z: 15
         }
 
@@ -347,21 +356,6 @@ ApplicationWindow {
             }
         }
 
-        // ── Debug telemetry ───────────────────────────────────────────────
-        DSStyle.Label {
-            anchors.right: parent.right
-            anchors.bottom: parent.bottom
-            anchors.rightMargin: 12; anchors.bottomMargin: 6
-            z: 90
-            text: SearchEngine
-                ? ("search " + SearchEngine.lastSearchLatencyMs + "ms"
-                   + " • results " + SearchEngine.lastSearchResultCount
-                   + " • module " + (SettingsApp ? SettingsApp.lastModuleOpenLatencyMs : 0) + "ms")
-                : ""
-            color: Theme.color("textDisabled")
-            font.pixelSize: Theme.fontSize("xs")
-        }
-
         // ── Command palette overlay ───────────────────────────────────────
         Rectangle {
             anchors.fill: parent
@@ -374,18 +368,24 @@ ApplicationWindow {
                 onClicked: if (SettingsApp) SettingsApp.commandPaletteVisible = false
             }
 
-            Pane {
+            DSStyle.PopupSurface {
                 width: Math.min(parent.width * 0.72, 760)
                 height: Math.min(parent.height * 0.62, 520)
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.top: parent.top; anchors.topMargin: 80
-                z: 101; padding: 14
+                z: 101
+                popupRadius: Theme.radiusWindowAlt
+                popupColor: Theme.color("surface")
+                popupBorderColor: Theme.color("panelBorder")
+                popupOpacity: Theme.popupSurfaceOpacityStrong
+                elevation: "high"
 
                 ColumnLayout {
                     anchors.fill: parent
-                    spacing: 10
+                    anchors.margins: Theme.metric("spacingXl")
+                    spacing: Theme.metric("spacingMd")
 
-                    DSStyle.TextField {
+                    DSStyle.SearchField {
                         id: commandSearch
                         Layout.fillWidth: true
                         placeholderText: qsTr("Command palette")

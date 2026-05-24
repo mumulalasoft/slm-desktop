@@ -21,6 +21,16 @@ function placesModel(shell) {
     return shell ? shell.portalChooserPlacesModelRef : null
 }
 
+function fileManagerApi(shell) {
+    if (typeof FileManagerApi !== "undefined" && FileManagerApi) {
+        return FileManagerApi
+    }
+    if (shell && shell.fileManagerApiRef) {
+        return shell.fileManagerApiRef
+    }
+    return null
+}
+
 function resetSelection(shell) {
     shell.portalChooserSelectedIndex = -1
     shell.portalChooserAnchorIndex = -1
@@ -148,14 +158,16 @@ function openChooser(shell, requestId, options) {
     shell.portalChooserFilterIndex = 0
     shell.portalChooserValidationError = ""
     shell.portalChooserFilters = PortalChooserFlow.parseFilters(opts.filters || [])
-    refreshStoragePlaces(shell, placesModel(shell))
+    refreshStoragePlaces(shell, placesModel(shell), true)
     var startFolder = String(opts.folder || "").trim()
     if (startFolder.length <= 0) {
         startFolder = prefFolder
     }
     var model = entriesModel(shell)
     if (model) {
-        loadDirectory(shell, model, startFolder)
+        if (!loadDirectory(shell, model, startFolder) && startFolder !== "~") {
+            loadDirectory(shell, model, "~")
+        }
     }
     rebuildPlacesModel(shell, placesModel(shell))
     shell.portalFileChooserVisible = true
@@ -202,8 +214,9 @@ function completeInternalChooser(shell, ok, canceled, selected, errorText) {
         return
     }
     if (canceled || !ok || selected.length <= 0) {
-        if (typeof FileManagerApi !== "undefined" && FileManagerApi && FileManagerApi.removePath) {
-            FileManagerApi.removePath(sourcePath, false)
+        var fm = fileManagerApi(shell)
+        if (fm && fm.removePath) {
+            fm.removePath(sourcePath, false)
         }
         return
     }
@@ -277,8 +290,9 @@ function finishChooser(shell, ok, canceled, errorText, skipOverwriteCheck) {
             && !shell.portalChooserOverwriteAlwaysThisSession
             && selected.length > 0) {
         var target = String(selected[0] || "").trim()
-        if (target.length > 0 && typeof FileManagerApi !== "undefined" && FileManagerApi && FileManagerApi.statPath) {
-            var st = FileManagerApi.statPath(target)
+        var fm = fileManagerApi(shell)
+        if (target.length > 0 && fm && fm.statPath) {
+            var st = fm.statPath(target)
             if (st && st.ok) {
                 shell.portalChooserOverwriteTargetPath = target
                 shell.portalChooserOverwriteDialogVisible = true
@@ -848,6 +862,61 @@ function storageStableKey(deviceValue, labelValue) {
     return "label:" + String(labelValue || "").trim().toLowerCase()
 }
 
+function isPseudoStorageLocation(row) {
+    if (!row) {
+        return true
+    }
+    var path = String(row.path || row.rootPath || "").trim()
+    var device = String(row.device || "").trim().toLowerCase()
+    var fsType = String(row.filesystemType || "").trim().toLowerCase()
+    while (path.length > 1 && path.charAt(path.length - 1) === "/") {
+        path = path.slice(0, path.length - 1)
+    }
+    if (path === "/") {
+        return false
+    }
+    var pseudoFs = ({
+                        "autofs": true,
+                        "binfmt_misc": true,
+                        "bpf": true,
+                        "cgroup": true,
+                        "cgroup2": true,
+                        "configfs": true,
+                        "debugfs": true,
+                        "devpts": true,
+                        "devtmpfs": true,
+                        "efivarfs": true,
+                        "fusectl": true,
+                        "hugetlbfs": true,
+                        "mqueue": true,
+                        "nsfs": true,
+                        "overlay": true,
+                        "proc": true,
+                        "pstore": true,
+                        "ramfs": true,
+                        "securityfs": true,
+                        "squashfs": true,
+                        "sysfs": true,
+                        "tmpfs": true,
+                        "tracefs": true
+                    })
+    if (pseudoFs[fsType] === true) {
+        return true
+    }
+    var prefixes = ["/boot", "/dev", "/proc", "/run", "/snap", "/sys", "/tmp",
+                    "/var/lib/docker", "/var/lib/flatpak", "/var/lib/kubelet",
+                    "/var/lib/snapd", "/var/snap"]
+    for (var i = 0; i < prefixes.length; ++i) {
+        var prefix = prefixes[i]
+        if (path === prefix || path.indexOf(prefix + "/") === 0) {
+            return true
+        }
+    }
+    return device.indexOf("/dev/loop") === 0
+            || device.indexOf("/dev/zram") === 0
+            || device.indexOf("loop") === 0
+}
+
 function rebuildPlacesModel(shell, placesModel) {
     if (!placesModel || !placesModel.clear || !placesModel.append) {
         return
@@ -909,7 +978,7 @@ function rebuildPlacesModel(shell, placesModel) {
     }
 }
 
-function refreshStoragePlaces(shell, placesModel) {
+function refreshStoragePlaces(shell, placesModel, requestAsync) {
     var mapped = []
     var seen = ({})
     var previous = shell.portalChooserStoragePlaces || []
@@ -921,11 +990,15 @@ function refreshStoragePlaces(shell, placesModel) {
             previousIndex[prevKey] = p
         }
     }
-    if (typeof FileManagerApi !== "undefined" && FileManagerApi && FileManagerApi.storageLocations) {
-        var rows = FileManagerApi.storageLocations() || []
+    var fm = fileManagerApi(shell)
+    if (fm && fm.storageLocations) {
+        var rows = fm.storageLocations() || []
         for (var i = 0; i < rows.length; ++i) {
             var row = rows[i]
             if (!row) {
+                continue
+            }
+            if (isPseudoStorageLocation(row)) {
                 continue
             }
             var label = String(row.label || row.name || row.device || "Storage")
@@ -933,9 +1006,6 @@ function refreshStoragePlaces(shell, placesModel) {
             var device = String(row.device || "")
             if (path === "/") {
                 label = "Filesystem"
-            }
-            if (path.startsWith("/run") || path.startsWith("/boot/efi")) {
-                continue
             }
             var key = storageStableKey(device, label)
             if (seen[key] === true) {
@@ -960,8 +1030,9 @@ function refreshStoragePlaces(shell, placesModel) {
         for (var m = 0; m < mapped.length; ++m) {
             delete mapped[m].__oldIndex
         }
-        if (FileManagerApi.refreshStorageLocationsAsync) {
-            FileManagerApi.refreshStorageLocationsAsync()
+        var fm = fileManagerApi(shell)
+        if (requestAsync === true && fm && fm.refreshStorageLocationsAsync) {
+            fm.refreshStorageLocationsAsync()
         }
     }
     shell.portalChooserStoragePlaces = mapped
@@ -1027,17 +1098,19 @@ function sortRows(shell, rows) {
 
 function loadDirectory(shell, entriesModel, pathValue) {
     var target = expandPath(pathValue)
-    if (typeof FileManagerApi === "undefined" || !FileManagerApi || !FileManagerApi.listDirectory) {
+    var fm = fileManagerApi(shell)
+    if (!fm || !fm.listDirectory) {
         entriesModel.clear()
-        shell.portalChooserErrorText = "File service unavailable"
-        return
+        clearSelectionAndPreview(shell)
+        shell.portalChooserErrorText = "File service is not available"
+        return false
     }
-    var result = FileManagerApi.listDirectory(target, shell.portalChooserShowHidden, true)
+    var result = fm.listDirectory(target, shell.portalChooserShowHidden, true)
     if (!(result && result.ok)) {
         entriesModel.clear()
         clearSelectionAndPreview(shell)
         shell.portalChooserErrorText = String((result && result.error) ? result.error : "Failed to load folder")
-        return
+        return false
     }
     shell.portalChooserErrorText = ""
     shell.portalChooserCurrentDir = String(result.path || target)
@@ -1073,4 +1146,5 @@ function loadDirectory(shell, entriesModel, pathValue) {
     }
     clearSelectionAndPreview(shell)
     saveUiPreferences(shell)
+    return true
 }

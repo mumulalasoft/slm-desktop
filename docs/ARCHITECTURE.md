@@ -7,31 +7,31 @@ All app launches should pass through `AppExecutionGate`:
 ```mermaid
 flowchart LR
     UI["UI Entry Points
-Dock / Topbar / Launchpad / FileManager / Tothespot"] --> Router["AppCommandRouter (optional)"]
+AppDeck / Topbar / AppHub / FileManager / Pulse"] --> Router["AppCommandRouter (optional)"]
     Router --> Gate["AppExecutionGate"]
-    Gate --> DockActivate["DockModel.activateOrLaunch(...)"]
-    DockActivate --> NoteLaunch["DockModel.noteLaunchedEntry(...)"]
-    NoteLaunch --> Refresh["DockModel.refreshRunningStates()"]
+    Gate --> DockActivate["AppDeckModel.activateOrLaunch(...)"]
+    DockActivate --> NoteLaunch["AppDeckModel.noteLaunchedEntry(...)"]
+    NoteLaunch --> Refresh["AppDeckModel.refreshRunningStates()"]
     Gate --> Runtime["AppRuntimeRegistry (launch hints / pending desktop path)"]
 ```
 
-1. UI entry point (Dock / Shell / Launchpad / future FileManager / Terminal)
+1. UI entry point (AppDeck / Shell / AppHub / future FileManager / Terminal)
 2. `AppCommandRouter` (optional action dispatch for external modules)
 3. `AppExecutionGate` (`launchDesktopEntry(...)` / `launchEntryMap(...)`)
-4. `DockModel.activateOrLaunch(...)`
-5. `DockModel.noteLaunchedEntry(...)`
-6. `DockModel.refreshRunningStates()` reconciles pinned + transient entries
+4. `AppDeckModel.activateOrLaunch(...)`
+5. `AppDeckModel.noteLaunchedEntry(...)`
+6. `AppDeckModel.refreshRunningStates()` reconciles pinned + transient entries
 
 This avoids fragmented launch logic and keeps monitoring consistent.
 
 Recommended API by source:
-- Dock item: `AppExecutionGate.launchDesktopEntry(...)`
-- Launchpad / shortcut grid / file-manager style entries: `AppExecutionGate.launchEntryMap(entry, source)`
+- AppDeck item: `AppExecutionGate.launchDesktopEntry(...)`
+- AppHub / shortcut grid / file-manager style entries: `AppExecutionGate.launchEntryMap(entry, source)`
 - Terminal-like command source: `AppExecutionGate.launchCommand(...)`
 
 ## Running app model
 
-- Pinned entries come from `~/.Dock/*.desktop`.
+- Pinned entries come from `~/.AppDeck/*.desktop`.
 - Runtime entries are transient and synthesized from:
   - observed windows/processes,
   - user launch hints (`AppRuntimeRegistry`),

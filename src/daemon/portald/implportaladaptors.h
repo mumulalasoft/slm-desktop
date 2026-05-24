@@ -1,5 +1,7 @@
 #pragma once
 
+#include "portalsettingstypes.h"
+
 #include <QDBusAbstractAdaptor>
 #include <QDBusUnixFileDescriptor>
 #include <QDBusVariant>
@@ -61,6 +63,29 @@ public slots:
                            const QString &appId,
                            const QString &parentWindow,
                            const QVariantMap &options);
+    QVariantMap PickColor(const QString &handle,
+                          const QString &appId,
+                          const QString &parentWindow,
+                          const QVariantMap &options);
+
+private:
+    ImplPortalService *m_service = nullptr;
+};
+
+class ImplPortalWallpaperAdaptor : public QDBusAbstractAdaptor
+{
+    Q_OBJECT
+    Q_CLASSINFO("D-Bus Interface", "org.freedesktop.impl.portal.Wallpaper")
+
+public:
+    explicit ImplPortalWallpaperAdaptor(ImplPortalService *service);
+
+public slots:
+    QVariantMap SetWallpaperURI(const QString &handle,
+                                const QString &appId,
+                                const QString &parentWindow,
+                                const QString &uri,
+                                const QVariantMap &options);
 
 private:
     ImplPortalService *m_service = nullptr;
@@ -184,7 +209,7 @@ public:
     explicit ImplPortalSettingsAdaptor(ImplPortalService *service);
 
 public slots:
-    QVariantMap ReadAll(const QStringList &namespaces);
+    PortalSettingsMap ReadAll(const QStringList &namespaces);
     QDBusVariant Read(const QString &settingNamespace, const QString &key);
 
 private:
@@ -345,6 +370,40 @@ public slots:
                            const QString &appId,
                            const QString &parentWindow,
                            const QVariantMap &options);
+
+private:
+    ImplPortalService *m_service = nullptr;
+};
+
+// org.freedesktop.impl.portal.Background
+//
+// GetAppState:        queries org.desktop.Apps for running app states and
+//                     maps them to the portal's uint32 enum (0=background,
+//                     1=running, 2=active).
+// NotifyBackground:   shows a consent dialog via org.slm.Desktop.PortalUI
+//                     and returns response 0 (allow) or 1 (deny).
+// EnableAutostart:    manages ~/.config/autostart/<app_id>.desktop to
+//                     enable or disable app autostart on login.
+class ImplPortalBackgroundAdaptor : public QDBusAbstractAdaptor
+{
+    Q_OBJECT
+    Q_CLASSINFO("D-Bus Interface", "org.freedesktop.impl.portal.Background")
+
+public:
+    explicit ImplPortalBackgroundAdaptor(ImplPortalService *service);
+
+public slots:
+    QVariantMap GetAppState();
+    QVariantMap NotifyBackground(const QDBusObjectPath &handle,
+                                 const QString &appId,
+                                 const QString &name);
+    QVariantMap EnableAutostart(const QString &appId,
+                                bool enable,
+                                const QStringList &commandline,
+                                uint flags);
+
+signals:
+    void RunningApplicationsChanged();
 
 private:
     ImplPortalService *m_service = nullptr;

@@ -34,16 +34,16 @@ private slots:
         QVERIFY(text.contains(QStringLiteral("root.syncProgressNotification(false)")));
     }
 
-    void topbarAndCenter_mustReadBadgeStateFromGlobalNotificationManager()
+    void crownAndCenter_mustReadBadgeStateFromGlobalNotificationManager()
     {
         const QString appletPath = QStringLiteral(DESKTOP_SOURCE_DIR)
                 + QStringLiteral("/Qml/components/applet/NotificationApplet.qml");
         const QString centerPath = QStringLiteral(DESKTOP_SOURCE_DIR)
                 + QStringLiteral("/Qml/components/notification/NotificationCenter.qml");
-        const QString topbarPath = QStringLiteral(DESKTOP_SOURCE_DIR)
-                + QStringLiteral("/Qml/components/topbar/TopBar.qml");
+        const QString crownPath = QStringLiteral(DESKTOP_SOURCE_DIR)
+                + QStringLiteral("/Qml/components/crown/Crown.qml");
         const QString dockDelegatePath = QStringLiteral(DESKTOP_SOURCE_DIR)
-                + QStringLiteral("/Qml/components/dock/DockAppDelegate.qml");
+                + QStringLiteral("/Qml/components/appdeck/AppDeckAppDelegate.qml");
         const QString notifHeaderPath = QStringLiteral(DESKTOP_SOURCE_DIR)
                 + QStringLiteral("/src/services/notifications/notificationmanager.h");
         const QString appModelHeaderPath = QStringLiteral(DESKTOP_SOURCE_DIR)
@@ -53,7 +53,7 @@ private slots:
 
         const QString appletText = readTextFile(appletPath);
         const QString centerText = readTextFile(centerPath);
-        const QString topbarText = readTextFile(topbarPath);
+        const QString crownText = readTextFile(crownPath);
         const QString dockDelegateText = readTextFile(dockDelegatePath);
         const QString notifHeaderText = readTextFile(notifHeaderPath);
         const QString appModelHeaderText = readTextFile(appModelHeaderPath);
@@ -61,7 +61,7 @@ private slots:
 
         QVERIFY2(!appletText.isEmpty(), qPrintable(QStringLiteral("failed to read %1").arg(appletPath)));
         QVERIFY2(!centerText.isEmpty(), qPrintable(QStringLiteral("failed to read %1").arg(centerPath)));
-        QVERIFY2(!topbarText.isEmpty(), qPrintable(QStringLiteral("failed to read %1").arg(topbarPath)));
+        QVERIFY2(!crownText.isEmpty(), qPrintable(QStringLiteral("failed to read %1").arg(crownPath)));
         QVERIFY2(!dockDelegateText.isEmpty(), qPrintable(QStringLiteral("failed to read %1").arg(dockDelegatePath)));
         QVERIFY2(!notifHeaderText.isEmpty(), qPrintable(QStringLiteral("failed to read %1").arg(notifHeaderPath)));
         QVERIFY2(!appModelHeaderText.isEmpty(), qPrintable(QStringLiteral("failed to read %1").arg(appModelHeaderPath)));
@@ -73,8 +73,8 @@ private slots:
         QVERIFY(centerText.contains(QStringLiteral("section.property: \"groupId\"")));
         QVERIFY(centerText.contains(QStringLiteral("unreadCountForGroup")));
         QVERIFY(centerText.contains(QStringLiteral("groupDisplayName")));
-        QVERIFY(topbarText.contains(QStringLiteral("name: \"notification\"")));
-        QVERIFY(topbarText.contains(QStringLiteral("name: \"batch_ops\"")));
+        QVERIFY(crownText.contains(QStringLiteral("name: \"notification\"")));
+        QVERIFY(crownText.contains(QStringLiteral("name: \"batch_ops\"")));
         QVERIFY(dockDelegateText.contains(QStringLiteral("function _dockBadgeFromService()")));
         QVERIFY(dockDelegateText.contains(QStringLiteral("function _dockBadgeFromNotifications()")));
         QVERIFY(dockDelegateText.contains(QStringLiteral("function _canonicalIdentity()")));

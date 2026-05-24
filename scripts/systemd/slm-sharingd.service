@@ -1,0 +1,12 @@
+[Unit]
+Description=SLM Desktop Sharing Daemon
+After=default.target
+
+[Service]
+Type=simple
+ExecStart=%h/Development/Qt/Desktop_Shell/build/slm-sharingd
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=default.target

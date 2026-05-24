@@ -87,7 +87,7 @@ Item {
         id: background
         anchors.fill: operationColumn
         anchors.margins: -8
-        radius: 8
+        radius: Theme.radiusControl
         color: Qt.rgba(0, 0, 0, 0.75)
     }
 
@@ -122,24 +122,24 @@ Item {
                             text: model.statusText || (model.done
                                 ? (model.success ? qsTr("Selesai") : qsTr("Gagal"))
                                 : qsTr("Memproses..."))
-                            color: model.done && !model.success ? "#ff6b6b" : "#ffffff"
-                            font.pixelSize: 11
+                            color: model.done && !model.success ? Theme.color("error") : Theme.color("textPrimary")
+                            font.pixelSize: Theme.fontSize("xs")
                             elide: Text.ElideMiddle
                         }
 
                         Rectangle {
                             width: parent.width
                             height: 4
-                            radius: 2
-                            color: "#444"
+                            radius: Theme.radiusTiny
+                            color: Theme.color("panelBorder")
 
                             Rectangle {
                                 width: parent.width * Math.min(model.fraction, 1.0)
                                 height: parent.height
                                 radius: parent.radius
                                 color: model.done && !model.success
-                                    ? "#ff6b6b"
-                                    : (model.done ? "#4caf50" : "#2196F3")
+                                    ? Theme.color("error")
+                                    : (model.done ? Theme.color("success") : Theme.color("accent"))
 
                                 Behavior on width {
                                     NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault }
@@ -160,15 +160,15 @@ Item {
 
                         Rectangle {
                             anchors.fill: parent
-                            radius: 3
-                            color: cancelArea.containsMouse ? "#555" : "transparent"
+                            radius: Theme.radiusXs
+                            color: cancelArea.containsMouse ? Theme.color("hoverItem") : "transparent"
                         }
 
                         Text {
                             anchors.centerIn: parent
                             text: "✕"
-                            color: "#ccc"
-                            font.pixelSize: 10
+                            color: Theme.color("textSecondary")
+                            font.pixelSize: Theme.fontSize("tiny")
                         }
 
                         MouseArea {

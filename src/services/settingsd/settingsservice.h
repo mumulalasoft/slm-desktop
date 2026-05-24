@@ -1,7 +1,7 @@
 #pragma once
 
 #include "settingsstore.h"
-#include "src/services/theme-policy/appthemeclassifier.h"
+#include "../theme-policy/appthemeclassifier.h"
 
 #include <QObject>
 #include <QDBusContext>
@@ -29,6 +29,17 @@ public slots:
     QVariantMap SetSetting(const QString &path, const QDBusVariant &value);
     QVariantMap SetSettingsPatch(const QVariantMap &patch);
     QVariantMap SubscribeChanges() const;
+
+    // Returns {key, value, source, is_default, known, type, ...schema fields...}
+    QVariantMap GetSettingEffective(const QString &key) const;
+
+    // Returns the schema spec for a registered key.
+    QVariantMap GetSchemaInfo(const QString &key) const;
+
+    // Runtime overrides — in-memory, highest priority, cleared on daemon restart.
+    QVariantMap SetRuntimeOverride(const QString &key, const QDBusVariant &value);
+    QVariantMap ClearRuntimeOverride(const QString &key);
+
     QVariantMap ClassifyApp(const QVariantMap &appDescriptor) const;
     QVariantMap ResolveThemeForApp(const QVariantMap &appDescriptor,
                                    const QVariantMap &options = QVariantMap{});

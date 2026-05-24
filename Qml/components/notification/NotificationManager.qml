@@ -5,8 +5,9 @@ Item {
     id: root
 
     property var notificationManager: (typeof NotificationManager !== "undefined") ? NotificationManager : null
-    readonly property int bannerRightMargin: 16
-    readonly property int bannerTopMargin: 18
+    property bool compactMode: false
+    readonly property int bannerRightMargin: compactMode ? 10 : 16
+    readonly property int bannerTopMargin: compactMode ? 10 : 18
     readonly property bool centerOpen: !!(root.notificationManager && root.notificationManager.centerVisible)
     readonly property int bannerSurfaceWidth: Math.max(1, Math.ceil(banners.width + root.bannerRightMargin))
     readonly property int bannerSurfaceHeight: Math.max(1, Math.ceil(banners.implicitHeight + root.bannerTopMargin))
@@ -45,11 +46,12 @@ Item {
     BannerContainer {
         id: banners
         z: 20
-        width: 380
+        width: root.compactMode ? 340 : 380
         notificationManager: root.notificationManager
         autoDismissMs: {
             var v = root.notificationManager ? Number(root.notificationManager.bubbleDurationMs || 0) : 0
-            return v > 0 ? v : 6200
+            var base = (function() { return v > 0 ? v : 6200 })()
+            return root.compactMode ? Math.min(base, 4200) : base
         }
         anchors.top: parent.top
         anchors.right: parent.right

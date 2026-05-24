@@ -2,6 +2,7 @@
 
 #include <QDBusUnixFileDescriptor>
 
+#include "portalsettingstypes.h"
 #include "../../core/permissions/DBusSecurityGuard.h"
 #include "../../core/permissions/PermissionBroker.h"
 #include "../../core/permissions/TrustResolver.h"
@@ -36,6 +37,11 @@ public:
 
     bool serviceRegistered() const;
     QString apiVersion() const;
+
+public:
+    // Exposed for adaptors that need to send D-Bus error replies but lack their
+    // own QDBusContext (Qt sets the context on the parent service, not adaptors).
+    void sendPortalError(const QString &name, const QString &msg);
 
 public slots:
     QVariantMap Ping() const;
@@ -78,6 +84,15 @@ public slots:
                                  const QString &appId,
                                  const QString &parentWindow,
                                  const QVariantMap &options);
+    QVariantMap BridgePickColor(const QString &handle,
+                                const QString &appId,
+                                const QString &parentWindow,
+                                const QVariantMap &options);
+    QVariantMap BridgeWallpaper(const QString &handle,
+                                const QString &appId,
+                                const QString &parentWindow,
+                                const QString &uri,
+                                const QVariantMap &options);
     QVariantMap BridgeScreenCastCreateSession(const QString &handle,
                                               const QString &appId,
                                               const QString &parentWindow,
@@ -145,7 +160,7 @@ public slots:
                                           const QString &parentWindow,
                                           const QString &sessionPath,
                                           const QVariantMap &options);
-    QVariantMap BridgeSettingsReadAll(const QStringList &namespaces) const;
+    PortalSettingsMap BridgeSettingsReadAll(const QStringList &namespaces) const;
     QVariant BridgeSettingsRead(const QString &settingNamespace, const QString &key) const;
     QVariantMap BridgeAddNotification(const QString &appId,
                                       const QString &id,
@@ -201,6 +216,19 @@ public slots:
                                  const QString &appId,
                                  const QString &parentWindow,
                                  const QVariantMap &options);
+
+    // Background portal bridge methods.
+    // GetAppState queries org.desktop.Apps and maps SLM states to portal uint32 states.
+    // NotifyBackground presents a consent dialog; returns response 0/1 (allow/deny).
+    // EnableAutostart manages ~/.config/autostart/<appId>.desktop files.
+    QVariantMap BridgeBackgroundGetAppState();
+    QVariantMap BridgeBackgroundNotify(const QDBusObjectPath &handle,
+                                       const QString &appId,
+                                       const QString &name);
+    QVariantMap BridgeBackgroundEnableAutostart(const QString &appId,
+                                                bool enable,
+                                                const QStringList &commandline,
+                                                uint flags);
 
     // Print portal bridge methods.
     // PreparePrint records the settings from the calling app and returns a token.

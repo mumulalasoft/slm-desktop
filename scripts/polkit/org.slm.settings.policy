@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC
+ "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/software/polkit/policyconfig-1.dtd">
+<policyconfig>
+  <vendor>SLM Desktop</vendor>
+  <vendor_url>https://slm.desktop.local</vendor_url>
+
+  <action id="org.slm.settings.network.modify">
+    <description>Modify network settings</description>
+    <message>Authentication is required to modify network settings (Wi-Fi, Ethernet, VPN).</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>yes</allow_active>
+    </defaults>
+  </action>
+
+  <action id="org.slm.settings.power.modify">
+    <description>Modify power settings</description>
+    <message>Authentication is required to modify power settings.</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+  </action>
+
+  <action id="org.slm.settings.applications.modify">
+    <description>Modify application settings</description>
+    <message>Authentication is required to modify privileged application settings.</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+  </action>
+</policyconfig>

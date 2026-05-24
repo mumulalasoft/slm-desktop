@@ -7,6 +7,7 @@ Window {
     id: root
 
     required property var rootWindow
+    property var targetScreen: rootWindow && rootWindow.screen ? rootWindow.screen : null
     property bool overlayVisible: false
     property string userName: "User"
     property bool lockFailed: false
@@ -16,23 +17,58 @@ Window {
     property int lockoutRemainingSec: 0
     property int lockoutDurationSec: 10
     property int lockoutLevel: 0
+    property bool unlockBusy: false
+    property bool readyForUnlock: false
+    property date now: new Date()
+    readonly property bool layerShellSupported: (typeof SecurityLayerShell !== "undefined")
+                                                && !!SecurityLayerShell
+                                                && !!SecurityLayerShell.supported
+    property bool _layerPrepared: !layerShellSupported
+
+    readonly property real uiScale: Math.max(0.90, Math.min(1.20,
+                                   Math.min(width / 1920, height / 1080)))
 
     signal unlockRequested(string password)
 
-    visible: !!rootWindow && !!rootWindow.visible && overlayVisible
+    visible: !!rootWindow && !!rootWindow.visible && overlayVisible && root.layerShellSupported && root._layerPrepared
     color: "transparent"
-    flags: Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
+    flags: Qt.FramelessWindowHint
     modality: Qt.ApplicationModal
-    transientParent: rootWindow
-    title: "Lock Screen"
+    transientParent: null
+    title: "SLM Security Overlay"
+    screen: root.targetScreen ? root.targetScreen : rootWindow.screen
 
-    width: rootWindow ? rootWindow.width : Screen.width
-    height: rootWindow ? rootWindow.height : Screen.height
-    x: rootWindow ? rootWindow.x : 0
-    y: rootWindow ? rootWindow.y : 0
+    width: root.targetScreen && root.targetScreen.geometry
+           ? Math.max(1, Math.round(root.targetScreen.geometry.width))
+           : (rootWindow ? rootWindow.width : Screen.width)
+    height: root.targetScreen && root.targetScreen.geometry
+            ? Math.max(1, Math.round(root.targetScreen.geometry.height))
+            : (rootWindow ? rootWindow.height : Screen.height)
+    x: root.targetScreen && root.targetScreen.geometry
+       ? Math.round(root.targetScreen.geometry.x)
+       : (rootWindow ? rootWindow.x : 0)
+    y: root.targetScreen && root.targetScreen.geometry
+       ? Math.round(root.targetScreen.geometry.y)
+       : (rootWindow ? rootWindow.y : 0)
+
+    function syncSecurityLayerSurface() {
+        if (!root.layerShellSupported || typeof SecurityLayerShell === "undefined" || !SecurityLayerShell) {
+            return
+        }
+        SecurityLayerShell.setSecurityOverlay(root,
+                                             Math.max(1, Math.round(root.width)),
+                                             Math.max(1, Math.round(root.height)),
+                                             0,
+                                             0,
+                                             Math.max(1, Math.round(root.width)),
+                                             Math.max(1, Math.round(root.height)))
+    }
 
     onVisibleChanged: {
+        unlockBusy = false
         if (visible) {
+            root.readyForUnlock = false
+            root.syncSecurityLayerSurface()
             lockFailed = false
             unlockErrorCode = ""
             failedAttempts = 0
@@ -43,9 +79,83 @@ Window {
             lockoutTimer.stop()
             lockoutTick.stop()
             passwordField.text = ""
-            requestActivate()
+            root.now = new Date()
+            console.info("[LOCKSCREEN] [MONITOR] surface visible screen="
+                         + (root.targetScreen && root.targetScreen.name ? root.targetScreen.name : "default")
+                         + " geometry=" + root.x + "," + root.y + " " + root.width + "x" + root.height)
+            console.info("[LOCKSCREEN] [INPUT_BLOCK] active=true inputRegion=fullscreen keyboard=exclusive")
+        }
+    }
+
+    // Global MouseArea to handle the wake-up click
+    MouseArea {
+        anchors.fill: parent
+        enabled: !root.readyForUnlock
+        onClicked: {
+            root.readyForUnlock = true
             passwordField.forceActiveFocus()
         }
+    }
+
+    onOverlayVisibleChanged: {
+        if (overlayVisible && root.layerShellSupported && typeof SecurityLayerShell !== "undefined" && SecurityLayerShell) {
+            SecurityLayerShell.onWindowAboutToShow()
+        }
+    }
+    onWidthChanged: root.syncSecurityLayerSurface()
+    onHeightChanged: root.syncSecurityLayerSurface()
+    onSceneGraphInitialized: root.syncSecurityLayerSurface()
+
+    Timer {
+        id: layerShellRetryTimer
+        interval: 300
+        repeat: true
+        running: root.visible && root.layerShellSupported
+        onTriggered: root.syncSecurityLayerSurface()
+    }
+
+    // After a system resume the LayerShell surface may need re-attaching per
+    // output, especially when monitors come back in a different order. The
+    // SessionStateClient.resumed signal is forwarded from desktopd's
+    // PrepareForSleep(false) handler.
+    Connections {
+        target: (typeof SessionStateClient !== "undefined") ? SessionStateClient : null
+        ignoreUnknownSignals: true
+        function onResumed() {
+            if (!root.layerShellSupported || typeof SecurityLayerShell === "undefined" || !SecurityLayerShell) {
+                return
+            }
+            console.info("[LOCKSCREEN] [RESUME] re-attaching security overlay screen="
+                         + (root.targetScreen && root.targetScreen.name ? root.targetScreen.name : "default"))
+            SecurityLayerShell.onWindowAboutToShow()
+            root.syncSecurityLayerSurface()
+        }
+    }
+
+    Component.onCompleted: {
+        if (root.layerShellSupported && typeof SecurityLayerShell !== "undefined" && SecurityLayerShell) {
+            SecurityLayerShell.prepareSecurityOverlayWindow(root)
+        }
+        root._layerPrepared = true
+        Qt.callLater(function() { root.syncSecurityLayerSurface() })
+    }
+
+    onLockFailedChanged: {
+        if (root.lockFailed && !root.lockoutActive) {
+            shakeAnimation.originX = centerContent.x
+            shakeAnimation.restart()
+            passwordField.text = ""
+            passwordField.forceActiveFocus()
+        }
+    }
+
+    function activateLockout(seconds) {
+        lockoutActive = true
+        lockoutDurationSec = seconds
+        lockoutRemainingSec = seconds
+        failedAttempts = 0
+        lockoutTimer.restart()
+        lockoutTick.restart()
     }
 
     Item {
@@ -60,110 +170,213 @@ Window {
 
     Rectangle {
         anchors.fill: parent
-        color: Theme.color("workspaceBackdrop")
+        gradient: Gradient {
+            GradientStop { position: 0.00; color: Qt.rgba(0, 0, 0, 0.365) }
+            GradientStop { position: 0.46; color: Qt.rgba(0, 0, 0, 0.165) }
+            GradientStop { position: 1.00; color: Qt.rgba(0, 0, 0, 0.510) }
+        }
     }
 
-    Rectangle {
-        width: Math.min(parent.width * 0.58, 920)
-        height: Math.min(parent.height * 0.54, 540)
-        anchors.centerIn: parent
-        radius: Theme.radiusHuge + Theme.radiusLg
-        color: Theme.color("panelBg")
-        border.width: Theme.borderWidthNone
-    }
-
+    // ── Clock + Date ─────────────────────────────────────────────────────────
     Column {
-        id: centerContent
+        id: clockGroup
         anchors.horizontalCenter: parent.horizontalCenter
-        anchors.verticalCenter: parent.verticalCenter
-        spacing: 16
+        y: Math.round(root.height * 0.12)
+        spacing: Theme.metric("spacingXs")
 
         Label {
             anchors.horizontalCenter: parent.horizontalCenter
-            y: -Math.round(root.height * 0.13)
-            text: Qt.formatDateTime(new Date(), "hh:mm")
-            color: Theme.color("textOnGlass")
-            font.pixelSize: Math.round(Theme.fontPxDisplay * 2.64)
-            font.weight: Theme.fontWeight("normal")
-
-            Timer {
-                interval: 1000
-                running: root.visible
-                repeat: true
-                onTriggered: parent.text = Qt.formatDateTime(new Date(), "hh:mm")
-            }
+            text: Qt.formatDateTime(root.now, "hh:mm")
+            color: Qt.rgba(1, 1, 1, 0.961)
+            font.pixelSize: Math.round(86 * root.uiScale)
+            font.weight: Theme.fontWeight("light")
         }
 
+        Label {
+            anchors.horizontalCenter: parent.horizontalCenter
+            text: Qt.formatDateTime(root.now, "dddd, d MMMM")
+            color: Qt.rgba(1, 1, 1, 0.867)
+            font.pixelSize: Math.round(17 * root.uiScale)
+            font.weight: Theme.fontWeight("medium")
+        }
+
+        Timer {
+            interval: 1000
+            running: root.visible
+            repeat: true
+            onTriggered: root.now = new Date()
+        }
+    }
+
+    // ── Shake animation ───────────────────────────────────────────────────────
+    SequentialAnimation {
+        id: shakeAnimation
+        property real originX: 0
+        NumberAnimation { target: centerContent; property: "x"; from: shakeAnimation.originX;      to: shakeAnimation.originX - 14; duration: Math.max(1, Math.round(Theme.durationMicro * 0.56)); easing.type: Theme.easingStandard }
+        NumberAnimation { target: centerContent; property: "x"; from: shakeAnimation.originX - 14; to: shakeAnimation.originX + 14; duration: Math.max(1, Math.round(Theme.durationMicro * 0.89)); easing.type: Theme.easingStandard }
+        NumberAnimation { target: centerContent; property: "x"; from: shakeAnimation.originX + 14; to: shakeAnimation.originX - 8;  duration: Math.max(1, Math.round(Theme.durationMicro * 0.78)); easing.type: Theme.easingStandard }
+        NumberAnimation { target: centerContent; property: "x"; from: shakeAnimation.originX - 8;  to: shakeAnimation.originX + 8;  duration: Math.max(1, Math.round(Theme.durationMicro * 0.67)); easing.type: Theme.easingStandard }
+        NumberAnimation { target: centerContent; property: "x"; from: shakeAnimation.originX + 8;  to: shakeAnimation.originX;      duration: Math.max(1, Math.round(Theme.durationMicro * 0.56)); easing.type: Theme.easingDefault }
+    }
+
+    // ── Frosted card backdrop ─────────────────────────────────────────────────
+    Rectangle {
+        anchors.centerIn: centerContent
+        width: centerContent.width + Math.round(48 * root.uiScale)
+        height: centerContent.height + Math.round(56 * root.uiScale)
+        radius: Math.round(20 * root.uiScale)
+        color: Qt.rgba(0.965, 0.975, 1.000, 0.120)
+        border.width: Theme.borderWidthThin
+        border.color: Qt.rgba(1, 1, 1, 0.267)
+    }
+
+    // ── Center content ────────────────────────────────────────────────────────
+    Column {
+        id: centerContent
+        anchors.centerIn: parent
+        anchors.verticalCenterOffset: Math.round(root.height * 0.065)
+        width: Math.min(root.width * 0.62, Math.round(560 * root.uiScale))
+        spacing: Math.round(12 * root.uiScale)
+
+        // Avatar
         Rectangle {
             anchors.horizontalCenter: parent.horizontalCenter
-            width: 122
-            height: 122
-            radius: width * 0.5
-            color: Theme.color("surface")
-            border.color: Theme.color("panelBorder")
+            width: Math.round(100 * root.uiScale)
+            height: width
+            radius: width / 2
+            color: Qt.rgba(0.960, 0.975, 1.000, 0.180)
+            border.color: Qt.rgba(1, 1, 1, 0.314)
             border.width: Theme.borderWidthThin
 
             Label {
                 anchors.centerIn: parent
-                text: String(root.userName || "User").length > 0 ? String(root.userName).charAt(0).toUpperCase() : "U"
-                color: Theme.color("textPrimary")
-                font.pixelSize: Math.round(Theme.fontPxDisplay * 1.57)
-                font.weight: Theme.fontWeight("bold")
+                text: String(root.userName || "User").length > 0
+                      ? String(root.userName).charAt(0).toUpperCase() : "U"
+                color: "white"
+                font.pixelSize: Math.round(44 * root.uiScale)
+                font.weight: Theme.fontWeight("semibold")
             }
         }
 
-        Row {
+        // User display name
+        Label {
             anchors.horizontalCenter: parent.horizontalCenter
-            spacing: 10
+            text: root.userName || "User"
+            color: Qt.rgba(1, 1, 1, 0.949)
+            font.pixelSize: Math.round(23 * root.uiScale)
+            font.weight: Theme.fontWeight("medium")
+        }
+
+        // Click to unlock label
+        Label {
+            anchors.horizontalCenter: parent.horizontalCenter
+            visible: !root.readyForUnlock
+            text: "Click to unlock"
+            color: Qt.rgba(1, 1, 1, 0.6)
+            font.pixelSize: Math.round(15 * root.uiScale)
+        }
+
+        // Password + submit (integrated pill)
+        Item {
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: Math.min(centerContent.width * 0.64, Math.round(320 * root.uiScale))
+            height: Math.round(44 * root.uiScale)
+            visible: root.readyForUnlock
 
             TextField {
                 id: passwordField
-                width: Math.min(root.width * 0.34, 360)
-                height: 44
+                anchors.fill: parent
                 placeholderText: "Password"
                 echoMode: TextInput.Password
-                enabled: !root.lockoutActive
-                leftPadding: 16
-                rightPadding: 16
-                font.pixelSize: Theme.fontSize("titleLarge")
-                color: Theme.color("textPrimary")
+                enabled: !root.lockoutActive && !root.unlockBusy
+                leftPadding: Math.round(54 * root.uiScale)
+                rightPadding: Math.round(54 * root.uiScale)
+                font.pixelSize: Math.round(17 * root.uiScale)
+                color: Qt.rgba(0.059, 0.110, 0.176, 1.0)
+                horizontalAlignment: TextInput.AlignHCenter
                 background: Rectangle {
-                    radius: height / 2
-                    color: Theme.color("surface")
-                    border.color: passwordField.activeFocus ? Theme.color("focusRing") : Theme.color("panelBorder")
+                    radius: parent.height / 2
+                    color: Qt.rgba(0.949, 0.965, 0.988, 0.850)
+                    border.color: passwordField.activeFocus ? Qt.rgba(1, 1, 1, 0.784) : Qt.rgba(1, 1, 1, 0.502)
                     border.width: Theme.borderWidthThin
                 }
                 onAccepted: root.unlockRequested(text)
             }
 
-            Button {
-                width: 44
-                height: 44
-                text: "❯"
-                enabled: !root.lockoutActive
-                onClicked: root.unlockRequested(passwordField.text)
-                background: Rectangle {
-                    radius: width / 2
-                    color: parent.down ? Theme.color("accentHover") : Theme.color("accent")
+            Rectangle {
+                id: submitBtn
+                width: Math.round(32 * root.uiScale)
+                height: Math.round(32 * root.uiScale)
+                radius: height / 2
+                anchors.right: parent.right
+                anchors.rightMargin: Math.round(6 * root.uiScale)
+                anchors.verticalCenter: parent.verticalCenter
+                color: (root.lockoutActive || root.unlockBusy) ? Qt.rgba(0.039, 0.518, 1.0, 0.55)
+                       : (submitBtnArea.containsMouse ? Qt.rgba(0, 0.439, 0.875, 1.0) : Qt.rgba(0.039, 0.518, 1.0, 1.0))
+                Behavior on color {
+                    ColorAnimation { duration: Theme.durationMicro; easing.type: Theme.easingStandard }
                 }
-                contentItem: Text {
-                    text: parent.text
-                    color: Theme.color("accentText")
-                    font.pixelSize: Theme.fontSize("hero")
+
+                // Spinner — visible during unlock
+                Item {
+                    anchors.centerIn: parent
+                    visible: root.unlockBusy
+                    width: Math.round(16 * root.uiScale)
+                    height: Math.round(16 * root.uiScale)
+                    RotationAnimator on rotation {
+                        running: root.unlockBusy
+                        from: 0; to: 360
+                        loops: Animation.Infinite
+                        duration: Theme.durationWorkspace * 2
+                    }
+                    Canvas {
+                        anchors.fill: parent
+                        onPaint: {
+                            const ctx = getContext("2d")
+                            ctx.reset()
+                            const lw = 2.0
+                            const r = (width - lw) / 2
+                            ctx.beginPath()
+                            ctx.arc(width / 2, height / 2, r, Math.PI * 0.25, Math.PI * 1.75, false)
+                            ctx.lineWidth = lw
+                            ctx.lineCap = "round"
+                            ctx.strokeStyle = "rgba(255,255,255,0.92)"
+                            ctx.stroke()
+                        }
+                    }
+                }
+
+                Text {
+                    anchors.centerIn: parent
+                    visible: !root.unlockBusy
+                    text: "❯"
+                    color: "white"
+                    font.pixelSize: Math.round(15 * root.uiScale)
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
+                }
+
+                MouseArea {
+                    id: submitBtnArea
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    enabled: !root.lockoutActive && !root.unlockBusy
+                    onClicked: root.unlockRequested(passwordField.text)
                 }
             }
         }
 
+        // Error + lockout message
         Label {
             anchors.horizontalCenter: parent.horizontalCenter
             visible: root.lockFailed || root.lockoutActive
             text: root.lockoutActive
                   ? ("Too many attempts. Try again in " + root.lockoutRemainingSec + "s")
                   : root.errorTextForCode(root.unlockErrorCode)
-            color: Theme.color("error")
-            font.pixelSize: Theme.fontSize("body")
+            color: Qt.rgba(0.945, 0.624, 0.624, 1.0)
+            font.pixelSize: Math.round(13 * root.uiScale)
+            horizontalAlignment: Text.AlignHCenter
         }
     }
 

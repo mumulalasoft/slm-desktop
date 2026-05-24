@@ -17,6 +17,7 @@ class AuthDialogController : public QObject
     Q_PROPERTY(bool promptEchoOn READ promptEchoOn NOTIFY promptEchoOnChanged)
     Q_PROPERTY(bool busy READ busy NOTIFY busyChanged)
     Q_PROPERTY(QString errorMessage READ errorMessage NOTIFY errorMessageChanged)
+    Q_PROPERTY(QString infoMessage  READ infoMessage  NOTIFY infoMessageChanged)
     Q_PROPERTY(bool active READ active NOTIFY activeChanged)
 
 public:
@@ -33,6 +34,7 @@ public:
     bool promptEchoOn() const;
     bool busy() const;
     QString errorMessage() const;
+    QString infoMessage()  const;
     bool active() const;
 
     Q_INVOKABLE void authenticate(const QString &password);
@@ -51,12 +53,14 @@ Q_SIGNALS:
     void promptEchoOnChanged();
     void busyChanged();
     void errorMessageChanged();
+    void infoMessageChanged();
     void activeChanged();
 
 private:
     void setPrompt(const QString &prompt, bool echoOn);
     void setBusy(bool busy);
     void setErrorMessage(const QString &message);
+    void setInfoMessage(const QString &message);
 
     AuthSession *m_session = nullptr;
     QString m_actionId;
@@ -64,6 +68,7 @@ private:
     QString m_identity;
     QString m_prompt;
     QString m_errorMessage;
+    QString m_infoMessage;
     bool m_promptEchoOn = false;
     bool m_busy = false;
     bool m_active = false;

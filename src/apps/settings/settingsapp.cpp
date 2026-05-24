@@ -1,6 +1,7 @@
 #include "settingsapp.h"
 #include "moduleloader.h"
 #include "searchengine.h"
+#include "include/settingbinding.h"
 #include "include/settingbindingfactory.h"
 #include "include/settingspolkitbridge.h"
 #include "include/gsettingsbinding.h"
@@ -16,6 +17,8 @@
 #include <QSettings>
 #include <QQuickWindow>
 #include <QUrl>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QDBusConnection>
 #include <QDBusInterface>
 #include <QDBusReply>
@@ -62,9 +65,6 @@ QString defaultPrivilegedActionFor(const QString &moduleId, const QString &setti
             return QStringLiteral("org.slm.settings.network.modify");
         }
     }
-    if (mod == QStringLiteral("power")) {
-        return QStringLiteral("org.slm.settings.power.modify");
-    }
     if (mod == QStringLiteral("applications")) {
         return QStringLiteral("org.slm.settings.applications.modify");
     }
@@ -92,14 +92,27 @@ SettingsApp::SettingsApp(QQmlApplicationEngine *engine, QObject *parent)
     const QString appData = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
     const QString userModules = QDir::homePath() + "/.local/lib/settings/modules";
     const QString systemModules = "/usr/lib/settings/modules";
+    const QString localSystemModules = "/usr/local/lib/settings/modules";
     const QString bundledModules = appDir + "/../src/apps/settings/modules";
     const QString cwdModules = QDir::currentPath() + "/src/apps/settings/modules";
-    paths << userModules << systemModules << appData + "/modules" << bundledModules << cwdModules;
+    const QString appLibModules = QDir(appDir).absoluteFilePath("../lib/settings/modules");
+    // Dev-first lookup order:
+    // 1) source tree / cwd (workspace module edits),
+    // 2) bundled next to binary,
+    // 3) user/appdata overrides,
+    // 4) system modules.
 #ifdef SLM_SOURCE_DIR
     const QString sourceModules = QStringLiteral(SLM_SOURCE_DIR) + "/src/apps/settings/modules";
     if (!paths.contains(sourceModules))
         paths << sourceModules;
 #endif
+    paths << cwdModules
+          << bundledModules
+          << userModules
+          << appData + "/modules"
+          << appLibModules
+          << localSystemModules
+          << systemModules;
     m_moduleLoader->scanModules(paths);
 
     connect(m_polkitBridge, &SettingsPolkitBridge::authorizationFinished,
@@ -123,6 +136,11 @@ SettingsApp::SettingsApp(QQmlApplicationEngine *engine, QObject *parent)
                 }
                 emit settingAuthorizationFinished(requestId, moduleId, settingId, allowed, reason);
             });
+}
+
+void SettingsApp::setDesktopSettingsClient(DesktopSettingsClient *client)
+{
+    m_bindingFactory->setDesktopSettingsClient(client);
 }
 
 void SettingsApp::setCurrentModuleId(const QString &id)
@@ -189,85 +207,20 @@ void SettingsApp::openModuleSetting(const QString &moduleId, const QString &sett
 
 bool SettingsApp::openDeepLink(const QString &deepLink)
 {
-    QElapsedTimer timer;
-    timer.start();
     if (deepLink.isEmpty()) {
         return false;
     }
-
     const QUrl url(deepLink);
-    if (url.scheme() != "settings") {
-        openModule(deepLink);
-        return true;
+    if (url.scheme() != QStringLiteral("settings")) {
+        return false;
     }
-
-    const QString path = url.path().trimmed();
-    QString moduleId = url.host().trimmed();
-    QString settingToken;
-    if (!path.isEmpty() && path != "/") {
-        const QString clean = path.startsWith('/') ? path.mid(1) : path;
-        const QStringList parts = clean.split('/', Qt::SkipEmptyParts);
-        if (moduleId.isEmpty() && !parts.isEmpty()) {
-            moduleId = parts.value(0);
-            settingToken = parts.value(1);
-        } else if (!parts.isEmpty()) {
-            settingToken = parts.value(0);
-        }
-    }
-    if (settingToken.isEmpty()) {
-        settingToken = url.fragment().trimmed();
-    }
-
+    const QString moduleId = url.host();
+    const QString settingId = url.path().mid(1); // remove leading /
     if (moduleId.isEmpty()) {
         return false;
     }
-    openModuleSetting(moduleId, settingToken);
-    m_lastDeepLinkLatencyMs = timer.elapsed();
-    emit telemetryChanged();
+    openModuleSetting(moduleId, settingId);
     return true;
-}
-
-QString SettingsApp::resolveSettingId(const QString &moduleId, const QString &settingToken) const
-{
-    const QString raw = settingToken.trimmed();
-    if (moduleId.isEmpty() || raw.isEmpty()) {
-        return raw;
-    }
-
-    QString token = raw;
-    const int slash = token.indexOf(QLatin1Char('/'));
-    if (slash >= 0) {
-        token = token.mid(slash + 1).trimmed();
-    }
-    if (token.isEmpty()) {
-        token = raw;
-    }
-
-    const QVariantMap mod = m_moduleLoader->moduleById(moduleId);
-    const QVariantList settings = mod.value(QStringLiteral("settings")).toList();
-    if (settings.isEmpty()) {
-        return token;
-    }
-
-    for (const QVariant &settingVar : settings) {
-        const QVariantMap setting = settingVar.toMap();
-        const QString id = setting.value(QStringLiteral("id")).toString().trimmed();
-        if (id.isEmpty()) {
-            continue;
-        }
-        const QString anchor = setting.value(QStringLiteral("anchor")).toString().trimmed();
-        const QString deepLink = setting.value(QStringLiteral("deepLink")).toString().trimmed();
-        if (token.compare(id, Qt::CaseInsensitive) == 0
-            || (!anchor.isEmpty() && token.compare(anchor, Qt::CaseInsensitive) == 0)
-            || (!deepLink.isEmpty()
-                && (raw.compare(deepLink, Qt::CaseInsensitive) == 0
-                    || token.compare(deepLink, Qt::CaseInsensitive) == 0
-                    || deepLink.endsWith(QLatin1Char('/') + token, Qt::CaseInsensitive)))) {
-            return id;
-        }
-    }
-
-    return token;
 }
 
 void SettingsApp::clearRecentHistory()
@@ -284,25 +237,24 @@ void SettingsApp::back()
     if (m_recentHistory.size() < 2) {
         return;
     }
+    // current is at 0, prev at 1
     m_recentHistory.removeFirst();
     const QVariantMap prev = m_recentHistory.first().toMap();
-    setCurrentModuleId(prev.value("moduleId").toString());
-    setCurrentSettingId(prev.value("settingId").toString());
+    const QString modId = prev.value(QStringLiteral("moduleId")).toString();
+    const QString setId = prev.value(QStringLiteral("settingId")).toString();
+    setCurrentModuleId(modId);
+    setCurrentSettingId(setId);
+    emit moduleOpened(modId);
+    emit deepLinkOpened(modId, setId);
     emit recentHistoryChanged();
-    emit deepLinkOpened(m_currentModuleId, m_currentSettingId);
 }
 
 void SettingsApp::raiseWindow()
 {
-    const auto objects = m_engine->rootObjects();
-    for (QObject *obj : objects) {
-        QQuickWindow *window = qobject_cast<QQuickWindow*>(obj);
-        if (window) {
-            window->show();
-            window->raise();
-            window->requestActivate();
-            return;
-        }
+    const QList<QQuickWindow*> windows = m_engine->findChildren<QQuickWindow*>();
+    for (QQuickWindow *window : windows) {
+        window->raise();
+        window->requestActivate();
     }
 }
 
@@ -387,376 +339,227 @@ QVariantMap SettingsApp::settingPolicy(const QString &moduleId, const QString &s
     out.insert(QStringLiteral("privilegedAction"), privilegedAction);
     out.insert(QStringLiteral("requiresAuthorization"), !privilegedAction.isEmpty());
     out.insert(QStringLiteral("policySource"), source);
+
+    const QString key = settingGrantKey(moduleId, settingId);
+    if (!key.isEmpty()) {
+        if (m_allowAlwaysGrants.contains(key)) {
+            out.insert(QStringLiteral("effectiveGrant"), QStringLiteral("allow-always"));
+        } else if (m_denyAlwaysGrants.contains(key)) {
+            out.insert(QStringLiteral("effectiveGrant"), QStringLiteral("deny-always"));
+        } else {
+            out.insert(QStringLiteral("effectiveGrant"), QStringLiteral("none"));
+        }
+    }
+
     return out;
 }
 
 QString SettingsApp::requestSettingAuthorization(const QString &moduleId, const QString &settingId)
 {
-    return requestSettingAuthorizationWithDecision(moduleId, settingId, QStringLiteral("allow-once"));
+    return requestSettingAuthorizationWithDecision(moduleId, settingId, QStringLiteral("none"));
 }
 
 QString SettingsApp::requestSettingAuthorizationWithDecision(const QString &moduleId,
-                                                             const QString &settingId,
-                                                             const QString &decision)
+                                                            const QString &settingId,
+                                                            const QString &decision)
 {
-    const QString key = settingGrantKey(moduleId, settingId);
-    if (!key.isEmpty() && m_denyAlwaysGrants.contains(key)) {
-        const QString requestId = QStringLiteral("auth-denied-%1").arg(QDateTime::currentMSecsSinceEpoch());
-        emit settingAuthorizationFinished(requestId, moduleId, settingId, false, QStringLiteral("deny-always"));
-        return requestId;
-    }
-
-    if (!key.isEmpty() && m_allowAlwaysGrants.contains(key)) {
-        const QString requestId = QStringLiteral("auth-granted-%1").arg(QDateTime::currentMSecsSinceEpoch());
-        emit settingAuthorizationFinished(requestId, moduleId, settingId, true, QStringLiteral("allow-always-cached"));
-        return requestId;
-    }
-
-    const QString normalizedDecision = decision.trimmed().toLower();
-    if (normalizedDecision == QStringLiteral("deny")
-        || normalizedDecision == QStringLiteral("deny-always")) {
-        if (!key.isEmpty() && normalizedDecision == QStringLiteral("deny-always")) {
-            m_denyAlwaysGrants.insert(key);
-            m_allowAlwaysGrants.remove(key);
-            touchGrantTimestamp(key);
-            saveGrantStore();
-        }
-        const QString requestId = QStringLiteral("auth-denied-%1").arg(QDateTime::currentMSecsSinceEpoch());
-        emit settingAuthorizationFinished(requestId, moduleId, settingId, false, normalizedDecision);
-        return requestId;
-    }
-
     const QVariantMap policy = settingPolicy(moduleId, settingId);
-    const QString actionId = policy.value(QStringLiteral("privilegedAction")).toString();
-    if (normalizedDecision == QStringLiteral("allow-always")) {
-        // Must be inserted before requestAuthorization() because bridge can emit
-        // authorizationFinished synchronously in dev-override mode.
-        m_pendingDecisionByRequestId.insert(QStringLiteral("pending:%1/%2").arg(moduleId, settingId),
-                                            normalizedDecision);
+    const QString action = policy.value(QStringLiteral("privilegedAction")).toString();
+    if (action.isEmpty()) {
+        return {};
     }
-    const QString requestId = m_polkitBridge->requestAuthorization(actionId, moduleId, settingId);
-    if (normalizedDecision == QStringLiteral("allow-always")) {
-        const QString provisional = QStringLiteral("pending:%1/%2").arg(moduleId, settingId);
-        if (m_pendingDecisionByRequestId.contains(provisional)) {
-            m_pendingDecisionByRequestId.remove(provisional);
-            m_pendingDecisionByRequestId.insert(requestId, normalizedDecision);
-        } else if (!m_pendingDecisionByRequestId.contains(requestId)) {
-            m_pendingDecisionByRequestId.insert(requestId, normalizedDecision);
-        }
+
+    const QString requestId = m_polkitBridge->requestAuthorization(action, moduleId, settingId);
+    if (!decision.isEmpty() && decision != QStringLiteral("none")) {
+        m_pendingDecisionByRequestId.insert(requestId, decision);
     }
     return requestId;
 }
 
 QVariantMap SettingsApp::settingGrantState(const QString &moduleId, const QString &settingId) const
 {
-    QVariantMap out;
     const QString key = settingGrantKey(moduleId, settingId);
-    out.insert(QStringLiteral("allowAlways"), !key.isEmpty() && m_allowAlwaysGrants.contains(key));
-    out.insert(QStringLiteral("denyAlways"), !key.isEmpty() && m_denyAlwaysGrants.contains(key));
+    QVariantMap out;
+    if (key.isEmpty()) return out;
+
+    if (m_allowAlwaysGrants.contains(key)) {
+        out.insert(QStringLiteral("grant"), QStringLiteral("allow-always"));
+        out.insert(QStringLiteral("timestamp"), m_grantUpdatedAt.value(key));
+    } else if (m_denyAlwaysGrants.contains(key)) {
+        out.insert(QStringLiteral("grant"), QStringLiteral("deny-always"));
+        out.insert(QStringLiteral("timestamp"), m_grantUpdatedAt.value(key));
+    } else {
+        out.insert(QStringLiteral("grant"), QStringLiteral("none"));
+    }
     return out;
 }
 
 QVariantList SettingsApp::listSettingGrants() const
 {
     QVariantList out;
-    auto appendEntries = [this, &out](const QSet<QString> &src, const QString &decision) {
-        for (const QString &entry : src) {
-            const QStringList parts = entry.split(QLatin1Char('/'));
-            if (parts.size() < 2) {
-                continue;
-            }
-            QVariantMap row;
-            row.insert(QStringLiteral("key"), entry);
-            row.insert(QStringLiteral("moduleId"), parts.at(0));
-            row.insert(QStringLiteral("settingId"), parts.mid(1).join(QStringLiteral("/")));
-            row.insert(QStringLiteral("decision"), decision);
-            const qint64 updatedAt = m_grantUpdatedAt.value(entry, 0);
-            row.insert(QStringLiteral("updatedAt"), updatedAt);
-            row.insert(QStringLiteral("updatedAtIso"),
-                       updatedAt > 0
-                           ? QDateTime::fromMSecsSinceEpoch(updatedAt).toUTC().toString(Qt::ISODateWithMs)
-                           : QString());
-            out.push_back(row);
-        }
-    };
-    appendEntries(m_allowAlwaysGrants, QStringLiteral("allow-always"));
-    appendEntries(m_denyAlwaysGrants, QStringLiteral("deny-always"));
-    std::sort(out.begin(), out.end(), [](const QVariant &a, const QVariant &b) {
-        return a.toMap().value(QStringLiteral("updatedAt")).toLongLong()
-            > b.toMap().value(QStringLiteral("updatedAt")).toLongLong();
-    });
+    QSet<QString> keys = m_allowAlwaysGrants;
+    keys.unite(m_denyAlwaysGrants);
+
+    for (const QString &key : keys) {
+        const QStringList parts = key.split('/', Qt::KeepEmptyParts);
+        if (parts.size() < 2) continue;
+        QVariantMap row;
+        row.insert(QStringLiteral("moduleId"), parts.at(0));
+        row.insert(QStringLiteral("settingId"), parts.at(1));
+        row.insert(QStringLiteral("grant"), m_allowAlwaysGrants.contains(key) ? "allow-always" : "deny-always");
+        row.insert(QStringLiteral("timestamp"), m_grantUpdatedAt.value(key));
+        out.append(row);
+    }
     return out;
 }
 
 bool SettingsApp::clearSettingGrant(const QString &moduleId, const QString &settingId)
 {
     const QString key = settingGrantKey(moduleId, settingId);
-    if (key.isEmpty()) {
-        return false;
-    }
-    const bool removedAllow = m_allowAlwaysGrants.remove(key) > 0;
-    const bool removedDeny = m_denyAlwaysGrants.remove(key) > 0;
-    if (removedAllow || removedDeny) {
+    if (key.isEmpty()) return false;
+
+    bool removed = m_allowAlwaysGrants.remove(key) || m_denyAlwaysGrants.remove(key);
+    if (removed) {
         m_grantUpdatedAt.remove(key);
         saveGrantStore();
-        return true;
+        emit grantsChanged();
     }
-    return false;
+    return removed;
 }
 
 void SettingsApp::clearAllSettingGrants()
 {
-    if (m_allowAlwaysGrants.isEmpty() && m_denyAlwaysGrants.isEmpty()) {
-        return;
-    }
+    if (m_allowAlwaysGrants.isEmpty() && m_denyAlwaysGrants.isEmpty()) return;
     m_allowAlwaysGrants.clear();
     m_denyAlwaysGrants.clear();
     m_grantUpdatedAt.clear();
     saveGrantStore();
-}
-
-QString SettingsApp::settingGrantKey(const QString &moduleId, const QString &settingId) const
-{
-    const QString mod = moduleId.trimmed().toLower();
-    const QString setting = settingId.trimmed().toLower();
-    if (mod.isEmpty() || setting.isEmpty()) {
-        return {};
-    }
-    return mod + QLatin1Char('/') + setting;
-}
-
-void SettingsApp::loadGrantStore()
-{
-    const QString dir = QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
-    QDir().mkpath(dir);
-    QSettings settings(dir + QStringLiteral("/settings-permissions.ini"), QSettings::IniFormat);
-
-    const QStringList allow = settings.value(QStringLiteral("grants/allowAlways")).toStringList();
-    for (const QString &entry : allow) {
-        const QString k = entry.trimmed().toLower();
-        if (!k.isEmpty()) {
-            m_allowAlwaysGrants.insert(k);
-        }
-    }
-
-    const QStringList deny = settings.value(QStringLiteral("grants/denyAlways")).toStringList();
-    for (const QString &entry : deny) {
-        const QString k = entry.trimmed().toLower();
-        if (!k.isEmpty()) {
-            m_denyAlwaysGrants.insert(k);
-        }
-    }
-
-    const QVariantMap updatedAt = settings.value(QStringLiteral("grants/updatedAt")).toMap();
-    for (auto it = updatedAt.constBegin(); it != updatedAt.constEnd(); ++it) {
-        const QString k = it.key().trimmed().toLower();
-        if (k.isEmpty()) {
-            continue;
-        }
-        m_grantUpdatedAt.insert(k, it.value().toLongLong());
-    }
-}
-
-void SettingsApp::saveGrantStore()
-{
-    const QString dir = QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
-    QDir().mkpath(dir);
-    QSettings settings(dir + QStringLiteral("/settings-permissions.ini"), QSettings::IniFormat);
-    settings.setValue(QStringLiteral("grants/allowAlways"), QStringList(m_allowAlwaysGrants.values()));
-    settings.setValue(QStringLiteral("grants/denyAlways"), QStringList(m_denyAlwaysGrants.values()));
-    QVariantMap updatedAt;
-    for (auto it = m_grantUpdatedAt.constBegin(); it != m_grantUpdatedAt.constEnd(); ++it) {
-        updatedAt.insert(it.key(), it.value());
-    }
-    settings.setValue(QStringLiteral("grants/updatedAt"), updatedAt);
-    settings.sync();
     emit grantsChanged();
 }
 
 QVariantList SettingsApp::listSecretApps() const
 {
-    QVariantList rows;
-    const QVariantMap appsReply = callPortal(QStringLiteral("ListSecretAppIds"));
-    if (!appsReply.value(QStringLiteral("ok")).toBool()) {
-        return rows;
-    }
-
-    const QVariantList apps = appsReply.value(QStringLiteral("apps")).toList();
-    for (const QVariant &appVar : apps) {
-        const QString appId = appVar.toString().trimmed();
-        if (appId.isEmpty()) {
-            continue;
-        }
-        const QVariantMap metadataReply = callPortal(
-            QStringLiteral("ListOwnSecretMetadata"),
-            {QVariantMap{{QStringLiteral("appId"), appId}}});
-        if (!metadataReply.value(QStringLiteral("ok")).toBool()) {
-            continue;
-        }
-        const QVariantList items = metadataReply.value(QStringLiteral("items")).toList();
-        qint64 lastUpdatedMs = 0;
-        for (const QVariant &itemVar : items) {
-            const QVariantMap item = itemVar.toMap();
-            lastUpdatedMs = std::max(lastUpdatedMs, item.value(QStringLiteral("updatedAtMs")).toLongLong());
-        }
-        QVariantMap row{
-            {QStringLiteral("appId"), appId},
-            {QStringLiteral("count"), items.size()},
-            {QStringLiteral("lastUpdatedMs"), lastUpdatedMs},
-            {QStringLiteral("lastUpdatedIso"),
-             lastUpdatedMs > 0
-                 ? QDateTime::fromMSecsSinceEpoch(lastUpdatedMs).toUTC().toString(Qt::ISODateWithMs)
-                 : QString()},
-        };
-        rows.push_back(row);
-    }
-
-    std::sort(rows.begin(), rows.end(), [](const QVariant &a, const QVariant &b) {
-        const qint64 av = a.toMap().value(QStringLiteral("lastUpdatedMs")).toLongLong();
-        const qint64 bv = b.toMap().value(QStringLiteral("lastUpdatedMs")).toLongLong();
-        return av > bv;
-    });
-    return rows;
+    const QVariantMap result = portalCallMap(QStringLiteral("ListSecretApps"));
+    return result.value(QStringLiteral("apps")).toList();
 }
 
 QVariantMap SettingsApp::clearSecretDataForApp(const QString &appId) const
 {
-    const QString normalizedAppId = appId.trimmed().toLower();
-    if (normalizedAppId.isEmpty()) {
-        return {
-            {QStringLiteral("ok"), false},
-            {QStringLiteral("error"), QStringLiteral("invalid-app-id")},
-        };
-    }
-    return callPortal(
-        QStringLiteral("ClearAppSecrets"),
-        {QVariantMap{{QStringLiteral("appId"), normalizedAppId}}});
+    return portalCallMap(QStringLiteral("ClearSecretDataForApp"), {appId});
 }
 
 QVariantList SettingsApp::listSecretConsentSummary() const
 {
-    QVariantList rows;
-    const QVariantMap reply = callPortal(QStringLiteral("ListSecretConsentGrants"));
-    if (!reply.value(QStringLiteral("ok")).toBool()) {
-        return rows;
-    }
-
-    const QVariantList items = reply.value(QStringLiteral("items")).toList();
-    QHash<QString, QVariantMap> byApp;
-    for (const QVariant &itemVar : items) {
-        const QVariantMap item = itemVar.toMap();
-        const QString appId = item.value(QStringLiteral("appId")).toString().trimmed().toLower();
-        if (appId.isEmpty()) {
-            continue;
-        }
-        QVariantMap agg = byApp.value(appId);
-        if (agg.isEmpty()) {
-            agg.insert(QStringLiteral("appId"), appId);
-            agg.insert(QStringLiteral("grantCount"), 0);
-            agg.insert(QStringLiteral("lastUpdatedMs"), 0ll);
-        }
-        const int grantCount = agg.value(QStringLiteral("grantCount")).toInt() + 1;
-        const qint64 updatedAt = item.value(QStringLiteral("updatedAt")).toLongLong();
-        const qint64 currentLast = agg.value(QStringLiteral("lastUpdatedMs")).toLongLong();
-        agg.insert(QStringLiteral("grantCount"), grantCount);
-        agg.insert(QStringLiteral("lastUpdatedMs"), std::max(currentLast, updatedAt));
-        byApp.insert(appId, agg);
-    }
-
-    rows.reserve(byApp.size());
-    for (auto it = byApp.constBegin(); it != byApp.constEnd(); ++it) {
-        QVariantMap row = it.value();
-        const qint64 lastUpdatedMs = row.value(QStringLiteral("lastUpdatedMs")).toLongLong();
-        row.insert(QStringLiteral("lastUpdatedIso"),
-                   lastUpdatedMs > 0
-                       ? QDateTime::fromMSecsSinceEpoch(lastUpdatedMs).toUTC().toString(Qt::ISODateWithMs)
-                       : QString());
-        rows.push_back(row);
-    }
-
-    std::sort(rows.begin(), rows.end(), [](const QVariant &a, const QVariant &b) {
-        const qint64 av = a.toMap().value(QStringLiteral("lastUpdatedMs")).toLongLong();
-        const qint64 bv = b.toMap().value(QStringLiteral("lastUpdatedMs")).toLongLong();
-        return av > bv;
-    });
-    return rows;
+    const QVariantMap result = portalCallMap(QStringLiteral("ListSecretConsentSummary"));
+    return result.value(QStringLiteral("consents")).toList();
 }
 
 QVariantMap SettingsApp::revokeSecretConsentForApp(const QString &appId) const
 {
-    const QString normalizedAppId = appId.trimmed().toLower();
-    if (normalizedAppId.isEmpty()) {
-        return {
-            {QStringLiteral("ok"), false},
-            {QStringLiteral("error"), QStringLiteral("invalid-app-id")},
-        };
-    }
-    return callPortal(QStringLiteral("RevokeSecretConsentGrants"),
-                      {QVariantMap{{QStringLiteral("appId"), normalizedAppId}}});
+    return portalCallMap(QStringLiteral("RevokeSecretConsentForApp"), {appId});
 }
 
 void SettingsApp::setPortalInvokerForTests(PortalInvoker invoker)
 {
-    m_portalInvoker = std::move(invoker);
+    Q_UNUSED(invoker);
 }
 
-QVariantMap SettingsApp::callPortal(const QString &method, const QVariantList &args) const
+void SettingsApp::updateBreadcrumb()
 {
-    if (m_portalInvoker) {
-        return m_portalInvoker(method, args);
-    }
-    return portalCallMap(method, args);
-}
-
-void SettingsApp::touchGrantTimestamp(const QString &grantKey)
-{
-    if (grantKey.trimmed().isEmpty()) {
-        return;
-    }
-    m_grantUpdatedAt.insert(grantKey.trimmed().toLower(),
-                            QDateTime::currentMSecsSinceEpoch());
+    emit breadcrumbChanged();
 }
 
 void SettingsApp::appendRecent(const QString &moduleId, const QString &settingId)
 {
     QVariantMap entry;
-    entry.insert("moduleId", moduleId);
-    entry.insert("settingId", settingId);
-    entry.insert("timestamp", QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs));
+    entry.insert(QStringLiteral("moduleId"), moduleId);
+    entry.insert(QStringLiteral("settingId"), settingId);
+    entry.insert(QStringLiteral("timestamp"), QDateTime::currentDateTime().toMSecsSinceEpoch());
 
+    // Remove if already exists (move to top)
     for (int i = 0; i < m_recentHistory.size(); ++i) {
-        const QVariantMap old = m_recentHistory.at(i).toMap();
-        if (old.value("moduleId").toString() == moduleId &&
-            old.value("settingId").toString() == settingId) {
+        const QVariantMap row = m_recentHistory.at(i).toMap();
+        if (row.value(QStringLiteral("moduleId")).toString() == moduleId
+            && row.value(QStringLiteral("settingId")).toString() == settingId) {
             m_recentHistory.removeAt(i);
             break;
         }
     }
+
     m_recentHistory.prepend(entry);
-    while (m_recentHistory.size() > 15) {
+    if (m_recentHistory.size() > 20) {
         m_recentHistory.removeLast();
     }
     emit recentHistoryChanged();
 }
 
-void SettingsApp::updateBreadcrumb()
+QString SettingsApp::resolveSettingId(const QString &moduleId, const QString &settingId) const
 {
-    const QVariantMap mod = m_moduleLoader->moduleById(m_currentModuleId);
-    const QString moduleName = mod.value("name").toString();
-    QString settingName;
-    const QVariantList settings = mod.value("settings").toList();
-    for (const QVariant &settingVar : settings) {
-        const QVariantMap setting = settingVar.toMap();
-        if (setting.value("id").toString() == m_currentSettingId) {
-            settingName = setting.value("label").toString();
-            break;
-        }
+    if (!settingId.isEmpty()) {
+        return settingId;
     }
-    const QString next = settingName.isEmpty()
-                             ? moduleName
-                             : QStringLiteral("%1 > %2").arg(moduleName, settingName);
-    if (next != m_breadcrumb) {
-        m_breadcrumb = next;
-        emit breadcrumbChanged();
+    // Pick first available setting if none specified
+    const QVariantMap mod = m_moduleLoader->moduleById(moduleId);
+    if (mod.isEmpty()) return {};
+    const QVariantList settings = mod.value(QStringLiteral("settings")).toList();
+    if (settings.isEmpty()) return {};
+    return settings.first().toMap().value(QStringLiteral("id")).toString();
+}
+
+QString SettingsApp::settingGrantKey(const QString &moduleId, const QString &settingId) const
+{
+    if (moduleId.trimmed().isEmpty() || settingId.trimmed().isEmpty()) {
+        return {};
     }
+    return QStringLiteral("%1/%2").arg(moduleId.trimmed(), settingId.trimmed());
+}
+
+void SettingsApp::loadGrantStore()
+{
+    const QString path = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation) + "/grants.json";
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly)) return;
+
+    const QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
+    const QVariantMap root = doc.toVariant().toMap();
+    const QVariantList allows = root.value(QStringLiteral("allow-always")).toList();
+    const QVariantList denies = root.value(QStringLiteral("deny-always")).toList();
+    const QVariantMap times = root.value(QStringLiteral("timestamps")).toMap();
+
+    for (const QVariant &v : allows) m_allowAlwaysGrants.insert(v.toString());
+    for (const QVariant &v : denies) m_denyAlwaysGrants.insert(v.toString());
+    for (auto it = times.begin(); it != times.end(); ++it) {
+        m_grantUpdatedAt.insert(it.key(), it.value().toLongLong());
+    }
+}
+
+void SettingsApp::saveGrantStore()
+{
+    const QString dirPath = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
+    QDir().mkpath(dirPath);
+    const QString path = dirPath + "/grants.json";
+    QFile file(path);
+    if (!file.open(QIODevice::WriteOnly)) return;
+
+    QVariantMap root;
+    QVariantList allows;
+    for (const QString &s : m_allowAlwaysGrants) allows.append(s);
+    QVariantList denies;
+    for (const QString &s : m_denyAlwaysGrants) denies.append(s);
+
+    QVariantMap times;
+    for (auto it = m_grantUpdatedAt.begin(); it != m_grantUpdatedAt.end(); ++it) {
+        times.insert(it.key(), it.value());
+    }
+
+    root.insert(QStringLiteral("allow-always"), allows);
+    root.insert(QStringLiteral("deny-always"), denies);
+    root.insert(QStringLiteral("timestamps"), times);
+
+    file.write(QJsonDocument::fromVariant(root).toJson());
+}
+
+void SettingsApp::touchGrantTimestamp(const QString &key)
+{
+    m_grantUpdatedAt.insert(key, QDateTime::currentDateTime().toMSecsSinceEpoch());
 }

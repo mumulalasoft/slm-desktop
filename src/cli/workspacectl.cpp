@@ -3,6 +3,7 @@
 #include <QDBusConnectionInterface>
 #include <QDBusInterface>
 #include <QDBusReply>
+#include <QDBusVariant>
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QJsonObject>
@@ -235,7 +236,8 @@ int main(int argc, char *argv[])
             return 1;
         }
         QDBusReply<bool> reply = iface.call(QStringLiteral("MoveWindowToWorkspace"),
-                                            QVariant(args.at(2)), index);
+                                            QVariant::fromValue(QDBusVariant(QVariant(args.at(2)))),
+                                            index);
         if (!reply.isValid()) {
             return 3;
         }

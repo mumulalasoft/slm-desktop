@@ -1,8 +1,9 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
+import Slm_Desktop
 
 // Mode selector button — looks like the SDDM "Other..." session button.
-// Opens a popup listing Normal / Safe Mode / Recovery.
+// Opens a popup listing Safe Mode / Recovery.
 Column {
     id: root
     spacing: Math.round(8 * uiScale)
@@ -12,8 +13,9 @@ Column {
 
     signal modeSelected(string mode)
 
+    readonly property bool isAltMode: root.currentMode !== "normal"
+
     readonly property var modes: [
-        { label: "Normal",    value: "normal",   desc: "Sesi biasa" },
         { label: "Safe Mode", value: "safe",      desc: "Konfigurasi default" },
         { label: "Recovery",  value: "recovery",  desc: "Pemulihan" },
     ]
@@ -32,14 +34,16 @@ Column {
         onClicked: modePopup.open()
         background: Rectangle {
             radius: width / 2
-            color: modeButton.down ? "#44ffffff"
-                   : (root.currentMode !== "normal" ? "#200a84ff" : "transparent")
-            border.width: 1
-            border.color: root.currentMode !== "normal" ? "#0a84ff" : "#ccffffff"
+            color: modeButton.down ? Qt.rgba(1, 1, 1, 0.267)
+                   : (root.isAltMode ? Qt.rgba(0.039, 0.518, 1.0, 0.125) : "transparent")
+            border.width: Theme.borderWidthThin
+            border.color: root.isAltMode ? Qt.rgba(0.039, 0.518, 1.0, 1.0) : Qt.rgba(1, 1, 1, 0.800)
+            Behavior on color { ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingStandard } }
+            Behavior on border.color { ColorAnimation { duration: Theme.durationSm; easing.type: Theme.easingStandard } }
         }
         contentItem: Text {
             text: "⇄"
-            color: root.currentMode !== "normal" ? "#0a84ff" : "#f5ffffff"
+            color: root.isAltMode ? Qt.rgba(0.039, 0.518, 1.0, 1.0) : Qt.rgba(1, 1, 1, 0.961)
             font.pixelSize: Math.round(24 * root.uiScale)
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
@@ -56,9 +60,9 @@ Column {
             closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
             background: Rectangle {
                 radius: Math.round(10 * root.uiScale)
-                color: "#e31a2433"
-                border.width: 1
-                border.color: "#70ffffff"
+                color: Qt.rgba(0.102, 0.141, 0.200, 0.890)
+                border.width: Theme.borderWidthThin
+                border.color: Qt.rgba(1, 1, 1, 0.439)
             }
 
             Column {
@@ -77,7 +81,10 @@ Column {
                         }
                         background: Rectangle {
                             radius: Math.round(8 * root.uiScale)
-                            color: parent.highlighted ? "#0a84ff" : "transparent"
+                            color: parent.highlighted ? Qt.rgba(0.039, 0.518, 1.0, 1.0) : "transparent"
+                            Behavior on color {
+                                ColorAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault }
+                            }
                         }
                         contentItem: Column {
                             spacing: 1
@@ -86,13 +93,13 @@ Column {
 
                             Text {
                                 text: modelData.label
-                                color: "#ffffff"
+                                color: "white"
                                 font.pixelSize: Math.round(15 * root.uiScale)
                                 elide: Text.ElideRight
                             }
                             Text {
                                 text: modelData.desc
-                                color: "#aaffffff"
+                                color: Qt.rgba(1, 1, 1, 0.667)
                                 font.pixelSize: Math.round(11 * root.uiScale)
                                 elide: Text.ElideRight
                             }
@@ -105,7 +112,7 @@ Column {
 
     Label {
         text: root.labelForMode(root.currentMode)
-        color: root.currentMode !== "normal" ? "#88c8ff" : "#d8ffffff"
+        color: root.isAltMode ? Qt.rgba(0.533, 0.784, 1.0, 1.0) : Qt.rgba(1, 1, 1, 0.847)
         anchors.horizontalCenter: parent.horizontalCenter
         font.pixelSize: Math.round(14 * root.uiScale)
     }

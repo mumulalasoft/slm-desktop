@@ -1,0 +1,543 @@
+[2026-05-24 10:59:57.894] [debug] kwin_watchdog: Watchdog: disabled, not running on a systemd environment or watchdog is not set up. No WATCHDOG_USEC.
+[2026-05-24 10:59:57.901] [info] default: No backend specified, automatically choosing drm
+[2026-05-24 10:59:57.907] [info] default: Accepting client connections on sockets: QList("wayland-0")
+[2026-05-24 10:59:57.907] [debug] kwin_core: Compositing forced to QPainter mode by environment variable
+[2026-05-24 10:59:58.182] [debug] kwin_wayland_drm: drmModeAddFB2WithModifiers is not supported on GPU "/dev/dri/card1"
+[2026-05-24 10:59:58.182] [debug] kwin_wayland_drm: Using Atomic Mode Setting on gpu "/dev/dri/card1"
+[2026-05-24 10:59:58.182] [debug] kwin_wayland_drm: Number of planes on GPU "/dev/dri/card1" : 2
+[2026-05-24 10:59:58.182] [debug] kwin_wayland_drm: adding GPU /dev/dri/card1
+[2026-05-24 10:59:58.185] [debug] kwin_wayland_drm: New output on GPU /dev/dri/card1: Virtual-1-QEMU Monitor
+[2026-05-24 10:59:58.188] [debug] kwin_xkbcommon: XKB: created compose table from locale en_US.UTF-8 with path /usr/share/X11/locale/en_US.UTF-8/Compose
+[2026-05-24 10:59:58.245] [debug] kwin_core: KGlobalAcceld inited
+[2026-05-24 10:59:58.245] [debug] kwin_core: Attempting to load the QPainter scene
+[2026-05-24 10:59:58.245] [debug] kwin_core: QPainter compositing has been successfully initialized
+[2026-05-24 10:59:58.272] [warning] kwin_decorations: Could not locate decoration plugin "org.kde.breeze"
+[2026-05-24 10:59:58.272] [warning] kwin_decorations: Could not locate decoration plugin "org.kde.kwin.aurorae"
+[2026-05-24 10:59:58.296] [debug] kwin_output_config: Read mode 1071x601@60003 for output RHT 4660 0 42 2014 0
+[2026-05-24 10:59:58.296] [debug] kwin_output_config: Chose new mode for output RHT 4660 0 42 2014 0: 1620x762@60005
+[2026-05-24 10:59:58.307] [debug] kwin_xkbcommon: XKB: Compiling from RMLVO: rules 'evdev', model 'pc104', layout 'us', variant '(null)', options '(null)'
+[2026-05-24 10:59:58.307] [debug] kwin_xkbcommon: XKB: Include extensions path failed: /usr/share/xkeyboard-config-2.d (No such file or directory)
+[2026-05-24 10:59:58.307] [debug] kwin_xkbcommon: XKB: Include extensions path failed: /usr/share/xkeyboard-config.d (No such file or directory)
+[2026-05-24 10:59:58.309] [debug] kwin_xkbcommon: XKB: Compiling from KcCGST: keycodes 'evdev+aliases(qwerty)', types 'complete', compat 'complete', symbols 'pc+us+inet(evdev)'
+[2026-05-24 10:59:58.309] [debug] kwin_xkbcommon: XKB: Compiling xkb_keycodes "(unnamed map)"
+[2026-05-24 10:59:58.311] [debug] kwin_xkbcommon: XKB: Compiling xkb_types "(unnamed map)"
+[2026-05-24 10:59:58.313] [debug] kwin_xkbcommon: XKB: Compiling xkb_compatibility "(unnamed map)"
+[2026-05-24 10:59:58.313] [debug] kwin_xkbcommon: XKB: The "group" statement in compat is unsupported; Ignored
+[2026-05-24 10:59:58.313] [debug] kwin_xkbcommon: XKB: The "group" statement in compat is unsupported; Ignored
+[2026-05-24 10:59:58.313] [debug] kwin_xkbcommon: XKB: The "group" statement in compat is unsupported; Ignored
+[2026-05-24 10:59:58.314] [debug] kwin_xkbcommon: XKB: The "allowExplicit" field in indicator statements is unsupported; Ignored
+[2026-05-24 10:59:58.314] [debug] kwin_xkbcommon: XKB: The "allowExplicit" field in indicator statements is unsupported; Ignored
+[2026-05-24 10:59:58.314] [debug] kwin_xkbcommon: XKB: The "allowExplicit" field in indicator statements is unsupported; Ignored
+[2026-05-24 10:59:58.314] [debug] kwin_xkbcommon: XKB: The "allowExplicit" field in indicator statements is unsupported; Ignored
+[2026-05-24 10:59:58.314] [debug] kwin_xkbcommon: XKB: The "indicatorDrivesKeyboard" field in indicator statements is unsupported; Ignored
+[2026-05-24 10:59:58.315] [debug] kwin_xkbcommon: XKB: The "allowExplicit" field in indicator statements is unsupported; Ignored
+[2026-05-24 10:59:58.315] [debug] kwin_xkbcommon: XKB: Indicator name "Shift Lock" was not declared in the keycodes section; Adding new indicator
+[2026-05-24 10:59:58.315] [debug] kwin_xkbcommon: XKB: Indicator name "Group 2" was not declared in the keycodes section; Adding new indicator
+[2026-05-24 10:59:58.315] [debug] kwin_xkbcommon: XKB: Indicator name "Mouse Keys" was not declared in the keycodes section; Adding new indicator
+[2026-05-24 10:59:58.315] [debug] kwin_xkbcommon: XKB: Compiling xkb_symbols "(unnamed map)"
+[2026-05-24 10:59:58.335] [debug] kwin_virtualkeyboard: Registering the DBus interface
+[2026-05-24 10:59:58.336] [debug] kwin_core: Effect is not supported:  "blendchanges"
+[2026-05-24 10:59:58.336] [debug] kwin_core: Effect is not supported:  "blur"
+[2026-05-24 10:59:58.336] [debug] kwin_core: Effect is not supported:  "colorpicker"
+[2026-05-24 10:59:58.337] [debug] kwin_core: Successfully loaded plugin effect:  "highlightwindow"
+[2026-05-24 10:59:58.337] [debug] kwin_core: Successfully loaded plugin effect:  "kscreen"
+[2026-05-24 10:59:58.337] [debug] kwin_core: Successfully loaded plugin effect:  "outputlocator"
+[2026-05-24 10:59:58.337] [debug] kwin_core: Effect is not supported:  "overview"
+[2026-05-24 10:59:58.337] [debug] kwin_core: Successfully loaded plugin effect:  "screenedge"
+[2026-05-24 10:59:58.337] [debug] kwin_core: Effect is not supported:  "screentransform"
+[2026-05-24 10:59:58.337] [debug] kwin_core: Effect is not supported:  "shakecursor"
+[2026-05-24 10:59:58.337] [debug] kwin_core: Effect is not supported:  "slide"
+[2026-05-24 10:59:58.337] [debug] kwin_core: Effect is not supported:  "slidingpopups"
+[2026-05-24 10:59:58.337] [debug] kwin_core: Effect is not supported:  "startupfeedback"
+[2026-05-24 10:59:58.337] [debug] kwin_core: Effect is not supported:  "systembell"
+[2026-05-24 10:59:58.337] [debug] kwin_core: Effect is not supported:  "tileseditor"
+[2026-05-24 10:59:58.337] [debug] kwin_core: Effect is not supported:  "windowview"
+[2026-05-24 10:59:58.338] [debug] kwin_core: Successfully loaded plugin effect:  "zoom"
+[2026-05-24 10:59:58.350] [debug] kwin_core: Interface "org_kde_plasma_window_management" not in X-KDE-Wayland-Interfaces of "/usr/libexec/xdg-desktop-portal-gtk"
+[2026-05-24 10:59:58.350] [debug] kwin_core: Interface "org_kde_plasma_activation_feedback" not in X-KDE-Wayland-Interfaces of "/usr/libexec/xdg-desktop-portal-gtk"
+[2026-05-24 10:59:58.350] [debug] kwin_core: Interface "kde_lockscreen_overlay_v1" not in X-KDE-Wayland-Interfaces of "/usr/libexec/xdg-desktop-portal-gtk"
+[2026-05-24 10:59:58.350] [debug] kwin_core: Interface "org_kde_kwin_fake_input" not in X-KDE-Wayland-Interfaces of "/usr/libexec/xdg-desktop-portal-gtk"
+Xwayland glamor: GBM Wayland interfaces not available
+Failed to initialize glamor, falling back to sw
+[2026-05-24 10:59:58.493] [debug] kwin_core: Extensions: shape: 0x "11"  composite: 0x "4"  render: 0x "b"  fixes: 0x "50"  randr: 0x "14"  sync: 0x "31"  res: 0x "12"
+[2026-05-24 10:59:58.494] [debug] kwin_xwl: Setting primary KWin::LogicalOutput(0x624685ce7af0, name="Virtual-1", geometry=KWin::Rect(0,0 1620x762), scale=1) 33
+[2026-05-24 10:59:58.494] [debug] kwin_xwl: Running Xwayland startup script "/etc/xdg/Xwayland-session.d/00-at-spi"
+[2026-05-24 10:59:58.494] [debug] kwin_xwl: Running Xwayland startup script "/etc/xdg/Xwayland-session.d/00-xrdb"
+[2026-05-24 10:59:58.503] [debug] kwin_xwl: Running Xwayland startup script "/etc/xdg/Xwayland-session.d/10-ibus-x11"
+[2026-05-24 10:59:58.508] [debug] kwin_xwl: Setting primary KWin::LogicalOutput(0x624685ce7af0, name="Virtual-1", geometry=KWin::Rect(0,0 1620x762), scale=1) 33
+The XKEYBOARD keymap compiler (xkbcomp) reports:
+> Warning:          Unsupported maximum keycode 708, clipping.
+>                   X11 cannot support keycodes above 255.
+> Warning:          Virtual modifier Hyper multiply defined
+>                   Using 0, ignoring 0
+> Warning:          Virtual modifier ScrollLock multiply defined
+>                   Using 0, ignoring 0
+Errors from xkbcomp are not fatal to the X server
+[2026-05-24 10:59:58.621] [warning] qt.qpa.services: Failed to register with host portal QDBusError("org.freedesktop.portal.Error.Failed", "Could not register app ID: Unable to open /proc/1980/root")
+[2026-05-24 10:59:58.622] [warning] qt.qpa.services: Failed to register with host portal QDBusError("org.freedesktop.portal.Error.Failed", "Could not register app ID: Unable to open /proc/1980/root")
+[2026-05-24 11:00:00.060] [debug] kwin_core: Interface "org_kde_plasma_window_management" not in X-KDE-Wayland-Interfaces of "/usr/local/bin/slm-shell"
+[2026-05-24 11:00:00.060] [debug] kwin_core: Interface "org_kde_plasma_activation_feedback" not in X-KDE-Wayland-Interfaces of "/usr/local/bin/slm-shell"
+[2026-05-24 11:00:00.060] [debug] kwin_core: Interface "kde_lockscreen_overlay_v1" not in X-KDE-Wayland-Interfaces of "/usr/local/bin/slm-shell"
+[2026-05-24 11:00:00.060] [debug] kwin_core: Interface "org_kde_kwin_fake_input" not in X-KDE-Wayland-Interfaces of "/usr/local/bin/slm-shell"
+[2026-05-24 11:00:01.256] [debug] kwin_core: Interface "org_kde_plasma_window_management" not in X-KDE-Wayland-Interfaces of "/snap/snapd-desktop-integration/361/usr/bin/snapd-desktop-integration"
+[2026-05-24 11:00:01.256] [debug] kwin_core: Interface "org_kde_plasma_activation_feedback" not in X-KDE-Wayland-Interfaces of "/snap/snapd-desktop-integration/361/usr/bin/snapd-desktop-integration"
+[2026-05-24 11:00:01.256] [debug] kwin_core: Interface "kde_lockscreen_overlay_v1" not in X-KDE-Wayland-Interfaces of "/snap/snapd-desktop-integration/361/usr/bin/snapd-desktop-integration"
+[2026-05-24 11:00:01.256] [debug] kwin_core: Interface "org_kde_kwin_fake_input" not in X-KDE-Wayland-Interfaces of "/snap/snapd-desktop-integration/361/usr/bin/snapd-desktop-integration"
+[2026-05-24 11:00:02.443] [debug] kwin_core: Interface "org_kde_plasma_window_management" not in X-KDE-Wayland-Interfaces of "/usr/local/bin/slm-clipboardd"
+[2026-05-24 11:00:02.443] [debug] kwin_core: Interface "org_kde_plasma_activation_feedback" not in X-KDE-Wayland-Interfaces of "/usr/local/bin/slm-clipboardd"
+[2026-05-24 11:00:02.443] [debug] kwin_core: Interface "kde_lockscreen_overlay_v1" not in X-KDE-Wayland-Interfaces of "/usr/local/bin/slm-clipboardd"
+[2026-05-24 11:00:02.443] [debug] kwin_core: Interface "org_kde_kwin_fake_input" not in X-KDE-Wayland-Interfaces of "/usr/local/bin/slm-clipboardd"
+[2026-05-24 11:00:06.727] [debug] kwin_core: Interface "org_kde_plasma_window_management" not in X-KDE-Wayland-Interfaces of "/usr/bin/grim"
+[2026-05-24 11:00:06.727] [debug] kwin_core: Interface "org_kde_plasma_activation_feedback" not in X-KDE-Wayland-Interfaces of "/usr/bin/grim"
+[2026-05-24 11:00:06.728] [debug] kwin_core: Interface "kde_lockscreen_overlay_v1" not in X-KDE-Wayland-Interfaces of "/usr/bin/grim"
+[2026-05-24 11:00:06.728] [debug] kwin_core: Interface "org_kde_kwin_fake_input" not in X-KDE-Wayland-Interfaces of "/usr/bin/grim"
+[2026-05-24 11:00:10.219] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP → DEBOUNCE_EVENT_OTHERBUTTON → DEBOUNCE_STATE_IS_UP
+
+[2026-05-24 11:00:10.219] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP → DEBOUNCE_EVENT_PRESS → DEBOUNCE_STATE_IS_DOWN_WAITING
+
+[2026-05-24 11:00:10.244] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_DOWN_WAITING → DEBOUNCE_EVENT_TIMEOUT → DEBOUNCE_STATE_IS_DOWN
+
+[2026-05-24 11:00:11.010] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_DOWN → DEBOUNCE_EVENT_RELEASE → DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS
+
+[2026-05-24 11:00:11.022] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS → DEBOUNCE_EVENT_TIMEOUT_SHORT → DEBOUNCE_STATE_IS_UP_WAITING
+
+[2026-05-24 11:00:11.035] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_WAITING → DEBOUNCE_EVENT_TIMEOUT → DEBOUNCE_STATE_IS_UP
+
+[2026-05-24 11:00:17.351] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP → DEBOUNCE_EVENT_PRESS → DEBOUNCE_STATE_IS_DOWN_WAITING
+
+[2026-05-24 11:00:17.376] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_DOWN_WAITING → DEBOUNCE_EVENT_TIMEOUT → DEBOUNCE_STATE_IS_DOWN
+
+[2026-05-24 11:00:17.531] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_DOWN → DEBOUNCE_EVENT_RELEASE → DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS
+
+[2026-05-24 11:00:17.543] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS → DEBOUNCE_EVENT_TIMEOUT_SHORT → DEBOUNCE_STATE_IS_UP_WAITING
+
+[2026-05-24 11:00:17.556] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_WAITING → DEBOUNCE_EVENT_TIMEOUT → DEBOUNCE_STATE_IS_UP
+
+[2026-05-24 11:00:20.101] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP → DEBOUNCE_EVENT_OTHERBUTTON → DEBOUNCE_STATE_IS_UP
+
+[2026-05-24 11:00:20.101] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP → DEBOUNCE_EVENT_PRESS → DEBOUNCE_STATE_IS_DOWN_WAITING
+
+[2026-05-24 11:00:20.126] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_DOWN_WAITING → DEBOUNCE_EVENT_TIMEOUT → DEBOUNCE_STATE_IS_DOWN
+
+[2026-05-24 11:00:20.301] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_DOWN → DEBOUNCE_EVENT_RELEASE → DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS
+
+[2026-05-24 11:00:20.313] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS → DEBOUNCE_EVENT_TIMEOUT_SHORT → DEBOUNCE_STATE_IS_UP_WAITING
+
+[2026-05-24 11:00:20.326] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_WAITING → DEBOUNCE_EVENT_TIMEOUT → DEBOUNCE_STATE_IS_UP
+
+[2026-05-24 11:00:22.483] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP → DEBOUNCE_EVENT_OTHERBUTTON → DEBOUNCE_STATE_IS_UP
+
+[2026-05-24 11:00:22.484] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP → DEBOUNCE_EVENT_PRESS → DEBOUNCE_STATE_IS_DOWN_WAITING
+
+[2026-05-24 11:00:22.509] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_DOWN_WAITING → DEBOUNCE_EVENT_TIMEOUT → DEBOUNCE_STATE_IS_DOWN
+
+[2026-05-24 11:00:22.663] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_DOWN → DEBOUNCE_EVENT_RELEASE → DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS
+
+[2026-05-24 11:00:22.675] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS → DEBOUNCE_EVENT_TIMEOUT_SHORT → DEBOUNCE_STATE_IS_UP_WAITING
+
+[2026-05-24 11:00:22.688] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_WAITING → DEBOUNCE_EVENT_TIMEOUT → DEBOUNCE_STATE_IS_UP
+
+[2026-05-24 11:00:23.683] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP → DEBOUNCE_EVENT_OTHERBUTTON → DEBOUNCE_STATE_IS_UP
+
+[2026-05-24 11:00:23.683] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP → DEBOUNCE_EVENT_PRESS → DEBOUNCE_STATE_IS_DOWN_WAITING
+
+[2026-05-24 11:00:23.708] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_DOWN_WAITING → DEBOUNCE_EVENT_TIMEOUT → DEBOUNCE_STATE_IS_DOWN
+
+[2026-05-24 11:00:23.883] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_DOWN → DEBOUNCE_EVENT_RELEASE → DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS
+
+[2026-05-24 11:00:23.895] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS → DEBOUNCE_EVENT_TIMEOUT_SHORT → DEBOUNCE_STATE_IS_UP_WAITING
+
+[2026-05-24 11:00:23.908] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_WAITING → DEBOUNCE_EVENT_TIMEOUT → DEBOUNCE_STATE_IS_UP
+
+[2026-05-24 11:00:24.874] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP → DEBOUNCE_EVENT_OTHERBUTTON → DEBOUNCE_STATE_IS_UP
+
+[2026-05-24 11:00:24.874] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP → DEBOUNCE_EVENT_PRESS → DEBOUNCE_STATE_IS_DOWN_WAITING
+
+[2026-05-24 11:00:24.899] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_DOWN_WAITING → DEBOUNCE_EVENT_TIMEOUT → DEBOUNCE_STATE_IS_DOWN
+
+[2026-05-24 11:00:25.054] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_DOWN → DEBOUNCE_EVENT_RELEASE → DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS
+
+[2026-05-24 11:00:25.066] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS → DEBOUNCE_EVENT_TIMEOUT_SHORT → DEBOUNCE_STATE_IS_UP_WAITING
+
+[2026-05-24 11:00:25.079] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_WAITING → DEBOUNCE_EVENT_TIMEOUT → DEBOUNCE_STATE_IS_UP
+
+[2026-05-24 11:00:26.452] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP → DEBOUNCE_EVENT_OTHERBUTTON → DEBOUNCE_STATE_IS_UP
+
+[2026-05-24 11:00:26.452] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP → DEBOUNCE_EVENT_PRESS → DEBOUNCE_STATE_IS_DOWN_WAITING
+
+[2026-05-24 11:00:26.477] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_DOWN_WAITING → DEBOUNCE_EVENT_TIMEOUT → DEBOUNCE_STATE_IS_DOWN
+
+[2026-05-24 11:00:26.652] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_DOWN → DEBOUNCE_EVENT_RELEASE → DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS
+
+[2026-05-24 11:00:26.664] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS → DEBOUNCE_EVENT_TIMEOUT_SHORT → DEBOUNCE_STATE_IS_UP_WAITING
+
+[2026-05-24 11:00:26.677] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_WAITING → DEBOUNCE_EVENT_TIMEOUT → DEBOUNCE_STATE_IS_UP
+
+[2026-05-24 11:00:27.712] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP → DEBOUNCE_EVENT_OTHERBUTTON → DEBOUNCE_STATE_IS_UP
+
+[2026-05-24 11:00:27.712] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP → DEBOUNCE_EVENT_PRESS → DEBOUNCE_STATE_IS_DOWN_WAITING
+
+[2026-05-24 11:00:27.738] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_DOWN_WAITING → DEBOUNCE_EVENT_TIMEOUT → DEBOUNCE_STATE_IS_DOWN
+
+[2026-05-24 11:00:27.892] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_DOWN → DEBOUNCE_EVENT_RELEASE → DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS
+
+[2026-05-24 11:00:27.904] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS → DEBOUNCE_EVENT_TIMEOUT_SHORT → DEBOUNCE_STATE_IS_UP_WAITING
+
+[2026-05-24 11:00:27.917] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_WAITING → DEBOUNCE_EVENT_TIMEOUT → DEBOUNCE_STATE_IS_UP
+
+[2026-05-24 11:00:29.093] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP → DEBOUNCE_EVENT_OTHERBUTTON → DEBOUNCE_STATE_IS_UP
+
+[2026-05-24 11:00:29.093] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP → DEBOUNCE_EVENT_PRESS → DEBOUNCE_STATE_IS_DOWN_WAITING
+
+[2026-05-24 11:00:29.118] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_DOWN_WAITING → DEBOUNCE_EVENT_TIMEOUT → DEBOUNCE_STATE_IS_DOWN
+
+[2026-05-24 11:00:29.292] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_DOWN → DEBOUNCE_EVENT_RELEASE → DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS
+
+[2026-05-24 11:00:29.305] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS → DEBOUNCE_EVENT_TIMEOUT_SHORT → DEBOUNCE_STATE_IS_UP_WAITING
+
+[2026-05-24 11:00:29.317] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_WAITING → DEBOUNCE_EVENT_TIMEOUT → DEBOUNCE_STATE_IS_UP
+
+[2026-05-24 11:00:30.203] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP → DEBOUNCE_EVENT_OTHERBUTTON → DEBOUNCE_STATE_IS_UP
+
+[2026-05-24 11:00:30.203] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP → DEBOUNCE_EVENT_PRESS → DEBOUNCE_STATE_IS_DOWN_WAITING
+
+[2026-05-24 11:00:30.228] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_DOWN_WAITING → DEBOUNCE_EVENT_TIMEOUT → DEBOUNCE_STATE_IS_DOWN
+
+[2026-05-24 11:00:30.383] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_DOWN → DEBOUNCE_EVENT_RELEASE → DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS
+
+[2026-05-24 11:00:30.395] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS → DEBOUNCE_EVENT_TIMEOUT_SHORT → DEBOUNCE_STATE_IS_UP_WAITING
+
+[2026-05-24 11:00:30.408] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_WAITING → DEBOUNCE_EVENT_TIMEOUT → DEBOUNCE_STATE_IS_UP
+
+[2026-05-24 11:00:31.485] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP → DEBOUNCE_EVENT_OTHERBUTTON → DEBOUNCE_STATE_IS_UP
+
+[2026-05-24 11:00:31.485] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP → DEBOUNCE_EVENT_PRESS → DEBOUNCE_STATE_IS_DOWN_WAITING
+
+[2026-05-24 11:00:31.510] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_DOWN_WAITING → DEBOUNCE_EVENT_TIMEOUT → DEBOUNCE_STATE_IS_DOWN
+
+[2026-05-24 11:00:31.685] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_DOWN → DEBOUNCE_EVENT_RELEASE → DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS
+
+[2026-05-24 11:00:31.697] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS → DEBOUNCE_EVENT_TIMEOUT_SHORT → DEBOUNCE_STATE_IS_UP_WAITING
+
+[2026-05-24 11:00:31.710] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_WAITING → DEBOUNCE_EVENT_TIMEOUT → DEBOUNCE_STATE_IS_UP
+
+[2026-05-24 11:00:33.042] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP → DEBOUNCE_EVENT_OTHERBUTTON → DEBOUNCE_STATE_IS_UP
+
+[2026-05-24 11:00:33.042] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP → DEBOUNCE_EVENT_PRESS → DEBOUNCE_STATE_IS_DOWN_WAITING
+
+[2026-05-24 11:00:33.067] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_DOWN_WAITING → DEBOUNCE_EVENT_TIMEOUT → DEBOUNCE_STATE_IS_DOWN
+
+[2026-05-24 11:00:33.222] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_DOWN → DEBOUNCE_EVENT_RELEASE → DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS
+
+[2026-05-24 11:00:33.234] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS → DEBOUNCE_EVENT_TIMEOUT_SHORT → DEBOUNCE_STATE_IS_UP_WAITING
+
+[2026-05-24 11:00:33.247] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_WAITING → DEBOUNCE_EVENT_TIMEOUT → DEBOUNCE_STATE_IS_UP
+
+[2026-05-24 11:04:18.077] [debug] kwin_wayland_drm: Removing output KWin::DrmOutput(0x624685b94f80)
+[2026-05-24 11:05:22.149] [debug] kwin_watchdog: Watchdog: disabled, not running on a systemd environment or watchdog is not set up. No WATCHDOG_USEC.
+[2026-05-24 11:05:22.151] [info] default: No backend specified, automatically choosing drm
+[2026-05-24 11:05:22.156] [info] default: Accepting client connections on sockets: QList("wayland-0")
+[2026-05-24 11:05:22.157] [debug] kwin_core: Compositing forced to QPainter mode by environment variable
+[2026-05-24 11:05:22.212] [debug] kwin_wayland_drm: drmModeAddFB2WithModifiers is not supported on GPU "/dev/dri/card1"
+[2026-05-24 11:05:22.212] [debug] kwin_wayland_drm: Using Atomic Mode Setting on gpu "/dev/dri/card1"
+[2026-05-24 11:05:22.212] [debug] kwin_wayland_drm: Number of planes on GPU "/dev/dri/card1" : 2
+[2026-05-24 11:05:22.213] [debug] kwin_wayland_drm: adding GPU /dev/dri/card1
+[2026-05-24 11:05:22.214] [debug] kwin_wayland_drm: New output on GPU /dev/dri/card1: Virtual-1-QEMU Monitor
+[2026-05-24 11:05:22.216] [debug] kwin_xkbcommon: XKB: created compose table from locale en_US.UTF-8 with path /usr/share/X11/locale/en_US.UTF-8/Compose
+[2026-05-24 11:05:22.318] [critical] default: "applications.menu"  not found in  QList("/etc/xdg/menus")
+[2026-05-24 11:05:22.340] [debug] kwin_core: KGlobalAcceld inited
+[2026-05-24 11:05:22.341] [debug] kwin_core: Attempting to load the QPainter scene
+[2026-05-24 11:05:22.341] [debug] kwin_core: QPainter compositing has been successfully initialized
+[2026-05-24 11:05:22.363] [warning] kwin_decorations: Could not locate decoration plugin "org.kde.breeze"
+[2026-05-24 11:05:22.363] [warning] kwin_decorations: Could not locate decoration plugin "org.kde.kwin.aurorae"
+[2026-05-24 11:05:22.378] [debug] kwin_output_config: Read mode 1071x601@60003 for output RHT 4660 0 42 2014 0
+[2026-05-24 11:05:22.378] [debug] kwin_output_config: Chose new mode for output RHT 4660 0 42 2014 0: 1620x762@60005
+[2026-05-24 11:05:22.387] [debug] kwin_xkbcommon: XKB: Compiling from RMLVO: rules 'evdev', model 'pc104', layout 'us', variant '(null)', options '(null)'
+[2026-05-24 11:05:22.387] [debug] kwin_xkbcommon: XKB: Include extensions path failed: /usr/share/xkeyboard-config-2.d (No such file or directory)
+[2026-05-24 11:05:22.387] [debug] kwin_xkbcommon: XKB: Include extensions path failed: /usr/share/xkeyboard-config.d (No such file or directory)
+[2026-05-24 11:05:22.387] [debug] kwin_xkbcommon: XKB: Compiling from KcCGST: keycodes 'evdev+aliases(qwerty)', types 'complete', compat 'complete', symbols 'pc+us+inet(evdev)'
+[2026-05-24 11:05:22.387] [debug] kwin_xkbcommon: XKB: Compiling xkb_keycodes "(unnamed map)"
+[2026-05-24 11:05:22.388] [debug] kwin_xkbcommon: XKB: Compiling xkb_types "(unnamed map)"
+[2026-05-24 11:05:22.389] [debug] kwin_xkbcommon: XKB: Compiling xkb_compatibility "(unnamed map)"
+[2026-05-24 11:05:22.389] [debug] kwin_xkbcommon: XKB: The "group" statement in compat is unsupported; Ignored
+[2026-05-24 11:05:22.389] [debug] kwin_xkbcommon: XKB: The "group" statement in compat is unsupported; Ignored
+[2026-05-24 11:05:22.389] [debug] kwin_xkbcommon: XKB: The "group" statement in compat is unsupported; Ignored
+[2026-05-24 11:05:22.389] [debug] kwin_xkbcommon: XKB: The "allowExplicit" field in indicator statements is unsupported; Ignored
+[2026-05-24 11:05:22.389] [debug] kwin_xkbcommon: XKB: The "allowExplicit" field in indicator statements is unsupported; Ignored
+[2026-05-24 11:05:22.389] [debug] kwin_xkbcommon: XKB: The "allowExplicit" field in indicator statements is unsupported; Ignored
+[2026-05-24 11:05:22.389] [debug] kwin_xkbcommon: XKB: The "allowExplicit" field in indicator statements is unsupported; Ignored
+[2026-05-24 11:05:22.389] [debug] kwin_xkbcommon: XKB: The "indicatorDrivesKeyboard" field in indicator statements is unsupported; Ignored
+[2026-05-24 11:05:22.389] [debug] kwin_xkbcommon: XKB: The "allowExplicit" field in indicator statements is unsupported; Ignored
+[2026-05-24 11:05:22.390] [debug] kwin_xkbcommon: XKB: Indicator name "Shift Lock" was not declared in the keycodes section; Adding new indicator
+[2026-05-24 11:05:22.390] [debug] kwin_xkbcommon: XKB: Indicator name "Group 2" was not declared in the keycodes section; Adding new indicator
+[2026-05-24 11:05:22.390] [debug] kwin_xkbcommon: XKB: Indicator name "Mouse Keys" was not declared in the keycodes section; Adding new indicator
+[2026-05-24 11:05:22.390] [debug] kwin_xkbcommon: XKB: Compiling xkb_symbols "(unnamed map)"
+[2026-05-24 11:05:22.401] [debug] kwin_virtualkeyboard: Registering the DBus interface
+[2026-05-24 11:05:22.401] [debug] kwin_core: Effect is not supported:  "blendchanges"
+[2026-05-24 11:05:22.401] [debug] kwin_core: Effect is not supported:  "blur"
+[2026-05-24 11:05:22.401] [debug] kwin_core: Effect is not supported:  "colorpicker"
+[2026-05-24 11:05:22.402] [debug] kwin_core: Successfully loaded plugin effect:  "highlightwindow"
+[2026-05-24 11:05:22.402] [debug] kwin_core: Successfully loaded plugin effect:  "kscreen"
+[2026-05-24 11:05:22.402] [debug] kwin_core: Successfully loaded plugin effect:  "outputlocator"
+[2026-05-24 11:05:22.402] [debug] kwin_core: Effect is not supported:  "overview"
+[2026-05-24 11:05:22.402] [debug] kwin_core: Successfully loaded plugin effect:  "screenedge"
+[2026-05-24 11:05:22.402] [debug] kwin_core: Effect is not supported:  "screentransform"
+[2026-05-24 11:05:22.402] [debug] kwin_core: Effect is not supported:  "shakecursor"
+[2026-05-24 11:05:22.402] [debug] kwin_core: Effect is not supported:  "slide"
+[2026-05-24 11:05:22.402] [debug] kwin_core: Effect is not supported:  "slidingpopups"
+[2026-05-24 11:05:22.402] [debug] kwin_core: Effect is not supported:  "startupfeedback"
+[2026-05-24 11:05:22.402] [debug] kwin_core: Effect is not supported:  "systembell"
+[2026-05-24 11:05:22.402] [debug] kwin_core: Effect is not supported:  "tileseditor"
+[2026-05-24 11:05:22.402] [debug] kwin_core: Effect is not supported:  "windowview"
+[2026-05-24 11:05:22.404] [debug] kwin_core: Successfully loaded plugin effect:  "zoom"
+[2026-05-24 11:05:22.413] [warning] qt.qpa.services: Failed to register with host portal QDBusError("org.freedesktop.portal.Error.Failed", "Could not register app ID: Unable to open /proc/11800/root")
+Xwayland glamor: GBM Wayland interfaces not available
+Failed to initialize glamor, falling back to sw
+[2026-05-24 11:05:22.499] [debug] kwin_core: Extensions: shape: 0x "11"  composite: 0x "4"  render: 0x "b"  fixes: 0x "50"  randr: 0x "14"  sync: 0x "31"  res: 0x "12"
+[2026-05-24 11:05:22.499] [debug] kwin_xwl: Setting primary KWin::LogicalOutput(0x6377c3a5b070, name="Virtual-1", geometry=KWin::Rect(0,0 1620x762), scale=1) 33
+[2026-05-24 11:05:22.500] [debug] kwin_xwl: Running Xwayland startup script "/etc/xdg/Xwayland-session.d/00-at-spi"
+[2026-05-24 11:05:22.500] [debug] kwin_xwl: Running Xwayland startup script "/etc/xdg/Xwayland-session.d/00-xrdb"
+[2026-05-24 11:05:22.500] [debug] kwin_xwl: Running Xwayland startup script "/etc/xdg/Xwayland-session.d/10-ibus-x11"
+[2026-05-24 11:05:22.512] [debug] kwin_xwl: Setting primary KWin::LogicalOutput(0x6377c3a5b070, name="Virtual-1", geometry=KWin::Rect(0,0 1620x762), scale=1) 33
+The XKEYBOARD keymap compiler (xkbcomp) reports:
+> Warning:          Unsupported maximum keycode 708, clipping.
+>                   X11 cannot support keycodes above 255.
+> Warning:          Virtual modifier Hyper multiply defined
+>                   Using 0, ignoring 0
+> Warning:          Virtual modifier ScrollLock multiply defined
+>                   Using 0, ignoring 0
+Errors from xkbcomp are not fatal to the X server
+[2026-05-24 11:05:22.755] [debug] kwin_core: Interface "org_kde_plasma_window_management" not in X-KDE-Wayland-Interfaces of "/usr/local/bin/slm-clipboardd"
+[2026-05-24 11:05:22.755] [debug] kwin_core: Interface "org_kde_plasma_activation_feedback" not in X-KDE-Wayland-Interfaces of "/usr/local/bin/slm-clipboardd"
+[2026-05-24 11:05:22.755] [debug] kwin_core: Interface "kde_lockscreen_overlay_v1" not in X-KDE-Wayland-Interfaces of "/usr/local/bin/slm-clipboardd"
+[2026-05-24 11:05:22.756] [debug] kwin_core: Interface "org_kde_kwin_fake_input" not in X-KDE-Wayland-Interfaces of "/usr/local/bin/slm-clipboardd"
+[2026-05-24 11:05:24.073] [debug] kwin_core: Interface "org_kde_plasma_window_management" not in X-KDE-Wayland-Interfaces of "/usr/local/bin/slm-shell"
+[2026-05-24 11:05:24.073] [debug] kwin_core: Interface "org_kde_plasma_activation_feedback" not in X-KDE-Wayland-Interfaces of "/usr/local/bin/slm-shell"
+[2026-05-24 11:05:24.073] [debug] kwin_core: Interface "kde_lockscreen_overlay_v1" not in X-KDE-Wayland-Interfaces of "/usr/local/bin/slm-shell"
+[2026-05-24 11:05:24.074] [debug] kwin_core: Interface "org_kde_kwin_fake_input" not in X-KDE-Wayland-Interfaces of "/usr/local/bin/slm-shell"
+[2026-05-24 11:05:24.513] [debug] kwin_core: Interface "org_kde_plasma_window_management" not in X-KDE-Wayland-Interfaces of "/usr/libexec/xdg-desktop-portal-gtk"
+[2026-05-24 11:05:24.513] [debug] kwin_core: Interface "org_kde_plasma_activation_feedback" not in X-KDE-Wayland-Interfaces of "/usr/libexec/xdg-desktop-portal-gtk"
+[2026-05-24 11:05:24.513] [debug] kwin_core: Interface "kde_lockscreen_overlay_v1" not in X-KDE-Wayland-Interfaces of "/usr/libexec/xdg-desktop-portal-gtk"
+[2026-05-24 11:05:24.513] [debug] kwin_core: Interface "org_kde_kwin_fake_input" not in X-KDE-Wayland-Interfaces of "/usr/libexec/xdg-desktop-portal-gtk"
+[2026-05-24 11:05:24.616] [debug] kwin_core: Interface "org_kde_plasma_window_management" not in X-KDE-Wayland-Interfaces of "/snap/snapd-desktop-integration/361/usr/bin/snapd-desktop-integration"
+[2026-05-24 11:05:24.616] [debug] kwin_core: Interface "org_kde_plasma_activation_feedback" not in X-KDE-Wayland-Interfaces of "/snap/snapd-desktop-integration/361/usr/bin/snapd-desktop-integration"
+[2026-05-24 11:05:24.616] [debug] kwin_core: Interface "kde_lockscreen_overlay_v1" not in X-KDE-Wayland-Interfaces of "/snap/snapd-desktop-integration/361/usr/bin/snapd-desktop-integration"
+[2026-05-24 11:05:24.616] [debug] kwin_core: Interface "org_kde_kwin_fake_input" not in X-KDE-Wayland-Interfaces of "/snap/snapd-desktop-integration/361/usr/bin/snapd-desktop-integration"
+[2026-05-24 11:05:30.614] [debug] kwin_core: Interface "org_kde_plasma_window_management" not in X-KDE-Wayland-Interfaces of "/usr/bin/grim"
+[2026-05-24 11:05:30.614] [debug] kwin_core: Interface "org_kde_plasma_activation_feedback" not in X-KDE-Wayland-Interfaces of "/usr/bin/grim"
+[2026-05-24 11:05:30.614] [debug] kwin_core: Interface "kde_lockscreen_overlay_v1" not in X-KDE-Wayland-Interfaces of "/usr/bin/grim"
+[2026-05-24 11:05:30.614] [debug] kwin_core: Interface "org_kde_kwin_fake_input" not in X-KDE-Wayland-Interfaces of "/usr/bin/grim"
+[2026-05-24 11:06:13.493] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP → DEBOUNCE_EVENT_OTHERBUTTON → DEBOUNCE_STATE_IS_UP
+
+[2026-05-24 11:06:13.493] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP → DEBOUNCE_EVENT_PRESS → DEBOUNCE_STATE_IS_DOWN_WAITING
+
+[2026-05-24 11:06:13.518] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_DOWN_WAITING → DEBOUNCE_EVENT_TIMEOUT → DEBOUNCE_STATE_IS_DOWN
+
+[2026-05-24 11:06:14.480] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_DOWN → DEBOUNCE_EVENT_RELEASE → DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS
+
+[2026-05-24 11:06:14.493] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS → DEBOUNCE_EVENT_TIMEOUT_SHORT → DEBOUNCE_STATE_IS_UP_WAITING
+
+[2026-05-24 11:06:14.506] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_WAITING → DEBOUNCE_EVENT_TIMEOUT → DEBOUNCE_STATE_IS_UP
+
+[2026-05-24 11:06:45.048] [debug] kwin_wayland_drm: Removing output KWin::DrmOutput(0x6377c38c0ef0)
+[2026-05-24 11:07:38.000] [debug] kwin_watchdog: Watchdog: disabled, not running on a systemd environment or watchdog is not set up. No WATCHDOG_USEC.
+[2026-05-24 11:07:38.002] [info] default: No backend specified, automatically choosing drm
+[2026-05-24 11:07:38.007] [info] default: Accepting client connections on sockets: QList("wayland-0")
+[2026-05-24 11:07:38.008] [debug] kwin_core: Compositing forced to QPainter mode by environment variable
+[2026-05-24 11:07:38.060] [debug] kwin_wayland_drm: drmModeAddFB2WithModifiers is not supported on GPU "/dev/dri/card1"
+[2026-05-24 11:07:38.060] [debug] kwin_wayland_drm: Using Atomic Mode Setting on gpu "/dev/dri/card1"
+[2026-05-24 11:07:38.060] [debug] kwin_wayland_drm: Number of planes on GPU "/dev/dri/card1" : 2
+[2026-05-24 11:07:38.060] [debug] kwin_wayland_drm: adding GPU /dev/dri/card1
+[2026-05-24 11:07:38.061] [debug] kwin_wayland_drm: New output on GPU /dev/dri/card1: Virtual-1-QEMU Monitor
+[2026-05-24 11:07:38.065] [debug] kwin_xkbcommon: XKB: created compose table from locale en_US.UTF-8 with path /usr/share/X11/locale/en_US.UTF-8/Compose
+[2026-05-24 11:07:38.141] [critical] default: "applications.menu"  not found in  QList("/etc/xdg/menus")
+[2026-05-24 11:07:38.168] [debug] kwin_core: KGlobalAcceld inited
+[2026-05-24 11:07:38.168] [debug] kwin_core: Attempting to load the QPainter scene
+[2026-05-24 11:07:38.168] [debug] kwin_core: QPainter compositing has been successfully initialized
+[2026-05-24 11:07:38.191] [warning] kwin_decorations: Could not locate decoration plugin "org.kde.breeze"
+[2026-05-24 11:07:38.191] [warning] kwin_decorations: Could not locate decoration plugin "org.kde.kwin.aurorae"
+[2026-05-24 11:07:38.206] [debug] kwin_output_config: Read mode 1071x601@60003 for output RHT 4660 0 42 2014 0
+[2026-05-24 11:07:38.206] [debug] kwin_output_config: Chose new mode for output RHT 4660 0 42 2014 0: 1620x762@60005
+[2026-05-24 11:07:38.215] [debug] kwin_xkbcommon: XKB: Compiling from RMLVO: rules 'evdev', model 'pc104', layout 'us', variant '(null)', options '(null)'
+[2026-05-24 11:07:38.215] [debug] kwin_xkbcommon: XKB: Include extensions path failed: /usr/share/xkeyboard-config-2.d (No such file or directory)
+[2026-05-24 11:07:38.215] [debug] kwin_xkbcommon: XKB: Include extensions path failed: /usr/share/xkeyboard-config.d (No such file or directory)
+[2026-05-24 11:07:38.215] [debug] kwin_xkbcommon: XKB: Compiling from KcCGST: keycodes 'evdev+aliases(qwerty)', types 'complete', compat 'complete', symbols 'pc+us+inet(evdev)'
+[2026-05-24 11:07:38.215] [debug] kwin_xkbcommon: XKB: Compiling xkb_keycodes "(unnamed map)"
+[2026-05-24 11:07:38.215] [debug] kwin_xkbcommon: XKB: Compiling xkb_types "(unnamed map)"
+[2026-05-24 11:07:38.216] [debug] kwin_xkbcommon: XKB: Compiling xkb_compatibility "(unnamed map)"
+[2026-05-24 11:07:38.217] [debug] kwin_xkbcommon: XKB: The "group" statement in compat is unsupported; Ignored
+[2026-05-24 11:07:38.217] [debug] kwin_xkbcommon: XKB: The "group" statement in compat is unsupported; Ignored
+[2026-05-24 11:07:38.217] [debug] kwin_xkbcommon: XKB: The "group" statement in compat is unsupported; Ignored
+[2026-05-24 11:07:38.217] [debug] kwin_xkbcommon: XKB: The "allowExplicit" field in indicator statements is unsupported; Ignored
+[2026-05-24 11:07:38.217] [debug] kwin_xkbcommon: XKB: The "allowExplicit" field in indicator statements is unsupported; Ignored
+[2026-05-24 11:07:38.217] [debug] kwin_xkbcommon: XKB: The "allowExplicit" field in indicator statements is unsupported; Ignored
+[2026-05-24 11:07:38.217] [debug] kwin_xkbcommon: XKB: The "allowExplicit" field in indicator statements is unsupported; Ignored
+[2026-05-24 11:07:38.217] [debug] kwin_xkbcommon: XKB: The "indicatorDrivesKeyboard" field in indicator statements is unsupported; Ignored
+[2026-05-24 11:07:38.217] [debug] kwin_xkbcommon: XKB: The "allowExplicit" field in indicator statements is unsupported; Ignored
+[2026-05-24 11:07:38.218] [debug] kwin_xkbcommon: XKB: Indicator name "Shift Lock" was not declared in the keycodes section; Adding new indicator
+[2026-05-24 11:07:38.218] [debug] kwin_xkbcommon: XKB: Indicator name "Group 2" was not declared in the keycodes section; Adding new indicator
+[2026-05-24 11:07:38.218] [debug] kwin_xkbcommon: XKB: Indicator name "Mouse Keys" was not declared in the keycodes section; Adding new indicator
+[2026-05-24 11:07:38.218] [debug] kwin_xkbcommon: XKB: Compiling xkb_symbols "(unnamed map)"
+[2026-05-24 11:07:38.230] [debug] kwin_virtualkeyboard: Registering the DBus interface
+[2026-05-24 11:07:38.231] [debug] kwin_core: Effect is not supported:  "blendchanges"
+[2026-05-24 11:07:38.231] [debug] kwin_core: Effect is not supported:  "blur"
+[2026-05-24 11:07:38.231] [debug] kwin_core: Effect is not supported:  "colorpicker"
+[2026-05-24 11:07:38.231] [debug] kwin_core: Successfully loaded plugin effect:  "highlightwindow"
+[2026-05-24 11:07:38.231] [debug] kwin_core: Successfully loaded plugin effect:  "kscreen"
+[2026-05-24 11:07:38.231] [debug] kwin_core: Successfully loaded plugin effect:  "outputlocator"
+[2026-05-24 11:07:38.231] [debug] kwin_core: Effect is not supported:  "overview"
+[2026-05-24 11:07:38.231] [debug] kwin_core: Successfully loaded plugin effect:  "screenedge"
+[2026-05-24 11:07:38.231] [debug] kwin_core: Effect is not supported:  "screentransform"
+[2026-05-24 11:07:38.231] [debug] kwin_core: Effect is not supported:  "shakecursor"
+[2026-05-24 11:07:38.231] [debug] kwin_core: Effect is not supported:  "slide"
+[2026-05-24 11:07:38.231] [debug] kwin_core: Effect is not supported:  "slidingpopups"
+[2026-05-24 11:07:38.231] [debug] kwin_core: Effect is not supported:  "startupfeedback"
+[2026-05-24 11:07:38.231] [debug] kwin_core: Effect is not supported:  "systembell"
+[2026-05-24 11:07:38.231] [debug] kwin_core: Effect is not supported:  "tileseditor"
+[2026-05-24 11:07:38.231] [debug] kwin_core: Effect is not supported:  "windowview"
+[2026-05-24 11:07:38.233] [debug] kwin_core: Successfully loaded plugin effect:  "zoom"
+[2026-05-24 11:07:38.243] [warning] qt.qpa.services: Failed to register with host portal QDBusError("org.freedesktop.portal.Error.Failed", "Could not register app ID: Unable to open /proc/19661/root")
+Xwayland glamor: GBM Wayland interfaces not available
+Failed to initialize glamor, falling back to sw
+[2026-05-24 11:07:38.306] [debug] kwin_core: Extensions: shape: 0x "11"  composite: 0x "4"  render: 0x "b"  fixes: 0x "50"  randr: 0x "14"  sync: 0x "31"  res: 0x "12"
+[2026-05-24 11:07:38.308] [debug] kwin_xwl: Setting primary KWin::LogicalOutput(0x63c6ba804670, name="Virtual-1", geometry=KWin::Rect(0,0 1620x762), scale=1) 33
+[2026-05-24 11:07:38.308] [debug] kwin_xwl: Running Xwayland startup script "/etc/xdg/Xwayland-session.d/00-at-spi"
+[2026-05-24 11:07:38.309] [debug] kwin_xwl: Running Xwayland startup script "/etc/xdg/Xwayland-session.d/00-xrdb"
+[2026-05-24 11:07:38.309] [debug] kwin_xwl: Running Xwayland startup script "/etc/xdg/Xwayland-session.d/10-ibus-x11"
+[2026-05-24 11:07:38.318] [debug] kwin_xwl: Setting primary KWin::LogicalOutput(0x63c6ba804670, name="Virtual-1", geometry=KWin::Rect(0,0 1620x762), scale=1) 33
+The XKEYBOARD keymap compiler (xkbcomp) reports:
+> Warning:          Unsupported maximum keycode 708, clipping.
+>                   X11 cannot support keycodes above 255.
+> Warning:          Virtual modifier Hyper multiply defined
+>                   Using 0, ignoring 0
+> Warning:          Virtual modifier ScrollLock multiply defined
+>                   Using 0, ignoring 0
+Errors from xkbcomp are not fatal to the X server
+[2026-05-24 11:07:38.758] [debug] kwin_core: Interface "org_kde_plasma_window_management" not in X-KDE-Wayland-Interfaces of "/usr/local/bin/slm-clipboardd"
+[2026-05-24 11:07:38.758] [debug] kwin_core: Interface "org_kde_plasma_activation_feedback" not in X-KDE-Wayland-Interfaces of "/usr/local/bin/slm-clipboardd"
+[2026-05-24 11:07:38.758] [debug] kwin_core: Interface "kde_lockscreen_overlay_v1" not in X-KDE-Wayland-Interfaces of "/usr/local/bin/slm-clipboardd"
+[2026-05-24 11:07:38.759] [debug] kwin_core: Interface "org_kde_kwin_fake_input" not in X-KDE-Wayland-Interfaces of "/usr/local/bin/slm-clipboardd"
+[2026-05-24 11:07:39.861] [debug] kwin_core: Interface "org_kde_plasma_window_management" not in X-KDE-Wayland-Interfaces of "/usr/local/bin/slm-shell"
+[2026-05-24 11:07:39.861] [debug] kwin_core: Interface "org_kde_plasma_activation_feedback" not in X-KDE-Wayland-Interfaces of "/usr/local/bin/slm-shell"
+[2026-05-24 11:07:39.861] [debug] kwin_core: Interface "kde_lockscreen_overlay_v1" not in X-KDE-Wayland-Interfaces of "/usr/local/bin/slm-shell"
+[2026-05-24 11:07:39.861] [debug] kwin_core: Interface "org_kde_kwin_fake_input" not in X-KDE-Wayland-Interfaces of "/usr/local/bin/slm-shell"
+[2026-05-24 11:07:40.265] [debug] kwin_core: Interface "org_kde_plasma_window_management" not in X-KDE-Wayland-Interfaces of "/usr/libexec/xdg-desktop-portal-gtk"
+[2026-05-24 11:07:40.265] [debug] kwin_core: Interface "org_kde_plasma_activation_feedback" not in X-KDE-Wayland-Interfaces of "/usr/libexec/xdg-desktop-portal-gtk"
+[2026-05-24 11:07:40.265] [debug] kwin_core: Interface "kde_lockscreen_overlay_v1" not in X-KDE-Wayland-Interfaces of "/usr/libexec/xdg-desktop-portal-gtk"
+[2026-05-24 11:07:40.265] [debug] kwin_core: Interface "org_kde_kwin_fake_input" not in X-KDE-Wayland-Interfaces of "/usr/libexec/xdg-desktop-portal-gtk"
+[2026-05-24 11:07:40.347] [debug] kwin_core: Interface "org_kde_plasma_window_management" not in X-KDE-Wayland-Interfaces of "/snap/snapd-desktop-integration/361/usr/bin/snapd-desktop-integration"
+[2026-05-24 11:07:40.347] [debug] kwin_core: Interface "org_kde_plasma_activation_feedback" not in X-KDE-Wayland-Interfaces of "/snap/snapd-desktop-integration/361/usr/bin/snapd-desktop-integration"
+[2026-05-24 11:07:40.347] [debug] kwin_core: Interface "kde_lockscreen_overlay_v1" not in X-KDE-Wayland-Interfaces of "/snap/snapd-desktop-integration/361/usr/bin/snapd-desktop-integration"
+[2026-05-24 11:07:40.347] [debug] kwin_core: Interface "org_kde_kwin_fake_input" not in X-KDE-Wayland-Interfaces of "/snap/snapd-desktop-integration/361/usr/bin/snapd-desktop-integration"
+[2026-05-24 11:07:45.793] [debug] kwin_core: Interface "org_kde_plasma_window_management" not in X-KDE-Wayland-Interfaces of "/usr/bin/grim"
+[2026-05-24 11:07:45.793] [debug] kwin_core: Interface "org_kde_plasma_activation_feedback" not in X-KDE-Wayland-Interfaces of "/usr/bin/grim"
+[2026-05-24 11:07:45.793] [debug] kwin_core: Interface "kde_lockscreen_overlay_v1" not in X-KDE-Wayland-Interfaces of "/usr/bin/grim"
+[2026-05-24 11:07:45.793] [debug] kwin_core: Interface "org_kde_kwin_fake_input" not in X-KDE-Wayland-Interfaces of "/usr/bin/grim"
+[2026-05-24 11:15:40.898] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP → DEBOUNCE_EVENT_OTHERBUTTON → DEBOUNCE_STATE_IS_UP
+
+[2026-05-24 11:15:40.898] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP → DEBOUNCE_EVENT_PRESS → DEBOUNCE_STATE_IS_DOWN_WAITING
+
+[2026-05-24 11:15:40.923] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_DOWN_WAITING → DEBOUNCE_EVENT_TIMEOUT → DEBOUNCE_STATE_IS_DOWN
+
+[2026-05-24 11:15:41.078] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_DOWN → DEBOUNCE_EVENT_RELEASE → DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS
+
+[2026-05-24 11:15:41.090] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS → DEBOUNCE_EVENT_TIMEOUT_SHORT → DEBOUNCE_STATE_IS_UP_WAITING
+
+[2026-05-24 11:15:41.103] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_WAITING → DEBOUNCE_EVENT_TIMEOUT → DEBOUNCE_STATE_IS_UP
+
+[2026-05-24 11:15:42.717] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP → DEBOUNCE_EVENT_OTHERBUTTON → DEBOUNCE_STATE_IS_UP
+
+[2026-05-24 11:15:42.717] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP → DEBOUNCE_EVENT_PRESS → DEBOUNCE_STATE_IS_DOWN_WAITING
+
+[2026-05-24 11:15:42.742] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_DOWN_WAITING → DEBOUNCE_EVENT_TIMEOUT → DEBOUNCE_STATE_IS_DOWN
+
+[2026-05-24 11:15:42.917] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_DOWN → DEBOUNCE_EVENT_RELEASE → DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS
+
+[2026-05-24 11:15:42.929] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS → DEBOUNCE_EVENT_TIMEOUT_SHORT → DEBOUNCE_STATE_IS_UP_WAITING
+
+[2026-05-24 11:15:42.942] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_WAITING → DEBOUNCE_EVENT_TIMEOUT → DEBOUNCE_STATE_IS_UP
+
+[2026-05-24 11:15:44.207] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP → DEBOUNCE_EVENT_OTHERBUTTON → DEBOUNCE_STATE_IS_UP
+
+[2026-05-24 11:15:44.207] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP → DEBOUNCE_EVENT_PRESS → DEBOUNCE_STATE_IS_DOWN_WAITING
+
+[2026-05-24 11:15:44.232] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_DOWN_WAITING → DEBOUNCE_EVENT_TIMEOUT → DEBOUNCE_STATE_IS_DOWN
+
+[2026-05-24 11:15:44.387] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_DOWN → DEBOUNCE_EVENT_RELEASE → DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS
+
+[2026-05-24 11:15:44.399] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS → DEBOUNCE_EVENT_TIMEOUT_SHORT → DEBOUNCE_STATE_IS_UP_WAITING
+
+[2026-05-24 11:15:44.412] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_WAITING → DEBOUNCE_EVENT_TIMEOUT → DEBOUNCE_STATE_IS_UP
+
+[2026-05-24 11:15:45.796] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP → DEBOUNCE_EVENT_OTHERBUTTON → DEBOUNCE_STATE_IS_UP
+
+[2026-05-24 11:15:45.796] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP → DEBOUNCE_EVENT_PRESS → DEBOUNCE_STATE_IS_DOWN_WAITING
+
+[2026-05-24 11:15:45.821] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_DOWN_WAITING → DEBOUNCE_EVENT_TIMEOUT → DEBOUNCE_STATE_IS_DOWN
+
+[2026-05-24 11:15:45.996] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_DOWN → DEBOUNCE_EVENT_RELEASE → DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS
+
+[2026-05-24 11:15:46.008] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS → DEBOUNCE_EVENT_TIMEOUT_SHORT → DEBOUNCE_STATE_IS_UP_WAITING
+
+[2026-05-24 11:15:46.021] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_WAITING → DEBOUNCE_EVENT_TIMEOUT → DEBOUNCE_STATE_IS_UP
+
+[2026-05-24 11:15:46.937] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP → DEBOUNCE_EVENT_OTHERBUTTON → DEBOUNCE_STATE_IS_UP
+
+[2026-05-24 11:15:46.937] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP → DEBOUNCE_EVENT_PRESS → DEBOUNCE_STATE_IS_DOWN_WAITING
+
+[2026-05-24 11:15:46.962] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_DOWN_WAITING → DEBOUNCE_EVENT_TIMEOUT → DEBOUNCE_STATE_IS_DOWN
+
+[2026-05-24 11:15:47.117] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_DOWN → DEBOUNCE_EVENT_RELEASE → DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS
+
+[2026-05-24 11:15:47.128] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS → DEBOUNCE_EVENT_TIMEOUT_SHORT → DEBOUNCE_STATE_IS_UP_WAITING
+
+[2026-05-24 11:15:47.142] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_WAITING → DEBOUNCE_EVENT_TIMEOUT → DEBOUNCE_STATE_IS_UP
+
+[2026-05-24 11:15:48.176] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP → DEBOUNCE_EVENT_OTHERBUTTON → DEBOUNCE_STATE_IS_UP
+
+[2026-05-24 11:15:48.176] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP → DEBOUNCE_EVENT_PRESS → DEBOUNCE_STATE_IS_DOWN_WAITING
+
+[2026-05-24 11:15:48.201] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_DOWN_WAITING → DEBOUNCE_EVENT_TIMEOUT → DEBOUNCE_STATE_IS_DOWN
+
+[2026-05-24 11:15:48.376] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_DOWN → DEBOUNCE_EVENT_RELEASE → DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS
+
+[2026-05-24 11:15:48.388] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS → DEBOUNCE_EVENT_TIMEOUT_SHORT → DEBOUNCE_STATE_IS_UP_WAITING
+
+[2026-05-24 11:15:48.401] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_WAITING → DEBOUNCE_EVENT_TIMEOUT → DEBOUNCE_STATE_IS_UP
+
+[2026-05-24 11:15:49.237] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP → DEBOUNCE_EVENT_OTHERBUTTON → DEBOUNCE_STATE_IS_UP
+
+[2026-05-24 11:15:49.237] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP → DEBOUNCE_EVENT_PRESS → DEBOUNCE_STATE_IS_DOWN_WAITING
+
+[2026-05-24 11:15:49.262] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_DOWN_WAITING → DEBOUNCE_EVENT_TIMEOUT → DEBOUNCE_STATE_IS_DOWN
+
+[2026-05-24 11:15:49.417] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_DOWN → DEBOUNCE_EVENT_RELEASE → DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS
+
+[2026-05-24 11:15:49.429] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS → DEBOUNCE_EVENT_TIMEOUT_SHORT → DEBOUNCE_STATE_IS_UP_WAITING
+
+[2026-05-24 11:15:49.442] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_WAITING → DEBOUNCE_EVENT_TIMEOUT → DEBOUNCE_STATE_IS_UP
+
+[2026-05-24 11:15:50.836] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP → DEBOUNCE_EVENT_OTHERBUTTON → DEBOUNCE_STATE_IS_UP
+
+[2026-05-24 11:15:50.836] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP → DEBOUNCE_EVENT_PRESS → DEBOUNCE_STATE_IS_DOWN_WAITING
+
+[2026-05-24 11:15:50.861] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_DOWN_WAITING → DEBOUNCE_EVENT_TIMEOUT → DEBOUNCE_STATE_IS_DOWN
+
+[2026-05-24 11:15:51.036] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_DOWN → DEBOUNCE_EVENT_RELEASE → DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS
+
+[2026-05-24 11:15:51.048] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS → DEBOUNCE_EVENT_TIMEOUT_SHORT → DEBOUNCE_STATE_IS_UP_WAITING
+
+[2026-05-24 11:15:51.061] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_WAITING → DEBOUNCE_EVENT_TIMEOUT → DEBOUNCE_STATE_IS_UP
+
+[2026-05-24 11:15:52.386] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP → DEBOUNCE_EVENT_OTHERBUTTON → DEBOUNCE_STATE_IS_UP
+
+[2026-05-24 11:15:52.386] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP → DEBOUNCE_EVENT_PRESS → DEBOUNCE_STATE_IS_DOWN_WAITING
+
+[2026-05-24 11:15:52.411] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_DOWN_WAITING → DEBOUNCE_EVENT_TIMEOUT → DEBOUNCE_STATE_IS_DOWN
+
+[2026-05-24 11:15:52.566] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_DOWN → DEBOUNCE_EVENT_RELEASE → DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS
+
+[2026-05-24 11:15:52.578] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS → DEBOUNCE_EVENT_TIMEOUT_SHORT → DEBOUNCE_STATE_IS_UP_WAITING
+
+[2026-05-24 11:15:52.591] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_WAITING → DEBOUNCE_EVENT_TIMEOUT → DEBOUNCE_STATE_IS_UP
+

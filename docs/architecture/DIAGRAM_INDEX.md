@@ -8,13 +8,13 @@ Dokumen ini menjadi entry point tunggal untuk diagram arsitektur SLM.
 - Section: `Execution flow (one gate)`
 - Fokus:
   - Semua launch app melalui `AppExecutionGate`.
-  - Jalur UI -> Router -> Gate -> Dock/runtime state reconciliation.
+  - Jalur UI -> Router -> Gate -> AppDeck/runtime state reconciliation.
 
 ## 2) AppExecutionGate Detailed Diagram
 
 - File: `docs/architecture/APP_EXECUTION_GATE.md`
 - Fokus:
-  - Component boundary `UI -> Router -> Gate -> Runtime/Dock/Process`.
+  - Component boundary `UI -> Router -> Gate -> Runtime/AppDeck/Process`.
   - Sequence launch dari action route sampai runtime refresh.
 
 ## 3) SLM Action Framework Module Graph
@@ -32,7 +32,7 @@ Dokumen ini menjadi entry point tunggal untuk diagram arsitektur SLM.
   - Boundary client -> DBus service -> framework/resolver/invoker.
   - Sequence `ListActions` dan `InvokeAction`.
 
-## 5) Tothespot End-to-End Flow
+## 5) Pulse End-to-End Flow
 
 - File: `docs/architecture/TOTHESPOT_FLOW.md`
 - Fokus:

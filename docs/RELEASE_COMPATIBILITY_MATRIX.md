@@ -47,8 +47,8 @@ Related:
   - `filemanager-recovery-strict-nightly`
 - Style/runtime smoke:
   - `desktop-runtime-smoke`
-  - `tothespot-quick`
-  - `tothespot-full`
+  - `pulse-quick`
+  - `pulse-full`
 - Portal profile compatibility:
   - `portal-profile-matrix`
   - `portal-interop-nightly`

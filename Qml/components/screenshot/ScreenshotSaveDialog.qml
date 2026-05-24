@@ -26,20 +26,14 @@ Window {
     signal typeIndexChangedByUser(int indexValue)
 
     color: Theme.color("menuBg")
-    flags: Qt.Dialog | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
+    flags: Qt.Dialog | Qt.FramelessWindowHint
     modality: Qt.ApplicationModal
-    transientParent: parentWindow
+    transientParent: null
     title: "Save Image as..."
     width: parentWindow ? Math.min(700, Math.max(600, parentWindow.width - 460)) : 640
     height: 420
     x: parentWindow ? parentWindow.x + Math.round((parentWindow.width - width) / 2) : 0
     y: parentWindow ? parentWindow.y + Math.round((parentWindow.height - height) / 2) : 0
-
-    onVisibleChanged: {
-        if (visible) {
-            requestActivate()
-        }
-    }
 
     Shortcut {
         sequence: "Escape"

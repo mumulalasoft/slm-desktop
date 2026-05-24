@@ -1,11 +1,12 @@
+#include <QByteArray>
 #include <QCoreApplication>
 #include <QDebug>
 #include <memory>
 
 #include "daemonhealthmonitor.h"
-#include "../../../appmodel.h"
+#include "../../core/appmodel.h"
 #include "desktopdaemonservice.h"
-#include "../../../globalsearchservice.h"
+#include "../../services/search/globalsearchservice.h"
 #include "../../filemanager/ops/fileoperationsmanager.h"
 #include "../../filemanager/ops/fileoperationsservice.h"
 #include "../../core/workspace/spacesmanager.h"
@@ -19,12 +20,19 @@
 #include "screencastservice.h"
 #include "inputcaptureservice.h"
 #include "capturestreamingestor.h"
-#include "foldersharingservice.h"
 #include "../../core/workspace/workspacecompatservice.h"
 #include "../../core/workspace/workspacemanager.h"
 #include "../../core/actions/slmactionregistry.h"
 #include "../../core/actions/framework/slmactionframework.h"
 #include "../../core/execution/appexecutiongate.h"
+
+namespace {
+bool envFlagEnabled(const char *name)
+{
+    const QByteArray value = qgetenv(name).trimmed().toLower();
+    return value == "1" || value == "true" || value == "yes" || value == "on";
+}
+}
 
 int main(int argc, char *argv[])
 {
@@ -35,7 +43,16 @@ int main(int argc, char *argv[])
     WindowingBackendManager windowingBackendManager;
     windowingBackendManager.configureBackend(QStringLiteral("kwin-wayland"));
     DesktopAppModel appModel;
-    appModel.refresh();
+    if (!envFlagEnabled("SLM_DESKTOPD_DYNAMIC_APP_REFRESH")
+        && !envFlagEnabled("SLM_SHELL_DYNAMIC_APP_REFRESH")) {
+        appModel.setMonitorRefreshEnabled(false);
+        qInfo("DesktopAppModel monitor refresh disabled for KWin runtime");
+    }
+    if (envFlagEnabled("SLM_DESKTOPD_SYNC_INITIAL_REFRESH")) {
+        appModel.refresh();
+    } else {
+        appModel.refreshAsync();
+    }
 
     SpacesManager spacesManager;
     WorkspaceManager workspaceManager(&windowingBackendManager,
@@ -59,7 +76,6 @@ int main(int argc, char *argv[])
     CaptureService captureService;
     ScreencastService screencastService;
     InputCaptureService inputCaptureService;
-    FolderSharingService folderSharingService;
     CaptureStreamIngestor captureStreamIngestor(&captureService);
     Slm::Actions::ActionRegistry actionRegistry;
     AppExecutionGate appExecutionGate(nullptr, nullptr, nullptr);
@@ -85,7 +101,6 @@ int main(int argc, char *argv[])
                       << "captureRegistered=" << captureService.serviceRegistered()
                       << "screencastRegistered=" << screencastService.serviceRegistered()
                       << "inputCaptureRegistered=" << inputCaptureService.serviceRegistered()
-                      << "folderSharingRegistered=" << folderSharingService.serviceRegistered()
                       << "slmCapabilitiesRegistered=" << capabilityService.serviceRegistered()
                       << "fileOperationsEmbedded=" << embedFileOps
                       << "fileOperationsRegistered="

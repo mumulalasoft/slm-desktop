@@ -1,6 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import Slm_Desktop
+import SlmStyle as DSStyle
 
 Column {
     id: root
@@ -15,6 +16,11 @@ Column {
     property bool selectFolders: false
 
     readonly property alias fieldActiveFocus: saveNameRow.fieldActiveFocus
+    readonly property real contentHeight: saveNameRow.visible
+                                          ? saveNameRow.height + root.spacing
+                                            + (validationMessage.visible ? validationMessage.height + root.spacing : 0)
+                                            + actionBar.height
+                                          : actionBar.height
 
     signal nameEdited(string textValue)
     signal clearSelectionRequested()
@@ -23,12 +29,13 @@ Column {
     signal primaryRequested()
 
     width: parent ? parent.width : 0
-    spacing: 8
+    height: contentHeight
+    spacing: Theme.metric("spacingXs")
 
     PortalChooserSaveNameRow {
         id: saveNameRow
         width: root.width
-        height: root.chooserMode === "save" ? 34 : 0
+        height: root.chooserMode === "save" ? Theme.metric("controlHeightLarge") : 0
         visible: root.chooserMode === "save"
         nameText: root.chooserName
         onNameEdited: function(textValue) {
@@ -36,7 +43,8 @@ Column {
         }
     }
 
-    Label {
+    DSStyle.Label {
+        id: validationMessage
         width: root.width
         height: root.chooserMode === "save" && root.validationError.length > 0 ? 18 : 0
         visible: root.chooserMode === "save" && root.validationError.length > 0
@@ -47,6 +55,7 @@ Column {
     }
 
     PortalChooserActionBar {
+        id: actionBar
         width: root.width
         selectionSummaryText: {
             var c = root.selectionCount

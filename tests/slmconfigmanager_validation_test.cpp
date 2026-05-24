@@ -17,6 +17,7 @@ class SlmConfigManagerValidationTest : public QObject
 
 private slots:
     void saveRejectsInvalidTypes();
+    void saveRejectsNonKwinCompositor();
     void loadFallsBackToSafeWhenActiveInvalid();
     void snapshotRestoreRoundTrip();
 };
@@ -35,6 +36,22 @@ void SlmConfigManagerValidationTest::saveRejectsInvalidTypes()
     QString err;
     QVERIFY(!mgr.save(bad, &err));
     QVERIFY(!err.isEmpty());
+}
+
+void SlmConfigManagerValidationTest::saveRejectsNonKwinCompositor()
+{
+    ConfigManager mgr;
+    mgr.load();
+
+    QJsonObject config;
+    config.insert(QStringLiteral("compositor"), QStringLiteral("notkwin"));
+    config.insert(QStringLiteral("shell"), QStringLiteral("slm-shell"));
+    config.insert(QStringLiteral("compositorArgs"), QJsonArray{});
+    config.insert(QStringLiteral("shellArgs"), QJsonArray{});
+
+    QString err;
+    QVERIFY(!mgr.save(config, &err));
+    QVERIFY(err.contains(QStringLiteral("only kwin_wayland")));
 }
 
 void SlmConfigManagerValidationTest::loadFallsBackToSafeWhenActiveInvalid()

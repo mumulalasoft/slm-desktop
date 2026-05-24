@@ -1,2 +1,9 @@
 # UI style lint allowlist (temporary debt baseline)
 # Keep sorted. Remove entries as files are migrated to Theme tokens.
+
+src/apps/settings/modules/applications/ApplicationsPage.qml
+# Calamares branding QML — runs in the Calamares process, which cannot
+# import SlmStyle today (the module is compiled as a Qt resource into
+# Slm_Desktop, not installed to a system QML path). Tracked: install
+# SlmStyle system-wide so installer brand surfaces can use Theme tokens.
+src/installer/branding/slm/show.qml

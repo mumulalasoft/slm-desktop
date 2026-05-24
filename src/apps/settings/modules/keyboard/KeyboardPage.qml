@@ -2,7 +2,7 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import Slm_Desktop
-import "../../../../../Qml/apps/settings/components"
+import "file:/usr/lib/settings/components"
 
 Flickable {
     id: root
@@ -231,6 +231,25 @@ Flickable {
                 description: qsTr("Cycle focus to the previous open window.")
                 Layout.fillWidth: true
                 ShortcutKey { prefKey: "windowing.bindSwitchPrev"; defaultVal: "Alt+F12" }
+            }
+        }
+
+        // ── Shortcuts — Applications ──────────────────────────────────────
+        SettingGroup {
+            title: qsTr("Application Shortcuts")
+            Layout.fillWidth: true
+
+            SettingCard {
+                label: qsTr("System Settings")
+                description: qsTr("Open the System Settings app.")
+                Layout.fillWidth: true
+                ShortcutKey { prefKey: "shortcuts.openSettings"; defaultVal: "Meta+," }
+            }
+            SettingCard {
+                label: qsTr("File Manager")
+                description: qsTr("Open the file manager.")
+                Layout.fillWidth: true
+                ShortcutKey { prefKey: "shortcuts.openFiles"; defaultVal: "Meta+Shift+E" }
             }
         }
 

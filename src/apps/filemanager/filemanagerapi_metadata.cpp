@@ -75,7 +75,11 @@ QVariantMap FileManagerApi::statPath(const QString &path) const
     const QString p = expandPath(path);
     QFileInfo fi(p);
     if (!fi.exists()) {
-        return makeResult(false, QStringLiteral("not-found"));
+        return makeResult(false,
+                          QStringLiteral("not-found"),
+                          {{QStringLiteral("path"), p},
+                           {QStringLiteral("absolutePath"), QFileInfo(p).absoluteFilePath()},
+                           {QStringLiteral("exists"), false}});
     }
     QVariantMap out = fileInfoMap(fi);
     out.insert(QStringLiteral("absolutePath"), fi.absoluteFilePath());
@@ -186,4 +190,48 @@ QVariantMap FileManagerApi::startStatPaths(const QVariantList &paths, const QStr
                       {{QStringLiteral("requestId"), rid},
                        {QStringLiteral("count"), list.size()},
                        {QStringLiteral("async"), true}});
+}
+
+QVariantMap FileManagerApi::setDesktopFileKey(const QString &path,
+                                               const QString &group,
+                                               const QString &key,
+                                               const QString &value)
+{
+    const QString p = expandPath(path);
+    const QByteArray pathBytes = QFile::encodeName(p);
+
+    GKeyFile *kf = g_key_file_new();
+    GError *gerr = nullptr;
+
+    if (!g_key_file_load_from_file(kf,
+                                   pathBytes.constData(),
+                                   static_cast<GKeyFileFlags>(G_KEY_FILE_KEEP_COMMENTS
+                                                              | G_KEY_FILE_KEEP_TRANSLATIONS),
+                                   &gerr)) {
+        const QString err = (gerr && gerr->message)
+            ? QString::fromUtf8(gerr->message)
+            : QStringLiteral("load-failed");
+        if (gerr) g_error_free(gerr);
+        g_key_file_free(kf);
+        return makeResult(false, err);
+    }
+
+    g_key_file_set_string(kf,
+                          group.toUtf8().constData(),
+                          key.toUtf8().constData(),
+                          value.toUtf8().constData());
+
+    gerr = nullptr;
+    if (!g_key_file_save_to_file(kf, pathBytes.constData(), &gerr)) {
+        const QString err = (gerr && gerr->message)
+            ? QString::fromUtf8(gerr->message)
+            : QStringLiteral("save-failed");
+        if (gerr) g_error_free(gerr);
+        g_key_file_free(kf);
+        return makeResult(false, err);
+    }
+
+    g_key_file_free(kf);
+    emit pathChanged(p, QStringLiteral("file"));
+    return makeResult(true, QString(), {{QStringLiteral("path"), p}});
 }

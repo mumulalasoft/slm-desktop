@@ -4,8 +4,8 @@ import QtQuick 2.15
 // BadgeService — shell-wide notification badge registry.
 //
 // QML components call setBadge(appId, count) to set a badge count.
-// DockAppDelegate reads getBadge(appId) (via the reactive _counts object) to
-// display the red badge bubble on dock icons.
+// AppDeckAppDelegate reads getBadge(appId) (via the reactive _counts object) to
+// display the red badge bubble on appdeck icons.
 //
 // Reactivity: _counts is always reassigned (never mutated in-place) so QML
 // bindings on _counts or on getBadge() re-evaluate on every change.

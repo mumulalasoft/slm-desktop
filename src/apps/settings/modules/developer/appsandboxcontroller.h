@@ -1,6 +1,8 @@
 #pragma once
 
+#include <QFutureWatcher>
 #include <QObject>
+#include <QPair>
 #include <QString>
 #include <QStringList>
 #include <QVariantList>
@@ -60,4 +62,5 @@ private:
     QVariantList m_apps;
     bool         m_loading             = false;
     QString      m_error;
+    QFutureWatcher<QPair<QString, QVariantList>> *m_watcher = nullptr;
 };

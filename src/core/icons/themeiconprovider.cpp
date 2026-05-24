@@ -4,9 +4,11 @@
 #include <QFileInfo>
 #include <QIcon>
 #include <QImage>
+#include <QImageReader>
 #include <QPainter>
 #include <QPixmap>
 #include <QStringList>
+#include <QDebug>
 
 namespace {
 static QStringList effectiveThemeSearchPaths()
@@ -158,20 +160,70 @@ QImage ThemeIconProvider::requestImage(const QString &id, QSize *size, const QSi
     const QString cleanId = id.split('?', Qt::KeepEmptyParts).first()
                               .split('#', Qt::KeepEmptyParts).first()
                               .trimmed();
+    const QString decodedId = QUrl::fromPercentEncoding(cleanId.toUtf8()).trimmed();
     const QString context = queryValue(id, QStringLiteral("context")).trimmed();
     const bool preferSvg = queryEnabled(id, QStringLiteral("preferSvg"));
     const int extent = qMax(16, requestedSize.width() > 0 ? requestedSize.width() : 64);
     const QSize iconSize(extent, extent);
+    const QFileInfo decodedInfo(decodedId);
+    const bool isLocalFile = decodedInfo.exists() && decodedInfo.isFile();
+
+    // Prefer direct decode for local raster assets. QIcon(path) can return
+    // empty/transparent pixmaps on some backends even when the file exists.
+    if (isLocalFile) {
+        const QString suffix = decodedInfo.suffix().toLower();
+        const bool rasterCandidate = (suffix == QStringLiteral("png")
+                                      || suffix == QStringLiteral("jpg")
+                                      || suffix == QStringLiteral("jpeg")
+                                      || suffix == QStringLiteral("webp")
+                                      || suffix == QStringLiteral("bmp")
+                                      || suffix == QStringLiteral("xpm"));
+        if (rasterCandidate) {
+            QImageReader reader(decodedId);
+            const QImage decoded = reader.read();
+            if (!decoded.isNull() && hasVisiblePixel(decoded)) {
+                QImage output = decoded;
+                if (output.size() != iconSize) {
+                    output = output.scaled(iconSize,
+                                           Qt::KeepAspectRatio,
+                                           Qt::SmoothTransformation);
+                }
+                if (size) {
+                    *size = output.size();
+                }
+                qInfo().noquote() << "[themeicon-provider]"
+                                  << "mode=direct-raster"
+                                  << "id=" << id
+                                  << "decodedId=" << decodedId
+                                  << "size=" << output.size();
+                return output;
+            }
+        }
+    }
 
     QIcon icon;
+    if (isLocalFile) {
+        icon = QIcon(decodedId);
+    }
     if (!context.isEmpty()) {
-        const QString preferredPath = resolvePreferredIconPath(cleanId, context, preferSvg);
+        const QString preferredPath = resolvePreferredIconPath(decodedId, context, preferSvg);
         if (!preferredPath.isEmpty()) {
             icon = QIcon(preferredPath);
         }
     }
     if (icon.isNull()) {
-        icon = QIcon::fromTheme(cleanId);
+        icon = QIcon::fromTheme(decodedId);
+    }
+    if (decodedId.startsWith(QLatin1Char('/')) || decodedId.startsWith(QStringLiteral("~"))) {
+        qInfo().noquote() << "[themeicon-provider]"
+                          << "mode=qicon"
+                          << "id=" << id
+                          << "cleanId=" << cleanId
+                          << "decodedId=" << decodedId
+                          << "requested=" << requestedSize.width() << "x" << requestedSize.height()
+                          << "exists=" << decodedInfo.exists()
+                          << "isFile=" << (decodedInfo.isFile() ? "true" : "false")
+                          << "null=" << (icon.isNull() ? "true" : "false");
     }
     QPixmap pixmap;
     if (!icon.isNull()) {

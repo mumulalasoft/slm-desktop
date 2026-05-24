@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC
+ "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/software/polkit/policyconfig-1.dtd">
+<policyconfig>
+  <vendor>SLM Desktop</vendor>
+  <vendor_url>https://slm.desktop.local</vendor_url>
+
+  <!--
+    All actions here are enforced by slm-fsd (src/daemon/fsd/).
+    The existing slm-polkit-agent handles auth dialogs — no new dialog code needed.
+
+    allow_active values:
+      auth_admin_keep  — authenticate once, keep for 15 min (used for reversible ops)
+      auth_admin       — authenticate every time (used for irreversible / high-impact ops)
+  -->
+
+  <!-- ── Rename ─────────────────────────────────────────────────── -->
+  <action id="org.slm.desktop.fsd.rename">
+    <description>Rename a protected file or directory</description>
+    <description xml:lang="id">Ganti nama file atau direktori yang dilindungi</description>
+    <message>Authentication is required to rename a protected file or directory</message>
+    <message xml:lang="id">Autentikasi diperlukan untuk mengganti nama file atau direktori yang dilindungi</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+  </action>
+
+  <!-- ── Delete (to recovery trash — not immediate unlink) ─────── -->
+  <action id="org.slm.desktop.fsd.delete">
+    <description>Move a protected item to the recovery trash</description>
+    <description xml:lang="id">Pindahkan item yang dilindungi ke tempat sampah pemulihan</description>
+    <message>Authentication is required to move a protected item to the recovery trash</message>
+    <message xml:lang="id">Autentikasi diperlukan untuk memindahkan item yang dilindungi ke tempat sampah pemulihan</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+  </action>
+
+  <!-- ── Purge (permanent delete from recovery trash) ─────────── -->
+  <action id="org.slm.desktop.fsd.purge">
+    <description>Permanently delete an item from the recovery trash</description>
+    <description xml:lang="id">Hapus permanen item dari tempat sampah pemulihan</description>
+    <message>Authentication is required to permanently delete an item. This cannot be undone.</message>
+    <message xml:lang="id">Autentikasi diperlukan untuk menghapus item secara permanen. Tindakan ini tidak dapat dibatalkan.</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+  </action>
+
+  <!-- ── Move ──────────────────────────────────────────────────── -->
+  <action id="org.slm.desktop.fsd.move">
+    <description>Move a protected file or directory</description>
+    <description xml:lang="id">Pindahkan file atau direktori yang dilindungi</description>
+    <message>Authentication is required to move a protected file or directory</message>
+    <message xml:lang="id">Autentikasi diperlukan untuk memindahkan file atau direktori yang dilindungi</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+  </action>
+
+  <!-- ── Copy ──────────────────────────────────────────────────── -->
+  <action id="org.slm.desktop.fsd.copy">
+    <description>Copy a file or directory into a protected location</description>
+    <description xml:lang="id">Salin file atau direktori ke lokasi yang dilindungi</description>
+    <message>Authentication is required to copy into a protected location</message>
+    <message xml:lang="id">Autentikasi diperlukan untuk menyalin ke lokasi yang dilindungi</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+  </action>
+
+  <!-- ── Write ─────────────────────────────────────────────────── -->
+  <action id="org.slm.desktop.fsd.write">
+    <description>Write content to a protected file</description>
+    <description xml:lang="id">Tulis konten ke file yang dilindungi</description>
+    <message>Authentication is required to write to a protected file</message>
+    <message xml:lang="id">Autentikasi diperlukan untuk menulis ke file yang dilindungi</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+  </action>
+
+  <!-- ── Create ────────────────────────────────────────────────── -->
+  <action id="org.slm.desktop.fsd.create">
+    <description>Create a file or directory in a protected location</description>
+    <description xml:lang="id">Buat file atau direktori di lokasi yang dilindungi</description>
+    <message>Authentication is required to create a file or directory in a protected location</message>
+    <message xml:lang="id">Autentikasi diperlukan untuk membuat file atau direktori di lokasi yang dilindungi</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+  </action>
+
+  <!-- ── Chmod ─────────────────────────────────────────────────── -->
+  <action id="org.slm.desktop.fsd.chmod">
+    <description>Change permissions on a protected path</description>
+    <description xml:lang="id">Ubah izin akses pada jalur yang dilindungi</description>
+    <message>Authentication is required to change permissions on a protected path</message>
+    <message xml:lang="id">Autentikasi diperlukan untuk mengubah izin akses pada jalur yang dilindungi</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+  </action>
+
+  <!-- ── Chown ─────────────────────────────────────────────────── -->
+  <action id="org.slm.desktop.fsd.chown">
+    <description>Change the ownership of a protected path</description>
+    <description xml:lang="id">Ubah kepemilikan jalur yang dilindungi</description>
+    <message>Authentication is required to change the ownership of a protected path</message>
+    <message xml:lang="id">Autentikasi diperlukan untuk mengubah kepemilikan jalur yang dilindungi</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <!-- No keep: chown is irreversible without a second chown -->
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+  </action>
+
+  <!-- ── Mount ─────────────────────────────────────────────────── -->
+  <action id="org.slm.desktop.fsd.mount">
+    <description>Mount a filesystem</description>
+    <description xml:lang="id">Pasang sistem berkas</description>
+    <message>Authentication is required to mount a filesystem</message>
+    <message xml:lang="id">Autentikasi diperlukan untuk memasang sistem berkas</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <!-- No keep: mount modifies kernel namespace state -->
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+  </action>
+
+  <!-- ── Unmount ────────────────────────────────────────────────── -->
+  <action id="org.slm.desktop.fsd.unmount">
+    <description>Unmount a filesystem</description>
+    <description xml:lang="id">Lepas sistem berkas</description>
+    <message>Authentication is required to unmount a filesystem</message>
+    <message xml:lang="id">Autentikasi diperlukan untuk melepas sistem berkas</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+  </action>
+
+</policyconfig>

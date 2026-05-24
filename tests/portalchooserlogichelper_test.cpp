@@ -1,6 +1,6 @@
 #include <QtTest>
 
-#include "../portalchooserlogichelper.h"
+#include "../src/services/portal/portalchooserlogichelper.h"
 
 class PortalChooserLogicHelperTest : public QObject
 {

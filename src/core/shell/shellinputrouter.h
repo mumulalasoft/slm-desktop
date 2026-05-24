@@ -27,8 +27,8 @@ public:
     enum class ShellLayer : int {
         BaseLayer         = 0,
         WorkspaceOverview = 10,
-        Launchpad         = 20,
-        ToTheSpot         = 30,
+        AppDeck         = 20,
+        Pulse         = 30,
         LockScreen        = 100,
     };
     Q_ENUM(ShellLayer)

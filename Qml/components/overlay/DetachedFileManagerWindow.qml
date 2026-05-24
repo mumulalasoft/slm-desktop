@@ -12,6 +12,7 @@ Window {
     signal printRequested(string documentUri, string documentTitle, bool preferPdfOutput)
     property int panelHeight: 0
     property var fileModel: null
+    property bool preloadRequested: false
     property double openedAtMs: 0
 
     readonly property var loadedItem: detachedFileManagerLoader.item
@@ -20,7 +21,7 @@ Window {
     visible: !!shellApi && shellApi.detachedFileManagerVisible
     color: "transparent"
     flags: Qt.FramelessWindowHint | Qt.NoDropShadowWindowHint
-    transientParent: rootWindow
+    transientParent: null
     title: "Desktop File Manager"
     property bool applyingPolicy: false
     readonly property int resizeHandle: 8
@@ -65,6 +66,25 @@ Window {
         if (detachedFileManagerLoader.item && detachedFileManagerLoader.item.showPropertiesForPath) {
             detachedFileManagerLoader.item.showPropertiesForPath(p)
             return true
+        }
+        return false
+    }
+
+    function connectServerIfReady() {
+        if (detachedFileManagerLoader.item && detachedFileManagerLoader.item.openConnectServerDialog) {
+            detachedFileManagerLoader.item.openConnectServerDialog()
+            return detachedFileManagerLoader.item
+        }
+        return null
+    }
+
+    function renamePathIfReady(pathValue) {
+        var p = String(pathValue || "").trim()
+        if (p.length <= 0) {
+            return false
+        }
+        if (detachedFileManagerLoader.item && detachedFileManagerLoader.item.requestRenameForPath) {
+            return !!detachedFileManagerLoader.item.requestRenameForPath(p)
         }
         return false
     }
@@ -133,9 +153,13 @@ Window {
             x = (rootWindow ? rootWindow.x : 0) + Math.round(((rootWindow ? rootWindow.width : width) - width) / 2)
             y = (rootWindow ? rootWindow.y : 0) + panelHeight + 16
             enforceGeometryPolicy()
-            requestActivate()
         }
         FileManagerGlobalMenuController.syncOverride(shellApi, root)
+    }
+    onPreloadRequestedChanged: {
+        if (preloadRequested && detachedFileManagerLoader.status === Loader.Null) {
+            setLoaderActive(true)
+        }
     }
     onActiveChanged: {
         FileManagerGlobalMenuController.syncOverride(shellApi, root)
@@ -242,7 +266,7 @@ Window {
                 if (item.hasOwnProperty("fileModel")) {
                     item.fileModel = root.fileModel
                 }
-                if (item.openPath) {
+                if (shellApi.detachedFileManagerVisible && item.openPath) {
                     item.openPath(shellApi.detachedFileManagerPath)
                 }
                 shellApi.fileManagerContent = item
@@ -252,6 +276,16 @@ Window {
                         && item.showPropertiesForPath) {
                     item.showPropertiesForPath(shellApi.pendingDetachedFileManagerPropertiesPath)
                     shellApi.pendingDetachedFileManagerPropertiesPath = ""
+                }
+                if (shellApi.pendingDetachedFileManagerRenamePath.length > 0
+                        && item.requestRenameForPath) {
+                    item.requestRenameForPath(shellApi.pendingDetachedFileManagerRenamePath)
+                    shellApi.pendingDetachedFileManagerRenamePath = ""
+                }
+                if (shellApi.pendingDetachedConnectServerDialog
+                        && item.openConnectServerDialog) {
+                    item.openConnectServerDialog()
+                    shellApi.pendingDetachedConnectServerDialog = false
                 }
             }
             onStatusChanged: {

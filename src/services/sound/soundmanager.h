@@ -1,7 +1,8 @@
 #pragma once
 
-#include <QObject>
+#include <QFutureWatcher>
 #include <QHash>
+#include <QObject>
 #include <QTimer>
 #include <QVariantList>
 
@@ -48,7 +49,7 @@ private:
     bool parseMuted(const QString &text) const;
     QString computeIconName() const;
     QVariantList querySinks() const;
-    QVariantList queryStreams();
+    QVariantList queryStreams(QHash<uint, qint64> &lastActiveMs);
 
     bool m_available = false;
     bool m_muted = false;
@@ -62,4 +63,5 @@ private:
     QTimer *m_timer = nullptr;
     bool m_hasWpctl = false;
     bool m_hasPactl = false;
+    bool m_refreshPending = false;
 };

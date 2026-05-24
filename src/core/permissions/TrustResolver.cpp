@@ -1,5 +1,7 @@
 #include "TrustResolver.h"
 
+#include <QFileInfo>
+
 namespace Slm::Permissions {
 namespace {
 
@@ -20,7 +22,8 @@ QSet<QString> normalizeSet(const QStringList &in)
 TrustResolver::TrustResolver()
 {
     setOfficialAppIds({
-        QStringLiteral("appdesktop_shell"),
+        QStringLiteral("slm-shell"),
+        QStringLiteral("slm-shell.real"),
         QStringLiteral("desktopd"),
         QStringLiteral("slm-settings"),
         QStringLiteral("slm-fileopsd"),
@@ -28,7 +31,7 @@ TrustResolver::TrustResolver()
         QStringLiteral("slm-portald"),
     });
     setOfficialDesktopFileIds({
-        QStringLiteral("appdesktop_shell.desktop"),
+        QStringLiteral("slm-shell.desktop"),
         QStringLiteral("slm-settings.desktop"),
     });
     setPrivilegedServiceNames({
@@ -63,9 +66,11 @@ CallerIdentity TrustResolver::resolveTrust(const CallerIdentity &baseIdentity) c
     const QString bus = out.busName.trimmed().toLower();
     const QString exe = out.executablePath.trimmed().toLower();
 
+    const QString exeBaseName = QFileInfo(exe).baseName().toLower();
     const bool officialComponent = m_officialAppIds.contains(appId)
                                    || m_officialDesktopFileIds.contains(desktopId)
-                                   || exe.contains(QStringLiteral("desktop_shell"), Qt::CaseInsensitive);
+                                   || exeBaseName.contains(QStringLiteral("desktop_shell"), Qt::CaseInsensitive)
+                                   || exeBaseName.contains(QStringLiteral("slm-shell"), Qt::CaseInsensitive);
     const bool privilegedService = m_privilegedServiceNames.contains(bus)
                                    || bus.startsWith(QStringLiteral("org.slm.desktop."));
 

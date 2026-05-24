@@ -31,7 +31,7 @@ int main(int argc, char **argv)
     }
 
     QVariantMap searchCtx{
-        {QStringLiteral("scope"), QStringLiteral("tothespot")},
+        {QStringLiteral("scope"), QStringLiteral("pulse")},
         {QStringLiteral("selection_count"), 0},
         {QStringLiteral("text"), QStringLiteral("convert")},
     };

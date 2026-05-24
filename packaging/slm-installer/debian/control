@@ -1,0 +1,40 @@
+Source: slm-installer
+Section: admin
+Priority: optional
+Maintainer: SLM Desktop Maintainers <maintainers@example.invalid>
+Build-Depends:
+ debhelper-compat (= 13),
+ cmake (>= 3.16),
+ calamares-dev (>= 3.3),
+ qt6-base-dev,
+ qt6-declarative-dev,
+ libyaml-cpp-dev,
+ libkf6coreaddons-dev,
+ libbtrfsutil-dev,
+ libparted-dev,
+ libblkid-dev,
+ libsystemd-dev,
+Standards-Version: 4.6.2
+Rules-Requires-Root: no
+
+Package: slm-installer
+Architecture: any
+Depends:
+ ${shlibs:Depends},
+ ${misc:Depends},
+ calamares (>= 3.3),
+ btrfs-progs (>= 6.0),
+ dosfstools,
+ e2fsprogs,
+ efibootmgr,
+ systemd-boot,
+ squashfs-tools,
+ smartmontools,
+ pciutils,
+ usbutils,
+ zstd,
+Description: SLM Desktop system installer
+ Calamares-based installer that provisions an SLM Desktop system with a
+ UEFI-only, Btrfs-rooted layout and a self-contained recovery partition.
+ Onboarding (theme, account, AI, nearby) is handled by slm-welcome on first
+ login, not by this installer.

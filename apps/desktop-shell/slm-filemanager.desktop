@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=File Manager
+Comment=Manage your files and folders
+Exec=slm-filemanager
+Icon=folder
+Terminal=false
+Type=Application
+Categories=Utility;Qt;FileManager;
+StartupNotify=true
+MimeType=inode/directory;application/x-directory;
+X-SLM-AppId=slm-filemanager

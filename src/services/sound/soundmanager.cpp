@@ -6,9 +6,22 @@
 #include <QSet>
 #include <QStandardPaths>
 #include <QVector>
+#include <QtConcurrent>
 #include <algorithm>
 
 namespace {
+
+struct SoundSnapshot {
+    bool available = false;
+    bool muted = false;
+    int volume = 0;
+    QString iconName;
+    QString statusText;
+    QString currentSink;
+    QVariantList sinks;
+    QVariantList streams;
+    QHash<uint, qint64> streamLastActiveMs;
+};
 
 bool hasExecutable(const QString &name)
 {
@@ -44,7 +57,7 @@ SoundManager::SoundManager(QObject *parent)
     m_timer->setInterval(4000);
     connect(m_timer, &QTimer::timeout, this, &SoundManager::refresh);
     m_timer->start();
-    refresh();
+    QTimer::singleShot(0, this, &SoundManager::refresh);
 }
 
 bool SoundManager::available() const
@@ -315,7 +328,7 @@ QVariantList SoundManager::querySinks() const
     return out;
 }
 
-QVariantList SoundManager::queryStreams()
+QVariantList SoundManager::queryStreams(QHash<uint, qint64> &lastActiveMs)
 {
     QVariantList out;
     QVector<QVariantMap> parsed;
@@ -360,9 +373,9 @@ QVariantList SoundManager::queryStreams()
             const bool activeNow = !streamMuted;
             const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
             if (activeNow) {
-                m_streamLastActiveMs.insert(id, nowMs);
-            } else if (!m_streamLastActiveMs.contains(id)) {
-                m_streamLastActiveMs.insert(id, 0);
+                lastActiveMs.insert(id, nowMs);
+            } else if (!lastActiveMs.contains(id)) {
+                lastActiveMs.insert(id, 0);
             }
             QVariantMap item;
             item.insert(QStringLiteral("id"), id);
@@ -370,7 +383,7 @@ QVariantList SoundManager::queryStreams()
             item.insert(QStringLiteral("volume"), streamVolume);
             item.insert(QStringLiteral("muted"), streamMuted);
             item.insert(QStringLiteral("active"), activeNow);
-            item.insert(QStringLiteral("_lastActive"), m_streamLastActiveMs.value(id));
+            item.insert(QStringLiteral("_lastActive"), lastActiveMs.value(id));
             parsed.push_back(item);
         }
     } else {
@@ -425,11 +438,11 @@ QVariantList SoundManager::queryStreams()
             const bool activeNow = running || !corked;
             item.insert(QStringLiteral("active"), activeNow);
             if (activeNow) {
-                m_streamLastActiveMs.insert(currentId, nowMs);
-            } else if (!m_streamLastActiveMs.contains(currentId)) {
-                m_streamLastActiveMs.insert(currentId, 0);
+                lastActiveMs.insert(currentId, nowMs);
+            } else if (!lastActiveMs.contains(currentId)) {
+                lastActiveMs.insert(currentId, 0);
             }
-            item.insert(QStringLiteral("_lastActive"), m_streamLastActiveMs.value(currentId));
+            item.insert(QStringLiteral("_lastActive"), lastActiveMs.value(currentId));
             seenIds.insert(currentId);
             parsed.push_back(item);
         };
@@ -479,10 +492,10 @@ QVariantList SoundManager::queryStreams()
         }
         flush();
 
-        QList<uint> trackedIds = m_streamLastActiveMs.keys();
+        QList<uint> trackedIds = lastActiveMs.keys();
         for (const uint trackedId : trackedIds) {
             if (!seenIds.contains(trackedId)) {
-                m_streamLastActiveMs.remove(trackedId);
+                lastActiveMs.remove(trackedId);
             }
         }
     }
@@ -506,68 +519,99 @@ QVariantList SoundManager::queryStreams()
 
 void SoundManager::refresh()
 {
-    const bool oldAvailable = m_available;
-    const bool oldMuted = m_muted;
-    const int oldVolume = m_volume;
-    const QString oldIcon = m_iconName;
-    const QString oldStatus = m_statusText;
-    const QString oldSink = m_currentSink;
-    const QVariantList oldSinks = m_sinks;
-    const QVariantList oldStreams = m_streams;
+    if (m_refreshPending) {
+        return;
+    }
+    m_refreshPending = true;
 
     const bool wp = m_hasWpctl;
-    const bool pactl = m_hasPactl;
-    if (!wp && !pactl) {
-        m_available = false;
-        m_muted = false;
-        m_volume = 0;
-        m_iconName = QStringLiteral("audio-volume-muted-symbolic");
-        m_statusText = QStringLiteral("Audio backend unavailable");
-        m_currentSink.clear();
-        m_sinks.clear();
-        m_streams.clear();
-    } else {
-        m_sinks = querySinks();
-        m_streams = queryStreams();
-        m_currentSink = detectDefaultSink();
-        if (m_currentSink.isEmpty()) {
-            m_available = false;
-            m_muted = false;
-            m_volume = 0;
-            m_iconName = QStringLiteral("audio-volume-muted-symbolic");
-            m_statusText = QStringLiteral("Sound unavailable");
-        } else if (wp) {
-            const QVariantMap state = inspectNode(m_currentSink);
-            m_volume = qBound(0, state.value(QStringLiteral("volume"), 0).toInt(), 150);
-            m_muted = state.value(QStringLiteral("muted"), false).toBool();
-            m_available = true;
-            m_iconName = computeIconName();
-            m_statusText = m_muted ? QStringLiteral("Muted")
-                                   : QStringLiteral("%1%").arg(m_volume);
-        } else {
-            const QString volText = runCommand(QStringLiteral("pactl"),
-                                               {QStringLiteral("get-sink-volume"), m_currentSink});
-            const QString muteText = runCommand(QStringLiteral("pactl"),
-                                                {QStringLiteral("get-sink-mute"), m_currentSink});
-            m_volume = qBound(0, parseVolumePercent(volText), 150);
-            m_muted = parseMuted(muteText);
-            m_available = true;
-            m_iconName = computeIconName();
-            m_statusText = m_muted ? QStringLiteral("Muted")
-                                   : QStringLiteral("%1%").arg(m_volume);
-        }
-    }
+    const bool pa = m_hasPactl;
+    QHash<uint, qint64> lastActive = m_streamLastActiveMs;
 
-    if (oldAvailable != m_available ||
-        oldMuted != m_muted ||
-        oldVolume != m_volume ||
-        oldIcon != m_iconName ||
-        oldStatus != m_statusText ||
-        oldSink != m_currentSink ||
-        oldSinks != m_sinks ||
-        oldStreams != m_streams) {
-        emit changed();
-    }
+    auto *watcher = new QFutureWatcher<SoundSnapshot>(this);
+    connect(watcher, &QFutureWatcher<SoundSnapshot>::finished, this, [this, watcher]() {
+        SoundSnapshot snap = watcher->result();
+        watcher->deleteLater();
+        m_refreshPending = false;
+
+        const bool changed =
+            m_available != snap.available ||
+            m_muted     != snap.muted     ||
+            m_volume    != snap.volume    ||
+            m_iconName  != snap.iconName  ||
+            m_statusText != snap.statusText ||
+            m_currentSink != snap.currentSink ||
+            m_sinks     != snap.sinks     ||
+            m_streams   != snap.streams;
+
+        m_available    = snap.available;
+        m_muted        = snap.muted;
+        m_volume       = snap.volume;
+        m_iconName     = snap.iconName;
+        m_statusText   = snap.statusText;
+        m_currentSink  = snap.currentSink;
+        m_sinks        = snap.sinks;
+        m_streams      = snap.streams;
+        m_streamLastActiveMs = snap.streamLastActiveMs;
+
+        if (changed) {
+            emit this->changed();
+        }
+    });
+
+    watcher->setFuture(QtConcurrent::run([this, wp, pa, lastActive]() mutable -> SoundSnapshot {
+        SoundSnapshot snap;
+        if (!wp && !pa) {
+            snap.available   = false;
+            snap.muted       = false;
+            snap.volume      = 0;
+            snap.iconName    = QStringLiteral("audio-volume-muted-symbolic");
+            snap.statusText  = QStringLiteral("Audio backend unavailable");
+            snap.streamLastActiveMs = lastActive;
+            return snap;
+        }
+
+        snap.sinks       = querySinks();
+        snap.streams     = queryStreams(lastActive);
+        snap.currentSink = detectDefaultSink();
+        snap.streamLastActiveMs = lastActive;
+
+        if (snap.currentSink.isEmpty()) {
+            snap.available  = false;
+            snap.muted      = false;
+            snap.volume     = 0;
+            snap.iconName   = QStringLiteral("audio-volume-muted-symbolic");
+            snap.statusText = QStringLiteral("Sound unavailable");
+        } else if (wp) {
+            const QVariantMap state = inspectNode(snap.currentSink);
+            snap.volume    = qBound(0, state.value(QStringLiteral("volume"), 0).toInt(), 150);
+            snap.muted     = state.value(QStringLiteral("muted"), false).toBool();
+            snap.available = true;
+            snap.iconName  = snap.muted
+                               ? QStringLiteral("audio-volume-muted-symbolic")
+                               : (snap.volume < 35 ? QStringLiteral("audio-volume-low-symbolic")
+                                  : snap.volume < 70 ? QStringLiteral("audio-volume-medium-symbolic")
+                                                     : QStringLiteral("audio-volume-high-symbolic"));
+            snap.statusText = snap.muted ? QStringLiteral("Muted")
+                                         : QStringLiteral("%1%").arg(snap.volume);
+        } else {
+            const QString volText  = runCommand(QStringLiteral("pactl"),
+                                                {QStringLiteral("get-sink-volume"), snap.currentSink});
+            const QString muteText = runCommand(QStringLiteral("pactl"),
+                                                {QStringLiteral("get-sink-mute"), snap.currentSink});
+            snap.volume    = qBound(0, parseVolumePercent(volText), 150);
+            snap.muted     = parseMuted(muteText);
+            snap.available = true;
+            snap.iconName  = snap.muted || snap.volume <= 0
+                               ? QStringLiteral("audio-volume-muted-symbolic")
+                               : (snap.volume < 35 ? QStringLiteral("audio-volume-low-symbolic")
+                                  : snap.volume < 70 ? QStringLiteral("audio-volume-medium-symbolic")
+                                                     : QStringLiteral("audio-volume-high-symbolic"));
+            snap.statusText = snap.muted ? QStringLiteral("Muted")
+                                         : QStringLiteral("%1%").arg(snap.volume);
+        }
+        return snap;
+    }));
 }
 
 bool SoundManager::setMuted(bool muted)

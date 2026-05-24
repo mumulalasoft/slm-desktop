@@ -3,14 +3,14 @@
 #include <QObject>
 #include <QVariantMap>
 
-class DockModel;
+class AppDeckModel;
 class LaunchEnvResolver;
 class ShortcutModel;
 
 class AppExecutionGate : public QObject {
     Q_OBJECT
 public:
-    explicit AppExecutionGate(DockModel *dockModel, ShortcutModel *shortcutModel,
+    explicit AppExecutionGate(AppDeckModel *dockModel, ShortcutModel *shortcutModel,
                               QObject *desktopSettings = nullptr,
                               QObject *parent = nullptr);
 
@@ -45,7 +45,7 @@ signals:
 private:
     bool verboseLoggingEnabled() const;
 
-    DockModel          *m_dockModel       = nullptr;
+    AppDeckModel          *m_dockModel       = nullptr;
     ShortcutModel      *m_shortcutModel   = nullptr;
     QObject           *m_desktopSettings  = nullptr;
     LaunchEnvResolver  *m_envResolver     = nullptr;

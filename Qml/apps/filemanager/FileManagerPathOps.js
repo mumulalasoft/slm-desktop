@@ -36,6 +36,10 @@ function openPath(root, fileManagerApi, pathValue) {
     if (p === "__network__") {
         p = "~"
     }
+    if (p === "__nearby__") {
+        root.openNearbySendSheet(null)
+        return
+    }
     if (p === "__trash__") {
         p = root.trashFilesPath
     }
@@ -87,37 +91,45 @@ function initSingleTab(root, fileManagerModelFactory, pathValue) {
 }
 
 function openConnectServerDialog(root, connectServerDialog) {
-    root.connectServerTypeIndex = 4
-    root.connectServerHost = ""
-    root.connectServerPort = 445
-    root.connectServerFolder = "/"
-    root.connectServerError = ""
-    root.connectServerBusy = false
-    if (connectServerDialog && connectServerDialog.openAndFocus) {
-        connectServerDialog.openAndFocus()
-    } else if (connectServerDialog && connectServerDialog.open) {
-        connectServerDialog.open()
+    if (connectServerDialog) {
+        connectServerDialog.typeIndex = 4
+        connectServerDialog.host = ""
+        connectServerDialog.share = ""
+        connectServerDialog.port = 445
+        connectServerDialog.folder = "/"
+        connectServerDialog.domain = "WORKGROUP"
+        connectServerDialog.user = ""
+        connectServerDialog.password = ""
+        connectServerDialog.error = ""
+        connectServerDialog.busy = false
+        connectServerDialog.openConnectServer()
     }
 }
 
 function submitConnectServer(root, fileManagerApi) {
-    var typeRow = root.connectServerTypes[Math.max(0, root.connectServerTypeIndex)]
-            || root.connectServerTypes[0]
+    var dialog = root.connectServerDialogRef
+    if (!dialog) return
+
+    var typeRow = dialog.types[Math.max(0, dialog.typeIndex)] || dialog.types[0]
     var scheme = String(typeRow.scheme || "smb").trim()
-    var host = String(root.connectServerHost || "").trim()
-    var folder = String(root.connectServerFolder || "").trim()
-    var port = Number(root.connectServerPort || 0)
+    var host = String(dialog.host || "").trim()
+    var share = String(dialog.share || "").trim()
+    var folder = String(dialog.folder || "").trim()
+    var port = Number(dialog.port || 0)
+    var domain = String(dialog.domain || "").trim()
+    var user = String(dialog.user || "").trim()
+    var password = String(dialog.password || "")
 
     if (host.length <= 0) {
-        root.connectServerError = "Server name or IP is required."
+        dialog.error = "Server name or IP is required."
         return
     }
     if (!/^[A-Za-z0-9._:-]+$/.test(host)) {
-        root.connectServerError = "Invalid server name or IP."
+        dialog.error = "Invalid server name or IP."
         return
     }
     if (!(port > 0 && port <= 65535)) {
-        root.connectServerError = "Port must be between 1 and 65535."
+        dialog.error = "Port must be between 1 and 65535."
         return
     }
     if (folder.length <= 0) {
@@ -126,13 +138,36 @@ function submitConnectServer(root, fileManagerApi) {
     if (folder.charAt(0) !== "/") {
         folder = "/" + folder
     }
+    if (scheme === "smb" && share.length > 0) {
+        if (!/^[^\/\\:]+$/.test(share)) {
+            dialog.error = "Share name cannot contain slashes or colons."
+            return
+        }
+        folder = "/" + encodeURIComponent(share) + (folder === "/" ? "" : folder)
+    }
     var defaultPort = Number(typeRow.port || 0)
     var authority = host
+    if (user.length > 0) {
+        var loginName = (scheme === "smb" && domain.length > 0) ? (domain + ";" + user) : user
+        var userInfo = encodeURIComponent(loginName)
+        if (password.length > 0) {
+            userInfo += ":" + encodeURIComponent(password)
+        }
+        authority = userInfo + "@" + authority
+    }
     if (!(defaultPort > 0 && port === defaultPort)) {
         authority = host + ":" + String(port)
+        if (user.length > 0) {
+            var prefixedLoginName = (scheme === "smb" && domain.length > 0) ? (domain + ";" + user) : user
+            var prefixedUserInfo = encodeURIComponent(prefixedLoginName)
+            if (password.length > 0) {
+                prefixedUserInfo += ":" + encodeURIComponent(password)
+            }
+            authority = prefixedUserInfo + "@" + host + ":" + String(port)
+        }
     }
     var uri = scheme + "://" + authority + folder
-    root.connectServerError = ""
+    dialog.error = ""
     if (!fileManagerApi || !fileManagerApi.startConnectServer) {
         root.notifyResult("Connect Server", {
                               "ok": false,
@@ -140,12 +175,10 @@ function submitConnectServer(root, fileManagerApi) {
                           })
         return
     }
-    root.connectServerBusy = true
-    root.pendingConnectServerUri = uri
+    dialog.busy = true
     var res = fileManagerApi.startConnectServer(uri)
     if (!res || !res.ok) {
-        root.connectServerBusy = false
-        root.pendingConnectServerUri = ""
+        dialog.busy = false
         root.notifyResult("Connect Server", res)
     }
 }

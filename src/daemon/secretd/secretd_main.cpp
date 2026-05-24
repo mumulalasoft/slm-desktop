@@ -1,4 +1,4 @@
-#include "src/services/secret/secretservice.h"
+#include "../../services/secret/secretservice.h"
 
 #include <QCoreApplication>
 #include <QDBusConnection>

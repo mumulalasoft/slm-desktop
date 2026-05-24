@@ -13,7 +13,7 @@ Item {
     readonly property bool active: !!privacyModel && !!privacyModel.active
     readonly property int activeCount: privacyModel ? Number(privacyModel.enabledCount) : 0
     readonly property bool popupOpen: menu.opened
-    readonly property int iconSize: 22
+    readonly property int iconSize: 20
 
     visible: active
     implicitWidth: active ? button.implicitWidth : 0
@@ -37,7 +37,7 @@ Item {
             if (menu.opened || menu.visible) {
                 menu.close()
             } else {
-                menu.open()
+                menu.togglePopup()
             }
         }
 
@@ -90,7 +90,7 @@ Item {
     IndicatorMenu {
         id: menu
         anchorItem: button
-        popupGap: Theme.metric("spacingXs")
+        popupGap: Theme.metric("spacingSm")
         popupWidth: Theme.metric("popupWidthM")
 
         MenuItem {

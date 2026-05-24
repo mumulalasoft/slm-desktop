@@ -166,7 +166,7 @@ void SlmCapabilityFrameworkTest::search_ranking()
         "Name=Convert to WebP\n"
         "Exec=search convert %F\n"
         "X-SLM-Capabilities=SearchAction\n"
-        "X-SLM-SearchAction-Scopes=tothespot\n"
+        "X-SLM-SearchAction-Scopes=pulse\n"
         "X-SLM-SearchAction-Intent=convert-image\n"
         "X-SLM-Keywords=convert;webp;image\n"
         "X-SLM-Priority=10\n"
@@ -175,7 +175,7 @@ void SlmCapabilityFrameworkTest::search_ranking()
         "Name=Resize Image\n"
         "Exec=search resize %F\n"
         "X-SLM-Capabilities=SearchAction\n"
-        "X-SLM-SearchAction-Scopes=tothespot\n"
+        "X-SLM-SearchAction-Scopes=pulse\n"
         "X-SLM-SearchAction-Intent=resize-image\n"
         "X-SLM-Keywords=resize;image\n"
         "X-SLM-Priority=50\n");
@@ -186,7 +186,7 @@ void SlmCapabilityFrameworkTest::search_ranking()
     registry.reload();
 
     const QVariantMap context{
-        {QStringLiteral("scope"), QStringLiteral("tothespot")},
+        {QStringLiteral("scope"), QStringLiteral("pulse")},
     };
     const QVariantList result = registry.searchActions(QStringLiteral("convert"), context);
     QVERIFY(!result.isEmpty());

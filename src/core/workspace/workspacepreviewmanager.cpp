@@ -1,5 +1,5 @@
 #include "workspacepreviewmanager.h"
-#include "urlutils.h"
+#include "../utils/urlutils.h"
 
 #include <QDir>
 #include <QFileInfo>

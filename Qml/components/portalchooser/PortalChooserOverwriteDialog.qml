@@ -2,6 +2,7 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Window 2.15
 import Slm_Desktop
+import SlmStyle as DSStyle
 
 Window {
     id: dialog
@@ -15,21 +16,15 @@ Window {
     signal replaceRequested()
     signal escapeRequested()
 
-    color: Theme.color("menuBg")
-    flags: Qt.Dialog | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
+    color: "transparent"
+    flags: Qt.Dialog | Qt.FramelessWindowHint
     modality: Qt.ApplicationModal
-    transientParent: transientParentWindow ? transientParentWindow : parentWindow
+    transientParent: null
     title: "Replace File?"
     width: 460
     height: 182
     x: parentWindow ? parentWindow.x + Math.round((parentWindow.width - width) / 2) : 0
     y: parentWindow ? parentWindow.y + Math.round((parentWindow.height - height) / 2) : 0
-
-    onVisibleChanged: {
-        if (visible) {
-            requestActivate()
-        }
-    }
 
     Shortcut {
         sequence: "Escape"
@@ -39,24 +34,24 @@ Window {
 
     Rectangle {
         anchors.fill: parent
-        radius: Theme.radiusCard
-        color: Theme.color("menuBg")
+        radius: Theme.radiusWindow
+        color: Theme.color("fileManagerWindowBg")
         border.width: Theme.borderWidthThin
-        border.color: Theme.color("menuBorder")
+        border.color: Theme.color("fileManagerWindowBorder")
 
         Column {
             anchors.fill: parent
-            anchors.margins: 14
-            spacing: 10
+            anchors.margins: Theme.metric("spacingXl")
+            spacing: Theme.metric("spacingMd")
 
-            Label {
+            DSStyle.Label {
                 text: "Replace existing file?"
                 color: Theme.color("textPrimary")
                 font.pixelSize: Theme.fontSize("title")
-                font.weight: Theme.fontWeight("bold")
+                font.weight: Theme.fontWeight("semibold")
             }
 
-            Label {
+            DSStyle.Label {
                 width: parent.width
                 text: String(dialog.targetPath || "")
                 color: Theme.color("textSecondary")
@@ -75,16 +70,17 @@ Window {
                     width: Math.max(0, parent.width - 224)
                     height: 1
                 }
-                Button {
+                DSStyle.Button {
                     width: 104
-                    height: 34
+                    height: Theme.metric("controlHeightRegular")
                     text: "Cancel"
                     onClicked: dialog.cancelRequested()
                 }
-                Button {
+                DSStyle.Button {
                     width: 112
-                    height: 34
+                    height: Theme.metric("controlHeightRegular")
                     text: "Replace"
+                    defaultAction: true
                     onClicked: dialog.replaceRequested()
                 }
             }

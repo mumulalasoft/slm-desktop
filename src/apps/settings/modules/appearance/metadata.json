@@ -2,7 +2,7 @@
     "id": "appearance",
     "name": "Appearance",
     "icon": "preferences-desktop-theme",
-    "group": "Personal",
+    "group": "Desktop",
     "description": "Theme, wallpaper, and visual style.",
     "keywords": ["theme", "wallpaper", "dark mode", "light mode", "accent color"],
     "main": "AppearancePage.qml",

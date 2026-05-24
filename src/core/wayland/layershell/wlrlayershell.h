@@ -6,7 +6,9 @@
 #include <QObject>
 #include <QWindow>
 
-class DockBootstrapState;
+class AppDeckBootstrapState;
+struct wl_surface;
+struct wl_compositor;
 
 // ── WlrLayerShell ─────────────────────────────────────────────────────────────
 // Global singleton binding to zwlr_layer_shell_v1.
@@ -31,10 +33,20 @@ public:
                                              const QString &nameSpace);
 
     // Update the exclusive zone of an already-configured layer surface.
-    // Call this whenever the dock height changes so the compositor keeps the
+    // Call this whenever the appdeck height changes so the compositor keeps the
     // correct reservation at the bottom of the screen.
     Q_INVOKABLE bool setExclusiveZone(QWindow *window, int exclusiveZone);
-    void setDockBootstrapState(DockBootstrapState *state);
+    Q_INVOKABLE bool setLayer(QWindow *window, int layer);
+    Q_INVOKABLE bool setKeyboardInteractivity(QWindow *window, int interactivity);
+    // Update the configured size of an already-configured layer surface.
+    Q_INVOKABLE bool setLayerSurfaceSize(QWindow *window, int width, int height);
+    // Update input region so transparent areas do not intercept pointer events.
+    Q_INVOKABLE bool setLayerSurfaceInputRegion(QWindow *window,
+                                                int x,
+                                                int y,
+                                                int width,
+                                                int height);
+    void setAppDeckBootstrapState(AppDeckBootstrapState *state);
 
     // Layer constants (mirrors zwlr_layer_shell_v1_layer).
     enum Layer {
@@ -54,8 +66,15 @@ public:
     };
     Q_ENUM(Anchor)
 
+    enum KeyboardInteractivity {
+        KeyboardInteractivityNone = 0,
+        KeyboardInteractivityExclusive = 1,
+        KeyboardInteractivityOnDemand = 2,
+    };
+    Q_ENUM(KeyboardInteractivity)
+
 private:
-    DockBootstrapState *m_dockBootstrapState = nullptr;
+    AppDeckBootstrapState *m_dockBootstrapState = nullptr;
 };
 
 // ── WlrLayerSurfaceV1 ─────────────────────────────────────────────────────────
@@ -69,6 +88,7 @@ class WlrLayerSurfaceV1 : public QObject,
 
 public:
     explicit WlrLayerSurfaceV1(struct ::zwlr_layer_surface_v1 *surface,
+                               struct ::wl_surface *wlSurface,
                                QObject *parent = nullptr);
     ~WlrLayerSurfaceV1() override;
 
@@ -76,6 +96,16 @@ public:
 
     // Update the exclusive zone on this surface and flush to the compositor.
     void setExclusiveZone(int zone);
+    void setLayer(int layer);
+    void setKeyboardInteractivity(int interactivity);
+    // Update the layer-surface size for mode transitions (collapsed/expanded/context).
+    void setSurfaceSize(int width, int height);
+    // Limit pointer focus to a sub-rect of the layer surface.
+    void setInputRegionRect(struct ::wl_compositor *compositor,
+                            int x,
+                            int y,
+                            int width,
+                            int height);
 
 signals:
     void configured();
@@ -92,4 +122,5 @@ protected:
 private:
     bool m_configured = false;
     bool m_firstConfigureReceived = false;
+    struct ::wl_surface *m_surface = nullptr;
 };

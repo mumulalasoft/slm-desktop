@@ -17,7 +17,7 @@ if [[ ! -x "$BIN_PATH" ]]; then
 fi
 
 mkdir -p "$UNIT_DIR"
-sed "s#%h/Development/Qt/Slm_Desktop/build/slm-polkit-agent#$BIN_PATH#g" "$UNIT_SRC" > "$UNIT_DST"
+sed "s#%h/Development/Qt/Desktop_Shell/build/slm-polkit-agent#$BIN_PATH#g" "$UNIT_SRC" > "$UNIT_DST"
 
 systemctl --user daemon-reload
 systemctl --user enable --now slm-polkit-agent.service

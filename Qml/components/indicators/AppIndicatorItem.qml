@@ -9,6 +9,32 @@ Item {
     property var modelData: null
     property var host: null
 
+    opacity: 0
+    scale: 0.82
+
+    Component.onCompleted: {
+        if (microAnimationAllowed()) {
+            appIndicatorEntranceAnim.start()
+        } else {
+            root.opacity = 1.0
+            root.scale = 1.0
+        }
+    }
+
+    ParallelAnimation {
+        id: appIndicatorEntranceAnim
+        NumberAnimation {
+            target: root; property: "opacity"
+            to: 1.0; duration: Theme.durationMd
+            easing.type: Theme.easingDecelerate
+        }
+        NumberAnimation {
+            target: root; property: "scale"
+            to: 1.0; duration: Theme.durationMd
+            easing.type: Theme.easingDecelerate
+        }
+    }
+
     readonly property string itemId: String((modelData && modelData.id) ? modelData.id : "")
     readonly property string iconName: String((modelData && modelData.iconName) ? modelData.iconName : "application-x-executable-symbolic")
     readonly property string iconSource: String((modelData && modelData.iconSource) ? modelData.iconSource : "")
@@ -133,8 +159,8 @@ Item {
 
     Rectangle {
         id: button
-        implicitWidth: Theme.metric("controlHeightRegular")
-        implicitHeight: Theme.metric("controlHeightRegular")
+        implicitWidth: Theme.metric("controlHeightCompact")
+        implicitHeight: Theme.metric("controlHeightCompact")
         anchors.centerIn: parent
         radius: Theme.radiusControl
         color: trayMouse.pressed ? Theme.color("controlBgPressed") : (trayMouse.containsMouse ? Theme.color("controlBgHover") : "transparent")
@@ -146,8 +172,8 @@ Item {
         Image {
             id: icon
             anchors.centerIn: parent
-            width: 18
-            height: 18
+            width: 16
+            height: 16
             fillMode: Image.PreserveAspectFit
             source: root.iconSource.length > 0
                     ? root.iconSource
@@ -183,7 +209,7 @@ Item {
                     if (rows && rows.length > 0) {
                         root.trayMenuRows = rows
                         trayMenuPopup.x = Math.round(button.mapToGlobal(0, 0).x)
-                        trayMenuPopup.y = Math.round(button.mapToGlobal(0, button.height + Theme.metric("spacingXs")).y)
+                        trayMenuPopup.y = Math.round(button.mapToGlobal(0, button.height + Theme.metric("spacingSm")).y)
                         trayMenuPopup.open()
                     } else {
                         root.host.contextMenu(root.itemId, gx, gy)
@@ -219,6 +245,7 @@ Item {
     Menu {
         id: trayMenuPopup
         property var quickRows: []
+        popupType: Popup.Window
         modal: false
         focus: false
         dim: false
@@ -330,6 +357,7 @@ Item {
             property int parentMenuId: -1
             property var rows: []
 
+            popupType: Popup.Window
             modal: false
             focus: false
             dim: false

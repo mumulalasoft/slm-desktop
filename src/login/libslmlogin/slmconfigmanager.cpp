@@ -97,6 +97,11 @@ bool ConfigManager::validateConfig(const QJsonObject &config,
     if (!compositorVal.isString() || !isCommandLike(compositorVal.toString())) {
         return fail(QStringLiteral("invalid compositor value"));
     }
+    const QString compositorName = QFileInfo(compositorVal.toString()).fileName();
+    if (compositorName != QStringLiteral("kwin_wayland")) {
+        return fail(QStringLiteral("unsupported compositor: %1 (only kwin_wayland is supported)")
+                    .arg(compositorVal.toString()));
+    }
     const QJsonValue shellVal = out.value(QStringLiteral("shell"));
     if (!shellVal.isString() || !isCommandLike(shellVal.toString())) {
         return fail(QStringLiteral("invalid shell value"));
@@ -126,6 +131,26 @@ bool ConfigManager::validateConfig(const QJsonObject &config,
     }
     if (!validateArgsArray("shellArgs")) {
         return false;
+    }
+
+    if (out.contains(QStringLiteral("compositorEnv"))) {
+        const QJsonValue envVal = out.value(QStringLiteral("compositorEnv"));
+        if (!envVal.isObject()) {
+            return fail(QStringLiteral("compositorEnv must be an object"));
+        }
+        const QJsonObject envObj = envVal.toObject();
+        static const QRegularExpression envKeyRx(QStringLiteral("^[A-Za-z_][A-Za-z0-9_]*$"));
+        for (auto it = envObj.constBegin(); it != envObj.constEnd(); ++it) {
+            if (!envKeyRx.match(it.key()).hasMatch()) {
+                return fail(QStringLiteral("compositorEnv key invalid: %1").arg(it.key()));
+            }
+            if (!it.value().isString()) {
+                return fail(QStringLiteral("compositorEnv value must be string: %1").arg(it.key()));
+            }
+            if (it.value().toString().size() > 512) {
+                return fail(QStringLiteral("compositorEnv value too long: %1").arg(it.key()));
+            }
+        }
     }
 
     if (out.contains(QStringLiteral("uiScale"))) {
@@ -351,6 +376,16 @@ QStringList ConfigManager::compositorArgs() const
     const QJsonArray arr = m_config.value(QStringLiteral("compositorArgs")).toArray();
     QStringList out;
     for (const QJsonValue &v : arr) out.append(v.toString());
+    return out;
+}
+
+QStringList ConfigManager::compositorEnv() const
+{
+    const QJsonObject obj = m_config.value(QStringLiteral("compositorEnv")).toObject();
+    QStringList out;
+    for (auto it = obj.constBegin(); it != obj.constEnd(); ++it) {
+        out.append(it.key() + QLatin1Char('=') + it.value().toString());
+    }
     return out;
 }
 

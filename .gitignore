@@ -85,3 +85,10 @@ CMakeLists.txt.user*
 # Local assistant workspace metadata
 .claude/
 .codex
+
+# QEMU smoke test artifacts
+/artifacts/
+/scripts/dev/artifacts/
+
+# Runtime logs
+/log/

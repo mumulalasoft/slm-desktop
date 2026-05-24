@@ -25,10 +25,10 @@ private slots:
         QVERIFY2(!text.isEmpty(), qPrintable(QStringLiteral("failed to read %1").arg(path)));
 
         QVERIFY(text.contains(QStringLiteral("readonly property bool searchVisible: (typeof ShellStateController")));
-        QVERIFY(text.contains(QStringLiteral("readonly property bool tothespotVisible: searchVisible")));
+        QVERIFY(text.contains(QStringLiteral("readonly property bool pulseVisible: searchVisible")));
         QVERIFY(text.contains(QStringLiteral("function setSearchVisible(visible)")));
-        QVERIFY(text.contains(QStringLiteral("ShellStateController.setToTheSpotVisible(v)")));
-        QVERIFY(!text.contains(QStringLiteral("\n    property bool tothespotVisible:")));
+        QVERIFY(text.contains(QStringLiteral("ShellStateController.setPulseVisible(v)")));
+        QVERIFY(!text.contains(QStringLiteral("\n    property bool pulseVisible:")));
     }
 
     void searchQuery_ownedByShellStateController()
@@ -38,10 +38,10 @@ private slots:
         QVERIFY2(!text.isEmpty(), qPrintable(QStringLiteral("failed to read %1").arg(path)));
 
         QVERIFY(text.contains(QStringLiteral("readonly property string searchQuery: (typeof ShellStateController")));
-        QVERIFY(text.contains(QStringLiteral("readonly property string tothespotQuery: searchQuery")));
+        QVERIFY(text.contains(QStringLiteral("readonly property string pulseQuery: searchQuery")));
         QVERIFY(text.contains(QStringLiteral("function setSearchQuery(query)")));
         QVERIFY(text.contains(QStringLiteral("ShellStateController.setSearchQuery(text)")));
-        QVERIFY(!text.contains(QStringLiteral("\n    property string tothespotQuery:")));
+        QVERIFY(!text.contains(QStringLiteral("\n    property string pulseQuery:")));
     }
 };
 

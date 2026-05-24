@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QFutureWatcher>
 #include <QObject>
 #include <QVariantMap>
 
@@ -35,6 +36,9 @@ public:
     Q_PROPERTY(bool lastUsedConversionPipe READ lastUsedConversionPipe NOTIFY submissionFinished)
     bool lastUsedConversionPipe() const { return m_lastUsedConversionPipe; }
 
+    Q_PROPERTY(bool busy READ busy NOTIFY busyChanged)
+    bool busy() const { return m_busy; }
+
     static QString parseJobId(const QString &lpOutput);
 
     // Returns the path of pdf2ps or gs that can produce PostScript, or empty string.
@@ -42,17 +46,20 @@ public:
 
 signals:
     void submissionFinished(const QVariantMap &result);
+    void busyChanged();
 
 private:
-    QVariantMap submitDirect(const QString &printerId, const QString &localPath,
-                             const QVariantMap &jobAttributes);
-    QVariantMap submitViaPipe(const QString &printerId, const QString &localPath,
-                              const QVariantMap &jobAttributes);
-    QStringList buildLpArgs(const QString &printerId, const QVariantMap &jobAttributes) const;
+    static QVariantMap submitDirect(const QString &printerId, const QString &localPath,
+                                    const QVariantMap &jobAttributes);
+    static QVariantMap submitViaPipe(const QString &printerId, const QString &localPath,
+                                     const QVariantMap &jobAttributes);
+    static QStringList buildLpArgs(const QString &printerId, const QVariantMap &jobAttributes);
 
     QString m_lastJobId;
     QString m_lastError;
     bool m_lastUsedConversionPipe = false;
+    bool m_busy = false;
+    QFutureWatcher<QVariantMap> *m_watcher = nullptr;
 };
 
 } // namespace Slm::Print

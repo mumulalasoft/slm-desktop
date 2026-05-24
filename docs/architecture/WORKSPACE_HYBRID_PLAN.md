@@ -8,7 +8,7 @@ dengan prinsip **reuse-first** (minim perubahan invasif).
 - Workspace overview menampilkan:
   - strip workspace horizontal di atas,
   - thumbnail detail hanya untuk workspace aktif di tengah,
-  - dock tetap terlihat dan aware lintas workspace.
+  - appdeck tetap terlihat dan aware lintas workspace.
 - Dynamic workspace rules:
   - setiap window tepat 1 workspace,
   - selalu ada trailing empty workspace.
@@ -59,16 +59,16 @@ Sudah tersedia:
 - filtering windows by active workspace
 - sinkronisasi `SpacesManager` <-> `CompositorStateModel`
 
-### 5) Dock runtime integration
-- `Qml/components/Dock.qml`
-- `Qml/components/dock/DockAppDelegate.qml`
+### 5) AppDeck runtime integration
+- `Qml/components/AppDeck.qml`
+- `Qml/components/appdeck/AppDeckAppDelegate.qml`
 - `dockmodel.h`
 - `dockmodel.cpp`
 - `src/core/execution/appcommandrouter.cpp`
 
 Sudah tersedia:
 - app activation route via `AppCommandRouter` / `AppExecutionGate`
-- quick actions pada context menu dock
+- quick actions pada context menu appdeck
 - indikator running/focused
 
 ### 6) Animation and gesture infra
@@ -91,8 +91,8 @@ Sudah tersedia:
 3) **Window drag thumbnail ke workspace strip belum ada**
 - `WorkspaceOverlay.qml` belum punya DnD thumbnail -> tab workspace.
 
-4) **Dock click lintas workspace belum eksplisit terkontrak**
-- `PresentWindow` sudah melakukan switch ke space window target, tapi belum ada layer kontrak khusus dock-centric behavior.
+4) **AppDeck click lintas workspace belum eksplisit terkontrak**
+- `PresentWindow` sudah melakukan switch ke space window target, tapi belum ada layer kontrak khusus appdeck-centric behavior.
 
 5) **Shortcut contract target belum sesuai requirement baru**
 - Requirement minta `Super+S`, `Super+Left/Right`, `Ctrl+Super+Left/Right`, `Esc`.
@@ -133,7 +133,7 @@ Implementasi minimal:
 
 ### 4) `DockWorkspaceIntegration` (thin adapter)
 Tujuan:
-- explicit behavior dock click lintas workspace.
+- explicit behavior appdeck click lintas workspace.
 
 Implementasi minimal:
 - file baru:
@@ -183,7 +183,7 @@ Current state:
 - `KWinWaylandStateModel`
 - `WorkspaceOverlay.qml` (+ `OverviewOverlay.qml` sebagai compat wrapper)
 - `DesktopScene.qml`
-- Dock stack (`Dock.qml`, `DockAppDelegate.qml`, `DockModel`)
+- AppDeck stack (`AppDeck.qml`, `AppDeckAppDelegate.qml`, `AppDeckModel`)
 - Motion framework (`src/core/motion/*`)
 
 ### New (additive)
@@ -197,13 +197,13 @@ Current state:
 1. Backend invariant foundation (`WindowWorkspaceBinding` + `SpacesManager` dynamic rules).
 2. Workspace strip model + QML wiring (pakai `WorkspaceOverlay.qml`).
 3. DnD thumbnail -> workspace tab (termasuk trailing placeholder create).
-4. Dock workspace integration adapter.
+4. AppDeck workspace integration adapter.
 5. Rebranding alias API `overview` -> `workspace`.
 6. Shortcut migration ke target combo.
 7. Hardening tests (unit + DBus + QML smoke + E2E path).
 
 ## Risks & guardrails
-- Risiko regressi behavior existing overview/dock:
+- Risiko regressi behavior existing overview/appdeck:
   - mitigasi: alias compatibility + test contract existing.
 - Risiko performa overview:
   - mitigasi: strip ringan (occupancy only), cached preview, no live previews default.

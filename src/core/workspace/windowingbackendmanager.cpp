@@ -1,9 +1,19 @@
 #include "windowingbackendmanager.h"
 
+#include "../utils/slmlogcategories.h"
 #include "kwinwaylandipcclient.h"
 #include "kwinwaylandstatemodel.h"
 
+#include <QByteArray>
+#include <QDebug>
+
 namespace {
+bool envFlagEnabled(const char *name)
+{
+    const QByteArray value = qgetenv(name).trimmed().toLower();
+    return value == "1" || value == "true" || value == "yes" || value == "on";
+}
+
 QString normalizedEventToken(const QString &value)
 {
     return value.trimmed().toLower().replace(QLatin1Char('_'), QLatin1Char('-'));
@@ -43,6 +53,12 @@ QVariantMap kwinWaylandCapabilities()
         { QStringLiteral("command.inputcapture.disable"), false },
         { QStringLiteral("command.inputcapture.release"), false },
         { QStringLiteral("command.inputcapture.set-barriers"), false },
+        { QStringLiteral("command.overlay.register"), false },
+        { QStringLiteral("command.overlay.unregister"), false },
+        { QStringLiteral("command.overlay.restack"), false },
+        { QStringLiteral("command.overlay.set-state"), false },
+        { QStringLiteral("command.appdeck-mode"), false },
+        { QStringLiteral("command.appdeck"), false },
         { QStringLiteral("command.progress-hide"), false },
     };
 }
@@ -65,6 +81,12 @@ QString mappedWorkspaceEventFromCommand(const QString &event, const QVariantMap 
     }
     if (command == QStringLiteral("workspace toggle") || command == QStringLiteral("overview toggle")) {
         return QStringLiteral("workspace-toggle");
+    }
+    if (command == QStringLiteral("appdeck on")) {
+        return QStringLiteral("appdeck-open");
+    }
+    if (command == QStringLiteral("appdeck off")) {
+        return QStringLiteral("appdeck-close");
     }
     return QString();
 }
@@ -115,11 +137,16 @@ QString canonicalLifecycleEvent(const QString &event, const QVariantMap &payload
 
 WindowingBackendManager::WindowingBackendManager(QObject *parent)
     : QObject(parent)
-    , m_kwinIpc(new KWinWaylandIpcClient(this))
     , m_kwinState(new KWinWaylandStateModel(this))
 {
-    m_kwinState->setIpcClient(m_kwinIpc);
-    wireSignals();
+    if (envFlagEnabled("SLM_KWIN_ACTIVE_IPC")) {
+        m_kwinIpc = new KWinWaylandIpcClient(this);
+        m_kwinState->setIpcClient(m_kwinIpc);
+        wireSignals();
+    } else {
+        qCInfo(slmKwin, "active IPC disabled "
+               "(set SLM_KWIN_ACTIVE_IPC=1 to enable)");
+    }
 }
 
 WindowingBackendManager::~WindowingBackendManager() = default;
@@ -143,11 +170,31 @@ bool WindowingBackendManager::connected() const
 QVariantMap WindowingBackendManager::capabilities() const
 {
     QVariantMap caps = baseCapabilitiesForBackend(m_backend);
+    if (!m_kwinIpc) {
+        for (auto it = caps.begin(); it != caps.end(); ++it) {
+            if (it.key().startsWith(QStringLiteral("command."))
+                || it.key() == QStringLiteral("window-list")
+                || it.key() == QStringLiteral("spaces")
+                || it.key() == QStringLiteral("switcher")
+                || it.key() == QStringLiteral("overview")
+                || it.key() == QStringLiteral("workspace")) {
+                it.value() = false;
+            }
+        }
+        return caps;
+    }
     const bool inputCaptureSupported = m_kwinIpc && m_kwinIpc->supportsInputCaptureCommands();
+    const bool overlaySupported = m_kwinIpc && m_kwinIpc->supportsOverlayCommands();
     caps.insert(QStringLiteral("command.inputcapture.set-barriers"), inputCaptureSupported);
     caps.insert(QStringLiteral("command.inputcapture.enable"), inputCaptureSupported);
     caps.insert(QStringLiteral("command.inputcapture.disable"), inputCaptureSupported);
     caps.insert(QStringLiteral("command.inputcapture.release"), inputCaptureSupported);
+    caps.insert(QStringLiteral("command.overlay.register"), overlaySupported);
+    caps.insert(QStringLiteral("command.overlay.unregister"), overlaySupported);
+    caps.insert(QStringLiteral("command.overlay.restack"), overlaySupported);
+    caps.insert(QStringLiteral("command.overlay.set-state"), overlaySupported);
+    caps.insert(QStringLiteral("command.appdeck-mode"), overlaySupported);
+    caps.insert(QStringLiteral("command.appdeck"), overlaySupported);
     return caps;
 }
 

@@ -38,11 +38,183 @@ if [[ -z "$GREETER_BIN" ]]; then
   exit 1
 fi
 
-if ! id -u greeter >/dev/null 2>&1; then
-  echo "[install-greetd-slm] creating system user: greeter"
-  useradd --system --home /var/lib/greetd --create-home \
-    --shell /usr/sbin/nologin greeter
+GREETER_CAGE_LAUNCHER="/usr/local/libexec/slm-greeter-cage-launch"
+GREETER_LAUNCHER="/usr/local/libexec/slm-greeter-greetd-launch"
+BROKER_LAUNCHER="/usr/local/libexec/slm-session-broker-launch"
+GREETER_LOG_DIR="/var/lib/greetd/logs"
+GREETER_LOG="${GREETER_LOG_DIR}/slm-greeter.log"
+CAGE_LOG="${GREETER_LOG_DIR}/slm-greeter-cage.log"
+BROKER_LOG="/tmp/slm-session-broker-launch.log"
+GREETER_SHELL="${SLM_GREETER_SHELL:-/bin/sh}"
+
+ensure_greeter_user() {
+  if ! id -u greeter >/dev/null 2>&1; then
+    echo "[install-greetd-slm] creating system user: greeter"
+    useradd --system --home /var/lib/greetd --create-home \
+      --shell "${GREETER_SHELL}" greeter
+  else
+    local current_shell
+    current_shell="$(getent passwd greeter | awk -F: '{print $7}')"
+    if [[ "${current_shell}" == */nologin || "${current_shell}" == */false ]]; then
+      echo "[install-greetd-slm] updating greeter shell: ${current_shell} -> ${GREETER_SHELL}"
+      usermod --shell "${GREETER_SHELL}" greeter
+    fi
+  fi
+
+  # The greeter user needs a valid shell for greetd/PAM session setup on Debian,
+  # but it must remain non-login-capable through password authentication.
+  passwd -l greeter >/dev/null 2>&1 || true
+}
+
+ensure_greeter_user
+
+echo "[install-greetd-slm] preparing greeter launcher and logs..."
+install -d -m0755 /usr/local/libexec
+install -d -m0750 "$GREETER_LOG_DIR"
+touch "$GREETER_LOG"
+touch "$CAGE_LOG"
+chown -R greeter:greeter /var/lib/greetd "$GREETER_LOG_DIR"
+chmod 0640 "$GREETER_LOG"
+chmod 0640 "$CAGE_LOG"
+cat >"$GREETER_LAUNCHER" <<EOF
+#!/usr/bin/env bash
+# slm-greeter-greetd-launch — run slm-greeter with retry inside an existing cage session.
+# Exit 0 = greeter requested logout/session-start (normal).
+# Exit non-0 after MAX_RETRIES = persistent failure, cage should exit.
+export LIBSEAT_BACKEND=logind
+export QT_QPA_PLATFORM=wayland
+export QT_QUICK_BACKEND=software
+export LIBGL_ALWAYS_SOFTWARE=1
+
+_MAX_RETRIES=5
+_attempt=0
+_log="${GREETER_LOG}"
+
+_ts() { date --iso-8601=seconds 2>/dev/null || date; }
+
+while [ "\$_attempt" -lt "\$_MAX_RETRIES" ]; do
+  _attempt=\$((_attempt + 1))
+  {
+    echo "===== \$(_ts) slm-greeter-launch attempt \$_attempt/\$_MAX_RETRIES ====="
+    echo "  GREETER_BIN=${GREETER_BIN}"
+    echo "  GREETD_SOCK=\${GREETD_SOCK:-<unset>}"
+    echo "  XDG_RUNTIME_DIR=\${XDG_RUNTIME_DIR:-<unset>}"
+    echo "  QT_QPA_PLATFORM=\${QT_QPA_PLATFORM:-<unset>}"
+    echo "  WLR_RENDERER=\${WLR_RENDERER:-<unset>}"
+  } >>"\$_log" 2>&1
+
+  "${GREETER_BIN}" >>"\$_log" 2>&1
+  _rc=\$?
+
+  {
+    echo "  greeter exited: code=\$_rc attempt=\$_attempt"
+  } >>"\$_log" 2>&1
+
+  # Exit 0 = normal (login succeeded / session handed off).
+  if [ "\$_rc" -eq 0 ]; then
+    exit 0
+  fi
+
+  if [ "\$_attempt" -lt "\$_MAX_RETRIES" ]; then
+    echo "  retrying in 1s..." >>"\$_log" 2>&1
+    sleep 1
+  fi
+done
+
+echo "===== \$(_ts) slm-greeter-launch: gave up after \$_MAX_RETRIES attempts =====" >>"\$_log" 2>&1
+exit 1
+EOF
+chmod 0755 "$GREETER_LAUNCHER"
+cat >"$BROKER_LAUNCHER" <<'EOF'
+#!/usr/bin/env bash
+set -u
+export SLM_OFFICIAL_SESSION=1
+export XDG_SESSION_TYPE=${XDG_SESSION_TYPE:-wayland}
+export XDG_CURRENT_DESKTOP=${XDG_CURRENT_DESKTOP:-SLM}
+export LANG=${LANG:-C.UTF-8}
+export LC_ALL=${LC_ALL:-C.UTF-8}
+if [[ -z "${XDG_RUNTIME_DIR:-}" ]]; then
+  export XDG_RUNTIME_DIR="/run/user/$(id -u)"
 fi
+log="/tmp/slm-session-broker-launch.log"
+{
+  echo "===== $(date --iso-8601=seconds 2>/dev/null || date) slm-session-broker-launch start ====="
+  echo "uid=$(id -u) gid=$(id -g) user=$(id -un)"
+  echo "argv=$*"
+  echo "XDG_SESSION_ID=${XDG_SESSION_ID:-<unset>}"
+  echo "XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-<unset>}"
+  echo "XDG_SEAT=${XDG_SEAT:-<unset>}"
+  echo "XDG_VTNR=${XDG_VTNR:-<unset>}"
+  echo "PATH=${PATH:-<unset>}"
+  if [[ "${SLM_BROKER_LAUNCH_DIAGNOSTICS:-0}" == "1" ]]; then
+    if command -v loginctl >/dev/null 2>&1 && [[ -n "${XDG_SESSION_ID:-}" ]]; then
+      loginctl show-session "${XDG_SESSION_ID}" --no-pager 2>&1 || true
+    fi
+    ldd /usr/libexec/slm-session-broker 2>&1 | grep -E 'not found|libQt6Core|libicu' || true
+  fi
+} >>"$log" 2>&1
+exec /usr/libexec/slm-session-broker "$@" >>"$log" 2>&1
+EOF
+chmod 0755 "$BROKER_LAUNCHER"
+cat >"$GREETER_CAGE_LAUNCHER" <<'EOF'
+#!/usr/bin/env bash
+# Long-lived greetd default_session wrapper.
+set -u
+export LIBSEAT_BACKEND=logind
+export WLR_RENDERER=pixman
+_log="/var/lib/greetd/logs/slm-greeter-cage.log"
+_ts() { date --iso-8601=seconds 2>/dev/null || date; }
+_log_msg() { echo "$(_ts) cage-launch [pid=$$]: $*" >>"$_log"; }
+
+_log_msg "===== start pid=$$ GREETD_SOCK=${GREETD_SOCK:-<unset>} XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-<unset>} ====="
+
+# Kill any orphaned cage from a previous greetd run before we start.
+pkill -KILL -x cage 2>/dev/null || true
+sleep 0.2
+
+while true; do
+    _log_msg "starting cage"
+    cage -s -- "/usr/local/libexec/slm-greeter-greetd-launch" >>"$_log" 2>&1
+    _rc=$?
+    _log_msg "cage exited rc=$_rc"
+
+    # Adaptive grace: poll every 200ms for up to 6s for the user-session
+    # compositor to appear. This replaces a blind 3s sleep so the happy path
+    # exits the grace window as soon as the session is detected.
+    _ticks=0
+    _grace_max=30
+    _session_up=0
+    while [ "$_ticks" -lt "$_grace_max" ]; do
+        if pgrep -x kwin_wayland >/dev/null 2>&1; then
+            _log_msg "kwin_wayland detected after $(( _ticks * 200 ))ms — holding off cage restart"
+            _session_up=1
+            break
+        fi
+        if loginctl list-sessions --no-pager 2>/dev/null | grep -v -E "SESSION|greeter" | grep -q .; then
+            _log_msg "user session detected via loginctl after $(( _ticks * 200 ))ms — holding off cage restart"
+            _session_up=1
+            break
+        fi
+        _ticks=$(( _ticks + 1 ))
+        sleep 0.2
+    done
+
+    if [ "$_session_up" -eq 0 ]; then
+        _log_msg "no user session detected after $(( _grace_max * 200 ))ms — restarting cage immediately"
+        sleep 0.5
+        continue
+    fi
+
+    # Compositor is up — wait until it ends before restarting cage.
+    while pgrep -x kwin_wayland >/dev/null 2>&1 \
+          || loginctl list-sessions --no-pager 2>/dev/null | grep -v -E "SESSION|greeter" | grep -q .; do
+        sleep 1
+    done
+    _log_msg "user session ended — restarting cage"
+    sleep 1
+done
+EOF
+chmod 0755 "$GREETER_CAGE_LAUNCHER"
 
 echo "[install-greetd-slm] disabling competing display managers..."
 for dm in gdm gdm3 sddm lightdm lxdm; do
@@ -55,19 +227,15 @@ echo "[install-greetd-slm] writing /etc/greetd/config.toml..."
 mkdir -p /etc/greetd
 cat >/etc/greetd/config.toml <<'EOF'
 [terminal]
-vt = 1
+vt = 7
 
 [default_session]
 # Run SLM greeter inside cage (required for Qt/QML greeter).
-command = "cage -s -- __SLM_GREETER_BIN__"
-user = "greeter"
-
-[initial_session]
-command = "/usr/libexec/slm-session-broker --mode normal"
+command = "__SLM_GREETER_CAGE_LAUNCHER__"
 user = "greeter"
 EOF
 
-sed -i "s#__SLM_GREETER_BIN__#${GREETER_BIN//\//\\/}#g" /etc/greetd/config.toml
+sed -i "s#__SLM_GREETER_CAGE_LAUNCHER__#${GREETER_CAGE_LAUNCHER//\//\\/}#g" /etc/greetd/config.toml
 
 echo "[install-greetd-slm] setting display-manager.service -> greetd.service ..."
 GREETD_UNIT_PATH="$(systemctl show -p FragmentPath --value greetd.service 2>/dev/null || true)"
@@ -86,6 +254,11 @@ systemctl daemon-reload
 
 echo "[install-greetd-slm] enabling greetd..."
 systemctl enable --now greetd.service
+systemctl reset-failed greetd.service || true
+systemctl restart greetd.service || true
 
 echo "[install-greetd-slm] done."
-echo "Next: reboot and run scripts/login/verify-greetd-slm.sh"
+echo "Logs:"
+echo "  journalctl -b -u greetd --no-pager -n 200"
+echo "  cat ${GREETER_LOG}"
+echo "  cat ${CAGE_LOG}"

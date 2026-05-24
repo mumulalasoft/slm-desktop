@@ -124,15 +124,18 @@ QVariant normalizeDbusVariant(const QVariant &input)
 
     if (input.userType() == qMetaTypeId<QDBusArgument>()) {
         const QDBusArgument arg = qvariant_cast<QDBusArgument>(input);
-        const QVariantMap asMap = qdbus_cast<QVariantMap>(arg);
-        if (!asMap.isEmpty()) {
-            return normalizeDbusMap(asMap);
+        // QDBusArgument's read cursor is consumed by qdbus_cast; pick the
+        // right cast from the signature rather than trying both. The double
+        // cast triggers a libdbus abort ("recurse into an empty array")
+        // whenever the inner array/dict is empty.
+        const QString sig = arg.currentSignature();
+        if (sig.startsWith(QLatin1String("a{"))) {
+            return normalizeDbusMap(qdbus_cast<QVariantMap>(arg));
         }
-        const QVariantList asList = qdbus_cast<QVariantList>(arg);
-        if (!asList.isEmpty()) {
-            return normalizeDbusList(asList);
+        if (sig.startsWith(QLatin1Char('a'))) {
+            return normalizeDbusList(qdbus_cast<QVariantList>(arg));
         }
-        return {};
+        return input;
     }
 
     if (input.userType() == QMetaType::QVariantMap) {

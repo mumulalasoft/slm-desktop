@@ -41,7 +41,7 @@ BatteryManager::BatteryManager(QObject *parent)
     m_timer->setInterval(10000);
     connect(m_timer, &QTimer::timeout, this, &BatteryManager::refresh);
     m_timer->start();
-    refresh();
+    QTimer::singleShot(0, this, &BatteryManager::refresh);
 }
 
 bool BatteryManager::available() const

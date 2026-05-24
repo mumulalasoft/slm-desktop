@@ -30,6 +30,7 @@ void AuthDialogController::beginRequest(const QString &actionId, const QString &
     m_active = true;
     setBusy(false);
     setErrorMessage(QString());
+    setInfoMessage(QString());
 
     if (actionChanged) {
         Q_EMIT actionIdChanged();
@@ -52,6 +53,7 @@ void AuthDialogController::endRequest()
     setBusy(false);
     setPrompt(QString(), false);
     setErrorMessage(QString());
+    setInfoMessage(QString());
     if (hadActive) {
         Q_EMIT activeChanged();
     }
@@ -92,6 +94,11 @@ QString AuthDialogController::errorMessage() const
     return m_errorMessage;
 }
 
+QString AuthDialogController::infoMessage() const
+{
+    return m_infoMessage;
+}
+
 bool AuthDialogController::active() const
 {
     return m_active;
@@ -130,7 +137,7 @@ void AuthDialogController::handleSessionError(const QString &message)
 
 void AuthDialogController::handleSessionInfo(const QString &message)
 {
-    Q_UNUSED(message);
+    setInfoMessage(message);
 }
 
 void AuthDialogController::handleSessionCompleted()
@@ -168,6 +175,15 @@ void AuthDialogController::setErrorMessage(const QString &message)
     }
     m_errorMessage = message;
     Q_EMIT errorMessageChanged();
+}
+
+void AuthDialogController::setInfoMessage(const QString &message)
+{
+    if (m_infoMessage == message) {
+        return;
+    }
+    m_infoMessage = message;
+    Q_EMIT infoMessageChanged();
 }
 
 } // namespace Slm::Login

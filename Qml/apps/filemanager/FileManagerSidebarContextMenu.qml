@@ -12,6 +12,21 @@ DSStyle.Menu {
     property string contextRowTypeSnapshot: ""
     property bool contextMountedSnapshot: false
     property string contextDeviceSnapshot: ""
+    property bool contextBookmarkRemovableSnapshot: false
+    property bool canOpenSnapshot: false
+    property bool canOpenInNewWindowSnapshot: false
+    property bool canMountSnapshot: false
+    property bool canUnmountSnapshot: false
+    property bool canRemoveBookmarkSnapshot: false
+    property bool canRevealSnapshot: false
+    property bool canCopyPathSnapshot: false
+    readonly property bool showMountSection: (canMountSnapshot && !canOpenSnapshot)
+                                             || canUnmountSnapshot
+    readonly property bool showPathActionsSection: canRevealSnapshot
+                                                   || canCopyPathSnapshot
+                                                   || canRemoveBookmarkSnapshot
+    readonly property bool showPrimaryOpenGroup: canOpenSnapshot
+                                                 || canOpenInNewWindowSnapshot
 
     function openAt(px, py) {
         contextPathSnapshot = String(hostRoot.sidebarContextPath || "")
@@ -19,83 +34,125 @@ DSStyle.Menu {
         contextRowTypeSnapshot = String(hostRoot.sidebarContextRowType || "")
         contextMountedSnapshot = !!hostRoot.sidebarContextMounted
         contextDeviceSnapshot = String(hostRoot.sidebarContextDevice || "")
-        console.log("[fm-sidebar-menu] openAt path=", contextPathSnapshot,
-                    "label=", contextLabelSnapshot,
-                    "rowType=", contextRowTypeSnapshot,
-                    "device=", contextDeviceSnapshot,
-                    "mounted=", contextMountedSnapshot)
-        x = px
-        y = py
+        contextBookmarkRemovableSnapshot = !!hostRoot.sidebarContextBookmarkRemovable
+        canOpenSnapshot = !!hostRoot.sidebarContextCanOpenPath()
+        canOpenInNewWindowSnapshot = !!hostRoot.sidebarContextCanOpenInNewWindow()
+        canMountSnapshot = !!hostRoot.sidebarContextCanMount()
+        canUnmountSnapshot = !!hostRoot.sidebarContextCanUnmount()
+        canRevealSnapshot = canOpenSnapshot
+                           && contextPathSnapshot.indexOf("__mount__:") !== 0
+        canCopyPathSnapshot = contextPathSnapshot.length > 0
+                           && contextPathSnapshot.indexOf("__mount__:") !== 0
+        canRemoveBookmarkSnapshot = contextRowTypeSnapshot === "item"
+                                 && contextBookmarkRemovableSnapshot
+                                 && contextPathSnapshot.length > 0
+                                 && contextPathSnapshot !== "__recent__"
+                                 && contextPathSnapshot !== "__network__"
+                                 && contextPathSnapshot.indexOf("__mount__:") !== 0
+        var xPos = Number(px || 0)
+        var yPos = Number(py || 0)
+        if (root.popupType === Popup.Window && hostRoot && hostRoot.mapToGlobal) {
+            var g = hostRoot.mapToGlobal(xPos, yPos)
+            xPos = Number(g.x || 0)
+            yPos = Number(g.y || 0)
+        }
+        x = Math.round(xPos)
+        y = Math.round(yPos)
         open()
     }
 
-    modal: false
-    closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside | Popup.CloseOnPressOutsideParent
+    popupType: Popup.Window
+    modal: true
+    closePolicy: Popup.CloseOnEscape
+                 | Popup.CloseOnPressOutside
+                 | Popup.CloseOnPressOutsideParent
+                 | Popup.CloseOnReleaseOutside
+                 | Popup.CloseOnReleaseOutsideParent
 
     DSStyle.MenuItem {
-        text: String(hostRoot.sidebarContextRowType || "") === "storage"
+        text: contextRowTypeSnapshot === "storage"
               ? "Open Drive"
               : "Open"
-        enabled: hostRoot.sidebarContextCanOpenPath()
+        visible: canOpenSnapshot
+        enabled: canOpenSnapshot
+        height: visible ? implicitHeight : 0
         onTriggered: hostRoot.openPath(root.contextPathSnapshot)
     }
 
     DSStyle.MenuItem {
         text: "Open in New Tab"
-        enabled: hostRoot.sidebarContextCanOpenPath()
+        visible: canOpenSnapshot
+        enabled: canOpenSnapshot
+        height: visible ? implicitHeight : 0
         onTriggered: {
-            console.log("[fm-sidebar-menu] open-new-tab path=", root.contextPathSnapshot,
-                        "label=", root.contextLabelSnapshot)
             hostRoot.openPathInNewTab(root.contextPathSnapshot)
         }
     }
 
     DSStyle.MenuItem {
         text: "Open in New Window"
-        enabled: hostRoot.sidebarContextCanOpenInNewWindow()
+        visible: canOpenInNewWindowSnapshot
+        enabled: canOpenInNewWindowSnapshot
+        height: visible ? implicitHeight : 0
         onTriggered: hostRoot.openInNewWindowRequested(root.contextPathSnapshot)
     }
 
     MenuSeparator {
-        visible: hostRoot.sidebarContextCanMount() || hostRoot.sidebarContextCanUnmount()
+        visible: showMountSection
+        height: visible ? implicitHeight : 0
     }
 
     DSStyle.MenuItem {
         text: "Open Drive"
         // Only show when the first "Open" item can't already handle mounting
         // (i.e., path has no __mount__: prefix but device is known).
-        visible: hostRoot.sidebarContextCanMount()
-                 && !hostRoot.sidebarContextCanOpenPath()
+        visible: canMountSnapshot && !canOpenSnapshot
         enabled: visible
+        height: visible ? implicitHeight : 0
         onTriggered: hostRoot.sidebarContextMountDevice(root.contextDeviceSnapshot)
     }
 
     DSStyle.MenuItem {
         text: "Eject"
-        visible: hostRoot.sidebarContextCanUnmount()
+        visible: canUnmountSnapshot
         enabled: visible
+        height: visible ? implicitHeight : 0
         onTriggered: hostRoot.sidebarContextUnmount()
     }
 
     MenuSeparator {
-        visible: String(hostRoot.sidebarContextPath || "").length > 0
+        visible: showPathActionsSection
+        height: visible ? implicitHeight : 0
     }
 
     DSStyle.MenuItem {
         text: "Reveal in File Manager"
-        enabled: hostRoot.sidebarContextCanOpenPath()
-                 && String(hostRoot.sidebarContextPath || "").indexOf("__mount__:") !== 0
+        visible: canRevealSnapshot
+        enabled: canRevealSnapshot
+        height: visible ? implicitHeight : 0
         onTriggered: hostRoot.sidebarContextRevealInFileManager()
     }
 
     DSStyle.MenuItem {
         text: "Copy Path"
-        enabled: String(hostRoot.sidebarContextPath || "").length > 0
-                 && String(hostRoot.sidebarContextPath || "").indexOf("__mount__:") !== 0
+        visible: canCopyPathSnapshot
+        enabled: canCopyPathSnapshot
+        height: visible ? implicitHeight : 0
         onTriggered: hostRoot.sidebarContextCopyPath()
     }
 
-    MenuSeparator {}
+    DSStyle.MenuItem {
+        text: "Remove from Bookmarks"
+        visible: canRemoveBookmarkSnapshot
+        enabled: canRemoveBookmarkSnapshot
+        height: visible ? implicitHeight : 0
+        onTriggered: hostRoot.sidebarContextRemoveBookmark()
+    }
+
+    MenuSeparator {
+        visible: showPrimaryOpenGroup || showMountSection || showPathActionsSection
+        height: visible ? implicitHeight : 0
+    }
 
     DSStyle.MenuItem {
         text: "Refresh Sidebar"

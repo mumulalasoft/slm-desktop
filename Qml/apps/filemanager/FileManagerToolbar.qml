@@ -130,7 +130,7 @@ Rectangle {
         Row {
             spacing: 0
             Layout.alignment: Qt.AlignVCenter
-            DSStyle.WindowControlsCapsule {
+            WindowControlsCapsule {
                 spacing: 0
                 iconProvider: function(kind, hovered, pressed) {
                     return toolbar.titleButtonIcon(kind, hovered, pressed)

@@ -13,13 +13,15 @@ Item {
     property real ghostX: 0
     property real ghostY: 0
     property string label: ""
+    property string iconName: ""
+    property string iconSource: ""
 
     Rectangle {
         id: bubble
         x: Math.max(8, Math.min(parent.width - width - 8, dragGhost.ghostX + 12))
         y: Math.max(8, Math.min(parent.height - height - 8, dragGhost.ghostY + 12))
-        width: Math.min(280, ghostText.implicitWidth + 22)
-        height: 30
+        width: Math.min(320, ghostText.implicitWidth + 58)
+        height: 38
         radius: Theme.radiusControl
         color: Theme.color("windowCard")
         border.width: Theme.borderWidthThin
@@ -27,16 +29,44 @@ Item {
                                          : Theme.color("selectedItem")
         opacity: Theme.opacityElevated
 
+        Image {
+            id: ghostIcon
+            width: 18
+            height: 18
+            anchors.left: parent.left
+            anchors.leftMargin: 10
+            anchors.verticalCenter: parent.verticalCenter
+            fillMode: Image.PreserveAspectFit
+            asynchronous: true
+            cache: true
+            source: {
+                if (String(dragGhost.iconName || "").length > 0) {
+                    var rev = ((typeof ThemeIconController !== "undefined" && ThemeIconController)
+                               ? ThemeIconController.revision : 0)
+                    return "image://themeicon/" + dragGhost.iconName + "?v=" + rev
+                }
+                if (String(dragGhost.iconSource || "").length > 0) {
+                    return dragGhost.iconSource
+                }
+                var fallbackRev = ((typeof ThemeIconController !== "undefined" && ThemeIconController)
+                                   ? ThemeIconController.revision : 0)
+                return "image://themeicon/text-x-generic-symbolic?v=" + fallbackRev
+            }
+        }
+
         Text {
             id: ghostText
-            anchors.centerIn: parent
+            anchors.left: ghostIcon.right
+            anchors.leftMargin: 8
+            anchors.right: parent.right
+            anchors.rightMargin: 10
+            anchors.verticalCenter: parent.verticalCenter
             text: (dragGhost.copyMode ? "Copy: " : "Move: ") + String(
                       dragGhost.label || "item")
             color: Theme.color("textPrimary")
             font.pixelSize: Theme.fontSize("small")
             elide: Text.ElideRight
-            width: parent.width - 14
-            horizontalAlignment: Text.AlignHCenter
+            horizontalAlignment: Text.AlignLeft
         }
     }
 }

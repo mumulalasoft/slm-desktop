@@ -13,7 +13,8 @@ A modular Qt Quick project targeting a macOS-like desktop environment on Linux.
 - AppExecutionGate detailed diagrams: `docs/architecture/APP_EXECUTION_GATE.md`
 - SLM Action Framework module graph: `docs/architecture/SLM_ACTION_FRAMEWORK_MODULES.md`
 - SLM Capability Service diagrams: `docs/architecture/SLM_CAPABILITY_SERVICE.md`
-- Tothespot end-to-end flow: `docs/architecture/TOTHESPOT_FLOW.md`
+- Pulse end-to-end flow: `docs/architecture/TOTHESPOT_FLOW.md`
+- Branding glossary (AppHub/AppDeck/Pulse/Crown): `docs/BRANDING_GLOSSARY.md`
 - Desktop daemon contract: `docs/DESKTOP_DAEMON_ARCHITECTURE.md`
 - DBus API changelog: `docs/DBUS_API_CHANGELOG.md`
 - SDDM theme adaptation/install guide: `docs/SDDM_THEME.md`
@@ -48,14 +49,14 @@ Detail tier map:
 - `main.cpp`: app bootstrap and QML engine entry.
 - `Main.qml`: top-level frameless window.
 - `third_party/slm-style/qml/SlmStyle/Theme.qml`: centralized singleton theme (macOS-like glass palette) with light/dark + system-follow mode.
-- `Qml/DesktopScene.qml`: orchestration layer for desktop background, top bar, dock, launchpad, and workspace windows.
+- `Qml/DesktopScene.qml`: orchestration layer for desktop background, crown, appdeck, apphub, and workspace windows.
 - `Qml/components/DesktopBackground.qml`: wallpaper and tint layer.
-- `Qml/components/TopBar.qml`: macOS-like status/menu bar shell.
-- `Qml/components/Dock.qml`: bottom dock container.
-- `Qml/components/DockItem.qml`: reusable dock icon delegate.
-- `Qml/components/Launchpad.qml`: app grid overlay.
+- `Qml/components/Crown.qml`: macOS-like status/menu bar shell.
+- `Qml/components/AppDeck.qml`: bottom appdeck container.
+- `Qml/components/AppDeckItem.qml`: reusable appdeck icon delegate.
+- `Qml/components/AppHub.qml`: app grid overlay.
 - `Qml/components/AppWindow.qml`: draggable desktop window surface.
-- `appexecutiongate.*`: one-gate app execution API for Dock/Shell/Launchpad/FileManager/Terminal.
+- `appexecutiongate.*`: one-gate app execution API for AppDeck/Shell/AppHub/FileManager/Terminal.
 - `appcommandrouter.*`: command action router on top of `AppExecutionGate` for external module integration.
   - includes in-memory recent route history (`recentEvents()`) for runtime debugging.
   - live properties for QML binding: `lastEvent`, `eventCount`, `failureCount`.
@@ -102,7 +103,7 @@ Lihat detail kontrak portal di `docs/PORTAL.md`.
 
 ## Theme usage
 
-- Open runtime theme menu: top bar `Theme` button or Apple-style menu -> `Theme`.
+- Open runtime theme menu: crown `Theme` button or Apple-style menu -> `Theme`.
 - Modes: `Follow System`, `Light`, `Dark`.
 - Programmatic dark/light toggle: `Theme.toggleMode()`.
 - Programmatic explicit mode: `Theme.useLightMode()`, `Theme.useDarkMode()`.
@@ -116,10 +117,10 @@ Lihat detail kontrak portal di `docs/PORTAL.md`.
 - Token bridge project tetap diekspos via `third_party/slm-style/qml/SlmStyle/Theme.qml`.
 - Legacy local style folder `Style/` sudah dipindahkan dari repo utama.
 
-## Tothespot Scope Naming (Canonical)
+## Pulse Scope Naming (Canonical)
 
-- Canonical search scope name is `tothespot`.
-- Use `scope=tothespot` for SearchAction context and global-search queries.
+- Canonical search scope name is `pulse`.
+- Use `scope=pulse` for SearchAction context and global-search queries.
 - Legacy non-canonical scope names are not accepted by parser/runtime.
 
 ## Build

@@ -31,7 +31,12 @@ private slots:
         lastGood.chop(5);
         lastGood += QStringLiteral(".last-good.json");
         QFile::remove(lastGood);
+        // SLM_SETTINGSD_STORE_PATH also controls the derived SQLite DB path.
         qputenv("SLM_SETTINGSD_STORE_PATH", m_storePath.toUtf8());
+        QString dbPath = m_storePath;
+        dbPath.chop(5);
+        dbPath += QStringLiteral(".db");
+        QFile::remove(dbPath);
     }
 
     void cleanup()
@@ -43,6 +48,11 @@ private slots:
             lastGood += QStringLiteral(".last-good.json");
             QFile::remove(lastGood);
         }
+        QString dbPath = m_storePath;
+        if (dbPath.endsWith(QStringLiteral(".json")))
+            dbPath.chop(5);
+        dbPath += QStringLiteral(".db");
+        QFile::remove(dbPath);
     }
 
     void ping_shape_contract()

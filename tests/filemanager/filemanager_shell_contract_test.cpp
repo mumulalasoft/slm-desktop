@@ -139,6 +139,7 @@ private slots:
         const auto result = m_api->statPath(QStringLiteral("/tmp"));
         QVERIFY2(result.value(QStringLiteral("ok")).toBool(),
             "statPath /tmp harus berhasil");
+        QVERIFY(result.value(QStringLiteral("exists")).toBool());
         QVERIFY(result.value(QStringLiteral("isDir")).toBool());
     }
 

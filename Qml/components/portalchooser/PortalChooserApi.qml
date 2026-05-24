@@ -79,8 +79,8 @@ QtObject {
         PortalChooserController.rebuildPlacesModel(shellRoot, placesModel)
     }
 
-    function portalChooserRefreshStoragePlaces() {
-        PortalChooserController.refreshStoragePlaces(shellRoot, placesModel)
+    function portalChooserRefreshStoragePlaces(requestAsync) {
+        PortalChooserController.refreshStoragePlaces(shellRoot, placesModel, requestAsync)
     }
 
     function portalChooserBreadcrumbSegments() {

@@ -31,6 +31,7 @@ struct DaemonHealthMonitor::Peer
     QString service;
     QString path;
     QString iface;
+    bool critical = true;
     int failures = 0;
     QTimer *timer = nullptr;
     qint64 lastCheckMs = 0;
@@ -51,12 +52,14 @@ DaemonHealthMonitor::DaemonHealthMonitor(QObject *parent)
         QStringLiteral("org.slm.Desktop.FileOperations"),
         QStringLiteral("/org/slm/Desktop/FileOperations"),
         QStringLiteral("org.slm.Desktop.FileOperations"),
+        true,
     };
     m_devices = new Peer{
         QStringLiteral("devices"),
         QStringLiteral("org.slm.Desktop.Devices"),
         QStringLiteral("/org/slm/Desktop/Devices"),
         QStringLiteral("org.slm.Desktop.Devices"),
+        false,
     };
 
     m_timelineLimit = qMax(32, qEnvironmentVariableIntValue("SLM_DAEMON_HEALTH_TIMELINE_LIMIT"));
@@ -112,6 +115,9 @@ void DaemonHealthMonitor::schedule(Peer &peer, int delayMs)
 void DaemonHealthMonitor::checkPeer(Peer &peer)
 {
     peer.lastCheckMs = QDateTime::currentMSecsSinceEpoch();
+    const auto severityFor = [&peer](const QString &criticalSeverity) {
+        return peer.critical ? criticalSeverity : QStringLiteral("warning");
+    };
     if (!m_bus || !m_bus->isConnected() || !m_bus->interface()) {
         peer.failures += 1;
         peer.registered = false;
@@ -120,7 +126,7 @@ void DaemonHealthMonitor::checkPeer(Peer &peer)
             appendTimelineEvent(peer.key,
                                 &peer,
                                 peer.lastError,
-                                QStringLiteral("critical"),
+                                severityFor(QStringLiteral("critical")),
                                 QStringLiteral("Session bus unavailable while checking peer."),
                                 {{QStringLiteral("service"), peer.service}});
             peer.lastTimelineCode = peer.lastError;
@@ -138,12 +144,14 @@ void DaemonHealthMonitor::checkPeer(Peer &peer)
             appendTimelineEvent(peer.key,
                                 &peer,
                                 peer.lastError,
-                                QStringLiteral("error"),
+                                severityFor(QStringLiteral("error")),
                                 QStringLiteral("Service is not registered on session bus."),
                                 {{QStringLiteral("service"), peer.service}});
             peer.lastTimelineCode = peer.lastError;
         }
-        qWarning().noquote() << "[desktopd][watchdog] missing service=" << peer.service
+        qWarning().noquote() << "[desktopd][watchdog] missing"
+                             << (peer.critical ? "critical" : "optional")
+                             << "service=" << peer.service
                              << "failures=" << peer.failures;
         schedule(peer, nextDelayMs(peer.failures));
         return;
@@ -160,12 +168,14 @@ void DaemonHealthMonitor::checkPeer(Peer &peer)
             appendTimelineEvent(peer.key,
                                 &peer,
                                 peer.lastError,
-                                QStringLiteral("error"),
+                                severityFor(QStringLiteral("error")),
                                 QStringLiteral("Health ping failed."),
                                 {{QStringLiteral("service"), peer.service}});
             peer.lastTimelineCode = peer.lastError;
         }
-        qWarning().noquote() << "[desktopd][watchdog] ping failed service=" << peer.service
+        qWarning().noquote() << "[desktopd][watchdog] ping failed"
+                             << (peer.critical ? "critical" : "optional")
+                             << "service=" << peer.service
                              << "failures=" << peer.failures;
         schedule(peer, nextDelayMs(peer.failures));
         return;
@@ -219,6 +229,7 @@ QVariantMap DaemonHealthMonitor::snapshot() const
         out.insert(QStringLiteral("service"), peer->service);
         out.insert(QStringLiteral("path"), peer->path);
         out.insert(QStringLiteral("iface"), peer->iface);
+        out.insert(QStringLiteral("critical"), peer->critical);
         out.insert(QStringLiteral("registered"), peer->registered);
         out.insert(QStringLiteral("failures"), peer->failures);
         out.insert(QStringLiteral("lastCheckMs"), peer->lastCheckMs);
@@ -234,20 +245,32 @@ QVariantMap DaemonHealthMonitor::snapshot() const
     out.insert(QStringLiteral("devices"), peerToMap(m_devices));
     out.insert(QStringLiteral("baseDelayMs"), kBaseDelayMs);
     out.insert(QStringLiteral("maxDelayMs"), kMaxDelayMs);
-    const bool degraded = (m_fileOps && m_fileOps->failures > 0)
-                       || (m_devices && m_devices->failures > 0);
+    const auto criticalFailure = [](const Peer *peer) {
+        return peer && peer->critical && peer->failures > 0;
+    };
+    const bool degraded = criticalFailure(m_fileOps) || criticalFailure(m_devices);
     out.insert(QStringLiteral("degraded"), degraded);
+
     QVariantList reasonCodes;
-    if (m_fileOps && !m_fileOps->lastError.isEmpty()) {
-        reasonCodes.push_back(m_fileOps->lastError);
-    }
-    if (m_devices && !m_devices->lastError.isEmpty()) {
-        const QString code = m_devices->lastError;
-        if (!reasonCodes.contains(code)) {
-            reasonCodes.push_back(code);
+    QVariantList criticalReasonCodes;
+    QVariantList optionalReasonCodes;
+    const auto appendUnique = [](QVariantList &list, const QString &code) {
+        if (!code.isEmpty() && !list.contains(code)) {
+            list.push_back(code);
         }
-    }
+    };
+    const auto collectReason = [&](const Peer *peer) {
+        if (!peer || peer->lastError.isEmpty()) {
+            return;
+        }
+        appendUnique(reasonCodes, peer->lastError);
+        appendUnique(peer->critical ? criticalReasonCodes : optionalReasonCodes, peer->lastError);
+    };
+    collectReason(m_fileOps);
+    collectReason(m_devices);
     out.insert(QStringLiteral("reasonCodes"), reasonCodes);
+    out.insert(QStringLiteral("criticalReasonCodes"), criticalReasonCodes);
+    out.insert(QStringLiteral("optionalReasonCodes"), optionalReasonCodes);
     out.insert(QStringLiteral("timeline"), m_timeline);
     out.insert(QStringLiteral("timelineSize"), m_timeline.size());
     out.insert(QStringLiteral("timelineFile"), m_timelineFilePath);

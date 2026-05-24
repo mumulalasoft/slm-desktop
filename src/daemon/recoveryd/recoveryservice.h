@@ -1,8 +1,8 @@
 #pragma once
 
 #include "recoverydbusadaptor.h"
-#include "src/login/libslmlogin/slmconfigmanager.h"
-#include "src/login/libslmlogin/slmsessionstate.h"
+#include "../../login/libslmlogin/slmconfigmanager.h"
+#include "../../login/libslmlogin/slmsessionstate.h"
 
 #include <QDateTime>
 #include <QHash>

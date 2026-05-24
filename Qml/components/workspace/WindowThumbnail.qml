@@ -242,12 +242,12 @@ Item {
                 AppStateClient.activateApp(appId)
         }
         onRevealInDock: function(appId) {
-            if (typeof DockController !== "undefined" && DockController)
-                DockController.revealAppInDock(appId)
+            if (typeof AppDeckController !== "undefined" && AppDeckController)
+                AppDeckController.revealAppInDock(appId)
         }
         onPinToDock: function(appId) {
-            if (typeof DockModel !== "undefined" && DockModel)
-                DockModel.addDesktopEntry(appId)
+            if (typeof AppDeckModel !== "undefined" && AppDeckModel)
+                AppDeckModel.addDesktopEntry(appId)
         }
         onClose: function(windowId) {
             root.closeRequested(windowId)

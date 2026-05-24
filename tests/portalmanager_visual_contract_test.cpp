@@ -13,7 +13,7 @@ private slots:
         PortalManager manager;
         const QVariantMap options{
             {QStringLiteral("title"), QStringLiteral("Pick Accent Color")},
-            {QStringLiteral("source"), QStringLiteral("topbar")},
+            {QStringLiteral("source"), QStringLiteral("crown")},
         };
 
         const QVariantMap out = manager.PickColor(options);

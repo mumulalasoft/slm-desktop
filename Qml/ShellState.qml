@@ -10,10 +10,10 @@ import QtQuick 2.15
 //
 // Hierarchy:
 //   ShellState
-//   ├─ overlayState   — transient overlays (launchpad, overview, toTheSpot, notifications)
+//   ├─ overlayState   — transient overlays (appdeck, overview, toTheSpot, notifications)
 //   ├─ modeState      — persistent shell modes (showDesktop, focusMode)
-//   ├─ dockState      — dock visibility/opacity
-//   ├─ topBarState    — top bar visibility/opacity
+//   ├─ dockState      — appdeck visibility/opacity
+//   ├─ topBarState    — crown visibility/opacity
 //   └─ workspaceState — workspace blur, interaction
 //
 QtObject {
@@ -22,11 +22,12 @@ QtObject {
     // ── Sub-objects ───────────────────────────────────────────────────────────
 
     readonly property QtObject overlayState: QtObject {
-        readonly property bool launchpadVisible:         ShellStateController ? ShellStateController.launchpadVisible : false
+        readonly property bool appdeckVisible:         ShellStateController ? ShellStateController.appdeckVisible : false
         readonly property bool overviewVisible:          ShellStateController ? ShellStateController.workspaceOverviewVisible : false
         readonly property bool toTheSpotVisible:         ShellStateController ? ShellStateController.toTheSpotVisible : false
         readonly property bool notificationsVisible:     ShellStateController ? ShellStateController.notificationsVisible : false
         readonly property bool styleGalleryVisible:      ShellStateController ? ShellStateController.styleGalleryVisible : false
+        readonly property bool topOverlayActive:         ShellStateController ? ShellStateController.topOverlayActive : false
         readonly property bool anyVisible:               ShellStateController ? ShellStateController.anyOverlayVisible : false
     }
 
@@ -53,10 +54,11 @@ QtObject {
     // ── Backward-compatible flat aliases ─────────────────────────────────────
     // Keep existing bindings working; new code should use sub-objects above.
 
-    readonly property bool launchpadVisible:         overlayState.launchpadVisible
+    readonly property bool appdeckVisible:         overlayState.appdeckVisible
     readonly property bool workspaceOverviewVisible: overlayState.overviewVisible
     readonly property bool toTheSpotVisible:         overlayState.toTheSpotVisible
     readonly property bool styleGalleryVisible:      overlayState.styleGalleryVisible
+    readonly property bool topOverlayActive:         overlayState.topOverlayActive
     readonly property bool showDesktop:              modeState.showDesktop
     readonly property bool anyOverlayVisible:        overlayState.anyVisible
 

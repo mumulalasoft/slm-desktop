@@ -1,6 +1,6 @@
 #include "fileoperationsservice.h"
 
-#include "../../../../dbuslogutils.h"
+#include "../../../core/utils/dbuslogutils.h"
 #include "fileoperationsmanager.h"
 
 #include <QDBusConnection>

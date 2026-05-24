@@ -7,6 +7,8 @@
 #include <QVariantMap>
 
 class QDBusInterface;
+class QFileSystemWatcher;
+class QTimer;
 
 class DesktopSettingsClient : public QObject
 {
@@ -33,11 +35,15 @@ class DesktopSettingsClient : public QObject
     Q_PROPERTY(int contextTimeSunriseHour READ contextTimeSunriseHour NOTIFY contextTimeChanged)
     Q_PROPERTY(int contextTimeSunsetHour READ contextTimeSunsetHour NOTIFY contextTimeChanged)
     Q_PROPERTY(bool highContrast READ highContrast NOTIFY highContrastChanged)
+    Q_PROPERTY(bool dockTransparent READ dockTransparent NOTIFY dockTransparentChanged)
     Q_PROPERTY(QString dockMotionPreset READ dockMotionPreset NOTIFY dockMotionPresetChanged)
     Q_PROPERTY(bool dockAutoHideEnabled READ dockAutoHideEnabled NOTIFY dockAutoHideEnabledChanged)
     Q_PROPERTY(bool dockDropPulseEnabled READ dockDropPulseEnabled NOTIFY dockDropPulseEnabledChanged)
     Q_PROPERTY(int dockDragThresholdMouse READ dockDragThresholdMouse NOTIFY dockDragThresholdMouseChanged)
     Q_PROPERTY(int dockDragThresholdTouchpad READ dockDragThresholdTouchpad NOTIFY dockDragThresholdTouchpadChanged)
+    Q_PROPERTY(int dockDesktopExportMinUpwardPx READ dockDesktopExportMinUpwardPx NOTIFY dockDesktopExportMinUpwardPxChanged)
+    Q_PROPERTY(int dockDesktopExportVerticalRatioPercent READ dockDesktopExportVerticalRatioPercent NOTIFY dockDesktopExportVerticalRatioPercentChanged)
+    Q_PROPERTY(int dockDesktopExportMaxHorizontalDriftPx READ dockDesktopExportMaxHorizontalDriftPx NOTIFY dockDesktopExportMaxHorizontalDriftPxChanged)
     Q_PROPERTY(QString dockIconSize READ dockIconSize NOTIFY dockIconSizeChanged)
     Q_PROPERTY(bool dockMagnificationEnabled READ dockMagnificationEnabled NOTIFY dockMagnificationEnabledChanged)
     Q_PROPERTY(bool windowingAnimationEnabled READ windowingAnimationEnabled NOTIFY windowingAnimationEnabledChanged)
@@ -75,11 +81,15 @@ public:
     int contextTimeSunriseHour() const;
     int contextTimeSunsetHour() const;
     bool highContrast() const;
+    bool dockTransparent() const;
     QString dockMotionPreset() const;
     bool dockAutoHideEnabled() const;
     bool dockDropPulseEnabled() const;
     int dockDragThresholdMouse() const;
     int dockDragThresholdTouchpad() const;
+    int dockDesktopExportMinUpwardPx() const;
+    int dockDesktopExportVerticalRatioPercent() const;
+    int dockDesktopExportMaxHorizontalDriftPx() const;
     QString dockIconSize() const;
     bool dockMagnificationEnabled() const;
     bool windowingAnimationEnabled() const;
@@ -115,9 +125,12 @@ public:
     Q_INVOKABLE bool setHighContrast(bool enabled);
     Q_INVOKABLE bool setDockMotionPreset(const QString &preset);
     Q_INVOKABLE bool setDockAutoHideEnabled(bool enabled);
-    Q_INVOKABLE bool setDockDropPulseEnabled(bool enabled);
+    Q_INVOKABLE bool setAppDeckDropPulseEnabled(bool enabled);
     Q_INVOKABLE bool setDockDragThresholdMouse(int value);
     Q_INVOKABLE bool setDockDragThresholdTouchpad(int value);
+    Q_INVOKABLE bool setDockDesktopExportMinUpwardPx(int value);
+    Q_INVOKABLE bool setDockDesktopExportVerticalRatioPercent(int value);
+    Q_INVOKABLE bool setDockDesktopExportMaxHorizontalDriftPx(int value);
     Q_INVOKABLE bool setDockIconSize(const QString &value);
     Q_INVOKABLE bool setDockMagnificationEnabled(bool enabled);
     Q_INVOKABLE bool setWindowingAnimationEnabled(bool enabled);
@@ -159,11 +172,15 @@ signals:
     void contextAutomationChanged();
     void contextTimeChanged();
     void highContrastChanged();
+    void dockTransparentChanged();
     void dockMotionPresetChanged();
     void dockAutoHideEnabledChanged();
     void dockDropPulseEnabledChanged();
     void dockDragThresholdMouseChanged();
     void dockDragThresholdTouchpadChanged();
+    void dockDesktopExportMinUpwardPxChanged();
+    void dockDesktopExportVerticalRatioPercentChanged();
+    void dockDesktopExportMaxHorizontalDriftPxChanged();
     void dockIconSizeChanged();
     void dockMagnificationEnabledChanged();
     void windowingAnimationEnabledChanged();
@@ -187,6 +204,8 @@ private:
     bool ensureIface();
     bool setSetting(const QString &path, const QVariant &value);
     bool setFontByPath(const QString &path, QString &slot, const QString &spec, void (DesktopSettingsClient::*signal)());
+    void applySettingsMap(const QVariantMap &settings);
+    void loadFromLocalStore();
     void loadFromService();
     static QVariant valueByPath(const QVariantMap &root, const QString &path, bool *ok = nullptr);
     static bool setValueByPath(QVariantMap &root, const QString &path, const QVariant &value);
@@ -219,11 +238,15 @@ private:
     int m_contextTimeSunriseHour = 6;
     int m_contextTimeSunsetHour = 18;
     bool m_highContrast = false;
+    bool m_dockTransparent = false;
     QString m_dockMotionPreset = QStringLiteral("subtle");
     bool m_dockAutoHideEnabled = false;
     bool m_dockDropPulseEnabled = true;
     int m_dockDragThresholdMouse = 6;
     int m_dockDragThresholdTouchpad = 3;
+    int m_dockDesktopExportMinUpwardPx = 28;
+    int m_dockDesktopExportVerticalRatioPercent = 135;
+    int m_dockDesktopExportMaxHorizontalDriftPx = 42;
     QString m_dockIconSize = QStringLiteral("medium");
     bool m_dockMagnificationEnabled = true;
     bool m_windowingAnimationEnabled = true;
@@ -237,4 +260,6 @@ private:
     QString m_wallpaperUri;
     QVariantMap m_keyboardShortcuts;
     QVariantMap m_settingsSnapshot;
+    QFileSystemWatcher *m_localStoreWatcher = nullptr;
+    QTimer *m_localStoreReloadTimer = nullptr;
 };

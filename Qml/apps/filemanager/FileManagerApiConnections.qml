@@ -67,28 +67,22 @@ Item {
 
         function onConnectServerFinished(serverUri, ok, mountedPath, error) {
             var uri = String(serverUri || "")
-            if (root.hostRoot.pendingConnectServerUri.length <= 0
-                    || uri !== root.hostRoot.pendingConnectServerUri) {
+            if (!root.connectServerDialogRef || root.connectServerDialogRef.busy !== true) {
                 return
             }
-            root.hostRoot.pendingConnectServerUri = ""
-            root.hostRoot.connectServerBusy = false
+            root.connectServerDialogRef.busy = false
             if (!!ok) {
-                if (root.connectServerDialogRef
-                        && root.connectServerDialogRef.close) {
+                if (root.connectServerDialogRef.close) {
                     root.connectServerDialogRef.close()
                 }
                 if (String(mountedPath || "").length > 0) {
                     root.hostRoot.openPath(String(mountedPath || ""))
                 }
             } else {
-                root.hostRoot.connectServerError = String(
-                            error || "connect-failed")
+                root.connectServerDialogRef.error = String(error || "connect-failed")
                 root.hostRoot.notifyResult("Connect Server", {
                                                "ok": false,
-                                               "error": String(
-                                                            error
-                                                            || "connect-failed")
+                                               "error": String(error || "connect-failed")
                                            })
             }
         }

@@ -40,6 +40,20 @@ else
   fail=$((fail + 1))
 fi
 
+if getent passwd greeter >/dev/null 2>&1; then
+  greeter_shell="$(getent passwd greeter | awk -F: '{print $7}')"
+  if [[ "$greeter_shell" == */nologin || "$greeter_shell" == */false ]]; then
+    echo "[FAIL] greeter user has non-login shell: $greeter_shell"
+    echo "[HINT] run: sudo usermod --shell /bin/sh greeter && sudo passwd -l greeter"
+    fail=$((fail + 1))
+  else
+    echo "[OK] greeter user shell is PAM-compatible: $greeter_shell"
+  fi
+else
+  echo "[FAIL] missing greeter user"
+  fail=$((fail + 1))
+fi
+
 if [[ -L /etc/systemd/system/display-manager.service ]]; then
   target="$(readlink -f /etc/systemd/system/display-manager.service || true)"
   if [[ "$target" == *"/greetd.service" ]]; then
@@ -51,6 +65,39 @@ if [[ -L /etc/systemd/system/display-manager.service ]]; then
 else
   echo "[WARN] /etc/systemd/system/display-manager.service is not a symlink"
   warn=$((warn + 1))
+fi
+
+if [[ -f /etc/greetd/config.toml ]]; then
+  if grep -q '^\[default_session\]' /etc/greetd/config.toml; then
+    echo "[OK] greetd config has default_session"
+  else
+    echo "[FAIL] greetd config missing [default_session]"
+    fail=$((fail + 1))
+  fi
+
+  if grep -q 'vt = 7' /etc/greetd/config.toml; then
+    echo "[OK] greetd configured to use VT7 (safe separation)"
+  else
+    echo "[WARN] greetd is not using VT7; may conflict with user session"
+    warn=$((warn + 1))
+  fi
+
+  if grep -Eq '^command = ".*slm-greeter-cage-launch"' /etc/greetd/config.toml; then
+    echo "[OK] greetd default_session launches cage wrapper for greeter"
+  elif grep -Eq '^command = "env LIBSEAT_BACKEND=logind cage -s -- .*slm-greeter' /etc/greetd/config.toml; then
+    echo "[WARN] greetd default_session launches slm-greeter directly via cage (no handoff protection)"
+    warn=$((warn + 1))
+  else
+    echo "[FAIL] greetd default_session is not wired to slm-greeter via cage"
+    fail=$((fail + 1))
+  fi
+
+  if grep -q '^\[initial_session\]' /etc/greetd/config.toml; then
+    echo "[FAIL] greetd config still contains [initial_session] and may bypass greeter"
+    fail=$((fail + 1))
+  else
+    echo "[OK] greetd config does not bypass greeter with initial_session"
+  fi
 fi
 
 if systemctl list-unit-files >/dev/null 2>&1; then

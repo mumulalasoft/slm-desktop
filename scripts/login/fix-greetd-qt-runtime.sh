@@ -33,6 +33,7 @@ BROKER_LAUNCHER="/usr/local/libexec/slm-session-broker-launch"
 GREETD_CFG="/etc/greetd/config.toml"
 LOG_DIR="/var/lib/greetd/logs"
 GREETER_LOG="${LOG_DIR}/slm-greeter.log"
+GREETER_SHELL="${SLM_GREETER_SHELL:-/bin/sh}"
 
 echo "[fix-greetd-qt-runtime] qt-src=${QT_SRC}"
 echo "[fix-greetd-qt-runtime] qt-dst=${QT_DST}"
@@ -117,27 +118,99 @@ if ! command -v cage >/dev/null 2>&1; then
   fi
 fi
 
-if ! id -u greeter >/dev/null 2>&1; then
-  echo "[fix-greetd-qt-runtime] creating system user: greeter"
-  useradd --system --home /var/lib/greetd --create-home --shell /usr/sbin/nologin greeter
-fi
+ensure_greeter_user() {
+  if ! id -u greeter >/dev/null 2>&1; then
+    echo "[fix-greetd-qt-runtime] creating system user: greeter"
+    useradd --system --home /var/lib/greetd --create-home --shell "${GREETER_SHELL}" greeter
+  else
+    local current_shell
+    current_shell="$(getent passwd greeter | awk -F: '{print $7}')"
+    if [[ "${current_shell}" == */nologin || "${current_shell}" == */false ]]; then
+      echo "[fix-greetd-qt-runtime] updating greeter shell: ${current_shell} -> ${GREETER_SHELL}"
+      usermod --shell "${GREETER_SHELL}" greeter
+    fi
+  fi
+
+  # greetd may reject or fail PAM setup for greeter accounts with nologin shells.
+  # Keep the account password-locked instead of relying on an invalid shell.
+  passwd -l greeter >/dev/null 2>&1 || true
+}
+
+ensure_greeter_user
 touch "${GREETER_LOG}"
 chown -R greeter:greeter "${LOG_DIR}"
 chmod 0750 "${LOG_DIR}"
 chmod 0640 "${GREETER_LOG}"
 
+GREETER_CAGE_LAUNCHER="/usr/local/libexec/slm-greeter-cage-launch"
+CAGE_LOG="${LOG_DIR}/slm-greeter-cage.log"
+
+cat > "${GREETER_CAGE_LAUNCHER}" <<'EOF'
+#!/usr/bin/env bash
+# Long-lived greetd default_session wrapper.
+set -u
+export LIBSEAT_BACKEND=logind
+export WLR_RENDERER=pixman
+_log="/var/lib/greetd/logs/slm-greeter-cage.log"
+_ts() { date --iso-8601=seconds 2>/dev/null || date; }
+_log_msg() { echo "$(_ts) cage-launch [pid=$$]: $*" >>"$_log"; }
+
+_log_msg "===== start pid=$$ GREETD_SOCK=${GREETD_SOCK:-<unset>} XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-<unset>} ====="
+
+# Kill any orphaned cage from a previous greetd run before we start.
+pkill -KILL -x cage 2>/dev/null || true
+sleep 0.2
+
+while true; do
+    _log_msg "starting cage"
+    # Note: we assume the caller has set up the correct launcher path.
+    # In fix-greetd-qt-runtime.sh, we use the standard wrapper which
+    # in turn calls slm-greeter-launch (which has the Qt env vars).
+    cage -s -- "/usr/local/libexec/slm-greeter-launch" >>"$_log" 2>&1
+    _rc=$?
+    _log_msg "cage exited rc=$_rc"
+
+    # Wait for the user session to be fully registered and its compositor to start.
+    # We use a 3-second grace period because QEMU is slow.
+    sleep 3
+    _waited=3
+
+    # Check for active user sessions.
+    while true; do
+        # 1. Check for kwin_wayland process (any user)
+        if pgrep -x kwin_wayland >/dev/null 2>&1; then
+            [ "$_waited" -eq 3 ] && _log_msg "kwin_wayland detected — holding off cage restart"
+        # 2. Check for any active session for user 1000
+        elif loginctl list-sessions --no-pager 2>/dev/null | grep -v -E "SESSION|greeter" | grep -q .; then
+            [ "$_waited" -eq 3 ] && _log_msg "user session detected via loginctl — holding off cage restart"
+        else
+            # No session detected
+            break
+        fi
+        
+        _waited=$(( _waited + 1 ))
+        sleep 1
+    done
+
+    if [ "$_waited" -gt 3 ]; then
+        _log_msg "user session ended after ${_waited}s — restarting cage"
+        sleep 1
+    else
+        _log_msg "no user session detected after grace period — restarting cage immediately"
+        sleep 0.5
+    fi
+done
+EOF
+chmod 0755 "${GREETER_CAGE_LAUNCHER}"
+
 echo "[fix-greetd-qt-runtime] writing ${GREETD_CFG}..."
 mkdir -p /etc/greetd
 cat > "${GREETD_CFG}" <<EOF
 [terminal]
-vt = 1
+vt = 7
 
 [default_session]
-command = "cage -s -- ${GREETER_LAUNCHER}"
-user = "greeter"
-
-[initial_session]
-command = "${BROKER_LAUNCHER} --mode normal"
+command = "${GREETER_CAGE_LAUNCHER}"
 user = "greeter"
 EOF
 

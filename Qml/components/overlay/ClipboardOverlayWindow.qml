@@ -16,8 +16,8 @@ Window {
 
     visible: !!rootWindow && !!rootWindow.visible && animatedVisible
     color: "transparent"
-    flags: Qt.Popup | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
-    transientParent: rootWindow
+    flags: Qt.Popup | Qt.FramelessWindowHint
+    transientParent: null
     title: "Clipboard Overlay"
     width: Math.min(760, Math.max(560, (rootWindow ? rootWindow.width : 0) - 200))
     height: Math.min(560, Math.max(360, (rootWindow ? rootWindow.height : 0) - 220))
@@ -25,11 +25,6 @@ Window {
     y: (rootWindow ? rootWindow.y : 0)
        + Math.max(panelHeight + 12, Math.round((rootWindow ? rootWindow.height : height) * 0.1))
 
-    onVisibleChanged: {
-        if (visible && overlayVisible) {
-            requestActivate()
-        }
-    }
     onActiveChanged: {
         if (!active && overlayVisible) {
             closeRequested()

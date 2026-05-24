@@ -2,11 +2,14 @@
 #include "portalmethodnames.h"
 #include "portalresponsebuilder.h"
 #include "portalvalidation.h"
+#include "portalsettingstypes.h"
 
 #include <QDBusConnection>
 #include <QDBusArgument>
 #include <QDBusInterface>
 #include <QDBusReply>
+#include <QDBusVariant>
+#include <QDateTime>
 #include <QDir>
 #include <QFileInfo>
 #include <QMetaType>
@@ -23,6 +26,10 @@ constexpr const char kUiService[] = "org.slm.Desktop.PortalUI";
 constexpr const char kUiPath[] = "/org/slm/Desktop/PortalUI";
 constexpr const char kUiIface[] = "org.slm.Desktop.PortalUI";
 constexpr int kUiTimeoutMs = 190000;
+
+constexpr const char kSettingsService[] = "org.slm.Desktop.Settings";
+constexpr const char kSettingsPath[] = "/org/slm/Desktop/Settings";
+constexpr const char kSettingsIface[] = "org.slm.Desktop.Settings";
 
 QSet<QString> defaultAllowedOpenUriSchemes()
 {
@@ -226,8 +233,23 @@ PortalManager::PortalManager(QObject *parent)
 
 QVariantMap PortalManager::Screenshot(const QVariantMap &options) const
 {
+    const QString fileName = QStringLiteral("slm-screenshot-%1.png")
+        .arg(QDateTime::currentMSecsSinceEpoch());
+    const QString path = QDir(QDir::tempPath()).filePath(fileName);
+
+    // grim is the Wayland native screen capture tool
+    int exitCode = QProcess::execute(QStringLiteral("grim"), {path});
+    if (exitCode == 0 && QFileInfo::exists(path)) {
+        return {
+            {QStringLiteral("ok"), true},
+            {QStringLiteral("method"), QString::fromLatin1(SlmPortalMethod::kScreenshot)},
+            {QStringLiteral("uri"), QUrl::fromLocalFile(path).toString()},
+        };
+    }
+
     return makeNotImplemented(QString::fromLatin1(SlmPortalMethod::kScreenshot),
-                              {{QStringLiteral("options"), options}});
+                              {{QStringLiteral("options"), options},
+                               {QStringLiteral("reason"), QStringLiteral("capture-backend-unavailable")}});
 }
 
 QVariantMap PortalManager::ScreenCast(const QVariantMap &options) const
@@ -325,8 +347,48 @@ QVariantMap PortalManager::OpenURI(const QString &uri, const QVariantMap &option
 
 QVariantMap PortalManager::PickColor(const QVariantMap &options) const
 {
-    return makeNotImplemented(QString::fromLatin1(SlmPortalMethod::kPickColor),
-                              {{QStringLiteral("options"), options}});
+    // hyprpicker outputs a hex color like "#RRGGBB" on stdout
+    QProcess proc;
+    proc.start(QStringLiteral("hyprpicker"), {QStringLiteral("-f"), QStringLiteral("hex")});
+    if (!proc.waitForStarted(3000)) {
+        return makeNotImplemented(QString::fromLatin1(SlmPortalMethod::kPickColor),
+                                  {{QStringLiteral("options"), options},
+                                   {QStringLiteral("reason"), QStringLiteral("color-picker-unavailable")}});
+    }
+    if (!proc.waitForFinished(60000)) {
+        proc.kill();
+        return makeNotImplemented(QString::fromLatin1(SlmPortalMethod::kPickColor),
+                                  {{QStringLiteral("options"), options},
+                                   {QStringLiteral("reason"), QStringLiteral("color-picker-timeout")}});
+    }
+    if (proc.exitCode() != 0) {
+        return makeNotImplemented(QString::fromLatin1(SlmPortalMethod::kPickColor),
+                                  {{QStringLiteral("options"), options},
+                                   {QStringLiteral("reason"), QStringLiteral("color-picker-cancelled")}});
+    }
+
+    QString hex = QString::fromUtf8(proc.readAllStandardOutput()).trimmed();
+    if (hex.startsWith(QLatin1Char('#')))
+        hex = hex.mid(1);
+
+    bool ok = false;
+    const uint rgb = hex.toUInt(&ok, 16);
+    if (!ok || hex.length() != 6) {
+        return makeNotImplemented(QString::fromLatin1(SlmPortalMethod::kPickColor),
+                                  {{QStringLiteral("options"), options},
+                                   {QStringLiteral("reason"), QStringLiteral("color-picker-bad-output")}});
+    }
+
+    const double r = ((rgb >> 16) & 0xFFu) / 255.0;
+    const double g = ((rgb >>  8) & 0xFFu) / 255.0;
+    const double b =  (rgb        & 0xFFu) / 255.0;
+
+    PortalColorValue color{r, g, b};
+    return {
+        {QStringLiteral("ok"), true},
+        {QStringLiteral("method"), QString::fromLatin1(SlmPortalMethod::kPickColor)},
+        {QStringLiteral("color"), QVariant::fromValue(color)},
+    };
 }
 
 QVariantMap PortalManager::PickFolder(const QVariantMap &options) const
@@ -352,8 +414,50 @@ QVariantMap PortalManager::PickFolder(const QVariantMap &options) const
 
 QVariantMap PortalManager::Wallpaper(const QVariantMap &options) const
 {
-    return makeNotImplemented(QString::fromLatin1(SlmPortalMethod::kWallpaper),
-                              {{QStringLiteral("options"), options}});
+    const QString raw = options.value(QStringLiteral("uri")).toString().trimmed();
+    if (raw.isEmpty()) {
+        return SlmPortalResponseBuilder::invalidArgument(
+            QString::fromLatin1(SlmPortalMethod::kWallpaper),
+            {{QStringLiteral("reason"), QStringLiteral("empty-uri")}});
+    }
+
+    const QUrl url = QUrl::fromUserInput(raw);
+    if (!url.isValid()) {
+        return SlmPortalResponseBuilder::invalidArgument(
+            QString::fromLatin1(SlmPortalMethod::kWallpaper),
+            {{QStringLiteral("uri"), raw},
+             {QStringLiteral("reason"), QStringLiteral("invalid-uri")}});
+    }
+    const QString finalUri = url.toString(QUrl::FullyEncoded);
+
+    QDBusInterface iface(QString::fromLatin1(kSettingsService),
+                         QString::fromLatin1(kSettingsPath),
+                         QString::fromLatin1(kSettingsIface),
+                         QDBusConnection::sessionBus());
+    if (!iface.isValid()) {
+        return SlmPortalResponseBuilder::serviceUnavailable(
+            QString::fromLatin1(SlmPortalMethod::kWallpaper));
+    }
+
+    QDBusReply<QVariantMap> reply = iface.call(
+        QStringLiteral("SetSetting"),
+        QStringLiteral("wallpaper.uri"),
+        QVariant::fromValue(QDBusVariant(finalUri)));
+    if (!reply.isValid()) {
+        return SlmPortalResponseBuilder::withError(
+            QString::fromLatin1(SlmPortalMethod::kWallpaper),
+            QStringLiteral("settings-call-failed"),
+            {{QStringLiteral("uri"), finalUri}});
+    }
+
+    const QVariantMap result = reply.value();
+    const bool ok = !result.contains(QStringLiteral("error"))
+                    && result.value(QStringLiteral("ok"), true).toBool();
+    return {
+        {QStringLiteral("ok"), ok},
+        {QStringLiteral("method"), QString::fromLatin1(SlmPortalMethod::kWallpaper)},
+        {QStringLiteral("uri"), finalUri},
+    };
 }
 
 QVariantMap PortalManager::makeNotImplemented(const QString &method, const QVariantMap &extra)

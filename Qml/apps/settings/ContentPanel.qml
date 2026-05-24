@@ -2,6 +2,7 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import Slm_Desktop
+import SlmStyle as DSStyle
 
 // ContentPanel — module detail page.
 // Loads the active module's QML via a Loader. The title bar / back button
@@ -9,7 +10,7 @@ import Slm_Desktop
 
 Rectangle {
     id: root
-    color: Theme.color("windowBg")
+    color: "transparent"
 
     function applySettingFocus(settingId) {
         const sid = String(settingId || "")
@@ -36,6 +37,14 @@ Rectangle {
         onLoaded: {
             if (SettingsApp) root.applySettingFocus(SettingsApp.currentSettingId)
         }
+        onStatusChanged: {
+            if (status === Loader.Error) {
+                console.warn("[settings] failed to load module page:",
+                             SettingsApp ? SettingsApp.currentModuleId : "",
+                             source,
+                             modulePageLoader.item ? "" : "item-null")
+            }
+        }
     }
 
     Connections {
@@ -47,9 +56,31 @@ Rectangle {
     }
 
     // Loading indicator while async Loader is working
-    BusyIndicator {
+    DSStyle.BusyIndicator {
         anchors.centerIn: parent
         running: modulePageLoader.status === Loader.Loading
         visible: running
+    }
+
+    Column {
+        anchors.centerIn: parent
+        spacing: Theme.metric("spacingSm")
+        visible: modulePageLoader.status === Loader.Error
+
+        Text {
+            text: qsTr("Failed to load settings page")
+            color: Theme.color("textPrimary")
+            font.pixelSize: Theme.fontSize("body")
+            font.weight: Theme.fontWeight("semibold")
+        }
+
+        Text {
+            text: modulePageLoader.source
+            color: Theme.color("textMuted")
+            font.pixelSize: Theme.fontSize("caption")
+            width: Math.min(root.width * 0.8, 720)
+            wrapMode: Text.WrapAnywhere
+            horizontalAlignment: Text.AlignHCenter
+        }
     }
 }

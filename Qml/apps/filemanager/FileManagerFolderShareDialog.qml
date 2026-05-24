@@ -26,6 +26,8 @@ AppDialog {
     property string technicalDetailsText: ""
     property bool installInProgress: false
     property string installStatusText: ""
+    readonly property int iconRevision: ((typeof ThemeIconController !== "undefined" && ThemeIconController)
+                                         ? ThemeIconController.revision : 0)
 
     function openForPath(pathValue) {
         targetPath = String(pathValue || "")
@@ -76,7 +78,13 @@ AppDialog {
             return "Layanan berbagi sedang tidak merespons. Coba lagi beberapa saat."
         }
         if (code === "daemon-unavailable") {
-            return "Layanan berbagi desktop belum berjalan. Coba restart sesi desktop."
+            return "Layanan slm-sharingd belum berjalan. Jalankan layanan berbagi lalu coba lagi."
+        }
+        if (code === "daemon-timeout") {
+            return "Layanan slm-sharingd tidak merespons. Coba lagi beberapa saat."
+        }
+        if (code === "daemon-dbus-error") {
+            return "Tidak dapat menghubungi slm-sharingd melalui DBus."
         }
         if (backendMsg.length > 0) {
             return backendMsg
@@ -161,8 +169,14 @@ AppDialog {
         }
         if (c === "daemon-unavailable") {
             return [
-                        "Pastikan service desktop daemon berjalan.",
+                        "Pastikan service slm-sharingd berjalan.",
                         "Restart sesi desktop jika perlu, lalu klik \"Periksa lagi\"."
+                    ]
+        }
+        if (c === "daemon-timeout" || c === "daemon-dbus-error") {
+            return [
+                        "Pastikan service slm-sharingd sehat dan terdaftar di DBus session.",
+                        "Klik \"Periksa lagi\" setelah layanan siap."
                     ]
         }
         return [
@@ -192,20 +206,71 @@ AppDialog {
                 title: title,
                 description: String(issue.message || ""),
                 guidance: guidance,
-                packageName: String(issue.packageName || (installable ? "samba" : ""))
+                packageName: String(issue.packageName || (installable ? "samba" : "")),
+                actionLabel: String(issue.actionLabel || (installable ? "Install Samba" : ""))
             })
         }
         return mapped
     }
 
-    title: "Bagikan folder di jaringan"
+    function iconSource(name) {
+        return "image://themeicon/" + String(name || "folder-symbolic") + "?v=" + root.iconRevision
+    }
+
+    function accessTitle() {
+        if (accessMode === "anyone") {
+            return "Anyone on this network"
+        }
+        if (accessMode === "users") {
+            return "Specific users"
+        }
+        return "Only me"
+    }
+
+    function permissionTitle() {
+        return permissionMode === "write" ? "Can make changes" : "Read only"
+    }
+
+    function panelColor() {
+        return Theme.darkMode ? Qt.rgba(0.16, 0.16, 0.18, 1.0) : Qt.rgba(0.965, 0.97, 0.98, 1.0)
+    }
+
+    function panelBorderColor() {
+        return Theme.darkMode ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(0, 0, 0, 0.10)
+    }
+
+    function rowColor(selected, hovered) {
+        if (selected) {
+            return Theme.darkMode ? Qt.rgba(0.20, 0.29, 0.36, 1.0) : Qt.rgba(0.89, 0.94, 0.98, 1.0)
+        }
+        if (hovered) {
+            return Theme.darkMode ? Qt.rgba(0.20, 0.20, 0.22, 1.0) : Qt.rgba(1, 1, 1, 1.0)
+        }
+        return Theme.darkMode ? Qt.rgba(0.13, 0.13, 0.15, 1.0) : Qt.rgba(0.985, 0.987, 0.992, 1.0)
+    }
+
+    title: "Share Folder"
     standardButtons: Dialog.NoButton
-    dialogWidth: 560
-    property real maxBodyHeight: Math.max(260, Math.min((hostRoot ? hostRoot.height : 720) - 250, 520))
+    dialogWidth: 540
+    property real maxBodyHeight: Math.max(320, Math.min((hostRoot ? hostRoot.height : 720) - 230, 620))
+    property real dialogHeight: Math.min((hostRoot ? hostRoot.height : 720) - 48,
+                                         root.maxBodyHeight + 132)
     x: Math.round((hostRoot.width - width) * 0.5)
     y: Math.round((hostRoot.height - height) * 0.5)
-    bodyPadding: 14
-    footerPadding: 12
+    height: root.dialogHeight
+    bodyPadding: 18
+    footerPadding: 14
+    showFooterDivider: true
+
+    background: DSStyle.PopupSurface {
+        implicitWidth: root.dialogWidth
+        implicitHeight: root.dialogHeight
+        popupRadius: Theme.radiusWindowAlt
+        popupColor: Theme.color("surface")
+        popupBorderColor: root.panelBorderColor()
+        popupOpacity: 1.0
+        elevation: "high"
+    }
 
     bodyComponent: Component {
         Flickable {
@@ -215,7 +280,7 @@ AppDialog {
             interactive: contentHeight > height
             contentWidth: width
             contentHeight: contentColumn.implicitHeight
-            implicitHeight: Math.min(contentColumn.implicitHeight, root.maxBodyHeight)
+            implicitHeight: root.maxBodyHeight
 
             ScrollBar.vertical: ScrollBar {
                 policy: bodyFlick.contentHeight > bodyFlick.height ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
@@ -224,299 +289,724 @@ AppDialog {
             ColumnLayout {
                 id: contentColumn
                 width: bodyFlick.width
-                spacing: 10
-
-                DSStyle.Label {
-                    Layout.fillWidth: true
-                    text: successState
-                          ? "Folder sekarang dibagikan di jaringan"
-                          : "Perangkat lain di jaringan lokal dapat membuka folder ini."
-                    wrapMode: Text.WordWrap
-                    color: Theme.color("textSecondary")
-                }
+                spacing: 14
 
                 Rectangle {
                     Layout.fillWidth: true
-                    visible: !successState && !envReady
-                    radius: Theme.radiusMd
-                    color: Qt.rgba(1.0, 0.76, 0.0, 0.12)
+                    radius: 10
+                    color: root.panelColor()
                     border.width: Theme.borderWidthThin
-                    border.color: Qt.rgba(1.0, 0.76, 0.0, 0.45)
-                    implicitHeight: warningCol.implicitHeight + 14
-
-                ColumnLayout {
-                    id: warningCol
-                    anchors.fill: parent
-                    anchors.margins: 7
-                    spacing: 6
-
-                    MissingComponentsCard {
-                        Layout.fillWidth: true
-                        issues: root.missingComponentIssues()
-                        summaryText: root.envMessage.length > 0
-                                     ? root.envMessage
-                                     : "Berbagi jaringan belum siap."
-                        showPackageName: true
-                        busy: root.installInProgress
-                        statusText: root.installStatusText
-                        cardColor: Qt.rgba(1, 1, 1, 0.06)
-                        cardBorderColor: Qt.rgba(1, 1, 1, 0.25)
-                        titleColor: Theme.color("textPrimary")
-                        detailColor: Theme.color("textSecondary")
-                        statusColor: Theme.color("textSecondary")
-                        onInstallRequested: function(componentId) {
-                            root.installInProgress = true
-                            root.installStatusText = ""
-                            var installRes = root.hostRoot.installMissingComponent(componentId)
-                            root.installInProgress = false
-                            if (!!installRes && !!installRes.ok) {
-                                root.installStatusText = "Komponen berhasil dipasang. Memeriksa ulang..."
-                                root.refreshEnvironmentStatus()
-                                if (root.envReady) {
-                                    root.errorText = ""
-                                }
-                            } else {
-                                root.installStatusText = root.friendlyError(installRes, "Gagal memasang komponen")
-                                root.errorText = root.installStatusText
-                            }
-                        }
-                    }
+                    border.color: root.panelBorderColor()
+                    implicitHeight: folderHeader.implicitHeight + 26
 
                     RowLayout {
-                        spacing: 8
-                        DSStyle.Button {
-                            text: "Periksa lagi"
-                            onClicked: root.refreshEnvironmentStatus()
+                        id: folderHeader
+                        anchors.fill: parent
+                        anchors.margins: 13
+                        spacing: 13
+
+                        Rectangle {
+                            Layout.preferredWidth: 42
+                            Layout.preferredHeight: 42
+                            radius: 9
+                            color: Theme.darkMode ? Qt.rgba(0.24, 0.28, 0.32, 1.0) : Qt.rgba(0.90, 0.94, 0.98, 1.0)
+                            border.width: Theme.borderWidthThin
+                            border.color: root.panelBorderColor()
+
+                            Image {
+                                anchors.centerIn: parent
+                                width: 26
+                                height: 26
+                                sourceSize.width: 26
+                                sourceSize.height: 26
+                                source: root.iconSource("folder-symbolic")
+                                opacity: Theme.darkMode ? 0.88 : 0.72
+                            }
                         }
-                        DSStyle.Button {
-                            text: "Perbaiki otomatis"
-                            onClicked: {
-                                var res = root.hostRoot.repairFolderSharingEnvironment()
-                                root.envReady = !!res.ready
-                                root.envIssues = res.issues || []
-                                if (!root.envReady) {
-                                    if (root.envIssues.length > 0) {
-                                        root.errorText = String(root.envIssues[0].message || "Berbagi jaringan belum siap.")
-                                    } else {
-                                        root.errorText = root.friendlyError(res, "Berbagi jaringan belum siap.")
-                                    }
-                                    var lines = []
-                                    if (String(res.error || "").length > 0) {
-                                        lines.push("error: " + String(res.error))
-                                    }
-                                    var actions = res.actions || []
-                                    for (var j = 0; j < actions.length; ++j) {
-                                        var action = actions[j] || ({})
-                                        lines.push("action[" + j + "]: "
-                                                   + String(action.id || "unknown")
-                                                   + " ok=" + String(!!action.ok)
-                                                   + " msg=" + String(action.message || ""))
-                                    }
-                                    for (var k = 0; k < root.envIssues.length; ++k) {
-                                        var issue = root.envIssues[k] || ({})
-                                        lines.push("issue[" + k + "]: "
-                                                   + String(issue.code || "unknown")
-                                                   + " - "
-                                                   + String(issue.message || ""))
-                                    }
-                                    root.technicalDetailsText = lines.join("\n")
-                                } else {
-                                    root.errorText = ""
-                                    root.envMessage = ""
-                                    root.technicalDetailsText = ""
-                                    root.showTechnicalDetails = false
-                                }
+
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 3
+
+                            DSStyle.Label {
+                                Layout.fillWidth: true
+                                text: root.targetPath ? hostRoot.basename(root.targetPath) : "Folder"
+                                color: Theme.color("textPrimary")
+                                font.pixelSize: Theme.fontSize("title")
+                                font.weight: Theme.fontWeight("semibold")
+                                lineHeightMode: Text.ProportionalHeight
+                                lineHeight: Theme.lineHeight("tight")
+                                elide: Text.ElideMiddle
+                            }
+
+                            DSStyle.Label {
+                                Layout.fillWidth: true
+                                text: root.targetPath
+                                visible: root.targetPath.length > 0
+                                color: Theme.color("textSecondary")
+                                font.pixelSize: Theme.fontSize("small")
+                                elide: Text.ElideMiddle
+                            }
+                        }
+
+                        Rectangle {
+                            Layout.preferredWidth: Math.max(76, statusLabel.implicitWidth + 20)
+                            Layout.preferredHeight: 26
+                            radius: 13
+                            color: root.successState || root.sharingEnabled
+                                   ? (Theme.darkMode ? Qt.rgba(0.08, 0.35, 0.16, 1.0) : Qt.rgba(0.88, 0.97, 0.90, 1.0))
+                                   : (Theme.darkMode ? Qt.rgba(0.20, 0.20, 0.22, 1.0) : Qt.rgba(0.93, 0.94, 0.96, 1.0))
+                            border.width: Theme.borderWidthThin
+                            border.color: root.successState || root.sharingEnabled
+                                          ? Qt.rgba(0.16, 0.78, 0.25, 0.42)
+                                          : root.panelBorderColor()
+
+                            DSStyle.Label {
+                                id: statusLabel
+                                anchors.centerIn: parent
+                                text: root.successState || root.sharingEnabled ? "Shared" : "Private"
+                                color: root.successState || root.sharingEnabled
+                                       ? Theme.color("success")
+                                       : Theme.color("textSecondary")
+                                font.pixelSize: Theme.fontSize("xs")
+                                font.weight: Theme.fontWeight("semibold")
                             }
                         }
                     }
-
-                    DSStyle.Label {
-                        Layout.fillWidth: true
-                        text: root.showTechnicalDetails ? "Sembunyikan detail teknis" : "Tampilkan detail teknis"
-                        color: Theme.color("accent")
-                        font.pixelSize: Theme.fontSize("small")
-                        visible: root.technicalDetailsText.length > 0
-
-                        MouseArea {
-                            anchors.fill: parent
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: root.showTechnicalDetails = !root.showTechnicalDetails
-                        }
-                    }
-
-                    TextArea {
-                        Layout.fillWidth: true
-                        visible: root.showTechnicalDetails && root.technicalDetailsText.length > 0
-                        readOnly: true
-                        wrapMode: TextEdit.WrapAnywhere
-                        text: root.technicalDetailsText
-                        font.family: "monospace"
-                        font.pixelSize: Theme.fontSize("small")
-                        implicitHeight: 120
-                    }
                 }
-            }
 
                 Rectangle {
                     Layout.fillWidth: true
-                    visible: !successState
-                    radius: Theme.radiusMd
-                    color: Theme.color("fileManagerSearchBg")
+                    visible: !root.successState && !root.envReady
+                    radius: 10
+                    color: Theme.darkMode ? Qt.rgba(0.28, 0.22, 0.08, 1.0) : Qt.rgba(1.0, 0.965, 0.84, 1.0)
                     border.width: Theme.borderWidthThin
-                    border.color: Theme.color("fileManagerControlBorder")
-                    implicitHeight: 44
+                    border.color: Theme.darkMode ? Qt.rgba(1.0, 0.76, 0.0, 0.38) : Qt.rgba(0.72, 0.52, 0.02, 0.26)
+                    implicitHeight: warningCol.implicitHeight + 18
 
-                RowLayout {
-                    anchors.fill: parent
-                    anchors.leftMargin: 10
-                    anchors.rightMargin: 10
+                    ColumnLayout {
+                        id: warningCol
+                        anchors.fill: parent
+                        anchors.margins: 9
+                        spacing: 8
 
-                    DSStyle.Label {
-                        Layout.fillWidth: true
-                        text: "Bagikan folder ini"
-                        color: Theme.color("textPrimary")
-                    }
-                    DSStyle.Switch {
-                        checked: root.sharingEnabled
-                        onToggled: root.sharingEnabled = checked
-                    }
-                }
-            }
-
-                ColumnLayout {
-                    visible: !successState && root.sharingEnabled
-                    spacing: 8
-
-                DSStyle.Label {
-                    text: "Nama folder di jaringan"
-                    color: Theme.color("textPrimary")
-                }
-                DSStyle.TextField {
-                    Layout.fillWidth: true
-                    text: root.shareName
-                    onTextChanged: root.shareName = text
-                    placeholderText: hostRoot.basename(root.targetPath)
-                }
-                DSStyle.Label {
-                    Layout.fillWidth: true
-                    text: "Nama ini akan terlihat dari perangkat lain"
-                    color: Theme.color("textSecondary")
-                    font.pixelSize: Theme.fontSize("small")
-                }
-
-                DSStyle.Label {
-                    text: "Akses"
-                    color: Theme.color("textPrimary")
-                    topPadding: 4
-                }
-                ButtonGroup { id: accessGroup }
-                DSStyle.RadioButton {
-                    text: "Hanya saya"
-                    checked: root.accessMode === "owner"
-                    ButtonGroup.group: accessGroup
-                    onToggled: if (checked) { root.accessMode = "owner" }
-                }
-                DSStyle.RadioButton {
-                    text: "Siapa pun di jaringan ini"
-                    checked: root.accessMode === "anyone"
-                    ButtonGroup.group: accessGroup
-                    onToggled: if (checked) { root.accessMode = "anyone" }
-                }
-                DSStyle.Label {
-                    visible: root.accessMode === "anyone"
-                    Layout.fillWidth: true
-                    text: "Siapa pun di jaringan ini dapat membuka folder ini. Pastikan Anda mempercayai jaringan yang digunakan."
-                    color: Theme.color("warning")
-                    wrapMode: Text.WordWrap
-                    font.pixelSize: Theme.fontSize("small")
-                }
-                DSStyle.RadioButton {
-                    text: "Pengguna tertentu"
-                    checked: root.accessMode === "users"
-                    ButtonGroup.group: accessGroup
-                    onToggled: if (checked) { root.accessMode = "users" }
-                }
-                DSStyle.TextField {
-                    Layout.fillWidth: true
-                    visible: root.accessMode === "users"
-                    placeholderText: "Pisahkan nama pengguna dengan koma"
-                    text: (root.selectedUsers || []).join(", ")
-                    onTextChanged: {
-                        var out = []
-                        var raw = String(text || "").split(",")
-                        for (var i = 0; i < raw.length; ++i) {
-                            var v = String(raw[i] || "").trim()
-                            if (v.length > 0) {
-                                out.push(v)
+                        MissingComponentsCard {
+                            Layout.fillWidth: true
+                            issues: root.missingComponentIssues()
+                            summaryText: root.envMessage.length > 0
+                                         ? root.envMessage
+                                         : "Berbagi jaringan belum siap."
+                            showPackageName: true
+                            busy: root.installInProgress
+                            statusText: root.installStatusText
+                            cardColor: Theme.darkMode ? Qt.rgba(0.20, 0.17, 0.08, 1.0) : Qt.rgba(1, 1, 1, 1.0)
+                            cardBorderColor: Theme.darkMode ? Qt.rgba(1, 1, 1, 0.14) : Qt.rgba(0, 0, 0, 0.08)
+                            titleColor: Theme.color("textPrimary")
+                            detailColor: Theme.color("textSecondary")
+                            statusColor: Theme.color("textSecondary")
+                            onInstallRequested: function(componentId) {
+                                root.installInProgress = true
+                                root.installStatusText = ""
+                                var installRes = root.hostRoot.installMissingComponent(componentId)
+                                root.installInProgress = false
+                                if (!!installRes && !!installRes.ok) {
+                                    root.installStatusText = "Komponen berhasil dipasang. Memeriksa ulang..."
+                                    root.refreshEnvironmentStatus()
+                                    if (root.envReady) {
+                                        root.errorText = ""
+                                    }
+                                } else {
+                                    root.installStatusText = root.friendlyError(installRes, "Gagal memasang komponen")
+                                    root.errorText = root.installStatusText
+                                }
                             }
                         }
-                        root.selectedUsers = out
+
+                        RowLayout {
+                            spacing: 8
+                            DSStyle.Button {
+                                text: "Periksa lagi"
+                                onClicked: root.refreshEnvironmentStatus()
+                            }
+                            DSStyle.Button {
+                                text: "Perbaiki otomatis"
+                                onClicked: {
+                                    var res = root.hostRoot.repairFolderSharingEnvironment()
+                                    root.envReady = !!res.ready
+                                    root.envIssues = res.issues || []
+                                    if (!root.envReady) {
+                                        if (root.envIssues.length > 0) {
+                                            root.errorText = String(root.envIssues[0].message || "Berbagi jaringan belum siap.")
+                                        } else {
+                                            root.errorText = root.friendlyError(res, "Berbagi jaringan belum siap.")
+                                        }
+                                        var lines = []
+                                        if (String(res.error || "").length > 0) {
+                                            lines.push("error: " + String(res.error))
+                                        }
+                                        var actions = res.actions || []
+                                        for (var j = 0; j < actions.length; ++j) {
+                                            var action = actions[j] || ({})
+                                            lines.push("action[" + j + "]: "
+                                                       + String(action.id || "unknown")
+                                                       + " ok=" + String(!!action.ok)
+                                                       + " msg=" + String(action.message || ""))
+                                        }
+                                        for (var k = 0; k < root.envIssues.length; ++k) {
+                                            var issue = root.envIssues[k] || ({})
+                                            lines.push("issue[" + k + "]: "
+                                                       + String(issue.code || "unknown")
+                                                       + " - "
+                                                       + String(issue.message || ""))
+                                        }
+                                        root.technicalDetailsText = lines.join("\n")
+                                    } else {
+                                        root.errorText = ""
+                                        root.envMessage = ""
+                                        root.technicalDetailsText = ""
+                                        root.showTechnicalDetails = false
+                                    }
+                                }
+                            }
+                        }
+
+                        DSStyle.Label {
+                            Layout.fillWidth: true
+                            text: root.showTechnicalDetails ? "Sembunyikan detail teknis" : "Tampilkan detail teknis"
+                            color: Theme.color("accent")
+                            font.pixelSize: Theme.fontSize("small")
+                            visible: root.technicalDetailsText.length > 0
+
+                            MouseArea {
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: root.showTechnicalDetails = !root.showTechnicalDetails
+                            }
+                        }
+
+                        TextArea {
+                            Layout.fillWidth: true
+                            visible: root.showTechnicalDetails && root.technicalDetailsText.length > 0
+                            readOnly: true
+                            wrapMode: TextEdit.WrapAnywhere
+                            text: root.technicalDetailsText
+                            font.family: Theme.fontFamilyMonospace
+                            font.pixelSize: Theme.fontSize("small")
+                            implicitHeight: 120
+                        }
                     }
                 }
 
-                DSStyle.Label {
-                    text: "Izin"
-                    color: Theme.color("textPrimary")
-                    topPadding: 4
-                }
-                ButtonGroup { id: permissionGroup }
-                DSStyle.RadioButton {
-                    text: "Hanya lihat"
-                    checked: root.permissionMode === "read"
-                    ButtonGroup.group: permissionGroup
-                    onToggled: if (checked) { root.permissionMode = "read" }
-                }
-                DSStyle.RadioButton {
-                    text: "Bisa mengubah file"
-                    checked: root.permissionMode === "write"
-                    ButtonGroup.group: permissionGroup
-                    onToggled: if (checked) { root.permissionMode = "write" }
+                Rectangle {
+                    Layout.fillWidth: true
+                    visible: root.successState
+                    radius: 10
+                    color: Theme.darkMode ? Qt.rgba(0.08, 0.22, 0.12, 1.0) : Qt.rgba(0.91, 0.98, 0.93, 1.0)
+                    border.width: Theme.borderWidthThin
+                    border.color: Qt.rgba(0.16, 0.68, 0.25, 0.34)
+                    implicitHeight: successColumn.implicitHeight + 24
+
+                    ColumnLayout {
+                        id: successColumn
+                        anchors.fill: parent
+                        anchors.margins: 12
+                        spacing: 10
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 10
+
+                            Rectangle {
+                                Layout.preferredWidth: 30
+                                Layout.preferredHeight: 30
+                                radius: 15
+                                color: Theme.darkMode ? Qt.rgba(0.14, 0.58, 0.22, 1.0) : Qt.rgba(0.18, 0.70, 0.28, 1.0)
+
+                                DSStyle.Label {
+                                    anchors.centerIn: parent
+                                    text: "On"
+                                    color: Theme.color("accentText")
+                                    font.pixelSize: Theme.fontSize("tiny")
+                                    font.weight: Theme.fontWeight("semibold")
+                                }
+                            }
+
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 2
+
+                                DSStyle.Label {
+                                    Layout.fillWidth: true
+                                    text: "Folder is available on the local network"
+                                    color: Theme.color("textPrimary")
+                                    font.weight: Theme.fontWeight("semibold")
+                                }
+                                DSStyle.Label {
+                                    Layout.fillWidth: true
+                                    text: root.accessTitle() + " - " + root.permissionTitle()
+                                    color: Theme.color("textSecondary")
+                                    font.pixelSize: Theme.fontSize("small")
+                                    elide: Text.ElideRight
+                                }
+                            }
+                        }
+
+                        DSStyle.TextField {
+                            Layout.fillWidth: true
+                            readOnly: true
+                            selectByMouse: true
+                            text: String(root.successAddress || "-")
+                        }
+                    }
                 }
 
-                DSStyle.CheckBox {
-                    checked: root.allowGuest
-                    text: "Izinkan akses tanpa login"
-                    onToggled: root.allowGuest = checked
-                }
-                DSStyle.Label {
+                Rectangle {
                     Layout.fillWidth: true
-                    text: "Cocok untuk jaringan rumah yang dipercaya"
-                    color: Theme.color("textSecondary")
-                    font.pixelSize: Theme.fontSize("small")
-                }
+                    visible: !root.successState
+                    radius: 10
+                    color: root.panelColor()
+                    border.width: Theme.borderWidthThin
+                    border.color: root.panelBorderColor()
+                    implicitHeight: shareSwitchRow.implicitHeight + 24
 
-                DSStyle.Label {
-                    Layout.fillWidth: true
-                    text: "Pengaturan lanjutan"
-                    color: Theme.color("accent")
-                    font.pixelSize: Theme.fontSize("small")
-                    opacity: 0.9
+                    RowLayout {
+                        id: shareSwitchRow
+                        anchors.fill: parent
+                        anchors.margins: 12
+                        spacing: 12
+
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 3
+
+                            DSStyle.Label {
+                                Layout.fillWidth: true
+                                text: "Share this folder"
+                                color: Theme.color("textPrimary")
+                                font.weight: Theme.fontWeight("semibold")
+                            }
+                            DSStyle.Label {
+                                Layout.fillWidth: true
+                                text: root.sharingEnabled
+                                      ? "Devices on the same network can find it using the settings below."
+                                      : "Keep this folder private until sharing is turned on."
+                                color: Theme.color("textSecondary")
+                                font.pixelSize: Theme.fontSize("small")
+                                wrapMode: Text.WordWrap
+                            }
+                        }
+
+                        DSStyle.Switch {
+                            checked: root.sharingEnabled
+                            onToggled: root.sharingEnabled = checked
+                        }
+                    }
                 }
-            }
 
                 ColumnLayout {
-                    visible: successState
-                    spacing: 8
-                    DSStyle.Label {
+                    visible: !root.successState && root.sharingEnabled
+                    Layout.fillWidth: true
+                    spacing: 14
+
+                    Rectangle {
                         Layout.fillWidth: true
-                        text: "Alamat folder: " + String(root.successAddress || "-")
-                        color: Theme.color("textPrimary")
-                        wrapMode: Text.WrapAnywhere
+                        radius: 10
+                        color: root.panelColor()
+                        border.width: Theme.borderWidthThin
+                        border.color: root.panelBorderColor()
+                        implicitHeight: shareNameColumn.implicitHeight + 24
+
+                        ColumnLayout {
+                            id: shareNameColumn
+                            anchors.fill: parent
+                            anchors.margins: 12
+                            spacing: 7
+
+                            DSStyle.Label {
+                                Layout.fillWidth: true
+                                text: "Share name"
+                                color: Theme.color("textPrimary")
+                                font.weight: Theme.fontWeight("semibold")
+                            }
+                            DSStyle.TextField {
+                                Layout.fillWidth: true
+                                text: root.shareName
+                                onTextChanged: root.shareName = text
+                                placeholderText: hostRoot.basename(root.targetPath)
+                            }
+                            DSStyle.Label {
+                                Layout.fillWidth: true
+                                text: "This is the name other devices will see."
+                                color: Theme.color("textSecondary")
+                                font.pixelSize: Theme.fontSize("small")
+                            }
+                        }
                     }
-                    DSStyle.Label {
+
+                    Rectangle {
                         Layout.fillWidth: true
-                        text: "Buka dari Windows Explorer, Finder, atau file manager Linux lain di jaringan yang sama."
-                        color: Theme.color("textSecondary")
-                        wrapMode: Text.WordWrap
+                        radius: 10
+                        color: root.panelColor()
+                        border.width: Theme.borderWidthThin
+                        border.color: root.panelBorderColor()
+                        implicitHeight: accessSection.implicitHeight + 24
+
+                        ColumnLayout {
+                            id: accessSection
+                            anchors.fill: parent
+                            anchors.margins: 12
+                            spacing: 8
+
+                            DSStyle.Label {
+                                Layout.fillWidth: true
+                                text: "Who can access"
+                                color: Theme.color("textPrimary")
+                                font.weight: Theme.fontWeight("semibold")
+                            }
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            radius: 8
+                            color: root.rowColor(root.accessMode === "owner", accessOwnerArea.containsMouse)
+                            border.width: Theme.borderWidthThin
+                            border.color: root.accessMode === "owner" ? Theme.color("accent") : Theme.color("panelBorder")
+                            implicitHeight: accessOwnerRow.implicitHeight + 16
+
+                            RowLayout {
+                                id: accessOwnerRow
+                                anchors.fill: parent
+                                anchors.margins: 9
+                                spacing: 10
+
+                                Rectangle {
+                                    Layout.preferredWidth: 18
+                                    Layout.preferredHeight: 18
+                                    radius: width / 2
+                                    color: root.accessMode === "owner" ? Theme.color("accent") : "transparent"
+                                    border.width: Theme.borderWidthThin
+                                    border.color: root.accessMode === "owner" ? Theme.color("accent") : Theme.color("panelBorderStrong")
+                                }
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 1
+                                    DSStyle.Label {
+                                        Layout.fillWidth: true
+                                        text: "Only me"
+                                        color: Theme.color("textPrimary")
+                                    }
+                                    DSStyle.Label {
+                                        Layout.fillWidth: true
+                                        text: "Sharing stays limited to your account."
+                                        color: Theme.color("textSecondary")
+                                        font.pixelSize: Theme.fontSize("small")
+                                        wrapMode: Text.WordWrap
+                                    }
+                                }
+                            }
+
+                            MouseArea {
+                                id: accessOwnerArea
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: root.accessMode = "owner"
+                            }
+                        }
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            radius: 8
+                            color: root.rowColor(root.accessMode === "anyone", accessAnyoneArea.containsMouse)
+                            border.width: Theme.borderWidthThin
+                            border.color: root.accessMode === "anyone" ? Theme.color("accent") : Theme.color("panelBorder")
+                            implicitHeight: accessAnyoneColumn.implicitHeight + 16
+
+                            ColumnLayout {
+                                id: accessAnyoneColumn
+                                anchors.fill: parent
+                                anchors.margins: 9
+                                spacing: 6
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 10
+                                    Rectangle {
+                                        Layout.preferredWidth: 18
+                                        Layout.preferredHeight: 18
+                                        radius: width / 2
+                                        color: root.accessMode === "anyone" ? Theme.color("accent") : "transparent"
+                                        border.width: Theme.borderWidthThin
+                                        border.color: root.accessMode === "anyone" ? Theme.color("accent") : Theme.color("panelBorderStrong")
+                                    }
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 1
+                                        DSStyle.Label {
+                                            Layout.fillWidth: true
+                                            text: "Anyone on this network"
+                                            color: Theme.color("textPrimary")
+                                        }
+                                        DSStyle.Label {
+                                            Layout.fillWidth: true
+                                            text: "Simple for trusted home or studio networks."
+                                            color: Theme.color("textSecondary")
+                                            font.pixelSize: Theme.fontSize("small")
+                                            wrapMode: Text.WordWrap
+                                        }
+                                    }
+                                }
+
+                                DSStyle.Label {
+                                    Layout.fillWidth: true
+                                    visible: root.accessMode === "anyone"
+                                    Layout.leftMargin: 28
+                                    text: "Use only on networks you trust."
+                                    color: Theme.color("warning")
+                                    font.pixelSize: Theme.fontSize("small")
+                                    wrapMode: Text.WordWrap
+                                }
+                            }
+
+                            MouseArea {
+                                id: accessAnyoneArea
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: root.accessMode = "anyone"
+                            }
+                        }
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            radius: 8
+                            color: root.rowColor(root.accessMode === "users", accessUsersArea.containsMouse)
+                            border.width: Theme.borderWidthThin
+                            border.color: root.accessMode === "users" ? Theme.color("accent") : Theme.color("panelBorder")
+                            implicitHeight: accessUsersColumn.implicitHeight + 16
+
+                            ColumnLayout {
+                                id: accessUsersColumn
+                                anchors.fill: parent
+                                anchors.margins: 9
+                                spacing: 8
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 10
+                                    Rectangle {
+                                        Layout.preferredWidth: 18
+                                        Layout.preferredHeight: 18
+                                        radius: width / 2
+                                        color: root.accessMode === "users" ? Theme.color("accent") : "transparent"
+                                        border.width: Theme.borderWidthThin
+                                        border.color: root.accessMode === "users" ? Theme.color("accent") : Theme.color("panelBorderStrong")
+                                    }
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 1
+                                        DSStyle.Label {
+                                            Layout.fillWidth: true
+                                            text: "Specific users"
+                                            color: Theme.color("textPrimary")
+                                        }
+                                        DSStyle.Label {
+                                            Layout.fillWidth: true
+                                            text: "Limit access to selected user names."
+                                            color: Theme.color("textSecondary")
+                                            font.pixelSize: Theme.fontSize("small")
+                                            wrapMode: Text.WordWrap
+                                        }
+                                    }
+                                }
+
+                                DSStyle.TextField {
+                                    Layout.fillWidth: true
+                                    Layout.leftMargin: 28
+                                    visible: root.accessMode === "users"
+                                    placeholderText: "User names, separated by commas"
+                                    text: (root.selectedUsers || []).join(", ")
+                                    onTextChanged: {
+                                        var out = []
+                                        var raw = String(text || "").split(",")
+                                        for (var i = 0; i < raw.length; ++i) {
+                                            var v = String(raw[i] || "").trim()
+                                            if (v.length > 0) {
+                                                out.push(v)
+                                            }
+                                        }
+                                        root.selectedUsers = out
+                                    }
+                                }
+                            }
+
+                            MouseArea {
+                                id: accessUsersArea
+                                anchors.fill: parent
+                                visible: root.accessMode !== "users"
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: root.accessMode = "users"
+                            }
+                        }
+                    }
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        radius: 10
+                        color: root.panelColor()
+                        border.width: Theme.borderWidthThin
+                        border.color: root.panelBorderColor()
+                        implicitHeight: permissionSection.implicitHeight + 24
+
+                        ColumnLayout {
+                            id: permissionSection
+                            anchors.fill: parent
+                            anchors.margins: 12
+                            spacing: 8
+
+                            DSStyle.Label {
+                                Layout.fillWidth: true
+                                text: "Permission"
+                                color: Theme.color("textPrimary")
+                                font.weight: Theme.fontWeight("semibold")
+                            }
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            radius: 9
+                            color: Theme.darkMode ? Qt.rgba(0.10, 0.10, 0.12, 1.0) : Qt.rgba(0.91, 0.92, 0.94, 1.0)
+                            border.width: Theme.borderWidthThin
+                            border.color: root.panelBorderColor()
+                            implicitHeight: 40
+
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.margins: 4
+                                spacing: 4
+
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    Layout.fillHeight: true
+                                    radius: 7
+                                    color: root.permissionMode === "read"
+                                           ? (Theme.darkMode ? Qt.rgba(0.28, 0.35, 0.42, 1.0) : Qt.rgba(1, 1, 1, 1.0))
+                                           : "transparent"
+                                    border.width: root.permissionMode === "read" ? Theme.borderWidthThin : 0
+                                    border.color: root.panelBorderColor()
+
+                                    DSStyle.Label {
+                                        anchors.centerIn: parent
+                                        text: "Read only"
+                                        color: Theme.color("textPrimary")
+                                        font.pixelSize: Theme.fontSize("small")
+                                        font.weight: Theme.fontWeight("semibold")
+                                    }
+
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: root.permissionMode = "read"
+                                    }
+                                }
+
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    Layout.fillHeight: true
+                                    radius: 7
+                                    color: root.permissionMode === "write"
+                                           ? (Theme.darkMode ? Qt.rgba(0.28, 0.35, 0.42, 1.0) : Qt.rgba(1, 1, 1, 1.0))
+                                           : "transparent"
+                                    border.width: root.permissionMode === "write" ? Theme.borderWidthThin : 0
+                                    border.color: root.panelBorderColor()
+
+                                    DSStyle.Label {
+                                        anchors.centerIn: parent
+                                        text: "Can make changes"
+                                        color: Theme.color("textPrimary")
+                                        font.pixelSize: Theme.fontSize("small")
+                                        font.weight: Theme.fontWeight("semibold")
+                                    }
+
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: root.permissionMode = "write"
+                                    }
+                                }
+                            }
+                        }
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            radius: 8
+                            color: root.rowColor(root.allowGuest, guestArea.containsMouse)
+                            border.width: Theme.borderWidthThin
+                            border.color: root.allowGuest ? Theme.color("accent") : root.panelBorderColor()
+                            implicitHeight: guestRow.implicitHeight + 16
+
+                            RowLayout {
+                                id: guestRow
+                                anchors.fill: parent
+                                anchors.margins: 9
+                                spacing: 10
+
+                                DSStyle.CheckBox {
+                                    checked: root.allowGuest
+                                    onToggled: root.allowGuest = checked
+                                }
+
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 2
+                                    DSStyle.Label {
+                                        Layout.fillWidth: true
+                                        text: "Allow guest access"
+                                        color: Theme.color("textPrimary")
+                                    }
+                                    DSStyle.Label {
+                                        Layout.fillWidth: true
+                                        text: "Guests can connect without a user account."
+                                        color: Theme.color("textSecondary")
+                                        font.pixelSize: Theme.fontSize("small")
+                                        wrapMode: Text.WordWrap
+                                    }
+                                }
+                            }
+
+                            MouseArea {
+                                id: guestArea
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: root.allowGuest = !root.allowGuest
+                            }
+                        }
+                    }
                     }
                 }
 
-                DSStyle.Label {
+                Rectangle {
                     Layout.fillWidth: true
                     visible: String(root.errorText || "").length > 0
-                    text: root.errorText
-                    color: Theme.color("error")
-                    wrapMode: Text.WordWrap
+                    radius: 10
+                    color: Theme.darkMode ? Qt.rgba(0.30, 0.10, 0.10, 1.0) : Qt.rgba(1.0, 0.92, 0.92, 1.0)
+                    border.width: Theme.borderWidthThin
+                    border.color: Qt.rgba(0.82, 0.29, 0.29, 0.34)
+                    implicitHeight: errorLabel.implicitHeight + 18
+
+                    DSStyle.Label {
+                        id: errorLabel
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.leftMargin: 10
+                        anchors.rightMargin: 10
+                        text: root.errorText
+                        color: Theme.color("error")
+                        wrapMode: Text.WordWrap
+                        font.pixelSize: Theme.fontSize("small")
+                    }
                 }
             }
         }
@@ -529,22 +1019,12 @@ AppDialog {
 
             DSStyle.Button {
                 visible: !successState
-                text: "Batal"
+                text: "Cancel"
                 onClicked: root.close()
             }
             DSStyle.Button {
                 visible: successState
-                text: "Tutup"
-                onClicked: root.close()
-            }
-            DSStyle.Button {
-                visible: successState
-                text: "Salin alamat"
-                onClicked: root.hostRoot.copyFolderShareAddress(root.targetPath)
-            }
-            DSStyle.Button {
-                visible: successState
-                text: "Hentikan berbagi"
+                text: "Stop Sharing"
                 onClicked: {
                     var res = root.hostRoot.disableFolderShare(root.targetPath)
                     if (!!res && !!res.ok) {
@@ -556,9 +1036,20 @@ AppDialog {
                 }
             }
             DSStyle.Button {
+                visible: successState
+                text: "Done"
+                onClicked: root.close()
+            }
+            DSStyle.Button {
+                visible: successState
+                text: "Copy Address"
+                defaultAction: true
+                onClicked: root.hostRoot.copyFolderShareAddress(root.targetPath)
+            }
+            DSStyle.Button {
                 visible: !successState
-                highlighted: true
-                text: "Selesai"
+                defaultAction: true
+                text: root.sharingEnabled ? "Start Sharing" : "Save"
                 onClicked: {
                     root.errorText = ""
                     if (!!root.sharingEnabled) {
@@ -582,6 +1073,7 @@ AppDialog {
                     if (!!res && !!res.ok) {
                         root.successState = !!root.sharingEnabled
                         root.successAddress = String(res.address || "")
+                        root.applyFromInfo(res)
                         if (!root.successState) {
                             root.close()
                         }

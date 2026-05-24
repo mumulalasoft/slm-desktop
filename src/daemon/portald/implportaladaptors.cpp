@@ -63,6 +63,33 @@ QVariantMap ImplPortalScreenshotAdaptor::Screenshot(const QString &handle,
                                    {QStringLiteral("error"), QStringLiteral("BackendUnavailable")}};
 }
 
+QVariantMap ImplPortalScreenshotAdaptor::PickColor(const QString &handle,
+                                                   const QString &appId,
+                                                   const QString &parentWindow,
+                                                   const QVariantMap &options)
+{
+    return m_service ? m_service->BridgePickColor(handle, appId, parentWindow, options)
+                     : QVariantMap{{QStringLiteral("ok"), false},
+                                   {QStringLiteral("error"), QStringLiteral("BackendUnavailable")}};
+}
+
+ImplPortalWallpaperAdaptor::ImplPortalWallpaperAdaptor(ImplPortalService *service)
+    : QDBusAbstractAdaptor(service)
+    , m_service(service)
+{
+}
+
+QVariantMap ImplPortalWallpaperAdaptor::SetWallpaperURI(const QString &handle,
+                                                        const QString &appId,
+                                                        const QString &parentWindow,
+                                                        const QString &uri,
+                                                        const QVariantMap &options)
+{
+    return m_service ? m_service->BridgeWallpaper(handle, appId, parentWindow, uri, options)
+                     : QVariantMap{{QStringLiteral("ok"), false},
+                                   {QStringLiteral("error"), QStringLiteral("BackendUnavailable")}};
+}
+
 ImplPortalScreenCastAdaptor::ImplPortalScreenCastAdaptor(ImplPortalService *service)
     : QDBusAbstractAdaptor(service)
     , m_service(service)
@@ -283,14 +310,26 @@ ImplPortalSettingsAdaptor::ImplPortalSettingsAdaptor(ImplPortalService *service)
 {
 }
 
-QVariantMap ImplPortalSettingsAdaptor::ReadAll(const QStringList &namespaces)
+PortalSettingsMap ImplPortalSettingsAdaptor::ReadAll(const QStringList &namespaces)
 {
-    return m_service ? m_service->BridgeSettingsReadAll(namespaces) : QVariantMap{};
+    return m_service ? m_service->BridgeSettingsReadAll(namespaces) : PortalSettingsMap{};
 }
 
 QDBusVariant ImplPortalSettingsAdaptor::Read(const QString &settingNamespace, const QString &key)
 {
-    return QDBusVariant(m_service ? m_service->BridgeSettingsRead(settingNamespace, key) : QVariant{});
+    if (!m_service)
+        return QDBusVariant(QString());
+
+    const QVariant value = m_service->BridgeSettingsRead(settingNamespace, key);
+    if (!value.isValid()) {
+        // Qt sets QDBusContext on the parent service, not on adaptors, so error
+        // replies must be routed through the service to reach a live d_ptr.
+        m_service->sendPortalError(QStringLiteral("org.freedesktop.portal.Error.NotFound"),
+                                   QStringLiteral("Setting not found"));
+        return QDBusVariant(QString());
+    }
+
+    return QDBusVariant(value);
 }
 
 ImplPortalNotificationAdaptor::ImplPortalNotificationAdaptor(ImplPortalService *service)
@@ -504,5 +543,42 @@ QVariantMap ImplPortalPrintAdaptor::Print(const QString &handle,
     return m_service
         ? m_service->BridgePrintPrint(handle, appId, parentWindow, title, fd, options)
         : QVariantMap{{QStringLiteral("response"), 2u},
+                      {QStringLiteral("error"), QStringLiteral("BackendUnavailable")}};
+}
+
+// ── Background ─────────────────────────────────────────────────────────────
+
+ImplPortalBackgroundAdaptor::ImplPortalBackgroundAdaptor(ImplPortalService *service)
+    : QDBusAbstractAdaptor(service)
+    , m_service(service)
+{
+    setAutoRelaySignals(false);
+}
+
+QVariantMap ImplPortalBackgroundAdaptor::GetAppState()
+{
+    return m_service ? m_service->BridgeBackgroundGetAppState()
+                     : QVariantMap{};
+}
+
+QVariantMap ImplPortalBackgroundAdaptor::NotifyBackground(const QDBusObjectPath &handle,
+                                                          const QString &appId,
+                                                          const QString &name)
+{
+    return m_service
+        ? m_service->BridgeBackgroundNotify(handle, appId, name)
+        : QVariantMap{{QStringLiteral("ok"), false},
+                      {QStringLiteral("response"), 1u},
+                      {QStringLiteral("error"), QStringLiteral("BackendUnavailable")}};
+}
+
+QVariantMap ImplPortalBackgroundAdaptor::EnableAutostart(const QString &appId,
+                                                         bool enable,
+                                                         const QStringList &commandline,
+                                                         uint flags)
+{
+    return m_service
+        ? m_service->BridgeBackgroundEnableAutostart(appId, enable, commandline, flags)
+        : QVariantMap{{QStringLiteral("ok"), false},
                       {QStringLiteral("error"), QStringLiteral("BackendUnavailable")}};
 }

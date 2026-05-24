@@ -44,17 +44,17 @@ Rectangle {
 
     RowLayout {
         anchors.fill: parent
-        anchors.leftMargin: 8
-        anchors.rightMargin: 12
-        spacing: 8
+        anchors.leftMargin: Theme.metric("spacingSm")
+        anchors.rightMargin: Theme.metric("spacingMd")
+        spacing: Theme.metric("spacingSm")
 
         Rectangle {
             Layout.preferredWidth: 76
             Layout.preferredHeight: Theme.fileManagerControlHeight
             radius: Theme.radiusWindowAlt
-            color: Theme.color("fileManagerControlBg")
-            border.width: Theme.borderWidthNone
-            border.color: Theme.color("fileManagerControlBorder")
+            color: Theme.darkMode ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(1, 1, 1, 0.52)
+            border.width: Theme.borderWidthThin
+            border.color: Theme.color("panelBorder")
 
             RowLayout {
                 anchors.fill: parent
@@ -66,7 +66,8 @@ Rectangle {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     radius: Theme.radiusCard
-                    color: prevMouse.containsMouse ? Theme.color("fileManagerTabActive") : "transparent"
+                    color: prevMouse.containsMouse ? Theme.color("controlBgHover") : "transparent"
+                    opacity: prevMouse.enabled ? 1.0 : Theme.opacityFaint
                     Image {
                         anchors.centerIn: parent
                         width: 12
@@ -89,7 +90,8 @@ Rectangle {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     radius: Theme.radiusCard
-                    color: nextMouse.containsMouse ? Theme.color("fileManagerTabActive") : "transparent"
+                    color: nextMouse.containsMouse ? Theme.color("controlBgHover") : "transparent"
+                    opacity: nextMouse.enabled ? 1.0 : Theme.opacityFaint
                     Image {
                         anchors.centerIn: parent
                         width: 12
@@ -98,7 +100,6 @@ Rectangle {
                         asynchronous: true
                         cache: true
                         source: "image://themeicon/go-next-symbolic?v=" + root.iconRevision
-                        opacity: nextMouse.enabled ? 1.0 : 0.5
                     }
                     MouseArea {
                         id: nextMouse
@@ -112,8 +113,8 @@ Rectangle {
         }
 
         DSStyle.Label {
-            Layout.preferredWidth: 300
-            Layout.maximumWidth: 460
+            Layout.fillWidth: true
+            Layout.minimumWidth: 80
             text: {
                 var p = "~"
                 var columnsMode = hostRoot.viewMode === "columns"
@@ -139,21 +140,17 @@ Rectangle {
             elide: Text.ElideRight
         }
 
-        Item {
-            Layout.fillWidth: true
-        }
-
         RowLayout {
             visible: !hostRoot.trashView
-            spacing: 8
+            spacing: Theme.metric("spacingSm")
 
             Rectangle {
                 width: 138
                 height: Theme.fileManagerControlHeight
                 radius: Theme.radiusWindowAlt
-                color: Theme.color("fileManagerControlBg")
-                border.width: Theme.borderWidthNone
-                border.color: Theme.color("fileManagerControlBorder")
+                color: Theme.darkMode ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(1, 1, 1, 0.52)
+                border.width: Theme.borderWidthThin
+                border.color: Theme.color("panelBorder")
                 Row {
                     anchors.fill: parent
                     anchors.margins: 3
@@ -176,10 +173,16 @@ Rectangle {
                             width: Math.floor((parent.width - 6) / 3)
                             height: parent.height
                             radius: Theme.radiusLg
-                            color: hostRoot.viewMode === String(
-                                       modelData.mode) ? Theme.color("fileManagerTabActive") : "transparent"
+                            color: {
+                                var isActive = hostRoot.viewMode === String(modelData.mode)
+                                if (isActive) return Theme.color("accentSubtle")
+                                if (segmentHover.hovered) return Theme.color("controlBgHover")
+                                return "transparent"
+                            }
                             border.width: Theme.borderWidthNone
                             border.color: Theme.color("fileManagerControlBorder")
+
+                            HoverHandler { id: segmentHover }
 
                             Image {
                                 anchors.centerIn: parent
@@ -192,6 +195,11 @@ Rectangle {
                                             modelData.iconName
                                             || "view-grid-symbolic")
                                         + "?v=" + root.iconRevision
+                                opacity: hostRoot.viewMode === String(modelData.mode) ? 1.0 : (segmentHover.hovered ? 0.9 : 0.7)
+                                Behavior on opacity {
+                                    enabled: root.microAnimationAllowed()
+                                    NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingDefault }
+                                }
                             }
 
                             MouseArea {
@@ -225,11 +233,18 @@ Rectangle {
                     width: hostRoot.toolbarSearchExpanded ? 220 : 40
                     height: Theme.fileManagerControlHeight
                     radius: Theme.radiusWindowAlt
-                    color: Theme.color("fileManagerControlBg")
-                    border.width: Theme.borderWidthNone
-                    border.color: Theme.color("fileManagerControlBorder")
+                    color: Theme.darkMode ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(1, 1, 1, 0.52)
+                    border.width: Theme.borderWidthThin
+                    border.color: toolbarSearchField.activeFocus ? Theme.color("focusRing") : Theme.color("panelBorder")
                     clip: true
                     z: 8
+                    Behavior on border.color {
+                        enabled: root.microAnimationAllowed()
+                        ColorAnimation {
+                            duration: Theme.durationFast
+                            easing.type: Theme.easingDefault
+                        }
+                    }
                     Behavior on width {
                         enabled: root.microAnimationAllowed()
                         NumberAnimation {
@@ -277,11 +292,43 @@ Rectangle {
                                 }
                             }
                         }
+
+                        Rectangle {
+                            Layout.preferredWidth: 14
+                            Layout.preferredHeight: 14
+                            radius: Theme.radiusMdPlus
+                            visible: hostRoot.toolbarSearchExpanded
+                                     && String(toolbarSearchField.text || "").length > 0
+                            color: searchClearMouse.containsMouse
+                                   ? Theme.color("controlBgHover")
+                                   : (Theme.darkMode ? Qt.rgba(1, 1, 1, 0.15) : Qt.rgba(0, 0, 0, 0.10))
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: "×"
+                                font.family: Theme.fontFamilyUi
+                                font.pixelSize: Theme.fontSize("xs")
+                                font.weight: Theme.fontWeight("medium")
+                                color: Theme.color("textSecondary")
+                            }
+
+                            MouseArea {
+                                id: searchClearMouse
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: {
+                                    toolbarSearchField.text = ""
+                                    toolbarSearchField.forceActiveFocus()
+                                }
+                            }
+                        }
                     }
 
                     MouseArea {
                         anchors.fill: parent
                         hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
                         enabled: !hostRoot.toolbarSearchExpanded
                         onClicked: hostRoot.openToolbarSearch(true)
                     }

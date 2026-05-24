@@ -3,11 +3,15 @@
 #include <QString>
 #include <QVariantList>
 #include "greetdclient.h"
-#include "src/login/libslmlogin/slmsessionstate.h"
+#include "slmpamsession.h"
+#include "../libslmlogin/slmsessionstate.h"
 
 namespace Slm::Login {
 
 // GreeterApp is the C++ bridge exposed to QML as "GreeterApp".
+// Login path selection:
+//   GREETD_SOCK set   → greetd IPC (existing path, cage/greetd manages VTs)
+//   GREETD_SOCK unset → SlmPamSession direct PAM (cage stays alive; VT switch used)
 class GreeterApp : public QObject
 {
     Q_OBJECT
@@ -26,6 +30,9 @@ class GreeterApp : public QObject
     Q_PROPERTY(QString      lastUser         READ lastUser         CONSTANT)
     Q_PROPERTY(QString      backgroundSource READ backgroundSource CONSTANT)
 
+    // True while the user session is running (PAM direct path).
+    Q_PROPERTY(bool         sessionActive    READ sessionActive    NOTIFY sessionActiveChanged)
+
 public:
     explicit GreeterApp(QObject *parent = nullptr);
 
@@ -42,6 +49,7 @@ public:
     QVariantList usersList()        const;
     QString      lastUser()         const;
     QString      backgroundSource() const;
+    bool         sessionActive()    const { return m_sessionActive; }
 
     Q_INVOKABLE void login(const QString &username,
                            const QString &password,
@@ -52,6 +60,7 @@ public:
 
 signals:
     void greetdConnectedChanged();
+    void sessionActiveChanged();
     void authMessageReceived(const QString &type, const QString &message);
     void loginSuccess();
     void loginError(const QString &errorType, const QString &description);
@@ -60,17 +69,21 @@ private slots:
     void onAuthMessage(const QString &type, const QString &message);
     void onSuccess();
     void onError(const QString &errorType, const QString &description);
+    void onPamSessionFinished(int exitCode);
 
 private:
     enum class LoginStep { Idle, WaitingAuthChallenge, WaitingStartSession };
 
     static bool systemctlCan(const QString &verb);
+    void loginViaPam(const QString &username, const QString &password, const QString &mode);
 
-    GreetdClient *m_greetd    = nullptr;
-    SessionState  m_state;
-    QString       m_pendingPassword;
-    QString       m_pendingMode;
-    LoginStep     m_loginStep = LoginStep::Idle;
+    GreetdClient   *m_greetd        = nullptr;
+    SlmPamSession  *m_pamSession    = nullptr;
+    SessionState    m_state;
+    QString         m_pendingPassword;
+    QString         m_pendingMode;
+    LoginStep       m_loginStep     = LoginStep::Idle;
+    bool            m_sessionActive = false;
 };
 
 } // namespace Slm::Login

@@ -39,8 +39,10 @@ public:
     Q_INVOKABLE QString logSummary() const;
     Q_INVOKABLE QVariantMap daemonHealthSnapshot() const;
     Q_INVOKABLE void    exitToDesktop();
+    void markRecoveryUiHealthy();
 
 private:
+    bool clearRecoveryState(const QString &source, bool markHealthy) const;
     bool writeFlagFile(const QString &name, const QByteArray &value = QByteArray("1\n")) const;
     QString     m_recoveryReason;
     QString     m_lastBootStatus;

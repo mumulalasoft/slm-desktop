@@ -2,6 +2,7 @@
 
 #include <QCoreApplication>
 #include <QDateTime>
+#include <QDBusArgument>
 #include <QDBusConnection>
 #include <QDBusInterface>
 #include <QDBusReply>
@@ -16,8 +17,8 @@
 #include <QSet>
 #include <QStandardPaths>
 
-#include "src/login/libslmlogin/slmconfigmanager.h"
-#include "src/login/libslmlogin/slmsessionstate.h"
+#include "../libslmlogin/slmconfigmanager.h"
+#include "../libslmlogin/slmsessionstate.h"
 
 namespace Slm::Login {
 
@@ -60,6 +61,79 @@ QString toDisplayString(const QJsonValue &value)
         return QString::fromUtf8(QJsonDocument(value.toObject()).toJson(QJsonDocument::Compact));
     }
     return QStringLiteral("(unsupported)");
+}
+
+QVariant normalizeDbusValue(const QVariant &value);
+
+QVariantList normalizeDbusList(const QVariantList &values)
+{
+    QVariantList out;
+    out.reserve(values.size());
+    for (const QVariant &value : values) {
+        out.push_back(normalizeDbusValue(value));
+    }
+    return out;
+}
+
+QVariantMap normalizeDbusMap(const QVariantMap &values)
+{
+    QVariantMap out;
+    for (auto it = values.cbegin(); it != values.cend(); ++it) {
+        out.insert(it.key(), normalizeDbusValue(it.value()));
+    }
+    return out;
+}
+
+QVariant normalizeDbusArgument(const QDBusArgument &argument)
+{
+    switch (argument.currentType()) {
+    case QDBusArgument::ArrayType:
+        return normalizeDbusList(qdbus_cast<QVariantList>(argument));
+    case QDBusArgument::MapType:
+        return normalizeDbusMap(qdbus_cast<QVariantMap>(argument));
+    default:
+        return QVariant::fromValue(argument);
+    }
+}
+
+QVariant normalizeDbusValue(const QVariant &value)
+{
+    const int typeId = value.metaType().id();
+    if (typeId == qMetaTypeId<QDBusArgument>()) {
+        return normalizeDbusArgument(value.value<QDBusArgument>());
+    }
+    if (typeId == QMetaType::QVariantMap) {
+        return normalizeDbusMap(value.toMap());
+    }
+    if (typeId == QMetaType::QVariantList) {
+        return normalizeDbusList(value.toList());
+    }
+    return value;
+}
+
+bool clearBootRecoveryGuardState(const QString &source)
+{
+    const QString guardScript = QStringLiteral("/usr/local/lib/slm-recovery/bootcount-guard.sh");
+    if (!QFileInfo::exists(guardScript)) {
+        return false;
+    }
+
+    QProcess proc;
+    proc.start(guardScript, {QStringLiteral("clear-recovery-state")});
+    if (!proc.waitForFinished(3000)) {
+        proc.kill();
+        proc.waitForFinished(200);
+        qWarning("slm-recovery-app: %s boot guard clear timed out", qUtf8Printable(source));
+        return false;
+    }
+    if (proc.exitStatus() != QProcess::NormalExit || proc.exitCode() != 0) {
+        qWarning("slm-recovery-app: %s boot guard clear failed rc=%d stderr=%s",
+                 qUtf8Printable(source),
+                 proc.exitCode(),
+                 proc.readAllStandardError().constData());
+        return false;
+    }
+    return true;
 }
 
 } // namespace
@@ -110,7 +184,18 @@ bool RecoveryApp::resetToSafeDefaults()
         qWarning("slm-recovery-app: resetToSafeDefaults failed: %s", qUtf8Printable(err));
         return false;
     }
-    qInfo("slm-recovery-app: config reset to safe defaults");
+
+    // Reset crash counter — the user explicitly chose a new config baseline,
+    // so the old crash history is no longer relevant.
+    SessionState state;
+    SessionStateIO::load(state, err);
+    state.crashCount     = 0;
+    state.recoveryReason = {};
+    state.lastCrashReason = {};
+    state.safeModeForced = false;
+    SessionStateIO::save(state, err);
+
+    qInfo("slm-recovery-app: config reset to safe defaults, crash counter cleared");
     return true;
 }
 
@@ -406,12 +491,64 @@ QVariantMap RecoveryApp::daemonHealthSnapshot() const
     if (!reply.isValid()) {
         return {};
     }
-    return reply.value();
+    return normalizeDbusMap(reply.value());
+}
+
+bool RecoveryApp::clearRecoveryState(const QString &source, bool markHealthy) const
+{
+    SessionState state;
+    QString err;
+    if (!SessionStateIO::load(state, err)) {
+        qWarning("slm-recovery-app: %s could not load state: %s",
+                 qUtf8Printable(source),
+                 qUtf8Printable(err));
+    }
+
+    const int previousCrashCount = state.crashCount;
+    state.crashCount = 0;
+    state.configPending = false;
+    state.safeModeForced = false;
+    if (markHealthy) {
+        state.lastBootStatus = QStringLiteral("healthy");
+    }
+    state.recoveryReason.clear();
+    state.lastCrashReason.clear();
+    state.lastUpdated = QDateTime::currentDateTimeUtc();
+
+    if (!SessionStateIO::save(state, err)) {
+        qWarning("slm-recovery-app: %s could not save cleared recovery state: %s",
+                 qUtf8Printable(source),
+                 qUtf8Printable(err));
+        return false;
+    }
+
+    const QString markerPath = ConfigManager::configDir()
+        + QStringLiteral("/recovery-partition-request.json");
+    if (QFileInfo::exists(markerPath) && !QFile::remove(markerPath)) {
+        qWarning("slm-recovery-app: %s could not clear recovery marker: %s",
+                 qUtf8Printable(source),
+                 qUtf8Printable(markerPath));
+    }
+
+    qInfo("slm-recovery-app: %s cleared recovery state crash_count=%d->0 status=%s",
+          qUtf8Printable(source),
+          previousCrashCount,
+          markHealthy ? "healthy" : "unchanged");
+    if (markHealthy) {
+        clearBootRecoveryGuardState(source);
+    }
+    return true;
+}
+
+void RecoveryApp::markRecoveryUiHealthy()
+{
+    clearRecoveryState(QStringLiteral("recovery-ui-healthy"), true);
 }
 
 void RecoveryApp::exitToDesktop()
 {
-    qInfo("slm-recovery-app: user requested exit to desktop");
+    qInfo("slm-recovery-app: user requested exit to desktop — clearing crash counter");
+    clearRecoveryState(QStringLiteral("exit-to-desktop"), true);
     QCoreApplication::quit();
 }
 

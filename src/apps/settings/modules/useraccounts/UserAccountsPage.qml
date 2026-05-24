@@ -2,225 +2,358 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import Slm_Desktop
-import "../../../../../Qml/apps/settings/components"
+import "file:/usr/lib/settings/components"
 
 Flickable {
     id: root
     clip: true
-    contentHeight: contentColumn.implicitHeight + 28
+    contentHeight: mainLayout.implicitHeight + 48
 
     property string highlightSettingId: ""
     property var lockAfterSleepBinding: SettingsApp.createBinding("settings:useraccounts/lock-after-sleep", true)
     property var displayNameBinding: SettingsApp.createBinding("settings:useraccounts/display-name", "Current User")
     property var usernameBinding: SettingsApp.createBinding("settings:useraccounts/username", "user")
     property bool autoLoginBusy: false
+    property bool changePwBusy: false
+    property string changePwRequestId: ""
+    property string authErrorText: ""
 
     function initialForName(value) {
         const s = String(value || "").trim()
         return s.length > 0 ? s.charAt(0).toUpperCase() : "U"
     }
 
+    function resolvedDisplayName() {
+        if (UserAccounts && UserAccounts.displayName && UserAccounts.displayName.length > 0)
+            return UserAccounts.displayName
+        return String(displayNameBinding ? displayNameBinding.value : qsTr("Current User"))
+    }
+
+    function resolvedUsername() {
+        if (UserAccounts && UserAccounts.username && UserAccounts.username.length > 0)
+            return UserAccounts.username
+        return String(usernameBinding ? usernameBinding.value : "user")
+    }
+
+    function resolvedAccountType() {
+        if (UserAccounts && UserAccounts.accountType && UserAccounts.accountType.length > 0)
+            return UserAccounts.accountType
+        return qsTr("Standard")
+    }
+
     ColumnLayout {
-        id: contentColumn
+        id: mainLayout
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.margins: 20
-        spacing: 20
+        anchors.top: parent.top
+        anchors.margins: 24
+        anchors.topMargin: 32
+        spacing: 24
 
-        Text {
-            text: qsTr("User Accounts")
-            font.pixelSize: Theme.fontSize("xl")
-            font.weight: Font.Bold
-            color: Theme.color("textPrimary")
-        }
-
-        Rectangle {
+        // ── Hero: Profile ──────────────────────────────────────────────────
+        Item {
             Layout.fillWidth: true
-            implicitHeight: 98
-            radius: 14
-            color: Theme.color("surface")
-            border.width: 1
-            border.color: Theme.color("panelBorder")
+            Layout.preferredHeight: heroColumn.implicitHeight + 56
 
-            RowLayout {
+            Rectangle {
                 anchors.fill: parent
-                anchors.margins: 14
-                spacing: 12
+                radius: Theme.radiusWindow
+                color: Qt.rgba(0.5, 0.5, 0.5, 0.05)
+                border.color: Qt.rgba(0.5, 0.5, 0.5, 0.10)
+                border.width: Theme.borderWidthThin
+            }
 
-                Rectangle {
-                    Layout.preferredWidth: 52
-                    Layout.preferredHeight: 52
-                    radius: 26
-                    color: Theme.color("accent")
+            ColumnLayout {
+                id: heroColumn
+                anchors.centerIn: parent
+                spacing: 10
 
-                    Text {
-                        anchors.centerIn: parent
-                        text: root.initialForName((UserAccounts && UserAccounts.displayName && UserAccounts.displayName.length > 0)
-                                                  ? UserAccounts.displayName
-                                                  : (displayNameBinding ? displayNameBinding.value : ""))
-                        color: Theme.color("accentText")
-                        font.pixelSize: 22
-                        font.weight: Font.DemiBold
-                    }
-                }
+                // Avatar with optional photo and edit chip
+                Item {
+                    Layout.alignment: Qt.AlignHCenter
+                    Layout.preferredWidth: 80
+                    Layout.preferredHeight: 80
 
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: 1
-
-                    Text {
-                        text: (UserAccounts && UserAccounts.displayName && UserAccounts.displayName.length > 0)
-                            ? UserAccounts.displayName
-                            : String(displayNameBinding ? displayNameBinding.value : qsTr("Current User"))
-                        color: Theme.color("textPrimary")
-                        font.pixelSize: Theme.fontSize("lg")
-                        font.weight: Font.DemiBold
-                        elide: Text.ElideRight
-                    }
-                    Text {
-                        text: "@" + ((UserAccounts && UserAccounts.username && UserAccounts.username.length > 0)
-                                     ? UserAccounts.username
-                                     : String(usernameBinding ? usernameBinding.value : "user"))
-                        color: Theme.color("textSecondary")
-                        font.pixelSize: Theme.fontSize("sm")
-                        elide: Text.ElideRight
-                    }
-                    Text {
-                        text: (UserAccounts && UserAccounts.accountType && UserAccounts.accountType.length > 0)
-                            ? UserAccounts.accountType
-                            : qsTr("Standard")
-                        color: Theme.color("textDisabled")
-                        font.pixelSize: Theme.fontSize("xs")
-                    }
-                }
-
-                Rectangle {
-                    visible: UserAccounts && UserAccounts.avatarPath && UserAccounts.avatarPath.length > 0
-                    Layout.preferredWidth: 42
-                    Layout.preferredHeight: 42
-                    radius: 21
-                    color: "transparent"
-                    clip: true
-                    Image {
+                    Rectangle {
                         anchors.fill: parent
-                        source: UserAccounts ? UserAccounts.avatarPath : ""
-                        fillMode: Image.PreserveAspectCrop
-                        smooth: true
+                        radius: width / 2
+                        color: Theme.color("accent")
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: root.initialForName(root.resolvedDisplayName())
+                            color: Theme.color("accentText")
+                            font.pixelSize: Theme.fontSize("display")
+                            font.weight: Theme.fontWeight("semibold")
+                            visible: heroAvatar.status !== Image.Ready
+                        }
+                    }
+
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: width / 2
+                        clip: true
+                        color: "transparent"
+                        visible: (UserAccounts && UserAccounts.avatarPath &&
+                                  UserAccounts.avatarPath.length > 0)
+
+                        Image {
+                            id: heroAvatar
+                            anchors.fill: parent
+                            source: (UserAccounts && UserAccounts.avatarPath) ? UserAccounts.avatarPath : ""
+                            fillMode: Image.PreserveAspectCrop
+                            smooth: true
+                        }
+                    }
+
+                    // Edit chip (bottom-right corner)
+                    Rectangle {
+                        width: 28; height: 28
+                        radius: width / 2
+                        color: Theme.color("surface")
+                        border.color: Theme.color("panelBorder")
+                        border.width: Theme.borderWidthThin
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: "✏"
+                            font.pixelSize: Theme.fontSize("xs")
+                            color: Theme.color("textSecondary")
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: SettingsApp.openModuleSetting("useraccounts", "profile")
+                        }
                     }
                 }
 
-                Button {
-                    text: qsTr("Edit")
-                    onClicked: SettingsApp.openModuleSetting("useraccounts", "profile")
+                // Full name
+                Text {
+                    Layout.alignment: Qt.AlignHCenter
+                    text: root.resolvedDisplayName()
+                    font.pixelSize: Theme.fontSize("title")
+                    font.weight: Theme.fontWeight("bold")
+                    color: Theme.color("textPrimary")
+                    elide: Text.ElideRight
+                    Layout.maximumWidth: mainLayout.width - 96
+                }
+
+                // Username
+                Text {
+                    Layout.alignment: Qt.AlignHCenter
+                    text: "@" + root.resolvedUsername()
+                    font.pixelSize: Theme.fontSize("body")
+                    color: Theme.color("textSecondary")
+                }
+
+                // Account type badge
+                Rectangle {
+                    Layout.alignment: Qt.AlignHCenter
+                    implicitHeight: accountTypeBadge.implicitHeight + 6
+                    implicitWidth: accountTypeBadge.implicitWidth + 16
+                    radius: height / 2
+                    color: (root.resolvedAccountType() === "Administrator")
+                           ? Qt.rgba(1.0, 0.6, 0.0, 0.12)
+                           : Qt.rgba(0.5, 0.5, 0.5, 0.08)
+                    border.color: (root.resolvedAccountType() === "Administrator")
+                                  ? Qt.rgba(1.0, 0.6, 0.0, 0.30)
+                                  : Qt.rgba(0.5, 0.5, 0.5, 0.18)
+                    border.width: Theme.borderWidthThin
+
+                    Text {
+                        id: accountTypeBadge
+                        anchors.centerIn: parent
+                        text: root.resolvedAccountType()
+                        font.pixelSize: Theme.fontSize("caption")
+                        font.weight: Theme.fontWeight("medium")
+                        color: (root.resolvedAccountType() === "Administrator")
+                               ? Qt.rgba(0.85, 0.50, 0.0, 1.0)
+                               : Theme.color("textSecondary")
+                    }
                 }
             }
         }
 
+        // ── Sign-In Options ────────────────────────────────────────────────
         SettingGroup {
             title: qsTr("Sign-In Options")
             Layout.fillWidth: true
 
             SettingCard {
+                objectName: "auto-login"
                 highlighted: root.highlightSettingId === "auto-login"
                 label: qsTr("Log in automatically")
-                description: qsTr("Sign in without entering password on startup.")
+                description: qsTr("Skip password prompt on startup.")
+                Layout.fillWidth: true
 
                 SettingToggle {
                     enabled: !root.autoLoginBusy
                     checked: UserAccounts ? UserAccounts.automaticLoginEnabled : false
                     onToggled: {
-                        if (!UserAccounts) {
-                            return
-                        }
+                        if (!UserAccounts) return
                         root.autoLoginBusy = true
-                        if (!UserAccounts.setAutomaticLoginEnabled(checked)) {
+                        if (!UserAccounts.setAutomaticLoginEnabled(checked))
                             checked = !checked
-                        }
                         root.autoLoginBusy = false
                     }
                 }
             }
 
             SettingCard {
+                objectName: "guest-session"
                 highlighted: root.highlightSettingId === "guest-session"
                 label: qsTr("Guest Session")
                 description: (UserAccounts && UserAccounts.guestSessionSupported)
                     ? qsTr("Allow temporary guest access from the login screen.")
-                    : qsTr("Guest session is not available on this login backend.")
+                    : qsTr("Not available on this login backend.")
+                Layout.fillWidth: true
 
                 SettingToggle {
                     enabled: UserAccounts && UserAccounts.guestSessionSupported
                     checked: UserAccounts ? UserAccounts.guestSessionEnabled : false
                     onToggled: {
-                        if (!UserAccounts) {
-                            return
-                        }
-                        if (!UserAccounts.setGuestSessionEnabled(checked)) {
+                        if (!UserAccounts) return
+                        if (!UserAccounts.setGuestSessionEnabled(checked))
                             checked = !checked
-                        }
                     }
                 }
             }
+        }
+
+        // ── Password & Security ────────────────────────────────────────────
+        SettingGroup {
+            title: qsTr("Password & Security")
+            Layout.fillWidth: true
 
             SettingCard {
+                objectName: "lock-after-sleep"
                 highlighted: root.highlightSettingId === "password-policy"
                 label: qsTr("Require password after sleep")
-                description: qsTr("Ask password when waking from sleep.")
+                description: qsTr("Lock screen when waking from sleep or screen saver.")
+                Layout.fillWidth: true
 
                 SettingToggle {
                     checked: !!(lockAfterSleepBinding && lockAfterSleepBinding.value)
                     onToggled: if (lockAfterSleepBinding) lockAfterSleepBinding.value = checked
                 }
             }
-        }
-
-        SettingGroup {
-            title: qsTr("Password & Security")
-            Layout.fillWidth: true
 
             SettingCard {
+                objectName: "change-password"
                 highlighted: root.highlightSettingId === "password-policy"
                 label: qsTr("Change Password")
-                description: qsTr("Update your account password.")
+                description: qsTr("Update your account login password.")
+                Layout.fillWidth: true
 
                 Button {
-                    text: qsTr("Change Password…")
-                    onClicked: SettingsApp.requestSettingAuthorization("useraccounts", "password-policy")
+                    text: root.changePwBusy ? qsTr("Authorizing…") : qsTr("Change…")
+                    enabled: !root.changePwBusy
+                    onClicked: {
+                        root.authErrorText = ""
+                        root.changePwBusy = true
+                        root.changePwRequestId = SettingsApp.requestSettingAuthorization(
+                            "useraccounts", "password-policy")
+                    }
                 }
             }
 
-            SettingCard {
-                visible: UserAccounts && UserAccounts.lastError && UserAccounts.lastError.length > 0
-                label: qsTr("System status")
-                description: UserAccounts ? UserAccounts.lastError : ""
+            // Auth error inline — only shown when non-empty
+            Text {
+                visible: root.authErrorText.length > 0
+                text: root.authErrorText
+                font.pixelSize: Theme.fontSize("caption")
+                color: Theme.color("error")
+                wrapMode: Text.Wrap
+                Layout.fillWidth: true
+                Layout.leftMargin: 16
+                Layout.rightMargin: 16
+                Layout.bottomMargin: 4
             }
         }
 
+        // ── Other Users on This Device ─────────────────────────────────────
         SettingGroup {
-            title: qsTr("Other users on this device")
+            title: qsTr("Other Users on This Device")
             Layout.fillWidth: true
+
+            // Empty state
+            Item {
+                visible: !(UserAccounts && UserAccounts.users && UserAccounts.users.length > 0)
+                Layout.fillWidth: true
+                Layout.preferredHeight: 80
+                Layout.topMargin: 4
+                Layout.bottomMargin: 4
+
+                ColumnLayout {
+                    anchors.centerIn: parent
+                    spacing: 4
+
+                    Text {
+                        Layout.alignment: Qt.AlignHCenter
+                        text: qsTr("Only you have an account on this device.")
+                        font.pixelSize: Theme.fontSize("body")
+                        color: Theme.color("textSecondary")
+                    }
+                }
+            }
 
             Repeater {
                 model: UserAccounts ? UserAccounts.users : []
 
                 delegate: SettingCard {
+                    id: userCard
                     required property var modelData
-                    label: String(modelData.displayName || modelData.username || "")
-                    description: "@" + String(modelData.username || "") + " • "
-                                 + String(modelData.accountType || qsTr("Standard"))
+                    Layout.fillWidth: true
 
-                    RowLayout {
-                        spacing: 10
-                        visible: !!(modelData.avatarPath && String(modelData.avatarPath).length > 0)
+                    readonly property string userDisplayName: String(modelData.displayName || modelData.username || "")
+                    readonly property string userUsername: String(modelData.username || "")
+                    readonly property string userAccountType: String(modelData.accountType || qsTr("Standard"))
+                    readonly property bool userLocked: Boolean(modelData.locked)
+                    readonly property string userAvatarPath: String(modelData.avatarPath || "")
+                    readonly property string userInitial: userDisplayName.length > 0
+                        ? userDisplayName.charAt(0).toUpperCase() : "U"
+
+                    label: userDisplayName
+                    description: {
+                        var parts = ["@" + userUsername, userAccountType]
+                        if (userLocked) parts.push(qsTr("Locked"))
+                        return parts.join(" · ")
+                    }
+
+                    // Avatar chip
+                    Item {
+                        width: 36; height: 36
+
                         Rectangle {
-                            width: 26
-                            height: 26
-                            radius: 13
+                            anchors.fill: parent
+                            radius: width / 2
+                            color: Theme.color("accent")
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: userCard.userInitial
+                                color: Theme.color("accentText")
+                                font.pixelSize: Theme.fontSize("subtitle")
+                                font.weight: Theme.fontWeight("semibold")
+                                visible: userRowPhoto.status !== Image.Ready
+                            }
+                        }
+
+                        Rectangle {
+                            anchors.fill: parent
+                            radius: width / 2
                             clip: true
                             color: "transparent"
+                            visible: userCard.userAvatarPath.length > 0
+
                             Image {
+                                id: userRowPhoto
                                 anchors.fill: parent
-                                source: modelData.avatarPath || ""
+                                source: userCard.userAvatarPath
                                 fillMode: Image.PreserveAspectCrop
                                 smooth: true
                             }
@@ -229,15 +362,44 @@ Flickable {
                 }
             }
 
+            // Add User + Refresh footer
             SettingCard {
-                label: qsTr("Refresh user list")
-                description: qsTr("Reload users from system account service.")
+                label: qsTr("Add User…")
+                description: qsTr("Create a new account on this device.")
+                hideSeparator: true
+                Layout.fillWidth: true
 
-                Button {
-                    text: qsTr("Refresh")
-                    onClicked: if (UserAccounts) UserAccounts.refresh()
+                RowLayout {
+                    spacing: 8
+
+                    Button {
+                        text: qsTr("Add User…")
+                        onClicked: SettingsApp.openModuleSetting("useraccounts", "add-user")
+                    }
+
+                    Button {
+                        text: qsTr("Refresh")
+                        flat: true
+                        onClicked: if (UserAccounts) UserAccounts.refresh()
+                    }
                 }
             }
+        }
+    }
+
+    // ── Authorization result handler ───────────────────────────────────────
+    Connections {
+        target: SettingsApp
+        function onSettingAuthorizationFinished(requestId, moduleId, settingId, allowed, reason) {
+            if (String(requestId) !== root.changePwRequestId) return
+            root.changePwBusy = false
+            root.changePwRequestId = ""
+            if (!allowed) {
+                root.authErrorText = String(reason || qsTr("Authorization denied."))
+                return
+            }
+            root.authErrorText = ""
+            // Password change dialog — to be implemented
         }
     }
 }

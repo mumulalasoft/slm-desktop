@@ -1,5 +1,5 @@
 #include "filemanagerapi.h"
-#include "src/apps/filemanager/ops/fileoperationserrors.h"
+#include "ops/fileoperationserrors.h"
 
 void FileManagerApi::onDaemonFileOpProgress(const QString &id, int percent)
 {

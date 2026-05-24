@@ -8,6 +8,7 @@ Item {
 
     property var notificationManager: null
     property bool open: false
+    property var groupExpanded: ({})
 
     signal dismissRequested(int notificationId)
     signal notificationClicked(int notificationId)
@@ -25,6 +26,37 @@ Item {
         }
         if (centerList.currentIndex < 0 || centerList.currentIndex >= centerList.count) {
             centerList.currentIndex = 0
+        }
+    }
+
+    function groupKey(value) {
+        return String(value || "")
+    }
+
+    function isGroupExpanded(groupId) {
+        var key = groupKey(groupId)
+        if (key.length <= 0) {
+            return true
+        }
+        if (groupExpanded[key] === undefined) {
+            return true
+        }
+        return !!groupExpanded[key]
+    }
+
+    function setGroupExpanded(groupId, expanded) {
+        var key = groupKey(groupId)
+        if (key.length <= 0) {
+            return
+        }
+        var next = {}
+        for (var k in groupExpanded) {
+            next[k] = groupExpanded[k]
+        }
+        next[key] = !!expanded
+        groupExpanded = next
+        if (root.notificationManager && root.notificationManager.setGroupExpanded) {
+            root.notificationManager.setGroupExpanded(key, !!expanded)
         }
     }
 
@@ -171,6 +203,15 @@ Item {
                         elide: Text.ElideRight
                     }
 
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.right: parent.right
+                        anchors.rightMargin: parent.unreadInSection > 0 ? 30 : 10
+                        text: root.isGroupExpanded(String(section || "")) ? "\u25be" : "\u25b8"
+                        color: Theme.color("textMuted")
+                        font.pixelSize: Theme.fontSize("small")
+                    }
+
                     Rectangle {
                         visible: parent.unreadInSection > 0
                         anchors.verticalCenter: parent.verticalCenter
@@ -194,8 +235,23 @@ Item {
                             font.weight: Theme.fontWeight("bold")
                         }
                     }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        onClicked: {
+                            var key = String(section || "")
+                            root.setGroupExpanded(key, !root.isGroupExpanded(key))
+                        }
+                    }
                 }
                 delegate: NotificationCard {
+                    readonly property string lifecycle: String(lifecycleState || "Archived")
+                    readonly property string delegateGroupId: String(groupId || "")
+                    readonly property bool groupVisible: root.isGroupExpanded(delegateGroupId)
+                    readonly property bool lifecycleArchived: lifecycle === "Archived"
+                    readonly property bool lifecycleCollapsing: lifecycle === "Collapsing"
+                    readonly property bool lifecycleGrouped: lifecycle === "Grouped"
+
                     width: ListView.view ? ListView.view.width : 380
                     appName: String(appName || "")
                     appIcon: String(appIcon || "")
@@ -205,8 +261,10 @@ Item {
                     priority: String(priority || "normal")
                     read: !!read
                     actionsModel: actions || []
-                    opacity: ListView.isCurrentItem ? 1 : 0.96
-                    scale: ListView.isCurrentItem ? 1.0 : 0.992
+                    visible: groupVisible && !lifecycleArchived
+                    height: visible ? implicitHeight : 0
+                    opacity: lifecycleCollapsing ? 0.0 : (ListView.isCurrentItem ? 1 : (lifecycleGrouped ? 0.93 : 0.96))
+                    scale: lifecycleCollapsing ? Theme.notificationBannerExitScale : (ListView.isCurrentItem ? 1.0 : (lifecycleGrouped ? 0.988 : 0.992))
                     border.color: ListView.isCurrentItem ? Theme.color("accent") : Theme.color("panelBorder")
                     Behavior on opacity {
                         enabled: Theme.animationsEnabled

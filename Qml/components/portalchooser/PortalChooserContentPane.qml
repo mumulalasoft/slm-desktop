@@ -23,6 +23,12 @@ Row {
     property string errorText: ""
 
     readonly property alias listView: listPane.listView
+    readonly property real placesPaneWidth: Math.min(220, Math.max(174, Math.round(root.width * 0.24)))
+    readonly property bool showPreview: root.previewPath.length > 0 && root.width >= 760
+    readonly property real previewPaneWidth: showPreview ? 250 : 0
+    readonly property bool showListControls: !root.selectFolders
+                                             && root.filters
+                                             && root.filters.length > 0
 
     signal directoryRequested(string path)
     signal mountRequested(string device)
@@ -40,10 +46,10 @@ Row {
 
     width: parent ? parent.width : 0
     height: parent ? parent.height : 0
-    spacing: 8
+    spacing: Theme.metric("spacingSm")
 
     PortalChooserPlacesPane {
-        width: 206
+        width: root.placesPaneWidth
         height: root.height
         placesModel: root.placesModel
         currentDir: root.currentDir
@@ -54,13 +60,15 @@ Row {
     }
 
     Column {
-        width: root.previewPath.length > 0 ? root.width - 470 : root.width - 220
+        width: Math.max(280, root.width - root.placesPaneWidth - root.previewPaneWidth - (root.showPreview ? 2 : 1) * root.spacing)
         height: root.height
-        spacing: 6
+        spacing: Theme.metric("spacingXs")
 
         PortalChooserListControls {
+            id: listControls
             width: parent.width
-            height: 30
+            height: root.showListControls ? Theme.metric("controlHeightRegular") : 0
+            visible: root.showListControls
             filters: root.filters
             filterIndex: root.filterIndex
             selectFolders: root.selectFolders
@@ -80,7 +88,7 @@ Row {
         PortalChooserListPane {
             id: listPane
             width: parent.width
-            height: parent.height - 42
+            height: parent.height - (listControls.visible ? (listControls.height + parent.spacing) : 0)
             entriesModel: root.entriesModel
             selectedPaths: root.selectedPaths
             allowMultiple: root.allowMultiple
@@ -109,6 +117,9 @@ Row {
     }
 
     PortalChooserPreviewPanel {
+        visible: root.showPreview
+        width: root.previewPaneWidth
+        height: root.height
         previewPath: root.previewPath
     }
 }

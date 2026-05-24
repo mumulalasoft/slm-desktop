@@ -37,6 +37,7 @@ public:
     void setDialogBridge(PortalDialogBridge *dialogBridge);
     void setRequestManager(PortalRequestManager *requestManager);
     void setSessionManager(PortalSessionManager *sessionManager);
+    void setSecurityBypassed(bool bypassed);
 
     QVariantMap handlePortalRequest(const QString &portalMethod,
                                     const QDBusMessage &message,
@@ -61,6 +62,7 @@ private:
                                   const QVariantMap &extra = {}) const;
     static Slm::Permissions::DecisionType decisionFromConsent(UserDecision decision);
 
+    bool m_securityBypassed = false;
     Slm::Permissions::TrustResolver *m_trustResolver = nullptr;
     Slm::Permissions::PermissionBroker *m_permissionBroker = nullptr;
     Slm::Permissions::AuditLogger *m_auditLogger = nullptr;

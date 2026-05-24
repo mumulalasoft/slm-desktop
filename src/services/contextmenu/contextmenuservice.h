@@ -25,7 +25,7 @@ public:
 
     // Build the menu model for a given surface context.
     // context keys:
-    //   type        — "file" | "folder" | "desktop" | "window" | "notification" | "dock"
+    //   type        — "file" | "folder" | "desktop" | "window" | "notification" | "appdeck"
     //   mimeType    — MIME type of the target (for file/folder)
     //   filePath    — absolute path (for file/folder)
     //   uri         — URI of the target

@@ -5,23 +5,18 @@
 #include <QDBusInterface>
 #include <QDBusReply>
 #include <QDir>
-#include <QFile>
 #include <QFileInfo>
-#include <QJsonDocument>
-#include <QJsonObject>
 #include <QRegularExpression>
-#include <QStandardPaths>
-#include <QSysInfo>
-#include <QProcess>
 
-#include "src/core/system/dependencyguard.h"
-#include "src/core/system/componentregistry.h"
+#include "../../core/system/componentregistry.h"
 
 namespace {
 
-constexpr const char kFolderSharingService[] = "org.slm.Desktop.FolderSharing";
-constexpr const char kFolderSharingPath[] = "/org/slm/Desktop/FolderSharing";
-constexpr const char kFolderSharingIface[] = "org.slm.Desktop.FolderSharing";
+constexpr const char kSharingService[]     = "org.slm.Sharing";
+constexpr const char kSharingPath[]        = "/org/slm/Sharing";
+constexpr const char kSharingIface[]       = "org.slm.Sharing";
+constexpr const char kSharingNearbyPath[]  = "/org/slm/Sharing/Nearby";
+constexpr const char kSharingNearbyIface[] = "org.slm.Sharing.Nearby";
 constexpr const char kErrDaemonUnavailable[] = "daemon-unavailable";
 constexpr const char kErrDaemonTimeout[] = "daemon-timeout";
 constexpr const char kErrDaemonDbusError[] = "daemon-dbus-error";
@@ -71,23 +66,25 @@ QString dbusFailureCode(DbusFailure failure)
     }
 }
 
-bool callFolderSharingService(const QString &method,
-                              const QVariantList &args,
-                              QVariantMap *resultOut = nullptr,
-                              QString *failureCodeOut = nullptr)
+bool callSharingService(const QString &path,
+                        const QString &iface,
+                        const QString &method,
+                        const QVariantList &args,
+                        QVariantMap *resultOut = nullptr,
+                        QString *failureCodeOut = nullptr)
 {
-    QDBusInterface iface(QString::fromLatin1(kFolderSharingService),
-                         QString::fromLatin1(kFolderSharingPath),
-                         QString::fromLatin1(kFolderSharingIface),
-                         QDBusConnection::sessionBus());
-    if (!iface.isValid()) {
+    QDBusInterface dbusIface(QString::fromLatin1(kSharingService),
+                             path,
+                             iface,
+                             QDBusConnection::sessionBus());
+    if (!dbusIface.isValid()) {
         if (failureCodeOut) {
             *failureCodeOut = QString::fromLatin1(kErrDaemonUnavailable);
         }
         return false;
     }
-    iface.setTimeout(kDbusTimeoutMs);
-    QDBusReply<QVariantMap> reply = iface.callWithArgumentList(QDBus::Block, method, args);
+    dbusIface.setTimeout(kDbusTimeoutMs);
+    QDBusReply<QVariantMap> reply = dbusIface.callWithArgumentList(QDBus::Block, method, args);
     if (!reply.isValid()) {
         if (failureCodeOut) {
             *failureCodeOut = dbusFailureCode(classifyDbusReplyError(reply));
@@ -98,6 +95,17 @@ bool callFolderSharingService(const QString &method,
         *resultOut = reply.value();
     }
     return true;
+}
+
+// Convenience wrapper targeting the root /org/slm/Sharing object.
+bool callFolderSharingService(const QString &method,
+                              const QVariantList &args,
+                              QVariantMap *resultOut = nullptr,
+                              QString *failureCodeOut = nullptr)
+{
+    return callSharingService(QString::fromLatin1(kSharingPath),
+                              QString::fromLatin1(kSharingIface),
+                              method, args, resultOut, failureCodeOut);
 }
 
 QString sanitizeShareName(QString name, const QString &fallback)
@@ -160,57 +168,31 @@ QVariantMap normalizeEnvironmentResult(QVariantMap map)
     return map;
 }
 
+QVariantMap daemonUnavailableEnvironment(const QString &failureCode)
+{
+    const QString code = failureCode.trimmed().isEmpty()
+            ? QString::fromLatin1(kErrDaemonUnavailable)
+            : failureCode.trimmed();
+    const QString message = (code == QString::fromLatin1(kErrDaemonTimeout))
+            ? QStringLiteral("Layanan slm-sharingd tidak merespons.")
+            : QStringLiteral("Layanan slm-sharingd belum berjalan.");
+    const QVariantMap issue{
+        {QStringLiteral("code"), code},
+        {QStringLiteral("message"), message},
+        {QStringLiteral("fixable"), false},
+        {QStringLiteral("severity"), QStringLiteral("required")},
+    };
+    return normalizeEnvironmentResult({
+        {QStringLiteral("ok"), false},
+        {QStringLiteral("error"), code},
+        {QStringLiteral("ready"), false},
+        {QStringLiteral("issues"), QVariantList{issue}},
+        {QStringLiteral("blockingIssues"), QVariantList{issue}},
+        {QStringLiteral("backendError"), code},
+    });
+}
+
 } // namespace
-
-QString FileManagerApi::folderSharesStatePath() const
-{
-    QString base = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
-    if (base.isEmpty()) {
-        base = QDir::homePath() + QStringLiteral("/.local/share/slm-desktop");
-    }
-    QDir().mkpath(base);
-    return QDir(base).filePath(QStringLiteral("folder_shares.json"));
-}
-
-QVariantMap FileManagerApi::loadFolderSharesState() const
-{
-    QFile file(folderSharesStatePath());
-    if (!file.exists()) {
-        return QVariantMap{};
-    }
-    if (!file.open(QIODevice::ReadOnly)) {
-        return QVariantMap{};
-    }
-    const QByteArray payload = file.readAll();
-    file.close();
-    const QJsonDocument doc = QJsonDocument::fromJson(payload);
-    if (!doc.isObject()) {
-        return QVariantMap{};
-    }
-    return doc.object().toVariantMap();
-}
-
-bool FileManagerApi::saveFolderSharesState(const QVariantMap &state, QString *error) const
-{
-    QFile file(folderSharesStatePath());
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-        if (error) {
-            *error = QStringLiteral("state-write-failed");
-        }
-        return false;
-    }
-    const QJsonObject obj = QJsonObject::fromVariantMap(state);
-    const QJsonDocument doc(obj);
-    if (file.write(doc.toJson(QJsonDocument::Indented)) < 0) {
-        file.close();
-        if (error) {
-            *error = QStringLiteral("state-write-failed");
-        }
-        return false;
-    }
-    file.close();
-    return true;
-}
 
 QString FileManagerApi::canonicalSharePath(const QString &path) const
 {
@@ -226,45 +208,21 @@ QString FileManagerApi::canonicalSharePath(const QString &path) const
     return canon.isEmpty() ? info.absoluteFilePath() : canon;
 }
 
-QVariantMap FileManagerApi::buildShareAddressPayload(const QString &shareName) const
-{
-    const QString host = QSysInfo::machineHostName().trimmed().isEmpty()
-            ? QStringLiteral("slm-desktop")
-            : QSysInfo::machineHostName().trimmed();
-    const QString encoded = QString(shareName).trimmed().replace(QStringLiteral(" "),
-                                                                  QStringLiteral("%20"));
-    const QString smbUri = QStringLiteral("smb://") + host + QStringLiteral("/") + encoded;
-    const QString windowsUri = QStringLiteral("\\\\") + host + QStringLiteral("\\") + shareName;
-    return {
-        {QStringLiteral("address"), smbUri},
-        {QStringLiteral("addressWindows"), windowsUri},
-        {QStringLiteral("host"), host}
-    };
-}
-
 QVariantMap FileManagerApi::shareRecordForPath(const QString &path) const
 {
     const QString p = canonicalSharePath(path);
     if (p.isEmpty()) {
         return QVariantMap{};
     }
-    const QVariantMap all = loadFolderSharesState();
-    QVariantMap row = all.value(p).toMap();
-    if (row.isEmpty()) {
-        return QVariantMap{};
+    QVariantMap daemonResult;
+    if (callFolderSharingService(QStringLiteral("ShareInfo"),
+                                 {QVariant::fromValue(p)},
+                                 &daemonResult,
+                                 nullptr)
+            && daemonResult.value(QStringLiteral("ok")).toBool()) {
+        return daemonResult;
     }
-    if (row.value(QStringLiteral("enabled")).toBool()) {
-        const QString shareName = sanitizeShareName(row.value(QStringLiteral("shareName")).toString(),
-                                                     QFileInfo(p).fileName());
-        row.insert(QStringLiteral("shareName"), shareName);
-        const QVariantMap address = buildShareAddressPayload(shareName);
-        row.insert(QStringLiteral("address"), address.value(QStringLiteral("address")));
-        row.insert(QStringLiteral("addressWindows"), address.value(QStringLiteral("addressWindows")));
-        row.insert(QStringLiteral("host"), address.value(QStringLiteral("host")));
-    }
-    row.insert(QStringLiteral("path"), p);
-    row.insert(QStringLiteral("ok"), true);
-    return row;
+    return QVariantMap{};
 }
 
 QVariantMap FileManagerApi::folderShareInfo(const QString &path) const
@@ -286,25 +244,20 @@ QVariantMap FileManagerApi::folderShareInfo(const QString &path) const
         return daemonResult;
     }
 
-    QVariantMap row = shareRecordForPath(p);
-    if (row.isEmpty()) {
-        row.insert(QStringLiteral("ok"), true);
-        row.insert(QStringLiteral("path"), p);
-        row.insert(QStringLiteral("enabled"), false);
-        row.insert(QStringLiteral("shareName"), QFileInfo(p).fileName());
-        row.insert(QStringLiteral("access"), QStringLiteral("owner"));
-        row.insert(QStringLiteral("permission"), QStringLiteral("read"));
-        row.insert(QStringLiteral("allowGuest"), false);
-        row.insert(QStringLiteral("users"), QVariantList{});
-        row.insert(QStringLiteral("backendPending"), true);
-        row.insert(QStringLiteral("backendApplied"), false);
-        row.insert(QStringLiteral("backendError"), daemonFailure);
-        return row;
-    }
-    if (!daemonFailure.isEmpty()) {
-        row.insert(QStringLiteral("backendError"), daemonFailure);
-    }
-    return row;
+    return makeResult(false,
+                      daemonFailure.isEmpty()
+                              ? QString::fromLatin1(kErrDaemonUnavailable)
+                              : daemonFailure,
+                      {{QStringLiteral("path"), p},
+                       {QStringLiteral("enabled"), false},
+                       {QStringLiteral("shareName"), QFileInfo(p).fileName()},
+                       {QStringLiteral("access"), QStringLiteral("owner")},
+                       {QStringLiteral("permission"), QStringLiteral("read")},
+                       {QStringLiteral("allowGuest"), false},
+                       {QStringLiteral("users"), QVariantList{}},
+                       {QStringLiteral("backendPending"), true},
+                       {QStringLiteral("backendApplied"), false},
+                       {QStringLiteral("backendError"), daemonFailure}});
 }
 
 QVariantList FileManagerApi::folderShares() const
@@ -318,25 +271,7 @@ QVariantList FileManagerApi::folderShares() const
         return daemonResult.value(QStringLiteral("shares")).toList();
     }
 
-    QVariantList out;
-    const QVariantMap all = loadFolderSharesState();
-    for (auto it = all.constBegin(); it != all.constEnd(); ++it) {
-        QVariantMap row = it.value().toMap();
-        if (!row.value(QStringLiteral("enabled")).toBool()) {
-            continue;
-        }
-        const QString p = it.key();
-        const QString shareName = sanitizeShareName(row.value(QStringLiteral("shareName")).toString(),
-                                                     QFileInfo(p).fileName());
-        const QVariantMap address = buildShareAddressPayload(shareName);
-        row.insert(QStringLiteral("path"), p);
-        row.insert(QStringLiteral("shareName"), shareName);
-        row.insert(QStringLiteral("address"), address.value(QStringLiteral("address")));
-        row.insert(QStringLiteral("addressWindows"), address.value(QStringLiteral("addressWindows")));
-        row.insert(QStringLiteral("host"), address.value(QStringLiteral("host")));
-        out.push_back(row);
-    }
-    return out;
+    return QVariantList{};
 }
 
 QVariantMap FileManagerApi::configureFolderShare(const QString &path,
@@ -383,21 +318,16 @@ QVariantMap FileManagerApi::configureFolderShare(const QString &path,
         return makeResult(true, QString(), daemonResult);
     }
 
-    QVariantMap all = loadFolderSharesState();
-    all.insert(p, row);
-    QString error;
-    if (!saveFolderSharesState(all, &error)) {
-        return makeResult(false, error);
-    }
-
-    QVariantMap out = shareRecordForPath(p);
-    if (out.isEmpty()) {
-        out = row;
-        out.insert(QStringLiteral("path"), p);
-    }
-    out.insert(QStringLiteral("backendError"), daemonFailure);
-    emit folderShareStateChanged(p, out);
-    return makeResult(true, QString(), out);
+    return makeResult(false,
+                      daemonFailure.isEmpty()
+                              ? QString::fromLatin1(kErrDaemonUnavailable)
+                              : daemonFailure,
+                      {{QStringLiteral("path"), p},
+                       {QStringLiteral("enabled"), false},
+                       {QStringLiteral("shareName"), shareName},
+                       {QStringLiteral("backendPending"), true},
+                       {QStringLiteral("backendApplied"), false},
+                       {QStringLiteral("backendError"), daemonFailure}});
 }
 
 QVariantMap FileManagerApi::disableFolderShare(const QString &path)
@@ -406,13 +336,6 @@ QVariantMap FileManagerApi::disableFolderShare(const QString &path)
     if (p.isEmpty()) {
         return makeResult(false, QStringLiteral("not-a-directory"));
     }
-    QVariantMap all = loadFolderSharesState();
-    QVariantMap row = all.value(p).toMap();
-    if (row.isEmpty()) {
-        return makeResult(true, QString(), {{QStringLiteral("path"), p},
-                                            {QStringLiteral("enabled"), false}});
-    }
-
     QVariantMap daemonResult;
     QString daemonFailure;
     if (callFolderSharingService(QStringLiteral("DisableShare"),
@@ -426,23 +349,12 @@ QVariantMap FileManagerApi::disableFolderShare(const QString &path)
         return makeResult(true, QString(), daemonResult);
     }
 
-    row.insert(QStringLiteral("enabled"), false);
-    row.insert(QStringLiteral("updatedAt"),
-               QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs));
-    all.insert(p, row);
-    QString error;
-    if (!saveFolderSharesState(all, &error)) {
-        return makeResult(false, error);
-    }
-    QVariantMap out = shareRecordForPath(p);
-    if (out.isEmpty()) {
-        out.insert(QStringLiteral("ok"), true);
-        out.insert(QStringLiteral("path"), p);
-        out.insert(QStringLiteral("enabled"), false);
-    }
-    out.insert(QStringLiteral("backendError"), daemonFailure);
-    emit folderShareStateChanged(p, out);
-    return makeResult(true, QString(), out);
+    return makeResult(false,
+                      daemonFailure.isEmpty()
+                              ? QString::fromLatin1(kErrDaemonUnavailable)
+                              : daemonFailure,
+                      {{QStringLiteral("path"), p},
+                       {QStringLiteral("backendError"), daemonFailure}});
 }
 
 QVariantMap FileManagerApi::copyFolderShareAddress(const QString &path) const
@@ -470,140 +382,33 @@ QVariantMap FileManagerApi::folderSharingEnvironment() const
 {
     QVariantMap daemonResult;
     QString daemonFailure;
-    if (callFolderSharingService(QStringLiteral("CheckEnvironment"),
+    if (callFolderSharingService(QStringLiteral("CheckFileSharingEnvironment"),
                                  {},
                                  &daemonResult,
                                  &daemonFailure)) {
         return normalizeEnvironmentResult(daemonResult);
     }
 
-    QVariantList issues;
-    QVariantList blockingIssues;
-    bool hasBlockingMissing = false;
-    auto pushIssue = [&issues, &blockingIssues, &hasBlockingMissing](const QString &code,
-                                                                      const QString &message,
-                                                                      bool fixable,
-                                                                      const QString &severity = QStringLiteral("required")) {
-        const QString level = severity.trimmed().isEmpty()
-                ? QStringLiteral("required")
-                : severity.trimmed().toLower();
-        if (level == QStringLiteral("required")) {
-            hasBlockingMissing = true;
-        }
-        issues.push_back(QVariantMap{
-            {QStringLiteral("code"), code},
-            {QStringLiteral("message"), message},
-            {QStringLiteral("fixable"), fixable},
-            {QStringLiteral("severity"), level},
-        });
-        if (level == QStringLiteral("required")) {
-            blockingIssues.push_back(issues.back());
-        }
-    };
-
-    const QVariantList missingComponents = Slm::System::ComponentRegistry::missingForDomain(QStringLiteral("filemanager"));
-    bool sambaMissing = false;
-    for (const QVariant &rowVar : missingComponents) {
-        const QVariantMap row = rowVar.toMap();
-        const QString componentId = row.value(QStringLiteral("componentId")).toString();
-        if (componentId == QStringLiteral("samba")) {
-            sambaMissing = true;
-        }
-        const QString severity = row.value(QStringLiteral("severity")).toString();
-        const QString level = severity.trimmed().isEmpty()
-                ? QStringLiteral("required")
-                : severity.trimmed().toLower();
-        if (level == QStringLiteral("required")) {
-            hasBlockingMissing = true;
-        }
-        QVariantMap issue{
-            {QStringLiteral("code"), QStringLiteral("component-missing:%1").arg(componentId)},
-            {QStringLiteral("message"), row.value(QStringLiteral("description")).toString()},
-            {QStringLiteral("fixable"), row.value(QStringLiteral("autoInstallable")).toBool()},
-            {QStringLiteral("componentId"), componentId},
-            {QStringLiteral("title"), row.value(QStringLiteral("title")).toString()},
-            {QStringLiteral("guidance"), row.value(QStringLiteral("guidance")).toString()},
-            {QStringLiteral("packageName"), row.value(QStringLiteral("packageName")).toString()},
-            {QStringLiteral("autoInstallable"), row.value(QStringLiteral("autoInstallable")).toBool()},
-            {QStringLiteral("severity"), level},
-        };
-        issues.push_back(issue);
-        if (level == QStringLiteral("required")) {
-            blockingIssues.push_back(issue);
-        }
-    }
-
-    if (!sambaMissing) {
-        const QString netExec = QStandardPaths::findExecutable(QStringLiteral("net"));
-        QProcess proc;
-        proc.start(netExec, {QStringLiteral("usershare"), QStringLiteral("info")});
-        if (!proc.waitForFinished(5000)) {
-            proc.kill();
-            proc.waitForFinished();
-            pushIssue(QStringLiteral("usershare-timeout"),
-                      QStringLiteral("Layanan berbagi jaringan tidak merespons."),
-                      false,
-                      QStringLiteral("required"));
-        } else if (proc.exitCode() != 0) {
-            const QString err = QString::fromUtf8(proc.readAllStandardError()).toLower();
-            if (err.contains(QStringLiteral("permission denied")) || err.contains(QStringLiteral("denied"))) {
-                pushIssue(QStringLiteral("usershare-permission-denied"),
-                          QStringLiteral("Akun ini belum diizinkan untuk berbagi folder."),
-                          false,
-                          QStringLiteral("required"));
-            } else if (err.contains(QStringLiteral("usershare")) && err.contains(QStringLiteral("not allowed"))) {
-                pushIssue(QStringLiteral("usershare-not-enabled"),
-                          QStringLiteral("Berbagi jaringan belum diaktifkan pada sistem."),
-                          false,
-                          QStringLiteral("required"));
-            } else {
-                pushIssue(QStringLiteral("usershare-check-failed"),
-                          QStringLiteral("Pemeriksaan layanan berbagi gagal."),
-                          false,
-                          QStringLiteral("required"));
-            }
-        }
-    }
-    const bool ready = !hasBlockingMissing;
-    return normalizeEnvironmentResult(makeResult(ready,
-                                                 ready ? QString() : QStringLiteral("sharing-env-not-ready"),
-                                                 {{QStringLiteral("ready"), ready},
-                                                  {QStringLiteral("issues"), issues},
-                                                  {QStringLiteral("blockingIssues"), blockingIssues},
-                                                  {QStringLiteral("backendError"), daemonFailure}}));
+    return daemonUnavailableEnvironment(daemonFailure);
 }
 
 QVariantMap FileManagerApi::repairFolderSharingEnvironment()
 {
     QVariantMap daemonResult;
-    if (callFolderSharingService(QStringLiteral("TryAutoFix"),
+    QString daemonFailure;
+    if (callFolderSharingService(QStringLiteral("TryAutoFixFileSharing"),
                                  {},
                                  &daemonResult,
-                                 nullptr)) {
+                                 &daemonFailure)) {
         return normalizeEnvironmentResult(daemonResult);
     }
 
-    // Fallback local: initialize state file only.
-    QString err;
-    if (!saveFolderSharesState(loadFolderSharesState(), &err)) {
-        return normalizeEnvironmentResult(makeResult(false,
-                                                     err.isEmpty() ? QStringLiteral("repair-failed") : err,
-                                                     {{QStringLiteral("ready"), false},
-                                                      {QStringLiteral("issues"), QVariantList{}},
-                                                      {QStringLiteral("actions"), QVariantList{
-                                                           QVariantMap{
-                                                               {QStringLiteral("id"), QStringLiteral("init-share-state")},
-                                                               {QStringLiteral("ok"), false},
-                                                               {QStringLiteral("message"), QStringLiteral("Tidak dapat menyiapkan state berbagi.")}
-                                                           }
-                                                       }}}));
-    }
-    QVariantMap env = folderSharingEnvironment();
+    QVariantMap env = daemonUnavailableEnvironment(daemonFailure);
     QVariantList actions{
         QVariantMap{
-            {QStringLiteral("id"), QStringLiteral("init-share-state")},
-            {QStringLiteral("ok"), true},
-            {QStringLiteral("message"), QStringLiteral("State berbagi diinisialisasi.")}
+            {QStringLiteral("id"), QStringLiteral("contact-slm-sharingd")},
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("message"), QStringLiteral("slm-sharingd belum tersedia.")}
         }
     };
     env.insert(QStringLiteral("actions"), actions);
@@ -622,6 +427,86 @@ QVariantList FileManagerApi::missingComponentsForDomain(const QString &domain) c
         return QVariantList{};
     }
     return Slm::System::ComponentRegistry::missingForDomain(d);
+}
+
+QVariantList FileManagerApi::nearbyDevices() const
+{
+    QDBusInterface iface(QString::fromLatin1(kSharingService),
+                         QString::fromLatin1(kSharingNearbyPath),
+                         QString::fromLatin1(kSharingNearbyIface),
+                         QDBusConnection::sessionBus());
+    if (!iface.isValid()) {
+        return QVariantList{};
+    }
+    iface.setTimeout(kDbusTimeoutMs);
+    QDBusReply<QVariantMap> reply = iface.call(QDBus::Block, QStringLiteral("GetDevices"));
+    if (!reply.isValid()) {
+        return QVariantList{};
+    }
+    return reply.value().value(QStringLiteral("devices")).toList();
+}
+
+QVariantMap FileManagerApi::sendFileToNearbyDevice(const QString &deviceId,
+                                                    const QString &path)
+{
+    const QString p = expandPath(path);
+    if (p.isEmpty() || deviceId.trimmed().isEmpty()) {
+        return makeResult(false, QStringLiteral("invalid-arguments"));
+    }
+    QVariantMap result;
+    QString failureCode;
+    if (!callSharingService(QString::fromLatin1(kSharingNearbyPath),
+                            QString::fromLatin1(kSharingNearbyIface),
+                            QStringLiteral("SendFileTo"),
+                            {deviceId.trimmed(), QVariant::fromValue(p)},
+                            &result,
+                            &failureCode)) {
+        return makeResult(false,
+                          failureCode.isEmpty() ? QStringLiteral("send-failed") : failureCode);
+    }
+    if (!result.value(QStringLiteral("ok")).toBool()) {
+        return result;
+    }
+    const QString transferId = result.value(QStringLiteral("transferId")).toString();
+    const QString deviceName = result.value(QStringLiteral("deviceName")).toString();
+    emit nearbyTransferStarted(transferId, deviceName, result);
+    return makeResult(true, QString(), result);
+}
+
+QVariantMap FileManagerApi::startNearbyDiscovery()
+{
+    QVariantMap result;
+    QString failureCode;
+    if (!callSharingService(QString::fromLatin1(kSharingNearbyPath),
+                            QString::fromLatin1(kSharingNearbyIface),
+                            QStringLiteral("StartDiscovery"),
+                            {},
+                            &result,
+                            &failureCode)) {
+        return makeResult(false,
+                          failureCode.isEmpty() ? QStringLiteral("discovery-failed") : failureCode);
+    }
+    return result.value(QStringLiteral("ok")).toBool()
+               ? makeResult(true, QString(), result)
+               : result;
+}
+
+QVariantMap FileManagerApi::stopNearbyDiscovery()
+{
+    QVariantMap result;
+    QString failureCode;
+    if (!callSharingService(QString::fromLatin1(kSharingNearbyPath),
+                            QString::fromLatin1(kSharingNearbyIface),
+                            QStringLiteral("StopDiscovery"),
+                            {},
+                            &result,
+                            &failureCode)) {
+        return makeResult(false,
+                          failureCode.isEmpty() ? QStringLiteral("stop-failed") : failureCode);
+    }
+    return result.value(QStringLiteral("ok")).toBool()
+               ? makeResult(true, QString(), result)
+               : result;
 }
 
 QVariantMap FileManagerApi::installMissingComponentForDomain(const QString &domain,

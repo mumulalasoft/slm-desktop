@@ -1,6 +1,11 @@
 #include "notificationmanager.h"
 
 #include "desktopnotificationadaptor.h"
+#include "notificationgroupingengine.h"
+#include "notificationlifecycleengine.h"
+#include "notificationpolicyengine.h"
+#include "notificationstore.h"
+#include "notificationrepository.h"
 
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
@@ -9,9 +14,7 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
-#include <QJsonArray>
-#include <QJsonDocument>
-#include <QJsonObject>
+#include <QSettings>
 #include <QStandardPaths>
 
 namespace {
@@ -93,246 +96,31 @@ QString appIdFromNotifyPayload(const QString &appName, const QVariantMap &hints)
     }
     return QStringLiteral("unknown.app");
 }
+
+bool readBoolPolicy(const QSettings &settings, const QString &key, bool fallback)
+{
+    return settings.value(key, fallback).toBool();
 }
 
-NotificationListModel::NotificationListModel(QObject *parent)
-    : QAbstractListModel(parent)
+void applyLifecycleToModels(NotificationRepository *repository, uint id, const QString &state)
 {
-}
-
-int NotificationListModel::rowCount(const QModelIndex &parent) const
-{
-    if (parent.isValid()) {
-        return 0;
-    }
-    return m_items.size();
-}
-
-QVariant NotificationListModel::data(const QModelIndex &index, int role) const
-{
-    if (!index.isValid() || index.row() < 0 || index.row() >= m_items.size()) {
-        return QVariant();
-    }
-    const NotificationEntry &item = m_items.at(index.row());
-    switch (role) {
-    case IdRole:
-        return static_cast<int>(item.id);
-    case AppNameRole:
-        return item.appName;
-    case AppIdRole:
-        return item.appId;
-    case AppIconRole:
-        return item.appIcon;
-    case SummaryRole:
-        return item.summary;
-    case BodyRole:
-        return item.body;
-    case ActionsRole:
-        return item.actions;
-    case PriorityRole:
-        return item.priority;
-    case GroupIdRole:
-        return item.groupId;
-    case ReadRole:
-        return item.read;
-    case BannerRole:
-        return item.banner;
-    case UrgencyRole:
-        return item.urgency;
-    case TimestampRole:
-        return item.timestamp.toString(Qt::ISODate);
-    default:
-        return QVariant();
-    }
-}
-
-QHash<int, QByteArray> NotificationListModel::roleNames() const
-{
-    QHash<int, QByteArray> roles;
-    roles[IdRole] = "notificationId";
-    roles[AppNameRole] = "appName";
-    roles[AppIdRole] = "appId";
-    roles[AppIconRole] = "appIcon";
-    roles[SummaryRole] = "summary";
-    roles[BodyRole] = "body";
-    roles[ActionsRole] = "actions";
-    roles[PriorityRole] = "priority";
-    roles[GroupIdRole] = "groupId";
-    roles[ReadRole] = "read";
-    roles[BannerRole] = "banner";
-    roles[UrgencyRole] = "urgency";
-    roles[TimestampRole] = "timestamp";
-    return roles;
-}
-
-void NotificationListModel::upsert(const NotificationEntry &entry)
-{
-    for (int i = 0; i < m_items.size(); ++i) {
-        if (m_items.at(i).id == entry.id) {
-            m_items[i] = entry;
-            const QModelIndex idx = index(i, 0);
-            emit dataChanged(idx, idx);
-            return;
-        }
-    }
-
-    beginInsertRows(QModelIndex(), 0, 0);
-    m_items.prepend(entry);
-    endInsertRows();
-}
-
-bool NotificationListModel::removeById(uint id)
-{
-    for (int i = 0; i < m_items.size(); ++i) {
-        if (m_items.at(i).id == id) {
-            beginRemoveRows(QModelIndex(), i, i);
-            m_items.removeAt(i);
-            endRemoveRows();
-            return true;
-        }
-    }
-    return false;
-}
-
-bool NotificationListModel::markReadById(uint id, bool read)
-{
-    for (int i = 0; i < m_items.size(); ++i) {
-        if (m_items.at(i).id != id) {
-            continue;
-        }
-        if (m_items.at(i).read == read) {
-            return false;
-        }
-        m_items[i].read = read;
-        const QModelIndex idx = index(i, 0);
-        emit dataChanged(idx, idx, {ReadRole});
-        return true;
-    }
-    return false;
-}
-
-int NotificationListModel::markAllRead(bool read)
-{
-    int changed = 0;
-    for (int i = 0; i < m_items.size(); ++i) {
-        if (m_items.at(i).read == read) {
-            continue;
-        }
-        m_items[i].read = read;
-        const QModelIndex idx = index(i, 0);
-        emit dataChanged(idx, idx, {ReadRole});
-        ++changed;
-    }
-    return changed;
-}
-
-void NotificationListModel::clear()
-{
-    if (m_items.isEmpty()) {
+    if (!repository || id == 0) {
         return;
     }
-    beginResetModel();
-    m_items.clear();
-    endResetModel();
+    if (repository->notificationsModel()) {
+        repository->notificationsModel()->setLifecycleById(id, state);
+    }
+    if (repository->bannerModel()) {
+        repository->bannerModel()->setLifecycleById(id, state);
+    }
 }
-
-int NotificationListModel::count() const
-{
-    return m_items.size();
-}
-
-int NotificationListModel::unreadCount() const
-{
-    int unread = 0;
-    for (const NotificationEntry &entry : m_items) {
-        if (!entry.read) {
-            ++unread;
-        }
-    }
-    return unread;
-}
-
-int NotificationListModel::unreadCountForAppId(const QString &appId) const
-{
-    const QString wanted = appId.trimmed();
-    if (wanted.isEmpty()) {
-        return 0;
-    }
-    int unread = 0;
-    for (const NotificationEntry &entry : m_items) {
-        if (entry.read) {
-            continue;
-        }
-        if (entry.appId == wanted) {
-            ++unread;
-        }
-    }
-    return unread;
-}
-
-int NotificationListModel::unreadCountForGroup(const QString &groupId) const
-{
-    const QString wanted = groupId.trimmed();
-    if (wanted.isEmpty()) {
-        return 0;
-    }
-    int unread = 0;
-    for (const NotificationEntry &entry : m_items) {
-        if (entry.read) {
-            continue;
-        }
-        if (entry.groupId == wanted) {
-            ++unread;
-        }
-    }
-    return unread;
-}
-
-QString NotificationListModel::displayNameForGroup(const QString &groupId) const
-{
-    const QString wanted = groupId.trimmed();
-    if (wanted.isEmpty()) {
-        return QStringLiteral("Application");
-    }
-    for (const NotificationEntry &entry : m_items) {
-        if (entry.groupId != wanted) {
-            continue;
-        }
-        const QString name = entry.appName.trimmed();
-        if (!name.isEmpty()) {
-            return name;
-        }
-        const QString id = entry.appId.trimmed();
-        if (!id.isEmpty()) {
-            return id;
-        }
-    }
-    return wanted;
-}
-
-int NotificationListModel::countForAppId(const QString &appId, uint excludeId) const
-{
-    const QString wanted = appId.trimmed();
-    if (wanted.isEmpty()) {
-        return 0;
-    }
-    int count = 0;
-    for (const NotificationEntry &entry : m_items) {
-        if (excludeId > 0 && entry.id == excludeId) {
-            continue;
-        }
-        if (entry.appId == wanted) {
-            ++count;
-        }
-    }
-    return count;
 }
 
 NotificationManager::NotificationManager(QObject *parent)
     : QObject(parent)
 {
-    m_model = new NotificationListModel(this);
-    m_bannerModel = new NotificationListModel(this);
+    m_repository = new NotificationRepository(this);
+    m_lifecycle = new NotificationLifecycleEngine();
     new DesktopNotificationAdaptor(this);
     registerDbusService();
 
@@ -345,11 +133,14 @@ NotificationManager::NotificationManager(QObject *parent)
     m_saveTimer.setSingleShot(true);
     connect(&m_saveTimer, &QTimer::timeout, this, &NotificationManager::saveHistory);
 
+    reloadPolicySnapshot();
     loadHistory();
 }
 
 NotificationManager::~NotificationManager()
 {
+    delete m_lifecycle;
+    m_lifecycle = nullptr;
     QDBusConnection bus = QDBusConnection::sessionBus();
     if (m_serviceRegistered) {
         bus.unregisterObject(QString::fromLatin1(kFreedesktopNotificationPath));
@@ -373,37 +164,65 @@ bool NotificationManager::desktopServiceRegistered() const
 
 QAbstractListModel* NotificationManager::notifications() const
 {
-    return m_model;
+    return m_repository->notificationsModel();
 }
 
 QAbstractListModel* NotificationManager::bannerNotifications() const
 {
-    return m_bannerModel;
+    return m_repository->bannerModel();
 }
 
 int NotificationManager::count() const
 {
-    return m_model ? m_model->count() : 0;
+    return m_repository->notificationsModel() ? m_repository->notificationsModel()->count() : 0;
 }
 
 int NotificationManager::unreadCount() const
 {
-    return m_model ? m_model->unreadCount() : 0;
+    return m_repository->notificationsModel() ? m_repository->notificationsModel()->unreadCount() : 0;
 }
 
 int NotificationManager::unreadCountForAppId(const QString &appId) const
 {
-    return m_model ? m_model->unreadCountForAppId(appId) : 0;
+    return m_repository->notificationsModel() ? m_repository->notificationsModel()->unreadCountForAppId(appId) : 0;
 }
 
 int NotificationManager::unreadCountForGroup(const QString &groupId) const
 {
-    return m_model ? m_model->unreadCountForGroup(groupId) : 0;
+    return m_repository->notificationsModel() ? m_repository->notificationsModel()->unreadCountForGroup(groupId) : 0;
 }
 
 QString NotificationManager::groupDisplayName(const QString &groupId) const
 {
-    return m_model ? m_model->displayNameForGroup(groupId) : QStringLiteral("Application");
+    return m_repository->notificationsModel() ? m_repository->notificationsModel()->displayNameForGroup(groupId) : QStringLiteral("Application");
+}
+
+void NotificationManager::setGroupExpanded(const QString &groupId, bool expanded)
+{
+    const QString wanted = groupId.trimmed();
+    if (wanted.isEmpty() || !m_repository || !m_lifecycle) {
+        return;
+    }
+    const QVector<NotificationEntry> all = m_repository->entries();
+    const QString nextState = NotificationLifecycleEngine::stateName(
+            expanded ? NotificationLifecycleEngine::State::Expanded
+                     : NotificationLifecycleEngine::State::Collapsing);
+    bool changedAny = false;
+    for (const NotificationEntry &entry : all) {
+        if (entry.groupId != wanted) {
+            continue;
+        }
+        if (expanded) {
+            m_lifecycle->onExpanded(entry.id);
+        } else {
+            m_lifecycle->onCollapsed(entry.id);
+        }
+        applyLifecycleToModels(m_repository, entry.id, nextState);
+        changedAny = true;
+    }
+    if (changedAny) {
+        m_saveTimer.start();
+    }
 }
 
 bool NotificationManager::doNotDisturb() const
@@ -417,15 +236,16 @@ void NotificationManager::setDoNotDisturb(bool enabled)
         return;
     }
     m_doNotDisturb = enabled;
-    if (m_doNotDisturb && m_bannerModel) {
-        m_bannerModel->clear();
+    if (m_doNotDisturb && m_repository->bannerModel()) {
+        m_repository->bannerModel()->clear();
     }
+    reloadPolicySnapshot();
     emit doNotDisturbChanged();
 }
 
 QVariantMap NotificationManager::latestNotification() const
 {
-    return m_latestNotification;
+    return m_repository->latestNotification();
 }
 
 int NotificationManager::bubbleDurationMs() const
@@ -452,13 +272,16 @@ void NotificationManager::clearAll()
 {
     const int before = count();
     const int beforeUnread = unreadCount();
-    if (m_model) {
-        m_model->clear();
+    if (m_repository->notificationsModel()) {
+        m_repository->notificationsModel()->clear();
     }
-    if (m_bannerModel) {
-        m_bannerModel->clear();
+    if (m_repository->bannerModel()) {
+        m_repository->bannerModel()->clear();
     }
     m_bannerAttemptHistoryByApp.clear();
+    if (m_lifecycle) {
+        m_lifecycle->clear();
+    }
     emitCountIfChanged(before);
     emitUnreadCountIfChanged(beforeUnread);
     m_saveTimer.start();
@@ -468,11 +291,16 @@ bool NotificationManager::closeById(uint id)
 {
     const int before = count();
     const int beforeUnread = unreadCount();
-    const bool ok = m_model && m_model->removeById(id);
-    if (m_bannerModel) {
-        m_bannerModel->removeById(id);
+    const bool ok = m_repository->notificationsModel() && m_repository->notificationsModel()->removeById(id);
+    if (m_repository->bannerModel()) {
+        m_repository->bannerModel()->removeById(id);
     }
     if (ok) {
+        if (m_lifecycle) {
+            m_lifecycle->onArchived(id);
+            applyLifecycleToModels(m_repository, id,
+                                   NotificationLifecycleEngine::stateName(NotificationLifecycleEngine::State::Archived));
+        }
         emit NotificationClosed(id, 2u);
         emit NotificationRemoved(id);
         emitCountIfChanged(before);
@@ -487,11 +315,24 @@ void NotificationManager::toggleCenter()
     m_centerVisible = !m_centerVisible;
     if (m_centerVisible) {
         markAllRead();
-        if (m_bannerModel) {
-            m_bannerModel->clear();
+        if (m_repository->bannerModel()) {
+            m_repository->bannerModel()->clear();
         }
     }
     emit centerVisibleChanged();
+}
+
+void NotificationManager::setRuntimeContext(bool fullscreen, bool screenShare, bool focusMode)
+{
+    const bool changed = (m_runtimeContext.fullscreen != fullscreen)
+            || (m_runtimeContext.screenShare != screenShare)
+            || (m_runtimeContext.focusMode != focusMode);
+    if (!changed) {
+        return;
+    }
+    m_runtimeContext.fullscreen = fullscreen;
+    m_runtimeContext.screenShare = screenShare;
+    m_runtimeContext.focusMode = focusMode;
 }
 
 QVariantList NotificationManager::getAll() const
@@ -544,7 +385,7 @@ uint NotificationManager::Notify(const QString &appName,
                                  int expireTimeout)
 {
     NotificationEntry entry;
-    entry.id = replacesId > 0 ? replacesId : m_nextId++;
+    entry.id = replacesId > 0 ? replacesId : m_repository->nextId();
     entry.appId = appIdFromNotifyPayload(appName, hints);
     const QString trimmedAppName = appName.trimmed();
     entry.appName = trimmedAppName.isEmpty()
@@ -556,14 +397,18 @@ uint NotificationManager::Notify(const QString &appName,
     entry.actions = actions;
     entry.urgency = urgencyFromHints(hints);
     entry.priority = (entry.urgency >= 2) ? QStringLiteral("high")
-                                           : ((entry.urgency <= 0) ? QStringLiteral("low")
-                                                                   : QStringLiteral("normal"));
-    entry.groupId = entry.appId;
+                                          : ((entry.urgency <= 0) ? QStringLiteral("low")
+                                                                  : QStringLiteral("normal"));
+    entry.groupId = NotificationGroupingEngine::groupIdFor(entry);
     entry.read = false;
-    entry.banner = !m_doNotDisturb && entry.priority != QStringLiteral("low");
+    reloadPolicySnapshot();
+    if (shouldDropNotification(entry)) {
+        return entry.id;
+    }
+    entry.banner = shouldShowBanner(entry);
     entry.expireTimeoutMs = expireTimeout;
     entry.timestamp = QDateTime::currentDateTime();
-    return upsertNotification(entry, m_doNotDisturb || entry.priority == QStringLiteral("low"));
+    return upsertNotification(entry, !entry.banner);
 }
 
 void NotificationManager::CloseNotification(uint id)
@@ -579,7 +424,7 @@ uint NotificationManager::NotifyModern(const QString &appId,
                                        const QString &priority)
 {
     NotificationEntry entry;
-    entry.id = m_nextId++;
+    entry.id = m_repository->nextId();
     entry.appId = normalizedAppIdToken(appId);
     if (entry.appId.isEmpty()) {
         entry.appId = QStringLiteral("unknown.app");
@@ -589,15 +434,18 @@ uint NotificationManager::NotifyModern(const QString &appId,
     entry.summary = title;
     entry.body = body;
     entry.actions = actions;
+    reloadPolicySnapshot();
     entry.priority = normalizePriority(priority);
-    entry.urgency = (entry.priority == QStringLiteral("high")) ? 2
-                  : ((entry.priority == QStringLiteral("low")) ? 0 : 1);
-    entry.groupId = entry.appId;
+    entry.urgency = NotificationPolicyEngine::urgencyForPriority(entry.priority);
+    entry.groupId = NotificationGroupingEngine::groupIdFor(entry);
     entry.read = false;
-    entry.banner = !m_doNotDisturb && entry.priority != QStringLiteral("low");
+    if (shouldDropNotification(entry)) {
+        return entry.id;
+    }
+    entry.banner = shouldShowBanner(entry);
     entry.expireTimeoutMs = -1;
     entry.timestamp = QDateTime::currentDateTime();
-    return upsertNotification(entry, m_doNotDisturb || entry.priority == QStringLiteral("low"));
+    return upsertNotification(entry, !entry.banner);
 }
 
 bool NotificationManager::Dismiss(uint id)
@@ -607,34 +455,21 @@ bool NotificationManager::Dismiss(uint id)
 
 bool NotificationManager::dismissBanner(uint id)
 {
-    return m_bannerModel ? m_bannerModel->removeById(id) : false;
+    const bool removed = m_repository->bannerModel() ? m_repository->bannerModel()->removeById(id) : false;
+    if (removed && m_lifecycle) {
+        m_lifecycle->onCollapsed(id);
+        applyLifecycleToModels(m_repository, id,
+                               NotificationLifecycleEngine::stateName(NotificationLifecycleEngine::State::Collapsing));
+    }
+    return removed;
 }
 
 QVariantList NotificationManager::GetAll() const
 {
     QVariantList rows;
-    if (!m_model) {
-        return rows;
-    }
-    const int countRows = m_model->rowCount();
-    rows.reserve(countRows);
-    for (int i = 0; i < countRows; ++i) {
-        const QModelIndex idx = m_model->index(i, 0);
-        NotificationEntry entry;
-        entry.id = static_cast<uint>(m_model->data(idx, NotificationListModel::IdRole).toUInt());
-        entry.appName = m_model->data(idx, NotificationListModel::AppNameRole).toString();
-        entry.appId = m_model->data(idx, NotificationListModel::AppIdRole).toString();
-        entry.appIcon = m_model->data(idx, NotificationListModel::AppIconRole).toString();
-        entry.summary = m_model->data(idx, NotificationListModel::SummaryRole).toString();
-        entry.body = m_model->data(idx, NotificationListModel::BodyRole).toString();
-        entry.actions = m_model->data(idx, NotificationListModel::ActionsRole).toStringList();
-        entry.priority = m_model->data(idx, NotificationListModel::PriorityRole).toString();
-        entry.groupId = m_model->data(idx, NotificationListModel::GroupIdRole).toString();
-        entry.read = m_model->data(idx, NotificationListModel::ReadRole).toBool();
-        entry.banner = m_model->data(idx, NotificationListModel::BannerRole).toBool();
-        entry.urgency = m_model->data(idx, NotificationListModel::UrgencyRole).toInt();
-        entry.timestamp = QDateTime::fromString(m_model->data(idx, NotificationListModel::TimestampRole).toString(),
-                                                Qt::ISODate);
+    const QVector<NotificationEntry> entries = m_repository ? m_repository->entries() : QVector<NotificationEntry>{};
+    rows.reserve(entries.size());
+    for (const NotificationEntry &entry : entries) {
         rows.push_back(toVariantMap(entry));
     }
     return rows;
@@ -654,22 +489,27 @@ bool NotificationManager::ToggleCenter()
 void NotificationManager::markAllRead()
 {
     const int beforeUnread = unreadCount();
-    if (!m_model) {
+    if (!m_repository->notificationsModel()) {
         return;
     }
-    m_model->markAllRead(true);
+    m_repository->notificationsModel()->markAllRead(true);
     emitUnreadCountIfChanged(beforeUnread);
 }
 
 bool NotificationManager::markRead(uint id, bool read)
 {
     const int beforeUnread = unreadCount();
-    if (!m_model) {
+    if (!m_repository->notificationsModel()) {
         return false;
     }
-    const bool changed = m_model->markReadById(id, read);
-    if (changed && read && m_bannerModel) {
-        m_bannerModel->removeById(id);
+    const bool changed = m_repository->notificationsModel()->markReadById(id, read);
+    if (changed && read && m_repository->bannerModel()) {
+        m_repository->bannerModel()->removeById(id);
+        if (m_lifecycle) {
+            m_lifecycle->onArchived(id);
+            applyLifecycleToModels(m_repository, id,
+                                   NotificationLifecycleEngine::stateName(NotificationLifecycleEngine::State::Archived));
+        }
     }
     emitUnreadCountIfChanged(beforeUnread);
     if (changed) {
@@ -773,18 +613,53 @@ void NotificationManager::emitUnreadCountIfChanged(int previousUnreadCount)
 
 QString NotificationManager::normalizePriority(const QString &priority) const
 {
-    const QString lowered = priority.trimmed().toLower();
-    if (lowered == QStringLiteral("low") ||
-        lowered == QStringLiteral("normal") ||
-        lowered == QStringLiteral("high")) {
-        return lowered;
-    }
-    return QStringLiteral("normal");
+    return NotificationPolicyEngine::normalizePriority(priority);
+}
+
+void NotificationManager::reloadPolicySnapshot()
+{
+    QSettings settings(QStringLiteral("SLM"), QStringLiteral("slm-settings"));
+    m_notificationsEnabled = readBoolPolicy(settings, QStringLiteral("settings/notifications/enabled"), true);
+    m_policyAllowCriticalAlerts = readBoolPolicy(settings, QStringLiteral("settings/notifications/allow_critical_alerts"), true);
+    m_policySilenceFullscreen = readBoolPolicy(settings, QStringLiteral("settings/notifications/silence_fullscreen"), true);
+    m_policySilenceScreenShare = readBoolPolicy(settings, QStringLiteral("settings/notifications/silence_screen_share"), true);
+    m_policyFocusModeIntegration = readBoolPolicy(settings, QStringLiteral("settings/notifications/focus_mode_integration"), true);
+    m_policyDeliverQuietly = readBoolPolicy(settings, QStringLiteral("settings/notifications/deliver_quietly"), false);
+}
+
+bool NotificationManager::shouldDropNotification(const NotificationEntry &entry) const
+{
+    NotificationPolicyEngine::Snapshot snapshot;
+    snapshot.notificationsEnabled = m_notificationsEnabled;
+    snapshot.allowCriticalAlerts = m_policyAllowCriticalAlerts;
+    snapshot.silenceFullscreen = m_policySilenceFullscreen;
+    snapshot.silenceScreenShare = m_policySilenceScreenShare;
+    snapshot.focusModeIntegration = m_policyFocusModeIntegration;
+    snapshot.deliverQuietly = m_policyDeliverQuietly;
+    snapshot.doNotDisturb = m_doNotDisturb;
+    return NotificationPolicyEngine::shouldDropNotification(entry, snapshot);
+}
+
+bool NotificationManager::shouldShowBanner(const NotificationEntry &entry) const
+{
+    NotificationPolicyEngine::Snapshot snapshot;
+    snapshot.notificationsEnabled = m_notificationsEnabled;
+    snapshot.allowCriticalAlerts = m_policyAllowCriticalAlerts;
+    snapshot.silenceFullscreen = m_policySilenceFullscreen;
+    snapshot.silenceScreenShare = m_policySilenceScreenShare;
+    snapshot.focusModeIntegration = m_policyFocusModeIntegration;
+    snapshot.deliverQuietly = m_policyDeliverQuietly;
+    snapshot.doNotDisturb = m_doNotDisturb;
+    return NotificationPolicyEngine::shouldShowBanner(entry, snapshot, m_runtimeContext);
 }
 
 uint NotificationManager::upsertNotification(const NotificationEntry &entry, bool suppressBanner)
 {
     NotificationEntry effectiveEntry = entry;
+    if (m_lifecycle) {
+        m_lifecycle->onQueued(effectiveEntry.id);
+        effectiveEntry.lifecycleState = NotificationLifecycleEngine::stateName(NotificationLifecycleEngine::State::Queued);
+    }
     if (effectiveEntry.banner && shouldSuppressBannerForSpam(effectiveEntry)) {
         effectiveEntry.banner = false;
         suppressBanner = true;
@@ -792,16 +667,28 @@ uint NotificationManager::upsertNotification(const NotificationEntry &entry, boo
 
     const int before = count();
     const int beforeUnread = unreadCount();
-    if (m_model) {
-        m_model->upsert(effectiveEntry);
+    if (m_repository->notificationsModel()) {
+        m_repository->notificationsModel()->upsert(effectiveEntry);
     }
-    if (m_bannerModel) {
+    if (m_repository->bannerModel()) {
         if (effectiveEntry.banner) {
-            m_bannerModel->upsert(effectiveEntry);
+            if (m_lifecycle) {
+                const NotificationLifecycleEngine::State state = effectiveEntry.groupId.isEmpty()
+                        ? NotificationLifecycleEngine::State::Visible
+                        : NotificationLifecycleEngine::State::Grouped;
+                m_lifecycle->onDisplayed(effectiveEntry.id, !effectiveEntry.groupId.isEmpty());
+                effectiveEntry.lifecycleState = NotificationLifecycleEngine::stateName(state);
+            }
+            m_repository->bannerModel()->upsert(effectiveEntry);
         } else {
-            m_bannerModel->removeById(effectiveEntry.id);
+            if (m_lifecycle) {
+                m_lifecycle->onArchived(effectiveEntry.id);
+                effectiveEntry.lifecycleState = NotificationLifecycleEngine::stateName(NotificationLifecycleEngine::State::Archived);
+            }
+            m_repository->bannerModel()->removeById(effectiveEntry.id);
         }
     }
+    applyLifecycleToModels(m_repository, effectiveEntry.id, effectiveEntry.lifecycleState);
     emitCountIfChanged(before);
     emitUnreadCountIfChanged(beforeUnread);
     emit NotificationAdded(effectiveEntry.id);
@@ -830,29 +717,22 @@ QVariantMap NotificationManager::toVariantMap(const NotificationEntry &entry) co
         {QStringLiteral("priority"), entry.priority},
         {QStringLiteral("group_id"), entry.groupId},
         {QStringLiteral("read"), entry.read},
-        {QStringLiteral("banner"), entry.banner}
+        {QStringLiteral("banner"), entry.banner},
+        {QStringLiteral("lifecycle_state"), entry.lifecycleState}
     };
 }
 
 void NotificationManager::updateLatestNotification(const NotificationEntry &entry)
 {
-    m_latestNotification = {
-        {QStringLiteral("id"), static_cast<int>(entry.id)},
-        {QStringLiteral("appId"), entry.appId},
-        {QStringLiteral("appName"), entry.appName},
-        {QStringLiteral("appIcon"), entry.appIcon},
-        {QStringLiteral("summary"), entry.summary},
-        {QStringLiteral("body"), entry.body},
-        {QStringLiteral("urgency"), entry.urgency},
-        {QStringLiteral("priority"), entry.priority},
-        {QStringLiteral("timestamp"), entry.timestamp.toString(Qt::ISODate)}
-    };
+    if (m_repository) {
+        m_repository->updateLatestNotification(entry);
+    }
     emit latestNotificationChanged();
 }
 
 bool NotificationManager::shouldSuppressBannerForSpam(const NotificationEntry &entry)
 {
-    if (!m_bannerModel) {
+    if (!m_repository->bannerModel()) {
         return false;
     }
 
@@ -876,7 +756,7 @@ bool NotificationManager::shouldSuppressBannerForSpam(const NotificationEntry &e
 
     // Active banner cap: keep at most N banners visible per app.
     if (m_maxActiveBannersPerApp > 0
-        && m_bannerModel->countForAppId(entry.appId, entry.id) >= m_maxActiveBannersPerApp) {
+        && m_repository->bannerModel()->countForAppId(entry.appId, entry.id) >= m_maxActiveBannersPerApp) {
         return true;
     }
 
@@ -885,49 +765,17 @@ bool NotificationManager::shouldSuppressBannerForSpam(const NotificationEntry &e
 
 void NotificationManager::saveHistory()
 {
-    if (m_historyFilePath.isEmpty() || !m_model) {
+    if (m_historyFilePath.isEmpty() || !m_repository) {
         return;
     }
-
-    // Serialize the most recent kMaxHistoryEntries from the model.
-    const int totalRows = m_model->rowCount();
-    const int startRow  = qMax(0, totalRows - kMaxHistoryEntries);
-    QJsonArray arr;
-    for (int i = startRow; i < totalRows; ++i) {
-        const QModelIndex idx = m_model->index(i, 0);
-        NotificationEntry entry;
-        entry.id       = static_cast<uint>(m_model->data(idx, NotificationListModel::IdRole).toUInt());
-        entry.appId    = m_model->data(idx, NotificationListModel::AppIdRole).toString();
-        entry.appName  = m_model->data(idx, NotificationListModel::AppNameRole).toString();
-        entry.appIcon  = m_model->data(idx, NotificationListModel::AppIconRole).toString();
-        entry.summary  = m_model->data(idx, NotificationListModel::SummaryRole).toString();
-        entry.body     = m_model->data(idx, NotificationListModel::BodyRole).toString();
-        entry.priority = m_model->data(idx, NotificationListModel::PriorityRole).toString();
-        entry.groupId  = m_model->data(idx, NotificationListModel::GroupIdRole).toString();
-        entry.read     = m_model->data(idx, NotificationListModel::ReadRole).toBool();
-        entry.banner   = m_model->data(idx, NotificationListModel::BannerRole).toBool();
-        arr.append(QJsonObject::fromVariantMap(toVariantMap(entry)));
+    QVector<NotificationEntry> entries = m_repository->entries();
+    if (entries.size() > kMaxHistoryEntries) {
+        entries.resize(kMaxHistoryEntries);
     }
-
-    QJsonObject root;
-    root[QStringLiteral("version")] = 1;
-    root[QStringLiteral("nextId")]  = static_cast<qint64>(m_nextId);
-    root[QStringLiteral("entries")] = arr;
-    const QJsonDocument doc(root);
-
-    const QFileInfo histInfo(m_historyFilePath);
-    const QDir histDir = histInfo.absoluteDir();
-    if (!histDir.exists()) {
-        histDir.mkpath(QStringLiteral("."));
-    }
-
-    QFile f(m_historyFilePath);
-    if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+    if (!NotificationStore::saveHistory(m_historyFilePath, m_repository->currentNextId(), entries)) {
         qWarning() << "NotificationManager: failed to save history to" << m_historyFilePath
-                   << "error:" << f.errorString();
-        return;
+                   << "error: store-save-failed";
     }
-    f.write(doc.toJson(QJsonDocument::Compact));
 }
 
 void NotificationManager::loadHistory()
@@ -936,62 +784,29 @@ void NotificationManager::loadHistory()
         return;
     }
 
-    QFile f(m_historyFilePath);
-    if (!f.open(QIODevice::ReadOnly)) {
+    const NotificationStore::LoadedState loaded = NotificationStore::loadHistory(m_historyFilePath,
+                                                                                  kMaxHistoryEntries);
+    if (!loaded.ok) {
         return; // Normal on first run — no history yet.
     }
+    m_repository->ensureNextIdAtLeast(loaded.nextId);
 
-    QJsonParseError parseError;
-    const QJsonDocument doc = QJsonDocument::fromJson(f.readAll(), &parseError);
-    if (doc.isNull() || !doc.isObject()) {
-        qWarning() << "NotificationManager: failed to parse history:" << parseError.errorString();
-        return;
-    }
-
-    const QJsonObject root = doc.object();
-
-    // Restore next ID counter before inserting entries.
-    const uint savedNextId = static_cast<uint>(root[QStringLiteral("nextId")].toInt(1));
-    if (savedNextId > m_nextId) {
-        m_nextId = savedNextId;
-    }
-
-    const QJsonArray arr = root[QStringLiteral("entries")].toArray();
-    int loaded = 0;
-    for (const QJsonValue &v : arr) {
-        if (loaded >= kMaxHistoryEntries) {
-            break;
-        }
-        const QJsonObject obj = v.toObject();
-        NotificationEntry entry;
-        entry.id       = static_cast<uint>(obj[QStringLiteral("id")].toInt());
-        entry.appId    = obj[QStringLiteral("app_id")].toString();
-        entry.appName  = obj[QStringLiteral("app_name")].toString();
-        entry.appIcon  = obj[QStringLiteral("icon")].toString();
-        entry.summary  = obj[QStringLiteral("title")].toString();
-        entry.body     = obj[QStringLiteral("body")].toString();
-        entry.priority = obj[QStringLiteral("priority")].toString(QStringLiteral("normal"));
-        entry.groupId  = obj[QStringLiteral("group_id")].toString();
-        entry.read     = obj[QStringLiteral("read")].toBool(true);
+    int restoredCount = 0;
+    for (NotificationEntry entry : loaded.entries) {
         // Restored notifications never show as banners — the user already saw them.
         entry.banner   = false;
-        entry.urgency  = 1;
-        const QString ts = obj[QStringLiteral("timestamp")].toString();
-        if (!ts.isEmpty()) {
-            entry.timestamp = QDateTime::fromString(ts, Qt::ISODate);
-        }
-        if (entry.id > 0 && m_model) {
-            m_model->upsert(entry);
-            if (entry.id >= m_nextId) {
-                m_nextId = entry.id + 1;
-            }
-            ++loaded;
+        entry.urgency  = NotificationPolicyEngine::urgencyForPriority(entry.priority);
+        entry.lifecycleState = NotificationLifecycleEngine::stateName(NotificationLifecycleEngine::State::Archived);
+        if (entry.id > 0 && m_repository->notificationsModel()) {
+            m_repository->notificationsModel()->upsert(entry);
+            m_repository->ensureNextIdAtLeast(entry.id + 1);
+            ++restoredCount;
         }
     }
 
-    if (loaded > 0) {
+    if (restoredCount > 0) {
         emit countChanged();
         emit unreadCountChanged();
-        qInfo() << "NotificationManager: restored" << loaded << "notifications from history";
+        qInfo() << "NotificationManager: restored" << restoredCount << "notifications from history";
     }
 }

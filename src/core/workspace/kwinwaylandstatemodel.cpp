@@ -1,5 +1,6 @@
 #include "kwinwaylandstatemodel.h"
 
+#include "../utils/slmlogcategories.h"
 #include "kwinsupportinfoparser.h"
 #include "kwinwaylandipcclient.h"
 
@@ -20,6 +21,8 @@
 #include <QUrl>
 #include <QDebug>
 #include <QtConcurrent/QtConcurrentRun>
+
+#include <initializer_list>
 
 #ifdef signals
 #undef signals
@@ -68,6 +71,12 @@ static QString normalizeLine(const QString &line)
 QString fromUtf8(const char *value)
 {
     return value ? QString::fromUtf8(value) : QString();
+}
+
+bool envFlagEnabled(const char *name)
+{
+    const QByteArray value = qgetenv(name).trimmed().toLower();
+    return value == "1" || value == "true" || value == "yes" || value == "on";
 }
 
 QString normalizeToken(const QString &value)
@@ -210,6 +219,8 @@ KWinWaylandStateModel::KWinWaylandStateModel(QObject *parent)
     if (m_profileEnabled) {
         m_profileLogTimer->start();
     }
+    m_supportInformationFallbackEnabled =
+        envFlagEnabled("SLM_KWIN_SUPPORT_INFORMATION_FALLBACK");
 }
 
 bool KWinWaylandStateModel::connected() const
@@ -435,11 +446,16 @@ void KWinWaylandStateModel::refreshWindows()
         (m_lastSupportFallbackMs <= 0) ||
         ((nowMs - m_lastSupportFallbackMs) >= m_supportFallbackMinIntervalMs);
 
-    if (allowSupportFallback) {
+    if (m_supportInformationFallbackEnabled && allowSupportFallback) {
         m_lastSupportFallbackMs = nowMs;
         requestSupportInformationAsync();
     } else {
         ++m_supportFallbackSkipCount;
+        if (!m_supportInformationFallbackEnabled && !m_supportFallbackDisabledLogged) {
+            m_supportFallbackDisabledLogged = true;
+            qCInfo(slmKwin, "supportInformation fallback disabled "
+                   "(set SLM_KWIN_SUPPORT_INFORMATION_FALLBACK=1 to enable)");
+        }
     }
 
     // Avoid transient empty snapshots causing UI flicker when DBus object model misses briefly.
@@ -649,6 +665,14 @@ QVariantMap KWinWaylandStateModel::readWindowFromObjectPath(const QString &path)
         }
         return fallback;
     };
+    const auto readBoolAny = [&](std::initializer_list<const char *> keys, bool fallback) -> bool {
+        for (const char *key : keys) {
+            if (props.contains(QString::fromLatin1(key))) {
+                return props.value(QString::fromLatin1(key)).toBool();
+            }
+        }
+        return fallback;
+    };
 
     QVariantList geom = parseGeometryList(props.value(QStringLiteral("frameGeometry")));
     if (geom.size() < 4) {
@@ -688,6 +712,7 @@ QVariantMap KWinWaylandStateModel::readWindowFromObjectPath(const QString &path)
         { QStringLiteral("mapped"), readBool("mapped", true) },
         { QStringLiteral("minimized"), readBool("minimized", false) },
         { QStringLiteral("focused"), readBool("active", false) },
+        { QStringLiteral("fullscreen"), readBoolAny({ "fullScreen", "fullscreen", "full-screen" }, false) },
         { QStringLiteral("space"), space },
         { QStringLiteral("lastEvent"), QStringLiteral("snapshot") },
     };
@@ -757,7 +782,7 @@ QVector<QVariantMap> KWinWaylandStateModel::readWindowsFromSupportInformation()
 
 void KWinWaylandStateModel::requestSupportInformationAsync()
 {
-    if (!connected() || m_supportRequestInFlight) {
+    if (!connected() || m_supportRequestInFlight || !m_supportInformationFallbackEnabled) {
         return;
     }
 
@@ -878,6 +903,7 @@ QVariantMap KWinWaylandStateModel::parseSupportWindowBlock(const QStringList &bl
     int space = m_activeSpace;
     bool minimized = false;
     bool focused = false;
+    bool fullscreen = false;
     bool hasUsefulField = false;
 
     for (const QString &rawLine : block) {
@@ -916,6 +942,11 @@ QVariantMap KWinWaylandStateModel::parseSupportWindowBlock(const QStringList &bl
             minimized = (val.compare(QStringLiteral("true"), Qt::CaseInsensitive) == 0 ||
                          val == QStringLiteral("1") ||
                          val.compare(QStringLiteral("yes"), Qt::CaseInsensitive) == 0);
+        } else if (key.contains(QStringLiteral("fullscreen"))
+                   || key.contains(QStringLiteral("full screen"))) {
+            fullscreen = (val.compare(QStringLiteral("true"), Qt::CaseInsensitive) == 0 ||
+                          val == QStringLiteral("1") ||
+                          val.compare(QStringLiteral("yes"), Qt::CaseInsensitive) == 0);
         } else if (key == QStringLiteral("active") || key.contains(QStringLiteral("focused"))) {
             focused = (val.compare(QStringLiteral("true"), Qt::CaseInsensitive) == 0 ||
                        val == QStringLiteral("1") ||
@@ -945,6 +976,7 @@ QVariantMap KWinWaylandStateModel::parseSupportWindowBlock(const QStringList &bl
         { QStringLiteral("mapped"), true },
         { QStringLiteral("minimized"), minimized },
         { QStringLiteral("focused"), focused },
+        { QStringLiteral("fullscreen"), fullscreen },
         { QStringLiteral("space"), space },
         { QStringLiteral("lastEvent"), QStringLiteral("snapshot") },
     };
@@ -953,7 +985,7 @@ QVariantMap KWinWaylandStateModel::parseSupportWindowBlock(const QStringList &bl
 void KWinWaylandStateModel::setWindows(const QVector<QVariantMap> &next)
 {
     auto fingerprint = [](const QVariantMap &w) -> QString {
-        return QStringLiteral("%1|%2|%3|%4|%5|%6|%7|%8|%9|%10|%11")
+        return QStringLiteral("%1|%2|%3|%4|%5|%6|%7|%8|%9|%10|%11|%12")
             .arg(w.value(QStringLiteral("viewId")).toString(),
                  w.value(QStringLiteral("title")).toString(),
                  w.value(QStringLiteral("appId")).toString(),
@@ -964,7 +996,8 @@ void KWinWaylandStateModel::setWindows(const QVector<QVariantMap> &next)
                  QString::number(w.value(QStringLiteral("space")).toInt()),
                  QString::number(w.value(QStringLiteral("mapped")).toBool() ? 1 : 0),
                  QString::number(w.value(QStringLiteral("minimized")).toBool() ? 1 : 0),
-                 QString::number(w.value(QStringLiteral("focused")).toBool() ? 1 : 0));
+                 QString::number(w.value(QStringLiteral("focused")).toBool() ? 1 : 0),
+                 QString::number(w.value(QStringLiteral("fullscreen")).toBool() ? 1 : 0));
     };
 
     if (next.size() == m_windows.size()) {
@@ -1069,7 +1102,7 @@ void KWinWaylandStateModel::maybeLogProfileSnapshot()
     if (!m_profileEnabled) {
         return;
     }
-    qInfo().noquote()
+    qCInfo(slmKwin).noquote()
         << "[kwin-profile]"
         << "connected=" << (connected() ? 1 : 0)
         << "winCount=" << m_windows.size()

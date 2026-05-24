@@ -2,9 +2,13 @@
 Description=SLM Polkit Authentication Agent (Bootstrap)
 PartOf=graphical-session.target
 After=graphical-session.target
+ConditionPathExistsGlob=%t/wayland-*
+StartLimitIntervalSec=30
+StartLimitBurst=3
 
 [Service]
-ExecStart=%h/Development/Qt/Slm_Desktop/build/slm-polkit-agent
+ExecStart=%h/Development/Qt/Desktop_Shell/build/slm-polkit-agent
+Environment=QT_QPA_PLATFORM=wayland
 Restart=on-failure
 RestartSec=2
 

@@ -7,6 +7,8 @@ import SlmStyle as DSStyle
 Item {
     id: clockButtonHost
     property var manager: null
+    readonly property int popupGap: Theme.metric("spacingSm")
+    readonly property int popupDropExtra: 0
     property alias popup: dateTimePopup
     property alias popupOpen: dateTimePopup.opened
     implicitWidth: clockFrame.implicitWidth
@@ -76,6 +78,7 @@ Item {
 
     Popup {
         id: dateTimePopup
+        popupType: Popup.Window
         modal: false
         focus: false
         dim: false
@@ -83,7 +86,10 @@ Item {
         padding: 8
         width: Theme.metric("popupWidthL")
         x: Math.round(clockFrame.mapToGlobal(0, 0).x + (clockFrame.width - width) * 0.5)
-        y: Math.round(clockFrame.mapToGlobal(0, 0).y + clockFrame.height + Theme.metric("spacingXs"))
+        y: Math.round(clockButtonHost.mapToGlobal(0, 0).y
+                      + clockButtonHost.height
+                      + clockButtonHost.popupGap
+                      + clockButtonHost.popupDropExtra)
         onOpened: manager.syncCalendarToNow()
         onOpenedChanged: {
             if (opened) {
@@ -363,7 +369,10 @@ Item {
 
             MenuItem {
                 text: "Open Date & Time Settings"
-                onClicked: manager.openDateTimeSettings()
+                onClicked: {
+                    dateTimePopup.close()
+                    manager.openDateTimeSettings()
+                }
                 enabled: true
             }
 

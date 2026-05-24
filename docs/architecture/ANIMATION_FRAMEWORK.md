@@ -106,7 +106,7 @@ Preset disediakan di `MotionPresetLibrary`, dipakai lintas shell agar konsisten.
 - Notification slide: spring ringan + exit cepat.
 - Window snap settle: spring retargetable.
 - Panel reveal/hide: gesture + opacity/position binding.
-- Launcher/tothespot reveal: scale + opacity + translate via channel.
+- Launcher/pulse reveal: scale + opacity + translate via channel.
 - Overview: multi-channel transition terkoordinasi.
 
 ## 12. Debugging & Testing
@@ -123,7 +123,7 @@ Rencana lanjut:
 
 ## 13. Tahapan Implementasi
 1. Foundation module (selesai).
-2. Integrasi launchpad/workspace memakai `MotionController`.
+2. Integrasi apphub/workspace memakai `MotionController`.
 3. Tambah debug overlay dan metric collector.
 4. Reduced-motion policy + preset tuning.
 5. Integrasi tingkat compositor untuk animasi window-management.

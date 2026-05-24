@@ -4,7 +4,15 @@
 #include <QDBusInterface>
 #include <QDBusReply>
 #include <QDBusVariant>
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
+#include <QFileSystemWatcher>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QSaveFile>
 #include <QStringList>
+#include <QTimer>
 #include <QtGlobal>
 #include <functional>
 
@@ -32,6 +40,30 @@ const QStringList kManagedShortcutPaths{
 bool isManagedShortcutPath(const QString &path)
 {
     return kManagedShortcutPaths.contains(path.trimmed());
+}
+
+QString settingsStorePath()
+{
+    const QString overridePath = qEnvironmentVariable("SLM_SETTINGSD_STORE_PATH").trimmed();
+    if (!overridePath.isEmpty()) {
+        return overridePath;
+    }
+    const QString base = QDir::homePath() + QStringLiteral("/.config/slm-desktop/settings");
+    return base + QStringLiteral("/settings.json");
+}
+
+bool writeSettingsStoreFile(const QVariantMap &root)
+{
+    const QString path = settingsStorePath();
+    const QFileInfo info(path);
+    QDir().mkpath(info.absolutePath());
+    QSaveFile file(path);
+    if (!file.open(QIODevice::WriteOnly)) {
+        return false;
+    }
+    const QJsonDocument doc(QJsonObject::fromVariantMap(root));
+    file.write(doc.toJson(QJsonDocument::Indented));
+    return file.commit();
 }
 
 QVariant mapValueByPath(const QVariantMap &root, const QString &path, bool *ok = nullptr)
@@ -89,6 +121,25 @@ bool mapSetValueByPath(QVariantMap &root, const QString &path, const QVariant &v
     };
     return assign(root, 0);
 }
+
+QVariantMap mergeVariantMaps(const QVariantMap &base, const QVariantMap &patch)
+{
+    QVariantMap out = base;
+    for (auto it = patch.constBegin(); it != patch.constEnd(); ++it) {
+        const QString key = it.key();
+        const QVariant patchValue = it.value();
+        if (patchValue.canConvert<QVariantMap>()) {
+            const QVariant baseValue = out.value(key);
+            const QVariantMap baseMap = baseValue.canConvert<QVariantMap>()
+                    ? baseValue.toMap()
+                    : QVariantMap{};
+            out.insert(key, mergeVariantMaps(baseMap, patchValue.toMap()));
+        } else {
+            out.insert(key, patchValue);
+        }
+    }
+    return out;
+}
 }
 
 DesktopSettingsClient::DesktopSettingsClient(QObject *parent)
@@ -102,7 +153,50 @@ DesktopSettingsClient::DesktopSettingsClient(QObject *parent)
                 this,
                 SLOT(onNameOwnerChanged(QString,QString,QString)));
 
-    refresh();
+    const QString localStorePath = settingsStorePath();
+    const QString localStoreDir = QFileInfo(localStorePath).absolutePath();
+    m_localStoreWatcher = new QFileSystemWatcher(this);
+    m_localStoreReloadTimer = new QTimer(this);
+    m_localStoreReloadTimer->setSingleShot(true);
+    m_localStoreReloadTimer->setInterval(120);
+
+    const auto ensureLocalStoreWatchPaths = [this, localStorePath, localStoreDir]() {
+        if (!m_localStoreWatcher) {
+            return;
+        }
+        if (!localStoreDir.isEmpty() && !m_localStoreWatcher->directories().contains(localStoreDir)) {
+            m_localStoreWatcher->addPath(localStoreDir);
+        }
+        if (QFile::exists(localStorePath) && !m_localStoreWatcher->files().contains(localStorePath)) {
+            m_localStoreWatcher->addPath(localStorePath);
+        }
+    };
+
+    ensureLocalStoreWatchPaths();
+    connect(m_localStoreWatcher, &QFileSystemWatcher::fileChanged, this, [=](const QString &) {
+        ensureLocalStoreWatchPaths();
+        if (m_localStoreReloadTimer) {
+            m_localStoreReloadTimer->start();
+        }
+    });
+    connect(m_localStoreWatcher, &QFileSystemWatcher::directoryChanged, this, [=](const QString &) {
+        ensureLocalStoreWatchPaths();
+        if (m_localStoreReloadTimer) {
+            m_localStoreReloadTimer->start();
+        }
+    });
+    connect(m_localStoreReloadTimer, &QTimer::timeout, this, [this]() {
+        // Always ingest local snapshot first; if settingsd is up, let service state win.
+        loadFromLocalStore();
+        if (ensureIface()) {
+            loadFromService();
+        }
+    });
+
+    loadFromLocalStore();
+    QTimer::singleShot(0, this, [this]() {
+        if (ensureIface()) loadFromService();
+    });
 }
 
 bool DesktopSettingsClient::available() const { return m_available; }
@@ -127,11 +221,15 @@ QString DesktopSettingsClient::contextTimeMode() const { return m_contextTimeMod
 int DesktopSettingsClient::contextTimeSunriseHour() const { return m_contextTimeSunriseHour; }
 int DesktopSettingsClient::contextTimeSunsetHour() const { return m_contextTimeSunsetHour; }
 bool DesktopSettingsClient::highContrast() const { return m_highContrast; }
+bool DesktopSettingsClient::dockTransparent() const { return m_dockTransparent; }
 QString DesktopSettingsClient::dockMotionPreset() const { return m_dockMotionPreset; }
 bool DesktopSettingsClient::dockAutoHideEnabled() const { return m_dockAutoHideEnabled; }
 bool DesktopSettingsClient::dockDropPulseEnabled() const { return m_dockDropPulseEnabled; }
 int DesktopSettingsClient::dockDragThresholdMouse() const { return m_dockDragThresholdMouse; }
 int DesktopSettingsClient::dockDragThresholdTouchpad() const { return m_dockDragThresholdTouchpad; }
+int DesktopSettingsClient::dockDesktopExportMinUpwardPx() const { return m_dockDesktopExportMinUpwardPx; }
+int DesktopSettingsClient::dockDesktopExportVerticalRatioPercent() const { return m_dockDesktopExportVerticalRatioPercent; }
+int DesktopSettingsClient::dockDesktopExportMaxHorizontalDriftPx() const { return m_dockDesktopExportMaxHorizontalDriftPx; }
 QString DesktopSettingsClient::dockIconSize() const { return m_dockIconSize; }
 bool DesktopSettingsClient::dockMagnificationEnabled() const { return m_dockMagnificationEnabled; }
 bool DesktopSettingsClient::windowingAnimationEnabled() const { return m_windowingAnimationEnabled; }
@@ -152,7 +250,14 @@ bool DesktopSettingsClient::setThemeMode(const QString &mode)
             && normalized != QStringLiteral("auto")) {
         return false;
     }
-    if (setSetting(QStringLiteral("globalAppearance.colorMode"), normalized)) {
+    if (!ensureIface()) {
+        return false;
+    }
+    QVariantMap patch;
+    patch.insert(QStringLiteral("globalAppearance.colorMode"), normalized);
+    patch.insert(QStringLiteral("shellTheme.mode"), normalized);
+    QDBusReply<QVariantMap> reply = m_iface->call(QStringLiteral("SetSettingsPatch"), patch);
+    if (reply.isValid() && reply.value().value(QStringLiteral("ok"), false).toBool()) {
         setThemeModeLocal(normalized);
         return true;
     }
@@ -393,7 +498,7 @@ bool DesktopSettingsClient::setDockMotionPreset(const QString &preset)
     const QString normalized = (preset.trimmed().toLower() == QLatin1String("macos-lively"))
             ? QStringLiteral("macos-lively")
             : QStringLiteral("subtle");
-    if (setSetting(QStringLiteral("dock.motionPreset"), normalized)) {
+    if (setSetting(QStringLiteral("appdeck.motionPreset"), normalized)) {
         if (m_dockMotionPreset != normalized) {
             m_dockMotionPreset = normalized;
             emit dockMotionPresetChanged();
@@ -405,7 +510,7 @@ bool DesktopSettingsClient::setDockMotionPreset(const QString &preset)
 
 bool DesktopSettingsClient::setDockAutoHideEnabled(bool enabled)
 {
-    if (setSetting(QStringLiteral("dock.autoHideEnabled"), enabled)) {
+    if (setSetting(QStringLiteral("appdeck.autoHideEnabled"), enabled)) {
         if (m_dockAutoHideEnabled != enabled) {
             m_dockAutoHideEnabled = enabled;
             emit dockAutoHideEnabledChanged();
@@ -415,9 +520,9 @@ bool DesktopSettingsClient::setDockAutoHideEnabled(bool enabled)
     return false;
 }
 
-bool DesktopSettingsClient::setDockDropPulseEnabled(bool enabled)
+bool DesktopSettingsClient::setAppDeckDropPulseEnabled(bool enabled)
 {
-    if (setSetting(QStringLiteral("dock.dropPulseEnabled"), enabled)) {
+    if (setSetting(QStringLiteral("appdeck.dropPulseEnabled"), enabled)) {
         if (m_dockDropPulseEnabled != enabled) {
             m_dockDropPulseEnabled = enabled;
             emit dockDropPulseEnabledChanged();
@@ -430,7 +535,7 @@ bool DesktopSettingsClient::setDockDropPulseEnabled(bool enabled)
 bool DesktopSettingsClient::setDockDragThresholdMouse(int value)
 {
     const int normalized = qBound(2, value, 24);
-    if (setSetting(QStringLiteral("dock.dragThresholdMouse"), normalized)) {
+    if (setSetting(QStringLiteral("appdeck.dragThresholdMouse"), normalized)) {
         if (m_dockDragThresholdMouse != normalized) {
             m_dockDragThresholdMouse = normalized;
             emit dockDragThresholdMouseChanged();
@@ -443,10 +548,49 @@ bool DesktopSettingsClient::setDockDragThresholdMouse(int value)
 bool DesktopSettingsClient::setDockDragThresholdTouchpad(int value)
 {
     const int normalized = qBound(2, value, 24);
-    if (setSetting(QStringLiteral("dock.dragThresholdTouchpad"), normalized)) {
+    if (setSetting(QStringLiteral("appdeck.dragThresholdTouchpad"), normalized)) {
         if (m_dockDragThresholdTouchpad != normalized) {
             m_dockDragThresholdTouchpad = normalized;
             emit dockDragThresholdTouchpadChanged();
+        }
+        return true;
+    }
+    return false;
+}
+
+bool DesktopSettingsClient::setDockDesktopExportMinUpwardPx(int value)
+{
+    const int normalized = qBound(8, value, 96);
+    if (setSetting(QStringLiteral("appdeck.desktopExportMinUpwardPx"), normalized)) {
+        if (m_dockDesktopExportMinUpwardPx != normalized) {
+            m_dockDesktopExportMinUpwardPx = normalized;
+            emit dockDesktopExportMinUpwardPxChanged();
+        }
+        return true;
+    }
+    return false;
+}
+
+bool DesktopSettingsClient::setDockDesktopExportVerticalRatioPercent(int value)
+{
+    const int normalized = qBound(100, value, 260);
+    if (setSetting(QStringLiteral("appdeck.desktopExportVerticalRatioPercent"), normalized)) {
+        if (m_dockDesktopExportVerticalRatioPercent != normalized) {
+            m_dockDesktopExportVerticalRatioPercent = normalized;
+            emit dockDesktopExportVerticalRatioPercentChanged();
+        }
+        return true;
+    }
+    return false;
+}
+
+bool DesktopSettingsClient::setDockDesktopExportMaxHorizontalDriftPx(int value)
+{
+    const int normalized = qBound(8, value, 140);
+    if (setSetting(QStringLiteral("appdeck.desktopExportMaxHorizontalDriftPx"), normalized)) {
+        if (m_dockDesktopExportMaxHorizontalDriftPx != normalized) {
+            m_dockDesktopExportMaxHorizontalDriftPx = normalized;
+            emit dockDesktopExportMaxHorizontalDriftPxChanged();
         }
         return true;
     }
@@ -462,7 +606,7 @@ bool DesktopSettingsClient::setDockIconSize(const QString &value)
         }
         return QStringLiteral("medium");
     }();
-    if (setSetting(QStringLiteral("dock.iconSize"), normalized)) {
+    if (setSetting(QStringLiteral("appdeck.iconSize"), normalized)) {
         if (m_dockIconSize != normalized) {
             m_dockIconSize = normalized;
             emit dockIconSizeChanged();
@@ -474,7 +618,7 @@ bool DesktopSettingsClient::setDockIconSize(const QString &value)
 
 bool DesktopSettingsClient::setDockMagnificationEnabled(bool enabled)
 {
-    if (setSetting(QStringLiteral("dock.magnificationEnabled"), enabled)) {
+    if (setSetting(QStringLiteral("appdeck.magnificationEnabled"), enabled)) {
         if (m_dockMagnificationEnabled != enabled) {
             m_dockMagnificationEnabled = enabled;
             emit dockMagnificationEnabledChanged();
@@ -664,11 +808,26 @@ QVariant DesktopSettingsClient::settingValue(const QString &path, const QVariant
 
 bool DesktopSettingsClient::setSettingValue(const QString &path, const QVariant &value)
 {
-    return setSetting(path.trimmed(), value);
+    const QString normalizedPath = path.trimmed();
+    if (!setSetting(normalizedPath, value)) {
+        return false;
+    }
+    if (normalizedPath == QLatin1String("shellTheme.dockTransparent")) {
+        const bool v = value.toBool();
+        if (m_dockTransparent != v) {
+            m_dockTransparent = v;
+            emit dockTransparentChanged();
+        }
+    }
+    return true;
 }
 
 void DesktopSettingsClient::refresh()
 {
+    // Preload persisted local snapshot first, then let service override with
+    // whatever keys it provides. This prevents partial service payloads from
+    // resetting fields to defaults at startup.
+    loadFromLocalStore();
     if (ensureIface()) {
         loadFromService();
     }
@@ -681,7 +840,17 @@ void DesktopSettingsClient::onNameOwnerChanged(const QString &name,
     if (name != QLatin1String(kService)) {
         return;
     }
-    Q_UNUSED(newOwner)
+    if (newOwner.isEmpty()) {
+        // Daemon departed: drop stale interface so a future ensureIface()
+        // rebuilds from scratch, and surface unavailability to QML bindings.
+        delete m_iface;
+        m_iface = nullptr;
+        if (m_available) {
+            m_available = false;
+            emit availableChanged();
+        }
+        return;
+    }
     refresh();
 }
 
@@ -689,7 +858,8 @@ void DesktopSettingsClient::onSettingChanged(const QString &path, const QDBusVar
 {
     const QVariant rawValue = value.variant();
     mapSetValueByPath(m_settingsSnapshot, path, rawValue);
-    if (path == QLatin1String("globalAppearance.colorMode")) {
+    if (path == QLatin1String("globalAppearance.colorMode")
+            || path == QLatin1String("shellTheme.mode")) {
         setThemeModeLocal(rawValue.toString().trimmed().toLower());
     } else if (path == QLatin1String("globalAppearance.accentColor")) {
         setAccentColorLocal(rawValue.toString().trimmed());
@@ -771,7 +941,13 @@ void DesktopSettingsClient::onSettingChanged(const QString &path, const QDBusVar
             m_highContrast = v;
             emit highContrastChanged();
         }
-    } else if (path == QLatin1String("dock.motionPreset")) {
+    } else if (path == QLatin1String("shellTheme.dockTransparent")) {
+        const bool v = rawValue.toBool();
+        if (m_dockTransparent != v) {
+            m_dockTransparent = v;
+            emit dockTransparentChanged();
+        }
+    } else if (path == QLatin1String("appdeck.motionPreset")) {
         const QString v = (rawValue.toString().trimmed().toLower() == QLatin1String("macos-lively"))
                 ? QStringLiteral("macos-lively")
                 : QStringLiteral("subtle");
@@ -779,31 +955,49 @@ void DesktopSettingsClient::onSettingChanged(const QString &path, const QDBusVar
             m_dockMotionPreset = v;
             emit dockMotionPresetChanged();
         }
-    } else if (path == QLatin1String("dock.autoHideEnabled")) {
+    } else if (path == QLatin1String("appdeck.autoHideEnabled")) {
         const bool v = rawValue.toBool();
         if (m_dockAutoHideEnabled != v) {
             m_dockAutoHideEnabled = v;
             emit dockAutoHideEnabledChanged();
         }
-    } else if (path == QLatin1String("dock.dropPulseEnabled")) {
+    } else if (path == QLatin1String("appdeck.dropPulseEnabled")) {
         const bool v = rawValue.toBool();
         if (m_dockDropPulseEnabled != v) {
             m_dockDropPulseEnabled = v;
             emit dockDropPulseEnabledChanged();
         }
-    } else if (path == QLatin1String("dock.dragThresholdMouse")) {
+    } else if (path == QLatin1String("appdeck.dragThresholdMouse")) {
         const int v = qBound(2, rawValue.toInt(), 24);
         if (m_dockDragThresholdMouse != v) {
             m_dockDragThresholdMouse = v;
             emit dockDragThresholdMouseChanged();
         }
-    } else if (path == QLatin1String("dock.dragThresholdTouchpad")) {
+    } else if (path == QLatin1String("appdeck.dragThresholdTouchpad")) {
         const int v = qBound(2, rawValue.toInt(), 24);
         if (m_dockDragThresholdTouchpad != v) {
             m_dockDragThresholdTouchpad = v;
             emit dockDragThresholdTouchpadChanged();
         }
-    } else if (path == QLatin1String("dock.iconSize")) {
+    } else if (path == QLatin1String("appdeck.desktopExportMinUpwardPx")) {
+        const int v = qBound(8, rawValue.toInt(), 96);
+        if (m_dockDesktopExportMinUpwardPx != v) {
+            m_dockDesktopExportMinUpwardPx = v;
+            emit dockDesktopExportMinUpwardPxChanged();
+        }
+    } else if (path == QLatin1String("appdeck.desktopExportVerticalRatioPercent")) {
+        const int v = qBound(100, rawValue.toInt(), 260);
+        if (m_dockDesktopExportVerticalRatioPercent != v) {
+            m_dockDesktopExportVerticalRatioPercent = v;
+            emit dockDesktopExportVerticalRatioPercentChanged();
+        }
+    } else if (path == QLatin1String("appdeck.desktopExportMaxHorizontalDriftPx")) {
+        const int v = qBound(8, rawValue.toInt(), 140);
+        if (m_dockDesktopExportMaxHorizontalDriftPx != v) {
+            m_dockDesktopExportMaxHorizontalDriftPx = v;
+            emit dockDesktopExportMaxHorizontalDriftPxChanged();
+        }
+    } else if (path == QLatin1String("appdeck.iconSize")) {
         const QString v = [&]() {
             const QString raw = rawValue.toString().trimmed().toLower();
             if (raw == QLatin1String("small") || raw == QLatin1String("large")) {
@@ -815,7 +1009,7 @@ void DesktopSettingsClient::onSettingChanged(const QString &path, const QDBusVar
             m_dockIconSize = v;
             emit dockIconSizeChanged();
         }
-    } else if (path == QLatin1String("dock.magnificationEnabled")) {
+    } else if (path == QLatin1String("appdeck.magnificationEnabled")) {
         const bool v = rawValue.toBool();
         if (m_dockMagnificationEnabled != v) {
             m_dockMagnificationEnabled = v;
@@ -929,17 +1123,37 @@ bool DesktopSettingsClient::ensureIface()
 
 bool DesktopSettingsClient::setSetting(const QString &path, const QVariant &value)
 {
+    const QString normalizedPath = path.trimmed();
+    if (normalizedPath.isEmpty()) {
+        return false;
+    }
+
+    auto applyLocalFallback = [&]() -> bool {
+        if (!mapSetValueByPath(m_settingsSnapshot, normalizedPath, value)) {
+            return false;
+        }
+        writeSettingsStoreFile(m_settingsSnapshot);
+        emit settingChanged(normalizedPath);
+        return true;
+    };
+
     if (!ensureIface()) {
-        return false;
+        return applyLocalFallback();
     }
-    QDBusReply<QVariantMap> reply = m_iface->call(
-                QStringLiteral("SetSetting"),
-                path,
-                QVariant::fromValue(QDBusVariant(value)));
-    if (!reply.isValid()) {
-        return false;
+
+    QDBusReply<QVariantMap> reply = m_iface->call(QStringLiteral("SetSetting"),
+                                                  normalizedPath,
+                                                  QVariant::fromValue(QDBusVariant(value)));
+    const bool ok = reply.isValid() && reply.value().value(QStringLiteral("ok"), false).toBool();
+    if (!ok) {
+        return applyLocalFallback();
     }
-    return reply.value().value(QStringLiteral("ok"), false).toBool();
+
+    // Mirror persisted snapshot in case DBus signal is delayed/lost.
+    if (mapSetValueByPath(m_settingsSnapshot, normalizedPath, value)) {
+        writeSettingsStoreFile(m_settingsSnapshot);
+    }
+    return true;
 }
 
 bool DesktopSettingsClient::setFontByPath(const QString &path,
@@ -973,25 +1187,62 @@ void DesktopSettingsClient::loadFromService()
         return;
     }
     const QVariantMap settings = root.value(QStringLiteral("settings")).toMap();
-    m_settingsSnapshot = settings;
-    const QVariantMap appearance = settings.value(QStringLiteral("globalAppearance")).toMap();
-    const QVariantMap gtk = settings.value(QStringLiteral("gtkThemeRouting")).toMap();
-    const QVariantMap kde = settings.value(QStringLiteral("kdeThemeRouting")).toMap();
-    const QVariantMap appThemePolicy = settings.value(QStringLiteral("appThemePolicy")).toMap();
-    const QVariantMap fallback = settings.value(QStringLiteral("fallbackPolicy")).toMap();
-    const QVariantMap contextAutomation = settings.value(QStringLiteral("contextAutomation")).toMap();
-    const QVariantMap contextTime = settings.value(QStringLiteral("contextTime")).toMap();
-    const QVariantMap dock = settings.value(QStringLiteral("dock")).toMap();
-    const QVariantMap print = settings.value(QStringLiteral("print")).toMap();
-    const QVariantMap windowing = settings.value(QStringLiteral("windowing")).toMap();
-    const QVariantMap shortcuts = settings.value(QStringLiteral("shortcuts")).toMap();
-    const QVariantMap fonts = settings.value(QStringLiteral("fonts")).toMap();
-    const QVariantMap wallpaper = settings.value(QStringLiteral("wallpaper")).toMap();
+    applySettingsMap(settings);
+}
+
+void DesktopSettingsClient::loadFromLocalStore()
+{
+    QFile file(settingsStorePath());
+    if (!file.exists() || !file.open(QIODevice::ReadOnly)) {
+        return;
+    }
+    QJsonParseError parseError;
+    const QJsonDocument doc = QJsonDocument::fromJson(file.readAll(), &parseError);
+    file.close();
+    if (parseError.error != QJsonParseError::NoError || !doc.isObject()) {
+        return;
+    }
+    const QVariantMap root = doc.object().toVariantMap();
+    QVariantMap settings = root;
+    const QVariant maybeSettings = root.value(QStringLiteral("settings"));
+    if (maybeSettings.canConvert<QVariantMap>()) {
+        settings = maybeSettings.toMap();
+    }
+    applySettingsMap(settings);
+}
+
+void DesktopSettingsClient::applySettingsMap(const QVariantMap &settings)
+{
+    if (settings.isEmpty()) {
+        return;
+    }
+    m_settingsSnapshot = mergeVariantMaps(m_settingsSnapshot, settings);
+    const QVariantMap snapshot = m_settingsSnapshot;
+    const QVariantMap appearance = snapshot.value(QStringLiteral("globalAppearance")).toMap();
+    const QVariantMap gtk = snapshot.value(QStringLiteral("gtkThemeRouting")).toMap();
+    const QVariantMap kde = snapshot.value(QStringLiteral("kdeThemeRouting")).toMap();
+    const QVariantMap appThemePolicy = snapshot.value(QStringLiteral("appThemePolicy")).toMap();
+    const QVariantMap fallback = snapshot.value(QStringLiteral("fallbackPolicy")).toMap();
+    const QVariantMap contextAutomation = snapshot.value(QStringLiteral("contextAutomation")).toMap();
+    const QVariantMap contextTime = snapshot.value(QStringLiteral("contextTime")).toMap();
+    const QVariantMap appdeck = snapshot.value(QStringLiteral("appdeck")).toMap();
+    const QVariantMap print = snapshot.value(QStringLiteral("print")).toMap();
+    const QVariantMap windowing = snapshot.value(QStringLiteral("windowing")).toMap();
+    const QVariantMap shortcuts = snapshot.value(QStringLiteral("shortcuts")).toMap();
+    const QVariantMap fonts = snapshot.value(QStringLiteral("fonts")).toMap();
+    const QVariantMap wallpaper = snapshot.value(QStringLiteral("wallpaper")).toMap();
 
     const bool highContrastValue = appearance.value(QStringLiteral("highContrast"), false).toBool();
     if (m_highContrast != highContrastValue) {
         m_highContrast = highContrastValue;
         emit highContrastChanged();
+    }
+    const bool dockTransparentValue = snapshot.value(QStringLiteral("shellTheme")).toMap()
+                                          .value(QStringLiteral("dockTransparent"), false)
+                                          .toBool();
+    if (m_dockTransparent != dockTransparentValue) {
+        m_dockTransparent = dockTransparentValue;
+        emit dockTransparentChanged();
     }
 
     {
@@ -1006,35 +1257,63 @@ void DesktopSettingsClient::loadFromService()
         }
     }
 
-    setThemeModeLocal(appearance.value(QStringLiteral("colorMode"), QStringLiteral("dark"))
-                          .toString().trimmed().toLower());
+    const QString appearanceMode = appearance.value(QStringLiteral("colorMode"), QString())
+                                       .toString().trimmed().toLower();
+    const QString shellMode = snapshot.value(QStringLiteral("shellTheme")).toMap()
+                                  .value(QStringLiteral("mode"), QString())
+                                  .toString().trimmed().toLower();
+    const auto isSupportedMode = [](const QString &candidate) {
+        return candidate == QLatin1String("light")
+                || candidate == QLatin1String("dark")
+                || candidate == QLatin1String("auto");
+    };
+    const QString resolvedMode = isSupportedMode(appearanceMode)
+            ? appearanceMode
+            : (isSupportedMode(shellMode) ? shellMode : QStringLiteral("dark"));
+    setThemeModeLocal(resolvedMode);
     setAccentColorLocal(appearance.value(QStringLiteral("accentColor"), QStringLiteral("#0a84ff"))
                             .toString().trimmed());
     setFontScaleLocal(appearance.value(QStringLiteral("uiScale"), 1.0).toDouble());
-    setThemeStringLocal(m_gtkThemeLight,
-                        gtk.value(QStringLiteral("themeLight"), QString()).toString().trimmed(),
-                        &DesktopSettingsClient::gtkThemeLightChanged);
-    setThemeStringLocal(m_gtkThemeDark,
-                        gtk.value(QStringLiteral("themeDark"), QString()).toString().trimmed(),
-                        &DesktopSettingsClient::gtkThemeDarkChanged);
-    setThemeStringLocal(m_kdeColorSchemeLight,
-                        kde.value(QStringLiteral("themeLight"), QString()).toString().trimmed(),
-                        &DesktopSettingsClient::kdeColorSchemeLightChanged);
-    setThemeStringLocal(m_kdeColorSchemeDark,
-                        kde.value(QStringLiteral("themeDark"), QString()).toString().trimmed(),
-                        &DesktopSettingsClient::kdeColorSchemeDarkChanged);
-    setThemeStringLocal(m_gtkIconThemeLight,
-                        gtk.value(QStringLiteral("iconThemeLight"), QString()).toString().trimmed(),
-                        &DesktopSettingsClient::gtkIconThemeLightChanged);
-    setThemeStringLocal(m_gtkIconThemeDark,
-                        gtk.value(QStringLiteral("iconThemeDark"), QString()).toString().trimmed(),
-                        &DesktopSettingsClient::gtkIconThemeDarkChanged);
-    setThemeStringLocal(m_kdeIconThemeLight,
-                        kde.value(QStringLiteral("iconThemeLight"), QString()).toString().trimmed(),
-                        &DesktopSettingsClient::kdeIconThemeLightChanged);
-    setThemeStringLocal(m_kdeIconThemeDark,
-                        kde.value(QStringLiteral("iconThemeDark"), QString()).toString().trimmed(),
-                        &DesktopSettingsClient::kdeIconThemeDarkChanged);
+    if (gtk.contains(QStringLiteral("themeLight"))) {
+        setThemeStringLocal(m_gtkThemeLight,
+                            gtk.value(QStringLiteral("themeLight"), QString()).toString().trimmed(),
+                            &DesktopSettingsClient::gtkThemeLightChanged);
+    }
+    if (gtk.contains(QStringLiteral("themeDark"))) {
+        setThemeStringLocal(m_gtkThemeDark,
+                            gtk.value(QStringLiteral("themeDark"), QString()).toString().trimmed(),
+                            &DesktopSettingsClient::gtkThemeDarkChanged);
+    }
+    if (kde.contains(QStringLiteral("themeLight"))) {
+        setThemeStringLocal(m_kdeColorSchemeLight,
+                            kde.value(QStringLiteral("themeLight"), QString()).toString().trimmed(),
+                            &DesktopSettingsClient::kdeColorSchemeLightChanged);
+    }
+    if (kde.contains(QStringLiteral("themeDark"))) {
+        setThemeStringLocal(m_kdeColorSchemeDark,
+                            kde.value(QStringLiteral("themeDark"), QString()).toString().trimmed(),
+                            &DesktopSettingsClient::kdeColorSchemeDarkChanged);
+    }
+    if (gtk.contains(QStringLiteral("iconThemeLight"))) {
+        setThemeStringLocal(m_gtkIconThemeLight,
+                            gtk.value(QStringLiteral("iconThemeLight"), QString()).toString().trimmed(),
+                            &DesktopSettingsClient::gtkIconThemeLightChanged);
+    }
+    if (gtk.contains(QStringLiteral("iconThemeDark"))) {
+        setThemeStringLocal(m_gtkIconThemeDark,
+                            gtk.value(QStringLiteral("iconThemeDark"), QString()).toString().trimmed(),
+                            &DesktopSettingsClient::gtkIconThemeDarkChanged);
+    }
+    if (kde.contains(QStringLiteral("iconThemeLight"))) {
+        setThemeStringLocal(m_kdeIconThemeLight,
+                            kde.value(QStringLiteral("iconThemeLight"), QString()).toString().trimmed(),
+                            &DesktopSettingsClient::kdeIconThemeLightChanged);
+    }
+    if (kde.contains(QStringLiteral("iconThemeDark"))) {
+        setThemeStringLocal(m_kdeIconThemeDark,
+                            kde.value(QStringLiteral("iconThemeDark"), QString()).toString().trimmed(),
+                            &DesktopSettingsClient::kdeIconThemeDarkChanged);
+    }
 
     const bool qtCompat = appThemePolicy.value(QStringLiteral("qtGenericAllowKdeCompat"), true).toBool();
     if (m_qtGenericAllowKdeCompat != qtCompat) {
@@ -1094,7 +1373,7 @@ void DesktopSettingsClient::loadFromService()
         emit contextTimeChanged();
     }
 
-    const QString dockMotion = (dock.value(QStringLiteral("motionPreset"), QStringLiteral("subtle"))
+    const QString dockMotion = (appdeck.value(QStringLiteral("motionPreset"), QStringLiteral("subtle"))
                                         .toString().trimmed().toLower() == QLatin1String("macos-lively"))
             ? QStringLiteral("macos-lively")
             : QStringLiteral("subtle");
@@ -1102,28 +1381,43 @@ void DesktopSettingsClient::loadFromService()
         m_dockMotionPreset = dockMotion;
         emit dockMotionPresetChanged();
     }
-    const bool dockAutoHide = dock.value(QStringLiteral("autoHideEnabled"), false).toBool();
+    const bool dockAutoHide = appdeck.value(QStringLiteral("autoHideEnabled"), false).toBool();
     if (m_dockAutoHideEnabled != dockAutoHide) {
         m_dockAutoHideEnabled = dockAutoHide;
         emit dockAutoHideEnabledChanged();
     }
-    const bool dockDropPulse = dock.value(QStringLiteral("dropPulseEnabled"), true).toBool();
+    const bool dockDropPulse = appdeck.value(QStringLiteral("dropPulseEnabled"), true).toBool();
     if (m_dockDropPulseEnabled != dockDropPulse) {
         m_dockDropPulseEnabled = dockDropPulse;
         emit dockDropPulseEnabledChanged();
     }
-    const int dockMouse = qBound(2, dock.value(QStringLiteral("dragThresholdMouse"), 6).toInt(), 24);
+    const int dockMouse = qBound(2, appdeck.value(QStringLiteral("dragThresholdMouse"), 6).toInt(), 24);
     if (m_dockDragThresholdMouse != dockMouse) {
         m_dockDragThresholdMouse = dockMouse;
         emit dockDragThresholdMouseChanged();
     }
-    const int dockTouchpad = qBound(2, dock.value(QStringLiteral("dragThresholdTouchpad"), 3).toInt(), 24);
+    const int dockTouchpad = qBound(2, appdeck.value(QStringLiteral("dragThresholdTouchpad"), 3).toInt(), 24);
     if (m_dockDragThresholdTouchpad != dockTouchpad) {
         m_dockDragThresholdTouchpad = dockTouchpad;
         emit dockDragThresholdTouchpadChanged();
     }
+    const int dockExportMinUpward = qBound(8, appdeck.value(QStringLiteral("desktopExportMinUpwardPx"), 28).toInt(), 96);
+    if (m_dockDesktopExportMinUpwardPx != dockExportMinUpward) {
+        m_dockDesktopExportMinUpwardPx = dockExportMinUpward;
+        emit dockDesktopExportMinUpwardPxChanged();
+    }
+    const int dockExportRatioPercent = qBound(100, appdeck.value(QStringLiteral("desktopExportVerticalRatioPercent"), 135).toInt(), 260);
+    if (m_dockDesktopExportVerticalRatioPercent != dockExportRatioPercent) {
+        m_dockDesktopExportVerticalRatioPercent = dockExportRatioPercent;
+        emit dockDesktopExportVerticalRatioPercentChanged();
+    }
+    const int dockExportMaxDrift = qBound(8, appdeck.value(QStringLiteral("desktopExportMaxHorizontalDriftPx"), 42).toInt(), 140);
+    if (m_dockDesktopExportMaxHorizontalDriftPx != dockExportMaxDrift) {
+        m_dockDesktopExportMaxHorizontalDriftPx = dockExportMaxDrift;
+        emit dockDesktopExportMaxHorizontalDriftPxChanged();
+    }
     const QString dockIconSize = [&]() {
-        const QString raw = dock.value(QStringLiteral("iconSize"), QStringLiteral("medium"))
+        const QString raw = appdeck.value(QStringLiteral("iconSize"), QStringLiteral("medium"))
                                 .toString().trimmed().toLower();
         if (raw == QLatin1String("small") || raw == QLatin1String("large")) {
             return raw;
@@ -1134,7 +1428,7 @@ void DesktopSettingsClient::loadFromService()
         m_dockIconSize = dockIconSize;
         emit dockIconSizeChanged();
     }
-    const bool dockMagnification = dock.value(QStringLiteral("magnificationEnabled"), true).toBool();
+    const bool dockMagnification = appdeck.value(QStringLiteral("magnificationEnabled"), true).toBool();
     if (m_dockMagnificationEnabled != dockMagnification) {
         m_dockMagnificationEnabled = dockMagnification;
         emit dockMagnificationEnabledChanged();

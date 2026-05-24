@@ -1,0 +1,51 @@
+[startup-trace] t=104ms phase=app.ready
+[startup-trace] t=105ms phase=service.bootstrap.installed
+[startup-trace] t=105ms phase=args.parsed detail=windowed=false width=0 height=0
+[startup-trace] t=107ms phase=engine.created
+[startup-trace] t=250ms phase=managers.constructed
+[startup-trace] t=250ms phase=qml.context.configured
+[startup-trace] t=250ms phase=qml.load.begin
+[startup-trace] t=281ms phase=qml.objectCreated detail=url=qrc:/qt/qml/Slm_Desktop/FastMain.qml created=true rootCount=1
+[startup-trace] t=281ms phase=qml.load.end detail=rootCount=1
+[startup-trace] t=281ms phase=window.snapshot.afterLoad detail=SLM Desktop Starting visible=1 exposed=0 size=500x500 type=0 | SLM Desktop visible=1 exposed=0 size=500x500 type=0
+[startup-trace] t=281ms phase=eventloop.enter
+[startup-trace] t=281ms phase=runtime.pulse.start detail=path=/tmp/slm-startup-1779447306133.log
+[startup-trace] t=938ms phase=window.firstFrameSwapped detail=visible=true size=1853x985
+[startup-trace] t=1163ms phase=app.stateChanged detail=state=4
+[startup-trace] t=1164ms phase=window.focusChanged detail=SLM Desktop visible=1 exposed=1 size=1853x985 type=0
+[startup-trace] t=1231ms phase=runtime.pulse detail=n=1 rootCount=1 windows=1 snapshot=SLM Desktop visible=1 exposed=1 size=1853x985 type=0
+[startup-trace] t=2114ms phase=window.focusChanged detail=SLM TopOverlay Power visible=1 exposed=1 size=560x58 type=11
+[startup-trace] t=2183ms phase=runtime.pulse detail=n=2 rootCount=1 windows=4 snapshot=SLM Desktop visible=0 exposed=0 size=1853x985 type=0 | Slm Desktop visible=1 exposed=1 size=1853x985 type=0 | SLM TopOverlay Power visible=1 exposed=1 size=560x58 type=11 | SLM Crown Surface visible=1 exposed=1 size=1853x36 type=0
+[startup-trace] t=3348ms phase=runtime.pulse detail=n=3 rootCount=1 windows=5 snapshot=SLM Desktop visible=0 exposed=0 size=1853x985 type=0 | Slm Desktop visible=1 exposed=1 size=1853x985 type=0 | SLM TopOverlay Power visible=1 exposed=1 size=560x58 type=11 | SLM Crown Surface visible=1 exposed=1 size=1853x36 type=0 | SLM AppDeck Surface visible=1 exposed=1 size=1x1 type=0
+[startup-trace] t=4089ms phase=service.ready detail=desktopd/SLMCapabilities attempt=1
+[startup-trace] t=4090ms phase=service.ready detail=slm-clipboardd attempt=1
+[startup-trace] t=4090ms phase=service.ready detail=slm-settingsd attempt=1
+[startup-trace] t=4091ms phase=service.ready detail=slm-recoveryd attempt=1
+[startup-trace] t=4091ms phase=service.ready detail=slm-devicesd attempt=1
+[startup-trace] t=4091ms phase=service.bootstrap.started detail=count=5
+[startup-trace] t=4135ms phase=runtime.pulse detail=n=4 rootCount=1 windows=5 snapshot=SLM Desktop visible=0 exposed=0 size=1853x985 type=0 | Slm Desktop visible=1 exposed=1 size=1853x985 type=0 | SLM TopOverlay Power visible=1 exposed=1 size=560x58 type=11 | SLM Crown Surface visible=1 exposed=1 size=1853x36 type=0 | SLM AppDeck Surface visible=1 exposed=1 size=370x138 type=0
+[startup-trace] t=5153ms phase=runtime.pulse detail=n=5 rootCount=1 windows=7 snapshot=SLM Desktop visible=0 exposed=0 size=1853x985 type=0 | Slm Desktop visible=1 exposed=1 size=1853x985 type=0 | SLM TopOverlay Power visible=1 exposed=1 size=560x58 type=11 | SLM Crown Surface visible=1 exposed=1 size=1853x36 type=0 | SLM AppDeck Surface visible=1 exposed=1 size=370x138 type=0 | Join Wi-Fi Network visible=0 exposed=0 size=340x317 type=3 | Desktop Notification Manager visible=0 exposed=0 size=396x18 type=0
+[startup-trace] t=6135ms phase=runtime.pulse detail=n=6 rootCount=1 windows=7
+[startup-trace] t=7257ms phase=runtime.pulse detail=n=7 rootCount=1 windows=7
+[startup-trace] t=8135ms phase=runtime.pulse detail=n=8 rootCount=1 windows=7
+[startup-trace] t=9135ms phase=runtime.pulse detail=n=9 rootCount=1 windows=7
+[startup-trace] t=10135ms phase=runtime.pulse detail=n=10 rootCount=1 windows=7
+[startup-trace] t=11134ms phase=runtime.pulse detail=n=11 rootCount=1 windows=7
+[startup-trace] t=12152ms phase=runtime.pulse detail=n=12 rootCount=1 windows=7
+[startup-trace] t=13135ms phase=runtime.pulse detail=n=13 rootCount=1 windows=7
+[startup-trace] t=14135ms phase=runtime.pulse detail=n=14 rootCount=1 windows=7
+[startup-trace] t=15135ms phase=runtime.pulse detail=n=15 rootCount=1 windows=7
+[startup-trace] t=16135ms phase=runtime.pulse detail=n=16 rootCount=1 windows=7
+[startup-trace] t=17135ms phase=runtime.pulse detail=n=17 rootCount=1 windows=7
+[startup-trace] t=18135ms phase=runtime.pulse detail=n=18 rootCount=1 windows=7
+[startup-trace] t=19142ms phase=runtime.pulse detail=n=19 rootCount=1 windows=7
+[startup-trace] t=20134ms phase=runtime.pulse detail=n=20 rootCount=1 windows=7
+[startup-trace] t=20134ms phase=runtime.pulse.stop
+[startup-trace] t=47985ms phase=window.focusChanged detail=<untitled> visible=1 exposed=1 size=320x239 type=9
+[startup-trace] t=51534ms phase=window.focusChanged detail=SLM TopOverlay Power visible=1 exposed=1 size=560x58 type=11
+[startup-trace] t=51689ms phase=window.focusChanged detail=Save Image as... visible=1 exposed=1 size=700x420 type=3
+[startup-trace] t=53650ms phase=window.focusChanged detail=SLM TopOverlay Power visible=1 exposed=1 size=560x58 type=11
+[startup-trace] t=53682ms phase=window.focusChanged detail=Choose Folder visible=1 exposed=1 size=940x620 type=3
+[startup-trace] t=149525ms phase=window.focusChanged detail=Save Image as... visible=1 exposed=1 size=700x420 type=3
+[startup-trace] t=171910ms phase=window.focusChanged detail=SLM TopOverlay Power visible=1 exposed=1 size=560x58 type=11
+[startup-trace] t=171925ms phase=window.focusChanged detail=Choose Folder visible=1 exposed=1 size=940x620 type=3

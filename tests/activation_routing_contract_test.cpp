@@ -20,8 +20,8 @@ class ActivationRoutingContractTest : public QObject
 private slots:
     void dockAndWorkspaceMustRouteViaAppCommandRouter()
     {
-        const QString dockPath = QStringLiteral(DESKTOP_SOURCE_DIR) + QStringLiteral("/Qml/components/dock/Dock.qml");
-        const QString dockDelegatePath = QStringLiteral(DESKTOP_SOURCE_DIR) + QStringLiteral("/Qml/components/dock/DockAppDelegate.qml");
+        const QString dockPath = QStringLiteral(DESKTOP_SOURCE_DIR) + QStringLiteral("/Qml/components/appdeck/AppDeck.qml");
+        const QString dockDelegatePath = QStringLiteral(DESKTOP_SOURCE_DIR) + QStringLiteral("/Qml/components/appdeck/AppDeckAppDelegate.qml");
         const QString workspacePath = QStringLiteral(DESKTOP_SOURCE_DIR) + QStringLiteral("/Qml/components/workspace/WorkspaceOverlay.qml");
 
         const QString dockText = readTextFile(dockPath);

@@ -1,8 +1,12 @@
 #include "appstartupbridge.h"
 #include "../services/contextmenu/contextmenuservice.h"
 #include "../services/power/powerbridge.h"
+#include "../services/power/powercontroller.h"
+#include "../services/power/schedulecontroller.h"
+#include "../services/power/sessioncontroller.h"
 
 #include <QQmlContext>
+#include <QDebug>
 #include <QTimer>
 #include <array>
 #include <utility>
@@ -13,20 +17,20 @@
 #include "../services/media/mediasessionmanager.h"
 #include "../services/notifications/notificationmanager.h"
 #include "../services/power/batterymanager.h"
-#include "../../externalindicatorregistry.h"
-#include "../../globalmenumanager.h"
+#include "../services/indicator/externalindicatorregistry.h"
+#include "../services/globalmenu/globalmenumanager.h"
 #include "../services/globalmenu/globalmenuadaptivecontroller.h"
 #include "../services/globalmenu/globalmenususpendbridge.h"
 #include "../services/indicator/statusnotifierhost.h"
 #include "../services/portal/screencastprivacymodel.h"
 #include "../services/portal/inputcaptureprivacymodel.h"
-#include "../../appmodel.h"
-#include "../../shortcutmodel.h"
-#include "../../dockmodel.h"
+#include "../core/appmodel.h"
+#include "../core/shortcutmodel.h"
+#include "../core/appdeck/appdeckmodel.h"
 #include "../core/workspace/spacesmanager.h"
 #include "../core/execution/appexecutiongate.h"
 #include "../core/execution/appcommandrouter.h"
-#include "../../cursorcontroller.h"
+#include "../core/shell/cursorcontroller.h"
 #include "../core/icons/themeiconcontroller.h"
 #include "../core/workspace/windowingbackendmanager.h"
 #include "../core/workspace/workspacemanager.h"
@@ -34,18 +38,18 @@
 #include "../core/workspace/multitaskingcontroller.h"
 #include "../core/workspace/windowthumbnaillayoutengine.h"
 #include "../core/workspace/workspacepreviewmanager.h"
-#include "../../screenshotmanager.h"
-#include "../../portalchooserlogichelper.h"
-#include "../../screenshotsavehelper.h"
-#include "../../portaluibridge.h"
+#include "../services/screenshot/screenshotmanager.h"
+#include "../services/portal/portalchooserlogichelper.h"
+#include "../services/screenshot/screenshotsavehelper.h"
+#include "../services/portal/portaluibridge.h"
 #include "../../src/apps/filemanager/include/filemanagerapi.h"
 #include "../../src/apps/filemanager/include/filemanagermodel.h"
 #include "../../src/apps/filemanager/include/filemanagermodelfactory.h"
 #include "../apps/filemanager/ops/globalprogresscenter.h"
-#include "../../tothespotservice.h"
-#include "../../tothespotcontextmenuhelper.h"
-#include "../../tothespottexthighlighter.h"
-#include "../../metadataindexserver.h"
+#include "../services/search/pulseservice.h"
+#include "../services/search/pulsecontextmenuhelper.h"
+#include "../services/search/pulsetexthighlighter.h"
+#include "../services/fileindex/metadataindexserver.h"
 #include "../services/clipboard/ClipboardServiceClient.h"
 #include "../core/motion/slmmotioncontroller.h"
 #include "../core/shell/shellstatecontroller.h"
@@ -53,10 +57,26 @@
 #include "../core/shell/shelllayerwatchdog.h"
 
 namespace {
+bool contextIsUsable(QQmlContext *context)
+{
+    if (context == nullptr) {
+        return false;
+    }
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    return context->isValid();
+#else
+    return true;
+#endif
+}
+
 template <std::size_t N>
 void setContextObjects(QQmlContext *context,
                        const std::array<std::pair<const char *, QObject *>, N> &entries)
 {
+    if (!contextIsUsable(context)) {
+        qWarning() << "[AppStartupBridge] skipped setContextObjects: invalid QQmlContext";
+        return;
+    }
     for (const auto &[name, object] : entries) {
         context->setContextProperty(QString::fromLatin1(name), object);
     }
@@ -83,7 +103,7 @@ void hideBatchProgress(GlobalProgressCenter *globalProgressCenter,
 }
 
 namespace AppStartupBridge {
-void registerTopBarIndicatorContext(QQmlContext *context,
+void registerCrownIndicatorContext(QQmlContext *context,
                                     NetworkManager *networkManager,
                                     BluetoothManager *bluetoothManager,
                                     SoundManager *soundManager,
@@ -119,7 +139,7 @@ void registerTopBarIndicatorContext(QQmlContext *context,
 void registerCoreContext(QQmlContext *context,
                          DesktopAppModel *appModel,
                          ShortcutModel *shortcutModel,
-                         DockModel *dockModel,
+                         AppDeckModel *dockModel,
                          SpacesManager *spacesManager,
                          AppExecutionGate *appExecutionGate,
                          AppCommandRouter *appCommandRouter,
@@ -140,9 +160,9 @@ void registerCoreContext(QQmlContext *context,
                          FileManagerModel *fileManagerModel,
                          FileManagerModelFactory *fileManagerModelFactory,
                          GlobalProgressCenter *globalProgressCenter,
-                         TothespotService *tothespotService,
-                         TothespotContextMenuHelper *tothespotContextMenuHelper,
-                         TothespotTextHighlighter *tothespotTextHighlighter,
+                         PulseService *pulseService,
+                         PulseContextMenuHelper *pulseContextMenuHelper,
+                         PulseTextHighlighter *pulseTextHighlighter,
                          MetadataIndexServer *metadataIndexServer,
                          Slm::Clipboard::ClipboardServiceClient *clipboardServiceClient,
                          Slm::Motion::MotionController *motionController,
@@ -150,13 +170,16 @@ void registerCoreContext(QQmlContext *context,
                          ShellInputRouter *shellInputRouter,
                          ShellLayerWatchdog *shellLayerWatchdog,
                          PowerBridge *powerBridge,
+                         PowerController *powerController,
+                         ScheduleController *scheduleController,
+                         SessionController *sessionController,
                          Slm::ContextMenu::ContextMenuService *contextMenuService)
 {
-    const std::array<std::pair<const char *, QObject *>, 37> entries{{
+    const std::array<std::pair<const char *, QObject *>, 40> entries{{
         {"AppModel", appModel},
         {"AppManager", appModel},
         {"ShortcutModel", shortcutModel},
-        {"DockModel", dockModel},
+        {"AppDeckModel", dockModel},
         {"SpacesManager", spacesManager},
         {"AppExecutionGate", appExecutionGate},
         {"AppCommandRouter", appCommandRouter},
@@ -180,9 +203,9 @@ void registerCoreContext(QQmlContext *context,
         {"FileManagerModel", fileManagerModel},
         {"FileManagerModelFactory", fileManagerModelFactory},
         {"GlobalProgressCenter", globalProgressCenter},
-        {"TothespotService", tothespotService},
-        {"TothespotContextMenuHelper", tothespotContextMenuHelper},
-        {"TothespotTextHighlighter", tothespotTextHighlighter},
+        {"PulseService", pulseService},
+        {"PulseContextMenuHelper", pulseContextMenuHelper},
+        {"PulseTextHighlighter", pulseTextHighlighter},
         {"MetadataIndexServer", metadataIndexServer},
         {"ClipboardServiceClient", clipboardServiceClient},
         {"MotionController", motionController},
@@ -190,6 +213,9 @@ void registerCoreContext(QQmlContext *context,
         {"ShellInputRouter", shellInputRouter},
         {"ShellLayerWatchdog", shellLayerWatchdog},
         {"PowerBridge", powerBridge},
+        {"PowerController", powerController},
+        {"ScheduleController", scheduleController},
+        {"SessionController", sessionController},
         {"ContextMenuService", contextMenuService},
     }};
     setContextObjects(context, entries);
@@ -200,6 +226,10 @@ void setStartupWindowContext(QQmlContext *context,
                              int appStartWindowWidth,
                              int appStartWindowHeight)
 {
+    if (!contextIsUsable(context)) {
+        qWarning() << "[AppStartupBridge] skipped setStartupWindowContext: invalid QQmlContext";
+        return;
+    }
     context->setContextProperty(QStringLiteral("AppStartWindowed"), appStartWindowed);
     context->setContextProperty(QStringLiteral("AppStartWindowWidth"), appStartWindowWidth);
     context->setContextProperty(QStringLiteral("AppStartWindowHeight"), appStartWindowHeight);

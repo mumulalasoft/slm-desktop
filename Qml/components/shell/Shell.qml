@@ -2,7 +2,7 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import Slm_Desktop
 import SlmStyle as DSStyle
-import "../contextmenu" as ContextMenuComp
+import "../desktop" as DesktopComp
 
 Item {
     id: root
@@ -19,6 +19,9 @@ Item {
         return "qrc:/images/wallpaper.jpeg"
     }
     property var shortcutsModel: (typeof ShortcutModel !== "undefined") ? ShortcutModel : null
+    property var desktopViewController: null
+    property var desktopMenuProvider: null
+    property var shellApi: null
     property bool inputEnabled: true
     property bool contextMenuOnly: false
     property real dockTopY: -1
@@ -43,7 +46,7 @@ Item {
         if (dockTopY <= 0 || dockTopY >= height) {
             return 20
         }
-        // Keep the shortcut area ending just above the dock top edge.
+        // Keep the shortcut area ending just above the appdeck top edge.
         return Math.max(20, (height - dockTopY) + 8)
     }
 
@@ -77,6 +80,7 @@ Item {
     signal dockDropCommit(string desktopFile, real globalX, string iconPath)
     signal dockDropClear()
     signal shellContextMenuRequested(real x, real y)
+    readonly property var desktopFileManagerContent: desktopSurface
 
     function startupQmlMark(phase, detail) {
         var now = Date.now()
@@ -287,7 +291,7 @@ Item {
     }
 
     function visibleRows() {
-        // Use full rows only, so no shortcut row can spill into dock area.
+        // Use full rows only, so no shortcut row can spill into appdeck area.
         return Math.max(1, Math.floor(shortcutFlick.height / cellHeight))
     }
 
@@ -586,51 +590,20 @@ Item {
         imageSource: root.wallpaperSource
     }
 
-    ContextMenuComp.DesktopContextMenu {
-        id: desktopCtxMenu
+    DesktopComp.DesktopSurface {
+        id: desktopSurface
         anchors.fill: parent
-        desktopPath: {
-            if (typeof DesktopSettings !== "undefined" && DesktopSettings
-                    && DesktopSettings.desktopPath)
-                return DesktopSettings.desktopPath
-            return ""
-        }
-
-        onNewFolder: {
-            if (typeof FileManagerApi !== "undefined" && FileManagerApi
-                    && FileManagerApi.createFolder)
-                FileManagerApi.createFolder(desktopPath, "")
-        }
-        onNewTextFile: {
-            if (typeof FileManagerApi !== "undefined" && FileManagerApi
-                    && FileManagerApi.createFile)
-                FileManagerApi.createFile(desktopPath, "New File.txt")
-        }
-        onPaste: {
-            if (typeof FileManagerApi !== "undefined" && FileManagerApi
-                    && FileManagerApi.pasteClipboard)
-                FileManagerApi.pasteClipboard(desktopPath)
-        }
-        onChangeWallpaper: {
-            if (typeof AppCommandRouter !== "undefined" && AppCommandRouter)
-                AppCommandRouter.route("settings.open", {"page": "appearance"}, "desktop-ctx")
-        }
-        onOpenAppearance: {
-            if (typeof AppCommandRouter !== "undefined" && AppCommandRouter)
-                AppCommandRouter.route("settings.open", {"page": "appearance"}, "desktop-ctx")
-        }
-        onOpenSettings: {
-            if (typeof AppCommandRouter !== "undefined" && AppCommandRouter)
-                AppCommandRouter.route("settings.open", {}, "desktop-ctx")
-        }
-        onOpenTerminal: {
-            if (typeof AppExecutionGate !== "undefined" && AppExecutionGate)
-                AppExecutionGate.launchTerminalAt(desktopPath)
-        }
+        z: 10
+        desktopViewController: root.desktopViewController
+        desktopMenuProvider: root.desktopMenuProvider
+        shellApi: root.shellApi
+        dockTopY: root.dockTopY
     }
 
     Flickable {
         id: shortcutFlick
+        visible: false
+        enabled: false
         anchors.fill: parent
         anchors.topMargin: 42
         anchors.leftMargin: 20

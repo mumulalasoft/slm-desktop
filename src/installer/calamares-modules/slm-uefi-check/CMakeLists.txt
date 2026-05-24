@@ -1,0 +1,9 @@
+calamares_add_plugin(slm-uefi-check
+    TYPE job
+    EXPORT_MACRO DLLEXPORT_PRO
+    SOURCES SlmUefiCheckJob.cpp
+    LINK_LIBRARIES
+        slm_installer_shared
+        Calamares::calamares
+        Qt6::Core
+)

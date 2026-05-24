@@ -6,17 +6,20 @@ ShellStateController::ShellStateController(QObject *parent)
     recomputeDerivedState();
 }
 
-bool ShellStateController::launchpadVisible() const        { return m_launchpadVisible; }
+bool ShellStateController::appdeckVisible() const        { return m_appdeckVisible; }
 bool ShellStateController::workspaceOverviewVisible() const { return m_workspaceOverviewVisible; }
 bool ShellStateController::toTheSpotVisible() const        { return m_toTheSpotVisible; }
 QString ShellStateController::searchQuery() const           { return m_searchQuery; }
+QString ShellStateController::appDeckSearchSeed() const      { return m_appDeckSearchSeed; }
 bool ShellStateController::styleGalleryVisible() const     { return m_styleGalleryVisible; }
 bool ShellStateController::showDesktop() const             { return m_showDesktop; }
 bool ShellStateController::lockScreenActive() const        { return m_lockScreenActive; }
 bool ShellStateController::notificationsVisible() const    { return m_notificationsVisible; }
+bool ShellStateController::topOverlayActive() const        { return m_topOverlayActive; }
 bool ShellStateController::focusMode() const               { return m_focusMode; }
 QString ShellStateController::dockHoveredItem() const      { return m_dockHoveredItem; }
 QString ShellStateController::dockExpandedItem() const     { return m_dockExpandedItem; }
+QString ShellStateController::dockActiveItem() const     { return m_dockActiveItem; }
 QVariantMap ShellStateController::dragSession() const       { return m_dragSession; }
 
 qreal ShellStateController::topBarOpacity() const              { return m_topBarOpacity; }
@@ -26,11 +29,11 @@ qreal ShellStateController::workspaceBlurAlpha() const         { return m_worksp
 bool ShellStateController::workspaceInteractionBlocked() const  { return m_workspaceInteractionBlocked; }
 bool ShellStateController::anyOverlayVisible() const           { return m_anyOverlayVisible; }
 
-void ShellStateController::setLaunchpadVisible(bool visible)
+void ShellStateController::setAppDeckVisible(bool visible)
 {
-    if (m_launchpadVisible == visible) return;
-    m_launchpadVisible = visible;
-    emit launchpadVisibleChanged(visible);
+    if (m_appdeckVisible == visible) return;
+    m_appdeckVisible = visible;
+    emit appdeckVisibleChanged(visible);
     recomputeDerivedState();
 }
 
@@ -42,7 +45,7 @@ void ShellStateController::setWorkspaceOverviewVisible(bool visible)
     recomputeDerivedState();
 }
 
-void ShellStateController::setToTheSpotVisible(bool visible)
+void ShellStateController::setPulseVisible(bool visible)
 {
     if (m_toTheSpotVisible == visible) return;
     m_toTheSpotVisible = visible;
@@ -57,6 +60,14 @@ void ShellStateController::setSearchQuery(const QString &query)
     if (m_searchQuery == normalized) return;
     m_searchQuery = normalized;
     emit searchQueryChanged(m_searchQuery);
+}
+
+void ShellStateController::setAppDeckSearchSeed(const QString &seed)
+{
+    const QString normalized = seed;
+    if (m_appDeckSearchSeed == normalized) return;
+    m_appDeckSearchSeed = normalized;
+    emit appDeckSearchSeedChanged(m_appDeckSearchSeed);
 }
 
 void ShellStateController::setStyleGalleryVisible(bool visible)
@@ -91,6 +102,14 @@ void ShellStateController::setNotificationsVisible(bool visible)
     emit notificationsVisibleChanged(visible);
 }
 
+void ShellStateController::setTopOverlayActive(bool active)
+{
+    if (m_topOverlayActive == active) return;
+    m_topOverlayActive = active;
+    emit topOverlayActiveChanged(active);
+    recomputeDerivedState();
+}
+
 void ShellStateController::setFocusMode(bool active)
 {
     if (m_focusMode == active) return;
@@ -114,6 +133,14 @@ void ShellStateController::setDockExpandedItem(const QString &itemId)
     emit dockExpandedItemChanged(m_dockExpandedItem);
 }
 
+void ShellStateController::setDockActiveItem(const QString &itemId)
+{
+    const QString normalized = itemId;
+    if (m_dockActiveItem == normalized) return;
+    m_dockActiveItem = normalized;
+    emit dockActiveItemChanged(m_dockActiveItem);
+}
+
 void ShellStateController::setDragSession(const QVariantMap &session)
 {
     if (m_dragSession == session) return;
@@ -128,9 +155,9 @@ void ShellStateController::clearDragSession()
     emit dragSessionChanged(m_dragSession);
 }
 
-void ShellStateController::toggleLaunchpad()
+void ShellStateController::toggleAppDeck()
 {
-    setLaunchpadVisible(!m_launchpadVisible);
+    setAppDeckVisible(!m_appdeckVisible);
 }
 
 void ShellStateController::toggleWorkspaceOverview()
@@ -138,37 +165,44 @@ void ShellStateController::toggleWorkspaceOverview()
     setWorkspaceOverviewVisible(!m_workspaceOverviewVisible);
 }
 
-void ShellStateController::toggleToTheSpot()
+void ShellStateController::togglePulse()
 {
-    setToTheSpotVisible(!m_toTheSpotVisible);
+    setPulseVisible(!m_toTheSpotVisible);
 }
 
 void ShellStateController::dismissAllOverlays()
 {
-    setLaunchpadVisible(false);
+    setAppDeckVisible(false);
     setWorkspaceOverviewVisible(false);
-    setToTheSpotVisible(false);
+    setPulseVisible(false);
     setStyleGalleryVisible(false);
+    setTopOverlayActive(false);
+}
+
+void ShellStateController::openAppDeck()
+{
+    setPulseVisible(false);
+    setAppDeckVisible(true);
 }
 
 void ShellStateController::recomputeDerivedState()
 {
-    // topBarOpacity: hidden during launchpad, full otherwise
-    const qreal newTopBarOpacity = m_launchpadVisible ? 0.0 : 1.0;
-    if (!qFuzzyCompare(m_topBarOpacity, newTopBarOpacity)) {
-        m_topBarOpacity = newTopBarOpacity;
+    // Crown is persistent shell chrome and remains visible above AppDeck.
+    const qreal newCrownOpacity = 1.0;
+    if (!qFuzzyCompare(m_topBarOpacity, newCrownOpacity)) {
+        m_topBarOpacity = newCrownOpacity;
         emit topBarOpacityChanged(m_topBarOpacity);
     }
 
-    // dockOpacity: hidden during show-desktop only; dock remains visible during launchpad.
+    // dockOpacity: hidden during show-desktop only; appdeck remains visible during appdeck.
     const qreal newDockOpacity = m_showDesktop ? 0.0 : 1.0;
     if (!qFuzzyCompare(m_dockOpacity, newDockOpacity)) {
         m_dockOpacity = newDockOpacity;
         emit dockOpacityChanged(m_dockOpacity);
     }
 
-    // workspaceBlurred: blurred when launchpad or show-desktop is active
-    const bool newWorkspaceBlurred = m_launchpadVisible || m_showDesktop;
+    // workspaceBlurred: blurred when appdeck or show-desktop is active
+    const bool newWorkspaceBlurred = m_appdeckVisible || m_showDesktop;
     if (m_workspaceBlurred != newWorkspaceBlurred) {
         m_workspaceBlurred = newWorkspaceBlurred;
         emit workspaceBlurredChanged(m_workspaceBlurred);
@@ -176,7 +210,7 @@ void ShellStateController::recomputeDerivedState()
 
     // workspaceBlurAlpha: per-mode blur intensity
     qreal newBlurAlpha = 0.0;
-    if (m_launchpadVisible) {
+    if (m_appdeckVisible) {
         newBlurAlpha = 0.50;
     } else if (m_showDesktop) {
         newBlurAlpha = 0.40;
@@ -186,16 +220,17 @@ void ShellStateController::recomputeDerivedState()
         emit workspaceBlurAlphaChanged(m_workspaceBlurAlpha);
     }
 
-    // workspaceInteractionBlocked: blocked when launchpad is visible
-    const bool newBlocked = m_launchpadVisible;
+    // workspaceInteractionBlocked: blocked when appdeck is visible
+    const bool newBlocked = m_appdeckVisible || m_topOverlayActive;
     if (m_workspaceInteractionBlocked != newBlocked) {
         m_workspaceInteractionBlocked = newBlocked;
         emit workspaceInteractionBlockedChanged(m_workspaceInteractionBlocked);
     }
 
     // anyOverlayVisible: any transient overlay is active
-    const bool newAnyOverlay = m_launchpadVisible || m_workspaceOverviewVisible
-                               || m_toTheSpotVisible || m_styleGalleryVisible;
+    const bool newAnyOverlay = m_appdeckVisible || m_workspaceOverviewVisible
+                               || m_toTheSpotVisible || m_styleGalleryVisible
+                               || m_topOverlayActive;
     if (m_anyOverlayVisible != newAnyOverlay) {
         m_anyOverlayVisible = newAnyOverlay;
         emit anyOverlayVisibleChanged(m_anyOverlayVisible);

@@ -136,5 +136,11 @@ BindingDescriptor SettingBindingResolver::parse(const QString &bindingSpec,
         return out;
     }
 
+    if (scheme == QStringLiteral("desktop")) {
+        out.kind = BindingDescriptor::Kind::Desktop;
+        out.localKey = payload;
+        return out;
+    }
+
     return unsupportedDescriptor(spec, scheme, defaultValue);
 }

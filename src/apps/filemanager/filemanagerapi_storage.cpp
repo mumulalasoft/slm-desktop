@@ -195,6 +195,70 @@ static QString gfileToPathOrUriStorageLocal(GFile *file)
     return out;
 }
 
+static bool isPseudoStorageLocationStorage(const QString &pathValue,
+                                           const QString &filesystemTypeValue,
+                                           const QString &deviceValue)
+{
+    QString path = pathValue.trimmed();
+    while (path.length() > 1 && path.endsWith(QLatin1Char('/'))) {
+        path.chop(1);
+    }
+    const QString fs = filesystemTypeValue.trimmed().toLower();
+    const QString device = deviceValue.trimmed().toLower();
+
+    if (path.isEmpty() || path == QStringLiteral("/")) {
+        return false;
+    }
+
+    static const QSet<QString> pseudoFsTypes = {
+        QStringLiteral("autofs"), QStringLiteral("binfmt_misc"), QStringLiteral("bpf"),
+        QStringLiteral("cgroup"), QStringLiteral("cgroup2"), QStringLiteral("configfs"),
+        QStringLiteral("debugfs"), QStringLiteral("devpts"), QStringLiteral("devtmpfs"),
+        QStringLiteral("efivarfs"), QStringLiteral("fusectl"), QStringLiteral("hugetlbfs"),
+        QStringLiteral("mqueue"), QStringLiteral("nsfs"), QStringLiteral("overlay"),
+        QStringLiteral("proc"), QStringLiteral("pstore"), QStringLiteral("ramfs"),
+        QStringLiteral("securityfs"), QStringLiteral("squashfs"), QStringLiteral("sysfs"),
+        QStringLiteral("tmpfs"), QStringLiteral("tracefs")
+    };
+    if (pseudoFsTypes.contains(fs)) {
+        return true;
+    }
+
+    static const QStringList systemPrefixes = {
+        QStringLiteral("/boot"), QStringLiteral("/dev"), QStringLiteral("/proc"),
+        QStringLiteral("/run"), QStringLiteral("/snap"), QStringLiteral("/sys"),
+        QStringLiteral("/tmp"), QStringLiteral("/var/lib/docker"),
+        QStringLiteral("/var/lib/flatpak"), QStringLiteral("/var/lib/kubelet"),
+        QStringLiteral("/var/lib/snapd"), QStringLiteral("/var/snap")
+    };
+    for (const QString &prefix : systemPrefixes) {
+        if (path == prefix || path.startsWith(prefix + QLatin1Char('/'))) {
+            return true;
+        }
+    }
+
+    return device.startsWith(QStringLiteral("/dev/loop"))
+            || device.startsWith(QStringLiteral("/dev/zram"))
+            || device.startsWith(QStringLiteral("loop"));
+}
+
+static QVariantList filterStorageRowsStorage(const QVariantList &rows)
+{
+    QVariantList filtered;
+    filtered.reserve(rows.size());
+    for (const QVariant &value : rows) {
+        const QVariantMap row = value.toMap();
+        const QString path = row.value(QStringLiteral("path"),
+                                       row.value(QStringLiteral("rootPath"))).toString();
+        const QString fs = row.value(QStringLiteral("filesystemType")).toString();
+        const QString device = row.value(QStringLiteral("device")).toString();
+        if (!isPseudoStorageLocationStorage(path, fs, device)) {
+            filtered.push_back(row);
+        }
+    }
+    return filtered;
+}
+
 struct GioOpState {
     GMainLoop *loop = nullptr;
     bool ok = false;
@@ -561,13 +625,13 @@ QVariantList FileManagerApi::queryStorageLocationsSync(int lsblkTimeoutMs) const
     QVariantMap serviceReply;
     if (callStorageServiceStorage(QStringLiteral("GetStorageLocations"), {}, &serviceReply, nullptr)) {
         if (serviceReply.value(QStringLiteral("ok")).toBool()) {
-            return serviceReply.value(QStringLiteral("rows")).toList();
+            return filterStorageRowsStorage(serviceReply.value(QStringLiteral("rows")).toList());
         }
     }
     QVariantMap devicesReply;
     if (callDevicesServiceStorage(QStringLiteral("GetStorageLocations"), {}, &devicesReply, nullptr)) {
         if (devicesReply.value(QStringLiteral("ok")).toBool()) {
-            return devicesReply.value(QStringLiteral("rows")).toList();
+            return filterStorageRowsStorage(devicesReply.value(QStringLiteral("rows")).toList());
         }
     }
 
@@ -589,6 +653,18 @@ QVariantList FileManagerApi::queryStorageLocationsSync(int lsblkTimeoutMs) const
         }
         if (pathOrUri.isEmpty()) {
             continue;
+        }
+        if (pathOrUri.startsWith(QStringLiteral("/"))) {
+            const QStorageInfo mountStorage(pathOrUri);
+            const QString fsType = mountStorage.isValid()
+                    ? QString::fromUtf8(mountStorage.fileSystemType())
+                    : QString();
+            const QString unixDevice = mountStorage.isValid()
+                    ? QString::fromUtf8(mountStorage.device())
+                    : QString();
+            if (isPseudoStorageLocationStorage(pathOrUri, fsType, unixDevice)) {
+                continue;
+            }
         }
 
         gchar *nameRaw = g_mount_get_name(mount);
@@ -702,6 +778,18 @@ QVariantList FileManagerApi::queryStorageLocationsSync(int lsblkTimeoutMs) const
             pathOrUri = gfileToPathOrUriStorageLocal(activationRoot);
             g_object_unref(activationRoot);
         }
+        if (pathOrUri.startsWith(QStringLiteral("/"))) {
+            const QStorageInfo activationStorage(pathOrUri);
+            const QString fsType = activationStorage.isValid()
+                    ? QString::fromUtf8(activationStorage.fileSystemType())
+                    : QString();
+            const QString unixDevice = activationStorage.isValid()
+                    ? QString::fromUtf8(activationStorage.device())
+                    : QString();
+            if (isPseudoStorageLocationStorage(pathOrUri, fsType, unixDevice)) {
+                continue;
+            }
+        }
 
         const QString dedupeKey = (pathOrUri.isEmpty() ? name : pathOrUri) + QStringLiteral("|") + device;
         if (seenKeys.contains(dedupeKey)) {
@@ -741,6 +829,11 @@ QVariantList FileManagerApi::queryStorageLocationsSync(int lsblkTimeoutMs) const
         }
         const QString rootPath = v.rootPath();
         if (rootPath.isEmpty()) {
+            continue;
+        }
+        if (isPseudoStorageLocationStorage(rootPath,
+                                           QString::fromUtf8(v.fileSystemType()),
+                                           QString::fromUtf8(v.device()))) {
             continue;
         }
         if (seenMountPaths.contains(rootPath)) {
@@ -786,13 +879,11 @@ QVariantList FileManagerApi::storageLocations() const
             return m_storageLocationsCache;
         }
     }
-    const QVariantList rows = queryStorageLocationsSync(400);
-    {
-        QMutexLocker locker(&m_storageCacheMutex);
-        m_storageLocationsCache = rows;
-        m_storageLocationsCacheMs = QDateTime::currentMSecsSinceEpoch();
+    auto *self = const_cast<FileManagerApi *>(this);
+    if (self) {
+        self->refreshStorageLocationsAsync();
     }
-    return rows;
+    return {};
 }
 
 void FileManagerApi::refreshStorageLocationsAsync()

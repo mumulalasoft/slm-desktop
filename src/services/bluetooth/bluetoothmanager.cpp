@@ -6,6 +6,20 @@
 #include <QDBusVariant>
 #include <QProcess>
 #include <QVariantMap>
+#include <QtConcurrent>
+
+namespace {
+
+struct BluetoothSnapshot {
+    bool available = false;
+    bool powered = false;
+    QString statusText;
+    QString iconName;
+    QStringList connectedDevices;
+    QVariantList connectedDeviceItems;
+};
+
+} // namespace
 
 namespace {
 constexpr const char *kBluezService = "org.bluez";
@@ -21,6 +35,37 @@ BluetoothManager::BluetoothManager(QObject *parent)
     m_timer->setInterval(5000);
     connect(m_timer, &QTimer::timeout, this, &BluetoothManager::refresh);
     m_timer->start();
+
+    m_realtimeRefreshTimer = new QTimer(this);
+    m_realtimeRefreshTimer->setSingleShot(true);
+    m_realtimeRefreshTimer->setInterval(150);
+    connect(m_realtimeRefreshTimer, &QTimer::timeout, this, &BluetoothManager::refresh);
+
+    QDBusConnection systemBus = QDBusConnection::systemBus();
+    const bool propsConnected = systemBus.connect(QString(),
+                                                  QString(),
+                                                  QString::fromLatin1(kPropsIface),
+                                                  QStringLiteral("PropertiesChanged"),
+                                                  this,
+                                                  SLOT(onBluezPropertiesChanged(QString,QVariantMap,QStringList)));
+    const bool addedConnected = systemBus.connect(QString::fromLatin1(kBluezService),
+                                                  QStringLiteral("/"),
+                                                  QString::fromLatin1(kObjManagerIface),
+                                                  QStringLiteral("InterfacesAdded"),
+                                                  this,
+                                                  SLOT(onBluezInterfacesAdded(QDBusObjectPath,QVariantMap)));
+    const bool removedConnected = systemBus.connect(QString::fromLatin1(kBluezService),
+                                                    QStringLiteral("/"),
+                                                    QString::fromLatin1(kObjManagerIface),
+                                                    QStringLiteral("InterfacesRemoved"),
+                                                    this,
+                                                    SLOT(onBluezInterfacesRemoved(QDBusObjectPath,QStringList)));
+    const bool realtimeSignalsReady = propsConnected && addedConnected && removedConnected;
+    if (!realtimeSignalsReady) {
+        // Fallback polling lebih rapat saat event subscription DBus gagal.
+        m_timer->setInterval(1500);
+    }
+
     refresh();
 }
 
@@ -54,63 +99,144 @@ QVariantList BluetoothManager::connectedDeviceItems() const
     return m_connectedDeviceItems;
 }
 
+void BluetoothManager::scheduleRefresh()
+{
+    if (!m_realtimeRefreshTimer) {
+        refresh();
+        return;
+    }
+    m_realtimeRefreshTimer->start();
+}
+
+void BluetoothManager::onBluezPropertiesChanged(const QString &interfaceName,
+                                                const QVariantMap &changedProperties,
+                                                const QStringList &invalidatedProperties)
+{
+    const bool adapterSignal = (interfaceName == QString::fromLatin1(kAdapterIface));
+    const bool deviceSignal = (interfaceName == QStringLiteral("org.bluez.Device1"));
+    if (!adapterSignal && !deviceSignal) {
+        return;
+    }
+
+    if (adapterSignal) {
+        if (changedProperties.contains(QStringLiteral("Powered")) ||
+            changedProperties.contains(QStringLiteral("Discovering")) ||
+            invalidatedProperties.contains(QStringLiteral("Powered")) ||
+            invalidatedProperties.contains(QStringLiteral("Discovering"))) {
+            scheduleRefresh();
+        }
+        return;
+    }
+
+    if (changedProperties.contains(QStringLiteral("Connected")) ||
+        changedProperties.contains(QStringLiteral("Alias")) ||
+        changedProperties.contains(QStringLiteral("Name")) ||
+        changedProperties.contains(QStringLiteral("Paired")) ||
+        changedProperties.contains(QStringLiteral("ServicesResolved")) ||
+        invalidatedProperties.contains(QStringLiteral("Connected")) ||
+        invalidatedProperties.contains(QStringLiteral("Alias")) ||
+        invalidatedProperties.contains(QStringLiteral("Name")) ||
+        invalidatedProperties.contains(QStringLiteral("Paired")) ||
+        invalidatedProperties.contains(QStringLiteral("ServicesResolved"))) {
+        scheduleRefresh();
+    }
+}
+
+void BluetoothManager::onBluezInterfacesAdded(const QDBusObjectPath &objectPath,
+                                              const QVariantMap &interfacesAndProperties)
+{
+    if (!objectPath.path().startsWith(QStringLiteral("/org/bluez/"))) {
+        return;
+    }
+
+    if (interfacesAndProperties.contains(QString::fromLatin1(kAdapterIface)) ||
+        interfacesAndProperties.contains(QStringLiteral("org.bluez.Device1"))) {
+        scheduleRefresh();
+    }
+}
+
+void BluetoothManager::onBluezInterfacesRemoved(const QDBusObjectPath &objectPath,
+                                                const QStringList &interfaces)
+{
+    if (!objectPath.path().startsWith(QStringLiteral("/org/bluez/"))) {
+        return;
+    }
+
+    if (interfaces.contains(QString::fromLatin1(kAdapterIface)) ||
+        interfaces.contains(QStringLiteral("org.bluez.Device1"))) {
+        scheduleRefresh();
+    }
+}
+
 void BluetoothManager::refresh()
 {
-    const bool oldAvailable = m_available;
-    const bool oldPowered = m_powered;
-    const QString oldStatus = m_statusText;
-    const QString oldIcon = m_iconName;
-    const QStringList oldConnectedDevices = m_connectedDevices;
-    const QVariantList oldConnectedItems = m_connectedDeviceItems;
+    if (m_refreshPending) {
+        return;
+    }
+    m_refreshPending = true;
 
-    const QString adapterPath = detectAdapterPath();
-    if (adapterPath.isEmpty()) {
-        m_available = false;
-        m_powered = false;
-        m_statusText = QStringLiteral("Bluetooth unavailable");
-        m_iconName = QStringLiteral("bluetooth-disabled-symbolic");
-    } else {
+    auto *watcher = new QFutureWatcher<BluetoothSnapshot>(this);
+    connect(watcher, &QFutureWatcher<BluetoothSnapshot>::finished, this, [this, watcher]() {
+        BluetoothSnapshot snap = watcher->result();
+        watcher->deleteLater();
+        m_refreshPending = false;
+
+        const bool changed =
+            m_available           != snap.available           ||
+            m_powered             != snap.powered             ||
+            m_statusText          != snap.statusText          ||
+            m_iconName            != snap.iconName            ||
+            m_connectedDevices    != snap.connectedDevices    ||
+            m_connectedDeviceItems != snap.connectedDeviceItems;
+
+        m_available            = snap.available;
+        m_powered              = snap.powered;
+        m_statusText           = snap.statusText;
+        m_iconName             = snap.iconName;
+        m_connectedDevices     = snap.connectedDevices;
+        m_connectedDeviceItems = snap.connectedDeviceItems;
+
+        if (changed) {
+            emit this->changed();
+        }
+    });
+
+    watcher->setFuture(QtConcurrent::run([this]() -> BluetoothSnapshot {
+        BluetoothSnapshot snap;
+        const QString adapterPath = detectAdapterPath();
+        if (adapterPath.isEmpty()) {
+            snap.statusText = QStringLiteral("Bluetooth unavailable");
+            snap.iconName   = QStringLiteral("bluetooth-disabled-symbolic");
+            return snap;
+        }
+
         bool ok = false;
         const bool p = readPowered(adapterPath, &ok);
-        m_available = ok;
-        m_powered = ok && p;
-        if (!m_available) {
-            m_statusText = QStringLiteral("Bluetooth unavailable");
-            m_iconName = QStringLiteral("bluetooth-disabled-symbolic");
-            m_connectedDevices.clear();
-            m_connectedDeviceItems.clear();
-        } else if (m_powered) {
-            m_connectedDeviceItems = queryConnectedDeviceItems();
-            m_connectedDevices.clear();
-            for (const QVariant &entryVar : m_connectedDeviceItems) {
+        snap.available = ok;
+        snap.powered   = ok && p;
+
+        if (!snap.available) {
+            snap.statusText = QStringLiteral("Bluetooth unavailable");
+            snap.iconName   = QStringLiteral("bluetooth-disabled-symbolic");
+        } else if (snap.powered) {
+            snap.connectedDeviceItems = queryConnectedDeviceItems();
+            for (const QVariant &entryVar : snap.connectedDeviceItems) {
                 const QVariantMap entry = entryVar.toMap();
                 const QString name = entry.value(QStringLiteral("name")).toString().trimmed();
                 if (!name.isEmpty()) {
-                    m_connectedDevices << name;
+                    snap.connectedDevices << name;
                 }
             }
-            if (m_connectedDevices.isEmpty()) {
-                m_statusText = QStringLiteral("Bluetooth On");
-            } else {
-                m_statusText = QStringLiteral("Bluetooth On (%1 connected)").arg(m_connectedDevices.size());
-            }
-            m_iconName = QStringLiteral("bluetooth-active-symbolic");
+            snap.statusText = snap.connectedDevices.isEmpty()
+                ? QStringLiteral("Bluetooth On")
+                : QStringLiteral("Bluetooth On (%1 connected)").arg(snap.connectedDevices.size());
+            snap.iconName = QStringLiteral("bluetooth-active-symbolic");
         } else {
-            m_statusText = QStringLiteral("Bluetooth Off");
-            m_iconName = QStringLiteral("bluetooth-disabled-symbolic");
-            m_connectedDevices.clear();
-            m_connectedDeviceItems.clear();
+            snap.statusText = QStringLiteral("Bluetooth Off");
+            snap.iconName   = QStringLiteral("bluetooth-disabled-symbolic");
         }
-    }
-
-    if (oldAvailable != m_available ||
-        oldPowered != m_powered ||
-        oldStatus != m_statusText ||
-        oldIcon != m_iconName ||
-        oldConnectedDevices != m_connectedDevices ||
-        oldConnectedItems != m_connectedDeviceItems) {
-        emit changed();
-    }
+        return snap;
+    }));
 }
 
 bool BluetoothManager::setPowered(bool enabled)
@@ -169,14 +295,18 @@ bool BluetoothManager::disconnectDevice(const QString &address)
         return false;
     }
 
-    QProcess proc;
-    proc.setProcessChannelMode(QProcess::MergedChannels);
-    proc.start(QStringLiteral("bluetoothctl"), QStringList() << QStringLiteral("disconnect") << mac);
-    if (!proc.waitForFinished(2000) || proc.exitCode() != 0) {
-        return false;
-    }
-
-    refresh();
+    auto *watcher = new QFutureWatcher<bool>(this);
+    connect(watcher, &QFutureWatcher<bool>::finished, this, [this, watcher]() {
+        watcher->deleteLater();
+        refresh();
+    });
+    watcher->setFuture(QtConcurrent::run([mac]() -> bool {
+        QProcess proc;
+        proc.setProcessChannelMode(QProcess::MergedChannels);
+        proc.start(QStringLiteral("bluetoothctl"),
+                   QStringList() << QStringLiteral("disconnect") << mac);
+        return proc.waitForFinished(2000) && proc.exitCode() == 0;
+    }));
     return true;
 }
 

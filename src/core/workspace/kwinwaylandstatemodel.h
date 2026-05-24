@@ -135,6 +135,8 @@ private:
     int m_spacePollIntervalMs = 3200;
     int m_windowPollIntervalMs = 3600;
     bool m_supportRequestInFlight = false;
+    bool m_supportInformationFallbackEnabled = false;
+    bool m_supportFallbackDisabledLogged = false;
     quint64 m_supportRequestSeq = 0;
     quint64 m_supportAppliedSeq = 0;
 };

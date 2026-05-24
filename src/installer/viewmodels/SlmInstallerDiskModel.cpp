@@ -1,0 +1,400 @@
+#include "SlmInstallerDiskModel.h"
+
+#include <QByteArray>
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
+#include <QFileInfoList>
+#include <QMetaObject>
+#include <QPointer>
+#include <QProcess>
+#include <QStringList>
+#include <QtConcurrentRun>
+
+namespace Slm::Installer {
+
+namespace {
+
+constexpr qint64 kSectorBytes = 512;
+
+// SI units — matches what storage vendors print on the label.
+constexpr qint64 kKB = 1000LL;
+constexpr qint64 kMB = kKB * 1000;
+constexpr qint64 kGB = kMB * 1000;
+constexpr qint64 kTB = kGB * 1000;
+
+// §2 sizing — must stay in sync with slm-partition's constants.
+constexpr qint64 kEspBytes = 1LL * 1024 * 1024 * 1024;       // 1 GiB
+constexpr qint64 kRecoveryBytes = 8LL * 1024 * 1024 * 1024;  // 8 GiB
+
+// §2 minimum total disk per slm-partition (ESP + Recovery + ~24 GiB root).
+constexpr qint64 kMinDiskBytes = 32LL * 1024 * 1024 * 1024;
+
+QString readSysfs(const QString &path)
+{
+    QFile f(path);
+    if (!f.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        return {};
+    }
+    return QString::fromLatin1(f.readAll()).trimmed();
+}
+
+bool shouldSkip(const QString &basename)
+{
+    static const QStringList kSkipPrefixes = {
+        QStringLiteral("loop"), QStringLiteral("ram"),  QStringLiteral("dm-"),
+        QStringLiteral("sr"),   QStringLiteral("zram"), QStringLiteral("md"),
+    };
+    for (const QString &p : kSkipPrefixes) {
+        if (basename.startsWith(p)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+QString formatSize(qint64 bytes)
+{
+    if (bytes >= kTB) {
+        return QString::number(double(bytes) / double(kTB), 'f', 1)
+               + QStringLiteral(" TB");
+    }
+    if (bytes >= kGB) {
+        return QString::number(qRound(double(bytes) / double(kGB)))
+               + QStringLiteral(" GB");
+    }
+    if (bytes >= kMB) {
+        return QString::number(qRound(double(bytes) / double(kMB)))
+               + QStringLiteral(" MB");
+    }
+    return QString::number(bytes) + QStringLiteral(" B");
+}
+
+QString classifyKind(const QString &basename, bool rotational, bool removable)
+{
+    if (basename.startsWith(QStringLiteral("nvme"))) {
+        return QStringLiteral("NVMe");
+    }
+    if (basename.startsWith(QStringLiteral("mmcblk"))) {
+        return QStringLiteral("MMC");
+    }
+    if (basename.startsWith(QStringLiteral("vd"))) {
+        return QStringLiteral("Virtual");
+    }
+    if (removable) {
+        // sd* + removable means a USB/Thunderbolt enclosure on modern Linux.
+        // Distinguishing USB from eSATA from hot-pluggable SATA is messy and
+        // adds little user value here — "USB" reads correctly for the common
+        // case.
+        return QStringLiteral("USB");
+    }
+    return rotational ? QStringLiteral("HDD") : QStringLiteral("SATA SSD");
+}
+
+// EFI System Partition GPT type GUID — per UEFI spec.
+constexpr const char *kEspTypeGuid = "c12a7328-f81f-11d2-ba4b-00a0c93ec93b";
+
+// Synchronous existing-ESP detection via lsblk. Runs on a worker thread.
+// Returns true if any partition on the disk has the EF00 / ESP type GUID.
+//
+// We do NOT additionally check for /EFI/ contents — §2.5's advisory copy
+// ("SLM will add its entry without removing others") is accurate for any
+// existing ESP regardless of whether bootloader entries are present.
+bool probeExistingEspSync(const QString &devicePath)
+{
+    QProcess proc;
+    proc.start(QStringLiteral("lsblk"),
+               { QStringLiteral("-lno"), QStringLiteral("PARTTYPE"), devicePath });
+    if (!proc.waitForStarted(2000) || !proc.waitForFinished(5000)) {
+        return false;  // lsblk missing or stuck — assume no existing ESP
+    }
+    if (proc.exitCode() != 0) {
+        return false;
+    }
+    const QString out = QString::fromUtf8(proc.readAll());
+    const QStringList lines = out.split(QLatin1Char('\n'), Qt::SkipEmptyParts);
+    for (QString line : lines) {
+        line = line.trimmed().toLower();
+        if (line == QLatin1String(kEspTypeGuid)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// Synchronous SMART health check via smartctl -H. Runs on a worker thread —
+// must not touch QObject state. Returns one of "healthy", "warning", "failed".
+//
+// Exit-code semantics (smartctl(8)): the exit code is a bitmask, bit 3 (8)
+// indicates "SMART status check returned 'DISK FAILING'". Output text
+// containing "PASSED" or "OK" indicates a healthy disk.
+QString probeDiskHealthSync(const QString &devicePath)
+{
+    QProcess proc;
+    proc.setProcessChannelMode(QProcess::MergedChannels);
+    proc.start(QStringLiteral("smartctl"),
+               { QStringLiteral("-H"), devicePath });
+
+    // If smartctl isn't installed (or never starts in 2s), treat the disk as
+    // healthy — refusing to install over a missing-tool case is worse than
+    // accepting an unknown-health disk that slm-partition will warn on later.
+    if (!proc.waitForStarted(2000)) {
+        return QStringLiteral("healthy");
+    }
+    if (!proc.waitForFinished(15000)) {
+        proc.kill();
+        proc.waitForFinished(2000);
+        return QStringLiteral("warning");
+    }
+
+    const int exitCode = proc.exitCode();
+    if (exitCode & 8) {
+        return QStringLiteral("failed");
+    }
+
+    const QString out = QString::fromUtf8(proc.readAll());
+    if (out.contains(QStringLiteral("PASSED"), Qt::CaseInsensitive)
+        || out.contains(QStringLiteral("OK"), Qt::CaseSensitive)) {
+        return QStringLiteral("healthy");
+    }
+
+    // smartctl ran, produced no clear PASSED/FAILED — surface as warning so
+    // the UI can show a non-blocking caution badge.
+    return QStringLiteral("warning");
+}
+
+QString deriveDisplayName(const QString &vendor, const QString &model,
+                          const QString &sizeDisplay, const QString &basename)
+{
+    QString combined;
+    const QString v = vendor.trimmed();
+    const QString m = model.trimmed();
+    if (!v.isEmpty() && v != QLatin1String("ATA")) {
+        combined = v;
+    }
+    if (!m.isEmpty()) {
+        if (!combined.isEmpty()) {
+            combined += QLatin1Char(' ');
+        }
+        combined += m;
+    }
+    if (combined.isEmpty()) {
+        combined = basename;
+    }
+    return combined + QStringLiteral(" — ") + sizeDisplay;
+}
+
+} // namespace
+
+SlmInstallerDiskModel::SlmInstallerDiskModel(QObject *parent)
+    : QAbstractListModel(parent)
+{
+    refresh();
+}
+
+int SlmInstallerDiskModel::rowCount(const QModelIndex &parent) const
+{
+    return parent.isValid() ? 0 : static_cast<int>(m_disks.size());
+}
+
+QVariant SlmInstallerDiskModel::data(const QModelIndex &index, int role) const
+{
+    if (!index.isValid() || index.row() < 0
+        || index.row() >= static_cast<int>(m_disks.size())) {
+        return {};
+    }
+    const Disk &d = m_disks[size_t(index.row())];
+    switch (role) {
+    case PathRole:           return d.path;
+    case NameRole:           return d.name;
+    case SizeRole:           return d.sizeDisplay;
+    case KindRole:           return d.kind;
+    case HealthRole:         return d.health;
+    case RootBytesRole:      return QVariant::fromValue(d.rootBytes);
+    case EfiBytesRole:       return QVariant::fromValue(d.efiBytes);
+    case RecoveryBytesRole:  return QVariant::fromValue(d.recoveryBytes);
+    case RemovableRole:      return d.removable;
+    case SizeBytesRole:      return QVariant::fromValue(d.sizeBytes);
+    case HasExistingEspRole: return d.hasExistingEsp;
+    default:                 return {};
+    }
+}
+
+QHash<int, QByteArray> SlmInstallerDiskModel::roleNames() const
+{
+    return {
+        { PathRole,           "path" },
+        { NameRole,           "name" },
+        { SizeRole,           "size" },
+        { KindRole,           "kind" },
+        { HealthRole,         "health" },
+        { RootBytesRole,      "rootBytes" },
+        { EfiBytesRole,       "efiBytes" },
+        { RecoveryBytesRole,  "recoveryBytes" },
+        { RemovableRole,      "removable" },
+        { SizeBytesRole,      "sizeBytes" },
+        { HasExistingEspRole, "hasExistingEsp" },
+    };
+}
+
+void SlmInstallerDiskModel::refresh()
+{
+    enumerateFrom(QStringLiteral("/sys/block"));
+}
+
+QVariantMap SlmInstallerDiskModel::get(int row) const
+{
+    QVariantMap out;
+    if (row < 0 || row >= static_cast<int>(m_disks.size())) {
+        return out;
+    }
+    const auto roles = roleNames();
+    const QModelIndex idx = index(row);
+    for (auto it = roles.constBegin(); it != roles.constEnd(); ++it) {
+        out.insert(QString::fromLatin1(it.value()), data(idx, it.key()));
+    }
+    return out;
+}
+
+void SlmInstallerDiskModel::enumerateFrom(const QString &sysfsBlockRoot)
+{
+    // Bump epoch first so any still-in-flight workers from a prior
+    // enumeration see a stale generation and discard their results.
+    ++m_generation;
+
+    beginResetModel();
+    m_disks.clear();
+
+    QDir root(sysfsBlockRoot);
+    const QFileInfoList entries = root.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot,
+                                                     QDir::Name);
+    for (const QFileInfo &entry : entries) {
+        const QString name = entry.fileName();
+        if (shouldSkip(name)) {
+            continue;
+        }
+        const QString basePath = entry.absoluteFilePath();
+
+        const qint64 sectors = readSysfs(basePath + QStringLiteral("/size")).toLongLong();
+        const qint64 sizeBytes = sectors * kSectorBytes;
+        if (sizeBytes < kMinDiskBytes) {
+            // Too small to host the SLM partition layout.
+            continue;
+        }
+
+        const bool removable = readSysfs(basePath + QStringLiteral("/removable")) == QLatin1String("1");
+        const bool rotational = readSysfs(basePath + QStringLiteral("/queue/rotational")) == QLatin1String("1");
+        const QString vendor = readSysfs(basePath + QStringLiteral("/device/vendor"));
+        const QString model = readSysfs(basePath + QStringLiteral("/device/model"));
+
+        Disk d;
+        d.path = QStringLiteral("/dev/") + name;
+        d.sizeBytes = sizeBytes;
+        d.sizeDisplay = formatSize(sizeBytes);
+        d.kind = classifyKind(name, rotational, removable);
+        d.name = deriveDisplayName(vendor, model, d.sizeDisplay, name);
+        d.health = QStringLiteral("healthy");  // populated later by async probe
+        d.removable = removable;
+        d.efiBytes = kEspBytes;
+        d.recoveryBytes = kRecoveryBytes;
+        d.rootBytes = sizeBytes - kEspBytes - kRecoveryBytes;
+
+        m_disks.push_back(std::move(d));
+    }
+
+    endResetModel();
+    emit countChanged();
+
+    if (m_healthProbesEnabled) {
+        startHealthProbes();
+        startEspProbes();
+    }
+}
+
+void SlmInstallerDiskModel::startHealthProbes()
+{
+    const qint64 gen = m_generation;
+    QPointer<SlmInstallerDiskModel> self(this);
+
+    for (size_t row = 0; row < m_disks.size(); ++row) {
+        const QString path = m_disks[row].path;
+        const int rowInt = static_cast<int>(row);
+
+        (void)QtConcurrent::run([self, rowInt, gen, path]() {
+            const QString health = probeDiskHealthSync(path);
+            // Bounce back to the model's thread. invokeMethod on a null
+            // QPointer is a no-op, so this stays safe if the model has been
+            // destroyed in the meantime.
+            QMetaObject::invokeMethod(
+                self.data(),
+                [self, rowInt, gen, health]() {
+                    if (!self) {
+                        return;
+                    }
+                    self->applyHealthProbeResult(rowInt, gen, health);
+                },
+                Qt::QueuedConnection);
+        });
+    }
+}
+
+void SlmInstallerDiskModel::applyHealthProbeResult(int row, qint64 generation,
+                                                   const QString &health)
+{
+    // Stale result from a prior enumeration — drop it.
+    if (generation != m_generation) {
+        return;
+    }
+    if (row < 0 || row >= static_cast<int>(m_disks.size())) {
+        return;
+    }
+    if (m_disks[size_t(row)].health == health) {
+        return;
+    }
+    m_disks[size_t(row)].health = health;
+    const QModelIndex idx = index(row);
+    emit dataChanged(idx, idx, { HealthRole });
+}
+
+void SlmInstallerDiskModel::startEspProbes()
+{
+    const qint64 gen = m_generation;
+    QPointer<SlmInstallerDiskModel> self(this);
+
+    for (size_t row = 0; row < m_disks.size(); ++row) {
+        const QString path = m_disks[row].path;
+        const int rowInt = static_cast<int>(row);
+
+        (void)QtConcurrent::run([self, rowInt, gen, path]() {
+            const bool hasEsp = probeExistingEspSync(path);
+            QMetaObject::invokeMethod(
+                self.data(),
+                [self, rowInt, gen, hasEsp]() {
+                    if (!self) {
+                        return;
+                    }
+                    self->applyEspProbeResult(rowInt, gen, hasEsp);
+                },
+                Qt::QueuedConnection);
+        });
+    }
+}
+
+void SlmInstallerDiskModel::applyEspProbeResult(int row, qint64 generation,
+                                                bool hasExistingEsp)
+{
+    if (generation != m_generation) {
+        return;
+    }
+    if (row < 0 || row >= static_cast<int>(m_disks.size())) {
+        return;
+    }
+    if (m_disks[size_t(row)].hasExistingEsp == hasExistingEsp) {
+        return;
+    }
+    m_disks[size_t(row)].hasExistingEsp = hasExistingEsp;
+    const QModelIndex idx = index(row);
+    emit dataChanged(idx, idx, { HasExistingEspRole });
+}
+
+} // namespace Slm::Installer

@@ -1,0 +1,59 @@
+{
+    "id": "sharing",
+    "name": "Sharing",
+    "icon": "emblem-shared",
+    "group": "Connectivity",
+    "description": "Share files, printers, and screens with nearby devices.",
+    "keywords": ["sharing", "nearby", "files", "printer", "screen", "remote", "bluetooth", "transfer", "cast", "clipboard"],
+    "main": "SharingPage.qml",
+    "settings": [
+        {
+            "id": "file-sharing",
+            "label": "File Sharing",
+            "description": "Share folders with devices on this network",
+            "keywords": ["files", "folders", "network", "samba"],
+            "type": "toggle",
+            "backend_binding": "dbus:org.slm.Sharing:/org/slm/Sharing:org.slm.Sharing:SetFeatureEnabled:method"
+        },
+        {
+            "id": "nearby-sharing",
+            "label": "Nearby Sharing",
+            "description": "Send and receive files with nearby devices",
+            "keywords": ["nearby", "send", "receive", "airdrop"],
+            "type": "toggle",
+            "backend_binding": "dbus:org.slm.Sharing:/org/slm/Sharing:org.slm.Sharing:SetFeatureEnabled:method"
+        },
+        {
+            "id": "screen-sharing",
+            "label": "Screen Sharing",
+            "description": "Allow trusted devices to view or control this screen",
+            "keywords": ["screen", "cast", "remote", "vnc", "rdp"],
+            "type": "toggle",
+            "backend_binding": "dbus:org.slm.Sharing:/org/slm/Sharing:org.slm.Sharing:SetFeatureEnabled:method"
+        },
+        {
+            "id": "printer-sharing",
+            "label": "Printer Sharing",
+            "description": "Make connected printers available to other devices",
+            "keywords": ["printer", "cups", "print"],
+            "type": "toggle",
+            "backend_binding": "dbus:org.slm.Sharing:/org/slm/Sharing:org.slm.Sharing:SetFeatureEnabled:method"
+        },
+        {
+            "id": "remote-access",
+            "label": "Remote Terminal Access",
+            "description": "Allow trusted devices to open a secure terminal session",
+            "keywords": ["ssh", "terminal", "remote", "access"],
+            "type": "toggle",
+            "backend_binding": "dbus:org.slm.Sharing:/org/slm/Sharing:org.slm.Sharing:SetFeatureEnabled:method"
+        },
+        {
+            "id": "clipboard-sharing",
+            "label": "Clipboard Sync",
+            "description": "Sync clipboard content with trusted devices",
+            "keywords": ["clipboard", "copy", "paste", "sync"],
+            "type": "toggle",
+            "backend_binding": "dbus:org.slm.Sharing:/org/slm/Sharing:org.slm.Sharing:SetFeatureEnabled:method"
+        }
+    ]
+}

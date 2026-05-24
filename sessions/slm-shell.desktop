@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=SLM Shell
+Comment=SLM Desktop Shell
+Exec=/usr/local/bin/slm-shell
+Type=Application
+NoDisplay=true
+X-KDE-DBUS-Restricted-Interfaces=org.kde.KWin.ScreenShot2

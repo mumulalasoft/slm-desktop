@@ -1,0 +1,72 @@
+[2026-05-24 11:04:20.011][INF] === slm-greeter start (pid=8062) ===
+[2026-05-24 11:04:20.012][INF] env: GREETD_SOCK=/run/greetd-7673.sock
+[2026-05-24 11:04:20.012][INF] env: XDG_RUNTIME_DIR=/run/user/997
+[2026-05-24 11:04:20.012][INF] env: WAYLAND_DISPLAY=wayland-0
+[2026-05-24 11:04:20.012][INF] env: DISPLAY=:0
+[2026-05-24 11:04:20.012][INF] env: QT_QPA_PLATFORM=wayland;xcb
+[2026-05-24 11:04:20.012][INF] env: WLR_RENDERER=pixman
+[2026-05-24 11:04:20.012][INF] env: QT_QUICK_BACKEND=software
+[2026-05-24 11:04:20.012][INF] env: SLM_OFFICIAL_SESSION=<unset>
+[2026-05-24 11:04:20.012][WRN] Detected locale "C" with character encoding "ANSI_X3.4-1968", which is not UTF-8.
+Qt depends on a UTF-8 locale, and has switched to "C.UTF-8" instead.
+If this causes problems, reconfigure your locale. See the locale(1) manual
+for more information.
+[2026-05-24 11:04:20.022][INF] slm-greeter: connected to greetd
+[2026-05-24 11:04:20.022][INF] state: load=ok crash_count=0 last_boot_status= config_pending=false safe_mode_forced=false recovery_reason= last_crash_reason=
+[2026-05-24 11:04:20.022][INF] greeter: direct PAM path available (SLM_HAVE_PAM)
+[2026-05-24 11:04:26.423][WRN] slm-greeter: socket error 1: QLocalSocket: Remote closed
+[2026-05-24 11:04:26.423][WRN] slm-greeter: disconnected from greetd
+[2026-05-24 11:04:30.508][INF] === slm-greeter start (pid=8699) ===
+[2026-05-24 11:04:30.509][INF] env: GREETD_SOCK=/run/greetd-8523.sock
+[2026-05-24 11:04:30.509][INF] env: XDG_RUNTIME_DIR=/run/user/997
+[2026-05-24 11:04:30.509][INF] env: WAYLAND_DISPLAY=wayland-0
+[2026-05-24 11:04:30.509][INF] env: DISPLAY=:0
+[2026-05-24 11:04:30.509][INF] env: QT_QPA_PLATFORM=wayland;xcb
+[2026-05-24 11:04:30.509][INF] env: WLR_RENDERER=pixman
+[2026-05-24 11:04:30.509][INF] env: QT_QUICK_BACKEND=software
+[2026-05-24 11:04:30.509][INF] env: SLM_OFFICIAL_SESSION=<unset>
+[2026-05-24 11:04:30.509][WRN] Detected locale "C" with character encoding "ANSI_X3.4-1968", which is not UTF-8.
+Qt depends on a UTF-8 locale, and has switched to "C.UTF-8" instead.
+If this causes problems, reconfigure your locale. See the locale(1) manual
+for more information.
+[2026-05-24 11:04:30.518][INF] slm-greeter: connected to greetd
+[2026-05-24 11:04:30.518][INF] state: load=ok crash_count=0 last_boot_status= config_pending=false safe_mode_forced=false recovery_reason= last_crash_reason=
+[2026-05-24 11:04:30.518][INF] greeter: direct PAM path available (SLM_HAVE_PAM)
+[2026-05-24 11:05:21.546][WRN] slm-greeter: socket error 1: QLocalSocket: Remote closed
+[2026-05-24 11:05:21.546][WRN] slm-greeter: disconnected from greetd
+[2026-05-24 11:06:35.976][INF] === slm-greeter start (pid=15845) ===
+[2026-05-24 11:06:35.976][INF] env: GREETD_SOCK=/run/greetd-15419.sock
+[2026-05-24 11:06:35.976][INF] env: XDG_RUNTIME_DIR=/run/user/997
+[2026-05-24 11:06:35.976][INF] env: WAYLAND_DISPLAY=wayland-0
+[2026-05-24 11:06:35.976][INF] env: DISPLAY=:0
+[2026-05-24 11:06:35.976][INF] env: QT_QPA_PLATFORM=wayland;xcb
+[2026-05-24 11:06:35.976][INF] env: WLR_RENDERER=pixman
+[2026-05-24 11:06:35.976][INF] env: QT_QUICK_BACKEND=software
+[2026-05-24 11:06:35.976][INF] env: SLM_OFFICIAL_SESSION=<unset>
+[2026-05-24 11:06:35.977][WRN] Detected locale "C" with character encoding "ANSI_X3.4-1968", which is not UTF-8.
+Qt depends on a UTF-8 locale, and has switched to "C.UTF-8" instead.
+If this causes problems, reconfigure your locale. See the locale(1) manual
+for more information.
+[2026-05-24 11:06:35.986][INF] slm-greeter: connected to greetd
+[2026-05-24 11:06:35.986][INF] state: load=ok crash_count=0 last_boot_status= config_pending=false safe_mode_forced=false recovery_reason= last_crash_reason=
+[2026-05-24 11:06:35.986][INF] greeter: direct PAM path available (SLM_HAVE_PAM)
+[2026-05-24 11:06:42.397][WRN] slm-greeter: socket error 1: QLocalSocket: Remote closed
+[2026-05-24 11:06:42.397][WRN] slm-greeter: disconnected from greetd
+[2026-05-24 11:06:46.504][INF] === slm-greeter start (pid=16544) ===
+[2026-05-24 11:06:46.505][INF] env: GREETD_SOCK=/run/greetd-16351.sock
+[2026-05-24 11:06:46.505][INF] env: XDG_RUNTIME_DIR=/run/user/997
+[2026-05-24 11:06:46.505][INF] env: WAYLAND_DISPLAY=wayland-0
+[2026-05-24 11:06:46.505][INF] env: DISPLAY=:0
+[2026-05-24 11:06:46.505][INF] env: QT_QPA_PLATFORM=wayland;xcb
+[2026-05-24 11:06:46.505][INF] env: WLR_RENDERER=pixman
+[2026-05-24 11:06:46.505][INF] env: QT_QUICK_BACKEND=software
+[2026-05-24 11:06:46.505][INF] env: SLM_OFFICIAL_SESSION=<unset>
+[2026-05-24 11:06:46.505][WRN] Detected locale "C" with character encoding "ANSI_X3.4-1968", which is not UTF-8.
+Qt depends on a UTF-8 locale, and has switched to "C.UTF-8" instead.
+If this causes problems, reconfigure your locale. See the locale(1) manual
+for more information.
+[2026-05-24 11:06:46.513][INF] slm-greeter: connected to greetd
+[2026-05-24 11:06:46.513][INF] state: load=ok crash_count=0 last_boot_status= config_pending=false safe_mode_forced=false recovery_reason= last_crash_reason=
+[2026-05-24 11:06:46.513][INF] greeter: direct PAM path available (SLM_HAVE_PAM)
+[2026-05-24 11:07:37.370][WRN] slm-greeter: socket error 1: QLocalSocket: Remote closed
+[2026-05-24 11:07:37.370][WRN] slm-greeter: disconnected from greetd

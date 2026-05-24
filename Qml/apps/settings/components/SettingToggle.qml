@@ -13,11 +13,11 @@ DSStyle.Switch {
     }
 
     indicator: Rectangle {
-        implicitWidth: 38
-        implicitHeight: 22
+        implicitWidth: 44
+        implicitHeight: 26
         x: control.leftPadding
         y: parent.height / 2 - height / 2
-        radius: Theme.radiusLg
+        radius: height / 2
         color: control.checked ? Theme.color("accent") : Theme.color("controlDisabledBg")
 
         Behavior on color {
@@ -28,10 +28,12 @@ DSStyle.Switch {
         Rectangle {
             x: control.checked ? parent.width - width - 2 : 2
             y: 2
-            width: 18
-            height: 18
-            radius: Theme.radiusLg - 2
+            width: 22
+            height: 22
+            radius: height / 2
             color: "white"
+            layer.enabled: true
+            layer.effect: null
 
             Behavior on x {
                 enabled: control.microAnimationAllowed()

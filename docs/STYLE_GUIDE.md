@@ -5,6 +5,9 @@ This guide defines the visual rules for SLM Desktop QML UI so future changes sta
 ## 1. Source of Truth
 
 - Use `third_party/slm-style/qml/SlmStyle/Theme.qml` as the only source for visual tokens.
+- Use `SlmStyle` components for shared widgets/controls. Import it as `DSStyle`
+  and instantiate controls as `DSStyle.Button`, `DSStyle.Label`,
+  `DSStyle.MenuItem`, etc.
 - Do not hardcode radius, border width, or core surface opacity in component files.
 - Prefer `Theme.color("...")` tokens over literal hex colors for app UI surfaces and text.
 
@@ -93,11 +96,11 @@ Default:
 
 ### 5.1 Area Token Families
 
-- `Dock`: `dockOutline`, `dockGlassTop`, `dockGlassBottom`, `dockSpecLine`, `dockDropPulseBorder`, `dockGapPreviewBg`, `dockRunningDotActive`, `dockRunningDotInactive`, `dockTooltipBg`
+- `AppDeck`: `dockOutline`, `dockGlassTop`, `dockGlassBottom`, `dockSpecLine`, `dockDropPulseBorder`, `dockGapPreviewBg`, `dockRunningDotActive`, `dockRunningDotInactive`, `dockTooltipBg`
 - `Overview`: `overviewBackdrop`, `overviewBarBg`, `overviewBarBorder`, `overviewSpaceChipBg`, `overviewSpaceChipBorder`, `overviewAddChipBg`, `overviewWindowBorderUnfocused`, `overviewWindowPlaceholder`, `overviewCloseBtnBg`, `overviewCloseBtnBorder`, `overviewCaptionBg`, `overviewCaptionBorder`
 - `Compositor Switcher`: `compositorOverlayScrim`, `compositorPanelBg`, `compositorPanelBorder`, `compositorPanelSheen`, `compositorCardBgPrimary`, `compositorCardBgSecondary`, `compositorCardBgTertiary`, `compositorCardBorderActive`, `compositorCardBorderInactive`, `compositorLabelPrimary`, `compositorLabelSecondaryActive`, `compositorLabelSecondaryInactive`, `compositorFooterLabel`
-- `Launchpad`: `launchpadOrbTop`, `launchpadOrbBottom`, `launchpadSearchBg`, `launchpadSearchBorder`, `launchpadSegmentBg`, `launchpadSegmentBorder`, `launchpadSegmentActive`, `launchpadIconRing`
-- `Tothespot`: `tothespotPanelBg`, `tothespotPanelBorder`, `tothespotQueryBg`, `tothespotQueryBorder`, `tothespotResultsBg`, `tothespotResultsBorder`, `tothespotSectionBg`, `tothespotRowActive`, `tothespotRowHover`, `tothespotBadgeActive`, `tothespotBadgeBg`, `tothespotBadgeBorder`, `tothespotPreviewBg`, `tothespotPreviewBorder`
+- `AppHub`: `apphubOrbTop`, `apphubOrbBottom`, `apphubSearchBg`, `apphubSearchBorder`, `apphubSegmentBg`, `apphubSegmentBorder`, `apphubSegmentActive`, `apphubIconRing`
+- `Pulse`: `pulsePanelBg`, `pulsePanelBorder`, `pulseQueryBg`, `pulseQueryBorder`, `pulseResultsBg`, `pulseResultsBorder`, `pulseSectionBg`, `pulseRowActive`, `pulseRowHover`, `pulseBadgeActive`, `pulseBadgeBg`, `pulseBadgeBorder`, `pulsePreviewBg`, `pulsePreviewBorder`
 - `File/Storage`: `storageUsageInfo`, `storageUsageWarn`, `storageUsageCritical`, `storageUsageUnknown`, `storageTrackMounted`, `storageTrackUnmounted`
 - `Generic`: `error`, `warning`, `success`, `transitionTint`, `dockRevealHint`, `spaceHudBg`, `spaceHudBorder`, `screenshotScrim`, `screenshotSelectionFill`, `screenshotSelectionBorder`, `shellIconPlateBg`
 
@@ -160,6 +163,7 @@ Before merging UI changes:
    - `cmake --build build -j4 --target slm-desktop`
 8. Style lint passes:
    - `scripts/lint-ui-style.sh`
+   - `scripts/check-slm-style-usage.sh`
 
 ## 10. Exceptions
 

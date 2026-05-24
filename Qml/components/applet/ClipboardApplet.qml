@@ -14,8 +14,8 @@ Item {
     property double lastMenuCloseMs: 0
     property bool popupOpen: popupHint || menu.opened
 
-    readonly property int iconSize: 22
-    readonly property int popupGap: Theme.metric("spacingXs")
+    readonly property int iconSize: 20
+    readonly property int popupGap: Theme.metric("spacingSm")
 
     implicitWidth: button.implicitWidth
     implicitHeight: button.implicitHeight
@@ -36,7 +36,7 @@ Item {
         }
         popupHint = true
         Qt.callLater(function() {
-            menu.open()
+            menu.togglePopup()
         })
     }
 

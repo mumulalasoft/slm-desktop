@@ -4,9 +4,20 @@
 
 namespace Slm::Login {
 
-constexpr int kCrashLoopThreshold    = 3;
-constexpr int kHealthySessionSeconds = 30;
-constexpr int kCompositorSocketTimeoutMs = 10000;
+constexpr int  kCrashLoopThreshold           = 5;
+constexpr int  kHealthySessionSeconds        = 30;
+constexpr int  kCompositorSocketTimeoutMs    = 5000;   // 5s — actual connect test
+constexpr int  kShellFirstFrameTimeoutMs     = 10000;  // 10s — shell must render first frame
+constexpr int  kShellFastExitMs              = 3000;   // < 3s exit = hard crash
+constexpr int  kRecoveryFirstFrameStableMs   = 5000;   // 5s — recovery UI must be visible and stable
+
+// Compatibility-critical compositor socket name.
+// Keep this at wayland-0 so strict sandboxes (Snap/Flatpak) can connect without
+// path policy violations.
+constexpr const char kDefaultWaylandSocketName[] = "wayland-0";
+
+// Legacy SLM alias kept for internal/backward compatibility.
+constexpr const char kLegacySlmWaylandSocketAlias[] = "slm-wayland-0";
 
 enum class StartupMode {
     Normal,

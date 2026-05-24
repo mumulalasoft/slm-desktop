@@ -34,9 +34,28 @@ QVariantMap FileManagerApi::writeTextFile(const QString &path, const QString &co
         return makeResult(false, f.errorString());
     }
     f.close();
+    if (!QFileInfo::exists(p)) {
+        return makeResult(false,
+                          QStringLiteral("write-not-persisted"),
+                          {{QStringLiteral("path"), p},
+                           {QStringLiteral("exists"), false}});
+    }
+    if (fi.suffix().compare(QStringLiteral("desktop"), Qt::CaseInsensitive) == 0) {
+        QFile::setPermissions(p, QFile::permissions(p)
+                              | QFileDevice::ReadOwner
+                              | QFileDevice::WriteOwner
+                              | QFileDevice::ExeOwner
+                              | QFileDevice::ReadGroup
+                              | QFileDevice::ExeGroup
+                              | QFileDevice::ReadOther
+                              | QFileDevice::ExeOther);
+    }
     emit pathChanged(p, QStringLiteral("file"));
     emit pathChanged(fi.absolutePath(), QStringLiteral("directory"));
-    return makeResult(true, QString(), {{QStringLiteral("path"), p}});
+    return makeResult(true,
+                      QString(),
+                      {{QStringLiteral("path"), p},
+                       {QStringLiteral("exists"), true}});
 }
 
 QVariantMap FileManagerApi::createDirectory(const QString &path, bool recursive)

@@ -1,5 +1,6 @@
 #include <QtTest/QtTest>
 #include <QDBusConnection>
+#include <QDBusConnectionInterface>
 #include <QDBusInterface>
 #include <QDBusReply>
 #include <QDBusVariant>
@@ -35,7 +36,15 @@ private slots:
         lastGood.chop(5);
         lastGood += QStringLiteral(".last-good.json");
         QFile::remove(lastGood);
+        // SLM_SETTINGSD_STORE_PATH controls both the legacy JSON path and (derived)
+        // the SQLite DB path — giving each test case its own isolated storage.
         qputenv("SLM_SETTINGSD_STORE_PATH", m_storePath.toUtf8());
+
+        // Also remove any leftover SQLite DB from a previous run of the same test.
+        QString dbPath = m_storePath;
+        dbPath.chop(5);
+        dbPath += QStringLiteral(".db");
+        QFile::remove(dbPath);
     }
 
     void cleanup()
@@ -47,14 +56,32 @@ private slots:
             lastGood += QStringLiteral(".last-good.json");
             QFile::remove(lastGood);
         }
+        QString dbPath = m_storePath;
+        if (dbPath.endsWith(QStringLiteral(".json")))
+            dbPath.chop(5);
+        dbPath += QStringLiteral(".db");
+        QFile::remove(dbPath);
+    }
+
+    // Called from every test that creates a SettingsService so that the test
+    // is skipped cleanly when the real settingsd daemon is already running.
+    static bool checkBusAvailable()
+    {
+        QDBusConnection bus = QDBusConnection::sessionBus();
+        if (!bus.isConnected())
+            return false;
+        QDBusConnectionInterface *iface = bus.interface();
+        if (!iface)
+            return false;
+        return !iface->isServiceRegistered(QString::fromLatin1(kService)).value();
     }
 
     void ping_and_get_settings_contract()
     {
-        QDBusConnection bus = QDBusConnection::sessionBus();
-        if (!bus.isConnected()) {
-            QSKIP("session bus is not available in this test environment");
+        if (!checkBusAvailable()) {
+            QSKIP("session bus not available or settingsd already registered on this bus");
         }
+        QDBusConnection bus = QDBusConnection::sessionBus();
 
         SettingsService service;
         QString error;
@@ -81,7 +108,7 @@ private slots:
         QVERIFY(settings.contains(QStringLiteral("globalAppearance")));
         QVERIFY(settings.contains(QStringLiteral("contextAutomation")));
         QVERIFY(settings.contains(QStringLiteral("contextTime")));
-        QVERIFY(settings.contains(QStringLiteral("dock")));
+        QVERIFY(settings.contains(QStringLiteral("appdeck")));
         QVERIFY(settings.contains(QStringLiteral("print")));
         QVERIFY(settings.contains(QStringLiteral("windowing")));
         QVERIFY(settings.contains(QStringLiteral("shortcuts")));
@@ -99,18 +126,18 @@ private slots:
         const int sunsetHour = contextTime.value(QStringLiteral("sunsetHour")).toInt();
         QVERIFY(sunriseHour >= 0 && sunriseHour <= 23);
         QVERIFY(sunsetHour >= 0 && sunsetHour <= 23);
-        const QVariantMap dock = settings.value(QStringLiteral("dock")).toMap();
-        const QString motionPreset = dock.value(QStringLiteral("motionPreset")).toString();
+        const QVariantMap appdeck = settings.value(QStringLiteral("appdeck")).toMap();
+        const QString motionPreset = appdeck.value(QStringLiteral("motionPreset")).toString();
         QVERIFY(motionPreset == QLatin1String("subtle") || motionPreset == QLatin1String("macos-lively"));
-        const QString iconSize = dock.value(QStringLiteral("iconSize")).toString();
+        const QString iconSize = appdeck.value(QStringLiteral("iconSize")).toString();
         QVERIFY(iconSize == QLatin1String("small")
                 || iconSize == QLatin1String("medium")
                 || iconSize == QLatin1String("large"));
-        QVERIFY(dock.contains(QStringLiteral("magnificationEnabled")));
-        QVERIFY(dock.value(QStringLiteral("dragThresholdMouse")).toInt() >= 2);
-        QVERIFY(dock.value(QStringLiteral("dragThresholdMouse")).toInt() <= 24);
-        QVERIFY(dock.value(QStringLiteral("dragThresholdTouchpad")).toInt() >= 2);
-        QVERIFY(dock.value(QStringLiteral("dragThresholdTouchpad")).toInt() <= 24);
+        QVERIFY(appdeck.contains(QStringLiteral("magnificationEnabled")));
+        QVERIFY(appdeck.value(QStringLiteral("dragThresholdMouse")).toInt() >= 2);
+        QVERIFY(appdeck.value(QStringLiteral("dragThresholdMouse")).toInt() <= 24);
+        QVERIFY(appdeck.value(QStringLiteral("dragThresholdTouchpad")).toInt() >= 2);
+        QVERIFY(appdeck.value(QStringLiteral("dragThresholdTouchpad")).toInt() <= 24);
         const QVariantMap print = settings.value(QStringLiteral("print")).toMap();
         QVERIFY(print.contains(QStringLiteral("pdfFallbackPrinterId")));
         const QVariantMap windowing = settings.value(QStringLiteral("windowing")).toMap();
@@ -138,10 +165,10 @@ private slots:
 
     void set_setting_emits_semantic_signal()
     {
-        QDBusConnection bus = QDBusConnection::sessionBus();
-        if (!bus.isConnected()) {
-            QSKIP("session bus is not available in this test environment");
+        if (!checkBusAvailable()) {
+            QSKIP("session bus not available or settingsd already registered on this bus");
         }
+        QDBusConnection bus = QDBusConnection::sessionBus();
 
         SettingsService service;
         QString error;
@@ -175,10 +202,10 @@ private slots:
 
     void resolve_theme_for_app_contract()
     {
-        QDBusConnection bus = QDBusConnection::sessionBus();
-        if (!bus.isConnected()) {
-            QSKIP("session bus is not available in this test environment");
+        if (!checkBusAvailable()) {
+            QSKIP("session bus not available or settingsd already registered on this bus");
         }
+        QDBusConnection bus = QDBusConnection::sessionBus();
 
         SettingsService service;
         QString error;
@@ -228,10 +255,10 @@ private slots:
 
     void context_automation_flags_validation()
     {
-        QDBusConnection bus = QDBusConnection::sessionBus();
-        if (!bus.isConnected()) {
-            QSKIP("session bus is not available in this test environment");
+        if (!checkBusAvailable()) {
+            QSKIP("session bus not available or settingsd already registered on this bus");
         }
+        QDBusConnection bus = QDBusConnection::sessionBus();
 
         SettingsService service;
         QString error;
@@ -261,10 +288,10 @@ private slots:
 
     void context_time_policy_validation()
     {
-        QDBusConnection bus = QDBusConnection::sessionBus();
-        if (!bus.isConnected()) {
-            QSKIP("session bus is not available in this test environment");
+        if (!checkBusAvailable()) {
+            QSKIP("session bus not available or settingsd already registered on this bus");
         }
+        QDBusConnection bus = QDBusConnection::sessionBus();
 
         SettingsService service;
         QString error;
@@ -315,10 +342,10 @@ private slots:
 
     void dock_settings_validation()
     {
-        QDBusConnection bus = QDBusConnection::sessionBus();
-        if (!bus.isConnected()) {
-            QSKIP("session bus is not available in this test environment");
+        if (!checkBusAvailable()) {
+            QSKIP("session bus not available or settingsd already registered on this bus");
         }
+        QDBusConnection bus = QDBusConnection::sessionBus();
 
         SettingsService service;
         QString error;
@@ -333,35 +360,35 @@ private slots:
 
         QDBusReply<QVariantMap> setMotionOk =
             iface.call(QStringLiteral("SetSetting"),
-                       QStringLiteral("dock.motionPreset"),
+                       QStringLiteral("appdeck.motionPreset"),
                        QVariant::fromValue(QDBusVariant(QVariant(QStringLiteral("macos-lively")))));
         QVERIFY(setMotionOk.isValid());
         QVERIFY(setMotionOk.value().value(QStringLiteral("ok")).toBool());
 
         QDBusReply<QVariantMap> setMotionInvalid =
             iface.call(QStringLiteral("SetSetting"),
-                       QStringLiteral("dock.motionPreset"),
+                       QStringLiteral("appdeck.motionPreset"),
                        QVariant::fromValue(QDBusVariant(QVariant(QStringLiteral("neon")))));
         QVERIFY(setMotionInvalid.isValid());
         QVERIFY(!setMotionInvalid.value().value(QStringLiteral("ok")).toBool());
 
         QDBusReply<QVariantMap> setThresholdInvalid =
             iface.call(QStringLiteral("SetSetting"),
-                       QStringLiteral("dock.dragThresholdMouse"),
+                       QStringLiteral("appdeck.dragThresholdMouse"),
                        QVariant::fromValue(QDBusVariant(QVariant(40))));
         QVERIFY(setThresholdInvalid.isValid());
         QVERIFY(!setThresholdInvalid.value().value(QStringLiteral("ok")).toBool());
 
         QDBusReply<QVariantMap> setIconSizeOk =
             iface.call(QStringLiteral("SetSetting"),
-                       QStringLiteral("dock.iconSize"),
+                       QStringLiteral("appdeck.iconSize"),
                        QVariant::fromValue(QDBusVariant(QVariant(QStringLiteral("large")))));
         QVERIFY(setIconSizeOk.isValid());
         QVERIFY(setIconSizeOk.value().value(QStringLiteral("ok")).toBool());
 
         QDBusReply<QVariantMap> setIconSizeInvalid =
             iface.call(QStringLiteral("SetSetting"),
-                       QStringLiteral("dock.iconSize"),
+                       QStringLiteral("appdeck.iconSize"),
                        QVariant::fromValue(QDBusVariant(QVariant(QStringLiteral("xlarge")))));
         QVERIFY(setIconSizeInvalid.isValid());
         QVERIFY(!setIconSizeInvalid.value().value(QStringLiteral("ok")).toBool());
@@ -369,10 +396,10 @@ private slots:
 
     void print_and_shortcut_settings_validation()
     {
-        QDBusConnection bus = QDBusConnection::sessionBus();
-        if (!bus.isConnected()) {
-            QSKIP("session bus is not available in this test environment");
+        if (!checkBusAvailable()) {
+            QSKIP("session bus not available or settingsd already registered on this bus");
         }
+        QDBusConnection bus = QDBusConnection::sessionBus();
 
         SettingsService service;
         QString error;

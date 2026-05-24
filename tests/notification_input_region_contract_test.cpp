@@ -31,7 +31,15 @@ private slots:
 
         QVERIFY(windowText.contains(QStringLiteral("readonly property bool centerOpen")));
         QVERIFY(windowText.contains(QStringLiteral("readonly property bool bannerVisible")));
-        QVERIFY(windowText.contains(QStringLiteral("visible: !!parentWindow && parentWindow.visible && (centerOpen || bannerVisible)")));
+        QVERIFY(windowText.contains(QStringLiteral("readonly property bool policyAllowsNotificationCenter")));
+        QVERIFY(windowText.contains(QStringLiteral("compactMode: root.policyCompactNotifications")));
+        QVERIFY(windowText.contains(QStringLiteral("NotificationLayerShell")));
+        QVERIFY(windowText.contains(QStringLiteral("prepareNotificationWindow(root)")));
+        QVERIFY(windowText.contains(QStringLiteral("NotificationLayerShell.setNotificationSurface(root,")));
+        QVERIFY(windowText.contains(QStringLiteral("&& root.layerShellSupported")));
+        QVERIFY(windowText.contains(QStringLiteral("transientParent: null")));
+        QVERIFY(!windowText.contains(QStringLiteral("WindowStaysOnTopHint")));
+        QVERIFY(!windowText.contains(QStringLiteral("Qt.Tool")));
         QVERIFY(windowText.contains(QStringLiteral("if (!centerOpen && notificationLayer)")));
         QVERIFY(windowText.contains(QStringLiteral("notificationLayer.bannerSurfaceWidth")));
         QVERIFY(windowText.contains(QStringLiteral("notificationLayer.bannerSurfaceHeight")));
@@ -39,6 +47,8 @@ private slots:
         QVERIFY(managerText.contains(QStringLiteral("readonly property int bannerSurfaceWidth")));
         QVERIFY(managerText.contains(QStringLiteral("readonly property int bannerSurfaceHeight")));
         QVERIFY(managerText.contains(QStringLiteral("readonly property bool bannerVisible")));
+        QVERIFY(managerText.contains(QStringLiteral("property bool compactMode: false")));
+        QVERIFY(managerText.contains(QStringLiteral("width: root.compactMode ? 340 : 380")));
     }
 };
 

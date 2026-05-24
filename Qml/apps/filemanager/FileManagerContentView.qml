@@ -10,12 +10,19 @@ Rectangle {
     property var fileModel: null
     property string searchText: ""
     property string viewMode: "grid"
+    property bool desktopShellLayout: false
+    property var desktopEntriesModel: []
     property int contentScalePercent: 100
     readonly property real contentScale: Math.max(0.75, Math.min(4.0, Number(contentScalePercent || 100) / 100.0))
     property int selectedIndex: -1
     property var selectedIndexes: []
     property int dndHoverIndex: -1
     property bool dndActive: false
+    property int dndSourceIndex: -1
+    property real dndPointerX: 0
+    property real dndPointerY: 0
+    property real desktopDragHotspotX: 52
+    property real desktopDragHotspotY: 61
     property var hostItem: null
     property bool suppressFlick: false
     property bool rubberSelecting: false
@@ -23,7 +30,17 @@ Rectangle {
     property real rubberStartY: 0
     property real rubberCurrentX: 0
     property real rubberCurrentY: 0
-    readonly property int gridColumns: gridView.visible ? Math.max(1, gridView.computedColumns) : 1
+    property var desktopSlotToModelIndex: []
+    property var desktopSlotByPath: ({})
+    readonly property int gridColumns: {
+        if (root.desktopShellLayout && root.viewMode === "grid" && desktopGridView) {
+            return Math.max(1, Number(desktopGridView.computedColumns || 1))
+        }
+        if (gridView && gridView.visible) {
+            return Math.max(1, Number(gridView.computedColumns || 1))
+        }
+        return 1
+    }
     readonly property int bodyFontSize: themedFontSize("body", 13)
     readonly property int secondaryFontSize: themedFontSize("caption", 12)
     property var thumbnailCache: ({})
@@ -33,6 +50,7 @@ Rectangle {
     property int thumbnailGeneration: 0
     property bool thumbnailsEnabled: false
     property bool contentLoading: false
+    property int desktopEntriesRevision: 0
     property bool trashView: false
     property var columnParentEntries: []
     property var columnChildEntries: []
@@ -87,6 +105,11 @@ Rectangle {
             listView.positionViewAtIndex(index, atBeginning ? ListView.Beginning : ListView.Contain)
         } else if (viewMode === "columns") {
             columnsCurrentList.positionViewAtIndex(index, atBeginning ? ListView.Beginning : ListView.Contain)
+        } else if (desktopShellLayout && desktopGridView) {
+            var slot = slotForModelIndex(index)
+            if (slot >= 0) {
+                desktopGridView.positionViewAtIndex(slot, atBeginning ? GridView.Beginning : GridView.Contain)
+            }
         } else {
             gridView.positionViewAtIndex(index, atBeginning ? GridView.Beginning : GridView.Contain)
         }
@@ -100,13 +123,18 @@ Rectangle {
             listView.positionViewAtIndex(index, ListView.Center)
         } else if (viewMode === "columns") {
             columnsCurrentList.positionViewAtIndex(index, ListView.Center)
+        } else if (desktopShellLayout && desktopGridView) {
+            var slot = slotForModelIndex(index)
+            if (slot >= 0) {
+                desktopGridView.positionViewAtIndex(slot, GridView.Center)
+            }
         } else {
             gridView.positionViewAtIndex(index, GridView.Center)
         }
     }
 
     function isSelected(index) {
-        return selectedIndexes && selectedIndexes.indexOf(index) >= 0
+        return !!(selectedIndexes && selectedIndexes.indexOf && selectedIndexes.indexOf(index) >= 0)
     }
 
     function iconUrl(name) {
@@ -130,6 +158,20 @@ Rectangle {
             return mime.replace("/", "-")
         }
         return icon.length > 0 ? icon : "text-x-generic-symbolic"
+    }
+
+    function iconSourceForEntry(iconName, mimeType, isDir) {
+        var iconToken = String(preferredFileIcon(iconName, mimeType, isDir) || "").trim()
+        if (iconToken.length <= 0) {
+            return ""
+        }
+        if (iconToken.indexOf("file://") === 0 || iconToken.indexOf("qrc:/") === 0) {
+            return iconToken
+        }
+        if (iconToken.charAt(0) === "/") {
+            return FileManagerUtils.toFileUrl(iconToken)
+        }
+        return iconUrl(iconToken)
     }
 
     function emptyStateTitle() {
@@ -630,6 +672,297 @@ Rectangle {
         return false
     }
 
+    function desktopViewportColumns() {
+        if (!desktopGridView) {
+            return 1
+        }
+        return Math.max(1, Number(desktopGridView.computedColumns || 1))
+    }
+
+    function desktopViewportRows() {
+        if (!desktopGridView) {
+            return 1
+        }
+        return Math.max(1, Number(desktopGridView.computedRows || 1))
+    }
+
+    function desktopTotalSlots() {
+        var count = visibleCount()
+        var viewportSlots = desktopViewportColumns() * desktopViewportRows()
+        return Math.max(count, viewportSlots)
+    }
+
+    function desktopEntryPathAt(modelIndex) {
+        var idx = Number(modelIndex || -1)
+        if (idx < 0) {
+            return ""
+        }
+        if (desktopShellLayout && desktopEntriesModel && desktopEntriesModel.length !== undefined) {
+            if (idx < Number(desktopEntriesModel.length || 0)) {
+                var cachedRow = desktopEntriesModel[idx]
+                if (cachedRow) {
+                    return String(cachedRow.path || "")
+                }
+            }
+            // Fallback to live model during early init / transient cache lag.
+        }
+        if (!fileModel || !fileModel.entryAt || idx >= visibleCount()) {
+            return ""
+        }
+        var row = fileModel.entryAt(idx)
+        if (!row || !row.ok) {
+            return ""
+        }
+        return String(row.path || "")
+    }
+
+    function desktopEntryMapAt(modelIndex, revision) {
+        var _rev = Number(revision || 0)
+        var idx = Number(modelIndex || -1)
+        if (idx < 0) {
+            return null
+        }
+        if (desktopShellLayout && desktopEntriesModel && desktopEntriesModel.length !== undefined) {
+            if (idx < Number(desktopEntriesModel.length || 0)) {
+                var cachedRow = desktopEntriesModel[idx]
+                if (cachedRow) {
+                    return cachedRow
+                }
+            }
+            // Fallback to live model during early init / transient cache lag.
+        }
+        if (!fileModel || !fileModel.entryAt || idx >= visibleCount()) {
+            return null
+        }
+        var row = fileModel.entryAt(idx)
+        if (!row || !row.ok) {
+            return null
+        }
+        return row
+    }
+
+    function desktopEntryNameAt(modelIndex, revision) {
+        var row = desktopEntryMapAt(modelIndex, revision)
+        return row ? String(row.name || "") : ""
+    }
+
+    function desktopEntryThumbAt(modelIndex, revision) {
+        var row = desktopEntryMapAt(modelIndex, revision)
+        return row ? String(row.thumbnailPath || "") : ""
+    }
+
+    function desktopEntryMimeAt(modelIndex, revision) {
+        var row = desktopEntryMapAt(modelIndex, revision)
+        return row ? String(row.mimeType || "") : ""
+    }
+
+    function desktopEntryIconAt(modelIndex, revision) {
+        var row = desktopEntryMapAt(modelIndex, revision)
+        return row ? String(row.iconName || "") : ""
+    }
+
+    function desktopEntryIsDirAt(modelIndex, revision) {
+        var row = desktopEntryMapAt(modelIndex, revision)
+        return row ? !!row.isDir : false
+    }
+
+    function desktopEntrySharedAt(modelIndex, revision) {
+        var row = desktopEntryMapAt(modelIndex, revision)
+        return row ? !!row.networkShared : false
+    }
+
+    function slotForModelIndex(modelIndex) {
+        var idx = Number(modelIndex || -1)
+        if (idx < 0) {
+            return -1
+        }
+        var slots = desktopSlotToModelIndex || []
+        for (var s = 0; s < slots.length; ++s) {
+            if (Number(slots[s]) === idx) {
+                return s
+            }
+        }
+        return -1
+    }
+
+    function desktopModelIndexForSlot(slotIndex) {
+        var s = Number(slotIndex || -1)
+        var slots = desktopSlotToModelIndex || []
+        if (s < 0 || s >= slots.length) {
+            return -1
+        }
+        var idx = Number(slots[s])
+        return idx >= 0 ? idx : -1
+    }
+
+    function desktopFirstFreeSlot(slotsArray) {
+        var total = desktopTotalSlots()
+        for (var i = 0; i < total; ++i) {
+            if (slotsArray[i] === undefined || Number(slotsArray[i]) < 0) {
+                return i
+            }
+        }
+        return -1
+    }
+
+    function rebuildDesktopSlots() {
+        if (!desktopShellLayout || viewMode !== "grid") {
+            return
+        }
+        var count = visibleCount()
+        var visibleSlots = Math.max(1, desktopViewportColumns() * desktopViewportRows())
+        var total = Math.max(count, visibleSlots)
+        var nextSlots = []
+        for (var i = 0; i < total; ++i) {
+            nextSlots.push(-1)
+        }
+
+        var byPath = Object.assign({}, desktopSlotByPath || ({}))
+        var minPreferred = Number.MAX_VALUE
+        var sawPreferredZero = false
+        for (var m0 = 0; m0 < count; ++m0) {
+            var p0 = desktopEntryPathAt(m0)
+            if (p0.length <= 0) {
+                continue
+            }
+            var pref0 = Number(byPath[p0])
+            if (pref0 >= 0) {
+                if (pref0 === 0) {
+                    sawPreferredZero = true
+                }
+                if (pref0 < minPreferred) {
+                    minPreferred = pref0
+                }
+            }
+        }
+        var slotBias = (!sawPreferredZero && minPreferred !== Number.MAX_VALUE && minPreferred > 0)
+                ? minPreferred : 0
+        var used = ({})
+        for (var m = 0; m < count; ++m) {
+            var p = desktopEntryPathAt(m)
+            if (p.length <= 0) {
+                continue
+            }
+            var preferred = Number(byPath[p])
+            if (preferred >= 0 && slotBias > 0) {
+                preferred = preferred - slotBias
+            }
+            // Keep desktop icons inside the visible desktop viewport. Older
+            // slot maps may contain far slots; those would be invisible because
+            // desktop grid is non-scrollable.
+            if (preferred >= 0 && preferred < visibleSlots && !used[preferred]) {
+                nextSlots[preferred] = m
+                used[preferred] = true
+                byPath[p] = preferred
+            }
+        }
+
+        for (var j = 0; j < count; ++j) {
+            var exists = false
+            for (var s = 0; s < total; ++s) {
+                if (Number(nextSlots[s]) === j) {
+                    exists = true
+                    break
+                }
+            }
+            if (exists) {
+                continue
+            }
+            var free = desktopFirstFreeSlot(nextSlots)
+            if (free < 0) {
+                break
+            }
+            nextSlots[free] = j
+            var pathAt = desktopEntryPathAt(j)
+            if (pathAt.length > 0) {
+                byPath[pathAt] = free
+            }
+        }
+
+        var placedCount = 0
+        var uniqueModel = ({})
+        for (var v = 0; v < total; ++v) {
+            var modelAt = Number(nextSlots[v])
+            if (modelAt >= 0 && uniqueModel[modelAt] !== true) {
+                uniqueModel[modelAt] = true
+                placedCount += 1
+            }
+        }
+
+        // Hard recovery for corrupted/legacy slot maps: guarantee that
+        // slot 0 is occupied and all current items are visible/placed.
+        if ((count > 0 && Number(nextSlots[0]) < 0) || placedCount < count) {
+            for (var r = 0; r < total; ++r) {
+                nextSlots[r] = -1
+            }
+            for (var k = 0; k < count; ++k) {
+                if (k >= total) {
+                    break
+                }
+                nextSlots[k] = k
+                var seqPath = desktopEntryPathAt(k)
+                if (seqPath.length > 0) {
+                    byPath[seqPath] = k
+                }
+            }
+        }
+
+        desktopSlotToModelIndex = nextSlots
+        desktopSlotByPath = byPath
+    }
+
+    function loadDesktopSlotsIfNeeded() {
+        if (!desktopShellLayout || !fileModel || !fileModel.loadSlotMap) {
+            return
+        }
+        var loaded = fileModel.loadSlotMap()
+        desktopSlotByPath = loaded ? loaded : ({})
+    }
+
+    function persistDesktopSlots() {
+        if (!desktopShellLayout || !fileModel || !fileModel.saveSlotMap) {
+            return
+        }
+        fileModel.saveSlotMap(desktopSlotByPath || ({}))
+    }
+
+    function moveDesktopEntryToSlot(fromModelIndex, toSlotIndex) {
+        if (!desktopShellLayout) {
+            return
+        }
+        var fromIdx = Number(fromModelIndex || -1)
+        var toSlot = Number(toSlotIndex || -1)
+        if (fromIdx < 0 || toSlot < 0) {
+            return
+        }
+        var slots = (desktopSlotToModelIndex || []).slice(0)
+        if (toSlot >= slots.length) {
+            return
+        }
+        var fromSlot = slotForModelIndex(fromIdx)
+        if (fromSlot < 0 || fromSlot === toSlot) {
+            return
+        }
+        var fromPath = desktopEntryPathAt(fromIdx)
+        if (fromPath.length <= 0) {
+            return
+        }
+        var toModel = Number(slots[toSlot])
+        var toPath = desktopEntryPathAt(toModel)
+
+        slots[toSlot] = fromIdx
+        slots[fromSlot] = (toModel >= 0) ? toModel : -1
+        desktopSlotToModelIndex = slots
+
+        var nextByPath = Object.assign({}, desktopSlotByPath || ({}))
+        nextByPath[fromPath] = toSlot
+        if (toModel >= 0 && toPath.length > 0) {
+            nextByPath[toPath] = fromSlot
+        }
+        desktopSlotByPath = nextByPath
+        persistDesktopSlots()
+    }
+
     function activeView() {
         if (viewMode === "list") {
             return listView
@@ -637,10 +970,17 @@ Rectangle {
         if (viewMode === "columns") {
             return columnsCurrentList
         }
+        if (desktopShellLayout) {
+            return desktopGridView
+        }
         return gridView
     }
 
     function visibleCount() {
+        if (desktopShellLayout && viewMode === "grid"
+                && desktopEntriesModel && desktopEntriesModel.length !== undefined) {
+            return Math.max(0, Number(desktopEntriesModel.length || 0))
+        }
         return fileModel ? Math.max(0, Number(fileModel.count || 0)) : 0
     }
 
@@ -653,7 +993,12 @@ Rectangle {
 
     function pageStepForCurrentView() {
         if (viewMode === "grid") {
-            var rows = Math.max(1, Math.floor(Math.max(1, gridView.height) / Math.max(1, gridView.cellHeight)))
+            var rows = 1
+            if (desktopShellLayout && desktopGridView) {
+                rows = Math.max(1, Number(desktopGridView.computedRows || 1))
+            } else {
+                rows = Math.max(1, Math.floor(Math.max(1, gridView.height) / Math.max(1, gridView.cellHeight)))
+            }
             return Math.max(1, rows * Math.max(1, root.gridColumns))
         }
         var rowsLike = Math.max(1, Math.floor(Math.max(1, root.height) / rowHeightForListLike()))
@@ -773,7 +1118,90 @@ Rectangle {
             return -1
         }
         var p = root.mapToItem(v.contentItem, x, y)
-        return v.indexAt(p.x, p.y)
+        var idx = v.indexAt(p.x, p.y)
+        if (desktopShellLayout && viewMode === "grid") {
+            return desktopModelIndexForSlot(idx)
+        }
+        return idx
+    }
+
+    function setExternalDragPointer(sceneX, sceneY) {
+        var host = hostItem ? hostItem : root
+        var p = root.mapFromItem(host, Number(sceneX || 0), Number(sceneY || 0))
+        dndPointerX = Number(p.x || 0)
+        dndPointerY = Number(p.y || 0)
+    }
+
+    function nearestGridIndexFromScene(sceneX, sceneY) {
+        if (viewMode !== "grid") {
+            return -1
+        }
+        if (!fileModel || fileModel.count === undefined) {
+            return -1
+        }
+        var count = Number(fileModel.count || 0)
+        if (count <= 0) {
+            return -1
+        }
+        var host = hostItem ? hostItem : root
+        if (desktopShellLayout && desktopGridView && desktopGridView.contentItem) {
+            var slot = nearestGridSlotFromScene(sceneX, sceneY)
+            var modelIndex = desktopModelIndexForSlot(slot)
+            if (modelIndex >= 0) {
+                return modelIndex
+            }
+            var nearestFilled = -1
+            var nearestDist = Number.MAX_VALUE
+            for (var s = 0; s < (desktopSlotToModelIndex || []).length; ++s) {
+                var idxCandidate = desktopModelIndexForSlot(s)
+                if (idxCandidate < 0) {
+                    continue
+                }
+                var cx = (s % desktopViewportColumns()) * Number(desktopGridView.cellWidth || 1) + (Number(desktopGridView.cellWidth || 1) * 0.5)
+                var cy = Math.floor(s / desktopViewportColumns()) * Number(desktopGridView.cellHeight || 1) + (Number(desktopGridView.cellHeight || 1) * 0.5)
+                var pLocal = desktopGridView.contentItem.mapFromItem(host, Number(sceneX || 0), Number(sceneY || 0))
+                var dx = cx - pLocal.x
+                var dy = cy - pLocal.y
+                var d2 = dx * dx + dy * dy
+                if (d2 < nearestDist) {
+                    nearestDist = d2
+                    nearestFilled = idxCandidate
+                }
+            }
+            return nearestFilled
+        }
+        if (!gridView || !gridView.contentItem) {
+            return -1
+        }
+        var p = gridView.contentItem.mapFromItem(host, Number(sceneX || 0), Number(sceneY || 0))
+        var cellW = Math.max(1, Number(gridView.cellWidth || 1))
+        var cellH = Math.max(1, Number(gridView.cellHeight || 1))
+        var cols = Math.max(1, Number(gridView.computedColumns || 1))
+        var col = Math.max(0, Math.min(cols - 1, Math.floor(p.x / cellW)))
+        var row = Math.max(0, Math.floor(p.y / cellH))
+        var idx = row * cols + col
+        if (idx < 0) {
+            idx = 0
+        }
+        if (idx >= count) {
+            idx = count - 1
+        }
+        return idx
+    }
+
+    function nearestGridSlotFromScene(sceneX, sceneY) {
+        if (viewMode !== "grid" || !desktopShellLayout || !desktopGridView || !desktopGridView.contentItem) {
+            return -1
+        }
+        var host = hostItem ? hostItem : root
+        var p = desktopGridView.contentItem.mapFromItem(host, Number(sceneX || 0), Number(sceneY || 0))
+        var cellW = Math.max(1, Number(desktopGridView.cellWidth || 1))
+        var cellH = Math.max(1, Number(desktopGridView.cellHeight || 1))
+        var cols = Math.max(1, Number(desktopGridView.computedColumns || 1))
+        var rows = Math.max(1, Number(desktopGridView.computedRows || 1))
+        var col = Math.max(0, Math.min(cols - 1, Math.floor(p.x / cellW)))
+        var row = Math.max(0, Math.min(rows - 1, Math.floor(p.y / cellH)))
+        return row * cols + col
     }
 
     function currentRubberRect() {
@@ -797,6 +1225,25 @@ Rectangle {
         }
         var rect = currentRubberRect()
         var out = []
+        if (desktopShellLayout && viewMode === "grid") {
+            var slotCount = Number(desktopTotalSlots() || 0)
+            for (var s = 0; s < slotCount; ++s) {
+                var modelIdx = desktopModelIndexForSlot(s)
+                if (modelIdx < 0) {
+                    continue
+                }
+                var slotItem = v.itemAtIndex(s)
+                if (!slotItem) {
+                    continue
+                }
+                var ps = slotItem.mapToItem(root, 0, 0)
+                var slotRect = { "x": ps.x, "y": ps.y, "w": slotItem.width, "h": slotItem.height }
+                if (rectsIntersect(rect, slotRect)) {
+                    out.push(modelIdx)
+                }
+            }
+            return out
+        }
         var count = Number(model.count || 0)
         for (var i = 0; i < count; ++i) {
             var item = v.itemAtIndex(i)
@@ -810,6 +1257,60 @@ Rectangle {
             }
         }
         return out
+    }
+
+    onDesktopShellLayoutChanged: {
+        loadDesktopSlotsIfNeeded()
+        rebuildDesktopSlots()
+    }
+
+    onDesktopEntriesModelChanged: {
+        if (desktopShellLayout && viewMode === "grid") {
+            rebuildDesktopSlots()
+        }
+    }
+
+    onViewModeChanged: {
+        rebuildDesktopSlots()
+        refreshColumnsData()
+    }
+
+    onWidthChanged: rebuildDesktopSlots()
+    onHeightChanged: rebuildDesktopSlots()
+
+    Component.onCompleted: {
+        loadDesktopSlotsIfNeeded()
+        rebuildDesktopSlots()
+    }
+
+    Connections {
+        target: root.fileModel
+        ignoreUnknownSignals: true
+        function onCountChanged() {
+            root.desktopEntriesRevision = root.desktopEntriesRevision + 1
+            root.rebuildDesktopSlots()
+        }
+        function onModelReset() {
+            root.desktopEntriesRevision = root.desktopEntriesRevision + 1
+            root.loadDesktopSlotsIfNeeded()
+            root.rebuildDesktopSlots()
+        }
+        function onRowsInserted() {
+            root.desktopEntriesRevision = root.desktopEntriesRevision + 1
+            root.rebuildDesktopSlots()
+        }
+        function onRowsRemoved() {
+            root.desktopEntriesRevision = root.desktopEntriesRevision + 1
+            root.rebuildDesktopSlots()
+        }
+        function onDataChanged() {
+            root.desktopEntriesRevision = root.desktopEntriesRevision + 1
+        }
+        function onCurrentPathChanged() {
+            root.desktopEntriesRevision = root.desktopEntriesRevision + 1
+            root.loadDesktopSlotsIfNeeded()
+            root.rebuildDesktopSlots()
+        }
     }
 
     Connections {
@@ -843,7 +1344,6 @@ Rectangle {
     }
 
     onSelectedIndexChanged: refreshColumnsData()
-    onViewModeChanged: refreshColumnsData()
     onColumnsPreviewEntryChanged: ensureColumnsPreviewThumbnail()
     onColumnsFocusPaneChanged: updateColumnsDisplayPath()
     onColumnParentIndexChanged: updateColumnsDisplayPath()
@@ -1011,6 +1511,438 @@ Rectangle {
         anchors.fill: parent
 
         GridView {
+            id: desktopGridView
+            anchors.fill: parent
+            anchors.leftMargin: 0
+            anchors.rightMargin: 0
+            anchors.topMargin: 0
+            anchors.bottomMargin: 0
+            visible: root.viewMode === "grid" && root.desktopShellLayout
+            clip: true
+            property int computedColumns: Math.max(1, Math.floor(width / cellWidth))
+            property int computedRows: Math.max(1, Math.floor(height / cellHeight))
+            cellWidth: 104
+            cellHeight: 122
+            model: root.desktopTotalSlots()
+            reuseItems: false
+            cacheBuffer: 0
+            interactive: false
+            boundsBehavior: Flickable.StopAtBounds
+            boundsMovement: Flickable.StopAtBounds
+
+            delegate: Item {
+                id: desktopSlotItem
+                required property int index
+                readonly property int modelIndex: root.desktopModelIndexForSlot(index)
+                readonly property int entriesRevision: root.desktopEntriesRevision
+                readonly property bool hasEntry: modelIndex >= 0
+                readonly property string name: root.desktopEntryNameAt(modelIndex, entriesRevision)
+                readonly property string path: root.desktopEntryPathAt(modelIndex)
+                readonly property string thumbnailPath: root.desktopEntryThumbAt(modelIndex, entriesRevision)
+                readonly property string mimeType: root.desktopEntryMimeAt(modelIndex, entriesRevision)
+                readonly property string iconName: root.desktopEntryIconAt(modelIndex, entriesRevision)
+                readonly property bool isDir: root.desktopEntryIsDirAt(modelIndex, entriesRevision)
+                readonly property bool networkShared: root.desktopEntrySharedAt(modelIndex, entriesRevision)
+                readonly property bool previewCandidate: (!isDir && FileManagerUtils.isPreviewCandidateName(name))
+                readonly property bool draggingSelf: (root.dndActive
+                                                      && Number(root.dndSourceIndex) === Number(modelIndex))
+
+                width: desktopGridView.cellWidth
+                height: desktopGridView.cellHeight
+
+                function ensureDesktopThumbnail() {
+                    if (!root.thumbnailsEnabled || !desktopSlotItem.hasEntry || desktopSlotItem.isDir || !desktopSlotItem.previewCandidate) {
+                        return
+                    }
+                    if (String(desktopSlotItem.thumbnailPath || "").length > 0) {
+                        root.thumbnailCacheSet(desktopSlotItem.path, 192, desktopSlotItem.thumbnailPath)
+                        return
+                    }
+                    root.requestThumbnailIfNeeded(desktopSlotItem.path, 192, 0)
+                }
+
+                onThumbnailPathChanged: ensureDesktopThumbnail()
+                onVisibleChanged: ensureDesktopThumbnail()
+                Component.onCompleted: ensureDesktopThumbnail()
+
+                Item {
+                    id: desktopTileWrap
+                    visible: desktopSlotItem.hasEntry && !desktopSlotItem.draggingSelf
+                    anchors.centerIn: parent
+                    width: 96
+                    height: 108
+
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: Theme.radiusCard
+                        color: (root.isSelected(desktopSlotItem.modelIndex) || desktopMouse.containsMouse)
+                               ? Theme.color("accentSoft") : "transparent"
+                        border.width: (root.isSelected(desktopSlotItem.modelIndex) || desktopMouse.containsMouse)
+                                      ? Theme.borderWidthThin : Theme.borderWidthNone
+                        border.color: Theme.color("dragGhostBorder")
+                    }
+                }
+
+                Item {
+                    id: desktopIconWrap
+                    visible: desktopSlotItem.hasEntry && !desktopSlotItem.draggingSelf
+                    width: desktopTileWrap.width - 8
+                    height: Math.min(width, desktopTileWrap.height - 36)
+                    anchors.horizontalCenter: desktopTileWrap.horizontalCenter
+                    anchors.top: desktopTileWrap.top
+                    anchors.topMargin: 4
+
+                    Image {
+                        id: desktopThumbImage
+                        anchors.fill: parent
+                        anchors.margins: 0
+                        visible: desktopSlotItem.previewCandidate
+                                 && (status === Image.Ready)
+                        source: root.previewSource(desktopSlotItem.path,
+                                                   desktopSlotItem.name,
+                                                   desktopSlotItem.isDir,
+                                                   desktopSlotItem.thumbnailPath,
+                                                   192,
+                                                   true,
+                                                   true,
+                                                   0)
+                        fillMode: Image.PreserveAspectCrop
+                        asynchronous: true
+                        cache: true
+                    }
+
+                    Image {
+                        anchors.fill: parent
+                        anchors.margins: 0
+                        visible: !desktopSlotItem.previewCandidate
+                                 || !(desktopThumbImage.status === Image.Ready)
+                        fillMode: Image.PreserveAspectFit
+                        asynchronous: true
+                        cache: true
+                        source: root.iconSourceForEntry(desktopSlotItem.iconName,
+                                                        desktopSlotItem.mimeType,
+                                                        desktopSlotItem.isDir)
+                    }
+
+                    Image {
+                        visible: desktopSlotItem.networkShared
+                        width: 14
+                        height: width
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        source: root.iconUrl("folder-remote")
+                        fillMode: Image.PreserveAspectFit
+                        asynchronous: true
+                        cache: true
+                    }
+                }
+
+                Item {
+                    id: desktopLabelWrap
+                    visible: desktopSlotItem.hasEntry && !desktopSlotItem.draggingSelf
+                    width: desktopTileWrap.width - 16
+                    height: 36
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.top: desktopIconWrap.bottom
+                    anchors.topMargin: 8
+
+                    Rectangle {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        anchors.top: parent.top
+                        anchors.topMargin: -2
+                        width: Math.min(parent.width - 8, desktopNameText.paintedWidth + 12)
+                        height: Math.min(parent.height + 2, Math.max(18, desktopNameText.paintedHeight + 4))
+                        radius: Theme.radiusMdPlus
+                        visible: root.isSelected(desktopSlotItem.modelIndex)
+                        color: Theme.color("selectedItem")
+                    }
+
+                    Text {
+                        id: desktopNameText
+                        text: desktopSlotItem.name
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        anchors.top: parent.top
+                        width: parent.width
+                        height: parent.height
+                        horizontalAlignment: Text.AlignHCenter
+                        color: root.isSelected(desktopSlotItem.modelIndex)
+                               ? Theme.color("selectedItemText") : Theme.color("textPrimary")
+                        font.pixelSize: Theme.fontSize("small")
+                        font.weight: Theme.fontWeight("normal")
+                        wrapMode: Text.Wrap
+                        lineHeightMode: Text.ProportionalHeight
+                        lineHeight: Math.max(1.0, Number(Theme.lineHeight("tight") || 1.2))
+                        maximumLineCount: 2
+                        elide: Text.ElideRight
+                        verticalAlignment: Text.AlignTop
+                    }
+                }
+
+                MouseArea {
+                    id: desktopMouse
+                    anchors.fill: parent
+                    enabled: desktopSlotItem.hasEntry
+                    hoverEnabled: true
+                    acceptedButtons: Qt.LeftButton | Qt.RightButton
+                    onClicked: function(m) {
+                        var canDeferredRename =
+                                m.button === Qt.LeftButton &&
+                                m.modifiers === Qt.NoModifier &&
+                                root.selectedIndex === desktopSlotItem.modelIndex &&
+                                root.selectedIndexes &&
+                                root.selectedIndexes.length === 1
+                        if (m.button === Qt.RightButton) {
+                            if (!root.isSelected(desktopSlotItem.modelIndex)) {
+                                root.selectedIndexRequested(desktopSlotItem.modelIndex, Qt.NoModifier)
+                            }
+                            renameClickTimerDesktop.stop()
+                            var p = desktopSlotItem.mapToItem(root, m.x, m.y)
+                            root.contextMenuRequested(desktopSlotItem.modelIndex, p.x, p.y)
+                            return
+                        }
+                        root.selectedIndexRequested(desktopSlotItem.modelIndex, m.modifiers)
+                        if (canDeferredRename) {
+                            renameClickTimerDesktop.restart()
+                        } else {
+                            renameClickTimerDesktop.stop()
+                        }
+                    }
+                    onPressed: function(m) {
+                        dragStartX = m.x
+                        dragStartY = m.y
+                        dragStarted = false
+                        root.desktopDragHotspotX = Math.max(0, Math.min(desktopSlotItem.width, Number(m.x || 0)))
+                        root.desktopDragHotspotY = Math.max(0, Math.min(desktopSlotItem.height, Number(m.y || 0)))
+                    }
+                    property real dragStartX: 0
+                    property real dragStartY: 0
+                    property bool dragStarted: false
+                    onPositionChanged: function(m) {
+                        if (!(m.buttons & Qt.LeftButton)) {
+                            return
+                        }
+                        var dx = m.x - dragStartX
+                        var dy = m.y - dragStartY
+                        var dist2 = dx * dx + dy * dy
+                        if (!dragStarted && dist2 > 81) {
+                            renameClickTimerDesktop.stop()
+                            dragStarted = true
+                            var scenePos = desktopSlotItem.mapToItem(root.hostItem ? root.hostItem : root, m.x, m.y)
+                            var hoverModel = root.nearestGridIndexFromScene(scenePos.x, scenePos.y)
+                            if (hoverModel >= 0 && root.fileModel && root.fileModel.entryAt) {
+                                var hoverRow = root.fileModel.entryAt(hoverModel)
+                                if (!(hoverRow && hoverRow.ok && hoverRow.isDir)) {
+                                    hoverModel = -1
+                                }
+                            }
+                            var copyMode = !!(m.modifiers & Qt.ControlModifier)
+                            root.dragStartRequested(desktopSlotItem.modelIndex, desktopSlotItem.path, desktopSlotItem.name,
+                                                    desktopSlotItem.isDir, copyMode, scenePos.x, scenePos.y)
+                            root.dragMoveRequested(scenePos.x, scenePos.y, hoverModel, copyMode)
+                            return
+                        }
+                        if (dragStarted && root.dndActive) {
+                            var scenePos2 = desktopSlotItem.mapToItem(root.hostItem ? root.hostItem : root, m.x, m.y)
+                            var hoverModel2 = root.nearestGridIndexFromScene(scenePos2.x, scenePos2.y)
+                            if (hoverModel2 >= 0 && root.fileModel && root.fileModel.entryAt) {
+                                var hoverRow2 = root.fileModel.entryAt(hoverModel2)
+                                if (!(hoverRow2 && hoverRow2.ok && hoverRow2.isDir)) {
+                                    hoverModel2 = -1
+                                }
+                            }
+                            var copyMode2 = !!(m.modifiers & Qt.ControlModifier)
+                            root.dragMoveRequested(scenePos2.x, scenePos2.y, hoverModel2, copyMode2)
+                        }
+                    }
+                    onReleased: function(m) {
+                        if (dragStarted && root.dndActive) {
+                            var scenePos = desktopSlotItem.mapToItem(root.hostItem ? root.hostItem : root, m.x, m.y)
+                            var targetSlot = root.nearestGridSlotFromScene(scenePos.x, scenePos.y)
+                            var hoverModel3 = root.nearestGridIndexFromScene(scenePos.x, scenePos.y)
+                            var dropToFolder = false
+                            if (hoverModel3 >= 0 && root.fileModel && root.fileModel.entryAt) {
+                                var hoverRow3 = root.fileModel.entryAt(hoverModel3)
+                                dropToFolder = !!(hoverRow3 && hoverRow3.ok && hoverRow3.isDir)
+                            }
+                            var dropToDock = false
+                            if (root.hostItem && root.hostItem.dockTopY !== undefined) {
+                                var dockY = Number(root.hostItem.dockTopY || -1)
+                                if (dockY > 0 && scenePos.y >= dockY) {
+                                    dropToDock = true
+                                }
+                            }
+                            if (!dropToFolder && !dropToDock) {
+                                root.moveDesktopEntryToSlot(desktopSlotItem.modelIndex, targetSlot)
+                            }
+                            root.dragEndRequested(-1)
+                        }
+                        root.desktopDragHotspotX = desktopSlotItem.width * 0.5
+                        root.desktopDragHotspotY = desktopSlotItem.height * 0.5
+                        dragStarted = false
+                    }
+                    onCanceled: {
+                        if (dragStarted && root.dndActive) {
+                            root.dragEndRequested(-1)
+                        }
+                        root.desktopDragHotspotX = desktopSlotItem.width * 0.5
+                        root.desktopDragHotspotY = desktopSlotItem.height * 0.5
+                        dragStarted = false
+                    }
+                    onDoubleClicked: {
+                        renameClickTimerDesktop.stop()
+                        if (root.dndActive) {
+                            return
+                        }
+                        root.selectedIndexRequested(desktopSlotItem.modelIndex, 0)
+                        root.activateRequested(desktopSlotItem.modelIndex)
+                    }
+                }
+
+                Timer {
+                    id: renameClickTimerDesktop
+                    interval: 540
+                    repeat: false
+                    onTriggered: root.renameRequested(desktopSlotItem.modelIndex)
+                }
+            }
+        }
+
+        Item {
+            id: desktopDragOverlay
+            visible: root.desktopShellLayout
+                     && root.viewMode === "grid"
+                     && root.dndActive
+                     && root.dndSourceIndex >= 0
+                     && root.fileModel
+                     && root.fileModel.entryAt
+                     && (function() {
+                            var r = root.fileModel.entryAt(root.dndSourceIndex)
+                            return !!(r && r.ok)
+                        })()
+            z: 1202
+            width: 104
+            height: 122
+            x: Math.round(root.dndPointerX - root.desktopDragHotspotX)
+            y: Math.round(root.dndPointerY - root.desktopDragHotspotY)
+
+            readonly property var row: (root.fileModel && root.fileModel.entryAt && root.dndSourceIndex >= 0)
+                                        ? root.desktopEntryMapAt(root.dndSourceIndex, root.desktopEntriesRevision) : null
+            readonly property string name: root.desktopEntryNameAt(root.dndSourceIndex, root.desktopEntriesRevision)
+            readonly property string path: root.desktopEntryPathAt(root.dndSourceIndex)
+            readonly property string thumbnailPath: root.desktopEntryThumbAt(root.dndSourceIndex, root.desktopEntriesRevision)
+            readonly property string mimeType: root.desktopEntryMimeAt(root.dndSourceIndex, root.desktopEntriesRevision)
+            readonly property string iconName: root.desktopEntryIconAt(root.dndSourceIndex, root.desktopEntriesRevision)
+            readonly property bool isDir: root.desktopEntryIsDirAt(root.dndSourceIndex, root.desktopEntriesRevision)
+            readonly property bool networkShared: root.desktopEntrySharedAt(root.dndSourceIndex, root.desktopEntriesRevision)
+            readonly property bool previewCandidate: (!isDir && FileManagerUtils.isPreviewCandidateName(name))
+
+            Item {
+                id: dragTileWrap
+                anchors.centerIn: parent
+                width: 96
+                height: 108
+
+                Rectangle {
+                    anchors.fill: parent
+                    radius: Theme.radiusCard
+                    color: Theme.color("accentSoft")
+                    border.width: Theme.borderWidthThin
+                    border.color: Theme.color("dragGhostBorder")
+                }
+            }
+
+                Item {
+                    id: dragIconWrap
+                    width: dragTileWrap.width - 8
+                    height: Math.min(width, dragTileWrap.height - 36)
+                    anchors.horizontalCenter: dragTileWrap.horizontalCenter
+                    anchors.top: dragTileWrap.top
+                    anchors.topMargin: 4
+
+                Image {
+                    id: dragThumbImage
+                        anchors.fill: parent
+                        anchors.margins: 0
+                        visible: desktopDragOverlay.previewCandidate && (status === Image.Ready)
+                    source: root.previewSource(desktopDragOverlay.path,
+                                               desktopDragOverlay.name,
+                                               desktopDragOverlay.isDir,
+                                               desktopDragOverlay.thumbnailPath,
+                                               192,
+                                               true,
+                                               true,
+                                               0)
+                    fillMode: Image.PreserveAspectCrop
+                    asynchronous: true
+                    cache: true
+                }
+
+                Image {
+                    anchors.fill: parent
+                    anchors.margins: 0
+                    visible: !desktopDragOverlay.previewCandidate
+                             || !(dragThumbImage.status === Image.Ready)
+                    fillMode: Image.PreserveAspectFit
+                    asynchronous: true
+                    cache: true
+                    source: root.iconSourceForEntry(desktopDragOverlay.iconName,
+                                                    desktopDragOverlay.mimeType,
+                                                    desktopDragOverlay.isDir)
+                }
+
+                Image {
+                    visible: desktopDragOverlay.networkShared
+                    width: 14
+                    height: width
+                    anchors.right: parent.right
+                    anchors.bottom: parent.bottom
+                    source: root.iconUrl("folder-remote")
+                    fillMode: Image.PreserveAspectFit
+                    asynchronous: true
+                    cache: true
+                }
+            }
+
+            Item {
+                id: dragLabelWrap
+                width: dragTileWrap.width - 16
+                height: 36
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.top: dragIconWrap.bottom
+                anchors.topMargin: 8
+
+                Rectangle {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.top: parent.top
+                    anchors.topMargin: -2
+                    width: Math.min(parent.width - 8, dragNameText.paintedWidth + 12)
+                    height: Math.min(parent.height + 2, Math.max(18, dragNameText.paintedHeight + 4))
+                    radius: Theme.radiusMdPlus
+                    color: Theme.color("selectedItem")
+                }
+
+                Text {
+                    id: dragNameText
+                    text: desktopDragOverlay.name
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.top: parent.top
+                    width: parent.width
+                    height: parent.height
+                    horizontalAlignment: Text.AlignHCenter
+                    color: Theme.color("selectedItemText")
+                    font.pixelSize: Theme.fontSize("small")
+                    font.weight: Theme.fontWeight("normal")
+                    wrapMode: Text.Wrap
+                    lineHeightMode: Text.ProportionalHeight
+                    lineHeight: Math.max(1.0, Number(Theme.lineHeight("tight") || 1.2))
+                    maximumLineCount: 2
+                    elide: Text.ElideRight
+                    verticalAlignment: Text.AlignTop
+                }
+            }
+        }
+
+        GridView {
             id: gridView
             anchors.fill: parent
             anchors.leftMargin: 0
@@ -1018,13 +1950,16 @@ Rectangle {
             anchors.topMargin: 0
             anchors.bottomMargin: 0
             model: fileModel
-            visible: root.viewMode === "grid"
+            visible: root.viewMode === "grid" && !root.desktopShellLayout
             clip: true
+            property int shellCellWidth: 104
+            property int shellCellHeight: 122
             property int minCellWidth: Math.round(132 * root.contentScale)
             property int targetCellWidth: Math.round(156 * root.contentScale)
+            readonly property int computedRows: Math.max(1, Math.floor(height / Math.max(1, cellHeight)))
             property int computedColumns: Math.max(1, Math.floor(width / targetCellWidth))
             cellWidth: Math.max(minCellWidth, Math.floor(width / computedColumns))
-            cellHeight: cellWidth + Math.round(30 * root.contentScale)
+            cellHeight: (cellWidth + Math.round(30 * root.contentScale))
             boundsBehavior: Flickable.StopAtBounds
             boundsMovement: Flickable.StopAtBounds
             flickableDirection: Flickable.VerticalFlick
@@ -1068,11 +2003,20 @@ Rectangle {
                 readonly property bool nearViewport: Math.abs(rowCenterY - viewportCenterY) <= (gridView.height * 1.35)
                 readonly property bool allowThumb: !gridView.moving && !gridView.flicking
                 readonly property real thumbSide: Math.max(72 * root.contentScale, Math.min(width * 0.78, height - (34 * root.contentScale)))
+                readonly property real labelLineHeight: Math.max(1.0, Number(Theme.lineHeight("tight") || 1.2))
+                readonly property real labelMaxHeight: Math.ceil((root.bodyFontSize * labelLineHeight * 2) + 2)
+                readonly property bool draggingSelf: (root.viewMode === "grid"
+                                                      && !root.desktopShellLayout
+                                                      && root.dndActive
+                                                      && root.dndSourceIndex === index)
 
-                width: gridView.cellWidth - 12
-                height: gridView.cellHeight - 8
+                width: root.desktopShellLayout ? gridView.cellWidth : (gridView.cellWidth - 12)
+                height: root.desktopShellLayout ? gridView.cellHeight : (gridView.cellHeight - 8)
 
                 function ensureGridThumbnail() {
+                    if (root.desktopShellLayout) {
+                        return
+                    }
                     if (!root.thumbnailsEnabled || isDir || !previewCandidate || !nearViewport || !allowThumb) {
                         return
                     }
@@ -1089,87 +2033,152 @@ Rectangle {
                 onThumbSideChanged: ensureGridThumbnail()
                 Component.onCompleted: ensureGridThumbnail()
 
-                Column {
+                states: [
+                    State {
+                        name: "dragging"
+                        when: rowItem.draggingSelf
+                        ParentChange {
+                            target: rowItem
+                            parent: root
+                        }
+                        PropertyChanges {
+                            target: rowItem
+                            z: 1200
+                            x: Math.round(root.dndPointerX - (rowItem.width * 0.5))
+                            y: Math.round(root.dndPointerY - (rowItem.height * 0.5))
+                            opacity: Theme.opacityElevated
+                        }
+                    }
+                ]
+
+                transitions: [
+                    Transition {
+                        from: ""
+                        to: "dragging"
+                        NumberAnimation {
+                            properties: "opacity"
+                            duration: Theme.durationFast
+                            easing.type: Theme.easingDefault
+                        }
+                    },
+                    Transition {
+                        from: "dragging"
+                        to: ""
+                        NumberAnimation {
+                            properties: "opacity"
+                            duration: Theme.durationFast
+                            easing.type: Theme.easingDefault
+                        }
+                    }
+                ]
+
+                Item {
+                    id: tileWrap
                     anchors.centerIn: parent
-                    spacing: 3
-                    width: parent.width
+                    width: root.desktopShellLayout ? 96 : rowItem.width
+                    height: root.desktopShellLayout ? 108 : rowItem.height
 
-                    Item {
-                        width: rowItem.thumbSide
-                        height: rowItem.thumbSide
-                        anchors.horizontalCenter: parent.horizontalCenter
+                    Rectangle {
+                        anchors.fill: parent
+                        visible: root.desktopShellLayout
+                        radius: Theme.radiusCard
+                        color: (root.isSelected(index) || mouse.containsMouse) ? Theme.color("accentSoft") : "transparent"
+                        border.width: (root.isSelected(index) || mouse.containsMouse) ? Theme.borderWidthThin : Theme.borderWidthNone
+                        border.color: Theme.color("dragGhostBorder")
+                    }
+                }
 
-                        Image {
-                            id: gridThumbImage
-                            anchors.fill: parent
-                            fillMode: Image.PreserveAspectCrop
-                            asynchronous: true
-                            cache: true
-                            opacity: status === Image.Ready ? 1.0 : 0.0
-                            Behavior on opacity {
-                                NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault }
-                            }
-                            source: root.previewSource(path, name, isDir, thumbnailPath, rowItem.thumbSide, nearViewport, allowThumb,
-                                                       Math.abs(rowCenterY - viewportCenterY))
-                        }
-                        Image {
-                            anchors.fill: parent
-                            visible: !(gridThumbImage.status === Image.Ready)
-                            fillMode: Image.PreserveAspectFit
-                            asynchronous: true
-                            cache: true
-                            source: root.iconUrl(root.preferredFileIcon(iconName, mimeType, isDir))
-                        }
+                Item {
+                    id: gridIconWrap
+                    width: root.desktopShellLayout ? 58 : rowItem.thumbSide
+                    height: width
+                    anchors.horizontalCenter: tileWrap.horizontalCenter
+                    anchors.top: tileWrap.top
+                    anchors.topMargin: root.desktopShellLayout ? 8 : 2
 
-                        Image {
-                            visible: networkShared
-                            width: Math.max(14, rowItem.thumbSide * 0.22)
-                            height: width
-                            anchors.right: parent.right
-                            anchors.bottom: parent.bottom
-                            source: root.iconUrl("folder-remote")
-                            fillMode: Image.PreserveAspectFit
-                            asynchronous: true
-                            cache: true
-                        }
+                    Rectangle {
+                        anchors.fill: parent
+                        visible: root.desktopShellLayout
+                        radius: Theme.radiusWindow
+                        color: Theme.color("shellIconPlateBg")
+                        border.width: Theme.borderWidthThin
+                        border.color: Theme.color("windowCardBorder")
                     }
 
-                    Item {
-                        id: gridLabelWrap
-                        width: parent.width - 4
-                        height: Math.max(16, gridNameText.paintedHeight)
-                        anchors.horizontalCenter: parent.horizontalCenter
-
-                        Rectangle {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            anchors.top: parent.top
-                            anchors.topMargin: -2
-                            width: Math.min(parent.width - 8, gridNameText.paintedWidth + 12)
-                            height: Math.max(18, gridNameText.paintedHeight + 4)
-                            radius: Theme.radiusMdPlus
-                            visible: root.isSelected(index)
-                            color: Theme.color("selectedItem")
+                    Image {
+                        id: gridThumbImage
+                        anchors.fill: parent
+                        fillMode: Image.PreserveAspectCrop
+                        asynchronous: true
+                        cache: true
+                        visible: !root.desktopShellLayout
+                        opacity: status === Image.Ready ? 1.0 : 0.0
+                        Behavior on opacity {
+                            NumberAnimation { duration: Theme.durationSm; easing.type: Theme.easingDefault }
                         }
-
-                        Text {
-                            id: gridNameText
-                            text: name
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            anchors.top: parent.top
-                            width: parent.width
-                            horizontalAlignment: Text.AlignHCenter
-                            color: root.isSelected(index) ? Theme.color("selectedItemText") : Theme.color("textPrimary")
-                            font.pixelSize: root.bodyFontSize
-                            font.weight: Theme.fontWeight("normal")
-                            wrapMode: Text.Wrap
-                            lineHeightMode: Text.ProportionalHeight
-                            lineHeight: Theme.lineHeight("tight")
-                            maximumLineCount: 2
-                            elide: Text.ElideRight
-                            verticalAlignment: Text.AlignTop
-                        }
+                        source: root.previewSource(path, name, isDir, thumbnailPath, rowItem.thumbSide, nearViewport, allowThumb,
+                                                   Math.abs(rowCenterY - viewportCenterY))
+                    }
+                    Image {
+                        anchors.fill: parent
+                        anchors.margins: root.desktopShellLayout ? 10 : 0
+                        visible: root.desktopShellLayout || !(gridThumbImage.status === Image.Ready)
+                        fillMode: Image.PreserveAspectFit
+                        asynchronous: true
+                        cache: true
+                        source: root.iconUrl(root.preferredFileIcon(iconName, mimeType, isDir))
                     }
 
+                    Image {
+                        visible: networkShared
+                        width: Math.max(14, rowItem.thumbSide * 0.22)
+                        height: width
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        source: root.iconUrl("folder-remote")
+                        fillMode: Image.PreserveAspectFit
+                        asynchronous: true
+                        cache: true
+                    }
+                }
+
+                Item {
+                    id: gridLabelWrap
+                    width: root.desktopShellLayout ? (tileWrap.width - 16) : (parent.width - 4)
+                    height: rowItem.labelMaxHeight
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.top: gridIconWrap.bottom
+                    anchors.topMargin: root.desktopShellLayout ? 8 : 4
+
+                    Rectangle {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        anchors.top: parent.top
+                        anchors.topMargin: -2
+                        width: Math.min(parent.width - 8, gridNameText.paintedWidth + 12)
+                        height: Math.min(parent.height + 2, Math.max(18, gridNameText.paintedHeight + 4))
+                        radius: Theme.radiusMdPlus
+                        visible: root.isSelected(index)
+                        color: Theme.color("selectedItem")
+                    }
+
+                    Text {
+                        id: gridNameText
+                        text: name
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        anchors.top: parent.top
+                        width: parent.width
+                        height: parent.height
+                        horizontalAlignment: Text.AlignHCenter
+                        color: root.isSelected(index) ? Theme.color("selectedItemText") : Theme.color("textPrimary")
+                        font.pixelSize: root.desktopShellLayout ? Theme.fontSize("small") : root.bodyFontSize
+                        font.weight: Theme.fontWeight("normal")
+                        wrapMode: Text.Wrap
+                        lineHeightMode: Text.ProportionalHeight
+                        lineHeight: rowItem.labelLineHeight
+                        maximumLineCount: 2
+                        elide: Text.ElideRight
+                        verticalAlignment: Text.AlignTop
+                    }
                 }
 
                 MouseArea {
@@ -2040,7 +3049,7 @@ Rectangle {
                             Text {
                                 text: String(root.columnsPreviewEntry ? root.columnsPreviewEntry.name : "")
                                 color: Theme.color("textPrimary")
-                                font.pixelSize: root.bodyFontSize + 1
+                                font.pixelSize: Theme.fontSize("bodyLarge")
                                 font.weight: Theme.fontWeight("bold")
                                 wrapMode: Text.Wrap
                                 lineHeightMode: Text.ProportionalHeight
@@ -2135,7 +3144,7 @@ Rectangle {
                 width: parent.width
                 horizontalAlignment: Text.AlignHCenter
                 color: Theme.color("textPrimary")
-                font.pixelSize: root.bodyFontSize + 2
+                font.pixelSize: Theme.fontSize("subtitle")
                 font.weight: Theme.fontWeight("semibold")
                 text: root.emptyStateTitle()
                 wrapMode: Text.Wrap

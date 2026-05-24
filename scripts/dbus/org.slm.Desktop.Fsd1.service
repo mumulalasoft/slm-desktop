@@ -1,0 +1,11 @@
+# D-Bus system service activation file for SLM File System Daemon.
+# Install to: /usr/share/dbus-1/system-services/
+#
+# D-Bus will automatically start slm-fsd when any caller sends a message
+# to org.slm.Desktop.Fsd1 on the system bus.
+
+[D-BUS Service]
+Name=org.slm.Desktop.Fsd1
+Exec=/usr/libexec/slm-fsd
+User=root
+SystemdService=slm-fsd.service

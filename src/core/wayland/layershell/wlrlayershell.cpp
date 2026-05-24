@@ -1,11 +1,15 @@
 #include "wlrlayershell.h"
-#include "dockbootstrapstate.h"
+#include "appdeckbootstrapstate.h"
+#include "../../utils/slmlogcategories.h"
 
 #include <QDebug>
 #include <QGuiApplication>
 #include <QWindow>
 #include <qpa/qplatformnativeinterface.h>
 #include <wayland-client-core.h>
+#include <wayland-client-protocol.h>
+
+Q_LOGGING_CATEGORY(slmLayershell, "slm.layershell")
 
 // ── WlrLayerShell ─────────────────────────────────────────────────────────────
 
@@ -19,7 +23,7 @@ bool WlrLayerShell::isSupported() const
     return isActive();
 }
 
-void WlrLayerShell::setDockBootstrapState(DockBootstrapState *state)
+void WlrLayerShell::setAppDeckBootstrapState(AppDeckBootstrapState *state)
 {
     m_dockBootstrapState = state;
 }
@@ -31,30 +35,28 @@ bool WlrLayerShell::configureAsLayerSurface(QWindow *window,
                                              const QString &nameSpace)
 {
     if (!window) {
-        qWarning() << "[WlrLayerShell] null window";
+        qCWarning(slmLayershell) << "WlrLayerShell: null window";
         return false;
     }
     if (!isActive()) {
-        qWarning() << "[WlrLayerShell] protocol not available";
+        qCWarning(slmLayershell) << "WlrLayerShell: protocol not available";
         return false;
     }
 
     // Ensure the window's native platform surface is created.
     window->create();
-    window->setFlag(Qt::FramelessWindowHint, true);
-    window->setFlag(Qt::WindowDoesNotAcceptFocus, true);
 
     // Get the wl_surface from the Qt window via the platform native interface.
     QPlatformNativeInterface *native = QGuiApplication::platformNativeInterface();
     if (!native) {
-        qWarning() << "[WlrLayerShell] no platform native interface";
+        qCWarning(slmLayershell) << "WlrLayerShell: no platform native interface";
         return false;
     }
 
     struct ::wl_surface *surface = static_cast<struct ::wl_surface *>(
         native->nativeResourceForWindow(QByteArrayLiteral("surface"), window));
     if (!surface) {
-        qWarning() << "[WlrLayerShell] failed to get wl_surface from window";
+        qCWarning(slmLayershell) << "WlrLayerShell: failed to get wl_surface from window";
         return false;
     }
 
@@ -65,7 +67,7 @@ bool WlrLayerShell::configureAsLayerSurface(QWindow *window,
                           static_cast<uint32_t>(layer),
                           nameSpace);
     if (!layerSurface) {
-        qWarning() << "[WlrLayerShell] failed to create layer surface";
+        qCWarning(slmLayershell) << "WlrLayerShell: failed to create layer surface";
         return false;
     }
 
@@ -85,18 +87,14 @@ bool WlrLayerShell::configureAsLayerSurface(QWindow *window,
     wl_surface_commit(surface);
 
     // The WlrLayerSurfaceV1 object manages the ack_configure lifecycle.
-    auto *surfaceObj = new WlrLayerSurfaceV1(layerSurface, window);
-    if (m_dockBootstrapState) {
+    auto *surfaceObj = new WlrLayerSurfaceV1(layerSurface, surface, window);
+    if (m_dockBootstrapState && nameSpace == QStringLiteral("slm-appdeck")) {
         m_dockBootstrapState->setLayerRoleBound(true);
         QObject::connect(surfaceObj, &WlrLayerSurfaceV1::firstConfigureReceived,
-                         m_dockBootstrapState, &DockBootstrapState::markFirstConfigureReceived);
+                         m_dockBootstrapState, &AppDeckBootstrapState::markFirstConfigureReceived);
         QObject::connect(surfaceObj, &WlrLayerSurfaceV1::configureAcked,
-                         m_dockBootstrapState, &DockBootstrapState::markConfigureAcked);
+                         m_dockBootstrapState, &AppDeckBootstrapState::markConfigureAcked);
     }
-    QObject::connect(surfaceObj, &WlrLayerSurfaceV1::configured, window, [window]() {
-        // Commit the surface after configuration so the compositor shows it.
-        window->requestActivate();
-    });
     QObject::connect(surfaceObj, &WlrLayerSurfaceV1::closed, window, [window, surfaceObj]() {
         surfaceObj->deleteLater();
         window->close();
@@ -111,8 +109,8 @@ bool WlrLayerShell::configureAsLayerSurface(QWindow *window,
         }
     }
 
-    qInfo() << "[WlrLayerShell] configured layer surface for" << window->title()
-            << "layer=" << layer << "anchors=" << anchors << "exclusiveZone=" << exclusiveZone;
+    qCInfo(slmLayershell) << "WlrLayerShell: configured layer surface for" << window->title()
+                          << "layer=" << layer << "anchors=" << anchors << "exclusiveZone=" << exclusiveZone;
     return true;
 }
 
@@ -127,17 +125,84 @@ bool WlrLayerShell::setExclusiveZone(QWindow *window, int exclusiveZone)
             iface->nativeResourceForIntegration(QByteArrayLiteral("wl_display")));
         if (display) wl_display_flush(display);
     }
-    qDebug() << "[WlrLayerShell] updated exclusiveZone=" << exclusiveZone
-             << "for" << window->title();
+    return true;
+}
+
+bool WlrLayerShell::setLayer(QWindow *window, int layer)
+{
+    if (!window) return false;
+    auto *surf = window->findChild<WlrLayerSurfaceV1 *>();
+    if (!surf || !surf->isConfigured()) return false;
+    surf->setLayer(layer);
+    if (auto *iface = QGuiApplication::platformNativeInterface()) {
+        struct ::wl_display *display = static_cast<struct ::wl_display *>(
+            iface->nativeResourceForIntegration(QByteArrayLiteral("wl_display")));
+        if (display) wl_display_flush(display);
+    }
+    return true;
+}
+
+bool WlrLayerShell::setKeyboardInteractivity(QWindow *window, int interactivity)
+{
+    if (!window) return false;
+    auto *surf = window->findChild<WlrLayerSurfaceV1 *>();
+    if (!surf || !surf->isConfigured()) return false;
+    surf->setKeyboardInteractivity(interactivity);
+    if (auto *iface = QGuiApplication::platformNativeInterface()) {
+        struct ::wl_display *display = static_cast<struct ::wl_display *>(
+            iface->nativeResourceForIntegration(QByteArrayLiteral("wl_display")));
+        if (display) wl_display_flush(display);
+    }
+    return true;
+}
+
+bool WlrLayerShell::setLayerSurfaceSize(QWindow *window, int width, int height)
+{
+    if (!window) return false;
+    auto *surf = window->findChild<WlrLayerSurfaceV1 *>();
+    if (!surf || !surf->isConfigured()) return false;
+    surf->setSurfaceSize(width, height);
+    if (auto *iface = QGuiApplication::platformNativeInterface()) {
+        struct ::wl_display *display = static_cast<struct ::wl_display *>(
+            iface->nativeResourceForIntegration(QByteArrayLiteral("wl_display")));
+        if (display) wl_display_flush(display);
+    }
+    return true;
+}
+
+bool WlrLayerShell::setLayerSurfaceInputRegion(QWindow *window,
+                                               int x,
+                                               int y,
+                                               int width,
+                                               int height)
+{
+    if (!window) return false;
+    auto *surf = window->findChild<WlrLayerSurfaceV1 *>();
+    if (!surf || !surf->isConfigured()) return false;
+
+    QPlatformNativeInterface *native = QGuiApplication::platformNativeInterface();
+    if (!native) return false;
+    struct ::wl_compositor *compositor = static_cast<struct ::wl_compositor *>(
+        native->nativeResourceForIntegration(QByteArrayLiteral("compositor")));
+    if (!compositor) return false;
+
+    surf->setInputRegionRect(compositor, x, y, width, height);
+    if (auto *iface = QGuiApplication::platformNativeInterface()) {
+        struct ::wl_display *display = static_cast<struct ::wl_display *>(
+            iface->nativeResourceForIntegration(QByteArrayLiteral("wl_display")));
+        if (display) wl_display_flush(display);
+    }
     return true;
 }
 
 // ── WlrLayerSurfaceV1 ─────────────────────────────────────────────────────────
 
 WlrLayerSurfaceV1::WlrLayerSurfaceV1(struct ::zwlr_layer_surface_v1 *surface,
+                                     struct ::wl_surface *wlSurface,
                                      QObject *parent)
     : QObject(parent)
     , QtWayland::zwlr_layer_surface_v1(surface)
+    , m_surface(wlSurface)
 {
 }
 
@@ -156,6 +221,60 @@ bool WlrLayerSurfaceV1::isConfigured() const
 void WlrLayerSurfaceV1::setExclusiveZone(int zone)
 {
     set_exclusive_zone(zone);
+    if (m_surface) {
+        wl_surface_commit(m_surface);
+    }
+}
+
+void WlrLayerSurfaceV1::setLayer(int layer)
+{
+    set_layer(static_cast<uint32_t>(qBound(0, layer, 3)));
+    if (m_surface) {
+        wl_surface_commit(m_surface);
+    }
+}
+
+void WlrLayerSurfaceV1::setKeyboardInteractivity(int interactivity)
+{
+    set_keyboard_interactivity(static_cast<uint32_t>(qBound(0, interactivity, 2)));
+    if (m_surface) {
+        wl_surface_commit(m_surface);
+    }
+}
+
+void WlrLayerSurfaceV1::setSurfaceSize(int width, int height)
+{
+    const uint32_t w = static_cast<uint32_t>(qMax(1, width));
+    const uint32_t h = static_cast<uint32_t>(qMax(1, height));
+    set_size(w, h);
+    if (m_surface) {
+        wl_surface_commit(m_surface);
+    }
+}
+
+void WlrLayerSurfaceV1::setInputRegionRect(struct ::wl_compositor *compositor,
+                                           int x,
+                                           int y,
+                                           int width,
+                                           int height)
+{
+    if (!m_surface || !compositor) {
+        return;
+    }
+
+    const int safeX = qMax(0, x);
+    const int safeY = qMax(0, y);
+    const int safeW = qMax(1, width);
+    const int safeH = qMax(1, height);
+
+    struct ::wl_region *region = wl_compositor_create_region(compositor);
+    if (!region) {
+        return;
+    }
+    wl_region_add(region, safeX, safeY, safeW, safeH);
+    wl_surface_set_input_region(m_surface, region);
+    wl_surface_commit(m_surface);
+    wl_region_destroy(region);
 }
 
 void WlrLayerSurfaceV1::zwlr_layer_surface_v1_configure(uint32_t serial,

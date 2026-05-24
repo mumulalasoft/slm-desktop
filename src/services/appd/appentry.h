@@ -69,18 +69,18 @@ inline QString appCategoryString(AppCategory c)
 // ── UIExposure ────────────────────────────────────────────────────────────────
 
 struct UIExposure {
-    bool dock         = false;
+    bool appdeck         = false;
     bool appSwitcher  = false;
-    bool launchpad    = false;
+    bool apphub    = false;
     bool systemMonitor = false;
     bool tray         = false;
 
     QVariantMap toVariantMap() const
     {
         return {
-            { QStringLiteral("dock"),          dock },
+            { QStringLiteral("appdeck"),          appdeck },
             { QStringLiteral("appSwitcher"),   appSwitcher },
-            { QStringLiteral("launchpad"),     launchpad },
+            { QStringLiteral("apphub"),     apphub },
             { QStringLiteral("systemMonitor"), systemMonitor },
             { QStringLiteral("tray"),          tray },
         };

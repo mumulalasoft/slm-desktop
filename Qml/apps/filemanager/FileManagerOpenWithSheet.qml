@@ -83,13 +83,13 @@ Drawer {
                 Text {
                     Layout.fillWidth: true
                     text: qsTr("Buka dengan")
-                    font.pixelSize: 16
-                    font.weight: Font.DemiBold
+                    font.pixelSize: DSStyle.Theme.fontSize("title")
+                    font.weight: DSStyle.Theme.fontWeight("semibold")
                 }
                 Text {
                     text: root.filePath.split("/").pop()
-                    color: "#888"
-                    font.pixelSize: 12
+                    color: DSStyle.Theme.color("textSecondary")
+                    font.pixelSize: DSStyle.Theme.fontSize("small")
                     elide: Text.ElideLeft
                     Layout.maximumWidth: 200
                 }
@@ -129,14 +129,14 @@ Drawer {
                             spacing: 2
                             Text {
                                 text: modelData.name || ""
-                                font.pixelSize: 14
+                                font.pixelSize: DSStyle.Theme.fontSize("body")
                             }
                             Text {
                                 text: modelData.isDefault
                                     ? qsTr("Aplikasi default")
                                     : (modelData.comment || "")
-                                color: "#888"
-                                font.pixelSize: 11
+                                color: DSStyle.Theme.color("textSecondary")
+                                font.pixelSize: DSStyle.Theme.fontSize("xs")
                                 visible: text.length > 0
                             }
                         }

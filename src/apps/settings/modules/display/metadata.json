@@ -13,7 +13,7 @@
             "description": "Choose display resolution",
             "keywords": ["resolution", "pixels"],
             "type": "dropdown",
-            "backend_binding": "dbus:org.slm.Display/Resolution"
+            "backend_binding": "desktop:display/resolution"
         },
         {
             "id": "scaling",
@@ -21,7 +21,7 @@
             "description": "Adjust UI scale for HiDPI",
             "keywords": ["scaling", "hidpi", "dpi"],
             "type": "dropdown",
-            "backend_binding": "settings:display/scaling"
+            "backend_binding": "desktop:display/scaling"
         },
         {
             "id": "night-light",
@@ -29,7 +29,7 @@
             "description": "Reduce blue light at night",
             "keywords": ["night", "warm", "blue light"],
             "type": "toggle",
-            "backend_binding": "gsettings:org.gnome.settings-daemon.plugins.color/night-light-enabled"
+            "backend_binding": "desktop:display/night-light"
         }
     ]
 }

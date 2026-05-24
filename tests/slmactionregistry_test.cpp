@@ -221,7 +221,7 @@ void SlmActionRegistryTest::registry_capability_native_openwith_and_search()
         "Name=Convert to WebP\n"
         "Exec=slm-cap convert-webp %F\n"
         "X-SLM-Capabilities=SearchAction\n"
-        "X-SLM-SearchAction-Scopes=launcher;tothespot\n"
+        "X-SLM-SearchAction-Scopes=launcher;pulse\n"
         "X-SLM-SearchAction-Intent=convert-image\n"
         "X-SLM-Keywords=convert;image;webp\n"
         "X-SLM-Priority=30\n");
@@ -235,7 +235,7 @@ void SlmActionRegistryTest::registry_capability_native_openwith_and_search()
     const QVariantMap context{
         {QStringLiteral("uris"), uris},
         {QStringLiteral("target"), QStringLiteral("file")},
-        {QStringLiteral("scope"), QStringLiteral("tothespot")},
+        {QStringLiteral("scope"), QStringLiteral("pulse")},
         {QStringLiteral("selection_count"), 1},
     };
 

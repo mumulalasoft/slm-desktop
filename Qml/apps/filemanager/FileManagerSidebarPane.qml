@@ -41,10 +41,10 @@ Rectangle {
         return ({ "ok": true, "path": rowPath })
     }
 
-    color: Theme.color("fileManagerSidebarBg")
+    color: Theme.darkMode ? Qt.rgba(1, 1, 1, 0.045) : Qt.rgba(1, 1, 1, 0.46)
     radius: Theme.radiusWindow
     border.width: Theme.borderWidthThin
-    border.color: Theme.color("fileManagerSidebarBorder")
+    border.color: Theme.darkMode ? Qt.rgba(1, 1, 1, 0.10) : Qt.rgba(0, 0, 0, 0.10)
     antialiasing: true
     clip: true
 
@@ -81,19 +81,20 @@ Rectangle {
         anchors.right: parent.right
         anchors.top: sidebarTopChrome.bottom
         anchors.bottom: sidebarBottomBar.top
-        anchors.leftMargin: 8
-        anchors.rightMargin: 8
-        anchors.topMargin: 6
-        anchors.bottomMargin: 8
+        anchors.leftMargin: Theme.metric("spacingSm")
+        anchors.rightMargin: Theme.metric("spacingSm")
+        anchors.topMargin: Theme.metric("spacingXs")
+        anchors.bottomMargin: Theme.metric("spacingSm")
         clip: true
         model: sidebarModel
-        spacing: 1
+        spacing: 2
 
         delegate: Item {
             required property string rowType
             required property string label
             required property string path
             required property string iconName
+            required property bool removableBookmark
             required property string device
             required property bool mounted
             required property bool browsable
@@ -115,9 +116,9 @@ Rectangle {
                                                     && !isStorageStatusRow
             width: sidebarList.width
             height: isSectionRow ? Math.max(
-                                                24, Math.round(
+                                                30, Math.round(
                                                     hostRoot.sidebarMenuFontPx
-                                                    * 1.50)) : Math.max(
+                                                    * 1.90)) : Math.max(
                                                 30, Math.round(
                                                     hostRoot.sidebarMenuFontPx * 1.75))
 
@@ -126,8 +127,13 @@ Rectangle {
                 radius: Theme.radiusMdPlus
                 color: (isInteractiveRow && hostRoot.dndActive
                         && hostRoot.dndSidebarHoverPath
-                        === path) ? Theme.color(
-                                        "fileManagerTabActive") : ((isInteractiveRow && hostRoot.selectedSidebarPath === path) ? Theme.color("selectedItem") : ((isInteractiveRow && sidebarMouse.containsMouse) ? Theme.color("hoverItem") : "transparent"))
+                        === path) ? Theme.color("accentSubtle")
+                                  : ((isInteractiveRow && hostRoot.selectedSidebarPath === path)
+                                     ? Theme.color("accentSubtle")
+                                     : ((isInteractiveRow && sidebarMouse.containsMouse)
+                                        ? Theme.color("hoverItem") : "transparent"))
+                border.width: Theme.borderWidthNone
+                border.color: "transparent"
 
                 Row {
                     anchors.verticalCenter: parent.verticalCenter
@@ -151,8 +157,10 @@ Rectangle {
                         width: sidebarList.width - (rowType === "storage" ? 66 : 34)
                                - (Math.max(0, Number(depth || 0)) * 16)
                         text: label
-                        color: isStorageGroupRow ? Theme.color("textSecondary")
-                                                 : Theme.color("textPrimary")
+                        color: (isInteractiveRow && hostRoot.selectedSidebarPath === path)
+                               ? Theme.color("textPrimary")
+                               : (isStorageGroupRow ? Theme.color("textSecondary")
+                                                    : Theme.color("textPrimary"))
                         font.family: Theme.fontFamilyUi
                         font.pixelSize: isStorageGroupRow ? Theme.fontSize("caption")
                                                           : Theme.fontSize("menu")
@@ -166,13 +174,15 @@ Rectangle {
                 Text {
                     anchors.left: parent.left
                     anchors.leftMargin: 8
-                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.bottom: parent.bottom
+                    anchors.bottomMargin: 5
                     visible: isSectionRow
-                    text: label
+                    text: label.toUpperCase()
                     color: Theme.color("textSecondary")
                     font.family: Theme.fontFamilyUi
                     font.pixelSize: Theme.fontSize("caption")
-                    font.weight: Theme.fontWeight("medium")
+                    font.weight: Theme.fontWeight("semibold")
+                    font.letterSpacing: Theme.letterSpacingWider
                     verticalAlignment: Text.AlignVCenter
                 }
 
@@ -183,14 +193,15 @@ Rectangle {
                     anchors.bottom: parent.bottom
                     anchors.leftMargin: 24
                     anchors.rightMargin: 52
-                    height: 2
+                    anchors.bottomMargin: 4
+                    height: 3
                     radius: Theme.radiusTiny
                     color: hostRoot.storageTrackColor(mounted)
 
                     Rectangle {
                         visible: mounted && usageRatio >= 0
                         width: Math.max(
-                                   3, Math.round(
+                                   4, Math.round(
                                        parent.width * usageRatio))
                         height: parent.height
                         radius: Theme.radiusTiny
@@ -249,6 +260,7 @@ Rectangle {
                         hostRoot.sidebarContextDevice = String(device || "")
                         hostRoot.sidebarContextMounted = !!mounted
                         hostRoot.sidebarContextBrowsable = !!browsable
+                        hostRoot.sidebarContextBookmarkRemovable = !!removableBookmark
                         var p = sidebarMouse.mapToItem(hostRoot, mouse.x, mouse.y)
                         if (sidebarContextMenuRef && sidebarContextMenuRef.openAt) {
                             sidebarContextMenuRef.openAt(p.x, p.y)
@@ -273,18 +285,11 @@ Rectangle {
         color: "transparent"
 
         Rectangle {
-            anchors.fill: parent
-            color: Theme.color("fileManagerSidebarBg")
-            radius: Theme.radiusWindow
-            antialiasing: true
-        }
-
-        Rectangle {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top
             height: 1
-            color: Theme.color("fileManagerSidebarBorder")
+            color: Theme.darkMode ? Qt.rgba(1, 1, 1, 0.10) : Qt.rgba(0, 0, 0, 0.10)
         }
 
         Rectangle {

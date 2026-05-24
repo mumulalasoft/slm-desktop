@@ -1,12 +1,12 @@
-# Tothespot End-to-End Flow
+# Pulse End-to-End Flow
 
-Dokumen ini merinci jalur data Tothespot dari input query sampai action dijalankan.
+Dokumen ini merinci jalur data Pulse dari input query sampai action dijalankan.
 
 ## Component Diagram
 
 ```mermaid
 flowchart LR
-    UI["Tothespot UI (QML)"] --> GS["GlobalSearchService"]
+    UI["Pulse UI (QML)"] --> GS["GlobalSearchService"]
     GS --> DBus["org.freedesktop.SLMCapabilities"]
     DBus --> CapSvc["SlmCapabilityService / SlmCapabilityFrameworkService"]
     CapSvc --> Framework["SlmActionFramework"]
@@ -22,13 +22,13 @@ flowchart LR
 
 ```mermaid
 sequenceDiagram
-    participant U as Tothespot UI
+    participant U as Pulse UI
     participant G as GlobalSearchService
     participant S as SlmCapabilityService
     participant F as SlmActionFramework
     participant R as SearchActionRanker
 
-    U->>G: Query(text, options{scope=tothespot,...})
+    U->>G: Query(text, options{scope=pulse,...})
     G->>S: SearchActions(query, context)
     S->>F: searchActions(query, context)
     F->>F: capability filter + ACL evaluation
@@ -43,7 +43,7 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
-    participant U as Tothespot UI
+    participant U as Pulse UI
     participant G as GlobalSearchService
     participant S as SlmCapabilityService
     participant F as SlmActionFramework
@@ -67,7 +67,7 @@ sequenceDiagram
 
 ## Notes
 
-- Scope canonical wajib `tothespot`.
+- Scope canonical wajib `pulse`.
 - Hasil dari capability framework dapat digabung dengan provider lain (mis. recent files) di level `GlobalSearchService`.
 - Eksekusi akhir tetap satu pintu melalui `AppExecutionGate`.
 

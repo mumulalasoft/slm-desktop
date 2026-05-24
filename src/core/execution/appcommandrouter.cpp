@@ -3,14 +3,16 @@
 #include "appexecutiongate.h"
 #include "../workspace/workspacemanager.h"
 #include "../workspace/windowingbackendmanager.h"
-#include "../../../screenshotmanager.h"
+#include "../../services/screenshot/screenshotmanager.h"
 
 #include <QDebug>
 #include <QDBusInterface>
 #include <QDBusReply>
 #include <QElapsedTimer>
+#include <QFileInfo>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QMetaObject>
 #include <QtGlobal>
 
 namespace {
@@ -69,6 +71,13 @@ AppCommandRouter::AppCommandRouter(AppExecutionGate *gate,
     , m_workspaceManager(workspaceManager)
     , m_windowingBackend(windowingBackend)
 {
+    if (m_windowingBackend) {
+        connect(m_windowingBackend, &WindowingBackendManager::eventReceived,
+                this, &AppCommandRouter::onWindowingEvent);
+        if (QObject *state = m_windowingBackend->compositorStateObject()) {
+            connect(state, SIGNAL(lastEventChanged()), this, SLOT(onCompositorStateLastEventChanged()));
+        }
+    }
 }
 
 QStringList AppCommandRouter::supportedActions() const
@@ -366,7 +375,17 @@ QVariantMap AppCommandRouter::routeWithResult(const QString &action, const QVari
         detail = QStringLiteral("action-failed");
     }
 
-    if (verboseLoggingEnabled()) {
+    if (op.startsWith(QStringLiteral("app."))) {
+        qInfo().noquote() << "[app-launch] router"
+                          << "source=" << source
+                          << "action=" << op
+                          << "ok=" << ok
+                          << "detail=" << detail
+                          << "desktopId=" << payload.value(QStringLiteral("desktopId")).toString()
+                          << "desktopFile=" << payload.value(QStringLiteral("desktopFile")).toString()
+                          << "executable=" << payload.value(QStringLiteral("executable")).toString()
+                          << "name=" << payload.value(QStringLiteral("name")).toString();
+    } else if (verboseLoggingEnabled()) {
         qInfo().noquote() << "AppCommandRouter.route:"
                           << "source=" << source
                           << "action=" << op
@@ -374,6 +393,9 @@ QVariantMap AppCommandRouter::routeWithResult(const QString &action, const QVari
                           << "detail=" << detail;
     }
     const qint64 durationMs = timer.elapsed();
+    if (ok && op.startsWith(QStringLiteral("app."))) {
+        noteLaunchRequested(op, source, payload);
+    }
     recordEvent(op, source, ok, detail, durationMs, payload);
     emit routed(op, source, ok);
     result.insert(QStringLiteral("ok"), ok);
@@ -381,6 +403,222 @@ QVariantMap AppCommandRouter::routeWithResult(const QString &action, const QVari
     result.insert(QStringLiteral("durationMs"), durationMs);
     emit routedDetailed(result);
     return result;
+}
+
+QString AppCommandRouter::normalizeAppIdToken(const QString &value)
+{
+    QString out = value.trimmed().toLower();
+    if (out.endsWith(QStringLiteral(".desktop"))) {
+        out.chop(8);
+    }
+    return out;
+}
+
+QString AppCommandRouter::appIdFromPayload(const QVariantMap &payload)
+{
+    const QString desktopId = normalizeAppIdToken(payload.value(QStringLiteral("desktopId")).toString());
+    if (!desktopId.isEmpty()) {
+        return desktopId;
+    }
+    const QString desktopFile = payload.value(QStringLiteral("desktopFile")).toString().trimmed();
+    if (!desktopFile.isEmpty()) {
+        const QString base = normalizeAppIdToken(QFileInfo(desktopFile).completeBaseName());
+        if (!base.isEmpty()) {
+            return base;
+        }
+    }
+    const QString executable = payload.value(QStringLiteral("executable")).toString().trimmed();
+    if (!executable.isEmpty()) {
+        return normalizeAppIdToken(QFileInfo(executable).completeBaseName());
+    }
+    return {};
+}
+
+QString AppCommandRouter::runtimeFromPayload(const QVariantMap &payload)
+{
+    const QString desktopFile = payload.value(QStringLiteral("desktopFile")).toString().trimmed().toLower();
+    const QString executable = payload.value(QStringLiteral("executable")).toString().trimmed().toLower();
+    const QString desktopId = payload.value(QStringLiteral("desktopId")).toString().trimmed().toLower();
+    const QString appId = appIdFromPayload(payload);
+
+    if (executable.contains(QStringLiteral("flatpak"))
+        || desktopFile.contains(QStringLiteral("flatpak"))
+        || desktopId.contains(QStringLiteral("flatpak"))
+        || appId.startsWith(QStringLiteral("org.flatpak."))) {
+        return QStringLiteral("flatpak");
+    }
+    if (executable.contains(QStringLiteral("/snap/"))
+        || executable.endsWith(QStringLiteral("/snap"))
+        || desktopFile.contains(QStringLiteral("/snap/"))
+        || desktopId.startsWith(QStringLiteral("snap."))
+        || appId.startsWith(QStringLiteral("snap."))) {
+        return QStringLiteral("snap");
+    }
+    return QStringLiteral("native");
+}
+
+QSet<QString> AppCommandRouter::collectMappedAppIds() const
+{
+    QSet<QString> out;
+    if (!m_windowingBackend) {
+        return out;
+    }
+    QObject *state = m_windowingBackend->compositorStateObject();
+    if (!state) {
+        return out;
+    }
+
+    int count = 0;
+    QMetaObject::invokeMethod(state, "windowCount", Q_RETURN_ARG(int, count));
+    for (int i = 0; i < count; ++i) {
+        QVariantMap window;
+        QMetaObject::invokeMethod(state, "windowAt",
+                                  Q_RETURN_ARG(QVariantMap, window),
+                                  Q_ARG(int, i));
+        if (!window.value(QStringLiteral("mapped"), true).toBool()) {
+            continue;
+        }
+        const QString appId = normalizeAppIdToken(window.value(QStringLiteral("appId")).toString());
+        if (!appId.isEmpty()) {
+            out.insert(appId);
+        }
+    }
+    return out;
+}
+
+void AppCommandRouter::pruneStalePendingLaunches(qint64 nowMs)
+{
+    static constexpr qint64 kMaxPendingAgeMs = 120000;
+    for (auto it = m_pendingLaunchByAppId.begin(); it != m_pendingLaunchByAppId.end();) {
+        if (it->requestedAtMs <= 0 || (nowMs - it->requestedAtMs) > kMaxPendingAgeMs) {
+            qWarning().noquote() << "[launch-sla] timeout"
+                                 << "appId=" << it.key()
+                                 << "action=" << it->action
+                                 << "source=" << it->source
+                                 << "ageMs=" << (it->requestedAtMs <= 0 ? -1 : nowMs - it->requestedAtMs);
+            it = m_pendingLaunchByAppId.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}
+
+void AppCommandRouter::noteLaunchRequested(const QString &action,
+                                           const QString &source,
+                                           const QVariantMap &payload)
+{
+    const QString appId = appIdFromPayload(payload);
+    if (appId.isEmpty()) {
+        return;
+    }
+
+    const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
+    pruneStalePendingLaunches(nowMs);
+
+    const bool alreadyMapped = collectMappedAppIds().contains(appId);
+    PendingLaunch pending;
+    pending.requestedAtMs = nowMs;
+    pending.source = source;
+    pending.action = action;
+    pending.runtime = runtimeFromPayload(payload);
+    pending.appAlreadyMapped = alreadyMapped;
+    m_pendingLaunchByAppId.insert(appId, pending);
+
+    qInfo().noquote() << "[launch-sla] requested"
+                      << "appId=" << appId
+                      << "runtime=" << pending.runtime
+                      << "action=" << action
+                      << "source=" << source
+                      << "alreadyMapped=" << (alreadyMapped ? QStringLiteral("true") : QStringLiteral("false"))
+                      << "tsMs=" << nowMs;
+
+    if (alreadyMapped) {
+        completeLaunchIfMapped(appId, nowMs, QStringLiteral("already-mapped"));
+    }
+}
+
+void AppCommandRouter::completeLaunchIfMapped(const QString &appId,
+                                              qint64 nowMs,
+                                              const QString &reason)
+{
+    auto it = m_pendingLaunchByAppId.find(appId);
+    if (it == m_pendingLaunchByAppId.end()) {
+        return;
+    }
+    const qint64 latencyMs = nowMs - it->requestedAtMs;
+    qInfo().noquote() << "[launch-sla] first_window_mapped"
+                      << "appId=" << appId
+                      << "runtime=" << it->runtime
+                      << "latencyMs=" << latencyMs
+                      << "reason=" << reason
+                      << "action=" << it->action
+                      << "source=" << it->source;
+    m_pendingLaunchByAppId.erase(it);
+}
+
+void AppCommandRouter::onWindowingEvent(const QString &event, const QVariantMap &payload)
+{
+    if (m_pendingLaunchByAppId.isEmpty()) {
+        return;
+    }
+
+    const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
+    pruneStalePendingLaunches(nowMs);
+    if (m_pendingLaunchByAppId.isEmpty()) {
+        return;
+    }
+
+    const QString eventName = event.trimmed().toLower().replace(QLatin1Char('_'), QLatin1Char('-'));
+    const QString payloadEvent = payload.value(QStringLiteral("event")).toString().trimmed().toLower()
+                                     .replace(QLatin1Char('_'), QLatin1Char('-'));
+    const QString normalizedEvent = payloadEvent.isEmpty() ? eventName : payloadEvent;
+
+    const QString directAppId = normalizeAppIdToken(
+        payload.value(QStringLiteral("appId")).toString().trimmed().isEmpty()
+            ? (payload.value(QStringLiteral("app_id")).toString().trimmed().isEmpty()
+                   ? payload.value(QStringLiteral("appid")).toString()
+                   : payload.value(QStringLiteral("app_id")).toString())
+            : payload.value(QStringLiteral("appId")).toString());
+
+    if (!directAppId.isEmpty() && (normalizedEvent == QStringLiteral("window-focused")
+                                   || normalizedEvent == QStringLiteral("window-created")
+                                   || normalizedEvent == QStringLiteral("window-shown"))) {
+        completeLaunchIfMapped(directAppId, nowMs, normalizedEvent);
+        if (m_pendingLaunchByAppId.isEmpty()) {
+            return;
+        }
+    }
+
+    if (normalizedEvent == QStringLiteral("windows-snapshot")
+        || normalizedEvent == QStringLiteral("window-created")
+        || normalizedEvent == QStringLiteral("window-shown")
+        || normalizedEvent == QStringLiteral("window-focused")) {
+        const QSet<QString> mapped = collectMappedAppIds();
+        if (mapped.isEmpty()) {
+            return;
+        }
+        QStringList keys = m_pendingLaunchByAppId.keys();
+        for (const QString &appId : keys) {
+            if (mapped.contains(appId)) {
+                completeLaunchIfMapped(appId, nowMs, QStringLiteral("snapshot-mapped"));
+            }
+        }
+    }
+}
+
+void AppCommandRouter::onCompositorStateLastEventChanged()
+{
+    if (!m_windowingBackend) {
+        return;
+    }
+    QObject *state = m_windowingBackend->compositorStateObject();
+    if (!state) {
+        return;
+    }
+    QVariantMap payload;
+    QMetaObject::invokeMethod(state, "lastEvent", Q_RETURN_ARG(QVariantMap, payload));
+    const QString event = payload.value(QStringLiteral("event")).toString();
+    onWindowingEvent(event, payload);
 }
 
 bool AppCommandRouter::launchDesktopId(const QString &desktopId, const QString &source)

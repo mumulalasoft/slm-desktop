@@ -147,20 +147,59 @@ function selectAllVisibleEntries(root) {
     root.selectionAnchorIndex = 0
 }
 
-function applySelectionRect(root, qtObject, indexesValue, modifiers, anchorIndex) {
+function applySelectionRect(root, qtObject, indexesValue, modifiers, anchorIndex, baseSelectionIndexes) {
     var indexes = indexesValue || []
     var mod = Number(modifiers || 0)
-    if (isPrimaryModifier(mod, qtObject)) {
-        normalizeSelection(root, (root.selectedEntryIndexes || []).concat(indexes))
+    var usePrimary = isPrimaryModifier(mod, qtObject)
+    var useShift = !!(mod & qtObject.ShiftModifier)
+    var base = baseSelectionIndexes || []
+    if (usePrimary) {
+        var baseMap = ({})
+        for (var i = 0; i < base.length; ++i) {
+            var bi = Number(base[i])
+            if (bi >= 0) {
+                baseMap[String(bi)] = true
+            }
+        }
+        for (var j = 0; j < indexes.length; ++j) {
+            var idx = Number(indexes[j])
+            if (!(idx >= 0)) {
+                continue
+            }
+            var key = String(idx)
+            if (baseMap[key]) {
+                delete baseMap[key]
+            } else {
+                baseMap[key] = true
+            }
+        }
+        var toggled = []
+        for (var key2 in baseMap) {
+            toggled.push(Number(key2))
+        }
+        normalizeSelection(root, toggled)
+    } else if (useShift) {
+        normalizeSelection(root, base.concat(indexes))
     } else {
         normalizeSelection(root, indexes)
     }
-    if (indexes.length > 0) {
-        root.selectedEntryIndex = Number(indexes[indexes.length - 1])
-        var anchor = Number(anchorIndex)
-        if (anchor >= 0) {
-            root.selectionAnchorIndex = anchor
+    if ((root.selectedEntryIndexes || []).length > 0) {
+        var lastRectIndex = indexes.length > 0 ? Number(indexes[indexes.length - 1]) : -1
+        if (lastRectIndex >= 0 && (root.selectedEntryIndexes || []).indexOf(lastRectIndex) >= 0) {
+            root.selectedEntryIndex = lastRectIndex
+        } else {
+            root.selectedEntryIndex = Number((root.selectedEntryIndexes || [])[0])
         }
+        if (!useShift && !usePrimary) {
+            var anchor = Number(anchorIndex || -1)
+            if (anchor >= 0) {
+                root.selectionAnchorIndex = anchor
+            } else if (root.selectedEntryIndex >= 0) {
+                root.selectionAnchorIndex = root.selectedEntryIndex
+            }
+        }
+    } else {
+        root.selectedEntryIndex = -1
     }
 }
 

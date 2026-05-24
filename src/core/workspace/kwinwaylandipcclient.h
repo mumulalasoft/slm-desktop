@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QObject>
+#include <QHash>
 #include <QStringList>
 #include <QVariantMap>
 
@@ -24,6 +25,7 @@ public:
     Q_INVOKABLE void reconnect();
     Q_INVOKABLE bool sendCommand(const QString &command);
     Q_INVOKABLE bool supportsInputCaptureCommands() const;
+    Q_INVOKABLE bool supportsOverlayCommands() const;
     Q_INVOKABLE QVariantMap setInputCapturePointerBarriers(const QString &sessionPath,
                                                            const QVariantList &barriers,
                                                            const QVariantMap &options);
@@ -55,11 +57,20 @@ private:
     bool invokeInputCaptureBridge(const QString &operation,
                                   const QString &sessionOrPayload,
                                   QString *errorOut);
+    bool invokeOverlayBridge(const QString &operation,
+                             const QStringList &args,
+                             QString *errorOut,
+                             QVariantMap *resultOut = nullptr);
     QVariantMap callInputCaptureBridge(const QString &methodName,
                                        const QVariantList &args);
+    QVariantMap callOverlayBridge(const QString &methodName,
+                                  const QVariantList &args);
     QString inputCaptureBridgeService() const;
     QString inputCaptureBridgePath() const;
     QString inputCaptureBridgeInterface() const;
+    QString overlayBridgeService() const;
+    QString overlayBridgePath() const;
+    QString overlayBridgeInterface() const;
     void publishEvent(const QString &eventName,
                       const QString &command,
                       bool ok,
@@ -68,4 +79,5 @@ private:
     bool m_connected = false;
     QVariantMap m_lastEvent;
     QTimer *m_probeTimer = nullptr;
+    QHash<QString, QString> m_overlayRoles;
 };

@@ -1,0 +1,93 @@
+{
+    "id": "timedate",
+    "name": "Date & Time",
+    "icon": "preferences-system-time",
+    "group": "System",
+    "description": "Clock, time zone, and date format.",
+    "keywords": ["time", "date", "clock", "timezone", "ntp", "24-hour", "calendar", "sync"],
+    "main": "TimeDatePage.qml",
+    "settings": [
+        {
+            "id": "auto-time",
+            "label": "Set Automatically",
+            "description": "Synchronize using a network time server",
+            "keywords": ["ntp", "sync", "automatic", "network time"],
+            "type": "toggle",
+            "backend_binding": "dbus:org.freedesktop.timedate1/NTP",
+            "privileged_action": "org.freedesktop.timedate1.set-ntp"
+        },
+        {
+            "id": "ntp-server",
+            "label": "Time Server",
+            "description": "NTP server hostname",
+            "keywords": ["ntp", "server", "time server"],
+            "type": "text",
+            "backend_binding": "settings:timedate/ntp-server"
+        },
+        {
+            "id": "auto-timezone",
+            "label": "Set Time Zone Automatically",
+            "description": "Use current location to determine time zone",
+            "keywords": ["timezone", "location", "automatic"],
+            "type": "toggle",
+            "backend_binding": "gsettings:org.gnome.desktop.datetime/automatic-timezone"
+        },
+        {
+            "id": "date",
+            "label": "Date",
+            "description": "Set system date manually",
+            "keywords": ["date", "calendar", "manual"],
+            "type": "action",
+            "privileged_action": "org.freedesktop.timedate1.set-time"
+        },
+        {
+            "id": "time",
+            "label": "Time",
+            "description": "Set system time manually",
+            "keywords": ["time", "clock", "manual"],
+            "type": "action",
+            "privileged_action": "org.freedesktop.timedate1.set-time"
+        },
+        {
+            "id": "timezone",
+            "label": "Time Zone",
+            "description": "Select your time zone manually",
+            "keywords": ["timezone", "region", "utc", "gmt", "offset"],
+            "type": "dropdown",
+            "backend_binding": "dbus:org.freedesktop.timedate1/Timezone",
+            "privileged_action": "org.freedesktop.timedate1.set-timezone"
+        },
+        {
+            "id": "use-24-hour",
+            "label": "Use 24-Hour Time",
+            "description": "Show hours from 0 to 23 instead of AM/PM",
+            "keywords": ["24 hour", "time format", "am pm", "military"],
+            "type": "toggle",
+            "backend_binding": "desktop:timedate/use-24-hour"
+        },
+        {
+            "id": "show-seconds",
+            "label": "Show Seconds",
+            "description": "Display seconds in the menu bar clock",
+            "keywords": ["seconds", "clock", "menubar"],
+            "type": "toggle",
+            "backend_binding": "desktop:timedate/show-seconds"
+        },
+        {
+            "id": "show-day-of-week",
+            "label": "Show Day of Week",
+            "description": "Display abbreviated day name next to the time",
+            "keywords": ["day", "week", "clock", "menubar"],
+            "type": "toggle",
+            "backend_binding": "desktop:timedate/show-day-of-week"
+        },
+        {
+            "id": "show-date",
+            "label": "Show Date",
+            "description": "Display the date in the menu bar clock",
+            "keywords": ["date", "calendar", "clock", "menubar"],
+            "type": "toggle",
+            "backend_binding": "desktop:timedate/show-date"
+        }
+    ]
+}

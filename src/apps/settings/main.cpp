@@ -27,6 +27,7 @@ using namespace Qt::StringLiterals;
 #include "../../printing/core/PrinterManager.h"
 #include "../../printing/core/PrinterAdminService.h"
 #include "../../core/system/missingcomponentcontroller.h"
+#include "../../services/bluetooth/bluetoothmanager.h"
 #include "modules/developer/envvariablecontroller.h"
 #include "modules/developer/envserviceclient.h"
 #include "modules/developer/effectiveenvpreviewcontroller.h"
@@ -46,6 +47,11 @@ using namespace Qt::StringLiterals;
 #include "modules/developer/componenthealthcontroller.h"
 #include "modules/developer/daemonhealthclient.h"
 #include "modules/network/firewallserviceclient.h"
+#include "modules/storage/cleanerserviceclient.h"
+#include "modules/sharing/sharingserviceclient.h"
+#include "modules/timedate/timedatecontroller.h"
+#include "modules/display/displaycontroller.h"
+#include "modules/notifications/notificationsettingscontroller.h"
 
 int main(int argc, char *argv[])
 {
@@ -93,6 +99,46 @@ int main(int argc, char *argv[])
         }
     };
     ensureSettingsdAvailable();
+    const auto ensureCleanerdAvailable = []() {
+        QDBusConnectionInterface *busIface = QDBusConnection::sessionBus().interface();
+        if (!busIface) {
+            return;
+        }
+        if (busIface->isServiceRegistered(QStringLiteral("org.slm.Desktop.Cleaner")).value()) {
+            return;
+        }
+
+        const QString appDir = QFileInfo(QCoreApplication::applicationFilePath()).absolutePath();
+        const QString localPath = QDir(appDir).filePath(QStringLiteral("slm-cleanerd"));
+        bool started = false;
+        if (QFileInfo::exists(localPath)) {
+            started = QProcess::startDetached(localPath, {});
+        }
+        if (!started) {
+            QProcess::startDetached(QStringLiteral("slm-cleanerd"), {});
+        }
+    };
+    ensureCleanerdAvailable();
+    const auto ensureSharingdAvailable = []() {
+        QDBusConnectionInterface *busIface = QDBusConnection::sessionBus().interface();
+        if (!busIface) {
+            return;
+        }
+        if (busIface->isServiceRegistered(QStringLiteral("org.slm.Sharing")).value()) {
+            return;
+        }
+
+        const QString appDir = QFileInfo(QCoreApplication::applicationFilePath()).absolutePath();
+        const QString localPath = QDir(appDir).filePath(QStringLiteral("slm-sharingd"));
+        bool started = false;
+        if (QFileInfo::exists(localPath)) {
+            started = QProcess::startDetached(localPath, {});
+        }
+        if (!started) {
+            QProcess::startDetached(QStringLiteral("slm-sharingd"), {});
+        }
+    };
+    ensureSharingdAvailable();
 
     QString initialModuleId = parser.value(moduleOption);
     const QString initialDeepLink = parser.value(deepLinkOption).trimmed();
@@ -104,7 +150,7 @@ int main(int argc, char *argv[])
         engine.addImportPath(qtQmlImportPath);
     // Ensure embedded resources (qrc:/qt/qml) take precedence over the
     // filesystem build/ directory so the Theme-only Slm_Desktop shim is
-    // found before the full Slm_Desktop module written by appSlm_Desktop.
+    // found before the full Slm_Desktop module written by slm-desktop.
     engine.addImportPath(u"qrc:/qt/qml"_s);
     engine.addImageProvider(QStringLiteral("icon"), new ThemeIconProvider);
     const QUrl url = openStyleGallery
@@ -112,6 +158,7 @@ int main(int argc, char *argv[])
         : QUrl(u"qrc:/qt/qml/SlmSettings/Qml/apps/settings/Main.qml"_s);
     ThemeIconController themeIconController;
     DesktopSettingsClient desktopSettings;
+    BluetoothManager bluetoothManager;
     const QString sessionMode = qEnvironmentVariable("SLM_SESSION_MODE").trimmed().toLower();
     const bool safeModeActive = (sessionMode == QStringLiteral("safe")
                                  || sessionMode == QStringLiteral("recovery"));
@@ -138,6 +185,11 @@ int main(int argc, char *argv[])
     ComponentHealthController componentHealth;
     DaemonHealthClient daemonHealthClient;
     FirewallServiceClient firewallServiceClient;
+    CleanerServiceClient cleanerServiceClient;
+    SharingServiceClient sharingServiceClient;
+    TimeDateController timeDateController;
+    DisplayController displayController;
+    NotificationSettingsController notificationSettingsController;
     Slm::System::MissingComponentController missingComponents;
     WallpaperManager wallpaperManager(&desktopSettings);
     MimeAppsManager mimeAppsManager;
@@ -145,8 +197,12 @@ int main(int argc, char *argv[])
     FontManager fontManager(&desktopSettings);
     UserAccountsController userAccounts;
     const auto applyIconThemePref = [&]() {
-        const QString light = desktopSettings.gtkIconThemeLight().trimmed();
-        const QString dark = desktopSettings.gtkIconThemeDark().trimmed();
+        const QString gtkLight = desktopSettings.gtkIconThemeLight().trimmed();
+        const QString gtkDark = desktopSettings.gtkIconThemeDark().trimmed();
+        const QString kdeLight = desktopSettings.kdeIconThemeLight().trimmed();
+        const QString kdeDark = desktopSettings.kdeIconThemeDark().trimmed();
+        const QString light = !gtkLight.isEmpty() ? gtkLight : kdeLight;
+        const QString dark = !gtkDark.isEmpty() ? gtkDark : kdeDark;
         if (!light.isEmpty() && !dark.isEmpty()) {
             themeIconController.setThemeMapping(light, dark);
         } else {
@@ -168,6 +224,7 @@ int main(int argc, char *argv[])
     applyIconThemePref();
     applyIconThemeMode();
     engine.rootContext()->setContextProperty(QStringLiteral("DesktopSettings"), &desktopSettings);
+    engine.rootContext()->setContextProperty(QStringLiteral("BluetoothManager"), &bluetoothManager);
     engine.rootContext()->setContextProperty(QStringLiteral("ThemeIconController"), &themeIconController);
     engine.rootContext()->setContextProperty(QStringLiteral("PrintManager"), &printManager);
     engine.rootContext()->setContextProperty(QStringLiteral("PrinterAdmin"), &printerAdmin);
@@ -195,6 +252,12 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("ComponentHealth"), &componentHealth);
     engine.rootContext()->setContextProperty(QStringLiteral("DaemonHealthClient"), &daemonHealthClient);
     engine.rootContext()->setContextProperty(QStringLiteral("FirewallServiceClient"), &firewallServiceClient);
+    engine.rootContext()->setContextProperty(QStringLiteral("CleanerServiceClient"), &cleanerServiceClient);
+    engine.rootContext()->setContextProperty(QStringLiteral("SharingServiceClient"), &sharingServiceClient);
+    engine.rootContext()->setContextProperty(QStringLiteral("TimeDateController"), &timeDateController);
+    engine.rootContext()->setContextProperty(QStringLiteral("DisplayController"), &displayController);
+    engine.rootContext()->setContextProperty(QStringLiteral("NotificationSettingsController"),
+                                             &notificationSettingsController);
     engine.rootContext()->setContextProperty(QStringLiteral("MissingComponents"), &missingComponents);
     engine.rootContext()->setContextProperty(QStringLiteral("SessionStartupMode"), sessionMode);
     engine.rootContext()->setContextProperty(QStringLiteral("SafeModeActive"), safeModeActive);
@@ -207,6 +270,14 @@ int main(int argc, char *argv[])
         applyIconThemePref();
         applyIconThemeMode();
     });
+    QObject::connect(&desktopSettings, &DesktopSettingsClient::kdeIconThemeLightChanged, &app, [&]() {
+        applyIconThemePref();
+        applyIconThemeMode();
+    });
+    QObject::connect(&desktopSettings, &DesktopSettingsClient::kdeIconThemeDarkChanged, &app, [&]() {
+        applyIconThemePref();
+        applyIconThemeMode();
+    });
     QObject::connect(&desktopSettings, &DesktopSettingsClient::themeModeChanged, &app, [&]() {
         applyIconThemeMode();
     });
@@ -214,6 +285,7 @@ int main(int argc, char *argv[])
 
     // Create the main application controller
     SettingsApp settingsApp(&engine);
+    settingsApp.setDesktopSettingsClient(&desktopSettings);
     
     // Setup Global Search D-Bus provider
     GlobalSearchProvider searchProvider(settingsApp.moduleLoader(), settingsApp.searchEngine(), &app);

@@ -22,7 +22,7 @@ MediaSessionManager::MediaSessionManager(QObject *parent)
     m_timer->setInterval(1500);
     connect(m_timer, &QTimer::timeout, this, &MediaSessionManager::refresh);
     m_timer->start();
-    refresh();
+    QTimer::singleShot(0, this, &MediaSessionManager::refresh);
 }
 
 bool MediaSessionManager::hasActiveSession() const

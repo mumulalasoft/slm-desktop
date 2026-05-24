@@ -18,6 +18,7 @@ Item {
     signal requestRestartApp()
     signal requestQuitApp()
     signal identityMenuOpened()
+    readonly property bool menuOpen: identityDropdown.visible
 
     // Set true from parent when a category menu is open — closes this dropdown.
     property bool menuGroupActive: false
@@ -25,9 +26,24 @@ Item {
 
     function openMenu() {
         if (!identityDropdown.visible) {
+            positionIdentityDropdown()
             identityDropdown.open()
             identityMenuOpened()
         }
+    }
+
+    function positionIdentityDropdown() {
+        if (identityDropdown.popupType === Popup.Window) {
+            if (!root.mapToGlobal) {
+                return
+            }
+            var g = root.mapToGlobal(0, root.height + Theme.metric("spacingSm"))
+            identityDropdown.x = Math.round(Number(g.x || 0))
+            identityDropdown.y = Math.round(Number(g.y || 0))
+            return
+        }
+        identityDropdown.x = 0
+        identityDropdown.y = Math.round(root.height + Theme.metric("spacingSm"))
     }
 
     // ── resolved app info ─────────────────────────────────────────────────────
@@ -55,7 +71,7 @@ Item {
     readonly property string _appIcon: String(_appData.icon || _appData.iconName || "")
 
     implicitWidth: identityRow.implicitWidth + Theme.metric("spacingMd") * 2
-    implicitHeight: parent ? parent.height : 28
+    implicitHeight: Theme.metric("controlHeightRegular")
 
     // ── layout ────────────────────────────────────────────────────────────────
     Row {
@@ -65,7 +81,7 @@ Item {
 
         Image {
             anchors.verticalCenter: parent.verticalCenter
-            width: 16; height: 16
+            width: 14; height: 14
             source: root._appIcon.length > 0
                     ? (root._appIcon.startsWith("qrc:")
                        || root._appIcon.startsWith("file:")
@@ -120,6 +136,7 @@ Item {
             if (identityDropdown.visible) {
                 identityDropdown.close()
             } else {
+                positionIdentityDropdown()
                 identityDropdown.open()
                 root.identityMenuOpened()
             }
@@ -129,8 +146,8 @@ Item {
     // ── dropdown ───────────────────────────────────────────────────────────────
     GlobalMenuDropdown {
         id: identityDropdown
-        x: 0
-        y: root.height + Theme.metric("spacingXs")
+        parent: root
+        popupType: Popup.Item
 
         menuId: 1000  // synthetic AppIdentity menu ID
         menuItems: {

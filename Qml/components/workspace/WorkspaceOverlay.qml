@@ -64,11 +64,13 @@ Item {
         // Keep legacy "overview" entry for backward compatibility.
         var shellTitles = [
             "desktop shell",
-            "desktop topbar",
-            "desktop dock",
+            "desktop crown",
+            "desktop appdeck",
+            "desktop appdeck",
             "desktop workspace",
             "desktop overview",
-            "desktop launchpad"
+            "desktop apphub",
+            "desktop apphub"
         ]
         for (var j = 0; j < shellTitles.length; ++j) {
             if (ttl === shellTitles[j]) {

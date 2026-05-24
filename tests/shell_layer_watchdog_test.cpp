@@ -76,12 +76,12 @@ private slots:
         QSignalSpy stuckSpy(&watchdog, &ShellLayerWatchdog::overlayStuckDetected);
         QSignalSpy anyStuckSpy(&watchdog, &ShellLayerWatchdog::anyOverlayStuckChanged);
 
-        state.setLaunchpadVisible(true);
+        state.setAppHubVisible(true);
         QTest::qWait(130); // long enough for multiple health ticks past the threshold
 
         // Must fire exactly once per occurrence — not once per health tick.
         QCOMPARE(stuckSpy.count(), 1);
-        QCOMPARE(stuckSpy.first().first().toString(), QStringLiteral("launchpad"));
+        QCOMPARE(stuckSpy.first().first().toString(), QStringLiteral("apphub"));
         QVERIFY(watchdog.anyOverlayStuck());
         QVERIFY(anyStuckSpy.count() >= 1);
         QCOMPARE(anyStuckSpy.first().first().toBool(), true);
@@ -97,14 +97,14 @@ private slots:
 
         QSignalSpy stuckSpy(&watchdog, &ShellLayerWatchdog::overlayStuckDetected);
 
-        state.setLaunchpadVisible(true);
+        state.setAppHubVisible(true);
         QTest::qWait(200); // ~10 health ticks past the threshold
 
         QCOMPARE(stuckSpy.count(), 1); // exactly one, not ten
 
         // Dismiss and re-open — a fresh occurrence must fire once more.
-        state.setLaunchpadVisible(false);
-        state.setLaunchpadVisible(true);
+        state.setAppHubVisible(false);
+        state.setAppHubVisible(true);
         QTest::qWait(200);
 
         QCOMPARE(stuckSpy.count(), 2); // second occurrence fires once
@@ -119,7 +119,7 @@ private slots:
 
         QSignalSpy stuckSpy(&watchdog, &ShellLayerWatchdog::overlayStuckDetected);
 
-        state.setLaunchpadVisible(true);
+        state.setAppHubVisible(true);
         QTest::qWait(80);
 
         QCOMPARE(stuckSpy.count(), 0);
@@ -149,7 +149,7 @@ private slots:
 
         QSignalSpy healthSpy(&watchdog, &ShellLayerWatchdog::healthCheckCompleted);
 
-        state.setLaunchpadVisible(true);
+        state.setAppHubVisible(true);
         QTest::qWait(130);
 
         // At least one health-check should have reported unhealthy.
@@ -169,13 +169,13 @@ private slots:
         ShellStateController state;
         ShellLayerWatchdog watchdog(&state);
 
-        state.setLaunchpadVisible(true);
+        state.setAppHubVisible(true);
         state.setWorkspaceOverviewVisible(true);
-        state.setToTheSpotVisible(true);
+        state.setPulseVisible(true);
 
         watchdog.requestRecovery();
 
-        QVERIFY(!state.launchpadVisible());
+        QVERIFY(!state.apphubVisible());
         QVERIFY(!state.workspaceOverviewVisible());
         QVERIFY(!state.toTheSpotVisible());
     }
@@ -198,7 +198,7 @@ private slots:
         watchdog.setOverlayStuckThresholdMs(50);
         watchdog.setHealthCheckIntervalMs(30);
 
-        state.setLaunchpadVisible(true);
+        state.setAppHubVisible(true);
         QTest::qWait(130); // trigger stuck detection
 
         QVERIFY(watchdog.anyOverlayStuck());
@@ -208,15 +208,15 @@ private slots:
 
     // ── reportOverlayLoadError ────────────────────────────────────────────────
 
-    void reportOverlayLoadError_launchpad_clearsStateController()
+    void reportOverlayLoadError_apphub_clearsStateController()
     {
         ShellStateController state;
         ShellLayerWatchdog watchdog(&state);
 
-        state.setLaunchpadVisible(true);
-        watchdog.reportOverlayLoadError(QStringLiteral("launchpad"));
+        state.setAppHubVisible(true);
+        watchdog.reportOverlayLoadError(QStringLiteral("apphub"));
 
-        QVERIFY(!state.launchpadVisible());
+        QVERIFY(!state.apphubVisible());
     }
 
     void reportOverlayLoadError_workspace_clearsStateController()
@@ -230,13 +230,13 @@ private slots:
         QVERIFY(!state.workspaceOverviewVisible());
     }
 
-    void reportOverlayLoadError_tothespot_clearsStateController()
+    void reportOverlayLoadError_pulse_clearsStateController()
     {
         ShellStateController state;
         ShellLayerWatchdog watchdog(&state);
 
-        state.setToTheSpotVisible(true);
-        watchdog.reportOverlayLoadError(QStringLiteral("tothespot"));
+        state.setPulseVisible(true);
+        watchdog.reportOverlayLoadError(QStringLiteral("pulse"));
 
         QVERIFY(!state.toTheSpotVisible());
     }
@@ -258,10 +258,10 @@ private slots:
         ShellLayerWatchdog watchdog(&state);
 
         QSignalSpy spy(&watchdog, &ShellLayerWatchdog::overlayLoadErrorReceived);
-        watchdog.reportOverlayLoadError(QStringLiteral("launchpad"));
+        watchdog.reportOverlayLoadError(QStringLiteral("apphub"));
 
         QCOMPARE(spy.count(), 1);
-        QCOMPARE(spy.first().first().toString(), QStringLiteral("launchpad"));
+        QCOMPARE(spy.first().first().toString(), QStringLiteral("apphub"));
     }
 
     void reportOverlayLoadError_unknownName_doesNotCrash()
@@ -283,15 +283,15 @@ private slots:
         watchdog.setHealthCheckIntervalMs(10);
 
         for (int i = 0; i < 300; ++i) {
-            state.setLaunchpadVisible(i % 2 == 0);
+            state.setAppHubVisible(i % 2 == 0);
             state.setWorkspaceOverviewVisible(i % 3 == 0);
-            state.setToTheSpotVisible(i % 5 == 0);
+            state.setPulseVisible(i % 5 == 0);
             state.setStyleGalleryVisible(i % 7 == 0);
             if (i % 11 == 0) {
                 watchdog.requestRecovery();
             }
             if (i % 13 == 0) {
-                watchdog.reportOverlayLoadError(QStringLiteral("launchpad"));
+                watchdog.reportOverlayLoadError(QStringLiteral("apphub"));
             }
         }
         QTest::qWait(60); // let timers fire a few times
@@ -306,7 +306,7 @@ private slots:
         ShellStateController state;
         ShellLayerWatchdog watchdog(&state);
 
-        state.setLaunchpadVisible(true);
+        state.setAppHubVisible(true);
         state.setWorkspaceOverviewVisible(true);
 
         // Loader error boundary fires for workspace
@@ -315,7 +315,7 @@ private slots:
 
         // Watchdog then requests full recovery
         watchdog.requestRecovery();
-        QVERIFY(!state.launchpadVisible());
+        QVERIFY(!state.apphubVisible());
         QVERIFY(!state.workspaceOverviewVisible());
         QVERIFY(!state.toTheSpotVisible());
         QVERIFY(!watchdog.anyOverlayStuck());
