@@ -36,6 +36,103 @@ Item {
     height: tileHeight
     scale: root.dragging ? 1.06 : 1.0
 
+    function _themeIconSource(name) {
+        var n = String(name || "").trim()
+        var rev = ((typeof ThemeIconController !== "undefined" && ThemeIconController)
+                   ? ThemeIconController.revision : 0)
+        if (n.length <= 0) {
+            n = "text-x-generic-symbolic"
+        }
+        if (n.indexOf("image://themeicon/") === 0) {
+            return n + (n.indexOf("?") >= 0 ? "&v=" : "?v=") + rev
+        }
+        return "image://themeicon/" + n + "?v=" + rev
+    }
+
+    function _isLocalFilePath(value) {
+        var text = String(value || "").trim()
+        return text.length > 0 && text.charAt(0) === "/"
+    }
+
+    function _providerLocalSource(value) {
+        var raw = String(value || "").trim()
+        if (raw.length <= 0) {
+            return ""
+        }
+        if (raw.indexOf("image://themeicon/") === 0) {
+            return raw
+        }
+        if (raw.indexOf("file://") === 0) {
+            raw = raw.slice("file://".length)
+        }
+        if (_isLocalFilePath(raw)) {
+            return "image://themeicon/" + encodeURIComponent(raw) + "?v="
+                   + ((typeof ThemeIconController !== "undefined" && ThemeIconController)
+                      ? ThemeIconController.revision : 0)
+        }
+        return raw
+    }
+
+    function _normalizedImageSource(value) {
+        var raw = String(value || "").trim()
+        if (raw.length <= 0) {
+            return ""
+        }
+        if (raw.indexOf("image://themeicon/") === 0) {
+            return raw
+        }
+        if (raw.indexOf("file://") === 0) {
+            return _providerLocalSource(raw)
+        }
+        if (raw.indexOf("image://") === 0 || raw.indexOf("qrc:/") === 0) {
+            return raw
+        }
+        if (_isLocalFilePath(raw)) {
+            return _providerLocalSource(raw)
+        }
+        return raw
+    }
+
+    function _preferredIconSource() {
+        var name = String(root.iconName || "").trim()
+        var source = String(root.iconSource || "").trim()
+        if (source.length > 0) {
+            return _normalizedImageSource(source)
+        }
+        if (name.length <= 0) {
+            return ""
+        }
+        if (_isLocalFilePath(name)) {
+            return _providerLocalSource(name)
+        }
+        if (name.indexOf("://") >= 0) {
+            return _normalizedImageSource(name)
+        }
+        return root._themeIconSource(name)
+    }
+
+    function _secondaryIconSource() {
+        var name = String(root.iconName || "").trim()
+        var source = String(root.iconSource || "").trim()
+        if (name.length <= 0 && source.length <= 0) {
+            return ""
+        }
+        if (source.length > 0) {
+            return _normalizedImageSource(source)
+        }
+        if (_isLocalFilePath(name)) {
+            return _providerLocalSource(name)
+        }
+        if (name.indexOf("://") >= 0) {
+            return _normalizedImageSource(name)
+        }
+        return root._themeIconSource(name)
+    }
+
+    function _genericIconSource() {
+        return root._themeIconSource("application-x-executable-symbolic")
+    }
+
     Rectangle {
         id: selectionBg
         anchors.left: parent.left
@@ -74,14 +171,11 @@ Item {
         width: parent.width
         height: Math.max(48, parent.height - 38)
         anchors.top: parent.top
-        layer.enabled: true
-        layer.effect: MultiEffect {
-            shadowEnabled: true
-            shadowColor: Qt.rgba(0, 0, 0, Theme.darkMode ? 0.52 : 0.38)
-            shadowBlur: 0.16 + (root._shadowLift * 0.56)
-            shadowVerticalOffset: 2 + (root._shadowLift * 14)
-            shadowHorizontalOffset: 0
-        }
+        // Keep the icon stage unlayered. We only need the icon itself here;
+        // the extra layer + MultiEffect path has proven fragile on some
+        // render backends and can leave the icon slot blank even when the
+        // source resolves correctly.
+        layer.enabled: false
 
         Image {
             id: thumbImage
@@ -93,7 +187,7 @@ Item {
             cache: true
             source: (root.previewCandidate && String(root.thumbnailSource || "").length > 0)
                     ? root.thumbnailSource : ""
-            visible: source.length > 0 && status === Image.Ready
+            visible: String(source || "").length > 0 && status === Image.Ready
         }
 
         Image {
@@ -104,21 +198,61 @@ Item {
             fillMode: Image.PreserveAspectFit
             asynchronous: true
             cache: true
-            source: {
-                if (thumbImage.visible) {
-                    return ""
-                }
-                if (String(root.iconSource || "").length > 0) {
-                    return root.iconSource
-                }
-                if (String(root.iconName || "").length > 0) {
-                    var rev = ((typeof ThemeIconController !== "undefined" && ThemeIconController)
-                               ? ThemeIconController.revision : 0)
-                    return "image://themeicon/" + root.iconName + "?v=" + rev
-                }
-                var fallbackRev = ((typeof ThemeIconController !== "undefined" && ThemeIconController)
-                                   ? ThemeIconController.revision : 0)
-                return "image://themeicon/text-x-generic-symbolic?v=" + fallbackRev
+            source: root._preferredIconSource()
+            visible: String(source || "").length > 0
+                     && status !== Image.Error
+            onSourceChanged: {
+                console.log("[desktop-item-icon] iconImage source="
+                            + String(source || "")
+                            + " iconName=" + String(root.iconName || "")
+                            + " iconSource=" + String(root.iconSource || "")
+                            + " displayName=" + String(root.displayName || ""))
+            }
+            onStatusChanged: {
+                console.log("[desktop-item-icon] iconImage status="
+                            + String(status)
+                            + " source=" + String(source || "")
+                            + " visible=" + String(visible))
+            }
+        }
+
+        Image {
+            id: fallbackIconImage
+            anchors.centerIn: parent
+            width: Math.min(parent.width, parent.height)
+            height: width
+            fillMode: Image.PreserveAspectFit
+            asynchronous: true
+            cache: true
+            source: root._secondaryIconSource()
+            visible: String(source || "").length > 0
+                     && iconImage.status === Image.Error
+                     && status !== Image.Error
+            onStatusChanged: {
+                console.log("[desktop-item-icon] fallback status="
+                            + String(status)
+                            + " source=" + String(source || "")
+                            + " visible=" + String(visible))
+            }
+        }
+
+        Image {
+            id: genericFallbackIconImage
+            anchors.centerIn: parent
+            width: Math.min(parent.width, parent.height)
+            height: width
+            fillMode: Image.PreserveAspectFit
+            asynchronous: true
+            cache: true
+            source: root._genericIconSource()
+            visible: iconImage.status === Image.Error
+                     && (String(fallbackIconImage.source || "").length <= 0 || fallbackIconImage.status === Image.Error)
+                     && status !== Image.Error
+            onStatusChanged: {
+                console.log("[desktop-item-icon] generic status="
+                            + String(status)
+                            + " source=" + String(source || "")
+                            + " visible=" + String(visible))
             }
         }
 
