@@ -2,6 +2,7 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import Slm_Desktop
+import SlmStyle as DSStyle
 import "." as AppDeckComp
 
 Item {
@@ -152,6 +153,8 @@ Item {
             "appId": String((entry && (entry.appId || entry.desktopId || entry.desktopFile || entry.executable || entry.name)) || ""),
             "display": String((entry && (entry.display || entry.name)) || ""),
             "icon": _iconFrom(entry),
+            "iconName": String((entry && entry.iconName) || ""),
+            "iconSource": String((entry && entry.iconSource) || ""),
             "running": !!(entry && entry.running),
             "favorite": !!(entry && entry.favorite),
             "category": String((entry && entry.category) || ""),
@@ -464,6 +467,51 @@ Item {
         appActivated(appData)
     }
 
+    function _hasAppIdentity(appData) {
+        if (!appData) {
+            return false
+        }
+        return String(appData.desktopFile || appData.desktopId || appData.appId
+                      || appData.executable || appData.name || appData.display || "").trim().length > 0
+    }
+
+    function _themeIconNameFromSource(iconValue) {
+        var raw = String(iconValue || "").trim()
+        var prefix = "image://themeicon/"
+        if (raw.indexOf(prefix) !== 0) {
+            return ""
+        }
+        var name = raw.slice(prefix.length)
+        var query = name.indexOf("?")
+        if (query >= 0) {
+            name = name.slice(0, query)
+        }
+        try {
+            return decodeURIComponent(name)
+        } catch (e) {
+            return name
+        }
+    }
+
+    function _contextPayload(menuPayload, fallbackPayload) {
+        var payload = ({ "source": "appdeck-grid-context" })
+        if (_hasAppIdentity(menuPayload)) {
+            payload = Object.assign(payload, menuPayload)
+        } else if (_hasAppIdentity(fallbackPayload)) {
+            payload = Object.assign(payload, fallbackPayload)
+        }
+        if (!payload.source || String(payload.source).trim().length <= 0) {
+            payload.source = "appdeck-grid-context"
+        }
+        if (!payload.iconName || String(payload.iconName).trim().length <= 0) {
+            var derivedIconName = _themeIconNameFromSource(payload.icon || payload.iconSource)
+            if (derivedIconName.length > 0) {
+                payload.iconName = derivedIconName
+            }
+        }
+        return payload
+    }
+
     onPageSizeChanged: { _syncPaginationToSelection(); gridLayoutSettled() }
     onPageCountChanged: {
         if (filteredApps.length <= 0) {
@@ -708,23 +756,27 @@ Item {
                     }
                 }
 
-                Menu {
+                DSStyle.Menu {
                     id: menu
                     parent: Overlay.overlay
+                    closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside | Popup.CloseOnPressOutsideParent
                     property var actionAppData: ({})
-                    MenuItem {
+                    DSStyle.MenuItem {
                         text: "Pin to AppDeck"
+                        icon.name: "bookmark-new-symbolic"
                         onTriggered: {
-                            var payload = menu.actionAppData || modelData || ({})
+                            var payload = root._contextPayload(menu.actionAppData, modelData)
                             console.log("[appdeck] pin triggered payload=", JSON.stringify(payload))
                             root.playPinToDockFlight(delegateItem, payload)
                             root.addToDockRequested(payload)
                         }
                     }
-                    MenuItem {
+                    DSStyle.MenuItem {
                         text: "Add to Desktop"
+                        icon.name: "user-desktop-symbolic"
                         onTriggered: {
-                            var payload = menu.actionAppData || modelData || ({})
+                            var payload = root._contextPayload(menu.actionAppData, modelData)
+                            console.log("[appdeck] add-to-desktop triggered payload=", JSON.stringify(payload))
                             root.addToDesktopRequested(payload)
                         }
                     }
