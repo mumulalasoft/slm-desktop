@@ -77,6 +77,7 @@ install_if_exists "$BUILD_DIR/slm-recoveryd" "$BIN_DIR/slm-recoveryd"
 install_if_exists "$BUILD_DIR/slm-settings" "$BIN_DIR/slm-settings"
 install_if_exists "$BUILD_DIR/slm-settingsd" "$BIN_DIR/slm-settingsd"
 install_if_exists "$BUILD_DIR/desktop-contextd" "$BIN_DIR/desktop-contextd"
+install_if_exists "$BUILD_DIR/slm-filemanager" "$BIN_DIR/slm-filemanager"
 
 setup_samba_usershares() {
   local target_user="$1"
@@ -127,6 +128,13 @@ install -Dm644 "$ROOT_DIR/sessions/slm.desktop" "$SESSION_DIR/slm.desktop"
 echo "[install-slm-runtime][OK] $SESSION_DIR/slm.desktop"
 install -Dm644 "$ROOT_DIR/sessions/slm-shell.desktop" "$APPLICATIONS_DIR/slm-shell.desktop"
 echo "[install-slm-runtime][OK] $APPLICATIONS_DIR/slm-shell.desktop"
+if [[ -f "$ROOT_DIR/apps/desktop-shell/slm-filemanager.desktop" ]]; then
+  install -Dm644 "$ROOT_DIR/apps/desktop-shell/slm-filemanager.desktop" \
+    "$APPLICATIONS_DIR/slm-filemanager.desktop"
+  echo "[install-slm-runtime][OK] $APPLICATIONS_DIR/slm-filemanager.desktop"
+else
+  echo "[install-slm-runtime][WARN] missing desktop entry: $ROOT_DIR/apps/desktop-shell/slm-filemanager.desktop"
+fi
 
 install -d -m0755 "$POLKIT_ACTIONS_DIR"
 for policy in org.slm.desktop.devices.policy \

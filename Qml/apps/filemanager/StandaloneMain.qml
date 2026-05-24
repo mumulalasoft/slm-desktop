@@ -20,6 +20,7 @@ Window {
     minimumWidth: 720
     minimumHeight: 460
     visible: true
+    flags: Qt.Window | Qt.FramelessWindowHint
     title: qsTr("Files")
     color: Theme ? Theme.color("fileManagerWindowBg") : "#ffffff"
 
@@ -57,6 +58,21 @@ Window {
             // back to opening the path within the current window's openPath.
             if (fmWindow.openPath) {
                 fmWindow.openPath(String(path || "~"))
+            }
+        }
+    }
+
+    Component.onCompleted: {
+        if (typeof DesktopSettings !== "undefined" && DesktopSettings && Theme && Theme.applyModeString) {
+            Theme.applyModeString(String(DesktopSettings.themeMode || "system"))
+        }
+    }
+
+    Connections {
+        target: (typeof DesktopSettings !== "undefined") ? DesktopSettings : null
+        function onThemeModeChanged() {
+            if (Theme && Theme.applyModeString) {
+                Theme.applyModeString(String(DesktopSettings.themeMode || "system"))
             }
         }
     }

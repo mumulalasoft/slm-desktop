@@ -694,6 +694,15 @@ prewarm_desktop_caches() {
 }
 prewarm_desktop_caches
 
+# DesktopAppModel monitor refresh bisa nonaktif di desktopd runtime; pastikan
+# katalog aplikasi ikut reload setelah .desktop baru diinstall.
+if [[ -d "/run/user/$session_uid" ]]; then
+    runuser -u "$session_user" -- env XDG_RUNTIME_DIR="/run/user/$session_uid" \
+        systemctl --user try-restart slm-desktopd.service 2>/dev/null || true
+    # Fallback untuk setup yang belum memakai unit slm-desktopd.service.
+    runuser -u "$session_user" -- pkill -TERM -x desktopd 2>/dev/null || true
+fi
+
 # Force a clean graphical stack between smoke runs so session/runtime changes
 # are validated against a fresh login instead of stale compositor leftovers.
 if [[ -d "/run/user/$session_uid" ]]; then

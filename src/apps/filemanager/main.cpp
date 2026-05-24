@@ -6,6 +6,7 @@
 #include <QGuiApplication>
 #include <QIcon>
 #include <QLibraryInfo>
+#include <QPalette>
 #include <QProcess>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
@@ -16,6 +17,7 @@
 #include "src/apps/filemanager/filemanagerdbusservice.h"
 #include "src/apps/filemanager/include/filemanagermodel.h"
 #include "src/apps/filemanager/include/filemanagermodelfactory.h"
+#include "src/apps/settings/desktopsettingsclient.h"
 #include "src/core/icons/themeiconcontroller.h"
 #include "src/core/icons/themeiconprovider.h"
 #include "src/filemanager/FileManagerShellBridge.h"
@@ -118,6 +120,35 @@ int main(int argc, char *argv[])
     FileManagerModelFactory fileManagerModelFactory(&fileManagerApi, &metadataIndexServer);
     GlobalProgressCenter globalProgressCenter;
     ThemeIconController themeIconController;
+    DesktopSettingsClient desktopSettings;
+
+    const auto applyIconThemePref = [&]() {
+        const QString gtkLight = desktopSettings.gtkIconThemeLight().trimmed();
+        const QString gtkDark = desktopSettings.gtkIconThemeDark().trimmed();
+        const QString kdeLight = desktopSettings.kdeIconThemeLight().trimmed();
+        const QString kdeDark = desktopSettings.kdeIconThemeDark().trimmed();
+        const QString light = !gtkLight.isEmpty() ? gtkLight : kdeLight;
+        const QString dark = !gtkDark.isEmpty() ? gtkDark : kdeDark;
+        if (!light.isEmpty() && !dark.isEmpty()) {
+            themeIconController.setThemeMapping(light, dark);
+        } else {
+            themeIconController.useAutoDetectedMapping();
+        }
+    };
+    const auto applyIconThemeMode = [&]() {
+        const QString mode = desktopSettings.themeMode().trimmed().toLower();
+        bool darkMode = false;
+        if (mode == QStringLiteral("dark")) {
+            darkMode = true;
+        } else if (mode == QStringLiteral("light")) {
+            darkMode = false;
+        } else {
+            darkMode = app.palette().color(QPalette::Window).lightnessF() < 0.5;
+        }
+        themeIconController.applyForDarkMode(darkMode);
+    };
+    applyIconThemePref();
+    applyIconThemeMode();
 
     engine.addImageProvider(QStringLiteral("themeicon"), new ThemeIconProvider);
     engine.addImageProvider(QStringLiteral("thumbnail"),
@@ -131,8 +162,29 @@ int main(int argc, char *argv[])
     ctx->setContextProperty(QStringLiteral("MetadataIndexServer"), &metadataIndexServer);
     ctx->setContextProperty(QStringLiteral("GlobalProgressCenter"), &globalProgressCenter);
     ctx->setContextProperty(QStringLiteral("ThemeIconController"), &themeIconController);
+    ctx->setContextProperty(QStringLiteral("DesktopSettings"), &desktopSettings);
     ctx->setContextProperty(QStringLiteral("slmFileManagerInitialPath"), initialPath);
     ctx->setContextProperty(QStringLiteral("slmActionTreeDebug"), false);
+
+    QObject::connect(&desktopSettings, &DesktopSettingsClient::gtkIconThemeLightChanged, &app, [&]() {
+        applyIconThemePref();
+        applyIconThemeMode();
+    });
+    QObject::connect(&desktopSettings, &DesktopSettingsClient::gtkIconThemeDarkChanged, &app, [&]() {
+        applyIconThemePref();
+        applyIconThemeMode();
+    });
+    QObject::connect(&desktopSettings, &DesktopSettingsClient::kdeIconThemeLightChanged, &app, [&]() {
+        applyIconThemePref();
+        applyIconThemeMode();
+    });
+    QObject::connect(&desktopSettings, &DesktopSettingsClient::kdeIconThemeDarkChanged, &app, [&]() {
+        applyIconThemePref();
+        applyIconThemeMode();
+    });
+    QObject::connect(&desktopSettings, &DesktopSettingsClient::themeModeChanged, &app, [&]() {
+        applyIconThemeMode();
+    });
 
     engine.load(QUrl(QStringLiteral(
         "qrc:/qt/qml/Slm_Desktop/Qml/apps/filemanager/StandaloneMain.qml")));

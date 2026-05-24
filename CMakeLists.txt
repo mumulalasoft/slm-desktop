@@ -433,6 +433,8 @@ qt_add_executable(slm-filemanager
     src/core/icons/themeiconprovider.h
     src/core/icons/themeiconcontroller.cpp
     src/core/icons/themeiconcontroller.h
+    src/apps/settings/desktopsettingsclient.cpp
+    src/apps/settings/desktopsettingsclient.h
     src/services/fileindex/metadataindexserver.cpp
     src/services/fileindex/metadataindexserver.h
     src/core/system/componentregistry.cpp

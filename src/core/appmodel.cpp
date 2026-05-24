@@ -866,17 +866,17 @@ void DesktopAppModel::onDesktopDirChanged(GFileMonitor *monitor,
     if (changedPath.isEmpty() || !changedPath.endsWith(QStringLiteral(".desktop"), Qt::CaseInsensitive)) {
         return;
     }
-    if (!self->m_monitorRefreshEnabled) {
-        qCInfo(lcAppModel) << "Desktop file monitor event ignored: monitor refresh disabled"
-                           << changedPath;
-        return;
-    }
+    const bool monitorRefreshEnabled = self->m_monitorRefreshEnabled;
     qCInfo(lcAppModel) << "Desktop file monitor event"
                        << monitorEventToString(static_cast<GFileMonitorEvent>(eventType))
-                       << changedPath;
+                       << changedPath
+                       << "dynamicRefresh=" << monitorRefreshEnabled;
     QMetaObject::invokeMethod(self, [self]() {
         if (self->m_refreshDebounceTimer) {
-            self->m_refreshDebounceTimer->start();
+            // Even when dynamic monitor refresh is disabled, app install/uninstall
+            // should still update the app catalog from desktop entry changes.
+            const int delayMs = self->m_monitorRefreshEnabled ? 250 : 1500;
+            self->m_refreshDebounceTimer->start(delayMs);
         } else {
             self->refresh();
         }
@@ -1124,15 +1124,19 @@ void DesktopAppModel::refresh()
         if (!info) {
             return;
         }
-        if (enforceShouldShow && !g_app_info_should_show(info)) {
-            return;
-        }
-        if (!enforceShouldShow && G_IS_DESKTOP_APP_INFO(info)) {
+        if (G_IS_DESKTOP_APP_INFO(info)) {
             GDesktopAppInfo *desktopInfo = G_DESKTOP_APP_INFO(info);
             if (g_desktop_app_info_get_is_hidden(desktopInfo)
                 || g_desktop_app_info_get_nodisplay(desktopInfo)) {
                 return;
             }
+        }
+        if (enforceShouldShow && !g_app_info_should_show(info)) {
+            // Keep app in AppModel catalog even when menu-visibility policy
+            // says "do not show" (OnlyShowIn/NotShowIn etc), as long as it is
+            // not Hidden/NoDisplay.
+            qCDebug(lcAppModel) << "including app despite should_show=false id="
+                                << fromUtf8(g_app_info_get_id(info));
         }
 
         DesktopAppEntry app;
@@ -1179,64 +1183,71 @@ void DesktopAppModel::refresh()
     }
     g_list_free_full(infos, g_object_unref);
 
-    // Fallback scan for local desktop entries to avoid delayed registry propagation.
-    const QString localAppsDir = QDir::home().filePath(QStringLiteral(".local/share/applications"));
-    QDirIterator localIt(localAppsDir, QStringList{QStringLiteral("*.desktop")}, QDir::Files);
-    while (localIt.hasNext()) {
-        const QString desktopPath = localIt.next();
-        GDesktopAppInfo *desktopInfo = g_desktop_app_info_new_from_filename(
-            QFile::encodeName(desktopPath).constData());
-        if (!desktopInfo) {
-            // Some test desktop entries may not be accepted by GDesktopAppInfo
-            // (e.g. Exec points to a command not currently resolvable in PATH).
-            // Keep them discoverable in AppDeck via a permissive keyfile parse.
-            GKeyFile *kf = g_key_file_new();
-            GError *loadError = nullptr;
-            const gboolean loaded = g_key_file_load_from_file(
-                kf, QFile::encodeName(desktopPath).constData(), G_KEY_FILE_NONE, &loadError);
-            if (loadError) {
-                g_error_free(loadError);
+    // Fallback scan for local + system desktop entries to avoid delayed
+    // registry propagation or strict visibility filtering in GAppInfo.
+    QStringList desktopRoots;
+    desktopRoots << QDir::home().filePath(QStringLiteral(".local/share/applications"));
+    desktopRoots << QStringLiteral("/usr/local/share/applications");
+    desktopRoots << QStringLiteral("/usr/share/applications");
+    desktopRoots.removeDuplicates();
+    for (const QString &desktopRoot : desktopRoots) {
+        QDirIterator localIt(desktopRoot, QStringList{QStringLiteral("*.desktop")}, QDir::Files);
+        while (localIt.hasNext()) {
+            const QString desktopPath = localIt.next();
+            GDesktopAppInfo *desktopInfo = g_desktop_app_info_new_from_filename(
+                QFile::encodeName(desktopPath).constData());
+            if (!desktopInfo) {
+                // Some test desktop entries may not be accepted by GDesktopAppInfo
+                // (e.g. Exec points to a command not currently resolvable in PATH).
+                // Keep them discoverable in AppDeck via a permissive keyfile parse.
+                GKeyFile *kf = g_key_file_new();
+                GError *loadError = nullptr;
+                const gboolean loaded = g_key_file_load_from_file(
+                    kf, QFile::encodeName(desktopPath).constData(), G_KEY_FILE_NONE, &loadError);
+                if (loadError) {
+                    g_error_free(loadError);
+                    g_key_file_free(kf);
+                    continue;
+                }
+                if (!loaded) {
+                    g_key_file_free(kf);
+                    continue;
+                }
+
+                const QString type = fromUtf8(g_key_file_get_string(kf, "Desktop Entry", "Type", nullptr)).trimmed();
+                const bool hidden = g_key_file_get_boolean(kf, "Desktop Entry", "Hidden", nullptr);
+                const bool noDisplay = g_key_file_get_boolean(kf, "Desktop Entry", "NoDisplay", nullptr);
+                const QString name = fromUtf8(g_key_file_get_string(kf, "Desktop Entry", "Name", nullptr)).trimmed();
+                const QString execRaw = fromUtf8(g_key_file_get_string(kf, "Desktop Entry", "Exec", nullptr)).trimmed();
+                const QString iconName = fromUtf8(g_key_file_get_string(kf, "Desktop Entry", "Icon", nullptr)).trimmed();
+                const QString rawCats = fromUtf8(g_key_file_get_string(kf, "Desktop Entry", "Categories", nullptr));
                 g_key_file_free(kf);
+
+                if (type.compare(QStringLiteral("Application"), Qt::CaseInsensitive) != 0
+                    || hidden || noDisplay || name.isEmpty()) {
+                    continue;
+                }
+
+                DesktopAppEntry app;
+                app.name = name;
+                app.desktopId = QFileInfo(desktopPath).fileName();
+                app.desktopFile = desktopPath;
+                app.executable = execRaw;
+                app.iconName = iconName;
+                app.iconSource = resolveThemedIconPath(iconName);
+                app.categories = parseDesktopCategories(rawCats);
+                const QString dedupeKey = !app.desktopId.isEmpty()
+                                              ? app.desktopId.toLower()
+                                              : app.name.toLower();
+                if (!seenKeys.contains(dedupeKey)) {
+                    seenKeys.insert(dedupeKey);
+                    newApps.push_back(app);
+                }
                 continue;
             }
-            if (!loaded) {
-                g_key_file_free(kf);
-                continue;
-            }
-
-            const QString type = fromUtf8(g_key_file_get_string(kf, "Desktop Entry", "Type", nullptr)).trimmed();
-            const bool hidden = g_key_file_get_boolean(kf, "Desktop Entry", "Hidden", nullptr);
-            const bool noDisplay = g_key_file_get_boolean(kf, "Desktop Entry", "NoDisplay", nullptr);
-            const QString name = fromUtf8(g_key_file_get_string(kf, "Desktop Entry", "Name", nullptr)).trimmed();
-            const QString execRaw = fromUtf8(g_key_file_get_string(kf, "Desktop Entry", "Exec", nullptr)).trimmed();
-            const QString iconName = fromUtf8(g_key_file_get_string(kf, "Desktop Entry", "Icon", nullptr)).trimmed();
-            const QString rawCats = fromUtf8(g_key_file_get_string(kf, "Desktop Entry", "Categories", nullptr));
-            g_key_file_free(kf);
-
-            if (type.compare(QStringLiteral("Application"), Qt::CaseInsensitive) != 0
-                || hidden || noDisplay || name.isEmpty()) {
-                continue;
-            }
-
-            DesktopAppEntry app;
-            app.name = name;
-            app.desktopId = QFileInfo(desktopPath).fileName();
-            app.desktopFile = desktopPath;
-            app.executable = execRaw;
-            app.iconName = iconName;
-            app.iconSource = resolveThemedIconPath(iconName);
-            app.categories = parseDesktopCategories(rawCats);
-            const QString dedupeKey = !app.desktopId.isEmpty()
-                                          ? app.desktopId.toLower()
-                                          : app.name.toLower();
-            if (!seenKeys.contains(dedupeKey)) {
-                seenKeys.insert(dedupeKey);
-                newApps.push_back(app);
-            }
-            continue;
+            appendFromAppInfo(G_APP_INFO(desktopInfo), false);
+            g_object_unref(desktopInfo);
         }
-        appendFromAppInfo(G_APP_INFO(desktopInfo), false);
-        g_object_unref(desktopInfo);
     }
 
     if (sameAppCatalog(m_apps, newApps)) {
@@ -1264,11 +1275,17 @@ QVector<DesktopAppEntry> DesktopAppModel::computeAppsFromSystem()
 
     const auto appendFromAppInfo = [&](GAppInfo *info, bool enforceShouldShow) {
         if (!info) return;
-        if (enforceShouldShow && !g_app_info_should_show(info)) return;
-        if (!enforceShouldShow && G_IS_DESKTOP_APP_INFO(info)) {
+        if (G_IS_DESKTOP_APP_INFO(info)) {
             GDesktopAppInfo *di = G_DESKTOP_APP_INFO(info);
             if (g_desktop_app_info_get_is_hidden(di) || g_desktop_app_info_get_nodisplay(di))
                 return;
+        }
+        if (enforceShouldShow && !g_app_info_should_show(info)) {
+            // Keep app in AppModel catalog even when menu-visibility policy
+            // says "do not show" (OnlyShowIn/NotShowIn etc), as long as it is
+            // not Hidden/NoDisplay.
+            qCDebug(lcAppModel) << "including app despite should_show=false id="
+                                << fromUtf8(g_app_info_get_id(info));
         }
 
         DesktopAppEntry app;
@@ -1304,52 +1321,58 @@ QVector<DesktopAppEntry> DesktopAppModel::computeAppsFromSystem()
         appendFromAppInfo(G_APP_INFO(it->data), true);
     g_list_free_full(infos, g_object_unref);
 
-    // Fallback: local desktop entries.
-    const QString localAppsDir = QDir::home().filePath(QStringLiteral(".local/share/applications"));
-    QDirIterator localIt(localAppsDir, QStringList{QStringLiteral("*.desktop")}, QDir::Files);
-    while (localIt.hasNext()) {
-        const QString desktopPath = localIt.next();
-        GDesktopAppInfo *desktopInfo = g_desktop_app_info_new_from_filename(
-            QFile::encodeName(desktopPath).constData());
-        if (!desktopInfo) {
-            GKeyFile *kf = g_key_file_new();
-            GError *loadError = nullptr;
-            const gboolean loaded = g_key_file_load_from_file(
-                kf, QFile::encodeName(desktopPath).constData(), G_KEY_FILE_NONE, &loadError);
-            if (loadError) g_error_free(loadError);
-            if (!loaded) { g_key_file_free(kf); continue; }
+    // Fallback: local + system desktop entries.
+    QStringList desktopRoots;
+    desktopRoots << QDir::home().filePath(QStringLiteral(".local/share/applications"));
+    desktopRoots << QStringLiteral("/usr/local/share/applications");
+    desktopRoots << QStringLiteral("/usr/share/applications");
+    desktopRoots.removeDuplicates();
+    for (const QString &desktopRoot : desktopRoots) {
+        QDirIterator localIt(desktopRoot, QStringList{QStringLiteral("*.desktop")}, QDir::Files);
+        while (localIt.hasNext()) {
+            const QString desktopPath = localIt.next();
+            GDesktopAppInfo *desktopInfo = g_desktop_app_info_new_from_filename(
+                QFile::encodeName(desktopPath).constData());
+            if (!desktopInfo) {
+                GKeyFile *kf = g_key_file_new();
+                GError *loadError = nullptr;
+                const gboolean loaded = g_key_file_load_from_file(
+                    kf, QFile::encodeName(desktopPath).constData(), G_KEY_FILE_NONE, &loadError);
+                if (loadError) g_error_free(loadError);
+                if (!loaded) { g_key_file_free(kf); continue; }
 
-            const QString type     = fromUtf8(g_key_file_get_string(kf, "Desktop Entry", "Type",      nullptr)).trimmed();
-            const bool hidden      = g_key_file_get_boolean(kf, "Desktop Entry", "Hidden",    nullptr);
-            const bool noDisplay   = g_key_file_get_boolean(kf, "Desktop Entry", "NoDisplay", nullptr);
-            const QString name     = fromUtf8(g_key_file_get_string(kf, "Desktop Entry", "Name",      nullptr)).trimmed();
-            const QString execRaw  = fromUtf8(g_key_file_get_string(kf, "Desktop Entry", "Exec",      nullptr)).trimmed();
-            const QString iconName = fromUtf8(g_key_file_get_string(kf, "Desktop Entry", "Icon",      nullptr)).trimmed();
-            const QString rawCats  = fromUtf8(g_key_file_get_string(kf, "Desktop Entry", "Categories", nullptr));
-            g_key_file_free(kf);
+                const QString type     = fromUtf8(g_key_file_get_string(kf, "Desktop Entry", "Type",      nullptr)).trimmed();
+                const bool hidden      = g_key_file_get_boolean(kf, "Desktop Entry", "Hidden",    nullptr);
+                const bool noDisplay   = g_key_file_get_boolean(kf, "Desktop Entry", "NoDisplay", nullptr);
+                const QString name     = fromUtf8(g_key_file_get_string(kf, "Desktop Entry", "Name",      nullptr)).trimmed();
+                const QString execRaw  = fromUtf8(g_key_file_get_string(kf, "Desktop Entry", "Exec",      nullptr)).trimmed();
+                const QString iconName = fromUtf8(g_key_file_get_string(kf, "Desktop Entry", "Icon",      nullptr)).trimmed();
+                const QString rawCats  = fromUtf8(g_key_file_get_string(kf, "Desktop Entry", "Categories", nullptr));
+                g_key_file_free(kf);
 
-            if (type.compare(QStringLiteral("Application"), Qt::CaseInsensitive) != 0
-                || hidden || noDisplay || name.isEmpty())
+                if (type.compare(QStringLiteral("Application"), Qt::CaseInsensitive) != 0
+                    || hidden || noDisplay || name.isEmpty())
+                    continue;
+
+                DesktopAppEntry app;
+                app.name       = name;
+                app.desktopId  = QFileInfo(desktopPath).fileName();
+                app.desktopFile = desktopPath;
+                app.executable = execRaw;
+                app.iconName   = iconName;
+                app.iconSource = resolveThemedIconPath(iconName);
+                app.categories = parseDesktopCategories(rawCats);
+                const QString dedupeKey = !app.desktopId.isEmpty()
+                                              ? app.desktopId.toLower() : app.name.toLower();
+                if (!seenKeys.contains(dedupeKey)) {
+                    seenKeys.insert(dedupeKey);
+                    newApps.push_back(app);
+                }
                 continue;
-
-            DesktopAppEntry app;
-            app.name       = name;
-            app.desktopId  = QFileInfo(desktopPath).fileName();
-            app.desktopFile = desktopPath;
-            app.executable = execRaw;
-            app.iconName   = iconName;
-            app.iconSource = resolveThemedIconPath(iconName);
-            app.categories = parseDesktopCategories(rawCats);
-            const QString dedupeKey = !app.desktopId.isEmpty()
-                                          ? app.desktopId.toLower() : app.name.toLower();
-            if (!seenKeys.contains(dedupeKey)) {
-                seenKeys.insert(dedupeKey);
-                newApps.push_back(app);
             }
-            continue;
+            appendFromAppInfo(G_APP_INFO(desktopInfo), false);
+            g_object_unref(desktopInfo);
         }
-        appendFromAppInfo(G_APP_INFO(desktopInfo), false);
-        g_object_unref(desktopInfo);
     }
 
     return newApps;
