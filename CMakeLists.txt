@@ -405,6 +405,35 @@ qt_add_executable(slm-settings
     src/core/launcher/launchenvresolver.h
 )
 
+# SlmFileManager Application — standalone file manager binary that consumes
+# slm-filemanager-core (same backend as slm-desktop) but lives in its own
+# process. Launched via the slm-filemanager.desktop entry from AppDeck or
+# xdg-open inode/directory.
+qt_add_executable(slm-filemanager
+    src/apps/filemanager/main.cpp
+    src/filemanager/FileManagerShellBridge.cpp
+    src/filemanager/FileManagerShellBridge.h
+    src/filemanager/ThumbnailImageProvider.cpp
+    src/filemanager/ThumbnailImageProvider.h
+    src/core/icons/themeiconprovider.cpp
+    src/core/icons/themeiconprovider.h
+    src/core/icons/themeiconcontroller.cpp
+    src/core/icons/themeiconcontroller.h
+    src/services/fileindex/metadataindexserver.cpp
+    src/services/fileindex/metadataindexserver.h
+    src/core/system/componentregistry.cpp
+    src/core/system/componentregistry.h
+    src/core/system/dependencyguard.cpp
+    src/core/system/dependencyguard.h
+    src/core/system/missingcomponentcontroller.cpp
+    src/core/system/missingcomponentcontroller.h
+    ${SLM_PERMISSIONS_SOURCES}
+    ${SLM_ACTION_FRAMEWORK_SOURCES}
+    # Stubs for shell-only execution paths the action registry references but
+    # the standalone file manager never constructs (m_executionGate stays null).
+    src/apps/filemanager/standalone_stubs.cpp
+)
+
 qt_add_executable(slm-powerd
     src/daemon/powerd/powerd_main.cpp
     src/services/power/powerbridge.cpp
@@ -1138,6 +1167,22 @@ qt_add_qml_module(slm-settings
         Qml/apps/settings/components/MissingComponentsCard.qml
 )
 
+# SlmFileManager registers the SAME Slm_Desktop module URI as slm-desktop, but
+# scoped to this binary's resource tree. We reuse the shell's DESKTOP_SHELL_QML_FILES
+# so existing filemanager QML imports (Theme, AppDialog, WindowControlsCapsule, …)
+# resolve identically here without a tedious per-component shim. Each process has
+# its own qrc:/qt/qml/Slm_Desktop/ tree, so duplicating the URI across binaries
+# is fine at runtime — we just need a unique build-tree OUTPUT_DIRECTORY so the
+# two qmltyperegistrar invocations don't collide at configure time.
+qt_add_qml_module(slm-filemanager
+    URI Slm_Desktop
+    VERSION 1.0
+    OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/SlmFileManager_qmlmod/Slm_Desktop"
+    QML_FILES
+        Qml/apps/filemanager/StandaloneMain.qml
+        ${DESKTOP_SHELL_QML_FILES}
+)
+
 set(DESKTOP_SHELL_RESOURCE_FILES
     assets/icons/battery_0.svg
     assets/icons/battery_25.svg
@@ -1280,6 +1325,30 @@ target_include_directories(slm-settings PRIVATE
     ${CMAKE_SOURCE_DIR}/src/core/icons
 )
 
+target_link_libraries(slm-filemanager
+    PRIVATE
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Qml
+        Qt6::Quick
+        Qt6::QuickControls2
+        Qt6::DBus
+        Qt6::Sql
+        Qt6::Concurrent
+        PkgConfig::GIO
+        ${SLM_FILEMANAGER_CORE_TARGET}
+)
+target_compile_definitions(slm-filemanager PRIVATE
+    SLM_SHELL_VERSION="0.1.0-dev"
+    SLM_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
+)
+target_include_directories(slm-filemanager PRIVATE
+    ${CMAKE_SOURCE_DIR}
+    ${CMAKE_SOURCE_DIR}/src/apps/filemanager/include
+    ${CMAKE_SOURCE_DIR}/src/core/icons
+    ${CMAKE_BINARY_DIR}
+)
+
 include(GNUInstallDirs)
 install(TARGETS slm-desktop
     BUNDLE DESTINATION .
@@ -1293,6 +1362,13 @@ install(TARGETS indicatorctl
 
 install(TARGETS slm-settings
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
+install(TARGETS slm-filemanager
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+install(FILES apps/desktop-shell/slm-filemanager.desktop
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/applications
 )
 
 install(TARGETS slm-powerd
@@ -1518,6 +1594,7 @@ target_link_libraries(appcommandrouter_test
         Qt6::DBus
         Qt6::Gui
         Qt6::Network
+        Qt6::Quick
         Qt6::Test
 )
 
@@ -1535,6 +1612,7 @@ target_link_libraries(screenshotmanager_lock_test
         Qt6::DBus
         Qt6::Gui
         Qt6::Network
+        Qt6::Quick
         Qt6::Test
 )
 
@@ -5784,6 +5862,11 @@ qt_add_resources(slm-settings "slm_settings_slmstyle_module"
     BASE "${CMAKE_SOURCE_DIR}/third_party/slm-style/qml/SlmStyle"
     FILES ${SLM_STYLE_MODULE_FILES}
 )
+qt_add_resources(slm-filemanager "slm_filemanager_slmstyle_module"
+    PREFIX "/qt/qml/SlmStyle"
+    BASE "${CMAKE_SOURCE_DIR}/third_party/slm-style/qml/SlmStyle"
+    FILES ${SLM_STYLE_MODULE_FILES}
+)
 qt_add_resources(slm-polkit-agent "slm_polkit_agent_slmstyle_module"
     PREFIX "/qt/qml/SlmStyle"
     BASE "${CMAKE_SOURCE_DIR}/third_party/slm-style/qml/SlmStyle"
@@ -5803,6 +5886,11 @@ qt_add_resources(slm-desktop "slm_desktop_titlebutton_icons"
     FILES ${SLM_TITLEBUTTON_ICON_FILES}
 )
 qt_add_resources(slm-settings "slm_settings_titlebutton_icons"
+    PREFIX "/qt/qml/SlmStyle/icons/titlebuttons"
+    BASE "${CMAKE_SOURCE_DIR}/assets/icons/titlebuttons"
+    FILES ${SLM_TITLEBUTTON_ICON_FILES}
+)
+qt_add_resources(slm-filemanager "slm_filemanager_titlebutton_icons"
     PREFIX "/qt/qml/SlmStyle/icons/titlebuttons"
     BASE "${CMAKE_SOURCE_DIR}/assets/icons/titlebuttons"
     FILES ${SLM_TITLEBUTTON_ICON_FILES}

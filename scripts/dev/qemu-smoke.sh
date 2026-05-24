@@ -51,6 +51,8 @@ FAST_TARGETS=(
     slm-envd slm-envd-helper slm-recoveryd slm-polkit-agent
     # settings & context
     slm-settingsd desktop-contextd slm-settings slm-cleanerd
+    # standalone apps
+    slm-filemanager
     # control utilities
     indicatorctl windowingctl workspacectl fileopctl devicectl globalmenuctl
 )
@@ -65,6 +67,8 @@ FULL_TARGETS=(
     slm-envd slm-envd-helper slm-recoveryd slm-polkit-agent
     # settings & context
     slm-settingsd desktop-contextd slm-settings slm-cleanerd
+    # standalone apps
+    slm-filemanager
     # control utilities
     indicatorctl windowingctl workspacectl fileopctl devicectl globalmenuctl
 )
@@ -384,6 +388,10 @@ if [[ "$FAST_MODE" == "1" ]]; then
         -e "$(printf '%q ' "${SSH_CMD[@]}" "${SSH_OPTS[@]}")" \
         "$HOST_REPO_DIR/scripts/polkit/" \
         "$SSH_HOST:$BUILD_DIR/polkit-actions/"
+    rsync -az \
+        -e "$(printf '%q ' "${SSH_CMD[@]}" "${SSH_OPTS[@]}")" \
+        "$HOST_REPO_DIR/apps/desktop-shell/" \
+        "$SSH_HOST:$BUILD_DIR/desktop-shell-apps/"
 else
     echo "[qemu-smoke] Syncing full build tree ke guest ($BUILD_DIR)..."
     rsync -az --delete \
@@ -440,6 +448,9 @@ install_exec_atomic '__BUILD_DIR__/slm-polkit-agent' /usr/local/bin/slm-polkit-a
 install_exec_atomic '__BUILD_DIR__/slm-settings' /usr/local/bin/slm-settings
 install_exec_atomic '__BUILD_DIR__/slm-settingsd' /usr/local/bin/slm-settingsd
 install_exec_atomic '__BUILD_DIR__/slm-cleanerd' /usr/local/bin/slm-cleanerd
+install_exec_atomic '__BUILD_DIR__/slm-filemanager' /usr/local/bin/slm-filemanager
+install -Dm644 '__BUILD_DIR__/desktop-shell-apps/slm-filemanager.desktop' \
+    /usr/share/applications/slm-filemanager.desktop
 install_exec_atomic '__BUILD_DIR__/desktop-contextd' /usr/local/bin/desktop-contextd
 install -d -m0755 /usr/lib/settings/modules
 rm -rf /usr/lib/settings/modules/*
