@@ -726,8 +726,33 @@ bool ShortcutModel::addDesktopShortcut(const QString &desktopFilePath)
                                                        ? srcInfo.fileName()
                                                        : srcInfo.completeBaseName());
     if (!QFile::copy(srcInfo.absoluteFilePath(), destination)) {
+        qWarning().noquote() << "[shortcutmodel] addDesktopShortcut copy failed src="
+                             << srcInfo.absoluteFilePath()
+                             << " dst=" << destination;
         return false;
     }
+
+    QFile::setPermissions(destination,
+                          QFileDevice::ReadOwner
+                              | QFileDevice::WriteOwner
+                              | QFileDevice::ExeOwner
+                              | QFileDevice::ReadGroup
+                              | QFileDevice::ExeGroup
+                              | QFileDevice::ReadOther
+                              | QFileDevice::ExeOther);
+
+    const QFileInfo copiedInfo(destination);
+    if (!copiedInfo.exists() || !copiedInfo.isFile()) {
+        qWarning().noquote() << "[shortcutmodel] addDesktopShortcut copy reported success but target missing src="
+                             << srcInfo.absoluteFilePath()
+                             << " dst=" << destination;
+        return false;
+    }
+
+    qInfo().noquote() << "[shortcutmodel] addDesktopShortcut copied src="
+                      << srcInfo.absoluteFilePath()
+                      << " dst=" << copiedInfo.absoluteFilePath()
+                      << " size=" << copiedInfo.size();
 
     refresh();
     saveOrder();

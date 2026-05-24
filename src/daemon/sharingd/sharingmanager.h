@@ -77,6 +77,10 @@ signals:
     void shareStateChanged(const QString &path, const QVariantMap &shareInfo);
 
 private:
+    void loadFeatureStates();
+    void saveFeatureStates() const;
+    QString featureStatesPath() const;
+
     void onAdapterStatusChanged();
 
     static QString sanitizeShareName(const QString &name, const QString &fallback);

@@ -34,6 +34,43 @@ Item {
     width: cellWidth
     height: cellHeight
 
+    function _isLocalFilePath(value) {
+        var text = String(value || "").trim()
+        return text.length > 0 && text.charAt(0) === "/"
+    }
+
+    function _providerLocalSource(value) {
+        var raw = String(value || "").trim()
+        if (raw.length <= 0) {
+            return ""
+        }
+        if (raw.indexOf("image://themeicon/") === 0) {
+            return raw
+        }
+        if (raw.indexOf("file://") === 0) {
+            raw = raw.slice("file://".length)
+        }
+        if (_isLocalFilePath(raw)) {
+            return "image://themeicon/" + encodeURIComponent(raw) + "?v="
+                   + ((typeof ThemeIconController !== "undefined" && ThemeIconController)
+                      ? ThemeIconController.revision : 0)
+        }
+        return raw
+    }
+
+    function _themeIconSource(name) {
+        var n = String(name || "").trim()
+        var rev = ((typeof ThemeIconController !== "undefined" && ThemeIconController)
+                   ? ThemeIconController.revision : 0)
+        if (n.length <= 0) {
+            n = "text-x-generic-symbolic"
+        }
+        if (n.indexOf("image://themeicon/") === 0) {
+            return n + (n.indexOf("?") >= 0 ? "&v=" : "?v=") + rev
+        }
+        return "image://themeicon/" + n + "?v=" + rev
+    }
+
     Item {
         anchors.centerIn: parent
         width: root.tileWidth
@@ -75,16 +112,51 @@ Item {
                 border.color: Theme.color("windowCardBorder")
 
                 Image {
+                    id: shortcutIcon
                     anchors.centerIn: parent
                     width: 38
                     height: 38
-                    source: (root.entryMap && root.entryMap.iconName && root.entryMap.iconName.length > 0)
-                            ? ("image://themeicon/" + root.entryMap.iconName + "?v=" +
-                               ((typeof ThemeIconController !== "undefined" && ThemeIconController)
-                                ? ThemeIconController.revision : 0))
-                            : ((root.entryMap && root.entryMap.iconSource && root.entryMap.iconSource.length > 0)
-                               ? root.entryMap.iconSource : "qrc:/icons/logo.svg")
+                    source: {
+                        var iconSource = String(root.entryMap && root.entryMap.iconSource ? root.entryMap.iconSource : "").trim()
+                        if (iconSource.length > 0) {
+                            if (iconSource.indexOf("image://themeicon/") === 0) {
+                                return iconSource
+                            }
+                            if (iconSource.indexOf("file://") === 0 || iconSource.charAt(0) === "/") {
+                                return root._providerLocalSource(iconSource)
+                            }
+                            if (iconSource.indexOf("image://") === 0 || iconSource.indexOf("qrc:/") === 0) {
+                                return iconSource
+                            }
+                            return root._themeIconSource(iconSource)
+                        }
+                        var iconName = String(root.entryMap && root.entryMap.iconName ? root.entryMap.iconName : "").trim()
+                        if (iconName.length > 0) {
+                            if (iconName.indexOf("image://themeicon/") === 0) {
+                                return iconName
+                            }
+                            if (iconName.indexOf("file://") === 0 || iconName.charAt(0) === "/") {
+                                return root._providerLocalSource(iconName)
+                            }
+                            if (iconName.indexOf("image://") === 0 || iconName.indexOf("qrc:/") === 0) {
+                                return iconName
+                            }
+                            return root._themeIconSource(iconName)
+                        }
+                        return "qrc:/icons/logo.svg"
+                    }
                     fillMode: Image.PreserveAspectFit
+                    onStatusChanged: {
+                        if (status === Image.Error || status === Image.Null) {
+                            console.warn("[shell-shortcut-icon] slot=" + String(root.slotIndex)
+                                         + " modelIndex=" + String(root.modelIndex)
+                                         + " name=" + String(root.entryMap && root.entryMap.name ? root.entryMap.name : "")
+                                         + " iconName=" + String(root.entryMap && root.entryMap.iconName ? root.entryMap.iconName : "")
+                                         + " iconSource=" + String(root.entryMap && root.entryMap.iconSource ? root.entryMap.iconSource : "")
+                                         + " source=" + String(source || "")
+                                         + " status=" + String(status))
+                        }
+                    }
                 }
             }
 

@@ -18,6 +18,7 @@ struct FileEntry
     QString suffix;
     QString mimeType;
     QString iconName;
+    QString iconSource;
     QString dateAdded;
     QString lastModified;
     qlonglong size = 0;
@@ -48,6 +49,7 @@ public:
         SuffixRole,
         MimeTypeRole,
         IconNameRole,
+        IconSourceRole,
         DateAddedRole,
         LastModifiedRole,
         SizeRole,

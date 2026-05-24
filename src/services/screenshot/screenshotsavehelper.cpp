@@ -65,6 +65,30 @@ QString mapWriterError(const QImageWriter::ImageWriterError err, const QString &
     }
     return QStringLiteral("io-error");
 }
+
+QString destinationPreflightError(const QString &dstDir, qint64 requiredBytes)
+{
+    if (dstDir.isEmpty()) {
+        return QStringLiteral("invalid-args");
+    }
+
+    const QFileInfo dirInfo(dstDir);
+    if (!dirInfo.exists() || !dirInfo.isDir()) {
+        return QString();
+    }
+    if (!dirInfo.isWritable()) {
+        return QStringLiteral("permission-denied");
+    }
+
+    const QStorageInfo storage(dstDir);
+    if (storage.isValid() && storage.isReady()
+        && requiredBytes > 0
+        && storage.bytesAvailable() >= 0
+        && storage.bytesAvailable() < requiredBytes) {
+        return QStringLiteral("no-space");
+    }
+    return QString();
+}
 } // namespace
 
 ScreenshotSaveHelper::ScreenshotSaveHelper(QObject *parent)
@@ -200,6 +224,12 @@ QVariantMap ScreenshotSaveHelper::saveImageFile(const QString &sourcePath,
             return out;
         }
     }
+    const QFileInfo srcInfo(src);
+    const QString preflightError = destinationPreflightError(dstDir, srcInfo.size());
+    if (!preflightError.isEmpty()) {
+        out.insert(QStringLiteral("error"), preflightError);
+        return out;
+    }
 
     if (QFileInfo::exists(dst)) {
         if (!overwrite) {
@@ -230,10 +260,7 @@ QVariantMap ScreenshotSaveHelper::saveImageFile(const QString &sourcePath,
                 ok = copyFile.copy(dst);
                 if (ok) {
                     QFile cleanup(src);
-                    if (!cleanup.remove()) {
-                        errorCode = mapFileError(cleanup.error());
-                        ok = false;
-                    }
+                    cleanup.remove();
                 } else {
                     errorCode = mapFileError(copyFile.error());
                 }
@@ -256,10 +283,7 @@ QVariantMap ScreenshotSaveHelper::saveImageFile(const QString &sourcePath,
         }
         if (ok) {
             QFile cleanup(src);
-            if (!cleanup.remove()) {
-                errorCode = mapFileError(cleanup.error());
-                ok = false;
-            }
+            cleanup.remove();
         }
     }
 

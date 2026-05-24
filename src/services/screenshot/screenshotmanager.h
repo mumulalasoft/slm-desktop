@@ -48,6 +48,10 @@ private:
     QVariantMap captureViaKWinScreenShot2(const QString &mode,
                                           const QString &targetPath,
                                           const QRect &captureRect);
+    QVariantMap captureViaGrim(const QString &mode,
+                               const QString &targetPath,
+                               bool cropEnabled = false,
+                               const QRect &cropRect = QRect());
     QVariantMap captureViaOwnWindows(const QString &mode,
                                      const QString &targetPath,
                                      bool cropEnabled = false,

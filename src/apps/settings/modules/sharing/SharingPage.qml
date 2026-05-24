@@ -204,8 +204,8 @@ Flickable {
                 description: qsTr("A confirmation dialog appears every time a device requests access")
 
                 SettingToggle {
-                    checked: true
-                    enabled: SharingServiceClient.screenSharingEnabled
+                    checked: SharingServiceClient.requireApprovalEnabled
+                    onToggled: SharingServiceClient.setFeatureEnabled("require-approval", checked)
                 }
             }
 
@@ -214,8 +214,8 @@ Flickable {
                 description: qsTr("Connected devices can control mouse and keyboard, not just view")
 
                 SettingToggle {
-                    checked: false
-                    enabled: SharingServiceClient.screenSharingEnabled
+                    checked: SharingServiceClient.remoteInteractionEnabled
+                    onToggled: SharingServiceClient.setFeatureEnabled("remote-interaction", checked)
                 }
             }
         }
@@ -381,7 +381,8 @@ Flickable {
                 description: qsTr("Prevent sharing services from being reachable over the internet")
 
                 SettingToggle {
-                    checked: true
+                    checked: SharingServiceClient.restrictToLocalNetwork
+                    onToggled: SharingServiceClient.setFeatureEnabled("restrict-local", checked)
                 }
             }
         }
@@ -396,7 +397,8 @@ Flickable {
                 description: qsTr("Devices must confirm they are trusted before accessing shared resources")
 
                 SettingToggle {
-                    checked: true
+                    checked: SharingServiceClient.requireAuthEnabled
+                    onToggled: SharingServiceClient.setFeatureEnabled("require-auth", checked)
                 }
             }
 
@@ -405,7 +407,8 @@ Flickable {
                 description: qsTr("Incoming files from unknown devices are automatically rejected")
 
                 SettingToggle {
-                    checked: true
+                    checked: SharingServiceClient.autoRejectUntrusted
+                    onToggled: SharingServiceClient.setFeatureEnabled("auto-reject-untrusted", checked)
                 }
             }
 

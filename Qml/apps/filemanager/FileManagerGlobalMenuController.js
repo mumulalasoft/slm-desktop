@@ -70,6 +70,16 @@ function overrideMenus() {
             ]
         },
         {
+            "id": 2103,
+            "label": "Storage",
+            "enabled": true,
+            "items": [
+                { "id": 1, "label": "Open Home Folder", "enabled": true },
+                { "id": 2, "label": "Open Downloads", "enabled": true },
+                { "id": 3, "label": "Trash", "enabled": true }
+            ]
+        },
+        {
             "id": 2004,
             "label": "Tools",
             "enabled": true,

@@ -1,0 +1,48 @@
+[Unit]
+Description=SLM File System Daemon (privileged access gateway)
+Documentation=https://slm.desktop.local/docs/fsd
+After=dbus.service local-fs.target
+Wants=dbus.service
+
+[Service]
+Type=dbus
+BusName=org.slm.Desktop.Fsd1
+ExecStart=/usr/libexec/slm-fsd
+Restart=on-failure
+RestartSec=2
+
+# Capability hardening.
+# CAP_CHOWN          : chown() calls
+# CAP_DAC_OVERRIDE   : read/write any file regardless of permissions
+# CAP_DAC_READ_SEARCH: open any directory, read any file
+# CAP_FOWNER         : bypass permission checks on files we own
+# CAP_SYS_ADMIN      : mount() / umount2() + BTRFS ioctls
+CapabilityBoundingSet=CAP_CHOWN CAP_DAC_OVERRIDE CAP_DAC_READ_SEARCH CAP_FOWNER CAP_SYS_ADMIN
+AmbientCapabilities=CAP_CHOWN CAP_DAC_OVERRIDE CAP_DAC_READ_SEARCH CAP_FOWNER CAP_SYS_ADMIN
+
+# No privilege escalation via setuid/capabilities on child exec
+NoNewPrivileges=yes
+
+# Filesystem isolation
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectClock=yes
+ProtectHostname=yes
+LockPersonality=yes
+RestrictRealtime=yes
+MemoryDenyWriteExecute=yes
+
+# Network: only AF_UNIX for D-Bus
+RestrictAddressFamilies=AF_UNIX
+
+# Syscall filter — allow filesystem + I/O + mount syscalls only
+SystemCallArchitectures=native
+SystemCallFilter=@system-service @file-system @io-event rename renameat renameat2 mount umount2 ioctl
+
+# State directories (auto-created by systemd, owned root:root 0750)
+StateDirectory=slm/recovery-trash slm/snapshots/fsd
+StateDirectoryMode=0750
+
+[Install]
+WantedBy=multi-user.target

@@ -288,10 +288,16 @@ bool AppExecutionGate::launchCommand(const QString &command, const QString &work
 
 bool AppExecutionGate::openTarget(const QString &targetPathOrUrl, const QString &source)
 {
-    const QString raw = targetPathOrUrl.trimmed();
+    QString raw = targetPathOrUrl.trimmed();
     if (raw.isEmpty()) {
         emit appExecutionRecorded(source, QStringLiteral("target"), QString(), QString(), false);
         return false;
+    }
+
+    if (raw == QStringLiteral("~") || raw.startsWith(QStringLiteral("~/"))) {
+        raw = QDir::homePath() + raw.mid(1);
+    } else if (raw == QStringLiteral("__trash__")) {
+        raw = QDir::homePath() + QStringLiteral("/.local/share/Trash/files");
     }
 
     QString desktopFilePath;
@@ -402,7 +408,7 @@ bool AppExecutionGate::openTarget(const QString &targetPathOrUrl, const QString 
 
 bool AppExecutionGate::launchFromFileManager(const QString &targetPathOrUrl)
 {
-    return openTarget(targetPathOrUrl, QStringLiteral("filemanager"));
+    return openTarget(targetPathOrUrl, QStringLiteral("slm-filemanager"));
 }
 
 bool AppExecutionGate::launchFromTerminal(const QString &command, const QString &workingDirectory)

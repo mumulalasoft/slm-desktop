@@ -1,44 +1,275 @@
-[2026-05-20 01:27:17.029][INF] === slm-session-broker start (pid=1765) ===
-[2026-05-20 01:27:17.030][INF] slm-session-broker: prev state — crashCount=0 lastBootStatus=healthy configPending=no lastMode=normal recoveryReason=<none> lastCrashReason=<none>
-[2026-05-20 01:27:17.030][INF] slm-session-broker: crash counter: 0 → 1 (threshold=5, recovery_at>=5)
-[2026-05-20 01:27:17.042][INF] config: path=/home/garis/.config/slm-desktop/config.json compositor=kwin_wayland
-[2026-05-20 01:27:17.042][INF] SLM-SESSION: XDG_SESSION_ID=c1
-[2026-05-20 01:27:17.042][INF] SLM-SESSION: env snapshot:
-[2026-05-20 01:27:17.042][INF]   XDG_SESSION_ID=c1
-[2026-05-20 01:27:17.042][INF]   XDG_SESSION_TYPE=wayland
-[2026-05-20 01:27:17.042][INF]   XDG_SESSION_CLASS=user
-[2026-05-20 01:27:17.042][INF]   XDG_SEAT=seat0
-[2026-05-20 01:27:17.042][INF]   XDG_VTNR=7
-[2026-05-20 01:27:17.042][INF]   XDG_RUNTIME_DIR=/run/user/1000
-[2026-05-20 01:27:17.042][INF]   XDG_CURRENT_DESKTOP=SLM
-[2026-05-20 01:27:17.042][INF]   DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
-[2026-05-20 01:27:17.042][INF]   LIBSEAT_BACKEND=<unset>
-[2026-05-20 01:27:17.079][INF] slm-session-broker: compatibility report: /home/garis/.config/slm-desktop/compatibility-report.json
-[2026-05-20 01:27:17.079][WRN] slm-session-broker: platform compatibility warnings:
-[2026-05-20 01:27:17.079][WRN]   - [wayland] wayland-0 not present yet in runtime dir: /run/user/1000/wayland-0
-[2026-05-20 01:27:17.079][WRN]   - [portal] portal runtime check deferred until graphical environment is ready
-[2026-05-20 01:27:17.079][INF] slm-session-broker: compatibility summary checks=6 failures=0 warnings=2
-[2026-05-20 01:27:17.079][INF] slm-session-broker: startup mode = normal (requested = normal, crashes = 1)
-[2026-05-20 01:27:17.086][INF] compositor: config env overrides: KWIN_COMPOSE=Q KWIN_FORCE_SW_CURSOR=1 LIBSEAT_BACKEND=logind QT_LOGGING_RULES=kwin*.debug=true;qt.qpa.wayland.debug=true;libwayland*.debug=true QT_MESSAGE_PATTERN=[%{time yyyy-MM-dd hh:mm:ss.zzz}] [%{type}] %{category}: %{message}
-[2026-05-20 01:27:17.087][INF] compositor: drm_card=yes path=/dev/dri/card1 drm_render=yes path=/dev/dri/renderD128
-[2026-05-20 01:27:17.087][INF] compositor: enabling KWin XWayland bridge for legacy/X11 apps
-[2026-05-20 01:27:17.087][INF] compositor: KWIN_DRM_DEVICES=/dev/dri/card1 (auto)
-[2026-05-20 01:27:17.087][INF] compositor: kwin socket flag '--socket' -> using fixed socket 'wayland-0'
-[2026-05-20 01:27:17.087][INF] compositor: launching 'kwin_wayland' --no-lockscreen --xwayland --socket wayland-0 (backend=kwin strategy=fixed socket=wayland-0)
-[2026-05-20 01:27:17.087][INF] compositor: log -> /tmp/slm-compositor.log
-[2026-05-20 01:27:17.089][INF] compositor: started (pid=1924)
-[2026-05-20 01:27:17.089][INF] compositor: waiting for fixed socket '/run/user/1000/wayland-0' (timeout 5000ms)…
-[2026-05-20 01:27:17.491][INF] compositor: socket 'wayland-0' ready after 402ms
-[2026-05-20 01:27:17.491][INF] compositor: waiting for XWayland display (timeout 2000ms)...
-[2026-05-20 01:27:17.993][INF] compositor: XWayland display ':0' ready after 502ms
-[2026-05-20 01:27:19.514][WRN] compositor: XAUTHORITY not found; X11 apps may fail authentication
-[2026-05-20 01:27:19.523][INF] session: imported activation environment into systemd user manager (DBUS_SESSION_BUS_ADDRESS,DISPLAY,WAYLAND_DISPLAY,XDG_CURRENT_DESKTOP,XDG_SESSION_DESKTOP,XDG_SESSION_TYPE,XDG_RUNTIME_DIR)
-[2026-05-20 01:27:19.528][INF] session: updated DBus/systemd activation environment
-[2026-05-20 01:27:19.586][INF] session: portal prewarm ready (org.freedesktop.portal.Desktop reachable)
-[2026-05-20 01:27:19.586][INF] shell env: WAYLAND_DISPLAY=wayland-0 DISPLAY=:0 XAUTHORITY= QT_QPA_PLATFORM=wayland XDG_SESSION_TYPE=wayland SLM_SESSION_MODE=normal
-[2026-05-20 01:27:19.592][INF] shell: 'slm-shell' started (pid=2226)
-[2026-05-20 01:27:19.595][INF] slm-session-broker: watchdog started (pid=2227)
-[2026-05-20 01:27:19.595][INF] session: monitoring compositor and shell exits…
+[2026-05-24 10:59:57.487][INF] === slm-session-broker start (pid=1822) ===
+[2026-05-24 10:59:57.487][INF] slm-session-broker: prev state — crashCount=0 lastBootStatus=healthy configPending=no lastMode=normal recoveryReason=<none> lastCrashReason=<none>
+[2026-05-24 10:59:57.487][INF] slm-session-broker: crash counter: 0 → 1 (threshold=5, recovery_at>=5)
+[2026-05-24 10:59:57.499][INF] config: path=/home/garis/.config/slm-desktop/config.json compositor=kwin_wayland
+[2026-05-24 10:59:57.499][INF] SLM-SESSION: XDG_SESSION_ID=c1
+[2026-05-24 10:59:57.499][INF] SLM-SESSION: env snapshot:
+[2026-05-24 10:59:57.499][INF]   XDG_SESSION_ID=c1
+[2026-05-24 10:59:57.499][INF]   XDG_SESSION_TYPE=wayland
+[2026-05-24 10:59:57.499][INF]   XDG_SESSION_CLASS=user
+[2026-05-24 10:59:57.499][INF]   XDG_SEAT=seat0
+[2026-05-24 10:59:57.499][INF]   XDG_VTNR=7
+[2026-05-24 10:59:57.499][INF]   XDG_RUNTIME_DIR=/run/user/1000
+[2026-05-24 10:59:57.499][INF]   XDG_CURRENT_DESKTOP=SLM
+[2026-05-24 10:59:57.499][INF]   DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+[2026-05-24 10:59:57.499][INF]   LIBSEAT_BACKEND=<unset>
+[2026-05-24 10:59:57.546][INF] slm-session-broker: compatibility report: /home/garis/.config/slm-desktop/compatibility-report.json
+[2026-05-24 10:59:57.546][WRN] slm-session-broker: platform compatibility warnings:
+[2026-05-24 10:59:57.546][WRN]   - [wayland] wayland-0 not present yet in runtime dir: /run/user/1000/wayland-0
+[2026-05-24 10:59:57.546][WRN]   - [portal] portal runtime check deferred until graphical environment is ready
+[2026-05-24 10:59:57.546][INF] slm-session-broker: compatibility summary checks=6 failures=0 warnings=2
+[2026-05-24 10:59:57.546][INF] slm-session-broker: startup mode = normal (requested = normal, crashes = 1)
+[2026-05-24 10:59:57.559][INF] compositor: config env overrides: KWIN_COMPOSE=Q KWIN_FORCE_SW_CURSOR=1 LIBSEAT_BACKEND=logind QT_LOGGING_RULES=kwin*.debug=true;qt.qpa.wayland.debug=true;libwayland*.debug=true QT_MESSAGE_PATTERN=[%{time yyyy-MM-dd hh:mm:ss.zzz}] [%{type}] %{category}: %{message}
+[2026-05-24 10:59:57.559][INF] compositor: drm_card=yes path=/dev/dri/card1 drm_render=yes path=/dev/dri/renderD128
+[2026-05-24 10:59:57.559][INF] compositor: enabling KWin XWayland bridge for legacy/X11 apps
+[2026-05-24 10:59:57.559][INF] compositor: KWIN_DRM_DEVICES=/dev/dri/card1 (auto)
+[2026-05-24 10:59:57.559][INF] compositor: kwin socket flag '--socket' -> using fixed socket 'wayland-0'
+[2026-05-24 10:59:57.560][INF] compositor: launching 'kwin_wayland' --no-lockscreen --xwayland --socket wayland-0 (backend=kwin strategy=fixed socket=wayland-0)
+[2026-05-24 10:59:57.560][INF] compositor: log -> /tmp/slm-compositor.log
+[2026-05-24 10:59:57.561][INF] compositor: started (pid=1980)
+[2026-05-24 10:59:57.561][INF] compositor: waiting for fixed socket '/run/user/1000/wayland-0' (timeout 5000ms)…
+[2026-05-24 10:59:57.913][INF] compositor: socket 'wayland-0' ready after 352ms
+[2026-05-24 10:59:57.913][INF] compositor: waiting for XWayland display (timeout 2000ms)...
+[2026-05-24 10:59:58.364][INF] compositor: XWayland display ':0' ready after 451ms
+[2026-05-24 10:59:59.887][WRN] compositor: XAUTHORITY not found; X11 apps may fail authentication
+[2026-05-24 10:59:59.897][INF] session: imported activation environment into systemd user manager (DBUS_SESSION_BUS_ADDRESS,DISPLAY,WAYLAND_DISPLAY,XDG_CURRENT_DESKTOP,XDG_SESSION_DESKTOP,XDG_SESSION_TYPE,XDG_RUNTIME_DIR)
+[2026-05-24 10:59:59.909][INF] session: updated DBus/systemd activation environment
+[2026-05-24 10:59:59.965][INF] session: portal prewarm ready (org.freedesktop.portal.Desktop reachable)
+[2026-05-24 10:59:59.965][INF] shell env: WAYLAND_DISPLAY=wayland-0 DISPLAY=:0 XAUTHORITY= QT_QPA_PLATFORM=wayland XDG_SESSION_TYPE=wayland SLM_SESSION_MODE=normal
+[2026-05-24 10:59:59.968][INF] shell: 'slm-shell' started (pid=2287)
+[2026-05-24 10:59:59.971][INF] slm-session-broker: watchdog started (pid=2288)
+[2026-05-24 10:59:59.971][INF] session: monitoring compositor and shell exits…
 slm-watchdog: started — will mark session healthy in 30000ms
-[2026-05-20 01:27:20.858][INF] session: first-frame healthy snapshot=20260519-182720-847
-[2026-05-20 01:27:20.873][INF] session: first frame promoted session healthy (crash_count reset to 0)
+[2026-05-24 11:00:01.233][INF] session: first-frame healthy snapshot=20260524-040001-223
+[2026-05-24 11:00:01.254][INF] session: first frame promoted session healthy (crash_count reset to 0)
+slm-watchdog: lifecycle marker confirms first frame rendered
+slm-watchdog: last_good_snapshot=20260524-040029-819
+slm-watchdog: config promoted to safe baseline
+slm-watchdog: session marked healthy (crash_count reset to 0)
+[broker] caught signal=SIGTERM(15) sender_pid=1693
+[2026-05-24 11:04:18.054][INF] session: SIGTERM received — graceful shutdown
+[2026-05-24 11:04:18.055][INF] compositor: terminating (reason=external-sigterm)
+[2026-05-24 11:04:18.095][INF] compositor: exited normally exit_code=15
+[2026-05-24 11:04:18.154][INF] compositor: last 40 new lines from /tmp/slm-compositor.log:
+[2026-05-24 11:04:18.154][INF]   | [2026-05-24 11:00:25.054] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_DOWN → DEBOUNCE_EVENT_RELEASE → DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS
+[2026-05-24 11:04:18.154][INF]   | [2026-05-24 11:00:25.066] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS → DEBOUNCE_EVENT_TIMEOUT_SHORT → DEBOUNCE_STATE_IS_UP_WAITING
+[2026-05-24 11:04:18.154][INF]   | [2026-05-24 11:00:25.079] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_WAITING → DEBOUNCE_EVENT_TIMEOUT → DEBOUNCE_STATE_IS_UP
+[2026-05-24 11:04:18.154][INF]   | [2026-05-24 11:00:26.452] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP → DEBOUNCE_EVENT_OTHERBUTTON → DEBOUNCE_STATE_IS_UP
+[2026-05-24 11:04:18.154][INF]   | [2026-05-24 11:00:26.452] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP → DEBOUNCE_EVENT_PRESS → DEBOUNCE_STATE_IS_DOWN_WAITING
+[2026-05-24 11:04:18.154][INF]   | [2026-05-24 11:00:26.477] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_DOWN_WAITING → DEBOUNCE_EVENT_TIMEOUT → DEBOUNCE_STATE_IS_DOWN
+[2026-05-24 11:04:18.154][INF]   | [2026-05-24 11:00:26.652] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_DOWN → DEBOUNCE_EVENT_RELEASE → DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS
+[2026-05-24 11:04:18.154][INF]   | [2026-05-24 11:00:26.664] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS → DEBOUNCE_EVENT_TIMEOUT_SHORT → DEBOUNCE_STATE_IS_UP_WAITING
+[2026-05-24 11:04:18.154][INF]   | [2026-05-24 11:00:26.677] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_WAITING → DEBOUNCE_EVENT_TIMEOUT → DEBOUNCE_STATE_IS_UP
+[2026-05-24 11:04:18.154][INF]   | [2026-05-24 11:00:27.712] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP → DEBOUNCE_EVENT_OTHERBUTTON → DEBOUNCE_STATE_IS_UP
+[2026-05-24 11:04:18.154][INF]   | [2026-05-24 11:00:27.712] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP → DEBOUNCE_EVENT_PRESS → DEBOUNCE_STATE_IS_DOWN_WAITING
+[2026-05-24 11:04:18.154][INF]   | [2026-05-24 11:00:27.738] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_DOWN_WAITING → DEBOUNCE_EVENT_TIMEOUT → DEBOUNCE_STATE_IS_DOWN
+[2026-05-24 11:04:18.154][INF]   | [2026-05-24 11:00:27.892] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_DOWN → DEBOUNCE_EVENT_RELEASE → DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS
+[2026-05-24 11:04:18.155][INF]   | [2026-05-24 11:00:27.904] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS → DEBOUNCE_EVENT_TIMEOUT_SHORT → DEBOUNCE_STATE_IS_UP_WAITING
+[2026-05-24 11:04:18.155][INF]   | [2026-05-24 11:00:27.917] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_WAITING → DEBOUNCE_EVENT_TIMEOUT → DEBOUNCE_STATE_IS_UP
+[2026-05-24 11:04:18.155][INF]   | [2026-05-24 11:00:29.093] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP → DEBOUNCE_EVENT_OTHERBUTTON → DEBOUNCE_STATE_IS_UP
+[2026-05-24 11:04:18.155][INF]   | [2026-05-24 11:00:29.093] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP → DEBOUNCE_EVENT_PRESS → DEBOUNCE_STATE_IS_DOWN_WAITING
+[2026-05-24 11:04:18.155][INF]   | [2026-05-24 11:00:29.118] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_DOWN_WAITING → DEBOUNCE_EVENT_TIMEOUT → DEBOUNCE_STATE_IS_DOWN
+[2026-05-24 11:04:18.155][INF]   | [2026-05-24 11:00:29.292] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_DOWN → DEBOUNCE_EVENT_RELEASE → DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS
+[2026-05-24 11:04:18.155][INF]   | [2026-05-24 11:00:29.305] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS → DEBOUNCE_EVENT_TIMEOUT_SHORT → DEBOUNCE_STATE_IS_UP_WAITING
+[2026-05-24 11:04:18.155][INF]   | [2026-05-24 11:00:29.317] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_WAITING → DEBOUNCE_EVENT_TIMEOUT → DEBOUNCE_STATE_IS_UP
+[2026-05-24 11:04:18.155][INF]   | [2026-05-24 11:00:30.203] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP → DEBOUNCE_EVENT_OTHERBUTTON → DEBOUNCE_STATE_IS_UP
+[2026-05-24 11:04:18.155][INF]   | [2026-05-24 11:00:30.203] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP → DEBOUNCE_EVENT_PRESS → DEBOUNCE_STATE_IS_DOWN_WAITING
+[2026-05-24 11:04:18.155][INF]   | [2026-05-24 11:00:30.228] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_DOWN_WAITING → DEBOUNCE_EVENT_TIMEOUT → DEBOUNCE_STATE_IS_DOWN
+[2026-05-24 11:04:18.155][INF]   | [2026-05-24 11:00:30.383] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_DOWN → DEBOUNCE_EVENT_RELEASE → DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS
+[2026-05-24 11:04:18.155][INF]   | [2026-05-24 11:00:30.395] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS → DEBOUNCE_EVENT_TIMEOUT_SHORT → DEBOUNCE_STATE_IS_UP_WAITING
+[2026-05-24 11:04:18.155][INF]   | [2026-05-24 11:00:30.408] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_WAITING → DEBOUNCE_EVENT_TIMEOUT → DEBOUNCE_STATE_IS_UP
+[2026-05-24 11:04:18.155][INF]   | [2026-05-24 11:00:31.485] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP → DEBOUNCE_EVENT_OTHERBUTTON → DEBOUNCE_STATE_IS_UP
+[2026-05-24 11:04:18.155][INF]   | [2026-05-24 11:00:31.485] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP → DEBOUNCE_EVENT_PRESS → DEBOUNCE_STATE_IS_DOWN_WAITING
+[2026-05-24 11:04:18.155][INF]   | [2026-05-24 11:00:31.510] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_DOWN_WAITING → DEBOUNCE_EVENT_TIMEOUT → DEBOUNCE_STATE_IS_DOWN
+[2026-05-24 11:04:18.155][INF]   | [2026-05-24 11:00:31.685] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_DOWN → DEBOUNCE_EVENT_RELEASE → DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS
+[2026-05-24 11:04:18.155][INF]   | [2026-05-24 11:00:31.697] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS → DEBOUNCE_EVENT_TIMEOUT_SHORT → DEBOUNCE_STATE_IS_UP_WAITING
+[2026-05-24 11:04:18.155][INF]   | [2026-05-24 11:00:31.710] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_WAITING → DEBOUNCE_EVENT_TIMEOUT → DEBOUNCE_STATE_IS_UP
+[2026-05-24 11:04:18.155][INF]   | [2026-05-24 11:00:33.042] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP → DEBOUNCE_EVENT_OTHERBUTTON → DEBOUNCE_STATE_IS_UP
+[2026-05-24 11:04:18.155][INF]   | [2026-05-24 11:00:33.042] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP → DEBOUNCE_EVENT_PRESS → DEBOUNCE_STATE_IS_DOWN_WAITING
+[2026-05-24 11:04:18.155][INF]   | [2026-05-24 11:00:33.067] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_DOWN_WAITING → DEBOUNCE_EVENT_TIMEOUT → DEBOUNCE_STATE_IS_DOWN
+[2026-05-24 11:04:18.155][INF]   | [2026-05-24 11:00:33.222] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_DOWN → DEBOUNCE_EVENT_RELEASE → DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS
+[2026-05-24 11:04:18.155][INF]   | [2026-05-24 11:00:33.234] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_DETECTING_SPURIOUS → DEBOUNCE_EVENT_TIMEOUT_SHORT → DEBOUNCE_STATE_IS_UP_WAITING
+[2026-05-24 11:04:18.155][INF]   | [2026-05-24 11:00:33.247] [debug] kwin_libinput: Libinput: Plugin:button-debounce - debounce state: DEBOUNCE_STATE_IS_UP_WAITING → DEBOUNCE_EVENT_TIMEOUT → DEBOUNCE_STATE_IS_UP
+[2026-05-24 11:04:18.155][INF]   | [2026-05-24 11:04:18.077] [debug] kwin_wayland_drm: Removing output KWin::DrmOutput(0x624685b94f80)
+[2026-05-24 11:04:18.155][INF] shell: last 79 new lines from /tmp/slm-shell.log:
+[2026-05-24 11:04:18.156][INF]   | [2026-05-24 11:04:05.523][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=444.47891400000003 collapsedView.width=444.47891400000003 parent.width=1620
+[2026-05-24 11:04:18.156][INF]   | [slm-shell][2026-05-24 11:04:05.542][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=436.64230925 collapsedView.width=436.64230925 parent.width=1620
+[2026-05-24 11:04:18.156][INF]   | [2026-05-24 11:04:05.542][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=436.64230925 collapsedView.width=436.64230925 parent.width=1620
+[2026-05-24 11:04:18.156][INF]   | [slm-shell][2026-05-24 11:04:05.556][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=431.164898 collapsedView.width=431.164898 parent.width=1620
+[2026-05-24 11:04:18.156][INF]   | [2026-05-24 11:04:05.556][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=431.164898 collapsedView.width=431.164898 parent.width=1620
+[2026-05-24 11:04:18.156][INF]   | [slm-shell][2026-05-24 11:04:05.573][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=426.634866 collapsedView.width=426.634866 parent.width=1620
+[2026-05-24 11:04:18.156][INF]   | [2026-05-24 11:04:05.573][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=426.634866 collapsedView.width=426.634866 parent.width=1620
+[2026-05-24 11:04:18.156][INF]   | [slm-shell][2026-05-24 11:04:05.590][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=423.11102525 collapsedView.width=423.11102525 parent.width=1620
+[2026-05-24 11:04:18.156][INF]   | [2026-05-24 11:04:05.590][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=423.11102525 collapsedView.width=423.11102525 parent.width=1620
+[2026-05-24 11:04:18.156][INF]   | [slm-shell][2026-05-24 11:04:05.647][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=418.237568 collapsedView.width=418.237568 parent.width=1620
+[2026-05-24 11:04:18.156][INF]   | [2026-05-24 11:04:05.647][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=418.237568 collapsedView.width=418.237568 parent.width=1620
+[2026-05-24 11:04:18.156][INF]   | [slm-shell][2026-05-24 11:04:05.648][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=418.14270175 collapsedView.width=418.14270175 parent.width=1620
+[2026-05-24 11:04:18.156][INF]   | [2026-05-24 11:04:05.648][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=418.14270175 collapsedView.width=418.14270175 parent.width=1620
+[2026-05-24 11:04:18.156][INF]   | [slm-shell][2026-05-24 11:04:05.665][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=418.00964975 collapsedView.width=418.00964975 parent.width=1620
+[2026-05-24 11:04:18.156][INF]   | [2026-05-24 11:04:05.665][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=418.00964975 collapsedView.width=418.00964975 parent.width=1620
+[2026-05-24 11:04:18.156][INF]   | [slm-shell][2026-05-24 11:04:05.681][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=418 collapsedView.width=418 parent.width=1620
+[2026-05-24 11:04:18.156][INF]   | [2026-05-24 11:04:05.681][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=418 collapsedView.width=418 parent.width=1620
+[2026-05-24 11:04:18.156][INF]   | [slm-shell][2026-05-24 11:04:06.465][INF] Desktop file monitor event "deleted" "/usr/share/applications/slm-shell.desktop"
+[2026-05-24 11:04:18.156][INF]   | [2026-05-24 11:04:06.465][INF] Desktop file monitor event "deleted" "/usr/share/applications/slm-shell.desktop"
+[2026-05-24 11:04:18.156][INF]   | [slm-shell][2026-05-24 11:04:06.465][INF] GAppInfoMonitor changed: scheduling DesktopAppModel refresh
+[2026-05-24 11:04:18.156][INF]   | [2026-05-24 11:04:06.465][INF] GAppInfoMonitor changed: scheduling DesktopAppModel refresh
+[2026-05-24 11:04:18.156][INF]   | [slm-shell][2026-05-24 11:04:06.467][INF] Desktop file monitor event "created" "/usr/share/applications/slm-shell.desktop"
+[2026-05-24 11:04:18.156][INF]   | [2026-05-24 11:04:06.467][INF] Desktop file monitor event "created" "/usr/share/applications/slm-shell.desktop"
+[2026-05-24 11:04:18.156][INF]   | [slm-shell][2026-05-24 11:04:06.468][INF] Desktop file monitor event "changed" "/usr/share/applications/slm-shell.desktop"
+[2026-05-24 11:04:18.156][INF]   | [2026-05-24 11:04:06.468][INF] Desktop file monitor event "changed" "/usr/share/applications/slm-shell.desktop"
+[2026-05-24 11:04:18.156][INF]   | [slm-shell][2026-05-24 11:04:06.468][INF] Desktop file monitor event "changes_done" "/usr/share/applications/slm-shell.desktop"
+[2026-05-24 11:04:18.156][INF]   | [2026-05-24 11:04:06.468][INF] Desktop file monitor event "changes_done" "/usr/share/applications/slm-shell.desktop"
+[2026-05-24 11:04:18.156][INF]   | [slm-shell][2026-05-24 11:04:06.468][INF] Desktop file monitor event "attribute_changed" "/usr/share/applications/slm-shell.desktop"
+[2026-05-24 11:04:18.156][INF]   | [2026-05-24 11:04:06.468][INF] Desktop file monitor event "attribute_changed" "/usr/share/applications/slm-shell.desktop"
+[2026-05-24 11:04:18.156][INF]   | [slm-shell][2026-05-24 11:04:06.600][INF] GAppInfoMonitor changed: scheduling DesktopAppModel refresh
+[2026-05-24 11:04:18.156][INF]   | [2026-05-24 11:04:06.600][INF] GAppInfoMonitor changed: scheduling DesktopAppModel refresh
+[2026-05-24 11:04:18.156][INF]   | [slm-shell][2026-05-24 11:04:06.918][DBG] DesktopAppModel refresh begin
+[2026-05-24 11:04:18.156][INF]   | [2026-05-24 11:04:06.918][DBG] DesktopAppModel refresh begin
+[2026-05-24 11:04:18.156][INF]   | [slm-shell][2026-05-24 11:04:06.928][DBG] DesktopAppModel refresh unchanged, app count = 29
+[2026-05-24 11:04:18.156][INF]   | [2026-05-24 11:04:06.928][DBG] DesktopAppModel refresh unchanged, app count = 29
+[2026-05-24 11:04:18.156][INF]   | [slm-shell][2026-05-24 11:04:14.663][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=450.03356675 collapsedView.width=450.03356675 parent.width=1620
+[2026-05-24 11:04:18.156][INF]   | [2026-05-24 11:04:14.663][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=450.03356675 collapsedView.width=450.03356675 parent.width=1620
+[2026-05-24 11:04:18.156][INF]   | [slm-shell][2026-05-24 11:04:14.680][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=457.762944 collapsedView.width=457.762944 parent.width=1620
+[2026-05-24 11:04:18.156][INF]   | [2026-05-24 11:04:14.680][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=457.762944 collapsedView.width=457.762944 parent.width=1620
+[2026-05-24 11:04:18.156][INF]   | [slm-shell][2026-05-24 11:04:14.695][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=463.472 collapsedView.width=463.472 parent.width=1620
+[2026-05-24 11:04:18.156][INF]   | [2026-05-24 11:04:14.695][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=463.472 collapsedView.width=463.472 parent.width=1620
+[2026-05-24 11:04:18.156][INF]   | [slm-shell][2026-05-24 11:04:14.711][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=467.844736 collapsedView.width=467.844736 parent.width=1620
+[2026-05-24 11:04:18.156][INF]   | [2026-05-24 11:04:14.711][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=467.844736 collapsedView.width=467.844736 parent.width=1620
+[2026-05-24 11:04:18.156][INF]   | [slm-shell][2026-05-24 11:04:14.749][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=473.915654 collapsedView.width=473.915654 parent.width=1620
+[2026-05-24 11:04:18.156][INF]   | [2026-05-24 11:04:14.749][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=473.915654 collapsedView.width=473.915654 parent.width=1620
+[2026-05-24 11:04:18.156][INF]   | [slm-shell][2026-05-24 11:04:14.767][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=475.09375 collapsedView.width=475.09375 parent.width=1620
+[2026-05-24 11:04:18.156][INF]   | [2026-05-24 11:04:14.767][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=475.09375 collapsedView.width=475.09375 parent.width=1620
+[2026-05-24 11:04:18.156][INF]   | [slm-shell][2026-05-24 11:04:14.781][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=475.73945675 collapsedView.width=475.73945675 parent.width=1620
+[2026-05-24 11:04:18.156][INF]   | [2026-05-24 11:04:14.781][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=475.73945675 collapsedView.width=475.73945675 parent.width=1620
+[2026-05-24 11:04:18.156][INF]   | [slm-shell][2026-05-24 11:04:14.796][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=475.96438075 collapsedView.width=475.96438075 parent.width=1620
+[2026-05-24 11:04:18.156][INF]   | [2026-05-24 11:04:14.796][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=475.96438075 collapsedView.width=475.96438075 parent.width=1620
+[2026-05-24 11:04:18.156][INF]   | [slm-shell][2026-05-24 11:04:14.812][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=475.999942 collapsedView.width=475.999942 parent.width=1620
+[2026-05-24 11:04:18.156][INF]   | [2026-05-24 11:04:14.812][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=475.999942 collapsedView.width=475.999942 parent.width=1620
+[2026-05-24 11:04:18.156][INF]   | [slm-shell][2026-05-24 11:04:14.846][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=476 collapsedView.width=476 parent.width=1620
+[2026-05-24 11:04:18.156][INF]   | [2026-05-24 11:04:14.846][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=476 collapsedView.width=476 parent.width=1620
+[2026-05-24 11:04:18.156][INF]   | [slm-shell][2026-05-24 11:04:15.269][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=475.13434275 collapsedView.width=475.13434275 parent.width=1620
+[2026-05-24 11:04:18.156][INF]   | [2026-05-24 11:04:15.269][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=475.13434275 collapsedView.width=475.13434275 parent.width=1620
+[2026-05-24 11:04:18.156][INF]   | [slm-shell][2026-05-24 11:04:15.308][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=449.39791575 collapsedView.width=449.39791575 parent.width=1620
+[2026-05-24 11:04:18.156][INF]   | [2026-05-24 11:04:15.308][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=449.39791575 collapsedView.width=449.39791575 parent.width=1620
+[2026-05-24 11:04:18.156][INF]   | [slm-shell][2026-05-24 11:04:15.324][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=440.562986 collapsedView.width=440.562986 parent.width=1620
+[2026-05-24 11:04:18.156][INF]   | [2026-05-24 11:04:15.324][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=440.562986 collapsedView.width=440.562986 parent.width=1620
+[2026-05-24 11:04:18.156][INF]   | [slm-shell][2026-05-24 11:04:15.340][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=433.92825 collapsedView.width=433.92825 parent.width=1620
+[2026-05-24 11:04:18.156][INF]   | [2026-05-24 11:04:15.340][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=433.92825 collapsedView.width=433.92825 parent.width=1620
+[2026-05-24 11:04:18.156][INF]   | [slm-shell][2026-05-24 11:04:15.357][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=428.741194 collapsedView.width=428.741194 parent.width=1620
+[2026-05-24 11:04:18.156][INF]   | [2026-05-24 11:04:15.357][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=428.741194 collapsedView.width=428.741194 parent.width=1620
+[2026-05-24 11:04:18.156][INF]   | [slm-shell][2026-05-24 11:04:15.373][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=424.823642 collapsedView.width=424.823642 parent.width=1620
+[2026-05-24 11:04:18.156][INF]   | [2026-05-24 11:04:15.373][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=424.823642 collapsedView.width=424.823642 parent.width=1620
+[2026-05-24 11:04:18.156][INF]   | [slm-shell][2026-05-24 11:04:15.407][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=419.81284075 collapsedView.width=419.81284075 parent.width=1620
+[2026-05-24 11:04:18.157][INF]   | [2026-05-24 11:04:15.407][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=419.81284075 collapsedView.width=419.81284075 parent.width=1620
+[2026-05-24 11:04:18.157][INF]   | [slm-shell][2026-05-24 11:04:15.425][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=418.705686 collapsedView.width=418.705686 parent.width=1620
+[2026-05-24 11:04:18.157][INF]   | [2026-05-24 11:04:15.425][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=418.705686 collapsedView.width=418.705686 parent.width=1620
+[2026-05-24 11:04:18.157][INF]   | [slm-shell][2026-05-24 11:04:15.439][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=418.19575 collapsedView.width=418.19575 parent.width=1620
+[2026-05-24 11:04:18.157][INF]   | [2026-05-24 11:04:15.439][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=418.19575 collapsedView.width=418.19575 parent.width=1620
+[2026-05-24 11:04:18.157][INF]   | [slm-shell][2026-05-24 11:04:15.454][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=418.02446875 collapsedView.width=418.02446875 parent.width=1620
+[2026-05-24 11:04:18.157][INF]   | [2026-05-24 11:04:15.454][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=418.02446875 collapsedView.width=418.02446875 parent.width=1620
+[2026-05-24 11:04:18.157][INF]   | [slm-shell][2026-05-24 11:04:15.470][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=418 collapsedView.width=418 parent.width=1620
+[2026-05-24 11:04:18.157][INF]   | [2026-05-24 11:04:15.470][INF] [APPDECK-COLLAPSED-VIEW-SIZE] dockSurface.width=418 collapsedView.width=418 parent.width=1620
+[2026-05-24 11:04:18.157][INF]   | [slm-shell][2026-05-24 11:04:18.115][WRN] The Wayland connection broke. Did the Wayland compositor die?
+[2026-05-24 11:04:18.157][INF]   | [2026-05-24 11:04:18.115][WRN] The Wayland connection broke. Did the Wayland compositor die?
+[2026-05-24 11:04:18.157][INF] shell: exit_code=255 crashed=no uptime=258189ms first_frame=yes
+[2026-05-24 11:04:18.157][INF] session: ended — crashed=no mode=normal watchdog_status=healthy crashCount=0 reason=<none>
+[2026-05-24 11:04:18.157][INF] session: saving — lastBootStatus=healthy crashCount=0
+[2026-05-24 11:04:18.167][INF] session: ended (crashed=no reason=<none>)
+[2026-05-24 11:04:18.168][INF] === slm-session-broker exit (code=0) ===
+[2026-05-24 11:05:22.023][INF] === slm-session-broker start (pid=11679) ===
+[2026-05-24 11:05:22.023][INF] slm-session-broker: prev state — crashCount=0 lastBootStatus=healthy configPending=no lastMode=normal recoveryReason=<none> lastCrashReason=<none>
+[2026-05-24 11:05:22.023][INF] slm-session-broker: crash counter: 0 → 1 (threshold=5, recovery_at>=5)
+[2026-05-24 11:05:22.036][INF] config: path=/home/garis/.config/slm-desktop/config.json compositor=kwin_wayland
+[2026-05-24 11:05:22.036][INF] SLM-SESSION: XDG_SESSION_ID=c5
+[2026-05-24 11:05:22.036][INF] SLM-SESSION: env snapshot:
+[2026-05-24 11:05:22.036][INF]   XDG_SESSION_ID=c5
+[2026-05-24 11:05:22.036][INF]   XDG_SESSION_TYPE=wayland
+[2026-05-24 11:05:22.036][INF]   XDG_SESSION_CLASS=user
+[2026-05-24 11:05:22.036][INF]   XDG_SEAT=seat0
+[2026-05-24 11:05:22.036][INF]   XDG_VTNR=7
+[2026-05-24 11:05:22.036][INF]   XDG_RUNTIME_DIR=/run/user/1000
+[2026-05-24 11:05:22.036][INF]   XDG_CURRENT_DESKTOP=SLM
+[2026-05-24 11:05:22.036][INF]   DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+[2026-05-24 11:05:22.036][INF]   LIBSEAT_BACKEND=<unset>
+[2026-05-24 11:05:22.072][INF] slm-session-broker: compatibility report: /home/garis/.config/slm-desktop/compatibility-report.json
+[2026-05-24 11:05:22.072][WRN] slm-session-broker: platform compatibility warnings:
+[2026-05-24 11:05:22.072][WRN]   - [wayland] wayland-0 not present yet in runtime dir: /run/user/1000/wayland-0
+[2026-05-24 11:05:22.072][WRN]   - [portal] portal runtime check deferred until graphical environment is ready
+[2026-05-24 11:05:22.072][INF] slm-session-broker: compatibility summary checks=6 failures=0 warnings=2
+[2026-05-24 11:05:22.072][INF] slm-session-broker: startup mode = normal (requested = normal, crashes = 1)
+[2026-05-24 11:05:22.080][INF] compositor: config env overrides: KWIN_COMPOSE=Q KWIN_FORCE_SW_CURSOR=1 LIBSEAT_BACKEND=logind QT_LOGGING_RULES=kwin*.debug=true;qt.qpa.wayland.debug=true;libwayland*.debug=true QT_MESSAGE_PATTERN=[%{time yyyy-MM-dd hh:mm:ss.zzz}] [%{type}] %{category}: %{message}
+[2026-05-24 11:05:22.080][INF] compositor: drm_card=yes path=/dev/dri/card1 drm_render=yes path=/dev/dri/renderD128
+[2026-05-24 11:05:22.080][INF] compositor: enabling KWin XWayland bridge for legacy/X11 apps
+[2026-05-24 11:05:22.080][INF] compositor: KWIN_DRM_DEVICES=/dev/dri/card1 (auto)
+[2026-05-24 11:05:22.080][INF] compositor: kwin socket flag '--socket' -> using fixed socket 'wayland-0'
+[2026-05-24 11:05:22.080][INF] compositor: launching 'kwin_wayland' --no-lockscreen --xwayland --socket wayland-0 (backend=kwin strategy=fixed socket=wayland-0)
+[2026-05-24 11:05:22.080][INF] compositor: log -> /tmp/slm-compositor.log
+[2026-05-24 11:05:22.081][INF] compositor: started (pid=11800)
+[2026-05-24 11:05:22.081][INF] compositor: waiting for fixed socket '/run/user/1000/wayland-0' (timeout 5000ms)…
+[2026-05-24 11:05:22.181][INF] compositor: socket 'wayland-0' ready after 100ms
+[2026-05-24 11:05:22.181][INF] compositor: waiting for XWayland display (timeout 2000ms)...
+[2026-05-24 11:05:22.432][INF] compositor: XWayland display ':1' ready after 251ms
+[2026-05-24 11:05:23.950][WRN] compositor: XAUTHORITY not found; X11 apps may fail authentication
+[2026-05-24 11:05:23.961][INF] session: imported activation environment into systemd user manager (DBUS_SESSION_BUS_ADDRESS,DISPLAY,WAYLAND_DISPLAY,XDG_CURRENT_DESKTOP,XDG_SESSION_DESKTOP,XDG_SESSION_TYPE,XDG_RUNTIME_DIR)
+[2026-05-24 11:05:23.966][INF] session: updated DBus/systemd activation environment
+[2026-05-24 11:05:24.019][INF] session: portal prewarm ready (org.freedesktop.portal.Desktop reachable)
+[2026-05-24 11:05:24.019][INF] shell env: WAYLAND_DISPLAY=wayland-0 DISPLAY=:1 XAUTHORITY= QT_QPA_PLATFORM=wayland XDG_SESSION_TYPE=wayland SLM_SESSION_MODE=normal
+[2026-05-24 11:05:24.020][INF] shell: 'slm-shell' started (pid=11971)
+[2026-05-24 11:05:24.020][INF] slm-session-broker: watchdog started (pid=11972)
+[2026-05-24 11:05:24.020][INF] session: monitoring compositor and shell exits…
+slm-watchdog: started — will mark session healthy in 30000ms
+[2026-05-24 11:05:25.031][INF] session: first-frame healthy snapshot=20260524-040525-022
+[2026-05-24 11:05:25.049][INF] session: first frame promoted session healthy (crash_count reset to 0)
+slm-watchdog: lifecycle marker confirms first frame rendered
+slm-watchdog: last_good_snapshot=20260524-040553-819
+slm-watchdog: config promoted to safe baseline
+slm-watchdog: session marked healthy (crash_count reset to 0)
+[broker] caught signal=SIGTERM(15) sender_pid=11672
+[2026-05-24 11:07:37.880][INF] === slm-session-broker start (pid=19551) ===
+[2026-05-24 11:07:37.880][INF] slm-session-broker: prev state — crashCount=0 lastBootStatus=healthy configPending=no lastMode=normal recoveryReason=<none> lastCrashReason=<none>
+[2026-05-24 11:07:37.880][INF] slm-session-broker: crash counter: 0 → 1 (threshold=5, recovery_at>=5)
+[2026-05-24 11:07:37.892][INF] config: path=/home/garis/.config/slm-desktop/config.json compositor=kwin_wayland
+[2026-05-24 11:07:37.892][INF] SLM-SESSION: XDG_SESSION_ID=c9
+[2026-05-24 11:07:37.892][INF] SLM-SESSION: env snapshot:
+[2026-05-24 11:07:37.892][INF]   XDG_SESSION_ID=c9
+[2026-05-24 11:07:37.892][INF]   XDG_SESSION_TYPE=wayland
+[2026-05-24 11:07:37.892][INF]   XDG_SESSION_CLASS=user
+[2026-05-24 11:07:37.892][INF]   XDG_SEAT=seat0
+[2026-05-24 11:07:37.892][INF]   XDG_VTNR=7
+[2026-05-24 11:07:37.892][INF]   XDG_RUNTIME_DIR=/run/user/1000
+[2026-05-24 11:07:37.892][INF]   XDG_CURRENT_DESKTOP=SLM
+[2026-05-24 11:07:37.892][INF]   DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+[2026-05-24 11:07:37.892][INF]   LIBSEAT_BACKEND=<unset>
+[2026-05-24 11:07:37.924][INF] slm-session-broker: compatibility report: /home/garis/.config/slm-desktop/compatibility-report.json
+[2026-05-24 11:07:37.924][WRN] slm-session-broker: platform compatibility warnings:
+[2026-05-24 11:07:37.924][WRN]   - [wayland] wayland-0 not present yet in runtime dir: /run/user/1000/wayland-0
+[2026-05-24 11:07:37.924][WRN]   - [portal] portal runtime check deferred until graphical environment is ready
+[2026-05-24 11:07:37.924][INF] slm-session-broker: compatibility summary checks=6 failures=0 warnings=2
+[2026-05-24 11:07:37.924][INF] slm-session-broker: startup mode = normal (requested = normal, crashes = 1)
+[2026-05-24 11:07:37.932][INF] compositor: config env overrides: KWIN_COMPOSE=Q KWIN_FORCE_SW_CURSOR=1 LIBSEAT_BACKEND=logind QT_LOGGING_RULES=kwin*.debug=true;qt.qpa.wayland.debug=true;libwayland*.debug=true QT_MESSAGE_PATTERN=[%{time yyyy-MM-dd hh:mm:ss.zzz}] [%{type}] %{category}: %{message}
+[2026-05-24 11:07:37.932][INF] compositor: drm_card=yes path=/dev/dri/card1 drm_render=yes path=/dev/dri/renderD128
+[2026-05-24 11:07:37.932][INF] compositor: enabling KWin XWayland bridge for legacy/X11 apps
+[2026-05-24 11:07:37.932][INF] compositor: KWIN_DRM_DEVICES=/dev/dri/card1 (auto)
+[2026-05-24 11:07:37.932][INF] compositor: kwin socket flag '--socket' -> using fixed socket 'wayland-0'
+[2026-05-24 11:07:37.932][INF] compositor: launching 'kwin_wayland' --no-lockscreen --xwayland --socket wayland-0 (backend=kwin strategy=fixed socket=wayland-0)
+[2026-05-24 11:07:37.932][INF] compositor: log -> /tmp/slm-compositor.log
+[2026-05-24 11:07:37.933][INF] compositor: started (pid=19661)
+[2026-05-24 11:07:37.933][INF] compositor: waiting for fixed socket '/run/user/1000/wayland-0' (timeout 5000ms)…
+[2026-05-24 11:07:38.033][INF] compositor: socket 'wayland-0' ready after 100ms
+[2026-05-24 11:07:38.033][INF] compositor: waiting for XWayland display (timeout 2000ms)...
+[2026-05-24 11:07:38.234][INF] compositor: XWayland display ':1' ready after 201ms
+[2026-05-24 11:07:39.751][WRN] compositor: XAUTHORITY not found; X11 apps may fail authentication
+[2026-05-24 11:07:39.759][INF] session: imported activation environment into systemd user manager (DBUS_SESSION_BUS_ADDRESS,DISPLAY,WAYLAND_DISPLAY,XDG_CURRENT_DESKTOP,XDG_SESSION_DESKTOP,XDG_SESSION_TYPE,XDG_RUNTIME_DIR)
+[2026-05-24 11:07:39.762][INF] session: updated DBus/systemd activation environment
+[2026-05-24 11:07:39.813][INF] session: portal prewarm ready (org.freedesktop.portal.Desktop reachable)
+[2026-05-24 11:07:39.813][INF] shell env: WAYLAND_DISPLAY=wayland-0 DISPLAY=:1 XAUTHORITY= QT_QPA_PLATFORM=wayland XDG_SESSION_TYPE=wayland SLM_SESSION_MODE=normal
+[2026-05-24 11:07:39.814][INF] shell: 'slm-shell' started (pid=20062)
+[2026-05-24 11:07:39.814][INF] slm-session-broker: watchdog started (pid=20063)
+[2026-05-24 11:07:39.814][INF] session: monitoring compositor and shell exits…
+slm-watchdog: started — will mark session healthy in 30000ms
+[2026-05-24 11:07:40.574][INF] session: first-frame healthy snapshot=20260524-040740-566
+[2026-05-24 11:07:40.592][INF] session: first frame promoted session healthy (crash_count reset to 0)
+slm-watchdog: lifecycle marker confirms first frame rendered
+slm-watchdog: last_good_snapshot=20260524-040809-820
+slm-watchdog: config promoted to safe baseline
+slm-watchdog: session marked healthy (crash_count reset to 0)

@@ -65,6 +65,13 @@ private slots:
                  QDir::homePath() + QStringLiteral("/Pictures/Screenshots/Screenshot.png"));
     }
 
+    void buildTargetPath_expandsHomeFolder()
+    {
+        ScreenshotSaveHelper helper;
+        QCOMPARE(helper.buildTargetPath(QStringLiteral("~"), QStringLiteral("shot")),
+                 QDir::homePath() + QStringLiteral("/shot.png"));
+    }
+
     void overwritePrompt_decisionPath()
     {
         ScreenshotSaveHelper helper;
@@ -105,6 +112,30 @@ private slots:
         QVERIFY(img.save(srcPath));
 
         const QVariantMap res = helper.saveImageFile(srcPath, dstPath, QStringLiteral("png"), -1, false);
+        QVERIFY(res.value(QStringLiteral("ok")).toBool());
+        QCOMPARE(res.value(QStringLiteral("error")).toString(), QString());
+        QVERIFY(QFileInfo::exists(dstPath));
+        QVERIFY(!QFileInfo::exists(srcPath));
+    }
+
+    void saveImageFile_pngOverwriteRoundtrip()
+    {
+        ScreenshotSaveHelper helper;
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+
+        const QString srcPath = dir.path() + QStringLiteral("/src.png");
+        const QString dstPath = dir.path() + QStringLiteral("/out.png");
+
+        QImage oldImg(8, 8, QImage::Format_ARGB32_Premultiplied);
+        oldImg.fill(Qt::red);
+        QVERIFY(oldImg.save(dstPath));
+
+        QImage newImg(8, 8, QImage::Format_ARGB32_Premultiplied);
+        newImg.fill(Qt::green);
+        QVERIFY(newImg.save(srcPath));
+
+        const QVariantMap res = helper.saveImageFile(srcPath, dstPath, QStringLiteral("png"), -1, true);
         QVERIFY(res.value(QStringLiteral("ok")).toBool());
         QCOMPARE(res.value(QStringLiteral("error")).toString(), QString());
         QVERIFY(QFileInfo::exists(dstPath));

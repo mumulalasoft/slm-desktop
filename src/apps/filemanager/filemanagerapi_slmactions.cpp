@@ -7,6 +7,7 @@
 #include <QDBusPendingCall>
 #include <QDBusPendingCallWatcher>
 #include <QDBusPendingReply>
+#include <QDBusReply>
 #include <QProcess>
 #include <QDateTime>
 #include <QMetaObject>
@@ -17,6 +18,12 @@ namespace {
 constexpr const char kCapabilityService[] = "org.freedesktop.SLMCapabilities";
 constexpr const char kCapabilityPath[] = "/org/freedesktop/SLMCapabilities";
 constexpr const char kCapabilityInterface[] = "org.freedesktop.SLMCapabilities";
+constexpr const char kActiondService[] = "org.slm.Actiond";
+constexpr const char kActiondPath[] = "/org/slm/Actiond";
+constexpr const char kActiondProviderInterface[] = "org.slm.Actiond.Provider";
+constexpr const char kDesktopViewProviderId[] = "org.slm.FileManager.desktopview";
+constexpr const char kDesktopViewAppId[] = "org.slm.FileManager";
+constexpr const char kDesktopViewContextId[] = "desktopview";
 
 static QString normalizeUri(const QString &value)
 {
@@ -50,6 +57,19 @@ static QString fillExecTemplate(const QString &execTemplate, const QStringList &
     out.replace(QStringLiteral("%u"), uris.isEmpty() ? QString() : uris.first());
     out.replace(QStringLiteral("%%"), QStringLiteral("%"));
     return out.trimmed();
+}
+
+static QString toFileUri(const QString &pathOrUri)
+{
+    const QString v = pathOrUri.trimmed();
+    if (v.isEmpty()) {
+        return QString();
+    }
+    const QUrl u(v);
+    if (u.isValid() && !u.scheme().isEmpty()) {
+        return u.toString(QUrl::FullyEncoded);
+    }
+    return QUrl::fromLocalFile(v).toString(QUrl::FullyEncoded);
 }
 
 static QVariantList localCapabilityActions(const QString &capability,
@@ -560,6 +580,141 @@ QVariantMap FileManagerApi::startSlmContextMenuTreeDebug(const QVariantList &uri
                        {QStringLiteral("menuChildren"), rootChildren},
                        {QStringLiteral("nodeCount"), m_slmContextMenuNodes.size()}});
 }
+
+QVariantMap FileManagerApi::syncDesktopViewActionContext(const QVariantMap &state)
+{
+    QDBusInterface actiond(QString::fromLatin1(kActiondService),
+                           QString::fromLatin1(kActiondPath),
+                           QString::fromLatin1(kActiondProviderInterface),
+                           QDBusConnection::sessionBus());
+    if (!actiond.isValid()) {
+        return makeResult(false, QStringLiteral("actiond-unavailable"));
+    }
+
+    if (!m_actiondDesktopProviderRegistered) {
+        const QVariantMap capabilities{
+            {QStringLiteral("desktopview"), true},
+            {QStringLiteral("selectionAware"), true},
+            {QStringLiteral("clipboardAware"), true},
+            {QStringLiteral("source"), QStringLiteral("slm-filemanager")},
+        };
+        const QDBusReply<bool> regReply = actiond.call(QStringLiteral("RegisterProvider"),
+                                                       QString::fromLatin1(kDesktopViewProviderId),
+                                                       QString::fromLatin1(kDesktopViewAppId),
+                                                       capabilities);
+        if (!regReply.isValid() || !regReply.value()) {
+            return makeResult(false, QStringLiteral("register-provider-failed"));
+        }
+        m_actiondDesktopProviderRegistered = true;
+    }
+
+    const bool active = state.value(QStringLiteral("active"), true).toBool();
+    const bool clipboardHasData = state.value(QStringLiteral("clipboardHasData"), false).toBool();
+    const QString location = toFileUri(state.value(QStringLiteral("location")).toString());
+    const QVariantList selectionRows = state.value(QStringLiteral("selection")).toList();
+
+    QStringList selectionUris;
+    selectionUris.reserve(selectionRows.size());
+    for (const QVariant &entry : selectionRows) {
+        const QVariantMap row = entry.toMap();
+        const QString uri = toFileUri(row.value(QStringLiteral("path")).toString());
+        if (!uri.isEmpty()) {
+            selectionUris.push_back(uri);
+        }
+    }
+    const int selectionCount = selectionUris.size();
+    const QString contextType = selectionCount > 0 ? QStringLiteral("desktop-selection")
+                                                   : QStringLiteral("desktopview");
+
+    QVariantMap context{
+        {QStringLiteral("context_id"), QString::fromLatin1(kDesktopViewContextId)},
+        {QStringLiteral("type"), contextType},
+        {QStringLiteral("app_id"), QString::fromLatin1(kDesktopViewAppId)},
+        {QStringLiteral("location"), location},
+        {QStringLiteral("selection"), selectionUris},
+        {QStringLiteral("priority"), 40},
+        {QStringLiteral("active"), active},
+    };
+    const QDBusReply<bool> ctxReply = actiond.call(QStringLiteral("RegisterContext"),
+                                                   QString::fromLatin1(kDesktopViewProviderId),
+                                                   context);
+    if (!ctxReply.isValid() || !ctxReply.value()) {
+        return makeResult(false, QStringLiteral("register-context-failed"));
+    }
+
+    const bool hasSelection = selectionCount > 0;
+    const bool singleSelection = selectionCount == 1;
+
+    const QVariantList actions{
+        QVariantMap{{QStringLiteral("id"), QStringLiteral("desktop.new-folder")},
+                    {QStringLiteral("label"), QStringLiteral("New Folder")},
+                    {QStringLiteral("role"), QStringLiteral("file.new-folder")},
+                    {QStringLiteral("section"), QStringLiteral("File")},
+                    {QStringLiteral("kind"), QStringLiteral("file-operation")},
+                    {QStringLiteral("enabled"), true}},
+        QVariantMap{{QStringLiteral("id"), QStringLiteral("desktop.new-document")},
+                    {QStringLiteral("label"), QStringLiteral("New Document")},
+                    {QStringLiteral("section"), QStringLiteral("File")},
+                    {QStringLiteral("kind"), QStringLiteral("file-operation")},
+                    {QStringLiteral("enabled"), true}},
+        QVariantMap{{QStringLiteral("id"), QStringLiteral("desktop.open-in-filemanager")},
+                    {QStringLiteral("label"), QStringLiteral("Open Desktop in File Manager")},
+                    {QStringLiteral("section"), QStringLiteral("File")},
+                    {QStringLiteral("kind"), QStringLiteral("navigation")},
+                    {QStringLiteral("enabled"), true}},
+        QVariantMap{{QStringLiteral("id"), QStringLiteral("file.open")},
+                    {QStringLiteral("label"), QStringLiteral("Open")},
+                    {QStringLiteral("role"), QStringLiteral("file.open")},
+                    {QStringLiteral("section"), QStringLiteral("File")},
+                    {QStringLiteral("kind"), QStringLiteral("file-operation")},
+                    {QStringLiteral("enabled"), hasSelection}},
+        QVariantMap{{QStringLiteral("id"), QStringLiteral("file.rename")},
+                    {QStringLiteral("label"), QStringLiteral("Rename")},
+                    {QStringLiteral("section"), QStringLiteral("File")},
+                    {QStringLiteral("kind"), QStringLiteral("file-operation")},
+                    {QStringLiteral("enabled"), singleSelection}},
+        QVariantMap{{QStringLiteral("id"), QStringLiteral("file.move-to-trash")},
+                    {QStringLiteral("label"), QStringLiteral("Move to Trash")},
+                    {QStringLiteral("section"), QStringLiteral("File")},
+                    {QStringLiteral("kind"), QStringLiteral("destructive")},
+                    {QStringLiteral("destructive"), true},
+                    {QStringLiteral("enabled"), hasSelection}},
+        QVariantMap{{QStringLiteral("id"), QStringLiteral("file.get-info")},
+                    {QStringLiteral("label"), QStringLiteral("Get Info")},
+                    {QStringLiteral("section"), QStringLiteral("File")},
+                    {QStringLiteral("kind"), QStringLiteral("command")},
+                    {QStringLiteral("enabled"), hasSelection}},
+        QVariantMap{{QStringLiteral("id"), QStringLiteral("edit.paste")},
+                    {QStringLiteral("label"), QStringLiteral("Paste")},
+                    {QStringLiteral("role"), QStringLiteral("edit.paste")},
+                    {QStringLiteral("section"), QStringLiteral("Edit")},
+                    {QStringLiteral("kind"), QStringLiteral("file-operation")},
+                    {QStringLiteral("enabled"), clipboardHasData}},
+        QVariantMap{{QStringLiteral("id"), QStringLiteral("edit.select-all")},
+                    {QStringLiteral("label"), QStringLiteral("Select All")},
+                    {QStringLiteral("role"), QStringLiteral("edit.select-all")},
+                    {QStringLiteral("section"), QStringLiteral("Edit")},
+                    {QStringLiteral("kind"), QStringLiteral("command")},
+                    {QStringLiteral("enabled"), true}},
+    };
+
+    const QDBusReply<bool> actionsReply = actiond.call(QStringLiteral("SetActions"),
+                                                       QString::fromLatin1(kDesktopViewProviderId),
+                                                       QString::fromLatin1(kDesktopViewContextId),
+                                                       actions);
+    if (!actionsReply.isValid() || !actionsReply.value()) {
+        return makeResult(false, QStringLiteral("set-actions-failed"));
+    }
+
+    return makeResult(true, QString(), {
+        {QStringLiteral("provider"), QString::fromLatin1(kDesktopViewProviderId)},
+        {QStringLiteral("context_id"), QString::fromLatin1(kDesktopViewContextId)},
+        {QStringLiteral("selection_count"), selectionCount},
+        {QStringLiteral("clipboard_has_data"), clipboardHasData},
+        {QStringLiteral("active"), active},
+    });
+}
+
 QVariantMap FileManagerApi::startResolveSlmDragDropAction(const QVariantList &sourceUris,
                                                          const QString &targetUri,
                                                          const QString &requestId)

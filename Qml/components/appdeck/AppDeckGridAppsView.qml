@@ -76,6 +76,8 @@ FocusScope {
                 "appId": String(row.appId || row.desktopId || row.desktopFile || row.executable || row.name || ""),
                 "display": String(row.display || row.name || ""),
                 "icon": iconValue,
+                "iconName": String(row.iconName || ""),
+                "iconSource": String(row.iconSource || ""),
                 "running": !!row.running,
                 "desktopId": String(row.desktopId || ""),
                 "desktopFile": String(row.desktopFile || ""),

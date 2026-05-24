@@ -75,7 +75,11 @@ QVariantMap FileManagerApi::statPath(const QString &path) const
     const QString p = expandPath(path);
     QFileInfo fi(p);
     if (!fi.exists()) {
-        return makeResult(false, QStringLiteral("not-found"));
+        return makeResult(false,
+                          QStringLiteral("not-found"),
+                          {{QStringLiteral("path"), p},
+                           {QStringLiteral("absolutePath"), QFileInfo(p).absoluteFilePath()},
+                           {QStringLiteral("exists"), false}});
     }
     QVariantMap out = fileInfoMap(fi);
     out.insert(QStringLiteral("absolutePath"), fi.absoluteFilePath());

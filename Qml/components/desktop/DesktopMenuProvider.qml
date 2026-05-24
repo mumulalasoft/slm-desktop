@@ -18,7 +18,7 @@ QtObject {
     id: root
 
     // ── identity ──────────────────────────────────────────────────────────────
-    property string appId: "filemanager"
+    property string appId: "slm-filemanager"
     property string role: "desktop_view"
     property string path: "~/Desktop"
     property var selection: []
@@ -449,9 +449,9 @@ QtObject {
             // 6 — Trash
             if (item === 6) {
                 if (desktopSurface.openPathInFileManager) {
-                    desktopSurface.openPathInFileManager("~/.local/share/Trash/files")
+                    desktopSurface.openPathInFileManager("__trash__")
                 } else {
-                    _route("filemanager.open", { "target": "~/.local/share/Trash/files" })
+                    _route("filemanager.open", { "target": "__trash__" })
                 }
                 return
             }

@@ -70,6 +70,7 @@ ApplicationWindow {
                                            && !!DisableAppDeck
     readonly property bool externalAppDeckWindowAllowed: !appDeckDisabled
                                                         && appDeckLayerShellSupported
+    readonly property var desktopSurfaceRef: desktopScene ? desktopScene.desktopFileManagerContent : null
     readonly property bool forceKwinTopLevelOverlays: !!readSetting("shell.forceKwinTopLevelOverlays", false)
     readonly property bool nonCriticalTopLevelWindowsAllowed: appDeckLayerShellSupported
     readonly property var topBarWindow: topBarWindowLoader.item
@@ -1174,6 +1175,8 @@ ApplicationWindow {
             OverlayComp.AppDeckWindow {
                 rootWindow: root
                 desktopScene: desktopScene
+                desktopSurface: root.desktopSurfaceRef
+                shortcutModel: (typeof ShortcutModel !== "undefined") ? ShortcutModel : null
                 appsModel: AppDeckModel
                 pulseResultsModel: pulseResultsStore
                 onRequestCollapse: {

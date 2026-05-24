@@ -114,7 +114,9 @@ function finishAreaSelectionCapture(shell, x, y, w, h, fromScreenshotTool, outpu
                                 "mode": "area",
                                 "ok": !!(result && result.ok),
                                 "path": String(payload.path || ""),
-                                "error": String(payload.error || result.error || "")
+                                "error": String(payload.error || result.error || ""),
+                                "backend": String(payload.backend || ""),
+                                "backendFailures": payload.backendFailures || []
                             })
         if (fromScreenshotTool && !!(result && result.ok)) {
             ScreenshotSaveController.openSaveDialog(shell,
@@ -189,7 +191,9 @@ function performCapture(shell, modeValue) {
                                     "mode": "window",
                                     "ok": !!(winResult && winResult.ok),
                                     "path": String(winPayload.path || ""),
-                                    "error": String(winPayload.error || winResult.error || "")
+                                    "error": String(winPayload.error || winResult.error || ""),
+                                    "backend": String(winPayload.backend || ""),
+                                    "backendFailures": winPayload.backendFailures || []
                                 })
             if (!!(winResult && winResult.ok)) {
                 ScreenshotSaveController.openSaveDialog(shell,
@@ -212,7 +216,9 @@ function performCapture(shell, modeValue) {
                                 "mode": "screen",
                                 "ok": !!(result && result.ok),
                                 "path": String(payload.path || ""),
-                                "error": String(payload.error || result.error || "")
+                                "error": String(payload.error || result.error || ""),
+                                "backend": String(payload.backend || ""),
+                                "backendFailures": payload.backendFailures || []
                             })
         if (!!(result && result.ok)) {
             ScreenshotSaveController.openSaveDialog(shell,

@@ -5,6 +5,9 @@ This guide defines the visual rules for SLM Desktop QML UI so future changes sta
 ## 1. Source of Truth
 
 - Use `third_party/slm-style/qml/SlmStyle/Theme.qml` as the only source for visual tokens.
+- Use `SlmStyle` components for shared widgets/controls. Import it as `DSStyle`
+  and instantiate controls as `DSStyle.Button`, `DSStyle.Label`,
+  `DSStyle.MenuItem`, etc.
 - Do not hardcode radius, border width, or core surface opacity in component files.
 - Prefer `Theme.color("...")` tokens over literal hex colors for app UI surfaces and text.
 
@@ -160,6 +163,7 @@ Before merging UI changes:
    - `cmake --build build -j4 --target slm-desktop`
 8. Style lint passes:
    - `scripts/lint-ui-style.sh`
+   - `scripts/check-slm-style-usage.sh`
 
 ## 10. Exceptions
 

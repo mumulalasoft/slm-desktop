@@ -90,10 +90,15 @@ bool SharingServiceClient::available() const           { return m_available; }
 bool SharingServiceClient::fileSharingEnabled() const      { return m_fileSharingEnabled; }
 bool SharingServiceClient::nearbySharingEnabled() const    { return m_nearbySharingEnabled; }
 bool SharingServiceClient::screenSharingEnabled() const    { return m_screenSharingEnabled; }
+bool SharingServiceClient::requireApprovalEnabled() const  { return m_requireApprovalEnabled; }
+bool SharingServiceClient::remoteInteractionEnabled() const { return m_remoteInteractionEnabled; }
 bool SharingServiceClient::printerSharingEnabled() const   { return m_printerSharingEnabled; }
 bool SharingServiceClient::remoteAccessEnabled() const     { return m_remoteAccessEnabled; }
 bool SharingServiceClient::mediaSharingEnabled() const     { return m_mediaSharingEnabled; }
 bool SharingServiceClient::clipboardSharingEnabled() const { return m_clipboardSharingEnabled; }
+bool SharingServiceClient::restrictToLocalNetwork() const  { return m_restrictToLocalNetwork; }
+bool SharingServiceClient::requireAuthEnabled() const      { return m_requireAuthEnabled; }
+bool SharingServiceClient::autoRejectUntrusted() const     { return m_autoRejectUntrusted; }
 QVariantList SharingServiceClient::nearbyDevices() const   { return m_nearbyDevices; }
 QVariantList SharingServiceClient::trustedDevices() const  { return m_trustedDevices; }
 QVariantList SharingServiceClient::sharedFolders() const   { return m_sharedFolders; }
@@ -469,13 +474,18 @@ bool SharingServiceClient::ensureIface()
 void SharingServiceClient::applyFeatureStates(const QVariantMap &features)
 {
     const auto b = [&](const QString &key) { return features.value(key, false).toBool(); };
-    m_fileSharingEnabled      = b(QStringLiteral("file-sharing"));
-    m_nearbySharingEnabled    = b(QStringLiteral("nearby-sharing"));
-    m_screenSharingEnabled    = b(QStringLiteral("screen-sharing"));
-    m_printerSharingEnabled   = b(QStringLiteral("printer-sharing"));
-    m_remoteAccessEnabled     = b(QStringLiteral("remote-access"));
-    m_mediaSharingEnabled     = b(QStringLiteral("media-sharing"));
-    m_clipboardSharingEnabled = b(QStringLiteral("clipboard-sharing"));
+    m_fileSharingEnabled       = b(QStringLiteral("file-sharing"));
+    m_nearbySharingEnabled     = b(QStringLiteral("nearby-sharing"));
+    m_screenSharingEnabled     = b(QStringLiteral("screen-sharing"));
+    m_requireApprovalEnabled   = b(QStringLiteral("require-approval"));
+    m_remoteInteractionEnabled = b(QStringLiteral("remote-interaction"));
+    m_printerSharingEnabled    = b(QStringLiteral("printer-sharing"));
+    m_remoteAccessEnabled      = b(QStringLiteral("remote-access"));
+    m_mediaSharingEnabled      = b(QStringLiteral("media-sharing"));
+    m_clipboardSharingEnabled  = b(QStringLiteral("clipboard-sharing"));
+    m_restrictToLocalNetwork   = b(QStringLiteral("restrict-local"));
+    m_requireAuthEnabled       = b(QStringLiteral("require-auth"));
+    m_autoRejectUntrusted      = b(QStringLiteral("auto-reject-untrusted"));
     emit featureStatesChanged();
 }
 

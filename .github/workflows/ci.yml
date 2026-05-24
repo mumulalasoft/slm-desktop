@@ -59,6 +59,9 @@ jobs:
       - name: Animation token lint (QML)
         run: scripts/check-animation-token-usage.sh
 
+      - name: SlmStyle usage lint (QML)
+        run: scripts/check-slm-style-usage.sh
+
       - name: Rebrand guard (no legacy desktop shell naming)
         run: |
           if [[ -d modules/desktop-shell-core || -d modules/desktop-shell-style ]]; then

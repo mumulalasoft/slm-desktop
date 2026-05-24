@@ -1,0 +1,18 @@
+<!DOCTYPE node PUBLIC "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN"
+"http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
+<node>
+  <interface name="org.slm.Actiond.Frontend">
+    <method name="GetActiveContext"><arg type="a{sv}" direction="out"/></method>
+    <method name="GetProviders"><arg type="aa{sv}" direction="out"/></method>
+    <method name="GetContexts"><arg type="aa{sv}" direction="out"/></method>
+    <method name="GetActions"><arg name="context_id" type="s" direction="in"/><arg type="aa{sv}" direction="out"/></method>
+    <method name="GetMenuModel"><arg name="context_id" type="s" direction="in"/><arg type="aa{sv}" direction="out"/></method>
+    <method name="SearchActions"><arg name="query" type="s" direction="in"/><arg name="context_filter" type="a{sv}" direction="in"/><arg type="aa{sv}" direction="out"/></method>
+    <method name="GetQuickActions"><arg name="app_id" type="s" direction="in"/><arg type="aa{sv}" direction="out"/></method>
+    <method name="InvokeAction"><arg name="action_id" type="s" direction="in"/><arg name="context_id" type="s" direction="in"/><arg name="parameters" type="a{sv}" direction="in"/><arg type="a{sv}" direction="out"/></method>
+    <signal name="ActiveContextChanged"><arg name="context" type="a{sv}"/></signal>
+    <signal name="MenuModelChanged"><arg name="context_id" type="s"/><arg name="menu_model" type="aa{sv}"/></signal>
+    <signal name="ActionsChanged"><arg name="context_id" type="s"/><arg name="actions" type="aa{sv}"/></signal>
+    <signal name="SearchIndexChanged"/>
+  </interface>
+</node>

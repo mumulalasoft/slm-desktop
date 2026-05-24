@@ -209,7 +209,7 @@ QtObject {
         }
 
         // 2. FILE MANAGER CONTEXTUAL MENU
-        if (ctx === "filemanager" && fileManagerContent) {
+        if (ctx === "slm-filemanager" && fileManagerContent) {
             var currentPath = (fileManagerContent.fileModel && fileManagerContent.fileModel.currentPath)
                     ? String(fileManagerContent.fileModel.currentPath) : "~"
 
@@ -297,12 +297,20 @@ QtObject {
             }
 
             if (menu === 2101) { // Go (Contextual)
-                if (item === 1 && fileManagerContent.navigateBack) { fileManagerContent.navigateBack(); return }
-                if (item === 2 && fileManagerContent.navigateForward) { fileManagerContent.navigateForward(); return }
-                if (item === 3 && fileManagerContent.openHome) { fileManagerContent.openHome(); return }
-                if (item === 4 && fileManagerContent.openPath) { fileManagerContent.openPath("~/Documents"); return }
-                if (item === 5 && fileManagerContent.openPath) { fileManagerContent.openPath("~/Downloads"); return }
-                if (item === 6 && fileManagerContent.openPath) { fileManagerContent.openPath("~/Pictures"); return }
+                if (item === 1 && fileManagerContent.openHome) { fileManagerContent.openHome(); return }
+                if (item === 2 && fileManagerContent.openPath) { fileManagerContent.openPath("~/Desktop"); return }
+                if (item === 3 && fileManagerContent.openPath) { fileManagerContent.openPath("~/Documents"); return }
+                if (item === 4 && fileManagerContent.openPath) { fileManagerContent.openPath("~/Downloads"); return }
+                if (item === 5 && fileManagerContent.openPath) { fileManagerContent.openPath("~/Pictures"); return }
+                if (item === 6 && fileManagerContent.openPath) { fileManagerContent.openPath("~/Videos"); return }
+                if (item === 11 && fileManagerContent.openPath) { fileManagerContent.openPath("__trash__"); return }
+                return
+            }
+
+            if (menu === 2103) { // Storage
+                if (item === 1 && fileManagerContent.openHome) { fileManagerContent.openHome(); return }
+                if (item === 2 && fileManagerContent.openPath) { fileManagerContent.openPath("~/Downloads"); return }
+                if (item === 3 && fileManagerContent.openPath) { fileManagerContent.openPath("__trash__"); return }
                 return
             }
 
@@ -386,6 +394,18 @@ QtObject {
                 return
             }
             if (item === 5) { Qt.quit(); return }
+        } else if (menu === 2101) { // Go Fallback
+            if (item === 1) { ShellUtils.openDetachedFileManager(rootWindow, "~"); return }
+            if (item === 2) { ShellUtils.openDetachedFileManager(rootWindow, "~/Desktop"); return }
+            if (item === 3) { ShellUtils.openDetachedFileManager(rootWindow, "~/Documents"); return }
+            if (item === 4) { ShellUtils.openDetachedFileManager(rootWindow, "~/Downloads"); return }
+            if (item === 5) { ShellUtils.openDetachedFileManager(rootWindow, "~/Pictures"); return }
+            if (item === 6) { ShellUtils.openDetachedFileManager(rootWindow, "~/Videos"); return }
+            if (item === 11) { ShellUtils.openDetachedFileManager(rootWindow, "__trash__"); return }
+        } else if (menu === 2103) { // Storage Fallback
+            if (item === 1) { ShellUtils.openDetachedFileManager(rootWindow, "~"); return }
+            if (item === 2) { ShellUtils.openDetachedFileManager(rootWindow, "~/Downloads"); return }
+            if (item === 3) { ShellUtils.openDetachedFileManager(rootWindow, "__trash__"); return }
         } else if (menu === 2006) { // Help
             requestHelpMessage("SLM Desktop Help: use Crown menu and shortcuts.")
             return

@@ -33,10 +33,15 @@ SharingManager::SharingManager(QObject *parent)
         QStringLiteral("file-sharing"),
         QStringLiteral("nearby-sharing"),
         QStringLiteral("screen-sharing"),
+        QStringLiteral("require-approval"),
+        QStringLiteral("remote-interaction"),
         QStringLiteral("printer-sharing"),
         QStringLiteral("remote-access"),
         QStringLiteral("media-sharing"),
         QStringLiteral("clipboard-sharing"),
+        QStringLiteral("restrict-local"),
+        QStringLiteral("require-auth"),
+        QStringLiteral("auto-reject-untrusted"),
     };
     for (const auto &f : features)
         m_featureStates.insert(f, false);
@@ -51,11 +56,27 @@ bool SharingManager::initialize()
         return false;
     }
 
+    // Load feature states
+    loadFeatureStates();
+
     // Probe all adapters — unavailable ones just stay disabled
     m_sambaAdapter->probe();
     m_avahiAdapter->probe();
     m_cupsAdapter->probe();
     m_sshAdapter->probe();
+
+    // Re-apply states based on saved settings
+    for (auto it = m_featureStates.constBegin(); it != m_featureStates.constEnd(); ++it) {
+        if (it.value()) {
+            // Re-trigger activation logic
+            // Note: simple re-triggering might need care, but for now
+            // we rely on the logic in setFeatureEnabled to call adapter activation.
+            // A temporary workaround:
+            const bool state = it.value();
+            m_featureStates.insert(it.key(), false); // Toggle it properly
+            setFeatureEnabled(it.key(), state);
+        }
+    }
 
     return true;
 }
@@ -81,12 +102,55 @@ bool SharingManager::setFeatureEnabled(const QString &feature, bool enabled)
     } else if (feature == QLatin1String("remote-access")) {
         ok = enabled ? m_sshAdapter->activate() : m_sshAdapter->deactivate();
     }
+    // Other features are currently state-only in the UI/backend
 
     if (ok) {
         m_featureStates.insert(feature, enabled);
+        saveFeatureStates(); // Persist changes
         emit featureStateChanged(feature, enabled);
     }
     return ok;
+}
+
+void SharingManager::loadFeatureStates()
+{
+    QFile file(featureStatesPath());
+    if (!file.exists() || !file.open(QIODevice::ReadOnly))
+        return;
+    const QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
+    if (doc.isObject()) {
+        const QVariantMap map = doc.object().toVariantMap();
+        for (auto it = map.constBegin(); it != map.constEnd(); ++it) {
+            if (m_featureStates.contains(it.key()))
+                m_featureStates.insert(it.key(), it.value().toBool());
+        }
+    }
+    file.close();
+}
+
+void SharingManager::saveFeatureStates() const
+{
+    QFile file(featureStatesPath());
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate))
+        return;
+
+    QVariantMap map;
+    for (auto it = m_featureStates.constBegin(); it != m_featureStates.constEnd(); ++it)
+        map.insert(it.key(), it.value());
+
+    const QJsonDocument doc(QJsonObject::fromVariantMap(map));
+    file.write(doc.toJson());
+    file.close();
+}
+
+QString SharingManager::featureStatesPath() const
+{
+    const QString xdgDataHome = qEnvironmentVariable("XDG_DATA_HOME");
+    const QString base = xdgDataHome.isEmpty()
+        ? QDir::homePath() + QStringLiteral("/.local/share/slm-desktop")
+        : xdgDataHome + QStringLiteral("/slm-desktop");
+    QDir().mkpath(base);
+    return QDir(base).filePath(QStringLiteral("feature_states.json"));
 }
 
 bool SharingManager::featureEnabled(const QString &feature) const

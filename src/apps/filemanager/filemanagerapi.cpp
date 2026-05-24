@@ -8,6 +8,8 @@
 #include <QFileInfo>
 #include <QTimer>
 #include <QMimeDatabase>
+#include <QSettings>
+#include <QUrl>
 
 namespace {
 
@@ -17,6 +19,36 @@ constexpr const char kFileOpsIface[] = "org.slm.Desktop.FileOperations";
 constexpr const char kStorageService[] = "org.slm.Desktop.Storage";
 constexpr const char kStoragePath[] = "/org/slm/Desktop/Storage";
 constexpr const char kStorageIface[] = "org.slm.Desktop.Storage";
+
+void applyDesktopEntryMetadataApi(QVariantMap *row, const QFileInfo &info)
+{
+    if (!row || !info.isFile()
+            || info.suffix().compare(QStringLiteral("desktop"), Qt::CaseInsensitive) != 0) {
+        return;
+    }
+    QSettings desktopFile(info.absoluteFilePath(), QSettings::IniFormat);
+    desktopFile.beginGroup(QStringLiteral("Desktop Entry"));
+    const QString name = desktopFile.value(QStringLiteral("Name")).toString().trimmed();
+    const QString icon = desktopFile.value(QStringLiteral("Icon")).toString().trimmed();
+    desktopFile.endGroup();
+
+    if (!name.isEmpty()) {
+        row->insert(QStringLiteral("name"), name);
+    }
+    if (icon.isEmpty()) {
+        return;
+    }
+    if (icon.startsWith(QLatin1Char('/')) && QFileInfo::exists(icon)) {
+        row->insert(QStringLiteral("iconName"), icon);
+        row->insert(QStringLiteral("iconSource"), QUrl::fromLocalFile(icon).toString());
+    } else if (icon.contains(QStringLiteral("://"))
+               && !icon.startsWith(QStringLiteral("image://themeicon/"))) {
+        row->insert(QStringLiteral("iconSource"), icon);
+    } else {
+        row->insert(QStringLiteral("iconName"), icon);
+        row->remove(QStringLiteral("iconSource"));
+    }
+}
 
 } // namespace
 
@@ -129,6 +161,7 @@ QVariantMap FileManagerApi::fileInfoMap(const QFileInfo &info)
     QVariantMap row;
     row.insert(QStringLiteral("name"), info.fileName());
     row.insert(QStringLiteral("path"), info.absoluteFilePath());
+    row.insert(QStringLiteral("exists"), info.exists());
     row.insert(QStringLiteral("isDir"), info.isDir());
     row.insert(QStringLiteral("isFile"), info.isFile());
     row.insert(QStringLiteral("isHidden"), info.isHidden());
@@ -147,6 +180,7 @@ QVariantMap FileManagerApi::fileInfoMap(const QFileInfo &info)
         row.insert(QStringLiteral("mimeType"), mimeName);
         row.insert(QStringLiteral("iconName"), iconName);
     }
+    applyDesktopEntryMetadataApi(&row, info);
     row.insert(QStringLiteral("suffix"), info.suffix());
     row.insert(QStringLiteral("thumbnailPath"), QString());
     row.insert(QStringLiteral("ok"), true);

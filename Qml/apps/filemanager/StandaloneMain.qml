@@ -6,6 +6,7 @@ import "." as FM
 
 Window {
     id: root
+    objectName: "fileManagerStandaloneRoot"
 
     readonly property string initialPath:
         (typeof slmFileManagerInitialPath !== "undefined")
@@ -26,6 +27,7 @@ Window {
 
     FM.FileManagerWindow {
         id: fmWindow
+        objectName: "fileManagerWindowRoot"
         anchors.fill: parent
         fileModel: root.fileModel
 

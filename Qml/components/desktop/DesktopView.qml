@@ -64,6 +64,8 @@ Item {
     readonly property real tileHeight: Math.max(100, cellHeight - 8)
 
     property var slotByPath: ({})
+    property var iconOverrideByPath: ({})
+    property int iconOverrideRevision: 0
     property var positionedEntries: []
     property bool debugRenderLogs: false
 
@@ -273,6 +275,109 @@ Item {
             return null
         }
         return rows[idx] || null
+    }
+
+    function _normalizedPath(pathValue) {
+        var p = String(pathValue || "").trim()
+        if (p.length <= 0) {
+            return ""
+        }
+        if (p === "~") {
+            return ""
+        }
+        if (p.indexOf("~/") === 0) {
+            return p
+        }
+        while (p.length > 1 && p.charAt(p.length - 1) === "/") {
+            p = p.slice(0, -1)
+        }
+        return p
+    }
+
+    function iconOverrideForPath(pathValue, revision) {
+        void revision
+        var key = _normalizedPath(pathValue)
+        if (key.length <= 0 || !iconOverrideByPath) {
+            return ({})
+        }
+        return iconOverrideByPath[key] || ({})
+    }
+
+    function _isLocalFilePath(value) {
+        var text = String(value || "").trim()
+        return text.length > 0 && text.charAt(0) === "/"
+    }
+
+    function _providerLocalSource(value) {
+        var raw = String(value || "").trim()
+        if (raw.length <= 0) {
+            return ""
+        }
+        if (raw.indexOf("image://themeicon/") === 0) {
+            return raw
+        }
+        if (raw.indexOf("file://") === 0) {
+            raw = raw.slice("file://".length)
+        }
+        if (_isLocalFilePath(raw)) {
+            return "image://themeicon/" + encodeURIComponent(raw) + "?v="
+                   + ((typeof ThemeIconController !== "undefined" && ThemeIconController)
+                      ? ThemeIconController.revision : 0)
+        }
+        return raw
+    }
+
+    function _themeIconSource(name) {
+        var n = String(name || "").trim()
+        var rev = ((typeof ThemeIconController !== "undefined" && ThemeIconController)
+                   ? ThemeIconController.revision : 0)
+        if (n.length <= 0) {
+            n = "text-x-generic-symbolic"
+        }
+        if (n.indexOf("image://themeicon/") === 0) {
+            return n + (n.indexOf("?") >= 0 ? "&v=" : "?v=") + rev
+        }
+        return "image://themeicon/" + n + "?v=" + rev
+    }
+
+    function _resolvedIconSource(row, override) {
+        var data = row || ({})
+        var ov = override || ({})
+        var source = String(ov.iconSource || data.iconSource || "").trim()
+        if (source.length > 0) {
+            return _providerLocalSource(source)
+        }
+        var name = String(ov.iconName || data.iconName || "").trim()
+        if (name.length <= 0) {
+            return _themeIconSource("text-x-generic-symbolic")
+        }
+        if (_isLocalFilePath(name)) {
+            return _providerLocalSource(name)
+        }
+        if (name.indexOf("image://themeicon/") === 0) {
+            return name
+        }
+        if (name.indexOf("file://") === 0) {
+            return _providerLocalSource(name)
+        }
+        if (name.indexOf("image://") === 0 || name.indexOf("qrc:/") === 0) {
+            return name
+        }
+        return _themeIconSource(name)
+    }
+
+    function setEntryIconOverride(pathValue, iconName, iconSource) {
+        var key = _normalizedPath(pathValue)
+        if (key.length <= 0) {
+            return
+        }
+        var next = Object.assign({}, iconOverrideByPath || ({}))
+        next[key] = {
+            "iconName": String(iconName || ""),
+            "iconSource": String(iconSource || "")
+        }
+        iconOverrideByPath = next
+        iconOverrideRevision += 1
     }
 
     function _hasEntryAtCell(cellX, cellY) {
@@ -651,6 +756,8 @@ Item {
                 readonly property var placedRow: modelData || ({})
                 readonly property int modelIndex: Number(placedRow.modelIndex)
                 readonly property var sourceRow: root._entryAtModelIndex(modelIndex)
+                readonly property var iconOverride: root.iconOverrideForPath(sourceRow && sourceRow.path ? sourceRow.path : "",
+                                                                             root.iconOverrideRevision)
                 readonly property bool draggingSelf: root.dragActive
                                                     && root.dragModelIndex === modelIndex
                                                     && root.dragGestureStarted
@@ -681,14 +788,19 @@ Item {
                     id: desktopItem
                     anchors.fill: parent
                     displayName: String(sourceRow && sourceRow.name ? sourceRow.name : "")
-                    iconName: String(sourceRow && sourceRow.iconName ? sourceRow.iconName : "")
-                    iconSource: String(sourceRow && sourceRow.iconSource ? sourceRow.iconSource : "")
+                    iconName: String(iconOverride && iconOverride.iconName
+                                     ? iconOverride.iconName
+                                     : (sourceRow && sourceRow.iconName ? sourceRow.iconName : ""))
+                    iconSource: root._resolvedIconSource(sourceRow, iconOverride)
                     thumbnailSource: String(sourceRow && sourceRow.thumbnailPath ? sourceRow.thumbnailPath : "")
                     selected: root._isSelected(modelIndex)
                     dragging: false
                     isDir: !!(sourceRow && sourceRow.isDir)
                     networkShared: !!(sourceRow && sourceRow.networkShared)
-                    previewCandidate: !isDir && String(thumbnailSource || "").length > 0
+                    previewCandidate: !isDir
+                                      && String(thumbnailSource || "").length > 0
+                                      && String(sourceRow && sourceRow.path ? sourceRow.path : "").toLowerCase().slice(-8) !== ".desktop"
+                                      && String(sourceRow && sourceRow.mimeType ? sourceRow.mimeType : "").toLowerCase().indexOf("desktop") < 0
                     tileWidth: root.tileWidth
                     tileHeight: root.tileHeight
                     editing: root.editingIndex === modelIndex
@@ -814,7 +926,7 @@ Item {
             readonly property var _dragRow: root._entryAtModelIndex(root.dragModelIndex)
             displayName: _dragRow ? String(_dragRow.name || "") : ""
             iconName: _dragRow ? String(_dragRow.iconName || "") : ""
-            iconSource: _dragRow ? String(_dragRow.iconSource || "") : ""
+            iconSource: _dragRow ? root._resolvedIconSource(_dragRow, ({}) ) : ""
             thumbnailSource: _dragRow ? String(_dragRow.thumbnailPath || "") : ""
             isDir: _dragRow ? !!_dragRow.isDir : false
             networkShared: _dragRow ? !!_dragRow.networkShared : false

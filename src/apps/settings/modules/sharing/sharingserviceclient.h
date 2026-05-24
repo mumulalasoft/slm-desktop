@@ -15,10 +15,15 @@ class SharingServiceClient : public QObject
     Q_PROPERTY(bool fileSharingEnabled      READ fileSharingEnabled      NOTIFY featureStatesChanged)
     Q_PROPERTY(bool nearbySharingEnabled    READ nearbySharingEnabled    NOTIFY featureStatesChanged)
     Q_PROPERTY(bool screenSharingEnabled    READ screenSharingEnabled    NOTIFY featureStatesChanged)
+    Q_PROPERTY(bool requireApprovalEnabled  READ requireApprovalEnabled  NOTIFY featureStatesChanged)
+    Q_PROPERTY(bool remoteInteractionEnabled READ remoteInteractionEnabled NOTIFY featureStatesChanged)
     Q_PROPERTY(bool printerSharingEnabled   READ printerSharingEnabled   NOTIFY featureStatesChanged)
     Q_PROPERTY(bool remoteAccessEnabled     READ remoteAccessEnabled     NOTIFY featureStatesChanged)
     Q_PROPERTY(bool mediaSharingEnabled     READ mediaSharingEnabled     NOTIFY featureStatesChanged)
     Q_PROPERTY(bool clipboardSharingEnabled READ clipboardSharingEnabled NOTIFY featureStatesChanged)
+    Q_PROPERTY(bool restrictToLocalNetwork  READ restrictToLocalNetwork  NOTIFY featureStatesChanged)
+    Q_PROPERTY(bool requireAuthEnabled      READ requireAuthEnabled      NOTIFY featureStatesChanged)
+    Q_PROPERTY(bool autoRejectUntrusted     READ autoRejectUntrusted     NOTIFY featureStatesChanged)
 
     Q_PROPERTY(QVariantList nearbyDevices  READ nearbyDevices  NOTIFY nearbyDevicesChanged)
     Q_PROPERTY(QVariantList trustedDevices READ trustedDevices NOTIFY trustedDevicesChanged)
@@ -35,10 +40,15 @@ public:
     bool fileSharingEnabled() const;
     bool nearbySharingEnabled() const;
     bool screenSharingEnabled() const;
+    bool requireApprovalEnabled() const;
+    bool remoteInteractionEnabled() const;
     bool printerSharingEnabled() const;
     bool remoteAccessEnabled() const;
     bool mediaSharingEnabled() const;
     bool clipboardSharingEnabled() const;
+    bool restrictToLocalNetwork() const;
+    bool requireAuthEnabled() const;
+    bool autoRejectUntrusted() const;
 
     QVariantList nearbyDevices() const;
     QVariantList trustedDevices() const;
@@ -114,10 +124,15 @@ private:
     bool m_fileSharingEnabled      = false;
     bool m_nearbySharingEnabled    = false;
     bool m_screenSharingEnabled    = false;
+    bool m_requireApprovalEnabled  = false;
+    bool m_remoteInteractionEnabled = false;
     bool m_printerSharingEnabled   = false;
     bool m_remoteAccessEnabled     = false;
     bool m_mediaSharingEnabled     = false;
     bool m_clipboardSharingEnabled = false;
+    bool m_restrictToLocalNetwork  = false;
+    bool m_requireAuthEnabled      = false;
+    bool m_autoRejectUntrusted     = false;
 
     QVariantList m_nearbyDevices;
     QVariantList m_trustedDevices;

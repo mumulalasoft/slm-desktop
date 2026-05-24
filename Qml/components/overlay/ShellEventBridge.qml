@@ -17,7 +17,7 @@ Item {
         target: root.globalMenuManager
         ignoreUnknownSignals: true
         function onOverrideMenuActivated(menuId, label, context) {
-            if (String(context || "") === "filemanager") {
+            if (String(context || "") === "slm-filemanager") {
                 FileManagerGlobalMenuController.handleMenu(root.shellApi,
                                                            menuId,
                                                            root.shellApi ? root.shellApi.fileManagerContent : null)

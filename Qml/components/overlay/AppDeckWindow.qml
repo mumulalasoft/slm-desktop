@@ -13,6 +13,8 @@ Window {
     required property var desktopScene
     required property var appsModel
     required property var pulseResultsModel
+    property var desktopSurface: null
+    property var shortcutModel: null
     property int zoomHeadroom: 18
 
     signal requestOpenApp(string appId)
@@ -44,6 +46,19 @@ Window {
                                              && root.policyEdgeRevealEnabled
                                              && !root.policyContentVisible
                                              && root.dockActive
+
+    function effectiveDesktopSurface() {
+        if (root.desktopSurface) {
+            return root.desktopSurface
+        }
+        if (root.desktopScene && root.desktopScene.desktopFileManagerContent) {
+            return root.desktopScene.desktopFileManagerContent
+        }
+        if (root.rootWindow && root.rootWindow.desktopSurfaceRef) {
+            return root.rootWindow.desktopSurfaceRef
+        }
+        return null
+    }
     property bool dockHostVisible: Number(ShellState.dockOpacity || 1.0) > 0.01
                                    && root.policyContentVisible
     property bool dockAcceptsInput: root.policyContentVisible
@@ -1192,7 +1207,13 @@ Window {
                 AppDeckActions.handleAddToDock(appData, root.appsModel)
             }
             onAddToDesktopRequested: function(appData) {
-                AppDeckActions.handleAddToDesktop(appData, root.desktopScene)
+                var surface = root.effectiveDesktopSurface()
+                console.log("[appdeck] addToDesktop refs surface=" + (!!surface)
+                            + " shortcutModel=" + (!!root.shortcutModel))
+                AppDeckActions.handleAddToDesktop(appData,
+                                                  root.desktopScene,
+                                                  surface,
+                                                  root.shortcutModel)
             }
             // §9 — Keyboard nav from grid header routed into pulse selection
             // actions on the contextView. Pulse no longer has its own header
@@ -1662,7 +1683,6 @@ Window {
             root._gridHadActiveFocus = !!root.active
             root._gridContentSettled = false
             gridCollapseGuardTimer.restart()
-            gridPointerDismissTimer.restart()
             gridContentSettleTimer.restart()
         } else if (root.state === "dock") {
             root.startFallbackSurfaceTransition(0.0, false)
@@ -1672,7 +1692,6 @@ Window {
             root._gridHadActiveFocus = false
             root._gridContentSettled = false
             gridCollapseGuardTimer.stop()
-            gridPointerDismissTimer.stop()
             gridContentSettleTimer.stop()
             root._revealDock()
             root._scheduleDockAutoHide()

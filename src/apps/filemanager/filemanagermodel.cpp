@@ -237,6 +237,36 @@ bool isUriPath(const QString &path)
     return path.contains(QStringLiteral("://"));
 }
 
+QString themeIconNameFromProviderUrl(const QString &value)
+{
+    const QString prefix = QStringLiteral("image://themeicon/");
+    const QString raw = value.trimmed();
+    if (!raw.startsWith(prefix)) {
+        return QString();
+    }
+    QString name = raw.mid(prefix.size());
+    const int query = name.indexOf(QLatin1Char('?'));
+    if (query >= 0) {
+        name = name.left(query);
+    }
+    return QUrl::fromPercentEncoding(name.toUtf8()).trimmed();
+}
+
+QString iconSourceFromDesktopIconValue(const QString &value)
+{
+    const QString raw = value.trimmed();
+    if (raw.isEmpty()) {
+        return QString();
+    }
+    if (raw.startsWith(QLatin1Char('/'))) {
+        return QUrl::fromLocalFile(raw).toString();
+    }
+    if (raw.contains(QStringLiteral("://")) && !raw.startsWith(QStringLiteral("image://themeicon/"))) {
+        return raw;
+    }
+    return QString();
+}
+
 QString joinChildPath(const QString &basePath, const QString &childName)
 {
     if (!isUriPath(basePath)) {
@@ -351,14 +381,24 @@ void applyDesktopEntryMetadata(FileEntry *entry)
     QSettings desktopFile(entry->path, QSettings::IniFormat);
     desktopFile.beginGroup(QStringLiteral("Desktop Entry"));
     const QString displayName = desktopFile.value(QStringLiteral("Name")).toString().trimmed();
-    const QString iconName = desktopFile.value(QStringLiteral("Icon")).toString().trimmed();
+    const QString iconValue = desktopFile.value(QStringLiteral("Icon")).toString().trimmed();
     desktopFile.endGroup();
 
     if (!displayName.isEmpty()) {
         entry->name = displayName;
     }
-    if (!iconName.isEmpty()) {
-        entry->iconName = iconName;
+    if (!iconValue.isEmpty()) {
+        const QString providerIconName = themeIconNameFromProviderUrl(iconValue);
+        const QString iconSource = iconSourceFromDesktopIconValue(iconValue);
+        if (!providerIconName.isEmpty()) {
+            entry->iconName = providerIconName;
+            entry->iconSource.clear();
+        } else if (!iconSource.isEmpty()) {
+            entry->iconSource = iconSource;
+        } else {
+            entry->iconName = iconValue;
+            entry->iconSource.clear();
+        }
     }
     if (entry->mimeType.isEmpty()) {
         entry->mimeType = QStringLiteral("application/x-desktop");
@@ -482,6 +522,7 @@ QVector<FileEntry> entriesFromApiResult(const QVariantList &rows)
         e.suffix = row.value(QStringLiteral("suffix")).toString();
         e.mimeType = row.value(QStringLiteral("mimeType")).toString();
         e.iconName = row.value(QStringLiteral("iconName")).toString();
+        e.iconSource = row.value(QStringLiteral("iconSource")).toString();
         e.dateAdded = row.value(QStringLiteral("dateAdded")).toString();
         e.lastModified = row.value(QStringLiteral("lastModified")).toString();
         e.size = row.value(QStringLiteral("size")).toLongLong();
@@ -584,6 +625,7 @@ QVariant FileManagerModel::data(const QModelIndex &index, int role) const
     case SuffixRole: return e.suffix;
     case MimeTypeRole: return e.mimeType;
     case IconNameRole: return e.iconName;
+    case IconSourceRole: return e.iconSource;
     case DateAddedRole: return e.dateAdded;
     case LastModifiedRole: return e.lastModified;
     case SizeRole: return e.size;
@@ -603,6 +645,7 @@ QHash<int, QByteArray> FileManagerModel::roleNames() const
     roles[SuffixRole] = "suffix";
     roles[MimeTypeRole] = "mimeType";
     roles[IconNameRole] = "iconName";
+    roles[IconSourceRole] = "iconSource";
     roles[DateAddedRole] = "dateAdded";
     roles[LastModifiedRole] = "lastModified";
     roles[SizeRole] = "size";
@@ -1137,6 +1180,7 @@ QVariantMap FileManagerModel::entryAt(int index) const
         {QStringLiteral("thumbnailPath"), e.thumbnailPath},
         {QStringLiteral("mimeType"), e.mimeType},
         {QStringLiteral("iconName"), e.iconName},
+        {QStringLiteral("iconSource"), e.iconSource},
         {QStringLiteral("isDir"), e.dir},
         {QStringLiteral("networkShared"), e.networkShared},
         {QStringLiteral("size"), e.size},

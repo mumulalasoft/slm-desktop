@@ -1,0 +1,210 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE node PUBLIC "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN"
+  "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
+<!--
+  org.slm.Desktop.Fsd1  —  SLM File System Daemon privileged interface.
+  Service    : org.slm.Desktop.Fsd1
+  Object     : /org/slm/Desktop/Fsd
+  Bus        : SYSTEM  (crosses privilege boundary; daemon runs as root)
+  Implemented: src/daemon/fsd/FsdService.h
+
+  Token dict (a{sv}):
+    token_id   (s)  : UUID-v4 string
+    path       (s)  : canonicalized path prefix the token covers
+    ops        (as) : permitted operation names
+    expires_at (t)  : Unix timestamp UTC of expiry
+    uid        (u)  : UID of the owner session
+    snapshot   (s)  : BTRFS snapshot name created at issuance ("" if none)
+
+  Result dict (a{sv}):
+    ok           (b) : success flag
+    error        (s) : human-readable error ("" on success)
+    error_code   (s) : machine-readable: "NotImplemented" | "PermissionDenied"
+                       | "PathNotAllowed" | "TokenExpired" | "TokenScopeViolation"
+                       | "SnapshotFailed" | "ImmutableMount" | "NotFound" | ...
+    snapshot     (s) : BTRFS snapshot name created for this op ("" if none)
+    token_id     (s) : (on first-call issuance) the newly issued token ID
+-->
+<node name="/org/slm/Desktop/Fsd">
+  <interface name="org.slm.Desktop.Fsd1">
+
+    <!-- ── Query ──────────────────────────────────────────────── -->
+
+    <method name="Ping">
+      <arg name="result"         type="a{sv}" direction="out"/>
+    </method>
+
+    <!--
+      IsProtected: returns whether path falls under a protected prefix.
+      scope: "system" | "etc" | "boot" | "opt" | "slm-data" | "pseudo" | ""
+    -->
+    <method name="IsProtected">
+      <arg name="path"           type="s"     direction="in"/>
+      <arg name="protected"      type="b"     direction="out"/>
+      <arg name="scope"          type="s"     direction="out"/>
+    </method>
+
+    <!--
+      GetTokens: returns all tokens currently held by the calling connection.
+    -->
+    <method name="GetTokens">
+      <arg name="tokens"         type="aa{sv}" direction="out"/>
+    </method>
+
+    <!-- ── Token lifecycle ────────────────────────────────────── -->
+
+    <!--
+      ReleaseToken: caller voluntarily surrenders a token before TTL expiry.
+    -->
+    <method name="ReleaseToken">
+      <arg name="token_id"       type="s"     direction="in"/>
+      <arg name="result"         type="a{sv}" direction="out"/>
+    </method>
+
+    <!-- ── File operations ────────────────────────────────────── -->
+    <!--
+      All mutating methods accept a token_id.  Pass an empty string on the
+      first call to a protected path; fsd will run polkit, issue a token,
+      and return the token_id inside the result dict.  Subsequent calls on
+      the same (path-prefix, op-set) within the TTL window may reuse that
+      token_id.
+    -->
+
+    <method name="RequestRename">
+      <arg name="token_id"       type="s"     direction="in"/>
+      <arg name="source"         type="s"     direction="in"/>
+      <arg name="destination"    type="s"     direction="in"/>
+      <arg name="result"         type="a{sv}" direction="out"/>
+    </method>
+
+    <!--
+      RequestDelete: moves the item to the system recovery trash
+      (/var/lib/slm/recovery-trash/<uid>/).  Does NOT unlink immediately.
+      Use RequestPurge for permanent deletion.
+    -->
+    <method name="RequestDelete">
+      <arg name="token_id"       type="s"     direction="in"/>
+      <arg name="path"           type="s"     direction="in"/>
+      <arg name="result"         type="a{sv}" direction="out"/>
+    </method>
+
+    <!--
+      RequestPurge: permanently removes an item from the recovery trash.
+      Requires org.slm.desktop.fsd.purge (auth_admin, no keep).
+    -->
+    <method name="RequestPurge">
+      <arg name="token_id"       type="s"     direction="in"/>
+      <arg name="path"           type="s"     direction="in"/>
+      <arg name="result"         type="a{sv}" direction="out"/>
+    </method>
+
+    <method name="RequestMove">
+      <arg name="token_id"       type="s"     direction="in"/>
+      <arg name="source"         type="s"     direction="in"/>
+      <arg name="destination"    type="s"     direction="in"/>
+      <arg name="result"         type="a{sv}" direction="out"/>
+    </method>
+
+    <method name="RequestCopy">
+      <arg name="token_id"       type="s"     direction="in"/>
+      <arg name="source"         type="s"     direction="in"/>
+      <arg name="destination"    type="s"     direction="in"/>
+      <arg name="result"         type="a{sv}" direction="out"/>
+    </method>
+
+    <!--
+      RequestWrite: writes content bytes to path atomically
+      (temp file + rename).  Returns ImmutableMount if the path is on
+      a read-only filesystem.
+    -->
+    <method name="RequestWrite">
+      <arg name="token_id"       type="s"     direction="in"/>
+      <arg name="path"           type="s"     direction="in"/>
+      <arg name="content"        type="ay"    direction="in"/>
+      <arg name="result"         type="a{sv}" direction="out"/>
+    </method>
+
+    <!--
+      RequestCreate: creates an empty file (is_dir=false) or directory
+      (is_dir=true) with the given mode bits.
+    -->
+    <method name="RequestCreate">
+      <arg name="token_id"       type="s"     direction="in"/>
+      <arg name="path"           type="s"     direction="in"/>
+      <arg name="is_dir"         type="b"     direction="in"/>
+      <arg name="mode"           type="u"     direction="in"/>
+      <arg name="result"         type="a{sv}" direction="out"/>
+    </method>
+
+    <method name="RequestChmod">
+      <arg name="token_id"       type="s"     direction="in"/>
+      <arg name="path"           type="s"     direction="in"/>
+      <arg name="mode"           type="u"     direction="in"/>
+      <arg name="result"         type="a{sv}" direction="out"/>
+    </method>
+
+    <!--
+      RequestChown: changes uid/gid.  Requires auth_admin each time
+      (no keep); caller must re-authenticate for every invocation.
+    -->
+    <method name="RequestChown">
+      <arg name="token_id"       type="s"     direction="in"/>
+      <arg name="path"           type="s"     direction="in"/>
+      <arg name="uid"            type="u"     direction="in"/>
+      <arg name="gid"            type="u"     direction="in"/>
+      <arg name="result"         type="a{sv}" direction="out"/>
+    </method>
+
+    <!--
+      RequestMount: mounts device at mountpoint.  Requires auth_admin each
+      time (no keep).  fstype and options are validated against an allowlist.
+    -->
+    <method name="RequestMount">
+      <arg name="token_id"       type="s"     direction="in"/>
+      <arg name="device"         type="s"     direction="in"/>
+      <arg name="mountpoint"     type="s"     direction="in"/>
+      <arg name="fstype"         type="s"     direction="in"/>
+      <arg name="options"        type="s"     direction="in"/>
+      <arg name="result"         type="a{sv}" direction="out"/>
+    </method>
+
+    <method name="RequestUnmount">
+      <arg name="token_id"       type="s"     direction="in"/>
+      <arg name="mountpoint"     type="s"     direction="in"/>
+      <arg name="result"         type="a{sv}" direction="out"/>
+    </method>
+
+    <!-- ── Signals ────────────────────────────────────────────── -->
+
+    <signal name="TokenIssued">
+      <arg name="token"          type="a{sv}"/>
+    </signal>
+
+    <signal name="TokenExpired">
+      <arg name="token_id"       type="s"/>
+    </signal>
+
+    <signal name="TokenRevoked">
+      <arg name="token_id"       type="s"/>
+      <arg name="reason"         type="s"/>
+    </signal>
+
+    <signal name="OperationCompleted">
+      <arg name="token_id"       type="s"/>
+      <arg name="verb"           type="s"/>
+      <arg name="result"         type="a{sv}"/>
+    </signal>
+
+    <signal name="SnapshotCreated">
+      <arg name="snapshot_name"  type="s"/>
+      <arg name="source_path"    type="s"/>
+      <arg name="token_id"       type="s"/>
+    </signal>
+
+    <!-- ── Properties ─────────────────────────────────────────── -->
+
+    <property name="serviceRegistered"  type="b" access="read"/>
+    <property name="apiVersion"         type="s" access="read"/>
+
+  </interface>
+</node>

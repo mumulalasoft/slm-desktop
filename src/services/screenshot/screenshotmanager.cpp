@@ -18,13 +18,75 @@
 #include <QLocalSocket>
 #include <QPainter>
 #include <QPixmap>
+#include <QProcess>
 #include <QProcessEnvironment>
 #include <QQuickWindow>
+#include <QRandomGenerator>
 #include <QScreen>
 #include <QStandardPaths>
 #include <QTemporaryFile>
 #include <QTimer>
 #include <QUrl>
+#include <QVariantList>
+
+namespace {
+QString expandUserPath(const QString &path)
+{
+    const QString trimmed = path.trimmed();
+    if (trimmed == QStringLiteral("~")) {
+        return QDir::homePath();
+    }
+    if (trimmed.startsWith(QStringLiteral("~/"))) {
+        return QDir::homePath() + trimmed.mid(1);
+    }
+    return trimmed;
+}
+
+bool ownWindowFallbackEnabled()
+{
+    const QString value = QProcessEnvironment::systemEnvironment()
+                              .value(QStringLiteral("SLM_SCREENSHOT_OWN_WINDOW_FALLBACK"))
+                              .trimmed()
+                              .toLower();
+    return value == QStringLiteral("1")
+           || value == QStringLiteral("true")
+           || value == QStringLiteral("yes");
+}
+
+void appendBackendFailure(QVariantList *failures, const QVariantMap &result)
+{
+    if (failures == nullptr || result.value(QStringLiteral("ok")).toBool()) {
+        return;
+    }
+
+    QVariantMap failure;
+    failure.insert(QStringLiteral("backend"), result.value(QStringLiteral("backend")).toString());
+    failure.insert(QStringLiteral("error"), result.value(QStringLiteral("error")).toString());
+    const QString details = result.value(QStringLiteral("details")).toString();
+    if (!details.isEmpty()) {
+        failure.insert(QStringLiteral("details"), details.left(300));
+    }
+    failures->append(failure);
+}
+
+QVariantMap withBackendFailures(QVariantMap result, const QVariantList &failures)
+{
+    if (!result.value(QStringLiteral("ok")).toBool() && !failures.isEmpty()) {
+        result.insert(QStringLiteral("backendFailures"), failures);
+    }
+    return result;
+}
+
+QString portalSenderPathComponent()
+{
+    QString sender = QDBusConnection::sessionBus().baseService();
+    if (sender.startsWith(QLatin1Char(':'))) {
+        sender.remove(0, 1);
+    }
+    return sender.replace(QLatin1Char('.'), QLatin1Char('_'))
+                 .replace(QLatin1Char(':'), QLatin1Char('_'));
+}
+} // namespace
 
 ScreenshotManager::ScreenshotManager(QObject *parent)
     : QObject(parent)
@@ -74,7 +136,7 @@ QString ScreenshotManager::defaultOutputPath()
 
 QString ScreenshotManager::normalizedOutputPath(const QString &path)
 {
-    QString out = path.trimmed();
+    QString out = expandUserPath(path);
     if (out.isEmpty()) {
         out = defaultOutputPath();
     }
@@ -92,6 +154,7 @@ QVariantMap ScreenshotManager::runCapture(const QStringList &args,
     result.insert(QStringLiteral("ok"), false);
     result.insert(QStringLiteral("mode"), mode);
     result.insert(QStringLiteral("path"), targetPath);
+    result.insert(QStringLiteral("backend"), QStringLiteral("xdg-desktop-portal"));
     result.insert(QStringLiteral("error"), QStringLiteral("external-capture-disabled"));
     return result;
 }
@@ -105,49 +168,18 @@ QVariantMap ScreenshotManager::captureViaPortal(const QString &mode,
     result.insert(QStringLiteral("ok"), false);
     result.insert(QStringLiteral("mode"), mode);
     result.insert(QStringLiteral("path"), targetPath);
+    result.insert(QStringLiteral("backend"), QStringLiteral("xdg-desktop-portal"));
 
-    QDBusMessage message = QDBusMessage::createMethodCall(
-        QStringLiteral("org.freedesktop.portal.Desktop"),
-        QStringLiteral("/org/freedesktop/portal/desktop"),
-        QStringLiteral("org.freedesktop.portal.Screenshot"),
-        QStringLiteral("Screenshot"));
-
-    QVariantMap options;
-    options.insert(QStringLiteral("handle_token"),
-                   QStringLiteral("ds_shot_%1").arg(QDateTime::currentMSecsSinceEpoch()));
-    options.insert(QStringLiteral("interactive"), false);
-    message << QString() << options;
-
-    const QDBusMessage reply = QDBusConnection::sessionBus().call(message,
-                                                                  QDBus::BlockWithGui,
-                                                                  3000);
-    if (reply.type() == QDBusMessage::ErrorMessage) {
-        result.insert(QStringLiteral("error"), QStringLiteral("portal-call-failed"));
-        result.insert(QStringLiteral("details"), reply.errorMessage());
-        return result;
-    }
-    if (reply.arguments().isEmpty()) {
-        result.insert(QStringLiteral("error"), QStringLiteral("portal-invalid-handle"));
-        return result;
-    }
-
-    const QDBusObjectPath requestObject = qdbus_cast<QDBusObjectPath>(reply.arguments().constFirst());
-    const QString requestPath = requestObject.path();
-    if (requestPath.trimmed().isEmpty()) {
-        result.insert(QStringLiteral("error"), QStringLiteral("portal-invalid-handle"));
-        return result;
-    }
-
-    QVariantMap payload;
-    uint responseCode = 2;
-    bool gotSignal = false;
-    QEventLoop loop;
-    QTimer timer;
-    timer.setSingleShot(true);
-    QObject::connect(&timer, &QTimer::timeout, &loop, &QEventLoop::quit);
+    const QString handleToken = QStringLiteral("slmshot%1")
+                                    .arg(QRandomGenerator::global()->generate(),
+                                         8,
+                                         16,
+                                         QLatin1Char('0'));
+    QString requestPath = QStringLiteral("/org/freedesktop/portal/desktop/request/%1/%2")
+                              .arg(portalSenderPathComponent(), handleToken);
 
     const bool connected = QDBusConnection::sessionBus().connect(
-        QStringLiteral("org.freedesktop.portal.Desktop"),
+        {},
         requestPath,
         QStringLiteral("org.freedesktop.portal.Request"),
         QStringLiteral("Response"),
@@ -157,6 +189,65 @@ QVariantMap ScreenshotManager::captureViaPortal(const QString &mode,
         result.insert(QStringLiteral("error"), QStringLiteral("portal-connect-failed"));
         return result;
     }
+
+    QDBusMessage message = QDBusMessage::createMethodCall(
+        QStringLiteral("org.freedesktop.portal.Desktop"),
+        QStringLiteral("/org/freedesktop/portal/desktop"),
+        QStringLiteral("org.freedesktop.portal.Screenshot"),
+        QStringLiteral("Screenshot"));
+
+    QVariantMap options;
+    options.insert(QStringLiteral("handle_token"), handleToken);
+    options.insert(QStringLiteral("interactive"), false);
+    message << QString() << options;
+
+    const QDBusMessage reply = QDBusConnection::sessionBus().call(message,
+                                                                  QDBus::BlockWithGui,
+                                                                  3000);
+    if (reply.type() == QDBusMessage::ErrorMessage) {
+        QDBusConnection::sessionBus().disconnect(
+            {},
+            requestPath,
+            QStringLiteral("org.freedesktop.portal.Request"),
+            QStringLiteral("Response"),
+            this,
+            SLOT(onPortalResponse(uint,QVariantMap)));
+        result.insert(QStringLiteral("error"), QStringLiteral("portal-call-failed"));
+        result.insert(QStringLiteral("details"), reply.errorMessage());
+        return result;
+    }
+    if (reply.arguments().isEmpty()) {
+        QDBusConnection::sessionBus().disconnect(
+            {},
+            requestPath,
+            QStringLiteral("org.freedesktop.portal.Request"),
+            QStringLiteral("Response"),
+            this,
+            SLOT(onPortalResponse(uint,QVariantMap)));
+        result.insert(QStringLiteral("error"), QStringLiteral("portal-invalid-handle"));
+        return result;
+    }
+
+    const QDBusObjectPath requestObject = qdbus_cast<QDBusObjectPath>(reply.arguments().constFirst());
+    const QString replyPath = requestObject.path().trimmed();
+    bool connectedReplyPath = false;
+    if (!replyPath.isEmpty() && replyPath != requestPath) {
+        connectedReplyPath = QDBusConnection::sessionBus().connect(
+            {},
+            replyPath,
+            QStringLiteral("org.freedesktop.portal.Request"),
+            QStringLiteral("Response"),
+            this,
+            SLOT(onPortalResponse(uint,QVariantMap)));
+    }
+
+    QVariantMap payload;
+    uint responseCode = 2;
+    bool gotSignal = false;
+    QEventLoop loop;
+    QTimer timer;
+    timer.setSingleShot(true);
+    QObject::connect(&timer, &QTimer::timeout, &loop, &QEventLoop::quit);
 
     m_portalLoop = &loop;
     m_portalGotResponse = false;
@@ -171,16 +262,25 @@ QVariantMap ScreenshotManager::captureViaPortal(const QString &mode,
     payload = m_portalPayload;
 
     QDBusConnection::sessionBus().disconnect(
-        QStringLiteral("org.freedesktop.portal.Desktop"),
+        {},
         requestPath,
         QStringLiteral("org.freedesktop.portal.Request"),
         QStringLiteral("Response"),
         this,
         SLOT(onPortalResponse(uint,QVariantMap)));
+    if (connectedReplyPath) {
+        QDBusConnection::sessionBus().disconnect(
+            {},
+            replyPath,
+            QStringLiteral("org.freedesktop.portal.Request"),
+            QStringLiteral("Response"),
+            this,
+            SLOT(onPortalResponse(uint,QVariantMap)));
+    }
 
     QDBusMessage closeMsg = QDBusMessage::createMethodCall(
         QStringLiteral("org.freedesktop.portal.Desktop"),
-        requestPath,
+        replyPath.isEmpty() ? requestPath : replyPath,
         QStringLiteral("org.freedesktop.portal.Request"),
         QStringLiteral("Close"));
     QDBusConnection::sessionBus().call(closeMsg, QDBus::NoBlock);
@@ -228,6 +328,7 @@ QVariantMap ScreenshotManager::captureViaPortal(const QString &mode,
         return result;
     }
     result.insert(QStringLiteral("ok"), true);
+    result.insert(QStringLiteral("backend"), QStringLiteral("xdg-desktop-portal"));
     return result;
 }
 
@@ -240,6 +341,7 @@ QVariantMap ScreenshotManager::captureViaScreenGrab(const QString &mode,
     result.insert(QStringLiteral("ok"), false);
     result.insert(QStringLiteral("mode"), mode);
     result.insert(QStringLiteral("path"), targetPath);
+    result.insert(QStringLiteral("backend"), QStringLiteral("qt-screen-grab"));
 
     if (qGuiApp != nullptr && QGuiApplication::platformName() == QStringLiteral("wayland")) {
         result.insert(QStringLiteral("error"), QStringLiteral("qt-grab-unsupported-wayland"));
@@ -302,6 +404,7 @@ QVariantMap ScreenshotManager::captureViaScreenGrab(const QString &mode,
     }
 
     result.insert(QStringLiteral("ok"), true);
+    result.insert(QStringLiteral("backend"), QStringLiteral("qt-screen-grab"));
     return result;
 }
 
@@ -313,6 +416,7 @@ QVariantMap ScreenshotManager::captureViaKWinScreenShot2(const QString &mode,
     result.insert(QStringLiteral("ok"), false);
     result.insert(QStringLiteral("mode"), mode);
     result.insert(QStringLiteral("path"), targetPath);
+    result.insert(QStringLiteral("backend"), QStringLiteral("kwin-screenshot2"));
 
     if (captureRect.width() <= 0 || captureRect.height() <= 0) {
         result.insert(QStringLiteral("error"), QStringLiteral("kwin-invalid-geometry"));
@@ -410,6 +514,70 @@ QVariantMap ScreenshotManager::captureViaKWinScreenShot2(const QString &mode,
     }
 
     result.insert(QStringLiteral("ok"), true);
+    result.insert(QStringLiteral("backend"), QStringLiteral("kwin-screenshot2"));
+    return result;
+}
+
+QVariantMap ScreenshotManager::captureViaGrim(const QString &mode,
+                                              const QString &targetPath,
+                                              bool cropEnabled,
+                                              const QRect &cropRect)
+{
+    QVariantMap result;
+    result.insert(QStringLiteral("ok"), false);
+    result.insert(QStringLiteral("mode"), mode);
+    result.insert(QStringLiteral("path"), targetPath);
+    result.insert(QStringLiteral("backend"), QStringLiteral("grim"));
+
+    const QString grim = QStandardPaths::findExecutable(QStringLiteral("grim"));
+    if (grim.isEmpty()) {
+        result.insert(QStringLiteral("error"), QStringLiteral("grim-unavailable"));
+        return result;
+    }
+
+    QStringList args;
+    if (cropEnabled) {
+        if (cropRect.width() <= 0 || cropRect.height() <= 0) {
+            result.insert(QStringLiteral("error"), QStringLiteral("grim-invalid-geometry"));
+            return result;
+        }
+        args << QStringLiteral("-g")
+             << QStringLiteral("%1,%2 %3x%4")
+                    .arg(cropRect.x())
+                    .arg(cropRect.y())
+                    .arg(cropRect.width())
+                    .arg(cropRect.height());
+    }
+    args << targetPath;
+
+    QProcess proc;
+    proc.setProgram(grim);
+    proc.setArguments(args);
+    proc.setProcessChannelMode(QProcess::MergedChannels);
+    proc.start();
+    if (!proc.waitForStarted(800)) {
+        result.insert(QStringLiteral("error"), QStringLiteral("grim-start-failed"));
+        return result;
+    }
+    if (!proc.waitForFinished(4000)) {
+        proc.kill();
+        proc.waitForFinished(500);
+        result.insert(QStringLiteral("error"), QStringLiteral("grim-timeout"));
+        return result;
+    }
+    if (proc.exitStatus() != QProcess::NormalExit || proc.exitCode() != 0) {
+        result.insert(QStringLiteral("error"), QStringLiteral("grim-capture-failed"));
+        result.insert(QStringLiteral("details"), QString::fromUtf8(proc.readAll()).trimmed());
+        return result;
+    }
+
+    const QFileInfo outFi(targetPath);
+    if (!outFi.exists() || outFi.size() <= 0) {
+        result.insert(QStringLiteral("error"), QStringLiteral("empty-output"));
+        return result;
+    }
+
+    result.insert(QStringLiteral("ok"), true);
     return result;
 }
 
@@ -422,6 +590,7 @@ QVariantMap ScreenshotManager::captureViaOwnWindows(const QString &mode,
     result.insert(QStringLiteral("ok"), false);
     result.insert(QStringLiteral("mode"), mode);
     result.insert(QStringLiteral("path"), targetPath);
+    result.insert(QStringLiteral("backend"), QStringLiteral("qt-own-windows"));
 
     if (qGuiApp == nullptr) {
         result.insert(QStringLiteral("error"), QStringLiteral("qt-gui-unavailable"));
@@ -518,7 +687,6 @@ QVariantMap ScreenshotManager::captureViaOwnWindows(const QString &mode,
     }
 
     result.insert(QStringLiteral("ok"), true);
-    result.insert(QStringLiteral("backend"), QStringLiteral("qt-own-windows"));
     result.insert(QStringLiteral("capturedWindows"), 1);
     return result;
 }
@@ -531,6 +699,7 @@ QVariantMap ScreenshotManager::captureViaCompositor(const QString &command,
     result.insert(QStringLiteral("ok"), false);
     result.insert(QStringLiteral("mode"), mode);
     result.insert(QStringLiteral("path"), targetPath);
+    result.insert(QStringLiteral("backend"), QStringLiteral("compositor-ipc"));
 
     const QString socketPath = QProcessEnvironment::systemEnvironment()
                                    .value(QStringLiteral("DS_IPC_SOCKET"),
@@ -649,15 +818,7 @@ QVariantMap ScreenshotManager::captureFullscreen(const QString &outputPath)
         return lockedResult(QStringLiteral("fullscreen"));
     }
     const QString target = normalizedOutputPath(outputPath);
-    if (qGuiApp != nullptr && QGuiApplication::platformName() == QStringLiteral("wayland")) {
-        const QVariantMap ownWindowsResult = captureViaOwnWindows(QStringLiteral("fullscreen"),
-                                                                  target,
-                                                                  false,
-                                                                  QRect());
-        if (ownWindowsResult.value(QStringLiteral("ok")).toBool()) {
-            return ownWindowsResult;
-        }
-    }
+    QVariantList failures;
     const QVariantMap nativeResult = captureViaCompositor(
         QStringLiteral("screenshot fullscreen \"%1\"").arg(target),
         QStringLiteral("fullscreen"),
@@ -665,16 +826,26 @@ QVariantMap ScreenshotManager::captureFullscreen(const QString &outputPath)
     if (nativeResult.value(QStringLiteral("ok")).toBool()) {
         return nativeResult;
     }
+    appendBackendFailure(&failures, nativeResult);
     QRect screenRect;
     if (QScreen *screen = QGuiApplication::primaryScreen()) {
         screenRect = screen->geometry();
     }
+    const QVariantMap grimResult = captureViaGrim(QStringLiteral("fullscreen"),
+                                                  target,
+                                                  false,
+                                                  QRect());
+    if (grimResult.value(QStringLiteral("ok")).toBool()) {
+        return grimResult;
+    }
+    appendBackendFailure(&failures, grimResult);
     const QVariantMap kwinResult = captureViaKWinScreenShot2(QStringLiteral("fullscreen"),
                                                              target,
                                                              screenRect);
     if (kwinResult.value(QStringLiteral("ok")).toBool()) {
         return kwinResult;
     }
+    appendBackendFailure(&failures, kwinResult);
     const QVariantMap qtResult = captureViaScreenGrab(QStringLiteral("fullscreen"),
                                                       target,
                                                       false,
@@ -682,14 +853,20 @@ QVariantMap ScreenshotManager::captureFullscreen(const QString &outputPath)
     if (qtResult.value(QStringLiteral("ok")).toBool()) {
         return qtResult;
     }
-    const QVariantMap ownWindowsResult = captureViaOwnWindows(QStringLiteral("fullscreen"),
-                                                              target,
-                                                              false,
-                                                              QRect());
-    if (ownWindowsResult.value(QStringLiteral("ok")).toBool()) {
-        return ownWindowsResult;
+    appendBackendFailure(&failures, qtResult);
+    if (ownWindowFallbackEnabled()) {
+        const QVariantMap ownWindowsResult = captureViaOwnWindows(QStringLiteral("fullscreen"),
+                                                                  target,
+                                                                  false,
+                                                                  QRect());
+        if (ownWindowsResult.value(QStringLiteral("ok")).toBool()) {
+            return ownWindowsResult;
+        }
+        appendBackendFailure(&failures, ownWindowsResult);
     }
-    return captureViaPortal(QStringLiteral("fullscreen"), target, false, QRect());
+    const QVariantMap portalResult = captureViaPortal(QStringLiteral("fullscreen"), target, false, QRect());
+    appendBackendFailure(&failures, portalResult);
+    return withBackendFailures(portalResult, failures);
 }
 
 QVariantMap ScreenshotManager::captureWindow(int x, int y, int width, int height,
@@ -709,16 +886,7 @@ QVariantMap ScreenshotManager::captureWindow(int x, int y, int width, int height
     }
 
     const QRect rect(x, y, width, height);
-    if (qGuiApp != nullptr && QGuiApplication::platformName() == QStringLiteral("wayland")) {
-        const QVariantMap ownWindowsResult = captureViaOwnWindows(QStringLiteral("window"),
-                                                                  target,
-                                                                  true,
-                                                                  rect);
-        if (ownWindowsResult.value(QStringLiteral("ok")).toBool()) {
-            return ownWindowsResult;
-        }
-    }
-
+    QVariantList failures;
     const QVariantMap nativeResult = captureViaCompositor(
         QStringLiteral("screenshot window %1 %2 %3 %4 \"%5\"")
             .arg(x)
@@ -731,12 +899,22 @@ QVariantMap ScreenshotManager::captureWindow(int x, int y, int width, int height
     if (nativeResult.value(QStringLiteral("ok")).toBool()) {
         return nativeResult;
     }
+    appendBackendFailure(&failures, nativeResult);
+    const QVariantMap grimResult = captureViaGrim(QStringLiteral("window"),
+                                                  target,
+                                                  true,
+                                                  rect);
+    if (grimResult.value(QStringLiteral("ok")).toBool()) {
+        return grimResult;
+    }
+    appendBackendFailure(&failures, grimResult);
     const QVariantMap kwinResult = captureViaKWinScreenShot2(QStringLiteral("window"),
                                                              target,
                                                              rect);
     if (kwinResult.value(QStringLiteral("ok")).toBool()) {
         return kwinResult;
     }
+    appendBackendFailure(&failures, kwinResult);
     const QVariantMap qtResult = captureViaScreenGrab(QStringLiteral("window"),
                                                       target,
                                                       true,
@@ -744,17 +922,23 @@ QVariantMap ScreenshotManager::captureWindow(int x, int y, int width, int height
     if (qtResult.value(QStringLiteral("ok")).toBool()) {
         return qtResult;
     }
-    const QVariantMap ownWindowsResult = captureViaOwnWindows(QStringLiteral("window"),
-                                                              target,
-                                                              true,
-                                                              rect);
-    if (ownWindowsResult.value(QStringLiteral("ok")).toBool()) {
-        return ownWindowsResult;
+    appendBackendFailure(&failures, qtResult);
+    if (ownWindowFallbackEnabled()) {
+        const QVariantMap ownWindowsResult = captureViaOwnWindows(QStringLiteral("window"),
+                                                                  target,
+                                                                  true,
+                                                                  rect);
+        if (ownWindowsResult.value(QStringLiteral("ok")).toBool()) {
+            return ownWindowsResult;
+        }
+        appendBackendFailure(&failures, ownWindowsResult);
     }
-    return captureViaPortal(QStringLiteral("window"),
-                            target,
-                            true,
-                            rect);
+    const QVariantMap portalResult = captureViaPortal(QStringLiteral("window"),
+                                                      target,
+                                                      true,
+                                                      rect);
+    appendBackendFailure(&failures, portalResult);
+    return withBackendFailures(portalResult, failures);
 }
 
 QVariantMap ScreenshotManager::captureArea(const QString &outputPath)
@@ -788,16 +972,7 @@ QVariantMap ScreenshotManager::captureAreaRect(int x, int y, int width, int heig
     }
 
     const QRect rect(x, y, width, height);
-    if (qGuiApp != nullptr && QGuiApplication::platformName() == QStringLiteral("wayland")) {
-        const QVariantMap ownWindowsResult = captureViaOwnWindows(QStringLiteral("area"),
-                                                                  target,
-                                                                  true,
-                                                                  rect);
-        if (ownWindowsResult.value(QStringLiteral("ok")).toBool()) {
-            return ownWindowsResult;
-        }
-    }
-
+    QVariantList failures;
     const QVariantMap nativeResult = captureViaCompositor(
         QStringLiteral("screenshot area %1 %2 %3 %4 \"%5\"")
             .arg(x)
@@ -810,12 +985,22 @@ QVariantMap ScreenshotManager::captureAreaRect(int x, int y, int width, int heig
     if (nativeResult.value(QStringLiteral("ok")).toBool()) {
         return nativeResult;
     }
+    appendBackendFailure(&failures, nativeResult);
+    const QVariantMap grimResult = captureViaGrim(QStringLiteral("area"),
+                                                  target,
+                                                  true,
+                                                  rect);
+    if (grimResult.value(QStringLiteral("ok")).toBool()) {
+        return grimResult;
+    }
+    appendBackendFailure(&failures, grimResult);
     const QVariantMap kwinResult = captureViaKWinScreenShot2(QStringLiteral("area"),
                                                              target,
                                                              rect);
     if (kwinResult.value(QStringLiteral("ok")).toBool()) {
         return kwinResult;
     }
+    appendBackendFailure(&failures, kwinResult);
     const QVariantMap qtResult = captureViaScreenGrab(QStringLiteral("area"),
                                                       target,
                                                       true,
@@ -823,15 +1008,21 @@ QVariantMap ScreenshotManager::captureAreaRect(int x, int y, int width, int heig
     if (qtResult.value(QStringLiteral("ok")).toBool()) {
         return qtResult;
     }
-    const QVariantMap ownWindowsResult = captureViaOwnWindows(QStringLiteral("area"),
-                                                              target,
-                                                              true,
-                                                              rect);
-    if (ownWindowsResult.value(QStringLiteral("ok")).toBool()) {
-        return ownWindowsResult;
+    appendBackendFailure(&failures, qtResult);
+    if (ownWindowFallbackEnabled()) {
+        const QVariantMap ownWindowsResult = captureViaOwnWindows(QStringLiteral("area"),
+                                                                  target,
+                                                                  true,
+                                                                  rect);
+        if (ownWindowsResult.value(QStringLiteral("ok")).toBool()) {
+            return ownWindowsResult;
+        }
+        appendBackendFailure(&failures, ownWindowsResult);
     }
-    return captureViaPortal(QStringLiteral("area"),
-                            target,
-                            true,
-                            rect);
+    const QVariantMap portalResult = captureViaPortal(QStringLiteral("area"),
+                                                      target,
+                                                      true,
+                                                      rect);
+    appendBackendFailure(&failures, portalResult);
+    return withBackendFailures(portalResult, failures);
 }

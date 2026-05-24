@@ -52,7 +52,9 @@ private slots:
         const QVariantMap srcStat = api.statPath(sourcePath);
         const QVariantMap dstStat = api.statPath(targetPath);
         QVERIFY(srcStat.value(QStringLiteral("ok")).toBool());
+        QVERIFY(srcStat.value(QStringLiteral("exists")).toBool());
         QVERIFY(dstStat.value(QStringLiteral("ok")).toBool());
+        QVERIFY(dstStat.value(QStringLiteral("exists")).toBool());
         QCOMPARE(readFile(targetPath), QByteArray("old-content"));
         QCOMPARE(readFile(sourcePath), QByteArray("new-content"));
     }
@@ -77,8 +79,38 @@ private slots:
         const QVariantMap srcStat = api.statPath(sourcePath);
         const QVariantMap dstStat = api.statPath(targetPath);
         QVERIFY(!srcStat.value(QStringLiteral("ok")).toBool());
+        QVERIFY(!srcStat.value(QStringLiteral("exists")).toBool());
         QVERIFY(dstStat.value(QStringLiteral("ok")).toBool());
+        QVERIFY(dstStat.value(QStringLiteral("exists")).toBool());
         QCOMPARE(readFile(targetPath), QByteArray("new-content"));
+    }
+
+    void statPath_reportsExistsForQmlCallers()
+    {
+        FileManagerApi api;
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+
+        const QString path = dir.filePath(QStringLiteral("launcher.desktop"));
+        const QVariantMap written = api.writeTextFile(path,
+                                                       QStringLiteral("[Desktop Entry]\n"
+                                                                      "Type=Application\n"
+                                                                      "Name=Launcher\n"
+                                                                      "Exec=true\n"
+                                                                      "Icon=application-x-executable\n"),
+                                                       false);
+        QVERIFY(written.value(QStringLiteral("ok")).toBool());
+        QVERIFY(written.value(QStringLiteral("exists")).toBool());
+
+        const QVariantMap stat = api.statPath(path);
+        QVERIFY(stat.value(QStringLiteral("ok")).toBool());
+        QVERIFY(stat.value(QStringLiteral("exists")).toBool());
+        QVERIFY(stat.value(QStringLiteral("isFile")).toBool());
+        QVERIFY(stat.value(QStringLiteral("permOwnerExec")).toBool());
+
+        const QVariantMap missing = api.statPath(dir.filePath(QStringLiteral("missing.desktop")));
+        QVERIFY(!missing.value(QStringLiteral("ok")).toBool());
+        QVERIFY(!missing.value(QStringLiteral("exists")).toBool());
     }
 
     void folderSharingEnvironment_contractShape()

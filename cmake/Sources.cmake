@@ -508,6 +508,25 @@ set(SLM_FILEOPSD_SOURCES
     ${SLM_PERMISSIONS_SOURCES}
 )
 
+# slm-fsd: SLM File System Daemon — privileged access gateway.
+# Runs as root on the system bus.  All verbs gated by polkit.
+# See docs/PRIVILEGED_ACCESS_BACKEND.md for the full design.
+set(SLM_FSD_SOURCES
+    src/daemon/fsd/fsd_main.cpp
+    src/daemon/fsd/FsdService.h
+    src/daemon/fsd/FsdService.cpp
+    src/daemon/fsd/FsdTokenStore.h
+    src/daemon/fsd/FsdTokenStore.cpp
+    src/daemon/fsd/FsdPathPolicy.h
+    src/daemon/fsd/FsdPathPolicy.cpp
+    src/daemon/fsd/FsdPolkit.h
+    src/daemon/fsd/FsdPolkit.cpp
+    src/daemon/fsd/FsdSnapshot.h
+    src/daemon/fsd/FsdSnapshot.cpp
+    src/daemon/fsd/FsdRecoveryTrash.h
+    src/daemon/fsd/FsdRecoveryTrash.cpp
+)
+
 set(SLM_DEVICESD_SOURCES
     src/daemon/devicesd/devicesd_main.cpp
     src/daemon/devicesd/devicesmanager.cpp

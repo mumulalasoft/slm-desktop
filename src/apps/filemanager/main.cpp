@@ -13,6 +13,7 @@
 #include <QUrl>
 
 #include "src/apps/filemanager/include/filemanagerapi.h"
+#include "src/apps/filemanager/filemanagerdbusservice.h"
 #include "src/apps/filemanager/include/filemanagermodel.h"
 #include "src/apps/filemanager/include/filemanagermodelfactory.h"
 #include "src/core/icons/themeiconcontroller.h"
@@ -138,6 +139,8 @@ int main(int argc, char *argv[])
     if (engine.rootObjects().isEmpty()) {
         return 1;
     }
+
+    FileManagerDbusService dbusService(&engine);
 
     return app.exec();
 }

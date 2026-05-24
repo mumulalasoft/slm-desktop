@@ -176,6 +176,117 @@ private slots:
         QVERIFY(text.contains(QStringLiteral("ShellStateController.setAppDeckVisible(false)")));
     }
 
+    void appDeckGridContextMenu_addToDesktopUsesStablePayload()
+    {
+        const QString gridPath = QStringLiteral(DESKTOP_SOURCE_DIR)
+            + QStringLiteral("/Qml/components/appdeck/AppDeckGridView.qml");
+        const QString gridText = readTextFile(gridPath);
+        QVERIFY2(!gridText.isEmpty(), qPrintable(QStringLiteral("failed to read %1").arg(gridPath)));
+
+        QVERIFY(gridText.contains(QStringLiteral("function _hasAppIdentity(appData)")));
+        QVERIFY(gridText.contains(QStringLiteral("function _themeIconNameFromSource(iconValue)")));
+        QVERIFY(gridText.contains(QStringLiteral("function _contextPayload(menuPayload, fallbackPayload)")));
+        QVERIFY(gridText.contains(QStringLiteral("\"source\": \"appdeck-grid-context\"")));
+        QVERIFY(gridText.contains(QStringLiteral("\"iconName\": String((entry && entry.iconName) || \"\")")));
+        QVERIFY(gridText.contains(QStringLiteral("\"iconSource\": String((entry && entry.iconSource) || \"\")")));
+        QVERIFY(gridText.contains(QStringLiteral("payload.iconName = derivedIconName")));
+        QVERIFY(gridText.contains(QStringLiteral("var payload = root._contextPayload(menu.actionAppData, modelData)")));
+        QVERIFY(gridText.contains(QStringLiteral("root.addToDesktopRequested(payload)")));
+
+        const QString actionsPath = QStringLiteral(DESKTOP_SOURCE_DIR)
+            + QStringLiteral("/Qml/components/overlay/AppDeckActions.js");
+        const QString actionsText = readTextFile(actionsPath);
+        QVERIFY2(!actionsText.isEmpty(), qPrintable(QStringLiteral("failed to read %1").arg(actionsPath)));
+
+        QVERIFY(actionsText.contains(QStringLiteral("function _tryShortcutModelAddToDesktop(appData, candidates, logPrefix, shortcutModelRef)")));
+        QVERIFY(actionsText.contains(QStringLiteral("function handleAddToDesktop(appData, desktopScene, desktopSurfaceRef, shortcutModelRef)")));
+        QVERIFY(actionsText.contains(QStringLiteral("augmentedData.desktopFileCandidates = candidates.slice(0)")));
+        QVERIFY(actionsText.contains(QStringLiteral("var desktopSurface = desktopSurfaceRef")));
+        QVERIFY(actionsText.contains(QStringLiteral("var surfaceAdded = desktopSurface.addAppEntryToDesktop(augmentedData, -1, -1)")));
+        QVERIFY(actionsText.contains(QStringLiteral("if (surfaceAdded === true)")));
+        QVERIFY(actionsText.contains(QStringLiteral("falling back to ShortcutModel")));
+        QVERIFY(actionsText.contains(QStringLiteral("return added")));
+
+        const QString windowPath = QStringLiteral(DESKTOP_SOURCE_DIR)
+            + QStringLiteral("/Qml/components/overlay/AppDeckWindow.qml");
+        const QString windowText = readTextFile(windowPath);
+        QVERIFY2(!windowText.isEmpty(), qPrintable(QStringLiteral("failed to read %1").arg(windowPath)));
+
+        QVERIFY(windowText.contains(QStringLiteral("property var desktopSurface: null")));
+        QVERIFY(windowText.contains(QStringLiteral("property var shortcutModel: null")));
+        QVERIFY(windowText.contains(QStringLiteral("function effectiveDesktopSurface()")));
+        QVERIFY(windowText.contains(QStringLiteral("root.desktopSurface")));
+        QVERIFY(windowText.contains(QStringLiteral("root.rootWindow.desktopSurfaceRef")));
+        QVERIFY(windowText.contains(QStringLiteral("var surface = root.effectiveDesktopSurface()")));
+        QVERIFY(windowText.contains(QStringLiteral("root.shortcutModel")));
+
+        const QString mainPath = QStringLiteral(DESKTOP_SOURCE_DIR) + QStringLiteral("/Main.qml");
+        const QString mainText = readTextFile(mainPath);
+        QVERIFY2(!mainText.isEmpty(), qPrintable(QStringLiteral("failed to read %1").arg(mainPath)));
+
+        QVERIFY(mainText.contains(QStringLiteral("readonly property var desktopSurfaceRef: desktopScene ? desktopScene.desktopFileManagerContent : null")));
+        QVERIFY(mainText.contains(QStringLiteral("desktopSurface: root.desktopSurfaceRef")));
+        QVERIFY(mainText.contains(QStringLiteral("shortcutModel: (typeof ShortcutModel !== \"undefined\") ? ShortcutModel : null")));
+
+        const QString desktopSurfacePath = QStringLiteral(DESKTOP_SOURCE_DIR)
+            + QStringLiteral("/Qml/components/desktop/DesktopSurface.qml");
+        const QString desktopSurfaceText = readTextFile(desktopSurfacePath);
+        QVERIFY2(!desktopSurfaceText.isEmpty(), qPrintable(QStringLiteral("failed to read %1").arg(desktopSurfacePath)));
+
+        QVERIFY(desktopSurfaceText.contains(QStringLiteral("function _desktopLauncherIconValue(appData)")));
+        QVERIFY(desktopSurfaceText.contains(QStringLiteral("function _resolveDesktopFileForAppEntry(appData)")));
+        QVERIFY(desktopSurfaceText.contains(QStringLiteral("function _scanDesktopFileByDisplayName(appData)")));
+        QVERIFY(desktopSurfaceText.contains(QStringLiteral("function _apiRowExists(pathValue)")));
+        QVERIFY(desktopSurfaceText.contains(QStringLiteral("!_apiRowExists(p)")));
+        QVERIFY(desktopSurfaceText.contains(QStringLiteral("var preferGeneratedLauncher = sourceLabel === \"appdeck-grid-context\"")));
+        QVERIFY(desktopSurfaceText.contains(QStringLiteral("[desktop-add] using generated launcher for source=")));
+        QVERIFY(desktopSurfaceText.contains(QStringLiteral("root.desktopViewRef.setEntryIconOverride(createdPath")));
+        QVERIFY(desktopSurfaceText.contains(QStringLiteral("row.icon || row.iconSource")));
+        QVERIFY(desktopSurfaceText.contains(QStringLiteral("\"iconSource\": String(row.iconSource || \"\")")));
+
+        const QString desktopViewPath = QStringLiteral(DESKTOP_SOURCE_DIR)
+            + QStringLiteral("/Qml/components/desktop/DesktopView.qml");
+        const QString desktopViewText = readTextFile(desktopViewPath);
+        QVERIFY2(!desktopViewText.isEmpty(), qPrintable(QStringLiteral("failed to read %1").arg(desktopViewPath)));
+
+        QVERIFY(desktopViewText.contains(QStringLiteral("property var iconOverrideByPath: ({})")));
+        QVERIFY(desktopViewText.contains(QStringLiteral("property int iconOverrideRevision: 0")));
+        QVERIFY(desktopViewText.contains(QStringLiteral("iconOverrideRevision += 1")));
+        QVERIFY(desktopViewText.contains(QStringLiteral("function setEntryIconOverride(pathValue, iconName, iconSource)")));
+        QVERIFY(desktopViewText.contains(QStringLiteral("root.iconOverrideRevision")));
+
+        const QString desktopItemPath = QStringLiteral(DESKTOP_SOURCE_DIR)
+            + QStringLiteral("/Qml/components/desktop/DesktopItem.qml");
+        const QString desktopItemText = readTextFile(desktopItemPath);
+        QVERIFY2(!desktopItemText.isEmpty(), qPrintable(QStringLiteral("failed to read %1").arg(desktopItemPath)));
+
+        QVERIFY(desktopItemText.contains(QStringLiteral("function _themeIconSource(name)")));
+        QVERIFY(desktopItemText.contains(QStringLiteral("function _preferredIconSource()")));
+        QVERIFY(desktopItemText.contains(QStringLiteral("function _secondaryIconSource()")));
+        QVERIFY(desktopItemText.contains(QStringLiteral("function _genericIconSource()")));
+        QVERIFY(desktopItemText.contains(QStringLiteral("id: fallbackIconImage")));
+        QVERIFY(desktopItemText.contains(QStringLiteral("id: genericFallbackIconImage")));
+        QVERIFY(desktopItemText.contains(QStringLiteral("iconImage.status === Image.Error")));
+        QVERIFY(desktopItemText.contains(QStringLiteral("return root._themeIconSource(name)")));
+
+        const QString fileModelHeaderPath = QStringLiteral(DESKTOP_SOURCE_DIR)
+            + QStringLiteral("/src/apps/filemanager/include/filemanagermodel.h");
+        const QString fileModelHeaderText = readTextFile(fileModelHeaderPath);
+        QVERIFY2(!fileModelHeaderText.isEmpty(), qPrintable(QStringLiteral("failed to read %1").arg(fileModelHeaderPath)));
+
+        QVERIFY(fileModelHeaderText.contains(QStringLiteral("QString iconSource;")));
+        QVERIFY(fileModelHeaderText.contains(QStringLiteral("IconSourceRole")));
+
+        const QString fileModelPath = QStringLiteral(DESKTOP_SOURCE_DIR)
+            + QStringLiteral("/src/apps/filemanager/filemanagermodel.cpp");
+        const QString fileModelText = readTextFile(fileModelPath);
+        QVERIFY2(!fileModelText.isEmpty(), qPrintable(QStringLiteral("failed to read %1").arg(fileModelPath)));
+
+        QVERIFY(fileModelText.contains(QStringLiteral("themeIconNameFromProviderUrl")));
+        QVERIFY(fileModelText.contains(QStringLiteral("roles[IconSourceRole] = \"iconSource\"")));
+        QVERIFY(fileModelText.contains(QStringLiteral("case IconSourceRole: return e.iconSource;")));
+    }
+
     void crownWindow_usesDedicatedLayerShellSurface()
     {
         const QString path = QStringLiteral(DESKTOP_SOURCE_DIR) + QStringLiteral("/Qml/components/overlay/CrownWindow.qml");

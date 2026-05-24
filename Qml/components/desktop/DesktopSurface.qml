@@ -131,11 +131,23 @@ Item {
                 continue
             }
             var p = root._normalizedPath(String(row.path || ""))
-            if (p.length > 0) {
+            if (p.length > 0 && root._apiRowExists(p)) {
                 out[p] = true
             }
         }
         return out
+    }
+
+    function _apiRowExists(pathValue) {
+        var p = root._normalizedPath(pathValue)
+        if (p.length <= 0) {
+            return false
+        }
+        if (!fileManagerApiRef || !fileManagerApiRef.statPath) {
+            return true
+        }
+        var stat = fileManagerApiRef.statPath(p)
+        return !!(stat && stat.ok && stat.exists)
     }
 
     function _isIgnoredDesktopMetaPath(pathValue) {
@@ -292,6 +304,19 @@ Item {
             desktopMenuProvider.path = desktopPath
         }
         selectionChanged(rows)
+        _syncActiondDesktopContext()
+    }
+
+    function _syncActiondDesktopContext() {
+        if (!fileManagerApiRef || !fileManagerApiRef.syncDesktopViewActionContext) {
+            return
+        }
+        fileManagerApiRef.syncDesktopViewActionContext({
+            "active": true,
+            "location": String(desktopPath || "~/Desktop"),
+            "selection": _selectionRows(),
+            "clipboardHasData": Number((clipboardPaths || []).length) > 0
+        })
     }
 
     function _syncItemsToController() {
@@ -320,7 +345,7 @@ Item {
                 for (var a = 0; a < apiRows.length; ++a) {
                     var raw = apiRows[a] || ({})
                     var p = _normalizedPath(String(raw.path || ""))
-                    if (p.length <= 0 || _isIgnoredDesktopMetaPath(p) || seen[p]) {
+                    if (p.length <= 0 || _isIgnoredDesktopMetaPath(p) || seen[p] || !_apiRowExists(p)) {
                         continue
                     }
                     rows.push({
@@ -330,6 +355,7 @@ Item {
                         "thumbnailPath": String(raw.thumbnailPath || ""),
                         "mimeType": String(raw.mimeType || ""),
                         "iconName": String(raw.iconName || ""),
+                        "iconSource": String(raw.iconSource || ""),
                         "isDir": !!raw.isDir,
                         "networkShared": !!raw.networkShared,
                         "size": Number(raw.size || 0),
@@ -418,9 +444,10 @@ Item {
         if (!fileManagerApiRef || !fileManagerApiRef.statPath || !fileManagerApiRef.createDirectory) {
             return
         }
-        var stat = fileManagerApiRef.statPath(desktopPath)
+        var target = _normalizedPath(desktopPath)
+        var stat = fileManagerApiRef.statPath(target)
         if (!stat || !stat.ok || !stat.exists || !stat.isDir) {
-            fileManagerApiRef.createDirectory(desktopPath, true)
+            fileManagerApiRef.createDirectory(target, true)
         }
         _cleanupLegacyDesktopMetaFiles()
     }
@@ -506,7 +533,7 @@ Item {
         for (var i = 0; i < rows.length; ++i) {
             var row = rows[i] || ({})
             var path = _normalizedPath(String(row.path || ""))
-            if (path.length <= 0 || _isIgnoredDesktopMetaPath(path)) {
+            if (path.length <= 0 || _isIgnoredDesktopMetaPath(path) || !_apiRowExists(path)) {
                 continue
             }
             out[path] = row
@@ -525,14 +552,247 @@ Item {
         return out
     }
 
+    function _themeIconNameFromSource(iconValue) {
+        var raw = String(iconValue || "").trim()
+        var prefix = "image://themeicon/"
+        if (raw.indexOf(prefix) !== 0) {
+            return ""
+        }
+        var name = raw.slice(prefix.length)
+        var query = name.indexOf("?")
+        if (query >= 0) {
+            name = name.slice(0, query)
+        }
+        try {
+            return decodeURIComponent(name)
+        } catch (e) {
+            return name
+        }
+    }
+
+    function _desktopLauncherIconValue(appData) {
+        var iconName = String(appData.iconName || "").trim()
+        if (iconName.length > 0 && iconName.indexOf("image://themeicon/") !== 0) {
+            return iconName
+        }
+        var derived = _themeIconNameFromSource(iconName)
+        if (derived.length <= 0) {
+            derived = _themeIconNameFromSource(appData.icon || appData.iconSource)
+        }
+        if (derived.length > 0) {
+            return derived
+        }
+        var source = String(appData.iconSource || appData.icon || "").trim()
+        if (source.indexOf("image://") === 0) {
+            return ""
+        }
+        return source
+    }
+
+    function _desktopIconCacheKey(appData) {
+        var key = String((appData && (appData.desktopId || appData.appId || appData.name || appData.display)) || "desktop-icon")
+                .trim()
+        if (key.length <= 0) {
+            key = "desktop-icon"
+        }
+        return key.replace(/[^A-Za-z0-9._-]+/g, "_")
+    }
+
+    function _desktopIconCacheDir(appData) {
+        return _normalizedPath("~/.cache/slm-desktop/desktop-icons") + "/" + _desktopIconCacheKey(appData)
+    }
+
+    function _localPathFromIconSource(iconValue) {
+        var raw = String(iconValue || "").trim()
+        if (raw.length <= 0) {
+            return ""
+        }
+        if (raw.indexOf("file://") === 0) {
+            try {
+                return decodeURIComponent(raw.replace(/^file:\/\//, ""))
+            } catch (e) {
+                return raw.replace(/^file:\/\//, "")
+            }
+        }
+        if (raw.charAt(0) === "/") {
+            return raw
+        }
+        return ""
+    }
+
+    function _cacheDesktopIconSource(appData, iconValue) {
+        var localPath = _localPathFromIconSource(iconValue)
+        if (localPath.length <= 0) {
+            return ""
+        }
+        if (!fileManagerApiRef || !fileManagerApiRef.copyPaths || !fileManagerApiRef.createDirectory) {
+            return localPath
+        }
+        var cacheDir = _desktopIconCacheDir(appData)
+        fileManagerApiRef.createDirectory(cacheDir, true)
+        var copyRes = fileManagerApiRef.copyPaths([localPath], cacheDir, false)
+        if (copyRes && copyRes.ok) {
+            var copied = String(copyRes.to || "")
+            if (copied.length <= 0 && copyRes.paths && copyRes.paths.length > 0) {
+                copied = String(copyRes.paths[0] || "")
+            }
+            if (copied.length > 0) {
+                return copied
+            }
+        }
+        return localPath
+    }
+
+    function _desktopSuffix(value) {
+        var text = String(value || "").trim()
+        if (text.length <= 0) {
+            return ""
+        }
+        return text.slice(-8).toLowerCase() === ".desktop" ? text : (text + ".desktop")
+    }
+
+    function _pushUnique(list, value) {
+        var text = String(value || "").trim()
+        if (text.length <= 0) {
+            return
+        }
+        for (var i = 0; i < list.length; ++i) {
+            if (String(list[i]) === text) {
+                return
+            }
+        }
+        list.push(text)
+    }
+
+    function _desktopEntryValue(text, key) {
+        var lines = String(text || "").split(/\r?\n/)
+        var wanted = String(key || "") + "="
+        for (var i = 0; i < lines.length; ++i) {
+            var line = String(lines[i] || "").trim()
+            if (line.indexOf(wanted) === 0) {
+                return line.slice(wanted.length).trim()
+            }
+        }
+        return ""
+    }
+
+    function _existingDesktopFileCandidates(appData) {
+        var data = appData || ({})
+        var out = []
+        var explicit = data.desktopFileCandidates || []
+        for (var c = 0; c < explicit.length; ++c) {
+            _pushUnique(out, explicit[c])
+        }
+        _pushUnique(out, data.desktopFile)
+        _pushUnique(out, data.desktopId)
+        _pushUnique(out, data.appId)
+        _pushUnique(out, _desktopSuffix(data.desktopId))
+        _pushUnique(out, _desktopSuffix(data.appId))
+        _pushUnique(out, _desktopSuffix(data.name || data.display))
+
+        var dirs = [
+            _normalizedPath("~/.local/share/applications") + "/",
+            "/usr/share/applications/",
+            "/usr/local/share/applications/",
+            "/var/lib/flatpak/exports/share/applications/",
+            _normalizedPath("~/.local/share/flatpak/exports/share/applications") + "/"
+        ]
+        var ids = [
+            _desktopSuffix(data.desktopId),
+            _desktopSuffix(data.appId),
+            _desktopSuffix(data.name || data.display)
+        ]
+        for (var d = 0; d < dirs.length; ++d) {
+            for (var i = 0; i < ids.length; ++i) {
+                if (ids[i].length > 0) {
+                    _pushUnique(out, dirs[d] + ids[i])
+                }
+            }
+        }
+        return out
+    }
+
+    function _readableExistingDesktopFile(path) {
+        var candidate = _normalizedPath(path)
+        if (candidate.length <= 0 || candidate.slice(-8).toLowerCase() !== ".desktop") {
+            return ""
+        }
+        if (!fileManagerApiRef || !fileManagerApiRef.statPath) {
+            return candidate
+        }
+        var stat = fileManagerApiRef.statPath(candidate)
+        return (stat && stat.ok && stat.exists && !stat.isDir) ? candidate : ""
+    }
+
+    function _scanDesktopFileByDisplayName(appData) {
+        if (!fileManagerApiRef || !fileManagerApiRef.listDirectory || !fileManagerApiRef.readTextFile) {
+            return ""
+        }
+        var display = String((appData && (appData.display || appData.name)) || "").trim().toLowerCase()
+        if (display.length <= 0) {
+            return ""
+        }
+        var dirs = [
+            "/usr/share/applications",
+            "/usr/local/share/applications",
+            _normalizedPath("~/.local/share/applications"),
+            "/var/lib/flatpak/exports/share/applications",
+            _normalizedPath("~/.local/share/flatpak/exports/share/applications")
+        ]
+        for (var d = 0; d < dirs.length; ++d) {
+            var listing = fileManagerApiRef.listDirectory(dirs[d], false, false)
+            if (!listing || !listing.ok || !listing.entries) {
+                continue
+            }
+            var rows = listing.entries || []
+            for (var i = 0; i < rows.length; ++i) {
+                var row = rows[i] || ({})
+                var path = String(row.path || "")
+                if (path.slice(-8).toLowerCase() !== ".desktop") {
+                    continue
+                }
+                var read = fileManagerApiRef.readTextFile(path, 65536)
+                if (!read || !read.ok) {
+                    continue
+                }
+                var text = String(read.content || "")
+                var name = _desktopEntryValue(text, "Name").toLowerCase()
+                if (name.length > 0 && (name === display || name.indexOf(display) >= 0 || display.indexOf(name) >= 0)) {
+                    return _normalizedPath(path)
+                }
+            }
+        }
+        return ""
+    }
+
+    function _resolveDesktopFileForAppEntry(appData) {
+        var candidates = _existingDesktopFileCandidates(appData)
+        for (var i = 0; i < candidates.length; ++i) {
+            var existing = _readableExistingDesktopFile(candidates[i])
+            if (existing.length > 0) {
+                return existing
+            }
+        }
+        return _scanDesktopFileByDisplayName(appData)
+    }
+
     function _coerceAppData(appData) {
         var row = appData ? appData : ({})
+        var iconName = String(row.iconName || "")
+        if (iconName.trim().length <= 0) {
+            iconName = _themeIconNameFromSource(row.icon || row.iconSource)
+        }
         return ({
-            "name": String(row.name || ""),
+            "name": String(row.name || row.display || ""),
+            "display": String(row.display || row.name || ""),
             "desktopFile": String(row.desktopFile || ""),
             "desktopId": String(row.desktopId || ""),
             "executable": String(row.executable || ""),
-            "iconName": String(row.iconName || ""),
+            "icon": String(row.icon || ""),
+            "iconName": iconName,
+            "iconSource": String(row.iconSource || ""),
+            "appId": String(row.appId || ""),
+            "desktopFileCandidates": row.desktopFileCandidates || [],
             "source": String(row.source || "")
         })
     }
@@ -568,8 +828,10 @@ Item {
         body += "Type=Application\n"
         body += "Name=" + baseName + "\n"
         body += "Exec=" + executable + "\n"
-        if (String(appData.iconName || "").trim().length > 0) {
-            body += "Icon=" + String(appData.iconName || "").trim() + "\n"
+        var iconValue = _desktopLauncherIconValue(appData)
+        iconValue = _cacheDesktopIconSource(appData, iconValue)
+        if (iconValue.length > 0) {
+            body += "Icon=" + iconValue + "\n"
         }
         body += "Terminal=false\n"
         body += "NoDisplay=false\n"
@@ -585,29 +847,54 @@ Item {
         var beforeMap = _desktopEntriesByPath()
         var added = false
         var createdPath = ""
-        var targetDir = String(desktopPath || "~/Desktop")
+        var targetDirRaw = String(desktopPath || "~/Desktop")
+        var targetDir = _normalizedPath(targetDirRaw)
         var sourceLabel = String(data.source || "").trim()
         if (sourceLabel.length <= 0) {
             sourceLabel = "unknown"
         }
+        var preferGeneratedLauncher = sourceLabel === "appdeck-grid-context"
 
         console.log("[desktop-add] begin source=" + sourceLabel
                     + " name=" + String(data.name || "")
                     + " desktopFile=" + String(data.desktopFile || "")
                     + " desktopId=" + String(data.desktopId || "")
-                    + " exec=" + String(data.executable || "")
+                    + " targetDir=" + targetDir
                     + " targetCell=(" + String(Number(preferredCellX)) + "," + String(Number(preferredCellY)) + ")")
 
         if (fileManagerApiRef && fileManagerApiRef.createDirectory) {
             fileManagerApiRef.createDirectory(targetDir, true)
         }
 
-        if (!added && fileManagerApiRef && fileManagerApiRef.copyPaths && data.desktopFile.length > 0) {
-            var copyRes = fileManagerApiRef.copyPaths([data.desktopFile], targetDir, false)
-            added = !!(copyRes && copyRes.ok)
+        var resolvedDesktopFile = _resolveDesktopFileForAppEntry(data)
+        if (resolvedDesktopFile.length > 0 && resolvedDesktopFile !== data.desktopFile) {
+            console.log("[desktop-add] resolved desktopFile " + data.desktopFile + " -> " + resolvedDesktopFile)
+            data.desktopFile = resolvedDesktopFile
         }
 
-        if (!added && typeof ShortcutModel !== "undefined" && ShortcutModel) {
+        if (!preferGeneratedLauncher
+                && !added && fileManagerApiRef && fileManagerApiRef.copyPaths && data.desktopFile.length > 0) {
+            console.log("[desktop-add] attempting copyPaths from " + data.desktopFile + " to " + targetDir)
+            var copyRes = fileManagerApiRef.copyPaths([data.desktopFile], targetDir, false)
+            added = !!(copyRes && copyRes.ok)
+            console.log("[desktop-add] copyPaths result=" + added + (copyRes ? " error=" + copyRes.error : ""))
+            if (added && copyRes) {
+                var copiedPath = String(copyRes.to || "")
+                if (copiedPath.length <= 0 && copyRes.paths && copyRes.paths.length > 0) {
+                    copiedPath = String(copyRes.paths[0] || "")
+                }
+                if (copiedPath.length > 0) {
+                    createdPath = _normalizedPath(copiedPath)
+                }
+            }
+        }
+
+        if (preferGeneratedLauncher) {
+            console.log("[desktop-add] using generated launcher for source=" + sourceLabel)
+        }
+
+        if (!preferGeneratedLauncher
+                && !added && typeof ShortcutModel !== "undefined" && ShortcutModel) {
             if (data.desktopFile.length > 0 && ShortcutModel.addDesktopShortcut) {
                 added = ShortcutModel.addDesktopShortcut(data.desktopFile)
             }
@@ -625,6 +912,17 @@ Item {
         if (!added) {
             createdPath = _writeDesktopLauncher(targetDir, data)
             added = createdPath.length > 0
+        }
+
+        if (added && createdPath.length > 0
+                && fileManagerApiRef && fileManagerApiRef.statPath) {
+            var createdStat = fileManagerApiRef.statPath(createdPath)
+            if (!createdStat || !createdStat.ok || !createdStat.exists) {
+                console.warn("[desktop-add] created path missing after add; writing launcher fallback path="
+                             + String(createdPath || ""))
+                createdPath = _writeDesktopLauncher(targetDir, data)
+                added = createdPath.length > 0
+            }
         }
 
         if (!added) {
@@ -646,6 +944,18 @@ Item {
             if (candidate.length > 0) {
                 createdPath = candidate
             }
+        }
+
+        if (createdPath.length > 0
+                && root.desktopViewRef
+                && root.desktopViewRef.setEntryIconOverride) {
+            var overrideIcon = _cacheDesktopIconSource(data, data.iconSource || _desktopLauncherIconValue(data))
+            root.desktopViewRef.setEntryIconOverride(createdPath,
+                                                     data.iconName || _desktopLauncherIconValue(data),
+                                                     overrideIcon)
+            console.log("[desktop-add] icon override path=" + String(createdPath || "")
+                        + " iconName=" + String(data.iconName || "")
+                        + " iconSource=" + String(overrideIcon || ""))
         }
 
         if (fileModel && fileModel.refresh) {
@@ -1192,6 +1502,7 @@ Item {
         }
         clipboardPaths = paths.slice(0)
         clipboardCut = !!cutMode
+        _syncActiondDesktopContext()
     }
 
     function pasteSelectionToDesktop() {
@@ -1208,6 +1519,7 @@ Item {
                 fileManagerApiRef.startMovePaths(sources, target, false)
                 clipboardPaths = []
                 clipboardCut = false
+                _syncActiondDesktopContext()
             }
             return
         }
@@ -1477,10 +1789,12 @@ Item {
 
     Component.onCompleted: {
         _reloadDesktop()
+        _syncActiondDesktopContext()
     }
 
     onDesktopPathChanged: {
         _reloadDesktop()
+        _syncActiondDesktopContext()
     }
 
     Timer {

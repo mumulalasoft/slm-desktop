@@ -4,6 +4,7 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QMimeDatabase>
+#include <QSettings>
 #include <QUrl>
 
 #pragma push_macro("signals")
@@ -51,6 +52,40 @@ static QString gfileToPathOrUriListing(GFile *file)
     const QString out = uri ? QString::fromUtf8(uri) : QString();
     g_free(uri);
     return out;
+}
+
+static void applyDesktopEntryMetadataListing(QVariantMap *row, const QString &path)
+{
+    if (!row || path.isEmpty() || !path.startsWith(QLatin1Char('/'))) {
+        return;
+    }
+    const QFileInfo info(path);
+    if (!info.isFile()
+            || info.suffix().compare(QStringLiteral("desktop"), Qt::CaseInsensitive) != 0) {
+        return;
+    }
+    QSettings desktopFile(path, QSettings::IniFormat);
+    desktopFile.beginGroup(QStringLiteral("Desktop Entry"));
+    const QString name = desktopFile.value(QStringLiteral("Name")).toString().trimmed();
+    const QString icon = desktopFile.value(QStringLiteral("Icon")).toString().trimmed();
+    desktopFile.endGroup();
+
+    if (!name.isEmpty()) {
+        row->insert(QStringLiteral("name"), name);
+    }
+    if (icon.isEmpty()) {
+        return;
+    }
+    if (icon.startsWith(QLatin1Char('/')) && QFileInfo::exists(icon)) {
+        row->insert(QStringLiteral("iconName"), icon);
+        row->insert(QStringLiteral("iconSource"), QUrl::fromLocalFile(icon).toString());
+    } else if (icon.contains(QStringLiteral("://"))
+               && !icon.startsWith(QStringLiteral("image://themeicon/"))) {
+        row->insert(QStringLiteral("iconSource"), icon);
+    } else {
+        row->insert(QStringLiteral("iconName"), icon);
+        row->remove(QStringLiteral("iconSource"));
+    }
 }
 
 } // namespace
@@ -242,6 +277,7 @@ QVariantMap FileManagerApi::searchDirectory(const QString &rootPath,
                 row.insert(QStringLiteral("thumbnailPath"), QString());
                 row.insert(QStringLiteral("mimeType"), mimeName);
                 row.insert(QStringLiteral("iconName"), iconName);
+                applyDesktopEntryMetadataListing(&row, childPath);
                 if (isDir) {
                     const QVariantMap shareInfo = shareRecordForPath(childPath);
                     row.insert(QStringLiteral("networkShared"),

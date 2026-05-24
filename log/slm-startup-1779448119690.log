@@ -1,0 +1,50 @@
+[startup-trace] t=113ms phase=app.ready
+[startup-trace] t=114ms phase=service.bootstrap.installed
+[startup-trace] t=115ms phase=args.parsed detail=windowed=false width=0 height=0
+[startup-trace] t=117ms phase=engine.created
+[startup-trace] t=268ms phase=managers.constructed
+[startup-trace] t=269ms phase=qml.context.configured
+[startup-trace] t=269ms phase=qml.load.begin
+[startup-trace] t=303ms phase=qml.objectCreated detail=url=qrc:/qt/qml/Slm_Desktop/FastMain.qml created=true rootCount=1
+[startup-trace] t=303ms phase=qml.load.end detail=rootCount=1
+[startup-trace] t=303ms phase=window.snapshot.afterLoad detail=SLM Desktop Starting visible=1 exposed=0 size=500x500 type=0 | SLM Desktop visible=1 exposed=0 size=500x500 type=0
+[startup-trace] t=303ms phase=eventloop.enter
+[startup-trace] t=303ms phase=runtime.pulse.start detail=path=/tmp/slm-startup-1779448119690.log
+[startup-trace] t=920ms phase=window.firstFrameSwapped detail=visible=true size=1853x985
+[startup-trace] t=1139ms phase=app.stateChanged detail=state=4
+[startup-trace] t=1139ms phase=window.focusChanged detail=SLM Desktop visible=1 exposed=1 size=1853x985 type=0
+[startup-trace] t=1253ms phase=runtime.pulse detail=n=1 rootCount=1 windows=1 snapshot=SLM Desktop visible=1 exposed=1 size=1853x985 type=0
+[startup-trace] t=2055ms phase=window.focusChanged detail=SLM TopOverlay Power visible=1 exposed=1 size=560x58 type=11
+[startup-trace] t=2861ms phase=runtime.pulse detail=n=2 rootCount=1 windows=5 snapshot=SLM Desktop visible=0 exposed=0 size=1853x985 type=0 | Slm Desktop visible=1 exposed=1 size=1853x985 type=0 | SLM TopOverlay Power visible=1 exposed=1 size=560x58 type=11 | SLM Crown Surface visible=1 exposed=1 size=1853x36 type=0 | SLM AppDeck Surface visible=1 exposed=1 size=1x1 type=0
+[startup-trace] t=3181ms phase=runtime.pulse detail=n=3 rootCount=1 windows=6 snapshot=SLM Desktop visible=0 exposed=0 size=1853x985 type=0 | Slm Desktop visible=1 exposed=1 size=1853x985 type=0 | SLM TopOverlay Power visible=1 exposed=1 size=560x58 type=11 | SLM Crown Surface visible=1 exposed=1 size=1853x36 type=0 | SLM AppDeck Surface visible=1 exposed=1 size=370x138 type=0 | <untitled> visible=0 exposed=0 size=340x300 type=1
+[startup-trace] t=4072ms phase=service.ready detail=desktopd/SLMCapabilities attempt=1
+[startup-trace] t=4073ms phase=service.ready detail=slm-clipboardd attempt=1
+[startup-trace] t=4073ms phase=service.ready detail=slm-settingsd attempt=1
+[startup-trace] t=4074ms phase=service.ready detail=slm-recoveryd attempt=1
+[startup-trace] t=4074ms phase=service.ready detail=slm-devicesd attempt=1
+[startup-trace] t=4074ms phase=service.bootstrap.started detail=count=5
+[startup-trace] t=4106ms phase=runtime.pulse detail=n=4 rootCount=1 windows=6 snapshot=SLM Desktop visible=0 exposed=0 size=1853x985 type=0 | Slm Desktop visible=1 exposed=1 size=1853x985 type=0 | SLM TopOverlay Power visible=1 exposed=1 size=560x58 type=11 | SLM Crown Surface visible=1 exposed=1 size=1853x36 type=0 | SLM AppDeck Surface visible=1 exposed=1 size=370x138 type=0 | <untitled> visible=0 exposed=0 size=340x300 type=1
+[startup-trace] t=5078ms phase=runtime.pulse detail=n=5 rootCount=1 windows=7 snapshot=SLM Desktop visible=0 exposed=0 size=1853x985 type=0 | Slm Desktop visible=1 exposed=1 size=1853x985 type=0 | SLM TopOverlay Power visible=1 exposed=1 size=560x58 type=11 | SLM Crown Surface visible=1 exposed=1 size=1853x36 type=0 | SLM AppDeck Surface visible=1 exposed=1 size=370x138 type=0 | Join Wi-Fi Network visible=0 exposed=0 size=340x317 type=3 | Desktop Notification Manager visible=0 exposed=0 size=396x18 type=0
+[startup-trace] t=6843ms phase=runtime.pulse detail=n=6 rootCount=1 windows=7
+[startup-trace] t=6984ms phase=window.focusChanged detail=Slm Desktop visible=1 exposed=1 size=1853x985 type=0
+[startup-trace] t=7078ms phase=runtime.pulse detail=n=7 rootCount=1 windows=7
+[startup-trace] t=8078ms phase=runtime.pulse detail=n=8 rootCount=1 windows=7
+[startup-trace] t=8855ms phase=window.focusChanged detail=<untitled> visible=1 exposed=1 size=320x239 type=9
+[startup-trace] t=9079ms phase=runtime.pulse detail=n=9 rootCount=1 windows=8 snapshot=SLM Desktop visible=0 exposed=0 size=1853x985 type=0 | Slm Desktop visible=1 exposed=1 size=1853x985 type=0 | SLM TopOverlay Power visible=1 exposed=1 size=560x58 type=11 | SLM Crown Surface visible=1 exposed=1 size=1853x456 type=0 | SLM AppDeck Surface visible=1 exposed=1 size=370x138 type=0 | Join Wi-Fi Network visible=0 exposed=0 size=340x317 type=3 | Desktop Notification Manager visible=0 exposed=0 size=396x18 type=0 | <untitled> visible=1 exposed=1 size=320x239 type=9
+[startup-trace] t=10254ms phase=runtime.pulse detail=n=10 rootCount=1 windows=8
+[startup-trace] t=11291ms phase=window.focusChanged detail=Slm Desktop visible=1 exposed=1 size=1853x985 type=0
+[startup-trace] t=11544ms phase=runtime.pulse detail=n=11 rootCount=1 windows=9 snapshot=SLM Desktop visible=0 exposed=0 size=1853x985 type=0 | Slm Desktop visible=1 exposed=1 size=1853x985 type=0 | SLM TopOverlay Power visible=1 exposed=1 size=560x58 type=11 | SLM Crown Surface visible=1 exposed=1 size=1853x36 type=0 | SLM AppDeck Surface visible=1 exposed=1 size=370x138 type=0 | Join Wi-Fi Network visible=0 exposed=0 size=340x317 type=3 | Desktop Notification Manager visible=0 exposed=0 size=396x18 type=0 | <untitled> visible=0 exposed=0 size=320x239 type=9 | Save Image as... visible=1 exposed=1 size=700x420 type=3
+[startup-trace] t=11568ms phase=window.focusChanged detail=Save Image as... visible=1 exposed=1 size=700x420 type=3
+[startup-trace] t=12230ms phase=runtime.pulse detail=n=12 rootCount=1 windows=9
+[startup-trace] t=13078ms phase=runtime.pulse detail=n=13 rootCount=1 windows=9
+[startup-trace] t=14077ms phase=runtime.pulse detail=n=14 rootCount=1 windows=9
+[startup-trace] t=15131ms phase=runtime.pulse detail=n=15 rootCount=1 windows=9 snapshot=SLM Desktop visible=0 exposed=0 size=1853x985 type=0 | Slm Desktop visible=1 exposed=1 size=1853x985 type=0 | SLM TopOverlay Power visible=1 exposed=1 size=560x58 type=11 | SLM Crown Surface visible=1 exposed=1 size=1853x36 type=0 | SLM AppDeck Surface visible=1 exposed=1 size=370x138 type=0 | Join Wi-Fi Network visible=0 exposed=0 size=340x317 type=3 | Desktop Notification Manager visible=0 exposed=0 size=396x18 type=0 | <untitled> visible=0 exposed=0 size=320x239 type=9 | Choose Folder visible=1 exposed=1 size=940x620 type=3
+[startup-trace] t=15132ms phase=window.focusChanged detail=Slm Desktop visible=1 exposed=1 size=1853x985 type=0
+[startup-trace] t=15178ms phase=window.focusChanged detail=Choose Folder visible=1 exposed=1 size=940x620 type=3
+[startup-trace] t=16088ms phase=runtime.pulse detail=n=16 rootCount=1 windows=9
+[startup-trace] t=17112ms phase=runtime.pulse detail=n=17 rootCount=1 windows=9
+[startup-trace] t=18083ms phase=runtime.pulse detail=n=18 rootCount=1 windows=9
+[startup-trace] t=19077ms phase=runtime.pulse detail=n=19 rootCount=1 windows=9
+[startup-trace] t=20241ms phase=runtime.pulse detail=n=20 rootCount=1 windows=9
+[startup-trace] t=20241ms phase=runtime.pulse.stop
+[startup-trace] t=39668ms phase=window.focusChanged detail=Slm Desktop visible=1 exposed=1 size=1853x985 type=0

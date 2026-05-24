@@ -195,6 +195,7 @@ public:
                                                            const QString &requestId = QString());
     Q_INVOKABLE QVariantMap startSlmContextMenuTreeDebug(const QVariantList &uris,
                                                          const QString &target = QString());
+    Q_INVOKABLE QVariantMap syncDesktopViewActionContext(const QVariantMap &state);
     Q_INVOKABLE QVariantMap startResolveSlmDragDropAction(const QVariantList &sourceUris,
                                                           const QString &targetUri,
                                                           const QString &requestId = QString());
@@ -441,4 +442,5 @@ private:
     QHash<uint, QList<ThumbnailDbusRequest>> m_thumbnailDbusRequests;
     QVariantMap m_slmContextMenuNodes;
     SlmContextMenuController *m_slmContextMenuController = nullptr;
+    bool m_actiondDesktopProviderRegistered = false;
 };

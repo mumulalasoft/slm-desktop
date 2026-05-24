@@ -272,6 +272,18 @@ qt_add_executable(globalmenuctl
     src/cli/globalmenuctl.cpp
 )
 
+qt_add_executable(slm-actionctl
+    src/cli/slm-actionctl.cpp
+)
+
+qt_add_executable(slm-actiond
+    src/daemon/actiond/actiond_main.cpp
+    src/daemon/actiond/actiondaemon.cpp
+    src/daemon/actiond/actiondaemon.h
+    src/daemon/actiond/actiondadaptors.cpp
+    src/daemon/actiond/actiondadaptors.h
+)
+
 # SlmSettings Application
 qt_add_executable(slm-settings
     src/apps/settings/main.cpp
@@ -411,6 +423,8 @@ qt_add_executable(slm-settings
 # xdg-open inode/directory.
 qt_add_executable(slm-filemanager
     src/apps/filemanager/main.cpp
+    src/apps/filemanager/filemanagerdbusservice.cpp
+    src/apps/filemanager/filemanagerdbusservice.h
     src/filemanager/FileManagerShellBridge.cpp
     src/filemanager/FileManagerShellBridge.h
     src/filemanager/ThumbnailImageProvider.cpp
@@ -553,6 +567,11 @@ qt_add_executable(slm-fileopsd
     ${SLM_FILEOPSD_SOURCES}
 )
 
+# slm-fsd: privileged filesystem access gateway (system D-Bus, runs as root)
+qt_add_executable(slm-fsd
+    ${SLM_FSD_SOURCES}
+)
+
 qt_add_executable(slm-devicesd
     ${SLM_DEVICESD_SOURCES}
 )
@@ -675,6 +694,19 @@ target_link_libraries(globalmenuctl
         Qt6::DBus
 )
 
+target_link_libraries(slm-actionctl
+    PRIVATE
+        Qt6::Core
+        Qt6::DBus
+)
+
+target_link_libraries(slm-actiond
+    PRIVATE
+        Qt6::Core
+        Qt6::DBus
+)
+target_include_directories(slm-actiond PRIVATE ${CMAKE_SOURCE_DIR})
+
 target_link_libraries(slmcapdemo
     PRIVATE
         Qt6::Core
@@ -719,6 +751,13 @@ target_link_libraries(slm-fileopsd
         Qt6::Sql
 )
 target_include_directories(slm-fileopsd PRIVATE ${CMAKE_SOURCE_DIR})
+
+target_link_libraries(slm-fsd
+    PRIVATE
+        Qt6::Core
+        Qt6::DBus
+)
+target_include_directories(slm-fsd PRIVATE ${CMAKE_SOURCE_DIR})
 
 target_link_libraries(slm-devicesd
     PRIVATE
@@ -1403,12 +1442,25 @@ install(TARGETS globalmenuctl
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
+install(TARGETS slm-actionctl
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
+install(TARGETS slm-actiond
+    RUNTIME DESTINATION ${CMAKE_INSTALL_LIBEXECDIR}
+)
+
 install(TARGETS slmcapdemo
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
 install(TARGETS slm-fileopsd
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
+# slm-fsd installs to libexec (not bin) — it is not meant to be invoked by users directly.
+install(TARGETS slm-fsd
+    RUNTIME DESTINATION ${CMAKE_INSTALL_LIBEXECDIR}
 )
 
 install(TARGETS slm-devicesd
@@ -1487,6 +1539,22 @@ install(PROGRAMS scripts/package-policy/install-wrappers.sh
 
 install(FILES scripts/systemd/system/slm-package-policy.service
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/systemd/system
+)
+
+install(FILES
+    scripts/systemd/slm-actiond.service
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/systemd/user
+)
+
+install(FILES
+    scripts/dbus/org.slm.Actiond.service
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/dbus-1/services
+)
+
+install(FILES
+    scripts/dbus/org.slm.Actiond.Provider.xml
+    scripts/dbus/org.slm.Actiond.Frontend.xml
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/dbus-1/interfaces
 )
 
 enable_testing()
@@ -5461,6 +5529,20 @@ target_link_libraries(slmactionregistry_test
 )
 
 add_test(NAME slmactionregistry_test COMMAND slmactionregistry_test)
+
+qt_add_executable(actiondaemon_test
+    src/daemon/actiond/actiondaemon.cpp
+    src/daemon/actiond/actiondaemon.h
+    tests/actiond/actiondaemon_test.cpp
+)
+target_link_libraries(actiondaemon_test
+    PRIVATE
+        Qt6::Core
+        Qt6::DBus
+        Qt6::Test
+)
+target_include_directories(actiondaemon_test PRIVATE ${CMAKE_SOURCE_DIR})
+add_test(NAME actiondaemon_test COMMAND actiondaemon_test)
 
 qt_add_executable(slmcapability_framework_test
     src/core/actions/slmactiontypes.cpp
